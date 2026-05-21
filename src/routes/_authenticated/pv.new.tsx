@@ -313,12 +313,18 @@ function NewPv() {
       const up = await supabase.storage.from("pv-assets").upload(pdfPath, pdfBlob, { contentType: "application/pdf" });
       if (up.error) throw up.error;
 
+      if (!activeCompanyId) {
+        toast.error("Aucune entreprise active.");
+        setSaving(false);
+        return;
+      }
+
       // create client if new
       let clientId = form.client_id || null;
       if (!clientId && form.new_client_name.trim()) {
         const { data: nc } = await supabase
           .from("clients")
-          .insert({ owner_id: user.id, name: form.new_client_name, email: form.new_client_email || null })
+          .insert({ owner_id: user.id, company_id: activeCompanyId, name: form.new_client_name, email: form.new_client_email || null })
           .select("id")
           .single();
         clientId = nc?.id ?? null;
@@ -326,6 +332,7 @@ function NewPv() {
 
       const { data: pvIns, error } = await supabase.from("pv").insert({
         owner_id: user.id,
+        company_id: activeCompanyId,
         numero: form.numero,
         type: form.type,
         status,
@@ -348,6 +355,7 @@ function NewPv() {
           await supabase.from("pv_photos").insert({
             pv_id: pvIns.id,
             owner_id: user.id,
+            company_id: activeCompanyId,
             url: path,
             caption: `[${p.kind}] ${p.caption}`,
           });
@@ -359,6 +367,7 @@ function NewPv() {
           reserves.map((r) => ({
             pv_id: pvIns.id,
             owner_id: user.id,
+            company_id: activeCompanyId,
             description: r.description,
             severity: r.severity,
             status: r.status,
