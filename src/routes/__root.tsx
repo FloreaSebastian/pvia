@@ -149,6 +149,7 @@ function RootComponent() {
       <Outlet />
       <AppToaster />
       <PwaRegister />
+      <AnalyticsTracker />
     </QueryClientProvider>
   );
 }
