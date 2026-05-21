@@ -375,6 +375,22 @@ function NewPv() {
         );
       }
 
+      // Audit log (non-blocking)
+      try {
+        const { logUserAction } = await import("@/lib/audit.functions");
+        await logUserAction({
+          data: {
+            companyId: activeCompanyId,
+            pvId: pvIns.id,
+            entityType: "pv",
+            entityId: pvIns.id,
+            action: status === "signe" ? "pv.signed_by_company" : "pv.create",
+            newValues: { numero: form.numero, type: form.type, status },
+            metadata: { source: "web_form", photos: photos.length, reserves: reserves.length },
+          },
+        });
+      } catch {}
+
       localStorage.removeItem(DRAFT_KEY);
       toast.success(status === "signe" ? "PV signé et archivé avec succès" : "Brouillon enregistré");
       navigate({ to: "/pv" });
