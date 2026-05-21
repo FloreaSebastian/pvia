@@ -78,6 +78,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       customerId = customer.id;
     }
 
+    // Only offer the 14-day trial on first ever checkout for this company.
+    const trialDays = existing?.stripe_customer_id ? undefined : 14;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -85,6 +88,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       success_url: `${data.returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${data.returnUrl}?status=cancel`,
       subscription_data: {
+        ...(trialDays ? { trial_period_days: trialDays } : {}),
         metadata: { companyId: data.companyId, userId },
       },
       metadata: { companyId: data.companyId, userId },
@@ -95,11 +99,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       userId,
       entityType: "subscription",
       action: "billing.checkout_started",
-      metadata: { plan: data.priceId, environment: data.environment },
+      metadata: { plan: data.priceId, environment: data.environment, trial_days: trialDays ?? 0 },
     });
 
-    return { url: session.url };
+    return { url: session.url, trialDays: trialDays ?? 0 };
   });
+
 
 /* ------------------------- Stripe Customer Portal ------------------------- */
 
