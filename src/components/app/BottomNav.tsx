@@ -68,7 +68,7 @@ export function BottomNav() {
               <motion.span
                 whileTap={{ scale: 0.92 }}
                 whileHover={{ scale: 1.04 }}
-                className="absolute -top-5 grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.6)] ring-4 ring-background"
+                className="absolute -top-5 grid h-14 w-14 place-items-center rounded-full bg-brand-gradient text-primary-foreground shadow-brand ring-4 ring-background"
               >
                 <Icon className="h-6 w-6" strokeWidth={2.5} />
               </motion.span>
