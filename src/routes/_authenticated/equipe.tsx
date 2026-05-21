@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { useCompany, type CompanyRole } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { sendInvite } from "@/lib/invites.functions";
+import { logUserAction } from "@/lib/audit.functions";
 
 export const Route = createFileRoute("/_authenticated/equipe")({
   component: TeamPage,
@@ -66,6 +67,11 @@ function TeamPage() {
   const [inviteRole, setInviteRole] = useState<CompanyRole>("user");
   const [sending, setSending] = useState(false);
   const sendInviteFn = useServerFn(sendInvite);
+  const logAction = useServerFn(logUserAction);
+
+  function memberLabel(m: Member) {
+    return m.profile?.full_name || m.invited_email || "Membre";
+  }
 
   async function load() {
     if (!activeCompanyId) return;
@@ -126,9 +132,19 @@ function TeamPage() {
 
 
   async function changeRole(id: string, role: CompanyRole) {
+    const prev = members.find((m) => m.id === id);
     const { error } = await supabase.from("company_members").update({ role }).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Rôle modifié");
+    if (activeCompanyId && prev) {
+      logAction({ data: {
+        companyId: activeCompanyId, entityType: "member", entityId: id,
+        action: "member.role_changed",
+        oldValues: { role: prev.role },
+        newValues: { role },
+        metadata: { member: memberLabel(prev) },
+      } }).catch(() => {});
+    }
     load();
   }
 
@@ -137,6 +153,14 @@ function TeamPage() {
     const { error } = await supabase.from("company_members").update({ status: next }).eq("id", m.id);
     if (error) return toast.error(error.message);
     toast.success(next === "suspended" ? "Membre suspendu" : "Membre réactivé");
+    if (activeCompanyId) {
+      logAction({ data: {
+        companyId: activeCompanyId, entityType: "member", entityId: m.id,
+        action: next === "suspended" ? "member.suspended" : "member.reactivated",
+        oldValues: { status: m.status }, newValues: { status: next },
+        metadata: { member: memberLabel(m), role: m.role },
+      } }).catch(() => {});
+    }
     load();
   }
 
@@ -146,6 +170,14 @@ function TeamPage() {
     const { error } = await supabase.from("company_members").delete().eq("id", m.id);
     if (error) return toast.error(error.message);
     toast.success("Membre retiré");
+    if (activeCompanyId) {
+      logAction({ data: {
+        companyId: activeCompanyId, entityType: "member", entityId: m.id,
+        action: "member.removed",
+        oldValues: { role: m.role, status: m.status, email: m.invited_email },
+        metadata: { member: memberLabel(m) },
+      } }).catch(() => {});
+    }
     load();
   }
 

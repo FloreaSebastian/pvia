@@ -27,6 +27,8 @@ async function assertPvAccess(pvId: string, userId: string) {
 const ListSchema = z.object({
   pvId: z.string().uuid(),
   actions: z.array(z.string()).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+  offset: z.number().int().min(0).optional(),
 });
 
 export const listPvAuditLogs = createServerFn({ method: "POST" })
@@ -35,13 +37,22 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { role } = await assertPvAccess(data.pvId, context.userId);
     const canSeeDetails = role === "owner" || role === "admin";
+    const limit = data.limit ?? 50;
+    const offset = data.offset ?? 0;
+
+    let countQ = supabaseAdmin
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("pv_id", data.pvId);
+    if (data.actions && data.actions.length) countQ = countQ.in("action", data.actions);
+    const { count: total } = await countQ;
 
     let q = supabaseAdmin
       .from("audit_logs")
       .select("id,action,entity_type,entity_id,user_id,old_values,new_values,metadata,created_at,ip_address")
       .eq("pv_id", data.pvId)
       .order("created_at", { ascending: false })
-      .limit(500);
+      .range(offset, offset + limit - 1);
     if (data.actions && data.actions.length) q = q.in("action", data.actions);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
@@ -70,7 +81,8 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
       new_values: canSeeDetails ? (r.new_values as any) : null,
       metadata: r.metadata as any,
     }));
-    return { logs, canSeeDetails };
+    const totalCount = total ?? logs.length;
+    return { logs, canSeeDetails, total: totalCount, hasMore: offset + logs.length < totalCount, role };
   });
 
 /* ----------------------- Client-driven audit logging ----------------------- */
@@ -125,15 +137,32 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { pv, role } = await assertPvAccess(data.pvId, context.userId);
     const canSeeDetails = role === "owner" || role === "admin";
+    if (!canSeeDetails) {
+      throw new Error("Seuls owner et admin peuvent exporter l'historique complet.");
+    }
 
-    const [{ data: rows }, { data: company }] = await Promise.all([
+    // Fetch the full PV record + related context
+    const { data: fullPv } = await supabaseAdmin
+      .from("pv")
+      .select("id,numero,type,status,client_id,chantier_id,company_id")
+      .eq("id", data.pvId)
+      .maybeSingle();
+
+    const [{ data: rows }, { data: company }, { data: client }, { data: chantier }, { data: exporter }] = await Promise.all([
       supabaseAdmin
         .from("audit_logs")
         .select("id,action,entity_type,user_id,old_values,new_values,metadata,created_at,ip_address")
         .eq("pv_id", data.pvId)
         .order("created_at", { ascending: true })
-        .limit(2000),
-      supabaseAdmin.from("companies").select("name").eq("id", pv.company_id!).maybeSingle(),
+        .limit(5000),
+      supabaseAdmin.from("companies").select("name,siret,address").eq("id", pv.company_id!).maybeSingle(),
+      fullPv?.client_id
+        ? supabaseAdmin.from("clients").select("name,email").eq("id", fullPv.client_id).maybeSingle()
+        : Promise.resolve({ data: null as null | { name: string; email: string | null } }),
+      fullPv?.chantier_id
+        ? supabaseAdmin.from("chantiers").select("name,address").eq("id", fullPv.chantier_id).maybeSingle()
+        : Promise.resolve({ data: null as null | { name: string; address: string | null } }),
+      supabaseAdmin.from("profiles").select("full_name").eq("id", context.userId).maybeSingle(),
     ]);
 
     const userIds = Array.from(new Set((rows ?? []).map((r) => r.user_id).filter(Boolean) as string[]));
@@ -154,6 +183,11 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
     const sanitize = (s: string) =>
       s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[^\x00-\xff]/g, "?");
 
+    const newPage = () => {
+      page = doc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - M;
+    };
+
     const draw = (text: string, opts: { size?: number; bold?: boolean; color?: [number, number, number]; indent?: number } = {}) => {
       const size = opts.size ?? 10;
       const f = opts.bold ? bold : font;
@@ -172,37 +206,55 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
       }
       if (line) lines.push(line);
       for (const ln of lines) {
-        if (y < M + 30) {
-          page = doc.addPage([PAGE_W, PAGE_H]);
-          y = PAGE_H - M;
-        }
+        if (y < M + 40) newPage();
         page.drawText(ln, { x, y, size, font: f, color: rgb(r, g, b) });
         y -= size + 3;
       }
     };
 
-    draw(`${company?.name || "PVIA"} — Journal d'audit légal`, { size: 16, bold: true });
-    draw(`PV ${pv.numero}`, { size: 11, color: [0.42, 0.45, 0.52] });
-    draw(`Exporté le ${new Date().toLocaleString("fr-FR")} · ${rows?.length ?? 0} événement(s)`, { size: 9, color: [0.42, 0.45, 0.52] });
+    // -------- Header (cover) --------
+    draw(`${company?.name || "PVIA"} — Journal d'audit légal`, { size: 18, bold: true });
+    if (company?.siret) draw(`SIRET : ${company.siret}`, { size: 9, color: [0.42, 0.45, 0.52] });
+    if (company?.address) draw(company.address, { size: 9, color: [0.42, 0.45, 0.52] });
+    y -= 6;
+    draw(`PV n° ${pv.numero}`, { size: 13, bold: true });
+    draw(`Type : ${fullPv?.type || "—"} · Statut : ${fullPv?.status || "—"}`, { size: 10, color: [0.42, 0.45, 0.52] });
+    draw(`Client : ${client?.name || "—"}${client?.email ? ` (${client.email})` : ""}`, { size: 10 });
+    draw(`Chantier : ${chantier?.name || "—"}${chantier?.address ? ` — ${chantier.address}` : ""}`, { size: 10 });
+    y -= 4;
+    draw(`Export effectué le ${new Date().toLocaleString("fr-FR")}`, { size: 9, color: [0.42, 0.45, 0.52] });
+    draw(`Par : ${exporter?.full_name || "Utilisateur"} (rôle ${role})`, { size: 9, color: [0.42, 0.45, 0.52] });
+    draw(`Total des événements : ${rows?.length ?? 0}`, { size: 9, color: [0.42, 0.45, 0.52] });
     y -= 8;
     page.drawLine({ start: { x: M, y }, end: { x: PAGE_W - M, y }, thickness: 0.5, color: rgb(0.86, 0.88, 0.91) });
     y -= 14;
 
+    // -------- Timeline --------
     for (const r of rows ?? []) {
       const when = new Date(r.created_at as string).toLocaleString("fr-FR");
       const who = r.user_id ? profiles[r.user_id] || "Utilisateur" : "Système";
+      // estimate space and break early to keep entries together
+      if (y < M + 80) newPage();
       draw(`${when} — ${r.action}`, { size: 10, bold: true });
-      draw(`Par : ${who} · ${r.entity_type}${canSeeDetails && r.ip_address ? ` · IP ${r.ip_address}` : ""}`, { size: 9, color: [0.42, 0.45, 0.52], indent: 6 });
+      draw(`Par : ${who} · ${r.entity_type}${r.ip_address ? ` · IP ${r.ip_address}` : ""}`, { size: 9, color: [0.42, 0.45, 0.52], indent: 6 });
       const meta = (r.metadata as any) || {};
       if (meta && Object.keys(meta).length) {
         draw(`Métadonnées : ${JSON.stringify(meta)}`, { size: 8, color: [0.45, 0.45, 0.55], indent: 6 });
       }
-      if (canSeeDetails && (r.old_values || r.new_values)) {
-        if (r.old_values) draw(`Avant : ${JSON.stringify(r.old_values).slice(0, 400)}`, { size: 8, color: [0.6, 0.2, 0.2], indent: 6 });
-        if (r.new_values) draw(`Après : ${JSON.stringify(r.new_values).slice(0, 400)}`, { size: 8, color: [0.15, 0.4, 0.2], indent: 6 });
+      if (r.old_values || r.new_values) {
+        if (r.old_values) draw(`Avant : ${JSON.stringify(r.old_values).slice(0, 500)}`, { size: 8, color: [0.6, 0.2, 0.2], indent: 6 });
+        if (r.new_values) draw(`Après : ${JSON.stringify(r.new_values).slice(0, 500)}`, { size: 8, color: [0.15, 0.4, 0.2], indent: 6 });
       }
       y -= 6;
     }
+
+    // -------- Page numbers footer --------
+    const pages = doc.getPages();
+    const totalPages = pages.length;
+    pages.forEach((p, idx) => {
+      const txt = sanitize(`${company?.name || "PVIA"} · PV ${pv.numero} · Page ${idx + 1} / ${totalPages}`);
+      p.drawText(txt, { x: M, y: 20, size: 8, font, color: rgb(0.55, 0.58, 0.63) });
+    });
 
     const bytes = await doc.save();
     const path = `${pv.company_id}/pv/${pv.id}/audit-${Date.now()}.pdf`;
@@ -218,7 +270,7 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
       pvId: pv.id,
       entityType: "audit",
       action: "audit.exported",
-      metadata: { path },
+      metadata: { path, total_events: rows?.length ?? 0 },
       actor: "user",
     });
 

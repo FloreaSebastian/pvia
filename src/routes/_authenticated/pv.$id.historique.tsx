@@ -35,6 +35,7 @@ type Log = {
 const ACTION_META: Record<string, { label: string; icon: any; badge: string; tone: string }> = {
   "pv.create": { label: "PV créé", icon: Plus, badge: "Système", tone: "bg-emerald-100 text-emerald-800" },
   "pv.update": { label: "PV modifié", icon: Edit, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
+  "pv.updated": { label: "PV modifié", icon: Edit, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
   "pv.delete": { label: "PV supprimé", icon: Trash2, badge: "Utilisateur", tone: "bg-red-100 text-red-800" },
   "pv.status_change": { label: "Changement de statut", icon: ShieldCheck, badge: "Système", tone: "bg-slate-100 text-slate-800" },
   "pv.sent_to_client": { label: "Envoyé au client", icon: Send, badge: "Email", tone: "bg-indigo-100 text-indigo-800" },
@@ -51,15 +52,20 @@ const ACTION_META: Record<string, { label: string; icon: any; badge: string; ton
   "reserve.validated": { label: "Réserve validée", icon: CheckCircle2, badge: "Utilisateur", tone: "bg-emerald-100 text-emerald-800" },
   "photo.add": { label: "Photo ajoutée", icon: Camera, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
   "photo.delete": { label: "Photo supprimée", icon: Trash2, badge: "Utilisateur", tone: "bg-red-100 text-red-800" },
-  "member.invited": { label: "Membre invité", icon: UserPlus, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
-  "member.joined": { label: "Membre rejoint", icon: UserPlus, badge: "Utilisateur", tone: "bg-emerald-100 text-emerald-800" },
-  "member.role_changed": { label: "Rôle modifié", icon: Edit, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
-  "audit.exported": { label: "Historique exporté", icon: Download, badge: "Système", tone: "bg-slate-100 text-slate-800" },
+  "member.invited": { label: "Membre invité", icon: UserPlus, badge: "Équipe", tone: "bg-blue-100 text-blue-800" },
+  "member.joined": { label: "Membre rejoint", icon: UserPlus, badge: "Équipe", tone: "bg-emerald-100 text-emerald-800" },
+  "member.role_changed": { label: "Rôle modifié", icon: Edit, badge: "Équipe", tone: "bg-blue-100 text-blue-800" },
+  "member.suspended": { label: "Membre suspendu", icon: AlertCircle, badge: "Équipe", tone: "bg-amber-100 text-amber-800" },
+  "member.reactivated": { label: "Membre réactivé", icon: CheckCircle2, badge: "Équipe", tone: "bg-emerald-100 text-emerald-800" },
+  "member.removed": { label: "Membre retiré", icon: Trash2, badge: "Équipe", tone: "bg-red-100 text-red-800" },
+  "audit.exported": { label: "Historique exporté", icon: Download, badge: "Audit", tone: "bg-slate-100 text-slate-800" },
 };
 
 function metaFor(action: string) {
   return ACTION_META[action] || { label: action, icon: ShieldCheck, badge: "Système", tone: "bg-slate-100 text-slate-800" };
 }
+
+const PAGE_SIZE = 50;
 
 function HistoriquePage() {
   const { id } = Route.useParams();
@@ -68,33 +74,58 @@ function HistoriquePage() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [pvNumero, setPvNumero] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [canSeeDetails, setCanSeeDetails] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [{ data: pv }, res] = await Promise.all([
-          supabase.from("pv").select("numero").eq("id", id).maybeSingle(),
-          fetchLogs({ data: { pvId: id } }),
-        ]);
-        if (pv) setPvNumero(pv.numero);
-        setLogs(res.logs as Log[]);
-        setCanSeeDetails(res.canSeeDetails);
-      } catch (e: any) {
-        toast.error(e?.message ?? "Erreur chargement");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id, fetchLogs]);
+  // Server-side filter mapping (prefix → list of actions OR we filter client-side by prefix via metadata.action.startsWith).
+  // We keep server pagination total accurate by sending an `actions` array when a filter is active.
+  const actionsForFilter = (f: string): string[] | undefined => {
+    if (f === "all") return undefined;
+    // We don't enumerate all actions to keep this generic — use server filter only when known set.
+    return undefined;
+  };
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return logs;
-    return logs.filter((l) => l.action.startsWith(filter));
-  }, [logs, filter]);
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const [{ data: pv }, res] = await Promise.all([
+        supabase.from("pv").select("numero").eq("id", id).maybeSingle(),
+        fetchLogs({ data: { pvId: id, limit: PAGE_SIZE, offset: 0, actions: actionsForFilter(filter) } }),
+      ]);
+      if (pv) setPvNumero(pv.numero);
+      setLogs(res.logs as Log[]);
+      setCanSeeDetails(res.canSeeDetails);
+      setTotal(res.total);
+      setHasMore(res.hasMore);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur chargement");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, filter]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetchLogs({ data: { pvId: id, limit: PAGE_SIZE, offset: logs.length, actions: actionsForFilter(filter) } });
+      setLogs((prev) => [...prev, ...(res.logs as Log[])]);
+      setHasMore(res.hasMore);
+      setTotal(res.total);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -109,6 +140,11 @@ function HistoriquePage() {
     }
   };
 
+  const filtered = useMemo(() => {
+    if (filter === "all") return logs;
+    return logs.filter((l: Log) => l.action.startsWith(filter));
+  }, [logs, filter]);
+
   return (
     <div className="container max-w-4xl py-8 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -120,7 +156,7 @@ function HistoriquePage() {
             <ShieldCheck className="h-6 w-6 text-emerald-600" /> Historique légal
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            PV <span className="font-mono">{pvNumero}</span> · {logs.length} événement(s) tracé(s)
+            PV <span className="font-mono">{pvNumero}</span> · {total} événement(s) tracé(s) · {logs.length} chargé(s)
           </p>
           <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800">
             <ShieldCheck className="h-3 w-3" /> Traçabilité complète
@@ -152,6 +188,7 @@ function HistoriquePage() {
       ) : filtered.length === 0 ? (
         <Card className="p-12 text-center text-sm text-muted-foreground">Aucun événement.</Card>
       ) : (
+        <>
         <div className="relative pl-8 space-y-4 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-border">
           {filtered.map((l) => {
             const m = metaFor(l.action);
@@ -200,7 +237,16 @@ function HistoriquePage() {
               </Card>
             );
           })}
-        </div>
+          </div>
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Charger plus ({logs.length} / {total})
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {!canSeeDetails && (

@@ -4,6 +4,7 @@ import { getRequest, getRequestHeader } from "@tanstack/react-start/server";
 export type AuditAction =
   | "pv.create"
   | "pv.update"
+  | "pv.updated"
   | "pv.delete"
   | "pv.status_change"
   | "pv.sent_to_client"
@@ -21,9 +22,12 @@ export type AuditAction =
   | "photo.add"
   | "photo.delete"
   | "member.invited"
-  | "member.role_changed"
   | "member.joined"
-  | "member.removed";
+  | "member.role_changed"
+  | "member.suspended"
+  | "member.reactivated"
+  | "member.removed"
+  | "audit.exported";
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature";
 

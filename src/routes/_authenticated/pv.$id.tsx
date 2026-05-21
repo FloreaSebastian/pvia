@@ -30,7 +30,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { sendPvToClient } from "@/lib/sign.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
-import { logUserAction } from "@/lib/audit.functions";
+import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
@@ -82,6 +82,9 @@ function PvDetail() {
   const [regenerating, setRegenerating] = useState(false);
   const [emailLogs, setEmailLogs] = useState<Array<{ id: string; recipient_email: string; email_type: string; status: string; error_message: string | null; subject: string | null; sent_at: string | null; created_at: string }>>([]);
   const [resendingSigned, setResendingSigned] = useState(false);
+  const [lastEvent, setLastEvent] = useState<{ action: string; created_at: string; user_name: string | null } | null>(null);
+  const [auditTotal, setAuditTotal] = useState<number>(0);
+  const fetchAuditFn = useServerFn(listPvAuditLogs);
 
 
   const load = useCallback(async () => {
@@ -134,6 +137,17 @@ function PvDetail() {
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
+  const loadLastEvent = useCallback(async () => {
+    try {
+      const res = await fetchAuditFn({ data: { pvId: id, limit: 1, offset: 0 } });
+      setLastEvent(res.logs[0] ? { action: res.logs[0].action, created_at: res.logs[0].created_at, user_name: res.logs[0].user_name } : null);
+      setAuditTotal(res.total);
+    } catch { /* silent */ }
+  }, [fetchAuditFn, id]);
+
+  useEffect(() => { loadLastEvent(); }, [loadLastEvent]);
+
+
   async function handleResendSigned() {
     if (!pv) return;
     setResendingSigned(true);
@@ -152,12 +166,22 @@ function PvDetail() {
 
   async function changeStatus(status: string) {
     if (!pv) return;
+    const prevStatus = pv.status;
     const patch: { status: string; signed_at?: string | null } = { status };
     if (status === "signe") patch.signed_at = new Date().toISOString();
     const { error } = await supabase.from("pv").update(patch).eq("id", pv.id);
     if (error) return toast.error(error.message);
     toast.success("Statut mis à jour");
+    if (pv.company_id) {
+      logAction({ data: {
+        companyId: pv.company_id, pvId: pv.id, entityType: "pv", entityId: pv.id,
+        action: "pv.updated",
+        oldValues: { status: prevStatus },
+        newValues: { status },
+      } }).catch(() => {});
+    }
     load();
+    loadLastEvent();
   }
 
   async function updateReserve(rid: string, status: string) {
@@ -279,6 +303,9 @@ function PvDetail() {
             {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="secondary" className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+              <ShieldCheck className="h-3 w-3" /> Traçabilité complète activée
+            </Badge>
             {pv.pdf_url && (
               <Badge variant="secondary" className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
                 <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
@@ -355,6 +382,26 @@ function PvDetail() {
         </DialogContent>
       </Dialog>
 
+      {lastEvent && (
+        <Card className="p-4 flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-primary">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
+            <div className="space-y-0.5">
+              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Dernier événement</div>
+              <div className="font-medium text-sm">{lastEvent.action}</div>
+              <div className="text-xs text-muted-foreground">
+                {new Date(lastEvent.created_at).toLocaleString("fr-FR")}
+                {lastEvent.user_name && <> · par <span className="font-medium text-foreground">{lastEvent.user_name}</span></>}
+                {!lastEvent.user_name && <> · système</>}
+                {auditTotal > 0 && <> · {auditTotal} événement{auditTotal > 1 ? "s" : ""} au total</>}
+              </div>
+            </div>
+          </div>
+          <Link to="/pv/$id/historique" params={{ id: pv.id }}>
+            <Button size="sm" variant="outline"><ShieldCheck className="h-4 w-4" /> Voir l'historique complet</Button>
+          </Link>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2 space-y-5">
