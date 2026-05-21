@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
+import { Link } from "@tanstack/react-router";
 
 const plans = [
   {
@@ -112,8 +113,9 @@ export function Pricing() {
                 size="lg"
                 variant={p.featured ? "default" : "outline"}
                 className="mt-8 w-full"
+                asChild
               >
-                {p.cta}
+                <Link to="/signup">{p.cta}</Link>
               </Button>
             </motion.div>
           ))}
