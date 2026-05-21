@@ -609,7 +609,7 @@ function NewPv() {
                         <div key={i} className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                           <div className="relative">
                             <img src={p.preview} alt="" className="aspect-square w-full object-cover" />
-                            <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow ${p.kind === "avant" ? "bg-amber-500" : "bg-emerald-500"}`}>
+                            <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider shadow ${p.kind === "avant" ? "bg-warning text-warning-foreground" : "bg-success text-success-foreground"}`}>
                               {p.kind}
                             </span>
                             <button
