@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>PVIA — Hors ligne</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#1e40af" />
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: radial-gradient(1200px 800px at 30% 10%, #1e3a8a 0%, #0b1220 60%, #060912 100%);
+        color: #e5e7eb;
+        padding: 24px;
+        text-align: center;
+      }
+      .card { max-width: 420px; }
+      .icon {
+        width: 96px; height: 96px; margin: 0 auto 24px;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, #1e40af, #06b6d4);
+        border-radius: 24px;
+        box-shadow: 0 20px 60px -20px rgba(30, 64, 175, 0.6);
+        font-size: 40px; font-weight: 800; color: white; letter-spacing: -1px;
+      }
+      h1 { font-size: 24px; margin: 0 0 8px; font-weight: 700; }
+      p { color: #9ca3af; line-height: 1.5; margin: 0 0 24px; }
+      button {
+        background: #1e40af; color: white; border: none;
+        padding: 14px 28px; font-size: 16px; font-weight: 600;
+        border-radius: 12px; cursor: pointer;
+        transition: transform 0.1s, background 0.2s;
+      }
+      button:hover { background: #1d4ed8; }
+      button:active { transform: scale(0.97); }
+      .hint { margin-top: 24px; font-size: 13px; color: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">PV</div>
+      <h1>Vous êtes hors ligne</h1>
+      <p>Aucune connexion internet détectée. Vos brouillons restent disponibles dans l'application.</p>
+      <button onclick="location.reload()">Réessayer</button>
+      <div class="hint">PVIA · Réception de travaux intelligente</div>
+    </div>
+  </body>
+</html>
