@@ -87,15 +87,36 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
 
 /* ----------------------- Client-driven audit logging ----------------------- */
 
+const AuditActionEnum = z.enum([
+  "pv.create","pv.update","pv.updated","pv.delete","pv.status_change",
+  "pv.sent_to_client","pv.signed_by_client","pv.signed_by_company",
+  "pv.pdf_generated","pv.pdf_downloaded","pv.email_sent","pv.email_failed",
+  "reserve.create","reserve.update","reserve.delete","reserve.lifted","reserve.validated",
+  "photo.add","photo.delete",
+  "member.invited","member.joined","member.role_changed","member.suspended",
+  "member.reactivated","member.removed",
+  "audit.exported",
+  "client.login_code_sent","client.login_success","client.login_failed","client.logout",
+  "client.pv_viewed","client.pdf_downloaded","client.pv_signed",
+  "client.session_revoked","client.all_sessions_revoked",
+  "user.login_code_sent","user.login_success","user.login_failed","user.logout",
+]);
+
+const EntityTypeEnum = z.enum([
+  "pv","reserve","photo","member","audit","auth","client","session",
+]);
+
+const SafeJson = z.record(z.string().min(1).max(64), z.unknown());
+
 const LogSchema = z.object({
   pvId: z.string().uuid().optional().nullable(),
   companyId: z.string().uuid(),
-  action: z.string().min(1).max(64),
-  entityType: z.string().min(1).max(64),
+  action: AuditActionEnum,
+  entityType: EntityTypeEnum,
   entityId: z.string().uuid().optional().nullable(),
-  oldValues: z.record(z.unknown()).optional().nullable(),
-  newValues: z.record(z.unknown()).optional().nullable(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  oldValues: SafeJson.optional().nullable(),
+  newValues: SafeJson.optional().nullable(),
+  metadata: SafeJson.optional().nullable(),
 });
 
 /** Used by the client to log mutations performed via the Supabase JS SDK. */
