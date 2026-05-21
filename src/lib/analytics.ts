@@ -61,7 +61,7 @@ export async function trackEvent(eventName: string, props?: Record<string, unkno
         is_pwa: isPwa(),
         session_id: getSessionId(),
         user_id: user?.id ?? null,
-        props: props ?? null,
+        props: (props ?? null) as never,
       });
     } catch {
       // swallow — analytics must never break the app
