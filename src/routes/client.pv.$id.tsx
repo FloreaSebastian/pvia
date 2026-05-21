@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -106,7 +107,7 @@ function ClientPvDetail() {
 
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">PV {pv.numero}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">PV {pv.numero}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {company?.name && (
               <span className="inline-flex items-center gap-1">
@@ -119,14 +120,14 @@ function ClientPvDetail() {
               </span>
             )}
             {isSigned ? (
-              <Badge className="bg-emerald-600 text-[10px] hover:bg-emerald-600">Signé</Badge>
+              <StatusPill tone="success" size="sm" dot>Signé</StatusPill>
             ) : canSign ? (
-              <Badge variant="destructive" className="text-[10px]">À signer</Badge>
+              <StatusPill tone="warning" size="sm" dot>À signer</StatusPill>
             ) : (
-              <Badge variant="outline" className="text-[10px]">{pv.status}</Badge>
+              <PvStatusPill status={pv.status} size="sm" />
             )}
             {pv.pdf_url && (
-              <Badge variant="secondary" className="text-[10px]">PDF disponible</Badge>
+              <StatusPill tone="info" size="sm">PDF disponible</StatusPill>
             )}
           </div>
         </div>
@@ -222,9 +223,9 @@ function ClientPvDetail() {
 
       <div className="mt-6">
         {isSigned ? (
-          <Card className="border-emerald-500/30 bg-emerald-500/5 p-5">
+          <Card className="border-success/30 bg-success/5 p-5">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              <CheckCircle2 className="h-5 w-5 text-success" />
               <div>
                 <p className="font-semibold">PV signé</p>
                 <p className="text-sm text-muted-foreground">
@@ -244,7 +245,7 @@ function ClientPvDetail() {
             }}
           />
         ) : (
-          <Card className="border-amber-500/30 bg-amber-500/5 p-5 text-sm">
+          <Card className="border-warning/30 bg-warning/5 p-5 text-sm">
             <p className="font-medium">Signature indisponible</p>
             <p className="mt-1 text-muted-foreground">
               {isExpired

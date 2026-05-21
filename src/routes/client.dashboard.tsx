@@ -6,6 +6,7 @@ import { Download, FileText, PenLine, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClientShell } from "@/components/client/ClientShell";
@@ -65,7 +66,7 @@ function ClientDashboard() {
   return (
     <ClientShell email={session.email}>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Vos procès-verbaux</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Vos procès-verbaux</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
           Consultez, signez et téléchargez les PV qui vous sont adressés.
         </p>
@@ -119,16 +120,14 @@ function ClientDashboard() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold">PV {pv.numero}</span>
                         {isSigned ? (
-                          <Badge className="bg-emerald-600 text-[10px] hover:bg-emerald-600">
-                            Signé
-                          </Badge>
+                          <StatusPill tone="success" size="sm" dot>Signé</StatusPill>
                         ) : needsSign ? (
-                          <Badge variant="destructive" className="text-[10px]">À signer</Badge>
+                          <StatusPill tone="warning" size="sm" dot>À signer</StatusPill>
                         ) : (
-                          <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+                          <PvStatusPill status={pv.status} size="sm" />
                         )}
                         {pv.pdf_url && (
-                          <Badge variant="secondary" className="text-[10px]">PDF disponible</Badge>
+                          <StatusPill tone="info" size="sm">PDF disponible</StatusPill>
                         )}
                       </div>
                       <div className="mt-1 truncate text-xs text-muted-foreground">
