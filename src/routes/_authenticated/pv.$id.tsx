@@ -82,6 +82,9 @@ function PvDetail() {
   const [regenerating, setRegenerating] = useState(false);
   const [emailLogs, setEmailLogs] = useState<Array<{ id: string; recipient_email: string; email_type: string; status: string; error_message: string | null; subject: string | null; sent_at: string | null; created_at: string }>>([]);
   const [resendingSigned, setResendingSigned] = useState(false);
+  const [lastEvent, setLastEvent] = useState<{ action: string; created_at: string; user_name: string | null } | null>(null);
+  const [auditTotal, setAuditTotal] = useState<number>(0);
+  const fetchAuditFn = useServerFn(listPvAuditLogs);
 
 
   const load = useCallback(async () => {
