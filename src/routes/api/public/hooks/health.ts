@@ -21,8 +21,9 @@ export const Route = createFileRoute("/api/public/hooks/health")({
             { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } },
           );
         } catch (e: any) {
+          console.error("[health] DB check failed:", e?.message);
           return new Response(
-            JSON.stringify({ status: "fail", error: e?.message ?? "unknown" }),
+            JSON.stringify({ status: "fail", error: "database_unavailable" }),
             { status: 503, headers: { "content-type": "application/json", "cache-control": "no-store" } },
           );
         }
