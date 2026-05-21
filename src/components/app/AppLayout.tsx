@@ -15,6 +15,7 @@ import {
   Building2,
   UsersRound,
   Smartphone,
+  ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ const mainNav = [
 const secondaryNav = [
   { to: "/entreprise", label: "Entreprise", icon: Building2 },
   { to: "/equipe", label: "Équipe", icon: UsersRound },
+  { to: "/historique", label: "Historique entreprise", icon: ShieldCheck },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
 ] as const;
 
