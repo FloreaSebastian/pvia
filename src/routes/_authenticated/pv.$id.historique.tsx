@@ -153,12 +153,12 @@ function HistoriquePage() {
             <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /> Retour au PV</Button>
           </Link>
           <h1 className="text-2xl font-semibold mt-2 flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-emerald-600" /> Historique légal
+            <ShieldCheck className="h-6 w-6 text-success" /> Historique légal
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             PV <span className="font-mono">{pvNumero}</span> · {total} événement(s) tracé(s) · {logs.length} chargé(s)
           </p>
-          <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800">
+          <Badge variant="secondary" className="mt-2 gap-1.5 bg-success/15 text-success">
             <ShieldCheck className="h-3 w-3" /> Traçabilité complète
           </Badge>
         </div>
