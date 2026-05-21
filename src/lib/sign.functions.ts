@@ -49,6 +49,9 @@ export const sendPvToClient = createServerFn({ method: "POST" })
   .inputValidator((input) => PvIdSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context;
+    await enforceRateLimit({ bucket: "sign.send", key: userId, limit: 30, windowSec: 3600 });
+
+
 
     const { data: pv } = await supabaseAdmin
       .from("pv")
