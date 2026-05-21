@@ -25,7 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { StatusBadge } from "@/components/app/StatusBadge";
+import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
 import { useServerFn } from "@tanstack/react-start";
 import { sendPvToClient } from "@/lib/sign.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
@@ -296,27 +296,23 @@ function PvDetail() {
             <ChevronRight className="h-3 w-3" />
             <span>{pv.numero}</span>
           </div>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">PV {pv.numero}</h1>
+          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">PV {pv.numero}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Créé le {new Date(pv.created_at).toLocaleDateString("fr-FR")}
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
             {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="secondary" className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-              <ShieldCheck className="h-3 w-3" /> Traçabilité complète activée
-            </Badge>
+            <StatusPill tone="success" icon={<ShieldCheck />}>Traçabilité complète</StatusPill>
             {pv.pdf_url && (
-              <Badge variant="secondary" className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
-              </Badge>
+              <StatusPill tone="success" icon={<CheckCircle2 />}>PDF signé disponible</StatusPill>
             )}
             {(() => {
               const lastClientSent = emailLogs.find((l) => l.status === "sent" && (l.email_type === "signed_to_client" || l.email_type === "signed_resend"));
               return lastClientSent ? (
-                <Badge variant="secondary" className="gap-1.5 bg-blue-100 text-blue-800 hover:bg-blue-100">
-                  <Mail className="h-3 w-3" /> Email envoyé au client le {new Date(lastClientSent.sent_at || lastClientSent.created_at).toLocaleString("fr-FR")}
-                </Badge>
+                <StatusPill tone="info" icon={<Mail />}>
+                  Email envoyé au client le {new Date(lastClientSent.sent_at || lastClientSent.created_at).toLocaleString("fr-FR")}
+                </StatusPill>
               ) : null;
             })()}
           </div>
@@ -408,7 +404,7 @@ function PvDetail() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Informations</h3>
             <div className="flex items-center gap-2">
-              <StatusBadge status={pv.status} />
+              <PvStatusPill status={pv.status} />
               <Select value={pv.status} onValueChange={changeStatus}>
                 <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -477,8 +473,8 @@ function PvDetail() {
               <div key={r.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Badge variant={r.severity === "majeure" ? "destructive" : "secondary"}>{r.severity}</Badge>
-                    <StatusBadge status={r.status} />
+                    <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill>
+                    <StatusPill tone={r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning"} dot>{r.status}</StatusPill>
                   </div>
                   <p className="mt-2 text-sm">{r.description}</p>
                 </div>
@@ -520,9 +516,9 @@ function PvDetail() {
               <div key={l.id} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3 text-sm">
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={l.status === "sent" ? "secondary" : "destructive"} className={l.status === "sent" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" : ""}>
+                    <StatusPill tone={l.status === "sent" ? "success" : "destructive"} dot>
                       {l.status === "sent" ? "Envoyé" : "Échec"}
-                    </Badge>
+                    </StatusPill>
                     <span className="text-xs uppercase tracking-wider text-muted-foreground">{labelForType(l.email_type)}</span>
                   </div>
                   <p className="mt-1 truncate font-medium">{l.recipient_email}</p>
