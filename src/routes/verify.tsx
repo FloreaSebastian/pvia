@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, FileSignature, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { z } from "zod";
 import { Card } from "@/components/ui/card";
 import {
@@ -105,13 +106,11 @@ function VerifyPage() {
         <Link to="/login" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Modifier l'email
         </Link>
-        <Card className="border-border/60 p-7 shadow-lg shadow-primary/5">
-          <div className="mb-6 flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <FileSignature className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="text-base font-semibold">Entrez votre code</div>
+        <Card className="border-border/60 p-7 shadow-brand">
+          <div className="mb-6 flex items-center gap-3">
+            <BrandLogo variant="compact" />
+            <div className="border-l border-border/60 pl-3">
+              <div className="font-display text-base font-bold">Entrez votre code</div>
               <div className="text-xs text-muted-foreground">
                 Envoyé à <span className="font-medium text-foreground">{email || "votre email"}</span>
               </div>

@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, CheckCircle2, XCircle, FileSignature } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,15 +117,12 @@ function InvitePage() {
 
   return (
     <div className="grid min-h-screen place-items-center bg-gradient-to-br from-muted/30 to-background p-6">
-      <Card className="w-full max-w-md p-8">
-        <div className="flex items-center gap-2 text-primary">
-          <FileSignature className="h-5 w-5" />
-          <span className="text-sm font-semibold">PVIA</span>
-        </div>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+      <Card className="w-full max-w-md border-border/60 p-8 shadow-brand">
+        <BrandLogo variant="compact" />
+        <h1 className="mt-4 font-display text-2xl font-bold tracking-tight">
           Rejoindre <span className="text-primary">{info.companyName}</span>
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1.5 text-sm text-muted-foreground">
           Invitation pour <strong>{info.email}</strong> · rôle <strong>{info.role}</strong>
         </p>
 
