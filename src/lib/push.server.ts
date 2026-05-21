@@ -66,19 +66,40 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   return { sent, removed: toRemove.length };
 }
 
-/** Fan-out helper: send to every active member of a company. */
-export async function sendPushToCompany(companyId: string, payload: PushPayload) {
-  ensureConfigured();
-  const { data: members } = await supabaseAdmin
-    .from("company_members")
-    .select("user_id")
-    .eq("company_id", companyId)
-    .eq("status", "active");
-  const ids = (members ?? []).map((m) => m.user_id).filter(Boolean) as string[];
-  let total = 0;
-  for (const uid of ids) {
-    const r = await sendPushToUser(uid, payload);
-    total += r.sent;
+/** Fan-out helper: send to every active member of a company.
+ *  Optionally exclude one user (typically the actor). Never throws. */
+export async function sendPushToCompany(
+  companyId: string,
+  payload: PushPayload,
+  opts: { excludeUserId?: string } = {},
+) {
+  try {
+    ensureConfigured();
+    const { data: members } = await supabaseAdmin
+      .from("company_members")
+      .select("user_id")
+      .eq("company_id", companyId)
+      .eq("status", "active");
+    const ids = (members ?? [])
+      .map((m) => m.user_id)
+      .filter((id): id is string => !!id && id !== opts.excludeUserId);
+    let total = 0;
+    for (const uid of ids) {
+      const r = await sendPushToUser(uid, payload);
+      total += r.sent;
+    }
+    return { sent: total, recipients: ids.length };
+  } catch (e) {
+    console.warn("[push] sendPushToCompany failed", (e as Error)?.message);
+    return { sent: 0, recipients: 0 };
   }
-  return { sent: total, recipients: ids.length };
+}
+
+/** Fire-and-forget wrapper safe to call from any server fn. Never blocks the request. */
+export function firePushToCompany(
+  companyId: string,
+  payload: PushPayload,
+  opts: { excludeUserId?: string } = {},
+) {
+  sendPushToCompany(companyId, payload, opts).catch(() => {});
 }
