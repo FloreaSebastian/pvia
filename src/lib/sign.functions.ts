@@ -217,10 +217,15 @@ export const signPvByToken = createServerFn({ method: "POST" })
       body: `Le PV ${pv.numero} a été signé électroniquement.`,
     });
 
-    // Generate the final signed PDF and store it. Failure is non-fatal — the signature is
-    // already persisted; the client just won't get an immediate download URL.
+    // Generate the final signed PDF, then email it to the client (+ company copy). Both are
+    // non-fatal — the signature itself is already persisted.
     try {
       await buildAndStorePvPdf(pv.id);
+      try {
+        await deliverSignedPv({ pvId: pv.id, trigger: "auto" });
+      } catch (e) {
+        console.error("Signed PV email delivery failed:", e);
+      }
     } catch (e) {
       console.error("PDF generation failed after sign:", e);
     }
