@@ -35,7 +35,7 @@ export function PublicPageShell({ eyebrow, title, description, children }: Publi
 
         <section className="mx-auto mt-12 max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl border border-border bg-card p-8 shadow-sm sm:p-10">
-            <div className="prose prose-neutral max-w-none text-foreground/90 prose-headings:font-display prose-headings:font-bold prose-headings:tracking-tight prose-h2:mt-10 prose-h2:text-2xl prose-h3:text-lg prose-a:text-primary prose-strong:text-foreground">
+            <div className="legal-prose text-[15px] leading-relaxed text-foreground/90">
               {children}
             </div>
           </div>
