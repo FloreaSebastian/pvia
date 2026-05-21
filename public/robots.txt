@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /pv/
+Disallow: /chantiers
+Disallow: /clients
+Disallow: /equipe
+Disallow: /entreprise
+Disallow: /reserves
+Disallow: /statistiques
+Disallow: /historique
+Disallow: /terrain
+Disallow: /billing
+Disallow: /admin/
+Disallow: /parametres
+Disallow: /upgrade-required
+Disallow: /invite/
+Disallow: /sign/
+
+Sitemap: https://pvia.fr/sitemap.xml
