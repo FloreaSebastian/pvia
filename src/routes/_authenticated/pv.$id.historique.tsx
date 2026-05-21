@@ -246,7 +246,7 @@ function HistoriquePage() {
               </Button>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {!canSeeDetails && (
