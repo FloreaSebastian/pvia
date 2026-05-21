@@ -57,6 +57,8 @@ function PvDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const sendPv = useServerFn(sendPvToClient);
+  const regenPdf = useServerFn(regeneratePvPdf);
+  const fetchPdfUrl = useServerFn(getPvPdfSignedUrl);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -68,6 +70,7 @@ function PvDetail() {
   const [sendEmail, setSendEmail] = useState("");
   const [sendingClient, setSendingClient] = useState(false);
   const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
 
 
   const load = useCallback(async () => {
