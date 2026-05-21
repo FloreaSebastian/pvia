@@ -203,67 +203,15 @@ function HistoriqueEntreprisePage() {
         <Card className="p-12 text-center text-sm text-muted-foreground">Aucun événement.</Card>
       ) : (
         <div className="space-y-4">
-          <div className="relative pl-8 space-y-4 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-border">
-            {filtered.map((l) => {
-              const m = metaFor(l.action);
-              const Icon = m.icon;
-              return (
-                <Card key={l.id} className="p-4 relative">
-                  <div className="absolute -left-[28px] top-4 h-6 w-6 rounded-full bg-background border-2 border-border flex items-center justify-center">
-                    <Icon className="h-3 w-3" />
-                  </div>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <div className="font-medium flex items-center gap-2">
-                        {m.label}
-                        <Badge variant="secondary" className={m.tone + " text-[10px]"}>{m.badge}</Badge>
-                        {l.pv_numero && l.pv_id && (
-                          <Link to="/pv/$id" params={{ id: l.pv_id }}>
-                            <Badge variant="outline" className="text-[10px] font-mono hover:bg-accent cursor-pointer">
-                              {l.pv_numero}
-                            </Badge>
-                          </Link>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(l.created_at).toLocaleString("fr-FR")}
-                        {l.user_name && <span> · par <span className="font-medium text-foreground">{l.user_name}</span></span>}
-                        {!l.user_name && l.user_id && <span> · par utilisateur</span>}
-                        {!l.user_name && !l.user_id && <span> · automatique</span>}
-                        {canSeeDetails && l.ip_address && <span className="font-mono"> · {l.ip_address}</span>}
-                      </div>
-                    </div>
-                    {l.pv_id && (
-                      <Link to="/pv/$id/historique" params={{ id: l.pv_id }}>
-                        <Button variant="ghost" size="sm">Voir le PV</Button>
-                      </Link>
-                    )}
-                  </div>
-                  {l.metadata && Object.keys(l.metadata).length > 0 && (
-                    <div className="mt-2 text-xs text-muted-foreground bg-muted/40 rounded p-2 font-mono overflow-x-auto">
-                      {JSON.stringify(l.metadata)}
-                    </div>
-                  )}
-                  {canSeeDetails && (l.old_values || l.new_values) && (
-                    <div className="mt-2 grid sm:grid-cols-2 gap-2 text-xs">
-                      {l.old_values && (
-                        <div className="bg-red-50 border border-red-200 rounded p-2">
-                          <div className="font-semibold text-red-900 mb-1">Avant</div>
-                          <pre className="font-mono whitespace-pre-wrap break-words text-red-800">{JSON.stringify(l.old_values, null, 2)}</pre>
-                        </div>
-                      )}
-                      {l.new_values && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
-                          <div className="font-semibold text-emerald-900 mb-1">Après</div>
-                          <pre className="font-mono whitespace-pre-wrap break-words text-emerald-800">{JSON.stringify(l.new_values, null, 2)}</pre>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
+          {filtered.length > 100 ? (
+            <VirtualLogList items={filtered} canSeeDetails={canSeeDetails} />
+          ) : (
+            <div className="relative pl-8 space-y-4 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-border">
+              {filtered.map((l) => (
+                <LogRow key={l.id} log={l} canSeeDetails={canSeeDetails} />
+              ))}
+            </div>
+          )}
           {hasMore && (
             <div className="flex justify-center pt-2">
               <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
