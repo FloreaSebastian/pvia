@@ -67,6 +67,11 @@ function TeamPage() {
   const [inviteRole, setInviteRole] = useState<CompanyRole>("user");
   const [sending, setSending] = useState(false);
   const sendInviteFn = useServerFn(sendInvite);
+  const logAction = useServerFn(logUserAction);
+
+  function memberLabel(m: Member) {
+    return m.profile?.full_name || m.invited_email || "Membre";
+  }
 
   async function load() {
     if (!activeCompanyId) return;
