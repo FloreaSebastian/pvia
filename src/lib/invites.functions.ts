@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { writeAuditLog } from "./audit.server";
 
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
@@ -140,6 +141,13 @@ export const sendInvite = createServerFn({ method: "POST" })
       throw new Error(`Échec envoi email (${resp.status}): ${body}`);
     }
 
+    await writeAuditLog({
+      companyId: data.companyId, userId, entityType: "member",
+      action: "member.invited",
+      newValues: { invited_email: data.email.toLowerCase(), role: data.role },
+      metadata: { expires_at: expiresAt }, actor: "user",
+    });
+
     return { ok: true, acceptUrl };
   });
 
@@ -202,5 +210,14 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
       })
       .eq("id", invite.id);
     if (error) throw new Error(error.message);
+
+    // Lookup company for audit context
+    const { data: row } = await supabaseAdmin
+      .from("company_members").select("company_id,role").eq("id", invite.id).maybeSingle();
+    await writeAuditLog({
+      companyId: row?.company_id ?? null, userId, entityType: "member", entityId: invite.id,
+      action: "member.joined", newValues: { role: row?.role, email },
+      actor: "user",
+    });
     return { ok: true };
   });
