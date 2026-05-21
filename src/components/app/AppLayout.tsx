@@ -187,13 +187,8 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
                 <Plus className="h-4 w-4" /> Créer un PV
               </Button>
             </Link>
-            <button
-              className="relative rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Notifications"
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-            </button>
+            <NotificationsBell />
+
             <div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-primary to-primary/60 text-xs font-semibold text-primary-foreground">
               {initial}
             </div>
