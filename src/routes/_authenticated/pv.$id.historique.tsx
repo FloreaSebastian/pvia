@@ -221,15 +221,15 @@ function HistoriquePage() {
                 {canSeeDetails && (l.old_values || l.new_values) && (
                   <div className="mt-2 grid sm:grid-cols-2 gap-2 text-xs">
                     {l.old_values && (
-                      <div className="bg-red-50 border border-red-200 rounded p-2">
-                        <div className="font-semibold text-red-900 mb-1">Avant</div>
-                        <pre className="font-mono whitespace-pre-wrap break-words text-red-800">{JSON.stringify(l.old_values, null, 2)}</pre>
+                      <div className="bg-destructive/5 border border-destructive/20 rounded p-2">
+                        <div className="font-semibold text-destructive mb-1">Avant</div>
+                        <pre className="font-mono whitespace-pre-wrap break-words text-destructive/90">{JSON.stringify(l.old_values, null, 2)}</pre>
                       </div>
                     )}
                     {l.new_values && (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
-                        <div className="font-semibold text-emerald-900 mb-1">Après</div>
-                        <pre className="font-mono whitespace-pre-wrap break-words text-emerald-800">{JSON.stringify(l.new_values, null, 2)}</pre>
+                      <div className="bg-success/5 border border-success/20 rounded p-2">
+                        <div className="font-semibold text-success mb-1">Après</div>
+                        <pre className="font-mono whitespace-pre-wrap break-words text-success/90">{JSON.stringify(l.new_values, null, 2)}</pre>
                       </div>
                     )}
                   </div>
