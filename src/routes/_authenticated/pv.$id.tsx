@@ -54,12 +54,19 @@ type Reserve = { id: string; description: string; severity: string; status: stri
 function PvDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const sendPv = useServerFn(sendPvToClient);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [chantierName, setChantierName] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
+  const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendEmail, setSendEmail] = useState("");
+  const [sendingClient, setSendingClient] = useState(false);
+  const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
+
 
   const load = useCallback(async () => {
     setLoading(true);
