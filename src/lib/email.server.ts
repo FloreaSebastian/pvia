@@ -5,6 +5,88 @@ function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
+/**
+ * Email premium passwordless — code de connexion espace client.
+ * Fond blanc, accent #1e40af, code en gros, contexte connexion, lien CTA.
+ */
+function renderClientLoginCodeEmail(opts: {
+  code: string;
+  ip: string;
+  device: string;
+  verifyUrl: string;
+  expiresMin: number;
+}) {
+  const { code, ip, device, verifyUrl, expiresMin } = opts;
+  return `<!doctype html><html><body style="margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;background:#f6f7f9"><tr><td align="center">
+    <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <tr><td style="padding:28px 36px 8px">
+        <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#1e40af;font-weight:600">PVIA · Connexion sécurisée</div>
+        <div style="font-size:22px;font-weight:600;margin-top:10px;color:#0f172a">Votre code de connexion</div>
+      </td></tr>
+      <tr><td style="padding:8px 36px 0">
+        <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155">
+          Utilisez le code ci-dessous pour accéder à votre espace client PVIA.
+        </p>
+        <div style="margin:24px 0;padding:22px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;text-align:center">
+          <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:42px;letter-spacing:14px;font-weight:700;color:#1e40af">${escapeHtml(code)}</div>
+          <div style="margin-top:10px;font-size:12px;color:#64748b">Valide ${expiresMin} minutes · usage unique</div>
+        </div>
+        <div style="text-align:center;margin:0 0 24px">
+          <a href="${escapeHtml(verifyUrl)}" style="display:inline-block;padding:12px 24px;background:#1e40af;color:#ffffff;text-decoration:none;border-radius:10px;font-size:14px;font-weight:600">Se connecter à PVIA</a>
+        </div>
+        <div style="margin:24px 0 0;padding:14px 16px;background:#fafafa;border-radius:10px;font-size:12px;color:#64748b;line-height:1.6">
+          Demande émise depuis <strong>${escapeHtml(ip)}</strong> · ${escapeHtml(device)}.<br>
+          Si vous n'avez pas demandé ce code, ignorez simplement cet email — aucun accès n'a été créé.
+        </div>
+      </td></tr>
+      <tr><td style="padding:20px 36px 28px;color:#94a3b8;font-size:11px;text-align:center;line-height:1.6">
+        PVIA — Réception de travaux intelligente<br>
+        Connexion sans mot de passe · sécurisée
+      </td></tr>
+    </table>
+  </td></tr></table></body></html>`;
+}
+
+/**
+ * Envoie l'email de code passwordless via Resend. Throw si Resend indisponible
+ * — l'appelant (sendClientLoginCode) attrape déjà l'erreur.
+ */
+export async function sendClientLoginCodeEmail(opts: {
+  to: string;
+  code: string;
+  ip: string;
+  device: string;
+}): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) throw new Error("RESEND_API_KEY manquant");
+  const appUrl = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || "https://pvia.fr";
+  const verifyUrl = `${appUrl}/client/verify?email=${encodeURIComponent(opts.to)}`;
+  const from = process.env.RESEND_FROM_EMAIL || `PVIA <onboarding@resend.dev>`;
+  const html = renderClientLoginCodeEmail({
+    code: opts.code,
+    ip: opts.ip,
+    device: opts.device,
+    verifyUrl,
+    expiresMin: 10,
+  });
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      to: [opts.to],
+      subject: "Votre code de connexion PVIA",
+      html,
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Resend ${resp.status}: ${body.slice(0, 200)}`);
+  }
+}
+
+
 function bytesToBase64(bytes: Uint8Array): string {
   // Chunk to avoid call stack issues on large buffers
   let binary = "";
