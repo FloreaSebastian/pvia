@@ -296,6 +296,10 @@ export type Database = {
           owner_id: string
           pdf_url: string | null
           reception_date: string | null
+          sent_to_client_at: string | null
+          sent_to_email: string | null
+          sign_token: string | null
+          sign_token_expires_at: string | null
           signed_at: string | null
           status: string
           type: string
@@ -315,6 +319,10 @@ export type Database = {
           owner_id: string
           pdf_url?: string | null
           reception_date?: string | null
+          sent_to_client_at?: string | null
+          sent_to_email?: string | null
+          sign_token?: string | null
+          sign_token_expires_at?: string | null
           signed_at?: string | null
           status?: string
           type?: string
@@ -334,6 +342,10 @@ export type Database = {
           owner_id?: string
           pdf_url?: string | null
           reception_date?: string | null
+          sent_to_client_at?: string | null
+          sent_to_email?: string | null
+          sign_token?: string | null
+          sign_token_expires_at?: string | null
           signed_at?: string | null
           status?: string
           type?: string
