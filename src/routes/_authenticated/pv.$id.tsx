@@ -98,8 +98,9 @@ function PvDetail() {
       setChantierName(c?.name ?? null);
     }
     if (pvData.client_id) {
-      const { data: cl } = await supabase.from("clients").select("name").eq("id", pvData.client_id).maybeSingle();
+      const { data: cl } = await supabase.from("clients").select("name,email").eq("id", pvData.client_id).maybeSingle();
       setClientName(cl?.name ?? null);
+      setClientEmail(cl?.email ?? null);
     }
     setLoading(false);
   }, [id, navigate]);
