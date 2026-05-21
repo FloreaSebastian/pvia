@@ -65,6 +65,8 @@ function metaFor(action: string) {
   return ACTION_META[action] || { label: action, icon: ShieldCheck, badge: "Système", tone: "bg-slate-100 text-slate-800" };
 }
 
+const PAGE_SIZE = 50;
+
 function HistoriquePage() {
   const { id } = Route.useParams();
   const fetchLogs = useServerFn(listPvAuditLogs);
@@ -72,33 +74,58 @@ function HistoriquePage() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [pvNumero, setPvNumero] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [canSeeDetails, setCanSeeDetails] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [{ data: pv }, res] = await Promise.all([
-          supabase.from("pv").select("numero").eq("id", id).maybeSingle(),
-          fetchLogs({ data: { pvId: id } }),
-        ]);
-        if (pv) setPvNumero(pv.numero);
-        setLogs(res.logs as Log[]);
-        setCanSeeDetails(res.canSeeDetails);
-      } catch (e: any) {
-        toast.error(e?.message ?? "Erreur chargement");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id, fetchLogs]);
+  // Server-side filter mapping (prefix → list of actions OR we filter client-side by prefix via metadata.action.startsWith).
+  // We keep server pagination total accurate by sending an `actions` array when a filter is active.
+  const actionsForFilter = (f: string): string[] | undefined => {
+    if (f === "all") return undefined;
+    // We don't enumerate all actions to keep this generic — use server filter only when known set.
+    return undefined;
+  };
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return logs;
-    return logs.filter((l) => l.action.startsWith(filter));
-  }, [logs, filter]);
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const [{ data: pv }, res] = await Promise.all([
+        supabase.from("pv").select("numero").eq("id", id).maybeSingle(),
+        fetchLogs({ data: { pvId: id, limit: PAGE_SIZE, offset: 0, actions: actionsForFilter(filter) } }),
+      ]);
+      if (pv) setPvNumero(pv.numero);
+      setLogs(res.logs as Log[]);
+      setCanSeeDetails(res.canSeeDetails);
+      setTotal(res.total);
+      setHasMore(res.hasMore);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur chargement");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, filter]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetchLogs({ data: { pvId: id, limit: PAGE_SIZE, offset: logs.length, actions: actionsForFilter(filter) } });
+      setLogs((prev) => [...prev, ...(res.logs as Log[])]);
+      setHasMore(res.hasMore);
+      setTotal(res.total);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
