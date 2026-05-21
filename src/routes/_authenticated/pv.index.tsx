@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import { Plus, Download, Trash2, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
+import { PvStatusPill } from "@/components/ui/status-pill";
+import { PageHeader } from "@/components/app/PageHeader";
 
 export const Route = createFileRoute("/_authenticated/pv/")({
   component: PvList,
@@ -43,13 +44,13 @@ function PvList() {
   }
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Procès-verbaux</h1>
-          <p className="text-sm text-muted-foreground">Tous vos PV de réception.</p>
-        </div>
-        <Link to="/pv/new"><Button><Plus className="h-4 w-4" /> Nouveau PV</Button></Link>
-      </div>
+      <PageHeader
+        title="Procès-verbaux"
+        description="Tous vos PV de réception."
+        contained={false}
+        className="border-0 bg-transparent px-0 py-0"
+        actions={<Link to="/pv/new"><Button><Plus className="h-4 w-4" /> Nouveau PV</Button></Link>}
+      />
       <Card className="p-0 overflow-hidden">
         <Table>
           <TableHeader><TableRow><TableHead>Numéro</TableHead><TableHead>Type</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead><TableHead></TableHead></TableRow></TableHeader>
@@ -61,7 +62,7 @@ function PvList() {
                   <Link to="/pv/$id" params={{ id: p.id }} className="hover:underline">{p.numero}</Link>
                 </TableCell>
                 <TableCell>{p.type}</TableCell>
-                <TableCell><Badge variant={p.status === "signe" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
+                <TableCell><PvStatusPill status={p.status} /></TableCell>
                 <TableCell>{p.reception_date ? new Date(p.reception_date).toLocaleDateString("fr-FR") : "—"}</TableCell>
                 <TableCell className="text-right">
                   <Link to="/pv/$id" params={{ id: p.id }}>
