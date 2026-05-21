@@ -21,7 +21,7 @@ const pillars = [
     metric: "100%",
     title: "Image pro premium",
     desc: "PDF haut de gamme aux couleurs de votre entreprise, envoyé instantanément au client. Une réception digne d'un grand groupe.",
-    accent: "from-emerald-500/20 to-teal-500/10",
+    accent: "from-success/20 to-success/5",
   },
 ];
 
@@ -40,7 +40,7 @@ export function WhyPVIA() {
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
             Pourquoi PVIA ?
           </span>
-          <h2 className="mt-4 text-balance text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
+          <h2 className="mt-4 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
             Moins de litiges. Plus de chantiers.{" "}
             <span className="text-gradient">Une image irréprochable.</span>
           </h2>
