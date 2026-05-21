@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ShieldCheck, FileText, Mail, Send, Camera, AlertCircle, PenSquare, Plus, Edit,
   Trash2, UserPlus, CheckCircle2, Download, Loader2, Filter, Search,

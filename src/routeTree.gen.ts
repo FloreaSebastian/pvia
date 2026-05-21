@@ -31,6 +31,7 @@ import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 import { Route as AuthenticatedParametresNotificationsRouteImport } from './routes/_authenticated/parametres.notifications'
+import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
@@ -148,6 +149,12 @@ const AuthenticatedParametresNotificationsRoute =
     path: '/parametres/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminMonitoringRoute =
+  AuthenticatedAdminMonitoringRouteImport.update({
+    id: '/admin/monitoring',
+    path: '/admin/monitoring',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -188,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -215,6 +223,7 @@ export interface FileRoutesByTo {
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -244,6 +253,7 @@ export interface FileRoutesById {
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/_authenticated/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/_authenticated/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/terrain'
     | '/upgrade-required'
     | '/invite/$token'
+    | '/admin/monitoring'
     | '/parametres/notifications'
     | '/pv/$id'
     | '/pv/new'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/terrain'
     | '/upgrade-required'
     | '/invite/$token'
+    | '/admin/monitoring'
     | '/parametres/notifications'
     | '/pv/$id'
     | '/pv/new'
@@ -328,6 +340,7 @@ export interface FileRouteTypes {
     | '/_authenticated/terrain'
     | '/_authenticated/upgrade-required'
     | '/invite/$token'
+    | '/_authenticated/admin/monitoring'
     | '/_authenticated/parametres/notifications'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
@@ -508,6 +521,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedParametresNotificationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/monitoring': {
+      id: '/_authenticated/admin/monitoring'
+      path: '/admin/monitoring'
+      fullPath: '/admin/monitoring'
+      preLoaderRoute: typeof AuthenticatedAdminMonitoringRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -573,6 +593,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
+  AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
   AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
@@ -591,6 +612,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedUpgradeRequiredRoute: AuthenticatedUpgradeRequiredRoute,
+  AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
   AuthenticatedParametresNotificationsRoute:
     AuthenticatedParametresNotificationsRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
