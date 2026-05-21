@@ -270,15 +270,15 @@ function LogRow({ log: l, canSeeDetails }: { log: Log; canSeeDetails: boolean })
       {canSeeDetails && (l.old_values || l.new_values) && (
         <div className="mt-2 grid sm:grid-cols-2 gap-2 text-xs">
           {l.old_values && (
-            <div className="bg-red-50 border border-red-200 rounded p-2">
-              <div className="font-semibold text-red-900 mb-1">Avant</div>
-              <pre className="font-mono whitespace-pre-wrap break-words text-red-800">{JSON.stringify(l.old_values, null, 2)}</pre>
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2">
+              <div className="mb-1 font-semibold text-destructive">Avant</div>
+              <pre className="whitespace-pre-wrap break-words font-mono text-destructive/80">{JSON.stringify(l.old_values, null, 2)}</pre>
             </div>
           )}
           {l.new_values && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
-              <div className="font-semibold text-emerald-900 mb-1">Après</div>
-              <pre className="font-mono whitespace-pre-wrap break-words text-emerald-800">{JSON.stringify(l.new_values, null, 2)}</pre>
+            <div className="rounded-lg border border-success/30 bg-success/5 p-2">
+              <div className="mb-1 font-semibold text-success">Après</div>
+              <pre className="whitespace-pre-wrap break-words font-mono text-success/80">{JSON.stringify(l.new_values, null, 2)}</pre>
             </div>
           )}
         </div>
