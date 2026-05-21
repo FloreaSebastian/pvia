@@ -20,16 +20,23 @@ export const Route = createFileRoute("/_authenticated/clients")({
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null; notes: string | null };
 
 function ClientsPage() {
+  const { activeCompanyId, can } = useCompany();
   const [items, setItems] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", notes: "" });
+  const canWrite = can("manage");
 
   async function load() {
-    const { data } = await supabase.from("clients").select("*").order("created_at", { ascending: false });
+    if (!activeCompanyId) return;
+    const { data } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("company_id", activeCompanyId)
+      .order("created_at", { ascending: false });
     setItems((data as Client[]) ?? []);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId]);
 
   function openNew() {
     setEditing(null);
@@ -44,8 +51,8 @@ function ClientsPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const payload = { ...form, owner_id: user.id };
+    if (!user || !activeCompanyId) return;
+    const payload = { ...form, owner_id: user.id, company_id: activeCompanyId };
     const res = editing
       ? await supabase.from("clients").update(payload).eq("id", editing.id)
       : await supabase.from("clients").insert(payload);
