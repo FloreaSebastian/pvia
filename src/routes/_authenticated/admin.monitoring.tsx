@@ -156,16 +156,16 @@ function MonitoringPage() {
           <div className="text-2xl font-semibold mt-1">{stats?.last7d ?? "—"}</div>
         </Card>
         <Card className="p-4">
-          <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-red-600" /> Critiques ouvertes</div>
-          <div className="text-2xl font-semibold mt-1 text-red-600">{stats?.criticalOpen ?? "—"}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-destructive" /> Critiques ouvertes</div>
+          <div className="text-2xl font-semibold mt-1 text-destructive">{stats?.criticalOpen ?? "—"}</div>
         </Card>
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Erreurs 7j (par sévérité)</div>
-          <div className="flex gap-2 mt-2 text-xs">
+          <div className="flex flex-wrap gap-1.5 mt-2 text-xs">
             {stats && (["critical", "error", "warning", "info"] as const).map((s) => (
-              <Badge key={s} className={SEV_TONE[s] + " font-normal"}>
+              <StatusPill key={s} tone={SEV_TONE[s]} size="sm">
                 {s}: {stats.severity7d[s] ?? 0}
-              </Badge>
+              </StatusPill>
             ))}
           </div>
         </Card>
@@ -176,12 +176,12 @@ function MonitoringPage() {
         <h2 className="font-semibold flex items-center gap-2 mb-3"><Server className="h-4 w-4" /> Santé des services</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {health?.checks.map((c) => (
-            <div key={c.name} className={"flex items-center justify-between rounded border p-2 " + (c.ok ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50")}>
+            <div key={c.name} className={"flex items-center justify-between rounded-md border p-2 " + (c.ok ? "border-success/30 bg-success/10" : "border-destructive/30 bg-destructive/10")}>
               <div className="text-sm">
                 <div className="font-medium">{c.name}</div>
                 {c.detail && <div className="text-xs text-muted-foreground">{c.detail}</div>}
               </div>
-              {c.ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <AlertCircle className="h-5 w-5 text-red-600" />}
+              {c.ok ? <CheckCircle2 className="h-5 w-5 text-success" /> : <AlertCircle className="h-5 w-5 text-destructive" />}
             </div>
           ))}
         </div>
@@ -245,7 +245,7 @@ function MonitoringPage() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge className={SEV_TONE[e.severity] + " text-[10px]"}>{e.severity}</Badge>
+                    <StatusPill tone={SEV_TONE[e.severity]} size="sm" dot>{e.severity}</StatusPill>
                     <code className="text-xs font-mono text-muted-foreground">{e.source}</code>
                     <span className="text-[11px] text-muted-foreground">{new Date(e.created_at).toLocaleString("fr-FR")}</span>
                   </div>
@@ -258,7 +258,7 @@ function MonitoringPage() {
                         </pre>
                       )}
                       {e.stack && (
-                        <pre className="text-[11px] bg-red-50 rounded p-2 font-mono overflow-x-auto whitespace-pre-wrap">
+                        <pre className="text-[11px] bg-destructive/10 text-destructive rounded p-2 font-mono overflow-x-auto whitespace-pre-wrap">
                           {e.stack}
                         </pre>
                       )}
@@ -280,6 +280,7 @@ function MonitoringPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
