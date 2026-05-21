@@ -65,8 +65,10 @@ function Index() {
       <Header />
       <main>
         <Hero />
+        <TrustBar />
         <WhyPVIA />
         <Features />
+        <ProductShowcase />
         <HowItWorks />
         <Modules />
         <Stats />
