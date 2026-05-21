@@ -294,6 +294,7 @@ export type Database = {
           numero: string
           observations: string | null
           owner_id: string
+          pdf_generated_at: string | null
           pdf_url: string | null
           reception_date: string | null
           sent_to_client_at: string | null
@@ -317,6 +318,7 @@ export type Database = {
           numero: string
           observations?: string | null
           owner_id: string
+          pdf_generated_at?: string | null
           pdf_url?: string | null
           reception_date?: string | null
           sent_to_client_at?: string | null
@@ -340,6 +342,7 @@ export type Database = {
           numero?: string
           observations?: string | null
           owner_id?: string
+          pdf_generated_at?: string | null
           pdf_url?: string | null
           reception_date?: string | null
           sent_to_client_at?: string | null
