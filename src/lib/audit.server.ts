@@ -29,7 +29,7 @@ export type AuditAction =
   | "member.removed"
   | "audit.exported";
 
-export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature";
+export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
 
 export type WriteAuditLogInput = {
   companyId: string | null;
