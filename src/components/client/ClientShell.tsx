@@ -41,7 +41,7 @@ export function ClientShell({
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link to="/client/dashboard" className="flex items-center gap-2.5">
-            <BrandLogo size="sm" />
+            <BrandLogo variant="compact" />
             <span className="hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground sm:inline">
               Espace client
             </span>
@@ -56,9 +56,9 @@ export function ClientShell({
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors",
+                    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                     active
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary text-primary-foreground shadow-brand"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
