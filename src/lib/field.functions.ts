@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
 import { writeAuditLog } from "./audit.server";
+import { firePushToCompany } from "./push.server";
 
 async function assertMember(companyId: string, userId: string) {
   const { data } = await supabaseAdmin
