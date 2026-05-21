@@ -203,7 +203,10 @@ function TeamPage() {
                   </Select>
                 </div>
                 <DialogFooter>
-                  <Button type="submit"><Mail className="h-4 w-4" /> Envoyer l'invitation</Button>
+                  <Button type="submit" disabled={sending}>
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                    {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
