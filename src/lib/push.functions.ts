@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { enforceRateLimit } from "./rate-limit.server";
 
 const SubscribeSchema = z.object({
   companyId: z.string().uuid(),
