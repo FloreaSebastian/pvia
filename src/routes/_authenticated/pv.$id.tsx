@@ -62,6 +62,8 @@ function PvDetail() {
   const sendPv = useServerFn(sendPvToClient);
   const regenPdf = useServerFn(regeneratePvPdf);
   const fetchPdfUrl = useServerFn(getPvPdfSignedUrl);
+  const resendSignedFn = useServerFn(sendSignedPvEmail);
+  const fetchLogsFn = useServerFn(listPvEmailLogs);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -74,6 +76,8 @@ function PvDetail() {
   const [sendingClient, setSendingClient] = useState(false);
   const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [emailLogs, setEmailLogs] = useState<Array<{ id: string; recipient_email: string; email_type: string; status: string; error_message: string | null; subject: string | null; sent_at: string | null; created_at: string }>>([]);
+  const [resendingSigned, setResendingSigned] = useState(false);
 
 
   const load = useCallback(async () => {
