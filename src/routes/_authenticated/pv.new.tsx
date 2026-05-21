@@ -319,6 +319,17 @@ function NewPv() {
         return;
       }
 
+      // Backend quota check (authoritative — uses subscriptions table)
+      const { data: canCreate } = await supabase.rpc("can_create_pv", { _company_id: activeCompanyId });
+      if (!canCreate) {
+        toast.error("Quota PV mensuel atteint. Mettez à niveau votre plan.", {
+          action: { label: "Voir les plans", onClick: () => navigate({ to: "/billing" }) },
+        });
+        setSaving(false);
+        return;
+      }
+
+
       // create client if new
       let clientId = form.client_id || null;
       if (!clientId && form.new_client_name.trim()) {
