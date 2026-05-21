@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import { Pricing } from "@/components/landing/Pricing";
-import { FAQ } from "@/components/landing/FAQ";
+import { FAQ, faqs } from "@/components/landing/FAQ";
 import { CTA } from "@/components/landing/CTA";
 
 export const Route = createFileRoute("/tarifs")({
