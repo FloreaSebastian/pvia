@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Check, Loader2, ExternalLink, CreditCard, AlertTriangle } from "lucide-react";
+import { Check, Loader2, ExternalLink, CreditCard, AlertTriangle, Sparkles, Clock, AlertOctagon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
 import { getStripeEnvironment, PLAN_PRICE_IDS } from "@/lib/stripe";
+
 
 export const Route = createFileRoute("/_authenticated/billing")({
   component: BillingPage,
