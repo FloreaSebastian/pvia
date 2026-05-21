@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, ShieldCheck, PenLine, FileText, CheckCircle2, Camera, MapPin } from "lucide-react";
+import { ArrowRight, Play, ShieldCheck, PenLine, FileText, CheckCircle2, Camera, MapPin, Star } from "lucide-react";
 
 export function Hero() {
   return (
