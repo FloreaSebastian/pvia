@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
 import { deliverSignedPv } from "./email.server";
+import { writeAuditLog } from "./audit.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
@@ -113,6 +114,18 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       throw new Error(`Échec envoi email (${resp.status}): ${body}`);
     }
 
+    await writeAuditLog({
+      companyId: pv.company_id,
+      userId,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "pv.sent_to_client",
+      newValues: { sent_to_email: data.email.toLowerCase(), expires_at: expiresAt },
+      metadata: { numero: pv.numero },
+      actor: "user",
+    });
+
     return { ok: true, signUrl };
   });
 
@@ -217,10 +230,31 @@ export const signPvByToken = createServerFn({ method: "POST" })
       body: `Le PV ${pv.numero} a été signé électroniquement.`,
     });
 
+    await writeAuditLog({
+      companyId: pv.company_id,
+      userId: null,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "pv.signed_by_client",
+      newValues: { signed_at: new Date().toISOString(), status: "signe" },
+      metadata: { numero: pv.numero, via: "public_token" },
+      actor: "client",
+    });
+
     // Generate the final signed PDF, then email it to the client (+ company copy). Both are
     // non-fatal — the signature itself is already persisted.
     try {
       await buildAndStorePvPdf(pv.id);
+      await writeAuditLog({
+        companyId: pv.company_id,
+        pvId: pv.id,
+        entityType: "pv",
+        entityId: pv.id,
+        action: "pv.pdf_generated",
+        metadata: { trigger: "auto_after_sign" },
+        actor: "pdf",
+      });
       try {
         await deliverSignedPv({ pvId: pv.id, trigger: "auto" });
       } catch (e) {
