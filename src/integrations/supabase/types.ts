@@ -206,6 +206,84 @@ export type Database = {
           },
         ]
       }
+      client_auth_codes: {
+        Row: {
+          attempts: number
+          client_id: string | null
+          code_hash: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          used_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          attempts?: number
+          client_id?: string | null
+          code_hash: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          attempts?: number
+          client_id?: string | null
+          code_hash?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      client_sessions: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          last_seen_at: string
+          revoked_at: string | null
+          token_hash: string
+          user_agent: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string
+          revoked_at?: string | null
+          token_hash: string
+          user_agent?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string
+          revoked_at?: string | null
+          token_hash?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           address: string | null
@@ -854,6 +932,7 @@ export type Database = {
         Returns: boolean
       }
       cleanup_analytics_events: { Args: never; Returns: undefined }
+      cleanup_client_auth: { Args: never; Returns: undefined }
       cleanup_rate_limits: { Args: never; Returns: number }
       get_company_limits: {
         Args: { _company_id: string }
