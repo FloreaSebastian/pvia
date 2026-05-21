@@ -53,6 +53,9 @@ export const sendInvite = createServerFn({ method: "POST" })
   .inputValidator((input) => InviteSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context;
+    // Limite anti-spam invitations
+    await enforceRateLimit({ bucket: "invite.send", key: userId, limit: 20, windowSec: 3600 });
+    await enforceRateLimit({ bucket: "invite.send.email", key: `${userId}:${data.email.toLowerCase()}`, limit: 3, windowSec: 3600 });
 
     // Verify caller is owner/admin of the company
     const { data: membership } = await supabaseAdmin
