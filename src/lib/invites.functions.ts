@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { assertCanAddMember } from "./plan-guard.server";
+import { firePushToCompany } from "./push.server";
 
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
