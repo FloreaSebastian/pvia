@@ -71,6 +71,12 @@ export const createFieldDraft = createServerFn({ method: "POST" })
       newValues: { numero: pv.numero, type: "reception", status: "brouillon", is_field_draft: true },
       metadata: { source: "field" }, actor: "user",
     });
+    firePushToCompany(data.companyId, {
+      title: "Nouveau PV terrain",
+      body: `${pv.numero} vient d'être créé.`,
+      url: `/pv/${pv.id}`,
+      tag: `pv-${pv.id}`,
+    }, { excludeUserId: userId });
     return { id: pv.id, numero: pv.numero };
   });
 
