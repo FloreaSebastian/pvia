@@ -21,6 +21,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedChantiersRouteImport } from './routes/_authenticated/chantiers'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
+import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 
@@ -83,6 +84,11 @@ const AuthenticatedPvIndexRoute = AuthenticatedPvIndexRouteImport.update({
   path: '/pv/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const SignPvTokenRoute = SignPvTokenRouteImport.update({
+  id: '/sign/pv/$token',
+  path: '/sign/pv/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedPvNewRoute = AuthenticatedPvNewRouteImport.update({
   id: '/pv/new',
   path: '/pv/new',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
+  '/sign/pv/$token': typeof SignPvTokenRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
 }
 export interface FileRoutesByTo {
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
+  '/sign/pv/$token': typeof SignPvTokenRoute
   '/pv': typeof AuthenticatedPvIndexRoute
 }
 export interface FileRoutesById {
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
+  '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
 }
 export interface FileRouteTypes {
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/pv/$id'
     | '/pv/new'
+    | '/sign/pv/$token'
     | '/pv/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/pv/$id'
     | '/pv/new'
+    | '/sign/pv/$token'
     | '/pv'
   id:
     | '__root__'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
+    | '/sign/pv/$token'
     | '/_authenticated/pv/'
   fileRoutesById: FileRoutesById
 }
@@ -196,6 +208,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  SignPvTokenRoute: typeof SignPvTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -284,6 +297,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/sign/pv/$token': {
+      id: '/sign/pv/$token'
+      path: '/sign/pv/$token'
+      fullPath: '/sign/pv/$token'
+      preLoaderRoute: typeof SignPvTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/pv/new': {
       id: '/_authenticated/pv/new'
       path: '/pv/new'
@@ -335,7 +355,18 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   InviteTokenRoute: InviteTokenRoute,
+  SignPvTokenRoute: SignPvTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
