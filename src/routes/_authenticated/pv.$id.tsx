@@ -261,17 +261,33 @@ function PvDetail() {
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
             {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
-          {pv.pdf_url && (
-            <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-              <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
-            </Badge>
-          )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {pv.pdf_url && (
+              <Badge variant="secondary" className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
+              </Badge>
+            )}
+            {(() => {
+              const lastClientSent = emailLogs.find((l) => l.status === "sent" && (l.email_type === "signed_to_client" || l.email_type === "signed_resend"));
+              return lastClientSent ? (
+                <Badge variant="secondary" className="gap-1.5 bg-blue-100 text-blue-800 hover:bg-blue-100">
+                  <Mail className="h-3 w-3" /> Email envoyé au client le {new Date(lastClientSent.sent_at || lastClientSent.created_at).toLocaleString("fr-FR")}
+                </Badge>
+              ) : null;
+            })()}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
           {!pv.client_signature && (
             <Button onClick={openSendDialog}>
               <Send className="h-4 w-4" /> Envoyer au client pour signature
+            </Button>
+          )}
+          {pv.status === "signe" && pv.pdf_url && (
+            <Button variant="outline" onClick={handleResendSigned} disabled={resendingSigned}>
+              {resendingSigned ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+              {resendingSigned ? "Envoi…" : "Renvoyer le PDF signé"}
             </Button>
           )}
           <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
