@@ -236,7 +236,16 @@ function HistoriquePage() {
               </Card>
             );
           })}
-        </div>
+          </div>
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Charger plus ({logs.length} / {total})
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {!canSeeDetails && (
