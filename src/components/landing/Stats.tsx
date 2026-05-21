@@ -38,7 +38,7 @@ export function Stats() {
             Des résultats concrets pour les pros du BTP
           </h2>
           <p className="mt-4 text-background/70">
-            Les bénéfices mesurés par les entreprises qui utilisent PV Pro au quotidien.
+            Les bénéfices mesurés par les entreprises qui utilisent PVIA au quotidien.
           </p>
         </div>
 

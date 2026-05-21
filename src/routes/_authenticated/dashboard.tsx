@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
-  head: () => ({ meta: [{ title: "Tableau de bord — PV Pro" }] }),
+  head: () => ({ meta: [{ title: "Tableau de bord — PVIA" }] }),
 });
 
 type Stats = { pv: number; signed: number; chantiers: number; clients: number };

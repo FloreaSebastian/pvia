@@ -16,14 +16,14 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       {
-        title: "PV Pro — Procès-verbaux de réception de travaux pour le BTP",
+        title: "PVIA — Procès-verbaux de réception de travaux pour le BTP",
       },
       {
         name: "description",
         content:
           "Créez, signez et envoyez vos procès-verbaux de réception en quelques minutes. Photos, réserves, signature électronique et PDF automatique pour les pros du BTP.",
       },
-      { property: "og:title", content: "PV Pro — PV de réception simple et professionnel" },
+      { property: "og:title", content: "PVIA — PV de réception simple et professionnel" },
       {
         property: "og:description",
         content:

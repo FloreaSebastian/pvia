@@ -31,7 +31,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
               <FileSignature className="h-4 w-4" />
             </div>
-            <span className="text-sm font-semibold">PV<span className="text-primary">Pro</span></span>
+            <span className="text-sm font-semibold"><span className="text-primary">PV</span>IA</span>
           </Link>
           <button onClick={() => setOpen(false)} className="lg:hidden"><X className="h-5 w-5" /></button>
         </div>

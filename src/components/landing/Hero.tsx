@@ -82,7 +82,7 @@ function MockupBrowser() {
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
           <div className="mx-auto rounded-md bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-            app.pvpro.fr / chantier / PV-2026-0421
+            app.pvia.fr / chantier / PV-2026-0421
           </div>
         </div>
 

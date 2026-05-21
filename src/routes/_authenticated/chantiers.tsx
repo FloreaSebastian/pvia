@@ -15,7 +15,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/chantiers")({
   component: ChantiersPage,
-  head: () => ({ meta: [{ title: "Chantiers — PV Pro" }] }),
+  head: () => ({ meta: [{ title: "Chantiers — PVIA" }] }),
 });
 
 type Chantier = { id: string; name: string; address: string | null; type: string | null; status: string; client_id: string | null; start_date: string | null; end_date: string | null; description: string | null };
