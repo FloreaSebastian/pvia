@@ -51,12 +51,46 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 });
 
 /**
- * Security headers globaux. Ne PAS activer CSP en mode strict ici : Stripe Elements,
- * Supabase Realtime (wss) et Resend nécessitent des connect-src/script-src étendus,
- * et un CSP mal réglé casse silencieusement le checkout. On applique les protections
- * sûres (anti-clickjacking, anti-MIME-sniff, Referrer-Policy, Permissions-Policy)
- * et on laisse CSP à activer plus tard avec une vraie passe QA.
+ * Security headers globaux + CSP strict.
+ *
+ * Allowlist :
+ *  - script-src: 'self' + Stripe.js (https://js.stripe.com)
+ *    'unsafe-inline' nécessaire pour le bootstrap TanStack Start (hydration scripts inline)
+ *    et pour les JSON-LD inlinés via head().scripts.
+ *  - style-src: 'self' + 'unsafe-inline' (Tailwind / shadcn / motion injectent du style inline)
+ *  - img-src: 'self' data: blob: https: (photos chantier, signatures dataURL, OG previews)
+ *  - connect-src: 'self' + Supabase REST/Realtime/Storage + Stripe API + Resend
+ *  - frame-src: Stripe (Elements + 3DS hooks)
+ *  - worker-src: 'self' blob: (service worker + workers internes)
+ *  - font-src: 'self' data:
+ *  - frame-ancestors 'none' (anti-clickjacking renforcé, complète X-Frame-Options)
+ *  - upgrade-insecure-requests : tout passe en HTTPS
+ *
+ * Le CSP est désactivé sur les hosts de prévisualisation Lovable (iframe éditeur)
+ * pour éviter de casser le builder. Il est actif sur prod (pvia.fr, *.lovable.app).
  */
+const SUPABASE_HOST = process.env.SUPABASE_URL?.replace(/^https?:\/\//, "") ?? "*.supabase.co";
+
+function buildCsp(): string {
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com`,
+    `style-src 'self' 'unsafe-inline'`,
+    `img-src 'self' data: blob: https:`,
+    `font-src 'self' data:`,
+    `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.resend.com`,
+    `frame-src https://js.stripe.com https://hooks.stripe.com`,
+    `worker-src 'self' blob:`,
+    `manifest-src 'self'`,
+    `media-src 'self' blob: data:`,
+    "form-action 'self'",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
+
 const securityHeadersMiddleware = createMiddleware().server(async ({ next }) => {
   const response = await next();
   try {
@@ -69,10 +103,21 @@ const securityHeadersMiddleware = createMiddleware().server(async ({ next }) => 
         "Permissions-Policy",
         "camera=(self), geolocation=(self), microphone=(), payment=(self)",
       );
-      res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+      res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+
+      // CSP — skip sur l'éditeur Lovable (iframe preview) pour ne pas casser le builder.
+      let isPreviewIframe = false;
+      try {
+        const req = getRequest();
+        const host = req.headers.get("host") ?? "";
+        isPreviewIframe = host.includes("id-preview--") || host.includes("lovableproject.com");
+      } catch {}
+      if (!isPreviewIframe) {
+        res.headers.set("Content-Security-Policy", buildCsp());
+      }
     }
   } catch {
-    // ignore — never block a response on header injection
+    // never block a response on header injection
   }
   return response;
 });
