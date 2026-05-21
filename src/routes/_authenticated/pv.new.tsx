@@ -456,7 +456,7 @@ function NewPv() {
         <div className="flex items-center gap-2">
           {lastSaved && (
             <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
-              <Cloud className="h-3 w-3 text-emerald-500" /> Sauvegardé {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              <Cloud className="h-3 w-3 text-success" /> Sauvegardé {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
           <Button variant="outline" disabled={saving} onClick={() => onSave("brouillon")}>
@@ -467,22 +467,22 @@ function NewPv() {
 
       {/* Progress bar */}
       <Card className="overflow-hidden p-0">
-        <div className="border-b border-border bg-muted/30 p-4">
+        <div className="border-b border-border bg-gradient-to-b from-muted/40 to-muted/10 p-4 sm:p-5">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Étape {step} sur {STEPS.length}
             </span>
-            <span className="text-xs font-medium text-primary">{Math.round(progress)}%</span>
+            <span className="text-xs font-semibold tabular-nums text-primary">{Math.round(progress)}%</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-border">
+          <div className="relative h-1.5 overflow-hidden rounded-full bg-border">
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70"
+              className="h-full rounded-full bg-brand-gradient"
               initial={false}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             />
           </div>
-          <div className="mt-4 hidden flex-wrap gap-2 md:flex">
+          <div className="mt-5 hidden flex-wrap gap-1.5 md:flex">
             {STEPS.map((s) => {
               const Icon = s.icon;
               const done = s.id < step;
@@ -492,15 +492,25 @@ function NewPv() {
                   key={s.id}
                   type="button"
                   onClick={() => setStep(s.id)}
-                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                  className={`group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
                     current
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                      ? "bg-primary text-primary-foreground shadow-brand"
                       : done
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-muted text-muted-foreground hover:bg-accent"
+                      ? "bg-success/10 text-success hover:bg-success/15"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
-                  {done ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                  <span
+                    className={`grid h-4 w-4 place-items-center rounded-full text-[10px] font-semibold ${
+                      current
+                        ? "bg-primary-foreground/20"
+                        : done
+                        ? "bg-success/20"
+                        : "bg-background/60"
+                    }`}
+                  >
+                    {done ? <Check className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
+                  </span>
                   {s.label}
                 </button>
               );
@@ -706,9 +716,9 @@ function NewPv() {
                       </div>
                     )}
                   </div>
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                  <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success">
                     <p className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" /> Prêt à valider</p>
-                    <p className="mt-1 text-emerald-800/80">
+                    <p className="mt-1 text-success/80">
                       En cliquant sur « Valider & signer », le PV sera enregistré avec ses signatures, photos et réserves, puis archivé au format PDF.
                     </p>
                   </div>
@@ -734,7 +744,7 @@ function NewPv() {
               Suivant <ChevronRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button disabled={saving} onClick={() => onSave("signe")} className="shadow-md shadow-primary/25">
+            <Button disabled={saving} onClick={() => onSave("signe")} className="shadow-brand">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Valider & signer
             </Button>
@@ -769,9 +779,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function PhotoUploader({ label, kind, onFiles }: { label: string; kind: "avant" | "apres"; onFiles: (f: FileList | null, k: "avant" | "apres") => void }) {
+  const tone = kind === "avant"
+    ? "border-warning/40 bg-warning/5 hover:border-warning"
+    : "border-success/40 bg-success/5 hover:border-success";
   return (
-    <label className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-sm transition-all hover:border-primary hover:bg-primary/5 ${kind === "avant" ? "border-amber-300/60 bg-amber-50/40" : "border-emerald-300/60 bg-emerald-50/40"}`}>
-      <Upload className="h-5 w-5 text-muted-foreground" />
+    <label className={`group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-sm transition-all hover:bg-primary/5 ${tone}`}>
+      <div className="grid h-10 w-10 place-items-center rounded-full bg-background/70 text-muted-foreground transition group-hover:scale-110 group-hover:text-primary">
+        <Upload className="h-5 w-5" />
+      </div>
       <span className="font-medium">{label}</span>
       <span className="text-xs text-muted-foreground">JPG, PNG · Sélection multiple</span>
       <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => onFiles(e.target.files, kind)} />
