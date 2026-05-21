@@ -27,6 +27,8 @@ async function assertPvAccess(pvId: string, userId: string) {
 const ListSchema = z.object({
   pvId: z.string().uuid(),
   actions: z.array(z.string()).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+  offset: z.number().int().min(0).optional(),
 });
 
 export const listPvAuditLogs = createServerFn({ method: "POST" })
@@ -35,13 +37,22 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { role } = await assertPvAccess(data.pvId, context.userId);
     const canSeeDetails = role === "owner" || role === "admin";
+    const limit = data.limit ?? 50;
+    const offset = data.offset ?? 0;
+
+    let countQ = supabaseAdmin
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("pv_id", data.pvId);
+    if (data.actions && data.actions.length) countQ = countQ.in("action", data.actions);
+    const { count: total } = await countQ;
 
     let q = supabaseAdmin
       .from("audit_logs")
       .select("id,action,entity_type,entity_id,user_id,old_values,new_values,metadata,created_at,ip_address")
       .eq("pv_id", data.pvId)
       .order("created_at", { ascending: false })
-      .limit(500);
+      .range(offset, offset + limit - 1);
     if (data.actions && data.actions.length) q = q.in("action", data.actions);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
@@ -70,7 +81,8 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
       new_values: canSeeDetails ? (r.new_values as any) : null,
       metadata: r.metadata as any,
     }));
-    return { logs, canSeeDetails };
+    const totalCount = total ?? logs.length;
+    return { logs, canSeeDetails, total: totalCount, hasMore: offset + logs.length < totalCount, role };
   });
 
 /* ----------------------- Client-driven audit logging ----------------------- */
