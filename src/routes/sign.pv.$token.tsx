@@ -6,9 +6,10 @@ import { getPvByToken, signPvByToken } from "@/lib/sign.functions";
 import { getSignedPvPdfPublic } from "@/lib/pdf.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, FileText, Camera, Eraser, ShieldCheck, Clock, Download } from "lucide-react";
+import { StatusPill } from "@/components/ui/status-pill";
+import { BrandLogo } from "@/components/brand/BrandLogo";
+import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, Camera, Eraser, ShieldCheck, Clock, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/sign/pv/$token")({
@@ -70,32 +71,22 @@ function SignPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-16">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background pb-16">
       {/* Header */}
-      <header className="border-b border-border bg-white">
+      <header className="border-b border-border/60 bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-slate-900 to-blue-900 text-white">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-bold tracking-tight">PVIA</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Signature électronique</div>
-            </div>
-          </div>
-          <Badge variant="outline" className="gap-1.5">
-            <ShieldCheck className="h-3 w-3" /> Lien sécurisé
-          </Badge>
+          <BrandLogo tagline />
+          <StatusPill tone="success" icon={<ShieldCheck />}>Lien sécurisé</StatusPill>
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl space-y-5 px-6 pt-8">
         {/* Title */}
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
             Procès-verbal de {pv.type === "reception" ? "réception" : pv.type}
           </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">PV {pv.numero}</h1>
+          <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight sm:text-4xl">PV {pv.numero}</h1>
           {pv.expiresAt && (
             <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" /> Lien valable jusqu'au {new Date(pv.expiresAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
@@ -170,14 +161,14 @@ function SignPage() {
         {reserves.length > 0 && (
           <Card className="p-5">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <AlertCircle className="h-4 w-4 text-amber-600" /> Réserves ({reserves.length})
+              <AlertCircle className="h-4 w-4 text-warning" /> Réserves ({reserves.length})
             </div>
             <div className="space-y-2">
               {reserves.map((r: any) => (
-                <div key={r.id} className="rounded-lg border p-3">
+                <div key={r.id} className="rounded-lg border border-border/60 p-3">
                   <div className="flex items-center gap-2">
-                    <Badge variant={r.severity === "majeure" ? "destructive" : "secondary"}>{r.severity}</Badge>
-                    <Badge variant="outline">{r.status}</Badge>
+                    <StatusPill tone={r.severity === "majeure" ? "destructive" : "warning"} size="sm" dot>{r.severity}</StatusPill>
+                    <StatusPill tone={r.status === "levee" || r.status === "validee" ? "success" : "neutral"} size="sm">{r.status}</StatusPill>
                   </div>
                   <p className="mt-2 text-sm">{r.description}</p>
                 </div>
