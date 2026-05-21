@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { AppLayout } from "@/components/app/AppLayout";
+import { CompanyProvider } from "@/hooks/use-company";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -25,8 +26,10 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <AppLayout userEmail={user.email}>
-      <Outlet />
-    </AppLayout>
+    <CompanyProvider>
+      <AppLayout userEmail={user.email}>
+        <Outlet />
+      </AppLayout>
+    </CompanyProvider>
   );
 }

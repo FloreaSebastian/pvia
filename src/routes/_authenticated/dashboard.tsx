@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatedCounter } from "@/components/app/AnimatedCounter";
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { useCompany } from "@/hooks/use-company";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -32,6 +33,7 @@ type Ch = { id: string; name: string; status: string; address: string | null; cr
 type Activity = { id: string; type: "pv" | "reserve" | "chantier"; label: string; at: string };
 
 function Dashboard() {
+  const { activeCompanyId } = useCompany();
   const [stats, setStats] = useState<Stats>({ pv: 0, signed: 0, pending: 0, openReserves: 0 });
   const [recent, setRecent] = useState<Pv[]>([]);
   const [chantiers, setChantiers] = useState<Ch[]>([]);
@@ -39,14 +41,17 @@ function Dashboard() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    if (!activeCompanyId) return;
     (async () => {
+      setLoaded(false);
+      const base = () => supabase.from("pv").select("id", { count: "exact", head: true }).eq("company_id", activeCompanyId);
       const [pv, signed, pending, reserves, rec, chs] = await Promise.all([
-        supabase.from("pv").select("id", { count: "exact", head: true }),
-        supabase.from("pv").select("id", { count: "exact", head: true }).eq("status", "signe"),
-        supabase.from("pv").select("id", { count: "exact", head: true }).eq("status", "brouillon"),
-        supabase.from("pv_reserves").select("id", { count: "exact", head: true }).eq("status", "ouverte"),
-        supabase.from("pv").select("id,numero,status,created_at,reception_date").order("created_at", { ascending: false }).limit(6),
-        supabase.from("chantiers").select("id,name,status,address,created_at").order("created_at", { ascending: false }).limit(4),
+        base(),
+        base().eq("status", "signe"),
+        base().eq("status", "brouillon"),
+        supabase.from("pv_reserves").select("id", { count: "exact", head: true }).eq("status", "ouverte").eq("company_id", activeCompanyId),
+        supabase.from("pv").select("id,numero,status,created_at,reception_date").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(6),
+        supabase.from("chantiers").select("id,name,status,address,created_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(4),
       ]);
       setStats({
         pv: pv.count ?? 0,
@@ -66,7 +71,7 @@ function Dashboard() {
       setActivity(acts);
       setLoaded(true);
     })();
-  }, []);
+  }, [activeCompanyId]);
 
   const kpis = [
     {

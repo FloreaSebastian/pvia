@@ -10,10 +10,11 @@ import {
   X,
   Search,
   Bell,
-  Settings,
   HelpCircle,
   Sparkles,
   AlertCircle,
+  Building2,
+  UsersRound,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Logo } from "@/components/landing/Logo";
+import { CompanySwitcher } from "@/components/app/CompanySwitcher";
 
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -31,7 +33,8 @@ const mainNav = [
 ] as const;
 
 const secondaryNav = [
-  { to: "/dashboard", label: "Paramètres", icon: Settings },
+  { to: "/entreprise", label: "Entreprise", icon: Building2 },
+  { to: "/equipe", label: "Équipe", icon: UsersRound },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
 ] as const;
 
@@ -74,7 +77,11 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
           </button>
         </div>
 
-        <div className="px-3 pt-4">
+        <div className="px-3 pt-3">
+          <CompanySwitcher />
+        </div>
+
+        <div className="px-3 pt-3">
           <Link to="/pv/new" onClick={() => setOpen(false)}>
             <Button className="w-full shadow-md shadow-primary/20" size="sm">
               <Plus className="h-4 w-4" /> Nouveau PV

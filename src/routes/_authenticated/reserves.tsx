@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { useCompany } from "@/hooks/use-company";
 
 export const Route = createFileRoute("/_authenticated/reserves")({
   component: ReservesPage,
@@ -26,25 +27,26 @@ type Row = {
 };
 
 function ReservesPage() {
+  const { activeCompanyId } = useCompany();
   const [items, setItems] = useState<Row[]>([]);
   const [filter, setFilter] = useState<string>("all");
 
   const load = useCallback(async () => {
-    const q = supabase
+    if (!activeCompanyId) return;
+    const { data, error } = await supabase
       .from("pv_reserves")
       .select("id,description,severity,status,created_at,pv_id")
+      .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
-    const { data, error } = await q;
     if (error) return toast.error(error.message);
     const rows = (data ?? []) as Omit<Row, "pv">[];
-    // fetch related pv numeros
     const pvIds = Array.from(new Set(rows.map((r) => r.pv_id)));
     const { data: pvs } = pvIds.length
       ? await supabase.from("pv").select("id,numero").in("id", pvIds)
       : { data: [] };
     const map = new Map((pvs ?? []).map((p) => [p.id, p.numero]));
     setItems(rows.map((r) => ({ ...r, pv: { numero: map.get(r.pv_id) ?? "—" } })));
-  }, []);
+  }, [activeCompanyId]);
 
   useEffect(() => { load(); }, [load]);
 
