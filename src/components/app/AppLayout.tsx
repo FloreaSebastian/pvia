@@ -54,6 +54,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const { activeCompanyId } = useCompany();
 
   async function signOut() {
     await supabase.auth.signOut();
