@@ -14,6 +14,7 @@ import {
   Copy,
   Mail,
   RotateCw,
+  ShieldCheck,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -295,6 +296,9 @@ function PvDetail() {
             {regenerating ? "Génération…" : "Régénérer le PDF"}
           </Button>
           {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF signé</Button>}
+          <Link to="/pv/$id/historique" params={{ id: pv.id }}>
+            <Button variant="outline"><ShieldCheck className="h-4 w-4" /> Historique légal</Button>
+          </Link>
           <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
         </div>
       </div>
