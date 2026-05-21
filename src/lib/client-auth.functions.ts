@@ -340,7 +340,28 @@ export const getClientPvDetail = createServerFn({ method: "POST" })
           .order("created_at", { ascending: false }),
         supabaseAdmin.from("pv_photos").select("id,url,caption,kind").eq("pv_id", pv.id),
       ]);
-    return { pv, company, chantier, reserves: reserves ?? [], photos: photos ?? [] };
+
+    // Sign photo URLs (private bucket)
+    const signedPhotos = await Promise.all(
+      (photos ?? []).map(async (p: any) => {
+        const { data: su } = await supabaseAdmin.storage
+          .from("pv-assets")
+          .createSignedUrl(p.url, 3600);
+        return { ...p, url: su?.signedUrl ?? p.url };
+      }),
+    );
+
+    // Audit (non-blocking, but await to ensure persisted before navigation)
+    await writeAuditLog({
+      companyId: pv.company_id,
+      pvId: pv.id,
+      entityType: "pv",
+      action: "client.pv_viewed",
+      metadata: { actor_email: s.email, numero: pv.numero },
+      actor: "client",
+    });
+
+    return { pv, company, chantier, reserves: reserves ?? [], photos: signedPhotos };
   });
 
 export const getClientPdfSignedUrl = createServerFn({ method: "POST" })
@@ -357,9 +378,267 @@ export const getClientPdfSignedUrl = createServerFn({ method: "POST" })
       companyId: pv.company_id,
       pvId: pv.id,
       entityType: "pv",
-      action: "pv.pdf_downloaded",
+      action: "client.pdf_downloaded",
       metadata: { actor_email: s.email },
       actor: "client",
     });
     return { url: signed.signedUrl };
   });
+
+// ─── inline signature from client area ────────────────────────────────────────
+const SignClientSchema = z.object({
+  pvId: z.string().uuid(),
+  signatureDataUrl: z.string().startsWith("data:image/").max(2_000_000),
+  consent: z.literal(true),
+});
+
+export const signPvAsClient = createServerFn({ method: "POST" })
+  .inputValidator((d) => SignClientSchema.parse(d))
+  .handler(async ({ data }) => {
+    const s = await requireSession();
+    const ip = getClientIp() ?? "unknown";
+    await enforceRateLimit({
+      bucket: "client_sign_submit",
+      key: `${s.email}:${data.pvId}`,
+      limit: 5,
+      windowSec: 600,
+    });
+    decodeAndValidateImage(data.signatureDataUrl, { maxBytes: 2_000_000 });
+
+    // Re-fetch PV with ownership check
+    const pv = await fetchPvForClient(data.pvId, s);
+
+    // Strict signature gate
+    if (pv.status === "signe" || pv.client_signature) {
+      throw new Error("Ce PV est déjà signé.");
+    }
+    if (pv.sign_token_expires_at && new Date(pv.sign_token_expires_at) < new Date()) {
+      throw new Error("Le lien de signature a expiré. Contactez l'entreprise.");
+    }
+    // Only "pending" PVs are signable from client area
+    const signableStatuses = new Set(["en_attente", "en_attente_signature", "envoye"]);
+    if (!signableStatuses.has(pv.status)) {
+      throw new Error("Ce PV n'est pas en attente de signature.");
+    }
+
+    // Persist signature + reissue token as short-lived download key
+    const downloadKey =
+      crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    const downloadExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+
+    const { error: updErr } = await supabaseAdmin
+      .from("pv")
+      .update({
+        client_signature: data.signatureDataUrl,
+        status: "signe",
+        signed_at: new Date().toISOString(),
+        sign_token: downloadKey,
+        sign_token_expires_at: downloadExpires,
+      })
+      .eq("id", pv.id);
+    if (updErr) throw new Error(updErr.message);
+
+    // Owner notification
+    if (pv.company_id) {
+      await supabaseAdmin.from("notifications").insert({
+        company_id: pv.company_id,
+        user_id: null,
+        type: "pv_signed_remote",
+        title: "PV signé par le client",
+        body: `Le PV ${pv.numero} a été signé depuis l'espace client.`,
+      });
+    }
+
+    await writeAuditLog({
+      companyId: pv.company_id,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "client.pv_signed",
+      newValues: { status: "signe", signed_at: new Date().toISOString() },
+      metadata: { numero: pv.numero, actor_email: s.email, ip, via: "client_area" },
+      actor: "client",
+    });
+
+    if (pv.company_id) {
+      firePushToCompany(pv.company_id, {
+        title: "PV signé par le client",
+        body: `${pv.numero} a été signé depuis l'espace client.`,
+        url: `/pv/${pv.id}`,
+        tag: `pv-signed-${pv.id}`,
+        requireInteraction: true,
+      });
+    }
+
+    // Generate final PDF + send by email (non-fatal)
+    try {
+      await buildAndStorePvPdf(pv.id);
+      await writeAuditLog({
+        companyId: pv.company_id,
+        pvId: pv.id,
+        entityType: "pv",
+        entityId: pv.id,
+        action: "pv.pdf_generated",
+        metadata: { trigger: "auto_after_client_sign" },
+        actor: "pdf",
+      });
+      try {
+        await deliverSignedPv({ pvId: pv.id, trigger: "auto" });
+      } catch (e) {
+        console.error("Signed PV email delivery failed:", e);
+      }
+    } catch (e) {
+      console.error("PDF generation failed after client sign:", e);
+    }
+
+    return { ok: true as const };
+  });
+
+// ─── client activity / history ────────────────────────────────────────────────
+export const getClientActivity = createServerFn({ method: "GET" }).handler(async () => {
+  const s = await requireSession();
+
+  // Logs liés à cet email OU à ses PVs
+  // 1. Récupère les PV ids du client
+  let pvIds: string[] = [];
+  if (s.clientId) {
+    const { data } = await supabaseAdmin
+      .from("pv")
+      .select("id")
+      .or(`client_id.eq.${s.clientId},sent_to_email.eq.${s.email}`);
+    pvIds = (data ?? []).map((r: any) => r.id);
+  } else {
+    const { data } = await supabaseAdmin.from("pv").select("id").eq("sent_to_email", s.email);
+    pvIds = (data ?? []).map((r: any) => r.id);
+  }
+
+  const orParts: string[] = [`metadata->>actor_email.eq.${s.email}`];
+  if (pvIds.length > 0) orParts.push(`pv_id.in.(${pvIds.join(",")})`);
+
+  const { data, error } = await supabaseAdmin
+    .from("audit_logs")
+    .select("id,action,created_at,metadata,pv_id,ip_address,user_agent")
+    .or(orParts.join(","))
+    .in("action", [
+      "client.login_code_sent",
+      "client.login_success",
+      "client.login_failed",
+      "client.logout",
+      "client.pv_viewed",
+      "client.pdf_downloaded",
+      "client.pv_signed",
+      "client.session_revoked",
+      "client.all_sessions_revoked",
+    ])
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+
+  // Numero lookup for prettier display
+  const pvIdsInLogs = Array.from(
+    new Set((data ?? []).map((r: any) => r.pv_id).filter(Boolean)),
+  ) as string[];
+  let pvMap: Record<string, string> = {};
+  if (pvIdsInLogs.length) {
+    const { data: pvs } = await supabaseAdmin
+      .from("pv")
+      .select("id,numero")
+      .in("id", pvIdsInLogs);
+    pvMap = Object.fromEntries((pvs ?? []).map((p: any) => [p.id, p.numero]));
+  }
+
+  return {
+    events: (data ?? []).map((r: any) => ({
+      id: r.id,
+      action: r.action,
+      created_at: r.created_at,
+      pv_id: r.pv_id,
+      pv_numero: r.pv_id ? pvMap[r.pv_id] : null,
+      ip: r.ip_address,
+      ua: r.user_agent,
+    })),
+  };
+});
+
+// ─── client profile / sessions ────────────────────────────────────────────────
+export const getClientProfile = createServerFn({ method: "GET" }).handler(async () => {
+  const s = await requireSession();
+  const token = readClientCookieToken();
+  const currentHash = token ? await sha256Hex(token) : null;
+
+  const { data, error } = await supabaseAdmin
+    .from("client_sessions")
+    .select("id,token_hash,ip_address,user_agent,created_at,last_seen_at,expires_at,revoked_at")
+    .eq("email", s.email)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("last_seen_at", { ascending: false })
+    .limit(20);
+  if (error) throw new Error(error.message);
+
+  const sessions = (data ?? []).map((row: any) => ({
+    id: row.id,
+    isCurrent: currentHash !== null && row.token_hash === currentHash,
+    ip: row.ip_address,
+    ua: row.user_agent,
+    deviceLabel: describeUA(row.user_agent),
+    created_at: row.created_at,
+    last_seen_at: row.last_seen_at,
+    expires_at: row.expires_at,
+  }));
+
+  return { email: s.email, sessions };
+});
+
+export const revokeClientSession = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ sessionId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const s = await requireSession();
+    const token = readClientCookieToken();
+    const currentHash = token ? await sha256Hex(token) : null;
+
+    const { data: row } = await supabaseAdmin
+      .from("client_sessions")
+      .select("id,email,token_hash")
+      .eq("id", data.sessionId)
+      .maybeSingle();
+    if (!row || row.email !== s.email) throw new Error("Session introuvable.");
+
+    await supabaseAdmin
+      .from("client_sessions")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", row.id);
+
+    await writeAuditLog({
+      companyId: null,
+      entityType: "client_auth",
+      action: "client.session_revoked",
+      metadata: { actor_email: s.email, session_id: row.id, was_current: row.token_hash === currentHash },
+      actor: "client",
+    });
+
+    const isCurrent = row.token_hash === currentHash;
+    if (isCurrent) clearClientCookie();
+    return { ok: true as const, wasCurrent: isCurrent };
+  });
+
+export const revokeAllClientSessions = createServerFn({ method: "POST" }).handler(async () => {
+  const s = await requireSession();
+
+  await supabaseAdmin
+    .from("client_sessions")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("email", s.email)
+    .is("revoked_at", null);
+
+  await writeAuditLog({
+    companyId: null,
+    entityType: "client_auth",
+    action: "client.all_sessions_revoked",
+    metadata: { actor_email: s.email },
+    actor: "client",
+  });
+
+  clearClientCookie();
+  return { ok: true as const };
+});
