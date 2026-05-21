@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/audit.server";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { enforceRateLimit, getClientIp } from "@/lib/rate-limit.server";
 
 const EventSchema = z.object({
   action: z.enum(["user.login_code_sent", "user.login_success", "user.login_failed", "user.logout"]),
@@ -12,33 +13,34 @@ const EventSchema = z.object({
 /**
  * Best-effort audit logger for passwordless user auth events.
  * Never throws to the caller — auth UX must not depend on logging.
+ * Rate-limited per IP to prevent audit-log spam.
  */
 export const logUserAuthEvent = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => EventSchema.parse(d))
   .handler(async ({ data }) => {
     try {
-      let userId: string | null = null;
-      let companyId: string | null = null;
-      if (data.email) {
-        const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
-        const match = list?.users.find((u) => (u.email ?? "").toLowerCase() === data.email!.toLowerCase());
-        if (match) {
-          userId = match.id;
-          const { data: cm } = await supabaseAdmin
-            .from("company_members")
-            .select("company_id")
-            .eq("user_id", match.id)
-            .eq("status", "active")
-            .limit(1)
-            .maybeSingle();
-          companyId = cm?.company_id ?? null;
-        }
+      const ip = getClientIp(getRequest());
+      await enforceRateLimit({
+        bucket: "auth.log",
+        key: ip,
+        limit: 20,
+        windowSec: 60,
+      });
+    } catch (e) {
+      if ((e as any)?.name === "RateLimitError") {
+        // Silently drop — auth UX must not surface logger throttling.
+        return { ok: true };
       }
+    }
+    try {
+      // Note: we intentionally do NOT look up the user id via admin.listUsers
+      // here — that's a privileged call and would be expensive to spam.
+      // The email is recorded in metadata; correlation happens at query time.
       await writeAuditLog({
-        companyId,
-        userId,
+        companyId: null,
+        userId: null,
         entityType: "auth",
-        entityId: userId,
+        entityId: null,
         action: data.action,
         metadata: { email: data.email, ...(data.metadata ?? {}) },
       });
