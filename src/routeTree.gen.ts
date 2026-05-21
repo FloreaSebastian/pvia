@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
+import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
 import { Route as AuthenticatedHistoriqueRouteImport } from './routes/_authenticated/historique'
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
@@ -58,6 +59,12 @@ const AuthenticatedTerrainRoute = AuthenticatedTerrainRouteImport.update({
   path: '/terrain',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedStatistiquesRoute =
+  AuthenticatedStatistiquesRouteImport.update({
+    id: '/statistiques',
+    path: '/statistiques',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
   id: '/reserves',
   path: '/reserves',
@@ -136,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/equipe': typeof AuthenticatedEquipeRoute
   '/historique': typeof AuthenticatedHistoriqueRoute
   '/reserves': typeof AuthenticatedReservesRoute
+  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
@@ -156,6 +164,7 @@ export interface FileRoutesByTo {
   '/equipe': typeof AuthenticatedEquipeRoute
   '/historique': typeof AuthenticatedHistoriqueRoute
   '/reserves': typeof AuthenticatedReservesRoute
+  '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
@@ -178,6 +187,7 @@ export interface FileRoutesById {
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
   '/_authenticated/historique': typeof AuthenticatedHistoriqueRoute
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
+  '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/historique'
     | '/reserves'
+    | '/statistiques'
     | '/terrain'
     | '/invite/$token'
     | '/pv/$id'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/historique'
     | '/reserves'
+    | '/statistiques'
     | '/terrain'
     | '/invite/$token'
     | '/pv/$id'
@@ -241,6 +253,7 @@ export interface FileRouteTypes {
     | '/_authenticated/equipe'
     | '/_authenticated/historique'
     | '/_authenticated/reserves'
+    | '/_authenticated/statistiques'
     | '/_authenticated/terrain'
     | '/invite/$token'
     | '/_authenticated/pv/$id'
@@ -302,6 +315,13 @@ declare module '@tanstack/react-router' {
       path: '/terrain'
       fullPath: '/terrain'
       preLoaderRoute: typeof AuthenticatedTerrainRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/statistiques': {
+      id: '/_authenticated/statistiques'
+      path: '/statistiques'
+      fullPath: '/statistiques'
+      preLoaderRoute: typeof AuthenticatedStatistiquesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/reserves': {
@@ -428,6 +448,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
   AuthenticatedHistoriqueRoute: typeof AuthenticatedHistoriqueRoute
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
+  AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
@@ -442,6 +463,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
   AuthenticatedHistoriqueRoute: AuthenticatedHistoriqueRoute,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
+  AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
