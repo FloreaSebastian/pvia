@@ -9,7 +9,6 @@ import {
   Menu,
   X,
   Search,
-  Bell,
   HelpCircle,
   Sparkles,
   AlertCircle,
@@ -23,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Logo } from "@/components/landing/Logo";
 import { CompanySwitcher } from "@/components/app/CompanySwitcher";
+import { NotificationsBell } from "@/components/app/NotificationsBell";
+
 
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
