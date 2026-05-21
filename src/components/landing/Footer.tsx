@@ -22,17 +22,18 @@ export function Footer() {
               href="mailto:contact@pvpro.fr"
               className="mt-4 inline-flex items-center gap-2 text-sm text-foreground hover:text-primary"
             >
-              <Mail className="h-4 w-4" /> contact@pvpro.fr
+              <Mail className="h-4 w-4" />
+              <span>contact@pvpro.fr</span>
             </a>
           </div>
 
           <FooterCol
             title="Produit"
             links={[
-              ["Fonctionnalités", "#features"],
-              ["Tarifs", "#pricing"],
-              ["Démo", "#demo"],
-              ["Avis clients", "#testimonials"],
+              ["Fonctionnalités", "/#features"],
+              ["Tarifs", "/#pricing"],
+              ["Démo", "/#demo"],
+              ["Avis clients", "/#testimonials"],
             ]}
           />
           <FooterCol
@@ -57,7 +58,7 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} PV Pro — Tous droits réservés.
+            © 2026 PV Pro — Tous droits réservés.
           </p>
           <div className="flex items-center gap-3">
             {[Linkedin, Twitter, Facebook].map((Icon, i) => (

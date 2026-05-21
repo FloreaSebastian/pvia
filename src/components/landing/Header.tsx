@@ -52,10 +52,10 @@ export function Header() {
 
         <div className="hidden items-center gap-2 lg:flex">
           <Button variant="ghost" size="sm" asChild>
-            <a href="#login">Connexion</a>
+            <Link to="/login">Connexion</Link>
           </Button>
           <Button size="sm" className="shadow-sm" asChild>
-            <a href="#signup">Créer mon PV de réception</a>
+            <Link to="/signup">Créer mon PV de réception</Link>
           </Button>
         </div>
 
@@ -82,11 +82,11 @@ export function Header() {
               </a>
             ))}
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" className="flex-1">
-                Connexion
+              <Button variant="outline" size="sm" className="flex-1" asChild>
+                <Link to="/login">Connexion</Link>
               </Button>
-              <Button size="sm" className="flex-1">
-                Essai gratuit
+              <Button size="sm" className="flex-1" asChild>
+                <Link to="/signup">Essai gratuit</Link>
               </Button>
             </div>
           </div>
