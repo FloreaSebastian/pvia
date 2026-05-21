@@ -48,6 +48,7 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       .eq("id", data.pvId)
       .maybeSingle();
     if (!pv) throw new Error("PV introuvable.");
+    if (!pv.company_id) throw new Error("PV sans entreprise.");
 
     // Verify caller is member of company
     const { data: membership } = await supabaseAdmin
