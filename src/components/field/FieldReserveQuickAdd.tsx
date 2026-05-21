@@ -10,9 +10,9 @@ import { enqueue } from "@/lib/field-offline";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 
 const SEV = [
-  { value: "mineure", label: "Mineure", color: "bg-emerald-100 text-emerald-700" },
-  { value: "majeure", label: "Majeure", color: "bg-amber-100 text-amber-700" },
-  { value: "bloquante", label: "Bloquante", color: "bg-red-100 text-red-700" },
+  { value: "mineure", label: "Mineure", color: "bg-success/15 text-success" },
+  { value: "majeure", label: "Majeure", color: "bg-warning/15 text-warning" },
+  { value: "bloquante", label: "Bloquante", color: "bg-destructive/15 text-destructive" },
 ] as const;
 type Sev = (typeof SEV)[number]["value"];
 

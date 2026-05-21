@@ -36,7 +36,7 @@ export function FieldSignaturePad({
     <div className="rounded-2xl border border-border bg-card p-3">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-medium">{label}</span>
-        {hasInk ? <span className="text-[11px] text-emerald-600">✓ Signé</span> : null}
+        {hasInk ? <span className="text-[11px] text-success">✓ Signé</span> : null}
       </div>
       <div className="overflow-hidden rounded-xl border border-dashed border-border bg-background">
         {value && !hasInk ? (
