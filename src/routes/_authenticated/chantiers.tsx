@@ -30,22 +30,25 @@ const STATUSES = [
 ];
 
 function ChantiersPage() {
+  const { activeCompanyId, can } = useCompany();
   const [items, setItems] = useState<Chantier[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Chantier | null>(null);
   const empty = { name: "", address: "", type: "BTP", status: "en_cours", client_id: "", start_date: "", end_date: "", description: "" };
   const [form, setForm] = useState(empty);
+  const canWrite = can("manage");
 
   async function load() {
+    if (!activeCompanyId) return;
     const [a, b] = await Promise.all([
-      supabase.from("chantiers").select("*").order("created_at", { ascending: false }),
-      supabase.from("clients").select("id,name").order("name"),
+      supabase.from("chantiers").select("*").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
+      supabase.from("clients").select("id,name").eq("company_id", activeCompanyId).order("name"),
     ]);
     setItems((a.data as Chantier[]) ?? []);
     setClients((b.data as Client[]) ?? []);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId]);
 
   function openNew() { setEditing(null); setForm(empty); setOpen(true); }
   function openEdit(c: Chantier) {
@@ -60,10 +63,11 @@ function ChantiersPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user || !activeCompanyId) return;
     const payload = {
       ...form,
       owner_id: user.id,
+      company_id: activeCompanyId,
       client_id: form.client_id || null,
       start_date: form.start_date || null,
       end_date: form.end_date || null,
