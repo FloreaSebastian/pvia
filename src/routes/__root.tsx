@@ -82,9 +82,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "PVIA" },
       { name: "mobile-web-app-capable", content: "yes" },
+      { property: "og:site_name", content: "PVIA" },
+      { property: "og:locale", content: "fr_FR" },
       { property: "og:title", content: "PVIA — Réception de travaux intelligente" },
       { property: "og:description", content: "Créez, signez et envoyez vos PV depuis le terrain." },
       { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "PVIA — Réception de travaux intelligente" },
+      { name: "twitter:description", content: "Créez, signez et envoyez vos PV depuis le terrain." },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -92,6 +97,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       { rel: "icon", type: "image/png", sizes: "192x192", href: "/icons/icon-192.png" },
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32.png" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "PVIA",
+          url: "https://pvia.fr",
+          logo: "https://pvia.fr/icons/icon-512.png",
+          description:
+            "Solution SaaS de procès-verbaux de réception de travaux pour les professionnels du BTP.",
+          contactPoint: {
+            "@type": "ContactPoint",
+            email: "contact@pvia.fr",
+            contactType: "customer support",
+            areaServed: "FR",
+            availableLanguage: ["French"],
+          },
+        }),
+      },
     ],
   }),
   shellComponent: RootShell,
