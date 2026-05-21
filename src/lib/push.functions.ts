@@ -16,6 +16,7 @@ export const subscribePush = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => SubscribeSchema.parse(i))
   .handler(async ({ data, context }) => {
+    await enforceRateLimit({ bucket: "push.subscribe", key: context.userId, limit: 20, windowSec: 3600 });
     // Verify membership
     const { data: m } = await supabaseAdmin
       .from("company_members")
