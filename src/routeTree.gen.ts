@@ -15,6 +15,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as ClientVerifyRouteImport } from './routes/client.verify'
+import { Route as ClientLoginRouteImport } from './routes/client.login'
+import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
 import { Route as AuthenticatedUpgradeRequiredRouteImport } from './routes/_authenticated/upgrade-required'
 import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
 import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
@@ -28,6 +31,7 @@ import { Route as AuthenticatedChantiersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
+import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
@@ -65,6 +69,21 @@ const IndexRoute = IndexRouteImport.update({
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientVerifyRoute = ClientVerifyRouteImport.update({
+  id: '/client/verify',
+  path: '/client/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientLoginRoute = ClientLoginRouteImport.update({
+  id: '/client/login',
+  path: '/client/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientDashboardRoute = ClientDashboardRouteImport.update({
+  id: '/client/dashboard',
+  path: '/client/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedUpgradeRequiredRoute =
@@ -134,6 +153,11 @@ const SignPvTokenRoute = SignPvTokenRouteImport.update({
   path: '/sign/pv/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientPvIdRoute = ClientPvIdRouteImport.update({
+  id: '/client/pv/$id',
+  path: '/client/pv/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedTerrainIdRoute = AuthenticatedTerrainIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -201,12 +225,16 @@ export interface FileRoutesByFullPath {
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
+  '/client/dashboard': typeof ClientDashboardRoute
+  '/client/login': typeof ClientLoginRoute
+  '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
@@ -230,12 +258,16 @@ export interface FileRoutesByTo {
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
+  '/client/dashboard': typeof ClientDashboardRoute
+  '/client/login': typeof ClientLoginRoute
+  '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
@@ -261,12 +293,16 @@ export interface FileRoutesById {
   '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/_authenticated/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
+  '/client/dashboard': typeof ClientDashboardRoute
+  '/client/login': typeof ClientLoginRoute
+  '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/_authenticated/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
@@ -292,12 +328,16 @@ export interface FileRouteTypes {
     | '/statistiques'
     | '/terrain'
     | '/upgrade-required'
+    | '/client/dashboard'
+    | '/client/login'
+    | '/client/verify'
     | '/invite/$token'
     | '/admin/monitoring'
     | '/parametres/notifications'
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
+    | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/pv/'
     | '/pv/$id/historique'
@@ -321,12 +361,16 @@ export interface FileRouteTypes {
     | '/statistiques'
     | '/terrain'
     | '/upgrade-required'
+    | '/client/dashboard'
+    | '/client/login'
+    | '/client/verify'
     | '/invite/$token'
     | '/admin/monitoring'
     | '/parametres/notifications'
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
+    | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/pv'
     | '/pv/$id/historique'
@@ -351,12 +395,16 @@ export interface FileRouteTypes {
     | '/_authenticated/statistiques'
     | '/_authenticated/terrain'
     | '/_authenticated/upgrade-required'
+    | '/client/dashboard'
+    | '/client/login'
+    | '/client/verify'
     | '/invite/$token'
     | '/_authenticated/admin/monitoring'
     | '/_authenticated/parametres/notifications'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
     | '/_authenticated/terrain/$id'
+    | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/_authenticated/pv/'
     | '/_authenticated/pv/$id/historique'
@@ -371,7 +419,11 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ClientDashboardRoute: typeof ClientDashboardRoute
+  ClientLoginRoute: typeof ClientLoginRoute
+  ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  ClientPvIdRoute: typeof ClientPvIdRoute
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicHooksCheckExpiringTrialsRoute: typeof ApiPublicHooksCheckExpiringTrialsRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
@@ -420,6 +472,27 @@ declare module '@tanstack/react-router' {
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/verify': {
+      id: '/client/verify'
+      path: '/client/verify'
+      fullPath: '/client/verify'
+      preLoaderRoute: typeof ClientVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/login': {
+      id: '/client/login'
+      path: '/client/login'
+      fullPath: '/client/login'
+      preLoaderRoute: typeof ClientLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/dashboard': {
+      id: '/client/dashboard'
+      path: '/client/dashboard'
+      fullPath: '/client/dashboard'
+      preLoaderRoute: typeof ClientDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/upgrade-required': {
@@ -511,6 +584,13 @@ declare module '@tanstack/react-router' {
       path: '/sign/pv/$token'
       fullPath: '/sign/pv/$token'
       preLoaderRoute: typeof SignPvTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/pv/$id': {
+      id: '/client/pv/$id'
+      path: '/client/pv/$id'
+      fullPath: '/client/pv/$id'
+      preLoaderRoute: typeof ClientPvIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/terrain/$id': {
@@ -650,7 +730,11 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ClientDashboardRoute: ClientDashboardRoute,
+  ClientLoginRoute: ClientLoginRoute,
+  ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
+  ClientPvIdRoute: ClientPvIdRoute,
   SignPvTokenRoute: SignPvTokenRoute,
   ApiPublicHooksCheckExpiringTrialsRoute:
     ApiPublicHooksCheckExpiringTrialsRoute,
