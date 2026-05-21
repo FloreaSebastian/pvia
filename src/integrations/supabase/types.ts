@@ -332,7 +332,11 @@ export type Database = {
           company_signature: string | null
           created_at: string
           description: string | null
+          field_last_saved_at: string | null
           id: string
+          is_field_draft: boolean
+          latitude: number | null
+          longitude: number | null
           numero: string
           observations: string | null
           owner_id: string
@@ -356,7 +360,11 @@ export type Database = {
           company_signature?: string | null
           created_at?: string
           description?: string | null
+          field_last_saved_at?: string | null
           id?: string
+          is_field_draft?: boolean
+          latitude?: number | null
+          longitude?: number | null
           numero: string
           observations?: string | null
           owner_id: string
@@ -380,7 +388,11 @@ export type Database = {
           company_signature?: string | null
           created_at?: string
           description?: string | null
+          field_last_saved_at?: string | null
           id?: string
+          is_field_draft?: boolean
+          latitude?: number | null
+          longitude?: number | null
           numero?: string
           observations?: string | null
           owner_id?: string
@@ -426,6 +438,7 @@ export type Database = {
           company_id: string | null
           created_at: string
           id: string
+          kind: string
           owner_id: string
           pv_id: string
           url: string
@@ -435,6 +448,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           id?: string
+          kind?: string
           owner_id: string
           pv_id: string
           url: string
@@ -444,6 +458,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           id?: string
+          kind?: string
           owner_id?: string
           pv_id?: string
           url?: string

@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
 import { Route as AuthenticatedEntrepriseRouteImport } from './routes/_authenticated/entreprise'
@@ -22,6 +23,7 @@ import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedChantiersRouteImport } from './routes/_authenticated/chantiers'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
+import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 
@@ -48,6 +50,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTerrainRoute = AuthenticatedTerrainRouteImport.update({
+  id: '/terrain',
+  path: '/terrain',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
   id: '/reserves',
@@ -89,6 +96,11 @@ const SignPvTokenRoute = SignPvTokenRouteImport.update({
   path: '/sign/pv/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTerrainIdRoute = AuthenticatedTerrainIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AuthenticatedTerrainRoute,
+} as any)
 const AuthenticatedPvNewRoute = AuthenticatedPvNewRouteImport.update({
   id: '/pv/new',
   path: '/pv/new',
@@ -110,9 +122,11 @@ export interface FileRoutesByFullPath {
   '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/equipe': typeof AuthenticatedEquipeRoute
   '/reserves': typeof AuthenticatedReservesRoute
+  '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
+  '/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
 }
@@ -126,9 +140,11 @@ export interface FileRoutesByTo {
   '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/equipe': typeof AuthenticatedEquipeRoute
   '/reserves': typeof AuthenticatedReservesRoute
+  '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
+  '/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/pv': typeof AuthenticatedPvIndexRoute
 }
@@ -144,9 +160,11 @@ export interface FileRoutesById {
   '/_authenticated/entreprise': typeof AuthenticatedEntrepriseRoute
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
+  '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
+  '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
 }
@@ -162,9 +180,11 @@ export interface FileRouteTypes {
     | '/entreprise'
     | '/equipe'
     | '/reserves'
+    | '/terrain'
     | '/invite/$token'
     | '/pv/$id'
     | '/pv/new'
+    | '/terrain/$id'
     | '/sign/pv/$token'
     | '/pv/'
   fileRoutesByTo: FileRoutesByTo
@@ -178,9 +198,11 @@ export interface FileRouteTypes {
     | '/entreprise'
     | '/equipe'
     | '/reserves'
+    | '/terrain'
     | '/invite/$token'
     | '/pv/$id'
     | '/pv/new'
+    | '/terrain/$id'
     | '/sign/pv/$token'
     | '/pv'
   id:
@@ -195,9 +217,11 @@ export interface FileRouteTypes {
     | '/_authenticated/entreprise'
     | '/_authenticated/equipe'
     | '/_authenticated/reserves'
+    | '/_authenticated/terrain'
     | '/invite/$token'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
+    | '/_authenticated/terrain/$id'
     | '/sign/pv/$token'
     | '/_authenticated/pv/'
   fileRoutesById: FileRoutesById
@@ -247,6 +271,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/terrain': {
+      id: '/_authenticated/terrain'
+      path: '/terrain'
+      fullPath: '/terrain'
+      preLoaderRoute: typeof AuthenticatedTerrainRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/reserves': {
       id: '/_authenticated/reserves'
@@ -304,6 +335,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignPvTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/terrain/$id': {
+      id: '/_authenticated/terrain/$id'
+      path: '/$id'
+      fullPath: '/terrain/$id'
+      preLoaderRoute: typeof AuthenticatedTerrainIdRouteImport
+      parentRoute: typeof AuthenticatedTerrainRoute
+    }
     '/_authenticated/pv/new': {
       id: '/_authenticated/pv/new'
       path: '/pv/new'
@@ -321,6 +359,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedTerrainRouteChildren {
+  AuthenticatedTerrainIdRoute: typeof AuthenticatedTerrainIdRoute
+}
+
+const AuthenticatedTerrainRouteChildren: AuthenticatedTerrainRouteChildren = {
+  AuthenticatedTerrainIdRoute: AuthenticatedTerrainIdRoute,
+}
+
+const AuthenticatedTerrainRouteWithChildren =
+  AuthenticatedTerrainRoute._addFileChildren(AuthenticatedTerrainRouteChildren)
+
 interface AuthenticatedRouteChildren {
   AuthenticatedChantiersRoute: typeof AuthenticatedChantiersRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
@@ -328,6 +377,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedEntrepriseRoute: typeof AuthenticatedEntrepriseRoute
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
+  AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRoute
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
@@ -340,6 +390,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedEntrepriseRoute: AuthenticatedEntrepriseRoute,
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
+  AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRoute,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
