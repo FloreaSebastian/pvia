@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatedCounter } from "@/components/app/AnimatedCounter";
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { useCompany } from "@/hooks/use-company";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
