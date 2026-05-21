@@ -113,13 +113,10 @@ export const getPvPdfSignedUrl = createServerFn({ method: "POST" })
 
 const TokenSchema = z.object({ token: z.string().min(10).max(128) });
 
-/** Public: returns a signed URL for the PDF identified by its (consumed) sign token. */
-export const getPvPdfByToken = createServerFn({ method: "POST" })
-  .inputValidator((input) => TokenSchema.parse(input))
-  .handler(async ({ data }) => {
-    void data;
-    throw new Error("Use getPvPdfByPvId for public access after sign.");
-  });
+const TokenSchema2 = z.object({ pvId: z.string().uuid() });
+void TokenSchema; void TokenSchema2;
+
+
 
 const PublicSchema = z.object({ pvId: z.string().uuid(), publicKey: z.string().min(10).max(128) });
 
