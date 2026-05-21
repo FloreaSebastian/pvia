@@ -100,7 +100,11 @@ function ClientDashboard() {
         >
           {q.data.pvs.map((pv: any) => {
             const st = statusLabel(pv.status);
-            const needsSign = pv.status !== "signe" && pv.sign_token;
+            const isSigned = pv.status === "signe" || !!pv.client_signature;
+            const isExpired =
+              !!pv.sign_token_expires_at && new Date(pv.sign_token_expires_at) < new Date();
+            const signable = new Set(["en_attente", "en_attente_signature", "envoye"]);
+            const needsSign = !isSigned && !isExpired && signable.has(pv.status);
             return (
               <motion.li
                 key={pv.id}
@@ -114,7 +118,18 @@ function ClientDashboard() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold">PV {pv.numero}</span>
-                        <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+                        {isSigned ? (
+                          <Badge className="bg-emerald-600 text-[10px] hover:bg-emerald-600">
+                            Signé
+                          </Badge>
+                        ) : needsSign ? (
+                          <Badge variant="destructive" className="text-[10px]">À signer</Badge>
+                        ) : (
+                          <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+                        )}
+                        {pv.pdf_url && (
+                          <Badge variant="secondary" className="text-[10px]">PDF disponible</Badge>
+                        )}
                       </div>
                       <div className="mt-1 truncate text-xs text-muted-foreground">
                         {pv.reception_date ? `Réception ${new Date(pv.reception_date).toLocaleDateString("fr-FR")}` : "Date non précisée"}
@@ -126,13 +141,9 @@ function ClientDashboard() {
                   <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
                     {needsSign && (
                       <Button asChild size="sm" variant="default">
-                        <a
-                          href={`/sign/pv/${pv.sign_token}`}
-                          target="_blank"
-                          rel="noopener"
-                        >
+                        <Link to="/client/pv/$id" params={{ id: pv.id }}>
                           <PenLine className="mr-1.5 h-3.5 w-3.5" /> Signer
-                        </a>
+                        </Link>
                       </Button>
                     )}
                     {pv.pdf_url && (
