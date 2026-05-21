@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          company_id: string | null
+          event_name: string
+          id: string
+          is_pwa: boolean | null
+          occurred_at: string
+          path: string | null
+          props: Json | null
+          referrer: string | null
+          session_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          event_name: string
+          id?: string
+          is_pwa?: boolean | null
+          occurred_at?: string
+          path?: string | null
+          props?: Json | null
+          referrer?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          event_name?: string
+          id?: string
+          is_pwa?: boolean | null
+          occurred_at?: string
+          path?: string | null
+          props?: Json | null
+          referrer?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       app_errors: {
         Row: {
           company_id: string | null
@@ -811,6 +853,7 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      cleanup_analytics_events: { Args: never; Returns: undefined }
       cleanup_rate_limits: { Args: never; Returns: number }
       get_company_limits: {
         Args: { _company_id: string }
