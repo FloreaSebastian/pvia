@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { useCompany } from "@/hooks/use-company";
 
 export const Route = createFileRoute("/_authenticated/pv/new")({
   component: NewPv,
