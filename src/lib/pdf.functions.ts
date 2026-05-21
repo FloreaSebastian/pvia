@@ -111,10 +111,8 @@ export const getPvPdfSignedUrl = createServerFn({ method: "POST" })
     return { url: s.signedUrl };
   });
 
-const TokenSchema = z.object({ token: z.string().min(10).max(128) });
 
-const TokenSchema2 = z.object({ pvId: z.string().uuid() });
-void TokenSchema; void TokenSchema2;
+
 
 
 
