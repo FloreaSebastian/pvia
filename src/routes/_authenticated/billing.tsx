@@ -95,6 +95,23 @@ function BillingPage() {
         <p className="mt-1 text-muted-foreground">Plan actif, consommation, gestion de l'abonnement.</p>
       </div>
 
+      {access?.blocked && (
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
+          <AlertOctagon className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div className="flex-1">
+            <div className="font-medium text-destructive">Abonnement requis ({access.state})</div>
+            <p className="mt-0.5 text-muted-foreground">
+              Création PV, signatures distantes, exports et invitations sont bloqués
+              tant que l'abonnement n'est pas régularisé. La lecture des anciens PV reste possible.
+            </p>
+            <Button asChild size="sm" className="mt-3">
+              <Link to="/upgrade-required" search={{ reason: access.state }}>Voir les options</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
+
       {/* Current plan + usage */}
       <Card className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
