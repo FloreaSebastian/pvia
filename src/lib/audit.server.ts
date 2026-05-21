@@ -27,7 +27,16 @@ export type AuditAction =
   | "member.suspended"
   | "member.reactivated"
   | "member.removed"
-  | "audit.exported";
+  | "audit.exported"
+  | "client.login_code_sent"
+  | "client.login_success"
+  | "client.login_failed"
+  | "client.logout"
+  | "client.pv_viewed"
+  | "client.pdf_downloaded"
+  | "client.pv_signed"
+  | "client.session_revoked"
+  | "client.all_sessions_revoked";
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
 
