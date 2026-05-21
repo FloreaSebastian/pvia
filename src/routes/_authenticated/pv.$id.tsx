@@ -12,6 +12,8 @@ import {
   ChevronRight,
   Send,
   Copy,
+  Mail,
+  RotateCw,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 import { useServerFn } from "@tanstack/react-start";
 import { sendPvToClient } from "@/lib/sign.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
+import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
@@ -59,6 +62,8 @@ function PvDetail() {
   const sendPv = useServerFn(sendPvToClient);
   const regenPdf = useServerFn(regeneratePvPdf);
   const fetchPdfUrl = useServerFn(getPvPdfSignedUrl);
+  const resendSignedFn = useServerFn(sendSignedPvEmail);
+  const fetchLogsFn = useServerFn(listPvEmailLogs);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -71,6 +76,8 @@ function PvDetail() {
   const [sendingClient, setSendingClient] = useState(false);
   const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [emailLogs, setEmailLogs] = useState<Array<{ id: string; recipient_email: string; email_type: string; status: string; error_message: string | null; subject: string | null; sent_at: string | null; created_at: string }>>([]);
+  const [resendingSigned, setResendingSigned] = useState(false);
 
 
   const load = useCallback(async () => {
@@ -111,6 +118,33 @@ function PvDetail() {
   }, [id, navigate]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadLogs = useCallback(async () => {
+    try {
+      const { logs } = await fetchLogsFn({ data: { pvId: id } });
+      setEmailLogs(logs as any);
+    } catch {
+      /* silent */
+    }
+  }, [fetchLogsFn, id]);
+
+  useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  async function handleResendSigned() {
+    if (!pv) return;
+    setResendingSigned(true);
+    try {
+      const res = await resendSignedFn({ data: { pvId: pv.id } });
+      if (res.ok) toast.success("Email envoyé avec le PDF signé en pièce jointe.");
+      else toast.error("Aucun destinataire n'a reçu l'email — vérifiez les logs.");
+      loadLogs();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi");
+    } finally {
+      setResendingSigned(false);
+    }
+  }
+
 
   async function changeStatus(status: string) {
     if (!pv) return;
@@ -227,17 +261,33 @@ function PvDetail() {
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
             {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
-          {pv.pdf_url && (
-            <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-              <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
-            </Badge>
-          )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {pv.pdf_url && (
+              <Badge variant="secondary" className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
+              </Badge>
+            )}
+            {(() => {
+              const lastClientSent = emailLogs.find((l) => l.status === "sent" && (l.email_type === "signed_to_client" || l.email_type === "signed_resend"));
+              return lastClientSent ? (
+                <Badge variant="secondary" className="gap-1.5 bg-blue-100 text-blue-800 hover:bg-blue-100">
+                  <Mail className="h-3 w-3" /> Email envoyé au client le {new Date(lastClientSent.sent_at || lastClientSent.created_at).toLocaleString("fr-FR")}
+                </Badge>
+              ) : null;
+            })()}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
           {!pv.client_signature && (
             <Button onClick={openSendDialog}>
               <Send className="h-4 w-4" /> Envoyer au client pour signature
+            </Button>
+          )}
+          {pv.status === "signe" && pv.pdf_url && (
+            <Button variant="outline" onClick={handleResendSigned} disabled={resendingSigned}>
+              {resendingSigned ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+              {resendingSigned ? "Envoi…" : "Renvoyer le PDF signé"}
             </Button>
           )}
           <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
@@ -381,8 +431,57 @@ function PvDetail() {
           </div>
         )}
       </Card>
+
+      <Card className="p-6">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Historique des emails ({emailLogs.length})</h3>
+          </div>
+          {pv.status === "signe" && pv.pdf_url && (
+            <Button size="sm" variant="outline" onClick={handleResendSigned} disabled={resendingSigned}>
+              {resendingSigned ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+              Renvoyer le PDF signé
+            </Button>
+          )}
+        </div>
+        {emailLogs.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Aucun email envoyé pour ce PV.</p>
+        ) : (
+          <div className="space-y-2">
+            {emailLogs.map((l) => (
+              <div key={l.id} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={l.status === "sent" ? "secondary" : "destructive"} className={l.status === "sent" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" : ""}>
+                      {l.status === "sent" ? "Envoyé" : "Échec"}
+                    </Badge>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground">{labelForType(l.email_type)}</span>
+                  </div>
+                  <p className="mt-1 truncate font-medium">{l.recipient_email}</p>
+                  {l.subject && <p className="truncate text-xs text-muted-foreground">{l.subject}</p>}
+                  {l.error_message && <p className="mt-1 text-xs text-destructive">{l.error_message}</p>}
+                </div>
+                <div className="shrink-0 text-right text-xs text-muted-foreground">
+                  {new Date(l.sent_at || l.created_at).toLocaleString("fr-FR")}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
+}
+
+function labelForType(t: string) {
+  switch (t) {
+    case "signed_to_client": return "PV signé → client";
+    case "signed_copy_to_company": return "Copie entreprise";
+    case "signed_resend": return "Renvoi manuel";
+    case "invite": return "Invitation";
+    default: return t;
+  }
 }
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
