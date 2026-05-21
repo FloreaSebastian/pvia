@@ -340,7 +340,10 @@ function PvDetail() {
             <Button variant="outline"><ShieldCheck className="h-4 w-4" /> Historique légal</Button>
           </Link>
           <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
+        </div>
       </div>
+
+
 
       <SignatureTimeline
         createdAt={pv.created_at}
