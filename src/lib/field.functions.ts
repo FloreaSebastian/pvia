@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
+import { writeAuditLog } from "./audit.server";
 
 async function assertMember(companyId: string, userId: string) {
   const { data } = await supabaseAdmin
@@ -63,6 +64,12 @@ export const createFieldDraft = createServerFn({ method: "POST" })
       .select("id,numero")
       .single();
     if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId, pvId: pv.id, entityType: "pv", entityId: pv.id,
+      action: "pv.create",
+      newValues: { numero: pv.numero, type: "reception", status: "brouillon", is_field_draft: true },
+      metadata: { source: "field" }, actor: "user",
+    });
     return { id: pv.id, numero: pv.numero };
   });
 
@@ -92,6 +99,11 @@ export const saveFieldDraft = createServerFn({ method: "POST" })
       .update({ ...data.patch, field_last_saved_at: new Date().toISOString() })
       .eq("id", data.pvId);
     if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: pv.company_id, userId: context.userId, pvId: pv.id, entityType: "pv", entityId: pv.id,
+      action: "pv.update", newValues: data.patch as any,
+      metadata: { source: "field_autosave" }, actor: "user",
+    });
     return { ok: true, savedAt: new Date().toISOString() };
   });
 
