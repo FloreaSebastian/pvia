@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useCompany } from "@/hooks/use-company";
 
 export const Route = createFileRoute("/_authenticated/pv/")({
   component: PvList,
@@ -16,12 +17,18 @@ export const Route = createFileRoute("/_authenticated/pv/")({
 type Pv = { id: string; numero: string; type: string; status: string; reception_date: string | null; created_at: string; pdf_url: string | null };
 
 function PvList() {
+  const { activeCompanyId } = useCompany();
   const [items, setItems] = useState<Pv[]>([]);
   async function load() {
-    const { data } = await supabase.from("pv").select("id,numero,type,status,reception_date,created_at,pdf_url").order("created_at", { ascending: false });
+    if (!activeCompanyId) return;
+    const { data } = await supabase
+      .from("pv")
+      .select("id,numero,type,status,reception_date,created_at,pdf_url")
+      .eq("company_id", activeCompanyId)
+      .order("created_at", { ascending: false });
     setItems((data as Pv[]) ?? []);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId]);
   async function remove(id: string) {
     if (!confirm("Supprimer ce PV ?")) return;
     const { error } = await supabase.from("pv").delete().eq("id", id);
