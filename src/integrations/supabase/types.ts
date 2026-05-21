@@ -210,6 +210,48 @@ export type Database = {
           },
         ]
       }
+      email_logs: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          email_type: string
+          error_message: string | null
+          id: string
+          pv_id: string | null
+          recipient_email: string
+          resend_id: string | null
+          sent_at: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          email_type: string
+          error_message?: string | null
+          id?: string
+          pv_id?: string | null
+          recipient_email: string
+          resend_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          email_type?: string
+          error_message?: string | null
+          id?: string
+          pv_id?: string | null
+          recipient_email?: string
+          resend_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
