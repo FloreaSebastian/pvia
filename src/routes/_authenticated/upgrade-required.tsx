@@ -2,7 +2,8 @@ import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { AlertOctagon, CreditCard, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { PageHeader } from "@/components/app/PageHeader";
 import { useSubscription } from "@/hooks/use-subscription";
 import { z } from "zod";
 
@@ -71,58 +72,55 @@ function UpgradeRequiredPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6 lg:p-10">
-      <Card className="space-y-5 border-destructive/40 p-8">
-        <div className="flex items-center gap-3">
-          <div className="rounded-full bg-destructive/10 p-3 text-destructive">
-            <AlertOctagon className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{info.title}</h1>
-            <p className="text-sm text-muted-foreground">{info.body}</p>
-          </div>
-        </div>
-
-        <div className="grid gap-3 rounded-lg border bg-muted/40 p-4 text-sm sm:grid-cols-2">
-          <div>
-            <div className="text-xs uppercase text-muted-foreground">Plan actuel</div>
-            <div className="mt-0.5 font-medium">{limits?.display_name ?? plan}</div>
-          </div>
-          <div>
-            <div className="text-xs uppercase text-muted-foreground">État</div>
-            <div className="mt-0.5">
-              <Badge variant="secondary">{access?.state ?? "inconnu"}</Badge>
+    <div className="flex flex-col">
+      <PageHeader
+        eyebrow={<><AlertOctagon className="h-3 w-3" /> Abonnement</>}
+        title={info.title}
+        description={info.body}
+      />
+      <div className="mx-auto w-full max-w-2xl p-4 sm:p-6 lg:p-8">
+        <Card className="space-y-5 border-destructive/40 p-8 shadow-brand">
+          <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/40 p-4 text-sm sm:grid-cols-2">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Plan actuel</div>
+              <div className="mt-1 font-display font-bold">{limits?.display_name ?? plan}</div>
             </div>
-          </div>
-          {feature && (
-            <div className="sm:col-span-2">
-              <div className="text-xs uppercase text-muted-foreground">Fonctionnalité bloquée</div>
-              <div className="mt-0.5 font-mono text-xs">{feature}</div>
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">État</div>
+              <div className="mt-1">
+                <StatusPill tone="warning" dot>{access?.state ?? "inconnu"}</StatusPill>
+              </div>
             </div>
-          )}
-        </div>
+            {feature && (
+              <div className="sm:col-span-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Fonctionnalité bloquée</div>
+                <div className="mt-1 font-mono text-xs">{feature}</div>
+              </div>
+            )}
+          </div>
 
-        <div className="flex flex-wrap gap-3 pt-2">
-          <Button asChild>
-            <Link to="/billing">
-              <CreditCard className="mr-2 h-4 w-4" />
-              Voir les plans
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to="/pv">
-              Retour aux PV existants
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Button asChild>
+              <Link to="/billing">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Voir les plans
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/pv">
+                Retour aux PV existants
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
 
-        <p className="border-t pt-4 text-xs text-muted-foreground">
-          L'accès en lecture à vos anciens PV reste disponible — seules les actions
-          de création, signature et exports premium sont bloquées tant que l'abonnement
-          n'est pas régularisé.
-        </p>
-      </Card>
+          <p className="border-t border-border/60 pt-4 text-xs text-muted-foreground">
+            L'accès en lecture à vos anciens PV reste disponible — seules les actions
+            de création, signature et exports premium sont bloquées tant que l'abonnement
+            n'est pas régularisé.
+          </p>
+        </Card>
+      </div>
     </div>
   );
 }

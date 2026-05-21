@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { FileSignature, Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,31 +44,29 @@ function SignupPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden bg-gradient-to-br from-primary to-primary/70 p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-foreground/15">
-            <FileSignature className="h-5 w-5" />
-          </div>
-          <span className="font-semibold">PVIA</span>
-        </Link>
+      <div className="hidden bg-brand-gradient p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
+        <Link to="/" aria-label="PVIA"><BrandLogo variant="mono" /></Link>
         <div>
-          <h2 className="text-3xl font-semibold leading-tight">
+          <h2 className="font-display text-4xl font-bold leading-tight tracking-tight">
             Essayez PVIA gratuitement
           </h2>
-          <ul className="mt-6 space-y-3 text-primary-foreground/85">
-            <li>• 14 jours d'essai, sans CB</li>
-            <li>• Création illimitée de PV de réception</li>
-            <li>• Signature électronique légale</li>
-            <li>• Génération PDF automatique</li>
+          <ul className="mt-8 space-y-3 text-primary-foreground/90">
+            {["14 jours d'essai, sans carte bancaire", "Création illimitée de PV de réception", "Signature électronique conforme eIDAS", "Génération PDF automatique & horodatage"].map((t) => (
+              <li key={t} className="flex items-start gap-2.5 text-sm">
+                <span className="mt-0.5 grid h-5 w-5 place-items-center rounded-full bg-primary-foreground/15"><Check className="h-3 w-3" /></span>
+                {t}
+              </li>
+            ))}
           </ul>
         </div>
-        <p className="text-sm text-primary-foreground/70">© 2026 PVIA</p>
+        <p className="text-xs text-primary-foreground/70">© 2026 PVIA — Réception de travaux intelligente</p>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-12">
-        <Card className="w-full max-w-md p-8">
-          <h1 className="text-2xl font-semibold tracking-tight">Créer un compte</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Démarrez en moins de 2 minutes</p>
+        <Card className="w-full max-w-md border-border/60 p-8 shadow-brand">
+          <div className="mb-6 flex lg:hidden"><BrandLogo /></div>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Créer un compte</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">Démarrez en moins de 2 minutes</p>
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

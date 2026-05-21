@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { FileSignature, Loader2, Mail, KeyRound } from "lucide-react";
+import { Loader2, Mail, KeyRound, ShieldCheck } from "lucide-react";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,28 +64,28 @@ function LoginPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden bg-gradient-to-br from-primary to-primary/70 p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-foreground/15">
-            <FileSignature className="h-5 w-5" />
-          </div>
-          <span className="font-semibold">PVIA</span>
-        </Link>
+      <div className="hidden bg-brand-gradient p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
+        <Link to="/" aria-label="PVIA"><BrandLogo variant="mono" /></Link>
         <div>
-          <h2 className="text-3xl font-semibold leading-tight">
+          <h2 className="font-display text-4xl font-bold leading-tight tracking-tight">
             Connexion sans mot de passe.<br />Simple, rapide, sécurisée.
           </h2>
-          <p className="mt-4 text-primary-foreground/80">
+          <p className="mt-4 text-primary-foreground/85">
             Recevez un code à 6 chiffres par email. Plus de mot de passe à retenir.
           </p>
+          <ul className="mt-6 space-y-2 text-sm text-primary-foreground/80">
+            <li className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Authentification chiffrée bout-en-bout</li>
+            <li className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Conforme RGPD · hébergement EU</li>
+          </ul>
         </div>
-        <p className="text-sm text-primary-foreground/70">© 2026 PVIA</p>
+        <p className="text-xs text-primary-foreground/70">© 2026 PVIA — Réception de travaux intelligente</p>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-12">
-        <Card className="w-full max-w-md p-8">
-          <h1 className="text-2xl font-semibold tracking-tight">Connexion</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <Card className="w-full max-w-md border-border/60 p-8 shadow-brand">
+          <div className="mb-6 flex lg:hidden"><BrandLogo /></div>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Connexion</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
             Accédez à votre espace professionnel
           </p>
 
