@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
+import { Route as AuthenticatedEntrepriseRouteImport } from './routes/_authenticated/entreprise'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedChantiersRouteImport } from './routes/_authenticated/chantiers'
@@ -43,6 +44,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
   id: '/reserves',
   path: '/reserves',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedEntrepriseRoute = AuthenticatedEntrepriseRouteImport.update({
+  id: '/entreprise',
+  path: '/entreprise',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/reserves': typeof AuthenticatedReservesRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/reserves': typeof AuthenticatedReservesRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_authenticated/chantiers': typeof AuthenticatedChantiersRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/entreprise': typeof AuthenticatedEntrepriseRoute
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/chantiers'
     | '/clients'
     | '/dashboard'
+    | '/entreprise'
     | '/reserves'
     | '/pv/$id'
     | '/pv/new'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/chantiers'
     | '/clients'
     | '/dashboard'
+    | '/entreprise'
     | '/reserves'
     | '/pv/$id'
     | '/pv/new'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chantiers'
     | '/_authenticated/clients'
     | '/_authenticated/dashboard'
+    | '/_authenticated/entreprise'
     | '/_authenticated/reserves'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
@@ -196,6 +208,13 @@ declare module '@tanstack/react-router' {
       path: '/reserves'
       fullPath: '/reserves'
       preLoaderRoute: typeof AuthenticatedReservesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/entreprise': {
+      id: '/_authenticated/entreprise'
+      path: '/entreprise'
+      fullPath: '/entreprise'
+      preLoaderRoute: typeof AuthenticatedEntrepriseRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -247,6 +266,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChantiersRoute: typeof AuthenticatedChantiersRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedEntrepriseRoute: typeof AuthenticatedEntrepriseRoute
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRoute
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
@@ -257,6 +277,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChantiersRoute: AuthenticatedChantiersRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedEntrepriseRoute: AuthenticatedEntrepriseRoute,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRoute,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
@@ -276,3 +297,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
