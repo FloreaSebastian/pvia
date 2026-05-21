@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, ShieldCheck, PenLine, FileText, CheckCircle2, Camera, MapPin } from "lucide-react";
 
@@ -46,8 +47,10 @@ export function Hero() {
             transition={{ duration: 0.55, delay: 0.15 }}
             className="mt-8 flex flex-wrap items-center justify-center gap-3"
           >
-            <Button size="lg" className="h-12 px-6 shadow-md">
-              Commencer gratuitement <ArrowRight className="ml-1 h-4 w-4" />
+            <Button size="lg" className="h-12 px-6 shadow-lg shadow-primary/25" asChild>
+              <Link to="/signup">
+                Créer mon premier PV <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
             </Button>
             <Button size="lg" variant="outline" className="h-12 px-6">
               <Play className="mr-1 h-4 w-4" /> Voir une démo

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Header } from "@/components/landing/Header";
 import { Hero } from "@/components/landing/Hero";
+import { WhyPVIA } from "@/components/landing/WhyPVIA";
 import { Features } from "@/components/landing/Features";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Modules } from "@/components/landing/Modules";
@@ -10,6 +11,7 @@ import { Pricing } from "@/components/landing/Pricing";
 import { FAQ } from "@/components/landing/FAQ";
 import { CTA } from "@/components/landing/CTA";
 import { Footer } from "@/components/landing/Footer";
+import { StickyCTA } from "@/components/landing/StickyCTA";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -41,6 +43,7 @@ function Index() {
       <Header />
       <main>
         <Hero />
+        <WhyPVIA />
         <Features />
         <HowItWorks />
         <Modules />
@@ -51,6 +54,7 @@ function Index() {
         <CTA />
       </main>
       <Footer />
+      <StickyCTA />
     </div>
   );
 }

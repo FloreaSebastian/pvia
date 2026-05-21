@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
@@ -21,8 +22,8 @@ export function CTA() {
               Essayez PVIA gratuitement pendant 14 jours. Sans carte bancaire, sans engagement.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Button size="lg" variant="secondary" className="h-12 px-6 text-foreground">
-                Créer mon PV de réception <ArrowRight className="ml-1 h-4 w-4" />
+              <Button size="lg" variant="secondary" className="h-12 px-6 text-foreground" asChild>
+                <Link to="/signup">Créer mon premier PV <ArrowRight className="ml-1 h-4 w-4" /></Link>
               </Button>
               <Button
                 size="lg"
