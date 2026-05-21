@@ -46,6 +46,7 @@ type Pv = {
   client_signature: string | null;
   company_signature: string | null;
   pdf_url: string | null;
+  pdf_generated_at: string | null;
   chantier_id: string | null;
   client_id: string | null;
 };
