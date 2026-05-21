@@ -30,8 +30,8 @@ export const Route = createFileRoute("/_authenticated/statistiques")({
 
 type Stats = Awaited<ReturnType<typeof getCompanyStats>>;
 
-const PIE_COLORS = ["hsl(35 92% 55%)", "hsl(142 71% 45%)", "hsl(217 91% 60%)"];
-const SEV_COLORS = ["hsl(217 91% 60%)", "hsl(35 92% 55%)", "hsl(0 84% 60%)"];
+const PIE_COLORS = ["oklch(0.72 0.15 70)", "oklch(0.62 0.16 152)", "oklch(0.6 0.18 250)"];
+const SEV_COLORS = ["oklch(0.6 0.18 250)", "oklch(0.72 0.15 70)", "oklch(0.6 0.22 25)"];
 
 function deltaPct(curV: number, prevV: number | undefined | null): number | null {
   if (prevV === undefined || prevV === null) return null;
@@ -51,7 +51,7 @@ function DeltaBadge({
   const isPositive = flat ? null : invert ? !up : up;
   const tone = isPositive === null
     ? "bg-muted text-muted-foreground"
-    : isPositive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700";
+    : isPositive ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive";
   const Icon = flat ? Minus : up ? TrendingUp : TrendingDown;
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium", tone)}>
@@ -70,22 +70,22 @@ function KpiCard({
 }) {
   const tones: Record<string, string> = {
     default: "bg-primary/10 text-primary",
-    success: "bg-emerald-100 text-emerald-700",
-    warning: "bg-amber-100 text-amber-700",
-    danger: "bg-red-100 text-red-700",
+    success: "bg-success/15 text-success",
+    warning: "bg-warning/15 text-warning",
+    danger: "bg-destructive/15 text-destructive",
   };
   return (
-    <Card className="p-5">
+    <Card className="group relative overflow-hidden p-5 transition hover:-translate-y-0.5 hover:shadow-brand">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold">{value}</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
           <div className="mt-1 flex items-center gap-2">
             {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
             {delta}
           </div>
         </div>
-        <div className={`rounded-lg p-2 shrink-0 ${tones[tone]}`}>
+        <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tones[tone]}`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -297,7 +297,7 @@ function StatistiquesPage() {
               </PopoverContent>
             </Popover>
             {isCustom && (!from || !to) && (
-              <span className="text-xs text-amber-600">Sélectionnez les deux dates.</span>
+              <span className="text-xs text-warning">Sélectionnez les deux dates.</span>
             )}
           </>
         )}
@@ -335,8 +335,8 @@ function StatistiquesPage() {
           {alerts.map((a, i) => {
             const Icon = a.icon;
             const tone = a.level === "danger"
-              ? "bg-red-50 border-red-200 text-red-900"
-              : "bg-amber-50 border-amber-200 text-amber-900";
+              ? "bg-destructive/10 border-destructive/30 text-destructive"
+              : "bg-warning/10 border-warning/30 text-warning";
             return (
               <Card key={i} className={cn("p-3 flex items-center gap-3 border", tone)}>
                 <AlertTriangle className="h-4 w-4 shrink-0" />
