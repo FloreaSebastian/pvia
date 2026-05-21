@@ -140,6 +140,11 @@ function HistoriquePage() {
     }
   };
 
+  const filtered = useMemo(() => {
+    if (filter === "all") return logs;
+    return logs.filter((l: Log) => l.action.startsWith(filter));
+  }, [logs, filter]);
+
   return (
     <div className="container max-w-4xl py-8 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
