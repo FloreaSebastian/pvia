@@ -25,7 +25,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.05 }}
-            className="mt-6 text-balance text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl"
+            className="mt-6 text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl"
           >
             Le procès-verbal de réception de travaux{" "}
             <span className="text-gradient">enfin simple et professionnel.</span>
@@ -47,7 +47,7 @@ export function Hero() {
             transition={{ duration: 0.55, delay: 0.15 }}
             className="mt-8 flex flex-wrap items-center justify-center gap-3"
           >
-            <Button size="lg" className="h-12 px-6 shadow-lg shadow-primary/25" asChild>
+            <Button size="lg" className="h-12 px-6 shadow-brand" asChild>
               <Link to="/signup">
                 Créer mon premier PV <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
@@ -81,9 +81,9 @@ function MockupBrowser() {
       <div className="absolute -inset-x-10 -top-10 bottom-0 -z-10 rounded-[2rem] bg-gradient-to-b from-primary/10 to-transparent blur-2xl" />
       <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-2xl shadow-primary/10 ring-1 ring-black/5">
         <div className="flex items-center gap-1.5 border-b border-border/70 bg-muted/50 px-4 py-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-400/80" />
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
+          <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
+          <span className="h-2.5 w-2.5 rounded-full bg-warning/80" />
+          <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
           <div className="mx-auto rounded-md bg-background/80 px-3 py-1 text-xs text-muted-foreground">
             app.pvia.fr / chantier / PV-2026-0421
           </div>
@@ -114,13 +114,13 @@ function MockupBrowser() {
             <div className="flex items-start justify-between">
               <div>
                 <div className="text-xs font-medium text-primary">PV de réception · #2026-0421</div>
-                <h3 className="mt-1 text-xl font-semibold tracking-tight">Villa Mercier — Réfection toiture</h3>
+                <h3 className="mt-1 font-display text-xl font-bold tracking-tight">Villa Mercier — Réfection toiture</h3>
                 <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                   <MapPin className="h-3 w-3" /> 12 chemin des Pins, 06400 Cannes
                 </div>
               </div>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-                Signé
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success ring-1 ring-success/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" /> Signé
               </span>
             </div>
 
@@ -137,7 +137,7 @@ function MockupBrowser() {
                 {["Dépose ancienne couverture", "Pose membrane + isolation 200mm", "Couverture tuiles canal teintées"].map(
                   (t) => (
                     <div key={t} className="flex items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-2 text-sm">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {t}
+                      <CheckCircle2 className="h-4 w-4 text-success" /> {t}
                     </div>
                   ),
                 )}
