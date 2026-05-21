@@ -137,11 +137,30 @@ function PvDetail() {
   }
 
   async function downloadPdf() {
-    if (!pv?.pdf_url) return toast.error("Aucun PDF disponible");
-    const { data, error } = await supabase.storage.from("pv-assets").createSignedUrl(pv.pdf_url, 60);
-    if (error || !data) return toast.error("PDF indisponible");
-    window.open(data.signedUrl, "_blank");
+    if (!pv) return;
+    if (!pv.pdf_url) return toast.error("Aucun PDF disponible. Régénérez-le d'abord.");
+    try {
+      const { url } = await fetchPdfUrl({ data: { pvId: pv.id } });
+      window.open(url, "_blank");
+    } catch (e: any) {
+      toast.error(e?.message || "PDF indisponible");
+    }
   }
+
+  async function handleRegenerate() {
+    if (!pv) return;
+    setRegenerating(true);
+    try {
+      await regenPdf({ data: { pvId: pv.id } });
+      toast.success("PDF régénéré avec succès");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de la régénération du PDF");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
 
   async function deletePv() {
     if (!pv) return;
