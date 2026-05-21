@@ -150,6 +150,36 @@ function PvDetail() {
     navigate({ to: "/pv" });
   }
 
+  async function openSendDialog() {
+    if (!pv) return;
+    if (pv.client_signature) {
+      toast.error("Ce PV est déjà signé par le client.");
+      return;
+    }
+    setSendEmail(clientEmail ?? "");
+    setLastSignUrl(null);
+    setSendOpen(true);
+  }
+
+  async function handleSendToClient() {
+    if (!pv) return;
+    if (!sendEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sendEmail)) {
+      toast.error("Email client invalide.");
+      return;
+    }
+    setSendingClient(true);
+    try {
+      const res = await sendPv({ data: { pvId: pv.id, email: sendEmail } });
+      setLastSignUrl(res.signUrl);
+      toast.success(`Email envoyé à ${sendEmail}`);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi");
+    } finally {
+      setSendingClient(false);
+    }
+  }
+
   if (loading || !pv) {
     return (
       <div className="grid h-64 place-items-center text-muted-foreground">
