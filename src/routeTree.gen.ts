@@ -13,11 +13,13 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedChantiersRouteImport } from './routes/_authenticated/chantiers'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
+import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -37,6 +39,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
+  id: '/reserves',
+  path: '/reserves',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
@@ -63,6 +70,11 @@ const AuthenticatedPvNewRoute = AuthenticatedPvNewRouteImport.update({
   path: '/pv/new',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPvIdRoute = AuthenticatedPvIdRouteImport.update({
+  id: '/pv/$id',
+  path: '/pv/$id',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -71,6 +83,8 @@ export interface FileRoutesByFullPath {
   '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/reserves': typeof AuthenticatedReservesRoute
+  '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
 }
@@ -81,6 +95,8 @@ export interface FileRoutesByTo {
   '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/reserves': typeof AuthenticatedReservesRoute
+  '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/pv': typeof AuthenticatedPvIndexRoute
 }
@@ -93,6 +109,8 @@ export interface FileRoutesById {
   '/_authenticated/chantiers': typeof AuthenticatedChantiersRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/reserves': typeof AuthenticatedReservesRoute
+  '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
 }
@@ -105,6 +123,8 @@ export interface FileRouteTypes {
     | '/chantiers'
     | '/clients'
     | '/dashboard'
+    | '/reserves'
+    | '/pv/$id'
     | '/pv/new'
     | '/pv/'
   fileRoutesByTo: FileRoutesByTo
@@ -115,6 +135,8 @@ export interface FileRouteTypes {
     | '/chantiers'
     | '/clients'
     | '/dashboard'
+    | '/reserves'
+    | '/pv/$id'
     | '/pv/new'
     | '/pv'
   id:
@@ -126,6 +148,8 @@ export interface FileRouteTypes {
     | '/_authenticated/chantiers'
     | '/_authenticated/clients'
     | '/_authenticated/dashboard'
+    | '/_authenticated/reserves'
+    | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
     | '/_authenticated/pv/'
   fileRoutesById: FileRoutesById
@@ -167,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/reserves': {
+      id: '/_authenticated/reserves'
+      path: '/reserves'
+      fullPath: '/reserves'
+      preLoaderRoute: typeof AuthenticatedReservesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -202,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvNewRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/pv/$id': {
+      id: '/_authenticated/pv/$id'
+      path: '/pv/$id'
+      fullPath: '/pv/$id'
+      preLoaderRoute: typeof AuthenticatedPvIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -209,6 +247,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChantiersRoute: typeof AuthenticatedChantiersRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
+  AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRoute
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
 }
@@ -217,6 +257,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChantiersRoute: AuthenticatedChantiersRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedReservesRoute: AuthenticatedReservesRoute,
+  AuthenticatedPvIdRoute: AuthenticatedPvIdRoute,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
 }

@@ -49,12 +49,17 @@ function PvList() {
           <TableBody>
             {items.length === 0 && <TableRow><TableCell colSpan={5} className="py-16 text-center text-sm text-muted-foreground"><FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />Aucun PV. Créez le premier !</TableCell></TableRow>}
             {items.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.numero}</TableCell>
+              <TableRow key={p.id} className="cursor-pointer hover:bg-muted/40">
+                <TableCell className="font-medium">
+                  <Link to="/pv/$id" params={{ id: p.id }} className="hover:underline">{p.numero}</Link>
+                </TableCell>
                 <TableCell>{p.type}</TableCell>
                 <TableCell><Badge variant={p.status === "signe" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
                 <TableCell>{p.reception_date ? new Date(p.reception_date).toLocaleDateString("fr-FR") : "—"}</TableCell>
                 <TableCell className="text-right">
+                  <Link to="/pv/$id" params={{ id: p.id }}>
+                    <Button size="sm" variant="ghost">Ouvrir</Button>
+                  </Link>
                   {p.pdf_url && <Button size="icon" variant="ghost" onClick={() => download(p.pdf_url)}><Download className="h-4 w-4" /></Button>}
                   <Button size="icon" variant="ghost" onClick={() => remove(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </TableCell>

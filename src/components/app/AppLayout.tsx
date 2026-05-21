@@ -13,6 +13,7 @@ import {
   Settings,
   HelpCircle,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { Logo } from "@/components/landing/Logo";
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/pv", label: "Procès-verbaux", icon: FileText },
+  { to: "/reserves", label: "Réserves", icon: AlertCircle },
   { to: "/chantiers", label: "Chantiers", icon: HardHat },
   { to: "/clients", label: "Clients", icon: Users },
 ] as const;
