@@ -15,6 +15,10 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "@/lib/audit.server";
 import { enforceRateLimit } from "@/lib/rate-limit.server";
+import { decodeAndValidateImage } from "@/lib/image-validate.server";
+import { buildAndStorePvPdf } from "@/lib/pdf.server";
+import { deliverSignedPv } from "@/lib/email.server";
+import { firePushToCompany } from "@/lib/push.server";
 import {
   CLIENT_CODE_MAX_ATTEMPTS,
   CLIENT_CODE_TTL_SEC,
