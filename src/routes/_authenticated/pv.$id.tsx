@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { useServerFn } from "@tanstack/react-start";
 import { sendPvToClient } from "@/lib/sign.functions";
+import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
