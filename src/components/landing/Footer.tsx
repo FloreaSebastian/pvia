@@ -22,8 +22,7 @@ export function Footer() {
               href="mailto:contact@pvia.fr"
               className="mt-4 inline-flex items-center gap-2 text-sm text-foreground hover:text-primary"
             >
-              <Mail className="h-4 w-4" />
-              <span>contact@pvia.fr</span>
+              <Mail className="h-4 w-4" /><span>contact@pvia.fr</span>
             </a>
           </div>
 
