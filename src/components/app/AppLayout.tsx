@@ -77,7 +77,11 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
           </button>
         </div>
 
-        <div className="px-3 pt-4">
+        <div className="px-3 pt-3">
+          <CompanySwitcher />
+        </div>
+
+        <div className="px-3 pt-3">
           <Link to="/pv/new" onClick={() => setOpen(false)}>
             <Button className="w-full shadow-md shadow-primary/20" size="sm">
               <Plus className="h-4 w-4" /> Nouveau PV
