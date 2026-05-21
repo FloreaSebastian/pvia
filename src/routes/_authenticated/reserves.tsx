@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { StatusBadge } from "@/components/app/StatusBadge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { PageHeader } from "@/components/app/PageHeader";
 import { useCompany } from "@/hooks/use-company";
 
 export const Route = createFileRoute("/_authenticated/reserves")({
@@ -74,35 +75,40 @@ function ReservesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Réserves de chantier</h1>
-          <p className="text-sm text-muted-foreground">Suivez et levez toutes les réserves liées à vos PV.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toutes ({counts.all})</SelectItem>
-              <SelectItem value="ouverte">Ouvertes ({counts.ouverte})</SelectItem>
-              <SelectItem value="levee">Levées ({counts.levee})</SelectItem>
-              <SelectItem value="validee">Validées ({counts.validee})</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <PageHeader
+        title="Réserves de chantier"
+        description="Suivez et levez toutes les réserves liées à vos PV."
+        contained={false}
+        className="border-0 bg-transparent px-0 py-0"
+        actions={
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={filter} onValueChange={setFilter}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes ({counts.all})</SelectItem>
+                <SelectItem value="ouverte">Ouvertes ({counts.ouverte})</SelectItem>
+                <SelectItem value="levee">Levées ({counts.levee})</SelectItem>
+                <SelectItem value="validee">Validées ({counts.validee})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        }
+      />
 
       <div className="grid gap-3 sm:grid-cols-4">
         {[
-          { label: "Total", value: counts.all, color: "text-foreground" },
-          { label: "Ouvertes", value: counts.ouverte, color: "text-rose-600" },
-          { label: "Levées", value: counts.levee, color: "text-amber-600" },
-          { label: "Validées", value: counts.validee, color: "text-emerald-600" },
+          { label: "Total", value: counts.all, tone: "neutral" as const },
+          { label: "Ouvertes", value: counts.ouverte, tone: "destructive" as const },
+          { label: "Levées", value: counts.levee, tone: "warning" as const },
+          { label: "Validées", value: counts.validee, tone: "success" as const },
         ].map((s) => (
           <Card key={s.label} className="p-4">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
-            <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
+              <StatusPill tone={s.tone} size="sm" dot>{s.value}</StatusPill>
+            </div>
+            <p className="mt-1 font-display text-2xl font-bold">{s.value}</p>
           </Card>
         ))}
       </div>
@@ -136,7 +142,7 @@ function ReservesPage() {
                   </Link>
                 </TableCell>
                 <TableCell className="max-w-md truncate">{r.description}</TableCell>
-                <TableCell><Badge variant={r.severity === "majeure" ? "destructive" : "secondary"}>{r.severity}</Badge></TableCell>
+                <TableCell><StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill></TableCell>
                 <TableCell>
                   <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
                     <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
