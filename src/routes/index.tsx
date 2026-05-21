@@ -10,7 +10,7 @@ import { Modules } from "@/components/landing/Modules";
 import { Stats } from "@/components/landing/Stats";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { Pricing } from "@/components/landing/Pricing";
-import { FAQ } from "@/components/landing/FAQ";
+import { FAQ, faqs } from "@/components/landing/FAQ";
 import { CTA } from "@/components/landing/CTA";
 import { Footer } from "@/components/landing/Footer";
 import { StickyCTA } from "@/components/landing/StickyCTA";
