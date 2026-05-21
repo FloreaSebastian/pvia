@@ -29,12 +29,18 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
     console.error(error);
     // Best-effort capture vers app_errors (never throws)
     try {
-      const url = request instanceof Request ? new URL(request.url).pathname : "unknown";
+      let url = "unknown";
+      let method: string | null = null;
+      try {
+        const req = getRequest();
+        url = new URL(req.url).pathname;
+        method = req.method;
+      } catch {}
       await captureError({
         source: `http:${url}`,
         error,
         severity: "error",
-        context: { url, method: request instanceof Request ? request.method : null },
+        context: { url, method },
       });
     } catch {}
     return new Response(renderErrorPage(), {
