@@ -119,6 +119,33 @@ function PvDetail() {
 
   useEffect(() => { load(); }, [load]);
 
+  const loadLogs = useCallback(async () => {
+    try {
+      const { logs } = await fetchLogsFn({ data: { pvId: id } });
+      setEmailLogs(logs as any);
+    } catch {
+      /* silent */
+    }
+  }, [fetchLogsFn, id]);
+
+  useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  async function handleResendSigned() {
+    if (!pv) return;
+    setResendingSigned(true);
+    try {
+      const res = await resendSignedFn({ data: { pvId: pv.id } });
+      if (res.ok) toast.success("Email envoyé avec le PDF signé en pièce jointe.");
+      else toast.error("Aucun destinataire n'a reçu l'email — vérifiez les logs.");
+      loadLogs();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi");
+    } finally {
+      setResendingSigned(false);
+    }
+  }
+
+
   async function changeStatus(status: string) {
     if (!pv) return;
     const patch: { status: string; signed_at?: string | null } = { status };
