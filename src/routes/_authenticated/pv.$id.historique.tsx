@@ -33,36 +33,36 @@ type Log = {
 };
 
 const ACTION_META: Record<string, { label: string; icon: any; badge: string; tone: string }> = {
-  "pv.create": { label: "PV créé", icon: Plus, badge: "Système", tone: "bg-emerald-100 text-emerald-800" },
-  "pv.update": { label: "PV modifié", icon: Edit, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
-  "pv.updated": { label: "PV modifié", icon: Edit, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
-  "pv.delete": { label: "PV supprimé", icon: Trash2, badge: "Utilisateur", tone: "bg-red-100 text-red-800" },
-  "pv.status_change": { label: "Changement de statut", icon: ShieldCheck, badge: "Système", tone: "bg-slate-100 text-slate-800" },
-  "pv.sent_to_client": { label: "Envoyé au client", icon: Send, badge: "Email", tone: "bg-indigo-100 text-indigo-800" },
-  "pv.signed_by_client": { label: "Signé par le client", icon: PenSquare, badge: "Client", tone: "bg-emerald-100 text-emerald-800" },
-  "pv.signed_by_company": { label: "Signé par l'entreprise", icon: PenSquare, badge: "Signature", tone: "bg-emerald-100 text-emerald-800" },
-  "pv.pdf_generated": { label: "PDF généré", icon: FileText, badge: "PDF", tone: "bg-purple-100 text-purple-800" },
-  "pv.pdf_downloaded": { label: "PDF téléchargé", icon: Download, badge: "PDF", tone: "bg-purple-100 text-purple-800" },
-  "pv.email_sent": { label: "Email envoyé", icon: Mail, badge: "Email", tone: "bg-indigo-100 text-indigo-800" },
-  "pv.email_failed": { label: "Échec d'envoi email", icon: AlertCircle, badge: "Email", tone: "bg-red-100 text-red-800" },
-  "reserve.create": { label: "Réserve créée", icon: AlertCircle, badge: "Utilisateur", tone: "bg-amber-100 text-amber-800" },
-  "reserve.update": { label: "Réserve modifiée", icon: Edit, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
-  "reserve.delete": { label: "Réserve supprimée", icon: Trash2, badge: "Utilisateur", tone: "bg-red-100 text-red-800" },
-  "reserve.lifted": { label: "Réserve levée", icon: CheckCircle2, badge: "Utilisateur", tone: "bg-emerald-100 text-emerald-800" },
-  "reserve.validated": { label: "Réserve validée", icon: CheckCircle2, badge: "Utilisateur", tone: "bg-emerald-100 text-emerald-800" },
-  "photo.add": { label: "Photo ajoutée", icon: Camera, badge: "Utilisateur", tone: "bg-blue-100 text-blue-800" },
-  "photo.delete": { label: "Photo supprimée", icon: Trash2, badge: "Utilisateur", tone: "bg-red-100 text-red-800" },
-  "member.invited": { label: "Membre invité", icon: UserPlus, badge: "Équipe", tone: "bg-blue-100 text-blue-800" },
-  "member.joined": { label: "Membre rejoint", icon: UserPlus, badge: "Équipe", tone: "bg-emerald-100 text-emerald-800" },
-  "member.role_changed": { label: "Rôle modifié", icon: Edit, badge: "Équipe", tone: "bg-blue-100 text-blue-800" },
-  "member.suspended": { label: "Membre suspendu", icon: AlertCircle, badge: "Équipe", tone: "bg-amber-100 text-amber-800" },
-  "member.reactivated": { label: "Membre réactivé", icon: CheckCircle2, badge: "Équipe", tone: "bg-emerald-100 text-emerald-800" },
-  "member.removed": { label: "Membre retiré", icon: Trash2, badge: "Équipe", tone: "bg-red-100 text-red-800" },
-  "audit.exported": { label: "Historique exporté", icon: Download, badge: "Audit", tone: "bg-slate-100 text-slate-800" },
+  "pv.create": { label: "PV créé", icon: Plus, badge: "Système", tone: "bg-success/15 text-success" },
+  "pv.update": { label: "PV modifié", icon: Edit, badge: "Utilisateur", tone: "bg-primary/15 text-primary" },
+  "pv.updated": { label: "PV modifié", icon: Edit, badge: "Utilisateur", tone: "bg-primary/15 text-primary" },
+  "pv.delete": { label: "PV supprimé", icon: Trash2, badge: "Utilisateur", tone: "bg-destructive/15 text-destructive" },
+  "pv.status_change": { label: "Changement de statut", icon: ShieldCheck, badge: "Système", tone: "bg-muted text-muted-foreground" },
+  "pv.sent_to_client": { label: "Envoyé au client", icon: Send, badge: "Email", tone: "bg-accent/30 text-accent-foreground" },
+  "pv.signed_by_client": { label: "Signé par le client", icon: PenSquare, badge: "Client", tone: "bg-success/15 text-success" },
+  "pv.signed_by_company": { label: "Signé par l'entreprise", icon: PenSquare, badge: "Signature", tone: "bg-success/15 text-success" },
+  "pv.pdf_generated": { label: "PDF généré", icon: FileText, badge: "PDF", tone: "bg-accent/30 text-accent-foreground" },
+  "pv.pdf_downloaded": { label: "PDF téléchargé", icon: Download, badge: "PDF", tone: "bg-accent/30 text-accent-foreground" },
+  "pv.email_sent": { label: "Email envoyé", icon: Mail, badge: "Email", tone: "bg-accent/30 text-accent-foreground" },
+  "pv.email_failed": { label: "Échec d'envoi email", icon: AlertCircle, badge: "Email", tone: "bg-destructive/15 text-destructive" },
+  "reserve.create": { label: "Réserve créée", icon: AlertCircle, badge: "Utilisateur", tone: "bg-warning/15 text-warning" },
+  "reserve.update": { label: "Réserve modifiée", icon: Edit, badge: "Utilisateur", tone: "bg-primary/15 text-primary" },
+  "reserve.delete": { label: "Réserve supprimée", icon: Trash2, badge: "Utilisateur", tone: "bg-destructive/15 text-destructive" },
+  "reserve.lifted": { label: "Réserve levée", icon: CheckCircle2, badge: "Utilisateur", tone: "bg-success/15 text-success" },
+  "reserve.validated": { label: "Réserve validée", icon: CheckCircle2, badge: "Utilisateur", tone: "bg-success/15 text-success" },
+  "photo.add": { label: "Photo ajoutée", icon: Camera, badge: "Utilisateur", tone: "bg-primary/15 text-primary" },
+  "photo.delete": { label: "Photo supprimée", icon: Trash2, badge: "Utilisateur", tone: "bg-destructive/15 text-destructive" },
+  "member.invited": { label: "Membre invité", icon: UserPlus, badge: "Équipe", tone: "bg-primary/15 text-primary" },
+  "member.joined": { label: "Membre rejoint", icon: UserPlus, badge: "Équipe", tone: "bg-success/15 text-success" },
+  "member.role_changed": { label: "Rôle modifié", icon: Edit, badge: "Équipe", tone: "bg-primary/15 text-primary" },
+  "member.suspended": { label: "Membre suspendu", icon: AlertCircle, badge: "Équipe", tone: "bg-warning/15 text-warning" },
+  "member.reactivated": { label: "Membre réactivé", icon: CheckCircle2, badge: "Équipe", tone: "bg-success/15 text-success" },
+  "member.removed": { label: "Membre retiré", icon: Trash2, badge: "Équipe", tone: "bg-destructive/15 text-destructive" },
+  "audit.exported": { label: "Historique exporté", icon: Download, badge: "Audit", tone: "bg-muted text-muted-foreground" },
 };
 
 function metaFor(action: string) {
-  return ACTION_META[action] || { label: action, icon: ShieldCheck, badge: "Système", tone: "bg-slate-100 text-slate-800" };
+  return ACTION_META[action] || { label: action, icon: ShieldCheck, badge: "Système", tone: "bg-muted text-muted-foreground" };
 }
 
 const PAGE_SIZE = 50;
@@ -153,12 +153,12 @@ function HistoriquePage() {
             <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /> Retour au PV</Button>
           </Link>
           <h1 className="text-2xl font-semibold mt-2 flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-emerald-600" /> Historique légal
+            <ShieldCheck className="h-6 w-6 text-success" /> Historique légal
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             PV <span className="font-mono">{pvNumero}</span> · {total} événement(s) tracé(s) · {logs.length} chargé(s)
           </p>
-          <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800">
+          <Badge variant="secondary" className="mt-2 gap-1.5 bg-success/15 text-success">
             <ShieldCheck className="h-3 w-3" /> Traçabilité complète
           </Badge>
         </div>
@@ -221,15 +221,15 @@ function HistoriquePage() {
                 {canSeeDetails && (l.old_values || l.new_values) && (
                   <div className="mt-2 grid sm:grid-cols-2 gap-2 text-xs">
                     {l.old_values && (
-                      <div className="bg-red-50 border border-red-200 rounded p-2">
-                        <div className="font-semibold text-red-900 mb-1">Avant</div>
-                        <pre className="font-mono whitespace-pre-wrap break-words text-red-800">{JSON.stringify(l.old_values, null, 2)}</pre>
+                      <div className="bg-destructive/5 border border-destructive/20 rounded p-2">
+                        <div className="font-semibold text-destructive mb-1">Avant</div>
+                        <pre className="font-mono whitespace-pre-wrap break-words text-destructive/90">{JSON.stringify(l.old_values, null, 2)}</pre>
                       </div>
                     )}
                     {l.new_values && (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
-                        <div className="font-semibold text-emerald-900 mb-1">Après</div>
-                        <pre className="font-mono whitespace-pre-wrap break-words text-emerald-800">{JSON.stringify(l.new_values, null, 2)}</pre>
+                      <div className="bg-success/5 border border-success/20 rounded p-2">
+                        <div className="font-semibold text-success mb-1">Après</div>
+                        <pre className="font-mono whitespace-pre-wrap break-words text-success/90">{JSON.stringify(l.new_values, null, 2)}</pre>
                       </div>
                     )}
                   </div>
