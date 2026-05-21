@@ -205,6 +205,13 @@ export const addFieldReserve = createServerFn({ method: "POST" })
       action: "reserve.create", newValues: { description: data.description, severity: data.severity, status: "ouverte" },
       metadata: { source: "field" }, actor: "user",
     });
+    firePushToCompany(pv.company_id!, {
+      title: data.severity === "bloquante" ? "Réserve BLOQUANTE" : "Nouvelle réserve",
+      body: `${pv.numero} — ${data.description.slice(0, 120)}`,
+      url: `/pv/${pv.id}`,
+      tag: `reserve-${row.id}`,
+      data: { severity: data.severity },
+    }, { excludeUserId: context.userId });
     return { reserve: row };
   });
 
