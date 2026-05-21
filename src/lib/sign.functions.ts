@@ -6,6 +6,7 @@ import { buildAndStorePvPdf } from "./pdf.server";
 import { deliverSignedPv } from "./email.server";
 import { writeAuditLog } from "./audit.server";
 import { assertPlanFeature } from "./plan-guard.server";
+import { firePushToCompany } from "./push.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
