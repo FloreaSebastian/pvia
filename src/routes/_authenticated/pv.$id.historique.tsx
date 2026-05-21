@@ -156,7 +156,7 @@ function HistoriquePage() {
             <ShieldCheck className="h-6 w-6 text-emerald-600" /> Historique légal
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            PV <span className="font-mono">{pvNumero}</span> · {logs.length} événement(s) tracé(s)
+            PV <span className="font-mono">{pvNumero}</span> · {total} événement(s) tracé(s) · {logs.length} chargé(s)
           </p>
           <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800">
             <ShieldCheck className="h-3 w-3" /> Traçabilité complète
