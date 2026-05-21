@@ -4,12 +4,12 @@ import { Menu, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/landing/Logo";
 
-const nav = [
-  { label: "Pourquoi PVIA", href: "#why" },
-  { label: "Fonctionnalités", href: "#features" },
-  { label: "Démonstration", href: "#demo" },
-  { label: "Tarifs", href: "#pricing" },
-  { label: "Avis clients", href: "#testimonials" },
+const nav: { label: string; href: string; to?: string }[] = [
+  { label: "Pourquoi PVIA", href: "/#why" },
+  { label: "Fonctionnalités", href: "/#features" },
+  { label: "Tarifs", href: "/tarifs", to: "/tarifs" },
+  { label: "Sécurité", href: "/securite", to: "/securite" },
+  { label: "Avis clients", href: "/#testimonials" },
 ];
 
 export function Header() {
@@ -48,7 +48,7 @@ export function Header() {
           <Button variant="ghost" size="sm" asChild>
             <Link to="/login">Connexion</Link>
           </Button>
-          <Button size="sm" className="shadow-md shadow-primary/20" asChild>
+          <Button size="sm" className="shadow-brand" asChild>
             <Link to="/signup">Créer mon premier PV <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
           </Button>
         </div>

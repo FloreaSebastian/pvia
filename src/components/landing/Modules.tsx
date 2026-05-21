@@ -21,7 +21,7 @@ export function Modules() {
           <span className="text-xs font-semibold uppercase tracking-wider text-primary">
             Modules
           </span>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Une suite complète pour piloter votre activité
           </h2>
           <p className="mt-4 text-muted-foreground">

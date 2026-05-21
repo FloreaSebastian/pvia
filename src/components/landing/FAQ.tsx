@@ -38,7 +38,7 @@ export function FAQ() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <span className="text-xs font-semibold uppercase tracking-wider text-primary">FAQ</span>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Questions fréquentes
           </h2>
         </div>

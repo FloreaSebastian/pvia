@@ -16,7 +16,7 @@ export function HowItWorks() {
           <span className="text-xs font-semibold uppercase tracking-wider text-primary">
             Comment ça marche
           </span>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Un PV de réception en 4 étapes
           </h2>
           <p className="mt-4 text-muted-foreground">
@@ -51,7 +51,7 @@ export function HowItWorks() {
                   <h3 className="mt-5 text-lg font-semibold tracking-tight">{s.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
                   <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {s.time}
+                    <span className="h-1.5 w-1.5 rounded-full bg-success" /> {s.time}
                   </div>
                 </div>
               </motion.div>

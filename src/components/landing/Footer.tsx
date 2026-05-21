@@ -24,27 +24,27 @@ export function Footer() {
             title="Produit"
             links={[
               ["Fonctionnalités", "/#features"],
-              ["Tarifs", "/#pricing"],
-              ["Démo", "/#demo"],
+              ["Tarifs", "/tarifs"],
+              ["Sécurité", "/securite"],
               ["Avis clients", "/#testimonials"],
             ]}
           />
           <FooterCol
             title="Entreprise"
             links={[
-              ["Contact", "#contact"],
-              ["Carrières", "#"],
-              ["Blog", "#"],
-              ["Presse", "#"],
+              ["Contact", "mailto:contact@pvia.fr"],
+              ["Connexion", "/login"],
+              ["Essai gratuit", "/signup"],
+              ["Espace client", "/client/login"],
             ]}
           />
           <FooterCol
             title="Légal"
             links={[
-              ["Mentions légales", "#"],
-              ["CGU", "#"],
-              ["Politique de confidentialité", "#"],
-              ["RGPD", "#"],
+              ["Mentions légales", "/mentions"],
+              ["CGV", "/cgv"],
+              ["Confidentialité", "/confidentialite"],
+              ["Sécurité & RGPD", "/securite"],
             ]}
           />
         </div>

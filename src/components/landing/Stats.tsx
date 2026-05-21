@@ -34,7 +34,7 @@ export function Stats() {
     <section className="bg-foreground py-20 text-background sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Des résultats concrets pour les pros du BTP
           </h2>
           <p className="mt-4 text-background/70">

@@ -54,13 +54,13 @@ export function Testimonials() {
           <span className="text-xs font-semibold uppercase tracking-wider text-primary">
             Avis clients
           </span>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Ils ont transformé leur gestion administrative
           </h2>
           <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <div className="flex">
               {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                <Star key={i} className="h-4 w-4 fill-warning text-warning" />
               ))}
             </div>
             <span className="font-medium text-foreground">4.9/5</span>
@@ -80,7 +80,7 @@ export function Testimonials() {
             >
               <div className="flex items-center gap-1">
                 {Array.from({ length: r.rating }).map((_, k) => (
-                  <Star key={k} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <Star key={k} className="h-4 w-4 fill-warning text-warning" />
                 ))}
               </div>
               <p className="mt-4 text-sm leading-relaxed text-foreground/90">"{r.text}"</p>

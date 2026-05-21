@@ -15,7 +15,7 @@ export function CTA() {
             }}
           />
           <div className="relative">
-            <h2 className="mx-auto max-w-2xl text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h2 className="mx-auto max-w-2xl text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Prêt à digitaliser vos réceptions de travaux ?
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-background/70">
