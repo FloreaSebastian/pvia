@@ -64,6 +64,8 @@ function TeamPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<CompanyRole>("user");
+  const [sending, setSending] = useState(false);
+  const sendInviteFn = useServerFn(sendInvite);
 
   async function load() {
     if (!activeCompanyId) return;
