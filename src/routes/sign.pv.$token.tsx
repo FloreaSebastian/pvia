@@ -22,10 +22,11 @@ function SignPage() {
   const { token } = Route.useParams();
   const fetchPv = useServerFn(getPvByToken);
   const signPv = useServerFn(signPvByToken);
+  const getPdfUrl = useServerFn(getSignedPvPdfPublic);
   const [state, setState] = useState<{ loading: boolean; data: LoadedData | null }>({ loading: true, data: null });
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<{ pvId: string; downloadKey: string } | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
 
   useEffect(() => {
@@ -42,7 +43,7 @@ function SignPage() {
     return <ErrorScreen reason={(data as any).reason} pvNumero={(data as any).pvNumero} />;
   }
   if (done) {
-    return <SuccessScreen />;
+    return <SuccessScreen pvId={done.pvId} downloadKey={done.downloadKey} getPdfUrl={getPdfUrl} />;
   }
 
   const { pv, company, client, chantier, photos, reserves } = data;
@@ -59,8 +60,8 @@ function SignPage() {
     const signatureDataUrl = padRef.current.getCanvas().toDataURL("image/png");
     setSubmitting(true);
     try {
-      await signPv({ data: { token, signatureDataUrl } });
-      setDone(true);
+      const res = await signPv({ data: { token, signatureDataUrl } });
+      setDone({ pvId: res.pvId, downloadKey: res.downloadKey });
     } catch (e: any) {
       toast.error(e?.message || "Échec de la signature");
     } finally {
