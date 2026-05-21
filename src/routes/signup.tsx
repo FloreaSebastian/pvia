@@ -12,7 +12,24 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
-  head: () => ({ meta: [{ title: "Inscription — PVIA" }] }),
+  head: () => ({
+    meta: [
+      { title: "Inscription — PVIA" },
+      {
+        name: "description",
+        content:
+          "Créez votre compte PVIA en 2 minutes et digitalisez vos procès-verbaux de réception. Essai gratuit 14 jours, sans carte bancaire.",
+      },
+      { property: "og:title", content: "Créer un compte PVIA — Essai gratuit 14 jours" },
+      {
+        property: "og:description",
+        content:
+          "Rejoignez les pros du BTP qui signent leurs PV de réception en ligne. Photos, réserves, signature eIDAS, PDF automatique.",
+      },
+      { property: "og:url", content: "https://pvia.fr/signup" },
+    ],
+    links: [{ rel: "canonical", href: "https://pvia.fr/signup" }],
+  }),
 });
 
 function SignupPage() {

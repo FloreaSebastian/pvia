@@ -5,7 +5,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-const faqs = [
+export const faqs = [
   {
     q: "Le PV est-il juridiquement valable ?",
     a: "Oui. PVIA respecte la norme NF P03-001 et le règlement eIDAS pour les signatures électroniques. Vos documents ont la même valeur qu'un PV signé manuellement et sont opposables en cas de litige.",

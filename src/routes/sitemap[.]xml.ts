@@ -16,8 +16,13 @@ export const Route = createFileRoute("/sitemap.xml")({
         // Only public, indexable pages. Auth-gated app routes stay out.
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
-          { path: "/login", changefreq: "monthly", priority: "0.3" },
+          { path: "/tarifs", changefreq: "weekly", priority: "0.9" },
+          { path: "/securite", changefreq: "monthly", priority: "0.7" },
           { path: "/signup", changefreq: "monthly", priority: "0.6" },
+          { path: "/login", changefreq: "monthly", priority: "0.3" },
+          { path: "/cgv", changefreq: "yearly", priority: "0.2" },
+          { path: "/mentions", changefreq: "yearly", priority: "0.2" },
+          { path: "/confidentialite", changefreq: "yearly", priority: "0.2" },
         ];
 
         const urls = entries
