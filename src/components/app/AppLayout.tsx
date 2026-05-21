@@ -27,6 +27,8 @@ import { toast } from "sonner";
 import { Logo } from "@/components/landing/Logo";
 import { CompanySwitcher } from "@/components/app/CompanySwitcher";
 import { NotificationsBell } from "@/components/app/NotificationsBell";
+import { InstallPrompt } from "@/components/app/InstallPrompt";
+import { useCompany } from "@/hooks/use-company";
 
 
 const mainNav = [
@@ -51,6 +53,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const { activeCompanyId } = useCompany();
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -203,8 +206,9 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
           </div>
         </header>
 
-        <main className="p-4 lg:p-8">{children}</main>
+        <main className="p-4 lg:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</main>
       </div>
+      <InstallPrompt companyId={activeCompanyId} />
     </div>
   );
 }
