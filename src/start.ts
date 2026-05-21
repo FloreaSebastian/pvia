@@ -1,6 +1,8 @@
 import { createStart, createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 
 import { renderErrorPage } from "./lib/error-page";
+import { captureError } from "./lib/monitoring.server";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
@@ -25,6 +27,22 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
       throw error;
     }
     console.error(error);
+    // Best-effort capture vers app_errors (never throws)
+    try {
+      let url = "unknown";
+      let method: string | null = null;
+      try {
+        const req = getRequest();
+        url = new URL(req.url).pathname;
+        method = req.method;
+      } catch {}
+      await captureError({
+        source: `http:${url}`,
+        error,
+        severity: "error",
+        context: { url, method },
+      });
+    } catch {}
     return new Response(renderErrorPage(), {
       status: 500,
       headers: { "content-type": "text/html; charset=utf-8" },
