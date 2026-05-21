@@ -100,21 +100,31 @@ function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-wider text-muted-foreground">Plan actuel</div>
-            <div className="mt-1 flex items-center gap-3">
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="text-3xl font-semibold">{limits?.display_name ?? plan}</span>
-              <Badge variant={subscription?.status === "active" || subscription?.status === "trialing" ? "default" : "secondary"}>
-                {subscription?.status ?? "free"}
+              <Badge variant={access?.state === "active" || access?.state === "trialing" ? "default" : "secondary"}>
+                {access?.state ?? subscription?.status ?? "free"}
               </Badge>
+              {access?.state === "trialing" && (
+                <Badge className="bg-emerald-600 hover:bg-emerald-600"><Sparkles className="mr-1 h-3 w-3" />Essai actif</Badge>
+              )}
               {subscription?.cancel_at_period_end && (
                 <Badge variant="destructive">Annulation prévue</Badge>
               )}
             </div>
-            {subscription?.current_period_end && (
+            {access?.trial_end && access.state === "trialing" && (
+              <div className="mt-2 flex items-center gap-1.5 text-sm text-emerald-700">
+                <Clock className="h-3.5 w-3.5" />
+                Fin de l'essai gratuit le {new Date(access.trial_end).toLocaleDateString("fr-FR")}
+              </div>
+            )}
+            {subscription?.current_period_end && access?.state !== "trialing" && (
               <div className="mt-2 text-sm text-muted-foreground">
-                Renouvellement le {new Date(subscription.current_period_end).toLocaleDateString("fr-FR")}
+                {subscription.cancel_at_period_end ? "Accès jusqu'au" : "Renouvellement le"} {new Date(subscription.current_period_end).toLocaleDateString("fr-FR")}
               </div>
             )}
           </div>
+
           {canManage && subscription?.stripe_customer_id && (
             <Button variant="outline" onClick={handlePortal} disabled={busy === "portal"}>
               {busy === "portal" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
