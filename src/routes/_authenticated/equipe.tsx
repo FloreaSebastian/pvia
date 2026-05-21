@@ -196,7 +196,7 @@ function TeamPage() {
         {isAdmin && (
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="shadow-brand">
                 <Plus className="h-4 w-4" /> Inviter un membre
               </Button>
             </DialogTrigger>
@@ -235,7 +235,7 @@ function TeamPage() {
                   </Select>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={sending}>
+                  <Button type="submit" disabled={sending} className="shadow-brand">
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                     {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
                   </Button>
@@ -270,63 +270,77 @@ function TeamPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {members.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell>
-                    <div className="font-medium">
-                      {m.profile?.full_name ?? m.invited_email ?? "Membre"}
-                    </div>
-                    {m.invited_email && !m.user_id && (
-                      <div className="text-xs text-muted-foreground">{m.invited_email}</div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isAdmin && m.role !== "owner" ? (
-                      <Select value={m.role} onValueChange={(v) => changeRole(m.id, v as CompanyRole)}>
-                        <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {ROLES.filter((r) => r.value !== "owner").map((r) => (
-                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant="secondary" className="gap-1">
-                        <Shield className="h-3 w-3" /> {m.role}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {m.status === "active" && <Badge className="bg-emerald-600">Actif</Badge>}
-                    {m.status === "invited" && <Badge variant="outline">Invitation</Badge>}
-                    {m.status === "suspended" && <Badge variant="destructive">Suspendu</Badge>}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {new Date(m.created_at).toLocaleDateString("fr-FR")}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {isAdmin && m.role !== "owner" && (
-                      <>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          title={m.status === "suspended" ? "Réactiver" : "Suspendre"}
-                          onClick={() => toggleStatus(m)}
-                        >
-                          {m.status === "suspended" ? (
-                            <UserCheck className="h-4 w-4 text-emerald-600" />
-                          ) : (
-                            <UserX className="h-4 w-4 text-amber-600" />
+              {members.map((m) => {
+                const label = m.profile?.full_name ?? m.invited_email ?? "Membre";
+                const initials = label
+                  .split(/\s+|@/)
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((s) => s[0]?.toUpperCase() ?? "")
+                  .join("");
+                return (
+                  <TableRow key={m.id} className="group">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-gradient text-xs font-semibold text-primary-foreground shadow-sm">
+                          {initials || "?"}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{label}</div>
+                          {m.invited_email && !m.user_id && (
+                            <div className="truncate text-xs text-muted-foreground">{m.invited_email}</div>
                           )}
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(m)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {isAdmin && m.role !== "owner" ? (
+                        <Select value={m.role} onValueChange={(v) => changeRole(m.id, v as CompanyRole)}>
+                          <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {ROLES.filter((r) => r.value !== "owner").map((r) => (
+                              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1">
+                          <Shield className="h-3 w-3" /> {m.role}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {m.status === "active" && <Badge className="bg-success text-success-foreground hover:bg-success/90">Actif</Badge>}
+                      {m.status === "invited" && <Badge variant="outline">Invitation</Badge>}
+                      {m.status === "suspended" && <Badge variant="destructive">Suspendu</Badge>}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(m.created_at).toLocaleDateString("fr-FR")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isAdmin && m.role !== "owner" && (
+                        <div className="inline-flex opacity-60 transition group-hover:opacity-100">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title={m.status === "suspended" ? "Réactiver" : "Suspendre"}
+                            onClick={() => toggleStatus(m)}
+                          >
+                            {m.status === "suspended" ? (
+                              <UserCheck className="h-4 w-4 text-success" />
+                            ) : (
+                              <UserX className="h-4 w-4 text-warning" />
+                            )}
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => remove(m)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

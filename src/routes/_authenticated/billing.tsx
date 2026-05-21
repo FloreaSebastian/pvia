@@ -116,24 +116,27 @@ function BillingPage() {
 
 
       {/* Current plan + usage */}
-      <Card className="p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <Card className="relative overflow-hidden p-6">
+        <div className="pointer-events-none absolute inset-0 -z-0 opacity-60 bg-[radial-gradient(circle_at_top_right,oklch(var(--primary)/0.12),transparent_55%)]" />
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="text-xs uppercase tracking-wider text-muted-foreground">Plan actuel</div>
+            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Plan actuel</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="text-3xl font-semibold">{limits?.display_name ?? plan}</span>
+              <span className="bg-brand-gradient bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
+                {limits?.display_name ?? plan}
+              </span>
               <Badge variant={access?.state === "active" || access?.state === "trialing" ? "default" : "secondary"}>
                 {access?.state ?? subscription?.status ?? "free"}
               </Badge>
               {access?.state === "trialing" && (
-                <Badge className="bg-emerald-600 hover:bg-emerald-600"><Sparkles className="mr-1 h-3 w-3" />Essai actif</Badge>
+                <Badge className="bg-success text-success-foreground hover:bg-success/90"><Sparkles className="mr-1 h-3 w-3" />Essai actif</Badge>
               )}
               {subscription?.cancel_at_period_end && (
                 <Badge variant="destructive">Annulation prévue</Badge>
               )}
             </div>
             {access?.trial_end && access.state === "trialing" && (
-              <div className="mt-2 flex items-center gap-1.5 text-sm text-emerald-700">
+              <div className="mt-2 flex items-center gap-1.5 text-sm text-success">
                 <Clock className="h-3.5 w-3.5" />
                 Fin de l'essai gratuit le {new Date(access.trial_end).toLocaleDateString("fr-FR")}
               </div>
@@ -146,7 +149,7 @@ function BillingPage() {
           </div>
 
           {canManage && subscription?.stripe_customer_id && (
-            <Button variant="outline" onClick={handlePortal} disabled={busy === "portal"}>
+            <Button variant="outline" onClick={handlePortal} disabled={busy === "portal"} className="shadow-sm">
               {busy === "portal" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
               Gérer mon abonnement
               <ExternalLink className="ml-2 h-3 w-3" />
@@ -154,20 +157,20 @@ function BillingPage() {
           )}
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div>
-            <div className="mb-1 flex items-baseline justify-between text-sm">
+        <div className="relative mt-6 grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-border bg-card/60 p-4">
+            <div className="mb-2 flex items-baseline justify-between text-sm">
               <span className="font-medium">PV ce mois-ci</span>
-              <span className="text-muted-foreground">
+              <span className="tabular-nums text-muted-foreground">
                 {usage.pv_this_period} / {pvMax ?? "∞"}
               </span>
             </div>
             <Progress value={pvPct} />
           </div>
-          <div>
-            <div className="mb-1 flex items-baseline justify-between text-sm">
+          <div className="rounded-xl border border-border bg-card/60 p-4">
+            <div className="mb-2 flex items-baseline justify-between text-sm">
               <span className="font-medium">Membres actifs</span>
-              <span className="text-muted-foreground">
+              <span className="tabular-nums text-muted-foreground">
                 {usage.members} / {membersMax ?? "∞"}
               </span>
             </div>
@@ -178,10 +181,11 @@ function BillingPage() {
 
       {/* Plans */}
       <div>
-        <h2 className="mb-4 text-xl font-semibold">Changer de plan</h2>
+        <h2 className="mb-4 text-xl font-semibold tracking-tight">Changer de plan</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {allPlans.map((p: any) => {
             const isCurrent = p.plan === plan;
+            const isPro = p.plan === "pro";
             const features = [
               p.max_pv_per_month == null ? "PV illimités" : `${p.max_pv_per_month} PV / mois`,
               p.max_members == null ? "Utilisateurs illimités" : `${p.max_members} utilisateur${p.max_members > 1 ? "s" : ""}`,
@@ -192,25 +196,38 @@ function BillingPage() {
             ].filter(Boolean) as string[];
 
             return (
-              <Card key={p.plan} className={`p-6 ${isCurrent ? "border-primary ring-2 ring-primary/20" : ""}`}>
+              <Card
+                key={p.plan}
+                className={`relative flex flex-col p-6 transition hover:-translate-y-0.5 hover:shadow-brand ${
+                  isCurrent ? "border-primary/60 ring-2 ring-primary/20" : ""
+                } ${isPro && !isCurrent ? "border-primary/30" : ""}`}
+              >
+                {isPro && !isCurrent && (
+                  <div className="absolute -top-2.5 right-4 rounded-full bg-brand-gradient px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground shadow-brand">
+                    Recommandé
+                  </div>
+                )}
                 <div className="flex items-baseline justify-between">
-                  <div className="text-lg font-semibold">{p.display_name}</div>
+                  <div className="text-lg font-semibold tracking-tight">{p.display_name}</div>
                   {isCurrent && <Badge>Actuel</Badge>}
                 </div>
-                <div className="mt-2 text-3xl font-semibold">
+                <div className="mt-2 text-3xl font-semibold tracking-tight">
                   {p.monthly_price_eur}€<span className="text-base font-normal text-muted-foreground">/mois</span>
                 </div>
-                <ul className="mt-4 space-y-2 text-sm">
+                <ul className="mt-5 flex-1 space-y-2 text-sm">
                   {features.map((f) => (
                     <li key={f} className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-success/15 text-success">
+                        <Check className="h-2.5 w-2.5" />
+                      </span>
                       <span>{f}</span>
                     </li>
                   ))}
                 </ul>
                 {canManage && !isCurrent && (
                   <Button
-                    className="mt-6 w-full"
+                    className={`mt-6 w-full ${isPro ? "shadow-brand" : ""}`}
+                    variant={isPro ? "default" : "outline"}
                     onClick={() => handleUpgrade(p.plan)}
                     disabled={busy === p.plan}
                   >
