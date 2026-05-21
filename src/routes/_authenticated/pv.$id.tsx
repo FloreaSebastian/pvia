@@ -137,6 +137,17 @@ function PvDetail() {
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
+  const loadLastEvent = useCallback(async () => {
+    try {
+      const res = await fetchAuditFn({ data: { pvId: id, limit: 1, offset: 0 } });
+      setLastEvent(res.logs[0] ? { action: res.logs[0].action, created_at: res.logs[0].created_at, user_name: res.logs[0].user_name } : null);
+      setAuditTotal(res.total);
+    } catch { /* silent */ }
+  }, [fetchAuditFn, id]);
+
+  useEffect(() => { loadLastEvent(); }, [loadLastEvent]);
+
+
   async function handleResendSigned() {
     if (!pv) return;
     setResendingSigned(true);
