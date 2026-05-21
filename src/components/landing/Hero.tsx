@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, ShieldCheck, PenLine, FileText, CheckCircle2, Camera, MapPin } from "lucide-react";
+import { ArrowRight, Play, ShieldCheck, PenLine, FileText, CheckCircle2, Camera, MapPin, Star } from "lucide-react";
 
 export function Hero() {
   return (
@@ -57,9 +57,24 @@ export function Hero() {
             </Button>
           </motion.div>
 
-          <p className="mt-4 text-xs text-muted-foreground">
-            Gratuit pendant 14 jours · Sans carte bancaire
-          </p>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.35 }}
+            className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground"
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="flex -space-x-1">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Star key={i} className="h-3.5 w-3.5 fill-warning text-warning" />
+                ))}
+              </span>
+              <span className="font-medium text-foreground">4,9/5</span>
+              <span>· 320 avis vérifiés</span>
+            </span>
+            <span className="hidden h-3 w-px bg-border sm:block" />
+            <span>Gratuit pendant 14 jours · Sans carte bancaire</span>
+          </motion.div>
         </div>
 
         <motion.div
