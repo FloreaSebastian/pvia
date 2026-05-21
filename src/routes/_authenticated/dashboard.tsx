@@ -19,7 +19,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatedCounter } from "@/components/app/AnimatedCounter";
-import { StatusBadge } from "@/components/app/StatusBadge";
+import { PvStatusPill } from "@/components/ui/status-pill";
+import { PageHeader } from "@/components/app/PageHeader";
 import { useCompany } from "@/hooks/use-company";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -110,27 +111,20 @@ function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-wrap items-end justify-between gap-3"
-      >
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-primary">
-            Bienvenue
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Tableau de bord</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Vue d'ensemble de votre activité chantier.
-          </p>
-        </div>
-        <Link to="/pv/new">
-          <Button size="lg" className="shadow-lg shadow-primary/25">
-            <Plus className="h-4 w-4" /> Créer un nouveau PV
-          </Button>
-        </Link>
-      </motion.div>
+      <PageHeader
+        eyebrow={<><Sparkles className="h-3 w-3" /> Bienvenue</>}
+        title="Tableau de bord"
+        description="Vue d'ensemble de votre activité chantier."
+        contained={false}
+        className="border-0 bg-transparent px-0 py-0"
+        actions={
+          <Link to="/pv/new">
+            <Button size="lg" className="shadow-brand">
+              <Plus className="h-4 w-4" /> Créer un nouveau PV
+            </Button>
+          </Link>
+        }
+      />
 
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -211,7 +205,7 @@ function Dashboard() {
                       {new Date(r.created_at).toLocaleDateString("fr-FR")}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <StatusBadge status={r.status} />
+                      <PvStatusPill status={r.status} />
                     </td>
                   </tr>
                 ))}
