@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/ui/status-pill";
+import { PageHeader } from "@/components/app/PageHeader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,11 +56,11 @@ type Stats = {
 
 type HealthCheck = { name: string; ok: boolean; detail?: string };
 
-const SEV_TONE: Record<string, string> = {
-  info: "bg-slate-100 text-slate-700",
-  warning: "bg-amber-100 text-amber-800",
-  error: "bg-red-100 text-red-800",
-  critical: "bg-red-600 text-white",
+const SEV_TONE: Record<string, "neutral" | "warning" | "destructive"> = {
+  info: "neutral",
+  warning: "warning",
+  error: "destructive",
+  critical: "destructive",
 };
 
 function MonitoringPage() {
@@ -125,25 +127,23 @@ function MonitoringPage() {
   };
 
   return (
-    <div className="container max-w-6xl py-8 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <ShieldAlert className="h-6 w-6 text-red-600" /> Monitoring plateforme
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Vue interne — erreurs serveur, santé des services, exports.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={reload} disabled={loading}>
-            <RefreshCw className={"h-4 w-4 " + (loading ? "animate-spin" : "")} /> Actualiser
-          </Button>
-          <Button onClick={downloadCsv}>
-            <Download className="h-4 w-4" /> Télécharger logs CSV
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col">
+      <PageHeader
+        eyebrow={<><ShieldAlert className="h-3 w-3" /> Admin · Monitoring</>}
+        title="Monitoring plateforme"
+        description="Vue interne — erreurs serveur, santé des services, exports."
+        actions={
+          <>
+            <Button variant="outline" onClick={reload} disabled={loading}>
+              <RefreshCw className={"h-4 w-4 " + (loading ? "animate-spin" : "")} /> Actualiser
+            </Button>
+            <Button onClick={downloadCsv}>
+              <Download className="h-4 w-4" /> Télécharger logs CSV
+            </Button>
+          </>
+        }
+      />
+      <div className="container max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
 
       {/* Stats */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
