@@ -1,8 +1,9 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "motion/react";
-import { LogOut, FileSignature, LayoutDashboard, History, User } from "lucide-react";
+import { LogOut, LayoutDashboard, History, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { logoutClientSession } from "@/lib/client-auth.functions";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
@@ -39,14 +40,11 @@ export function ClientShell({
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 pb-20 sm:pb-0">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <Link to="/client/dashboard" className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <FileSignature className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold leading-tight">PVIA</div>
-              <div className="text-[11px] leading-tight text-muted-foreground">Espace client</div>
-            </div>
+          <Link to="/client/dashboard" className="flex items-center gap-2.5">
+            <BrandLogo variant="compact" />
+            <span className="hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground sm:inline">
+              Espace client
+            </span>
           </Link>
 
           <nav className="hidden items-center gap-1 sm:flex">
@@ -58,9 +56,9 @@ export function ClientShell({
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors",
+                    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                     active
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary text-primary-foreground shadow-brand"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >

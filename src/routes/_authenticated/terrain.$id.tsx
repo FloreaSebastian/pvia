@@ -239,7 +239,7 @@ function FieldEditorPage() {
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">Position GPS</span>
                 {lat != null && lng != null ? (
-                  <span className="text-[11px] text-emerald-600">{lat.toFixed(5)}, {lng.toFixed(5)}</span>
+                  <span className="text-[11px] text-success">{lat.toFixed(5)}, {lng.toFixed(5)}</span>
                 ) : (
                   <span className="text-[11px] text-muted-foreground">Non renseignée</span>
                 )}

@@ -81,38 +81,41 @@ function FieldHomePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       {/* Hero */}
-      <div className="rounded-3xl bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground shadow-lg">
-        <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider opacity-80">
-          <Smartphone className="h-4 w-4" /> Mode terrain
-        </div>
-        <h1 className="text-2xl font-semibold leading-tight">Créez un PV depuis le chantier</h1>
-        <p className="mt-2 text-sm opacity-90">Photos, réserves, signature client — en quelques gestes.</p>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="mt-4 h-14 w-full text-base font-semibold shadow"
-          onClick={newDraft}
-          disabled={creating}
-        >
-          {creating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
-          Créer un PV terrain
-        </Button>
-        <div className="mt-3 flex items-center gap-2 text-[11px] opacity-90">
-          {online ? <Wifi className="h-3.5 w-3.5" /> : <CloudOff className="h-3.5 w-3.5" />}
-          {online ? "Connecté" : "Hors ligne — les actions seront synchronisées"}
+      <div className="relative overflow-hidden rounded-3xl bg-brand-gradient p-6 text-primary-foreground shadow-elevation-lg">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
+        <div className="relative">
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]">
+            <Smartphone className="h-3.5 w-3.5" /> Mode terrain
+          </div>
+          <h1 className="font-display text-2xl font-bold leading-tight">Créez un PV depuis le chantier</h1>
+          <p className="mt-2 text-sm opacity-90">Photos, réserves, signature client — en quelques gestes.</p>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="mt-4 h-14 w-full text-base font-semibold shadow-elevation-md"
+            onClick={newDraft}
+            disabled={creating}
+          >
+            {creating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+            Créer un PV terrain
+          </Button>
+          <div className="mt-3 flex items-center gap-2 text-[11px] opacity-90">
+            {online ? <Wifi className="h-3.5 w-3.5" /> : <CloudOff className="h-3.5 w-3.5" />}
+            {online ? "Connecté" : "Hors ligne — les actions seront synchronisées"}
+          </div>
         </div>
       </div>
 
       {/* Sync pending */}
       {ops.length > 0 ? (
-        <Card className="border-amber-200 bg-amber-50 p-4 dark:bg-amber-950/20">
+        <Card className="border-warning/40 bg-warning/10 p-4">
           <div className="flex items-start gap-3">
-            <RefreshCw className={`mt-0.5 h-5 w-5 text-amber-700 ${flushing ? "animate-spin" : ""}`} />
+            <RefreshCw className={`mt-0.5 h-5 w-5 text-warning ${flushing ? "animate-spin" : ""}`} />
             <div className="flex-1">
-              <div className="font-medium text-amber-900 dark:text-amber-100">
+              <div className="font-medium text-foreground">
                 {ops.length} action{ops.length > 1 ? "s" : ""} en attente de synchronisation
               </div>
-              <p className="mt-0.5 text-xs text-amber-800/80">Elles seront envoyées dès le retour de la connexion.</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Elles seront envoyées dès le retour de la connexion.</p>
             </div>
             <Button size="sm" variant="outline" onClick={flush} disabled={flushing || !online}>
               Synchroniser

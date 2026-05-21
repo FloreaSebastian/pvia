@@ -36,15 +36,15 @@ export const Route = createFileRoute("/client/historique")({
 });
 
 const META: Record<string, { icon: any; label: string; tone: string }> = {
-  "client.login_code_sent": { icon: Mail, label: "Code de connexion envoyé", tone: "text-blue-600" },
-  "client.login_success":   { icon: LogIn, label: "Connexion réussie", tone: "text-emerald-600" },
+  "client.login_code_sent": { icon: Mail, label: "Code de connexion envoyé", tone: "text-info" },
+  "client.login_success":   { icon: LogIn, label: "Connexion réussie", tone: "text-success" },
   "client.login_failed":    { icon: AlertCircle, label: "Échec de connexion", tone: "text-destructive" },
   "client.logout":          { icon: LogOut, label: "Déconnexion", tone: "text-muted-foreground" },
   "client.pv_viewed":       { icon: Eye, label: "PV consulté", tone: "text-foreground" },
   "client.pdf_downloaded":  { icon: Download, label: "PDF téléchargé", tone: "text-foreground" },
-  "client.pv_signed":       { icon: PenLine, label: "PV signé", tone: "text-emerald-600" },
-  "client.session_revoked": { icon: ShieldOff, label: "Session révoquée", tone: "text-amber-600" },
-  "client.all_sessions_revoked": { icon: ShieldOff, label: "Toutes les sessions révoquées", tone: "text-amber-600" },
+  "client.pv_signed":       { icon: PenLine, label: "PV signé", tone: "text-success" },
+  "client.session_revoked": { icon: ShieldOff, label: "Session révoquée", tone: "text-warning" },
+  "client.all_sessions_revoked": { icon: ShieldOff, label: "Toutes les sessions révoquées", tone: "text-warning" },
 };
 
 function ClientHistorique() {
@@ -59,7 +59,7 @@ function ClientHistorique() {
           <History className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Historique</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">Historique</h1>
           <p className="text-sm text-muted-foreground">
             Activité récente sur votre espace client (100 derniers événements).
           </p>

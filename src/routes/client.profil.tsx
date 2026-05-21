@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { User, Mail, Monitor, ShieldOff, Loader2, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClientShell } from "@/components/client/ClientShell";
@@ -81,7 +81,7 @@ function ClientProfil() {
           <User className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Profil</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">Profil</h1>
           <p className="text-sm text-muted-foreground">
             Gérez votre compte et vos appareils connectés.
           </p>
@@ -153,9 +153,9 @@ function ClientProfil() {
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <span className="font-medium">{s.deviceLabel}</span>
                       {s.isCurrent && (
-                        <Badge className="gap-1 bg-emerald-600 text-[10px] hover:bg-emerald-600">
-                          <CheckCircle2 className="h-3 w-3" /> Cet appareil
-                        </Badge>
+                        <StatusPill tone="success" size="sm" icon={<CheckCircle2 />}>
+                          Cet appareil
+                        </StatusPill>
                       )}
                     </div>
                     <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
