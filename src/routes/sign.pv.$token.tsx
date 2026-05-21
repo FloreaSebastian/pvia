@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
 import { useServerFn } from "@tanstack/react-start";
 import { getPvByToken, signPvByToken } from "@/lib/sign.functions";
+import { getSignedPvPdfPublic } from "@/lib/pdf.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, FileText, Camera, Eraser, ShieldCheck, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, FileText, Camera, Eraser, ShieldCheck, Clock, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/sign/pv/$token")({
@@ -21,10 +22,11 @@ function SignPage() {
   const { token } = Route.useParams();
   const fetchPv = useServerFn(getPvByToken);
   const signPv = useServerFn(signPvByToken);
+  const getPdfUrl = useServerFn(getSignedPvPdfPublic);
   const [state, setState] = useState<{ loading: boolean; data: LoadedData | null }>({ loading: true, data: null });
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<{ pvId: string; downloadKey: string } | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ function SignPage() {
     return <ErrorScreen reason={(data as any).reason} pvNumero={(data as any).pvNumero} />;
   }
   if (done) {
-    return <SuccessScreen />;
+    return <SuccessScreen pvId={done.pvId} downloadKey={done.downloadKey} getPdfUrl={getPdfUrl} />;
   }
 
   const { pv, company, client, chantier, photos, reserves } = data;
@@ -58,8 +60,8 @@ function SignPage() {
     const signatureDataUrl = padRef.current.getCanvas().toDataURL("image/png");
     setSubmitting(true);
     try {
-      await signPv({ data: { token, signatureDataUrl } });
-      setDone(true);
+      const res = await signPv({ data: { token, signatureDataUrl } });
+      setDone({ pvId: res.pvId, downloadKey: res.downloadKey });
     } catch (e: any) {
       toast.error(e?.message || "Échec de la signature");
     } finally {
@@ -244,7 +246,60 @@ function ErrorScreen({ reason, pvNumero }: { reason?: string; pvNumero?: string 
   );
 }
 
-function SuccessScreen() {
+function SuccessScreen({
+  pvId,
+  downloadKey,
+  getPdfUrl,
+}: {
+  pvId: string;
+  downloadKey: string;
+  getPdfUrl: (opts: { data: { pvId: string; publicKey: string } }) => Promise<{ url: string }>;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // The PDF is generated server-side just after signing — poll briefly until it's ready.
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+    setLoading(true);
+    const tick = async () => {
+      attempts++;
+      try {
+        const res = await getPdfUrl({ data: { pvId, publicKey: downloadKey } });
+        if (!cancelled) {
+          setPdfUrl(res.url);
+          setLoading(false);
+        }
+      } catch (e: any) {
+        if (attempts >= 8) {
+          if (!cancelled) {
+            setError("Le PDF est en cours de génération. Vous pouvez réessayer dans un instant.");
+            setLoading(false);
+          }
+        } else if (!cancelled) {
+          setTimeout(tick, 1500);
+        }
+      }
+    };
+    tick();
+    return () => { cancelled = true; };
+  }, [pvId, downloadKey, getPdfUrl]);
+
+  async function retry() {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await getPdfUrl({ data: { pvId, publicKey: downloadKey } });
+      setPdfUrl(res.url);
+    } catch (e: any) {
+      setError("PDF toujours en préparation. Réessayez dans quelques secondes.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="grid min-h-screen place-items-center bg-gradient-to-b from-emerald-50 to-white p-6">
       <Card className="max-w-md p-8 text-center">
@@ -253,8 +308,28 @@ function SuccessScreen() {
         </div>
         <h2 className="mt-4 text-2xl font-semibold">Signature enregistrée</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Merci. Le procès-verbal a été signé avec succès. L'entreprise en est informée et vous recevrez une copie du PDF final par email.
+          Merci. Le procès-verbal a été signé avec succès. L'entreprise en est informée.
         </p>
+
+        <div className="mt-6">
+          {pdfUrl ? (
+            <Button asChild size="lg" className="w-full">
+              <a href={pdfUrl} target="_blank" rel="noreferrer">
+                <Download className="h-4 w-4" /> Télécharger le PV signé
+              </a>
+            </Button>
+          ) : loading ? (
+            <Button disabled size="lg" className="w-full">
+              <Loader2 className="h-4 w-4 animate-spin" /> Préparation du PDF…
+            </Button>
+          ) : (
+            <Button onClick={retry} size="lg" variant="outline" className="w-full">
+              <Download className="h-4 w-4" /> Réessayer le téléchargement
+            </Button>
+          )}
+          {error && <p className="mt-3 text-xs text-amber-700">{error}</p>}
+        </div>
+
         <p className="mt-6 text-xs text-muted-foreground">PVIA · Réception de travaux intelligente</p>
       </Card>
     </div>

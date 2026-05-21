@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { buildAndStorePvPdf } from "./pdf.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
@@ -189,14 +190,19 @@ export const signPvByToken = createServerFn({ method: "POST" })
       throw new Error("Lien expiré.");
     if (pv.client_signature) throw new Error("PV déjà signé.");
 
+    // Reissue the token as a short-lived download key (24h) so the client can fetch the
+    // generated PDF immediately after signing without re-authenticating.
+    const downloadKey = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    const downloadExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+
     const { error } = await supabaseAdmin
       .from("pv")
       .update({
         client_signature: data.signatureDataUrl,
         status: "signe",
         signed_at: new Date().toISOString(),
-        sign_token: null,
-        sign_token_expires_at: null,
+        sign_token: downloadKey,
+        sign_token_expires_at: downloadExpires,
       })
       .eq("id", pv.id);
     if (error) throw new Error(error.message);
@@ -210,5 +216,13 @@ export const signPvByToken = createServerFn({ method: "POST" })
       body: `Le PV ${pv.numero} a été signé électroniquement.`,
     });
 
-    return { ok: true };
+    // Generate the final signed PDF and store it. Failure is non-fatal — the signature is
+    // already persisted; the client just won't get an immediate download URL.
+    try {
+      await buildAndStorePvPdf(pv.id);
+    } catch (e) {
+      console.error("PDF generation failed after sign:", e);
+    }
+
+    return { ok: true, pvId: pv.id, downloadKey };
   });

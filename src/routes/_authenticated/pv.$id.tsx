@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { useServerFn } from "@tanstack/react-start";
 import { sendPvToClient } from "@/lib/sign.functions";
+import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
@@ -45,6 +46,7 @@ type Pv = {
   client_signature: string | null;
   company_signature: string | null;
   pdf_url: string | null;
+  pdf_generated_at: string | null;
   chantier_id: string | null;
   client_id: string | null;
 };
@@ -55,6 +57,8 @@ function PvDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const sendPv = useServerFn(sendPvToClient);
+  const regenPdf = useServerFn(regeneratePvPdf);
+  const fetchPdfUrl = useServerFn(getPvPdfSignedUrl);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -66,6 +70,7 @@ function PvDetail() {
   const [sendEmail, setSendEmail] = useState("");
   const [sendingClient, setSendingClient] = useState(false);
   const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
 
 
   const load = useCallback(async () => {
@@ -132,11 +137,30 @@ function PvDetail() {
   }
 
   async function downloadPdf() {
-    if (!pv?.pdf_url) return toast.error("Aucun PDF disponible");
-    const { data, error } = await supabase.storage.from("pv-assets").createSignedUrl(pv.pdf_url, 60);
-    if (error || !data) return toast.error("PDF indisponible");
-    window.open(data.signedUrl, "_blank");
+    if (!pv) return;
+    if (!pv.pdf_url) return toast.error("Aucun PDF disponible. Régénérez-le d'abord.");
+    try {
+      const { url } = await fetchPdfUrl({ data: { pvId: pv.id } });
+      window.open(url, "_blank");
+    } catch (e: any) {
+      toast.error(e?.message || "PDF indisponible");
+    }
   }
+
+  async function handleRegenerate() {
+    if (!pv) return;
+    setRegenerating(true);
+    try {
+      await regenPdf({ data: { pvId: pv.id } });
+      toast.success("PDF régénéré avec succès");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de la régénération du PDF");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
 
   async function deletePv() {
     if (!pv) return;
@@ -201,19 +225,30 @@ function PvDetail() {
           <p className="mt-1 text-sm text-muted-foreground">
             Créé le {new Date(pv.created_at).toLocaleDateString("fr-FR")}
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
+            {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
+          {pv.pdf_url && (
+            <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+              <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
+            </Badge>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
           {!pv.client_signature && (
             <Button onClick={openSendDialog}>
               <Send className="h-4 w-4" /> Envoyer au client pour signature
             </Button>
           )}
-          {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF</Button>}
+          <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
+            {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {regenerating ? "Génération…" : "Régénérer le PDF"}
+          </Button>
+          {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF signé</Button>}
           <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
         </div>
       </div>
+
 
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
         <DialogContent>
