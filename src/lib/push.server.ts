@@ -23,6 +23,9 @@ export type PushPayload = {
   icon?: string;
   badge?: string;
   data?: Record<string, unknown>;
+  requireInteraction?: boolean;
+  renotify?: boolean;
+  vibrate?: number[];
 };
 
 /** Send a push to every device subscribed by a given user.
