@@ -62,7 +62,7 @@ const ACTION_META: Record<string, { label: string; icon: any; badge: string; ton
 };
 
 function metaFor(action: string) {
-  return ACTION_META[action] || { label: action, icon: ShieldCheck, badge: "Système", tone: "bg-slate-100 text-slate-800" };
+  return ACTION_META[action] || { label: action, icon: ShieldCheck, badge: "Système", tone: "bg-muted text-muted-foreground" };
 }
 
 const PAGE_SIZE = 50;
