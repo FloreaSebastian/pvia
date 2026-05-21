@@ -132,6 +132,13 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       actor: "user",
     });
 
+    firePushToCompany(pv.company_id!, {
+      title: "PV envoyé au client",
+      body: `${pv.numero} → ${data.email.toLowerCase()}`,
+      url: `/pv/${pv.id}`,
+      tag: `pv-sent-${pv.id}`,
+    }, { excludeUserId: userId });
+
     return { ok: true, signUrl };
   });
 
