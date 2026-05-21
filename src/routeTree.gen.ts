@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ClientVerifyRouteImport } from './routes/client.verify'
 import { Route as ClientLoginRouteImport } from './routes/client.login'
+import { Route as ClientHistoriqueRouteImport } from './routes/client.historique'
 import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
 import { Route as AuthenticatedUpgradeRequiredRouteImport } from './routes/_authenticated/upgrade-required'
 import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
@@ -79,6 +80,11 @@ const ClientVerifyRoute = ClientVerifyRouteImport.update({
 const ClientLoginRoute = ClientLoginRouteImport.update({
   id: '/client/login',
   path: '/client/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientHistoriqueRoute = ClientHistoriqueRouteImport.update({
+  id: '/client/historique',
+  path: '/client/historique',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientDashboardRoute = ClientDashboardRouteImport.update({
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/_authenticated/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -329,6 +338,7 @@ export interface FileRouteTypes {
     | '/terrain'
     | '/upgrade-required'
     | '/client/dashboard'
+    | '/client/historique'
     | '/client/login'
     | '/client/verify'
     | '/invite/$token'
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/terrain'
     | '/upgrade-required'
     | '/client/dashboard'
+    | '/client/historique'
     | '/client/login'
     | '/client/verify'
     | '/invite/$token'
@@ -396,6 +407,7 @@ export interface FileRouteTypes {
     | '/_authenticated/terrain'
     | '/_authenticated/upgrade-required'
     | '/client/dashboard'
+    | '/client/historique'
     | '/client/login'
     | '/client/verify'
     | '/invite/$token'
@@ -420,6 +432,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
+  ClientHistoriqueRoute: typeof ClientHistoriqueRoute
   ClientLoginRoute: typeof ClientLoginRoute
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -486,6 +499,13 @@ declare module '@tanstack/react-router' {
       path: '/client/login'
       fullPath: '/client/login'
       preLoaderRoute: typeof ClientLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/historique': {
+      id: '/client/historique'
+      path: '/client/historique'
+      fullPath: '/client/historique'
+      preLoaderRoute: typeof ClientHistoriqueRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/client/dashboard': {
@@ -731,6 +751,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ClientDashboardRoute: ClientDashboardRoute,
+  ClientHistoriqueRoute: ClientHistoriqueRoute,
   ClientLoginRoute: ClientLoginRoute,
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
@@ -744,3 +765,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
