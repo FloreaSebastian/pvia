@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
@@ -44,6 +45,11 @@ import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/ho
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
 
+const VerifyRoute = VerifyRouteImport.update({
+  id: '/verify',
+  path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/verify': typeof VerifyRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
@@ -261,6 +268,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/verify': typeof VerifyRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
@@ -298,6 +306,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/verify': typeof VerifyRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/chantiers': typeof AuthenticatedChantiersRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
@@ -335,6 +344,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/sitemap.xml'
+    | '/verify'
     | '/billing'
     | '/chantiers'
     | '/clients'
@@ -370,6 +380,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/sitemap.xml'
+    | '/verify'
     | '/billing'
     | '/chantiers'
     | '/clients'
@@ -406,6 +417,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/sitemap.xml'
+    | '/verify'
     | '/_authenticated/billing'
     | '/_authenticated/chantiers'
     | '/_authenticated/clients'
@@ -443,6 +455,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  VerifyRoute: typeof VerifyRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
   ClientHistoriqueRoute: typeof ClientHistoriqueRoute
   ClientLoginRoute: typeof ClientLoginRoute
@@ -458,6 +471,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verify': {
+      id: '/verify'
+      path: '/verify'
+      fullPath: '/verify'
+      preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -770,6 +790,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  VerifyRoute: VerifyRoute,
   ClientDashboardRoute: ClientDashboardRoute,
   ClientHistoriqueRoute: ClientHistoriqueRoute,
   ClientLoginRoute: ClientLoginRoute,
@@ -786,3 +807,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
