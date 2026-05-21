@@ -31,6 +31,7 @@ import { sendPvToClient } from "@/lib/sign.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
+import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
@@ -341,6 +342,22 @@ function PvDetail() {
           <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
         </div>
       </div>
+
+
+
+      <SignatureTimeline
+        createdAt={pv.created_at}
+        sentAt={
+          emailLogs.find(
+            (l) => l.status === "sent" && (l.email_type === "signed_to_client" || l.email_type === "invite"),
+          )?.sent_at ?? null
+        }
+        signedAt={pv.signed_at}
+        pdfGeneratedAt={pv.pdf_generated_at}
+        hasClientSignature={!!pv.client_signature}
+      />
+
+
 
 
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
