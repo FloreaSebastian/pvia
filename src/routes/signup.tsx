@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
-  head: () => ({ meta: [{ title: "Inscription — PV Pro" }] }),
+  head: () => ({ meta: [{ title: "Inscription — PVIA" }] }),
 });
 
 function SignupPage() {
@@ -48,11 +48,11 @@ function SignupPage() {
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-foreground/15">
             <FileSignature className="h-5 w-5" />
           </div>
-          <span className="font-semibold">PV Pro</span>
+          <span className="font-semibold">PVIA</span>
         </Link>
         <div>
           <h2 className="text-3xl font-semibold leading-tight">
-            Essayez PV Pro gratuitement
+            Essayez PVIA gratuitement
           </h2>
           <ul className="mt-6 space-y-3 text-primary-foreground/85">
             <li>• 14 jours d'essai, sans CB</li>
@@ -61,7 +61,7 @@ function SignupPage() {
             <li>• Génération PDF automatique</li>
           </ul>
         </div>
-        <p className="text-sm text-primary-foreground/70">© 2026 PV Pro</p>
+        <p className="text-sm text-primary-foreground/70">© 2026 PVIA</p>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-12">

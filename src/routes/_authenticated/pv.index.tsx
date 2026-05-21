@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/pv/")({
   component: PvList,
-  head: () => ({ meta: [{ title: "Procès-verbaux — PV Pro" }] }),
+  head: () => ({ meta: [{ title: "Procès-verbaux — PVIA" }] }),
 });
 
 type Pv = { id: string; numero: string; type: string; status: string; reception_date: string | null; created_at: string; pdf_url: string | null };

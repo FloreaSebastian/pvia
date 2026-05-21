@@ -8,7 +8,7 @@ import {
 const faqs = [
   {
     q: "Le PV est-il juridiquement valable ?",
-    a: "Oui. PV Pro respecte la norme NF P03-001 et le règlement eIDAS pour les signatures électroniques. Vos documents ont la même valeur qu'un PV signé manuellement et sont opposables en cas de litige.",
+    a: "Oui. PVIA respecte la norme NF P03-001 et le règlement eIDAS pour les signatures électroniques. Vos documents ont la même valeur qu'un PV signé manuellement et sont opposables en cas de litige.",
   },
   {
     q: "Peut-on signer sur mobile ou tablette ?",

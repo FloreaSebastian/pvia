@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-  head: () => ({ meta: [{ title: "Connexion — PV Pro" }] }),
+  head: () => ({ meta: [{ title: "Connexion — PVIA" }] }),
 });
 
 function LoginPage() {
@@ -39,7 +39,7 @@ function LoginPage() {
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-foreground/15">
             <FileSignature className="h-5 w-5" />
           </div>
-          <span className="font-semibold">PV Pro</span>
+          <span className="font-semibold">PVIA</span>
         </Link>
         <div>
           <h2 className="text-3xl font-semibold leading-tight">
@@ -49,7 +49,7 @@ function LoginPage() {
             La plateforme de référence pour les pros du BTP, rénovation, photovoltaïque, plomberie et électricité.
           </p>
         </div>
-        <p className="text-sm text-primary-foreground/70">© 2026 PV Pro</p>
+        <p className="text-sm text-primary-foreground/70">© 2026 PVIA</p>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-12">

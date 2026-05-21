@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   component: ClientsPage,
-  head: () => ({ meta: [{ title: "Clients — PV Pro" }] }),
+  head: () => ({ meta: [{ title: "Clients — PVIA" }] }),
 });
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null; notes: string | null };

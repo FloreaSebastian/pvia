@@ -34,7 +34,7 @@ export function Header() {
             <FileSignature className="h-5 w-5" />
           </div>
           <span className="text-base font-semibold tracking-tight">
-            PV<span className="text-primary">Pro</span>
+            <span className="text-primary">PV</span>IA
           </span>
         </Link>
 

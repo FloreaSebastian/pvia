@@ -11,7 +11,7 @@ export function Footer() {
                 <FileSignature className="h-5 w-5" />
               </div>
               <span className="text-base font-semibold tracking-tight">
-                PV<span className="text-primary">Pro</span>
+                <span className="text-primary">PV</span>IA
               </span>
             </div>
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
@@ -19,11 +19,11 @@ export function Footer() {
               réception de travaux.
             </p>
             <a
-              href="mailto:contact@pvpro.fr"
+              href="mailto:contact@pvia.fr"
               className="mt-4 inline-flex items-center gap-2 text-sm text-foreground hover:text-primary"
             >
               <Mail className="h-4 w-4" />
-              <span>contact@pvpro.fr</span>
+              <span>contact@pvia.fr</span>
             </a>
           </div>
 
@@ -58,7 +58,7 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © 2026 PV Pro — Tous droits réservés.
+            © 2026 PVIA — Tous droits réservés.
           </p>
           <div className="flex items-center gap-3">
             {[Linkedin, Twitter, Facebook].map((Icon, i) => (

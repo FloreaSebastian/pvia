@@ -14,7 +14,7 @@ const reviews = [
     role: "Directrice, SunVolt Énergie",
     initials: "SL",
     rating: 5,
-    text: "Pour nos installations photovoltaïques, la traçabilité est essentielle. PV Pro nous a permis de structurer notre relation client et de réduire les litiges de moitié.",
+    text: "Pour nos installations photovoltaïques, la traçabilité est essentielle. PVIA nous a permis de structurer notre relation client et de réduire les litiges de moitié.",
   },
   {
     name: "Karim Bensalem",

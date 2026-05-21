@@ -15,7 +15,7 @@ import { jsPDF } from "jspdf";
 
 export const Route = createFileRoute("/_authenticated/pv/new")({
   component: NewPv,
-  head: () => ({ meta: [{ title: "Nouveau PV — PV Pro" }] }),
+  head: () => ({ meta: [{ title: "Nouveau PV — PVIA" }] }),
 });
 
 type Photo = { file: File; preview: string; caption: string };

@@ -18,7 +18,7 @@ export function CTA() {
               Prêt à digitaliser vos réceptions de travaux ?
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-background/70">
-              Essayez PV Pro gratuitement pendant 14 jours. Sans carte bancaire, sans engagement.
+              Essayez PVIA gratuitement pendant 14 jours. Sans carte bancaire, sans engagement.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Button size="lg" variant="secondary" className="h-12 px-6 text-foreground">
