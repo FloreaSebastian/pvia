@@ -66,6 +66,7 @@ const DRAFT_KEY = "pvia:draft:new-pv";
 
 function NewPv() {
   const navigate = useNavigate();
+  const { activeCompanyId } = useCompany();
   const [step, setStep] = useState(1);
   const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
