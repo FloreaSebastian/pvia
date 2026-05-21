@@ -11,7 +11,12 @@ export const Route = createFileRoute("/mentions")({
         content:
           "Mentions légales de PVIA : éditeur, hébergeur, directeur de la publication et coordonnées.",
       },
-      { property: "og:title", content: "Mentions légales — PVIA" },
+      { property: "og:title", content: "Mentions légales de PVIA SAS" },
+      {
+        property: "og:description",
+        content:
+          "Informations légales obligatoires sur l'éditeur du site PVIA : raison sociale, RCS, hébergement et contact.",
+      },
       { property: "og:url", content: "https://pvia.fr/mentions" },
     ],
     links: [{ rel: "canonical", href: "https://pvia.fr/mentions" }],

@@ -11,7 +11,12 @@ export const Route = createFileRoute("/cgv")({
         content:
           "CGV de PVIA : abonnement, paiement, résiliation, support et engagements de service.",
       },
-      { property: "og:title", content: "CGV — PVIA" },
+      { property: "og:title", content: "CGV de PVIA — Abonnement et engagements" },
+      {
+        property: "og:description",
+        content:
+          "Conditions contractuelles de PVIA : souscription, tarifs, résiliation, disponibilité, propriété des données et responsabilité.",
+      },
       { property: "og:url", content: "https://pvia.fr/cgv" },
     ],
     links: [{ rel: "canonical", href: "https://pvia.fr/cgv" }],
