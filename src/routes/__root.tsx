@@ -11,6 +11,7 @@ import {
 import appCss from "../styles.css?url";
 import { AppToaster } from "@/components/app/AppToaster";
 import { PwaRegister } from "@/components/app/PwaRegister";
+import { AnalyticsTracker } from "@/components/app/AnalyticsTracker";
 
 function NotFoundComponent() {
   return (
