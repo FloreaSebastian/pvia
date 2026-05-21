@@ -10,19 +10,27 @@ import {
   Camera,
   Loader2,
   ChevronRight,
+  Send,
+  Copy,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/app/StatusBadge";
+import { useServerFn } from "@tanstack/react-start";
+import { sendPvToClient } from "@/lib/sign.functions";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
   head: () => ({ meta: [{ title: "Détail PV — PVIA" }] }),
 });
+
 
 type Pv = {
   id: string;
@@ -46,12 +54,19 @@ type Reserve = { id: string; description: string; severity: string; status: stri
 function PvDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const sendPv = useServerFn(sendPvToClient);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [chantierName, setChantierName] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
+  const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendEmail, setSendEmail] = useState("");
+  const [sendingClient, setSendingClient] = useState(false);
+  const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,8 +98,9 @@ function PvDetail() {
       setChantierName(c?.name ?? null);
     }
     if (pvData.client_id) {
-      const { data: cl } = await supabase.from("clients").select("name").eq("id", pvData.client_id).maybeSingle();
+      const { data: cl } = await supabase.from("clients").select("name,email").eq("id", pvData.client_id).maybeSingle();
       setClientName(cl?.name ?? null);
+      setClientEmail(cl?.email ?? null);
     }
     setLoading(false);
   }, [id, navigate]);
@@ -134,6 +150,36 @@ function PvDetail() {
     navigate({ to: "/pv" });
   }
 
+  async function openSendDialog() {
+    if (!pv) return;
+    if (pv.client_signature) {
+      toast.error("Ce PV est déjà signé par le client.");
+      return;
+    }
+    setSendEmail(clientEmail ?? "");
+    setLastSignUrl(null);
+    setSendOpen(true);
+  }
+
+  async function handleSendToClient() {
+    if (!pv) return;
+    if (!sendEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sendEmail)) {
+      toast.error("Email client invalide.");
+      return;
+    }
+    setSendingClient(true);
+    try {
+      const res = await sendPv({ data: { pvId: pv.id, email: sendEmail } });
+      setLastSignUrl(res.signUrl);
+      toast.success(`Email envoyé à ${sendEmail}`);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi");
+    } finally {
+      setSendingClient(false);
+    }
+  }
+
   if (loading || !pv) {
     return (
       <div className="grid h-64 place-items-center text-muted-foreground">
@@ -159,10 +205,51 @@ function PvDetail() {
         </div>
         <div className="flex gap-2">
           <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
+          {!pv.client_signature && (
+            <Button onClick={openSendDialog}>
+              <Send className="h-4 w-4" /> Envoyer au client pour signature
+            </Button>
+          )}
           {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF</Button>}
           <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
         </div>
       </div>
+
+      <Dialog open={sendOpen} onOpenChange={setSendOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Envoyer au client pour signature</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Un email professionnel sera envoyé à votre client avec un lien sécurisé pour consulter et signer ce PV en ligne. Aucun compte n'est requis.
+            </p>
+            <div>
+              <Label htmlFor="client-email">Email du client</Label>
+              <Input id="client-email" type="email" value={sendEmail} onChange={(e) => setSendEmail(e.target.value)} placeholder="client@exemple.fr" className="mt-1.5" />
+            </div>
+            {lastSignUrl && (
+              <div className="rounded-lg border bg-muted/30 p-3 text-xs">
+                <div className="mb-1 font-medium text-foreground">Lien généré (valable 14 jours)</div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate text-muted-foreground">{lastSignUrl}</code>
+                  <Button size="icon" variant="ghost" onClick={() => { navigator.clipboard.writeText(lastSignUrl); toast.success("Lien copié"); }}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSendOpen(false)}>Fermer</Button>
+            <Button onClick={handleSendToClient} disabled={sendingClient}>
+              {sendingClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sendingClient ? "Envoi…" : "Envoyer l'email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2 space-y-5">
