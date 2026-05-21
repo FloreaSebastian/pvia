@@ -1,4 +1,5 @@
-import { FileSignature, Linkedin, Twitter, Facebook, Mail } from "lucide-react";
+import { Linkedin, Twitter, Facebook, Mail } from "lucide-react";
+import { Logo } from "@/components/landing/Logo";
 
 export function Footer() {
   return (
@@ -6,14 +7,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2">
-              <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground">
-                <FileSignature className="h-5 w-5" />
-              </div>
-              <span className="text-base font-semibold tracking-tight">
-                <span className="text-primary">PV</span>IA
-              </span>
-            </div>
+            <Logo withBaseline />
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
               La solution professionnelle pour créer, signer et archiver vos procès-verbaux de
               réception de travaux.

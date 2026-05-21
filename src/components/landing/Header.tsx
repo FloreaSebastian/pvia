@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X, FileSignature } from "lucide-react";
+import { Menu, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/landing/Logo";
 
 const nav = [
-  { label: "Accueil", href: "#hero" },
+  { label: "Pourquoi PVIA", href: "#why" },
   { label: "Fonctionnalités", href: "#features" },
   { label: "Démonstration", href: "#demo" },
   { label: "Tarifs", href: "#pricing" },
@@ -29,14 +30,7 @@ export function Header() {
       }`}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-            <FileSignature className="h-5 w-5" />
-          </div>
-          <span className="text-base font-semibold tracking-tight">
-            <span className="text-primary">PV</span>IA
-          </span>
-        </Link>
+        <Logo withBaseline />
 
         <nav className="hidden items-center gap-8 lg:flex">
           {nav.map((i) => (
@@ -54,8 +48,8 @@ export function Header() {
           <Button variant="ghost" size="sm" asChild>
             <Link to="/login">Connexion</Link>
           </Button>
-          <Button size="sm" className="shadow-sm" asChild>
-            <Link to="/signup">Créer mon PV de réception</Link>
+          <Button size="sm" className="shadow-md shadow-primary/20" asChild>
+            <Link to="/signup">Créer mon premier PV <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
           </Button>
         </div>
 
