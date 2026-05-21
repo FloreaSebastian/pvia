@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Header } from "@/components/landing/Header";
 import { Hero } from "@/components/landing/Hero";
+import { TrustBar } from "@/components/landing/TrustBar";
 import { WhyPVIA } from "@/components/landing/WhyPVIA";
 import { Features } from "@/components/landing/Features";
+import { ProductShowcase } from "@/components/landing/ProductShowcase";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Modules } from "@/components/landing/Modules";
 import { Stats } from "@/components/landing/Stats";
