@@ -30,6 +30,7 @@ import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
+import { Route as AuthenticatedParametresNotificationsRouteImport } from './routes/_authenticated/parametres.notifications'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
@@ -140,6 +141,12 @@ const AuthenticatedPvIdRoute = AuthenticatedPvIdRouteImport.update({
   path: '/pv/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedParametresNotificationsRoute =
+  AuthenticatedParametresNotificationsRouteImport.update({
+    id: '/parametres/notifications',
+    path: '/parametres/notifications',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -175,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
@@ -200,6 +208,7 @@ export interface FileRoutesByTo {
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
@@ -227,6 +236,7 @@ export interface FileRoutesById {
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/_authenticated/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/_authenticated/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
@@ -254,6 +264,7 @@ export interface FileRouteTypes {
     | '/terrain'
     | '/upgrade-required'
     | '/invite/$token'
+    | '/parametres/notifications'
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/terrain'
     | '/upgrade-required'
     | '/invite/$token'
+    | '/parametres/notifications'
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
@@ -305,6 +317,7 @@ export interface FileRouteTypes {
     | '/_authenticated/terrain'
     | '/_authenticated/upgrade-required'
     | '/invite/$token'
+    | '/_authenticated/parametres/notifications'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
     | '/_authenticated/terrain/$id'
@@ -475,6 +488,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/parametres/notifications': {
+      id: '/_authenticated/parametres/notifications'
+      path: '/parametres/notifications'
+      fullPath: '/parametres/notifications'
+      preLoaderRoute: typeof AuthenticatedParametresNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -533,6 +553,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
+  AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
@@ -550,6 +571,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedUpgradeRequiredRoute: AuthenticatedUpgradeRequiredRoute,
+  AuthenticatedParametresNotificationsRoute:
+    AuthenticatedParametresNotificationsRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
@@ -573,13 +596,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
