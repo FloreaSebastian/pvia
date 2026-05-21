@@ -155,6 +155,13 @@ export const sendInvite = createServerFn({ method: "POST" })
       metadata: { expires_at: expiresAt }, actor: "user",
     });
 
+    firePushToCompany(data.companyId, {
+      title: "Invitation envoyée",
+      body: `${data.email.toLowerCase()} a été invité (${data.role}).`,
+      url: "/equipe",
+      tag: `invite-${data.email.toLowerCase()}`,
+    }, { excludeUserId: userId });
+
     return { ok: true, acceptUrl };
   });
 
