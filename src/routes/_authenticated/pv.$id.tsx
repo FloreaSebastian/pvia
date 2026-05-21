@@ -12,6 +12,8 @@ import {
   ChevronRight,
   Send,
   Copy,
+  Mail,
+  RotateCw,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 import { useServerFn } from "@tanstack/react-start";
 import { sendPvToClient } from "@/lib/sign.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
+import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
