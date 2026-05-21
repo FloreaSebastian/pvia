@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,6 +14,7 @@ import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
 import { StatusPill } from "@/components/ui/status-pill";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/chantiers")({
   component: ChantiersPage,
@@ -31,6 +31,22 @@ const STATUSES = [
   { value: "receptionne", label: "Réceptionné" },
 ];
 
+const FILTERS: Array<{ value: "all" | "en_cours" | "termine" | "receptionne"; label: string }> = [
+  { value: "all", label: "Tous" },
+  { value: "en_cours", label: "En cours" },
+  { value: "termine", label: "Terminés" },
+  { value: "receptionne", label: "Réceptionnés" },
+];
+
+function statusTone(s: string): "success" | "info" | "warning" {
+  return s === "receptionne" ? "success" : s === "termine" ? "info" : "warning";
+}
+
+function fmtDate(d: string | null) {
+  if (!d) return null;
+  return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 function ChantiersPage() {
   const { activeCompanyId, can } = useCompany();
   const [items, setItems] = useState<Chantier[]>([]);
@@ -39,6 +55,9 @@ function ChantiersPage() {
   const [editing, setEditing] = useState<Chantier | null>(null);
   const empty = { name: "", address: "", type: "BTP", status: "en_cours", client_id: "", start_date: "", end_date: "", description: "" };
   const [form, setForm] = useState(empty);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
+  const [view, setView] = useState<"grid" | "list">("grid");
   const canWrite = can("manage");
 
   async function load() {
@@ -89,6 +108,31 @@ function ChantiersPage() {
     load();
   }
 
+  const clientName = useMemo(() => {
+    const m = new Map(clients.map((c) => [c.id, c.name]));
+    return (id: string | null) => (id ? m.get(id) ?? null : null);
+  }, [clients]);
+
+  const counts = useMemo(() => {
+    const base = { all: items.length, en_cours: 0, termine: 0, receptionne: 0 } as Record<string, number>;
+    for (const c of items) base[c.status] = (base[c.status] ?? 0) + 1;
+    return base;
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return items.filter((c) => {
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        (c.address ?? "").toLowerCase().includes(q) ||
+        (c.type ?? "").toLowerCase().includes(q) ||
+        (clientName(c.client_id) ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [items, query, statusFilter, clientName]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -99,7 +143,11 @@ function ChantiersPage() {
         actions={
           canWrite ? (
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild><Button onClick={openNew}><Plus className="h-4 w-4" /> Nouveau chantier</Button></DialogTrigger>
+              <DialogTrigger asChild>
+                <Button onClick={openNew} className="shadow-brand">
+                  <Plus className="h-4 w-4" /> Nouveau chantier
+                </Button>
+              </DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
                 <form onSubmit={save} className="space-y-3">
@@ -136,7 +184,7 @@ function ChantiersPage() {
                     <div><Label>Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
                   </div>
                   <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit">Enregistrer</Button></DialogFooter>
+                  <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
@@ -144,28 +192,215 @@ function ChantiersPage() {
         }
       />
 
-      <Card className="p-0 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow><TableHead>Nom</TableHead><TableHead>Type</TableHead><TableHead>Statut</TableHead><TableHead>Adresse</TableHead><TableHead></TableHead></TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.length === 0 && <TableRow><TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">Aucun chantier.</TableCell></TableRow>}
-            {items.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-medium">{c.name}</TableCell>
-                <TableCell><StatusPill tone="neutral">{c.type}</StatusPill></TableCell>
-                <TableCell><StatusPill tone={c.status === "receptionne" ? "success" : c.status === "termine" ? "info" : "warning"} dot>{STATUSES.find((s) => s.value === c.status)?.label ?? c.status}</StatusPill></TableCell>
-                <TableCell className="text-muted-foreground">{c.address}</TableCell>
-                <TableCell className="text-right">
-                  <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="ghost" onClick={() => remove(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                </TableCell>
+      {/* Filter chips */}
+      <div className="flex flex-wrap items-center gap-2">
+        {FILTERS.map((f) => {
+          const active = statusFilter === f.value;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setStatusFilter(f.value)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                active
+                  ? "border-primary bg-primary text-primary-foreground shadow-brand"
+                  : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              )}
+            >
+              {f.label}
+              <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] tabular-nums", active ? "bg-primary-foreground/20" : "bg-muted")}>
+                {counts[f.value] ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Rechercher un chantier, client, adresse…"
+            className="h-10 pl-9 pr-9"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted"
+              aria-label="Effacer"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {filtered.length} chantier{filtered.length > 1 ? "s" : ""}
+          </span>
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+            <button
+              type="button"
+              onClick={() => setView("grid")}
+              className={cn(
+                "inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition",
+                view === "grid" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-label="Vue grille"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("list")}
+              className={cn(
+                "inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition",
+                view === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-label="Vue liste"
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <Card className="flex flex-col items-center justify-center gap-3 p-12 text-center">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+            <Building2 className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="font-medium">
+              {query || statusFilter !== "all" ? "Aucun résultat" : "Aucun chantier"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {query || statusFilter !== "all"
+                ? "Affinez votre recherche ou changez de filtre."
+                : "Créez votre premier chantier pour commencer."}
+            </p>
+          </div>
+          {canWrite && !query && statusFilter === "all" && (
+            <Button onClick={openNew} className="mt-2 shadow-brand">
+              <Plus className="h-4 w-4" /> Nouveau chantier
+            </Button>
+          )}
+        </Card>
+      )}
+
+      {/* Grid view */}
+      {filtered.length > 0 && view === "grid" && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((c) => {
+            const cn_ = clientName(c.client_id);
+            const start = fmtDate(c.start_date);
+            const end = fmtDate(c.end_date);
+            return (
+              <Card
+                key={c.id}
+                className="group relative flex flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                      <p className="truncate font-semibold leading-tight">{c.name}</p>
+                    </div>
+                    {c.address && (
+                      <p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+                        <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span className="line-clamp-2">{c.address}</span>
+                      </p>
+                    )}
+                  </div>
+                  <StatusPill tone={statusTone(c.status)} dot>
+                    {STATUSES.find((s) => s.value === c.status)?.label ?? c.status}
+                  </StatusPill>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {c.type && <StatusPill tone="neutral">{c.type}</StatusPill>}
+                  {cn_ && (
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <User className="h-3 w-3" /> {cn_}
+                    </span>
+                  )}
+                </div>
+
+                {(start || end) && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CalendarRange className="h-3.5 w-3.5" />
+                    <span>
+                      {start ?? "?"} <span className="opacity-60">→</span> {end ?? "en cours"}
+                    </span>
+                  </div>
+                )}
+
+                {canWrite && (
+                  <div className="mt-auto flex justify-end gap-1 opacity-0 transition group-hover:opacity-100">
+                    <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* List view */}
+      {filtered.length > 0 && view === "list" && (
+        <Card className="overflow-hidden p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nom</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Statut</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Adresse</TableHead>
+                <TableHead className="w-[100px]"></TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((c) => (
+                <TableRow key={c.id} className="group">
+                  <TableCell className="font-medium">{c.name}</TableCell>
+                  <TableCell>{c.type ? <StatusPill tone="neutral">{c.type}</StatusPill> : <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell>
+                    <StatusPill tone={statusTone(c.status)} dot>
+                      {STATUSES.find((s) => s.value === c.status)?.label ?? c.status}
+                    </StatusPill>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{clientName(c.client_id) ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.address || "—"}</TableCell>
+                  <TableCell className="text-right">
+                    {canWrite && (
+                      <div className="inline-flex opacity-60 transition group-hover:opacity-100">
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
     </div>
   );
 }
