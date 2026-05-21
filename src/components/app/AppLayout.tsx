@@ -207,8 +207,9 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
           </div>
         </header>
 
-        <main className="p-4 lg:p-8">{children}</main>
+        <main className="p-4 lg:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</main>
       </div>
+      <InstallPrompt companyId={activeCompanyId} />
     </div>
   );
 }
