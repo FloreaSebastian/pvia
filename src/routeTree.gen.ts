@@ -32,6 +32,7 @@ import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 import { Route as AuthenticatedParametresNotificationsRouteImport } from './routes/_authenticated/parametres.notifications'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
+import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
 
@@ -153,6 +154,11 @@ const ApiPublicPaymentsWebhookRoute =
     path: '/api/public/payments/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksHealthRoute = ApiPublicHooksHealthRouteImport.update({
+  id: '/api/public/hooks/health',
+  path: '/api/public/hooks/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksCheckExpiringTrialsRoute =
   ApiPublicHooksCheckExpiringTrialsRouteImport.update({
     id: '/api/public/hooks/check-expiring-trials',
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -216,6 +223,7 @@ export interface FileRoutesByTo {
   '/pv': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRoutesById {
@@ -244,6 +252,7 @@ export interface FileRoutesById {
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRouteTypes {
@@ -272,6 +281,7 @@ export interface FileRouteTypes {
     | '/pv/'
     | '/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/pv'
     | '/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
   id:
     | '__root__'
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pv/'
     | '/_authenticated/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -336,6 +348,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicHooksCheckExpiringTrialsRoute: typeof ApiPublicHooksCheckExpiringTrialsRoute
+  ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
 }
 
@@ -502,6 +515,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/health': {
+      id: '/api/public/hooks/health'
+      path: '/api/public/hooks/health'
+      fullPath: '/api/public/hooks/health'
+      preLoaderRoute: typeof ApiPublicHooksHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/check-expiring-trials': {
       id: '/api/public/hooks/check-expiring-trials'
       path: '/api/public/hooks/check-expiring-trials'
@@ -591,8 +611,19 @@ const rootRouteChildren: RootRouteChildren = {
   SignPvTokenRoute: SignPvTokenRoute,
   ApiPublicHooksCheckExpiringTrialsRoute:
     ApiPublicHooksCheckExpiringTrialsRoute,
+  ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
