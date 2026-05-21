@@ -138,8 +138,38 @@
     border-color: var(--color-border);
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
   }
 }
+
+@layer utilities {
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, oklch(0.92 0.008 255 / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.92 0.008 255 / 0.5) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .bg-radial-fade {
+    background: radial-gradient(ellipse at top, oklch(0.95 0.04 255 / 0.6), transparent 60%);
+  }
+  .glass {
+    background: oklch(1 0 0 / 0.7);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, oklch(0.25 0.08 255), oklch(0.42 0.14 255));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
