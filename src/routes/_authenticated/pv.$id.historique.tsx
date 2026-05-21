@@ -188,6 +188,7 @@ function HistoriquePage() {
       ) : filtered.length === 0 ? (
         <Card className="p-12 text-center text-sm text-muted-foreground">Aucun événement.</Card>
       ) : (
+        <>
         <div className="relative pl-8 space-y-4 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-border">
           {filtered.map((l) => {
             const m = metaFor(l.action);
