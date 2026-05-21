@@ -302,6 +302,9 @@ async function loadExportContext(input: StatsInput, userId: string) {
   if (role !== "owner" && role !== "admin" && role !== "manager") {
     throw new Error("Seuls owner, admin et manager peuvent exporter les statistiques.");
   }
+  // Plan gate: advanced stats export is Pro/Enterprise
+  const { assertPlanFeature } = await import("./plan-guard.server");
+  await assertPlanFeature(input.companyId, "advanced_stats");
   const [{ data: company }, { data: exporter }] = await Promise.all([
     supabaseAdmin.from("companies").select("name,siret,address").eq("id", input.companyId).maybeSingle(),
     supabaseAdmin.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
