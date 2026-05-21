@@ -224,6 +224,9 @@ export const signFieldPv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => SignSchema.parse(i))
   .handler(async ({ data, context }) => {
+    // Strict MIME check on both signature blobs
+    decodeAndValidateImage(data.companySignature, { maxBytes: 2_000_000 });
+    decodeAndValidateImage(data.clientSignature, { maxBytes: 2_000_000 });
     const pv = await getPvCompany(data.pvId);
     await assertMember(pv.company_id!, context.userId);
 
