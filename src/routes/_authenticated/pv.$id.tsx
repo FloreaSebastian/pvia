@@ -225,19 +225,30 @@ function PvDetail() {
           <p className="mt-1 text-sm text-muted-foreground">
             Créé le {new Date(pv.created_at).toLocaleDateString("fr-FR")}
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
+            {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
+          {pv.pdf_url && (
+            <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+              <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
+            </Badge>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
           {!pv.client_signature && (
             <Button onClick={openSendDialog}>
               <Send className="h-4 w-4" /> Envoyer au client pour signature
             </Button>
           )}
-          {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF</Button>}
+          <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
+            {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {regenerating ? "Génération…" : "Régénérer le PDF"}
+          </Button>
+          {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF signé</Button>}
           <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
         </div>
       </div>
+
 
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
         <DialogContent>
