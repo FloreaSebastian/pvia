@@ -404,6 +404,12 @@ function NewPv() {
         });
       } catch {}
 
+      // Fire push notification to all company members (except author).
+      try {
+        const { notifyPvCreated } = await import("@/lib/notify-pv.functions");
+        await notifyPvCreated({ data: { pvId: pvIns.id, signed: status === "signe" } });
+      } catch {}
+
       localStorage.removeItem(DRAFT_KEY);
       toast.success(status === "signe" ? "PV signé et archivé avec succès" : "Brouillon enregistré");
       navigate({ to: "/pv" });

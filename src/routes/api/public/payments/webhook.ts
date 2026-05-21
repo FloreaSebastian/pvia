@@ -70,6 +70,44 @@ async function markCanceled(subscription: any, env: StripeEnv) {
     .update({ status: "canceled", updated_at: new Date().toISOString() })
     .eq("stripe_subscription_id", subscription.id)
     .eq("environment", env);
+  const companyId = subscription.metadata?.companyId;
+  if (companyId) {
+    try {
+      const { firePushToCompany } = await import("@/lib/push.server");
+      firePushToCompany(companyId, {
+        title: "Abonnement annulé",
+        body: "Votre abonnement PVIA a été annulé.",
+        url: "/billing",
+        tag: `sub-canceled-${subscription.id}`,
+        requireInteraction: true,
+        data: { kind: "billing.subscription_canceled" },
+      });
+    } catch {}
+  }
+}
+
+async function notifyPaymentFailed(invoice: any) {
+  const companyId = invoice?.metadata?.companyId;
+  if (!companyId) return;
+  try {
+    const { firePushToCompany } = await import("@/lib/push.server");
+    firePushToCompany(companyId, {
+      title: "Paiement échoué",
+      body: "Le règlement de votre abonnement a échoué. Mettez à jour votre moyen de paiement.",
+      url: "/billing",
+      tag: `payment-failed-${invoice.id}`,
+      requireInteraction: true,
+      data: { kind: "billing.payment_failed" },
+    });
+  } catch {}
+  const db = getSupabase() as any;
+  await db.from("audit_logs").insert({
+    company_id: companyId,
+    entity_type: "invoice",
+    entity_id: invoice.id,
+    action: "billing.payment_failed",
+    metadata: { amount_due: invoice.amount_due, currency: invoice.currency },
+  });
 }
 
 async function handleWebhook(req: Request, env: StripeEnv) {
@@ -85,8 +123,7 @@ async function handleWebhook(req: Request, env: StripeEnv) {
       await markCanceled(event.data.object, env);
       break;
     case "invoice.payment_failed":
-      // Status will be reflected on the next subscription.updated event.
-      console.log("[webhook] payment failed for sub", event.data.object?.subscription);
+      await notifyPaymentFailed(event.data.object);
       break;
     default:
       console.log("[webhook] unhandled:", event.type);

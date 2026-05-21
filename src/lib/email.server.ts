@@ -142,6 +142,19 @@ export async function sendSignedPvEmailTo(opts: {
       metadata: { recipient: opts.recipient, email_type: opts.emailType, resend_id: json.id ?? null, subject: opts.subject },
       actor: "email",
     });
+    // Fire push (fan-out, never throws). Only for client-bound emails to avoid noise on internal copies.
+    if (opts.emailType !== "signed_copy_to_company") {
+      try {
+        const { firePushToCompany } = await import("./push.server");
+        firePushToCompany(opts.companyId, {
+          title: "PV envoyé au client",
+          body: `Envoyé à ${opts.recipient}`,
+          url: `/pv/${opts.pvId}`,
+          tag: `pv-email-${opts.pvId}`,
+          data: { kind: "pv.email_sent", pvId: opts.pvId },
+        });
+      } catch {}
+    }
     return { recipient: opts.recipient, status: "sent", resendId: json.id };
   } catch (e: any) {
     const msg = e?.message || "Erreur inconnue";

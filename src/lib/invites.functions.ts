@@ -233,5 +233,18 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
       action: "member.joined", newValues: { role: row?.role, email },
       actor: "user",
     });
+    if (row?.company_id) {
+      firePushToCompany(
+        row.company_id,
+        {
+          title: "Nouveau membre",
+          body: `${email ?? "Un collaborateur"} a rejoint l'équipe.`,
+          url: "/equipe",
+          tag: `member-joined-${invite.id}`,
+          data: { kind: "member.joined" },
+        },
+        { excludeUserId: userId },
+      );
+    }
     return { ok: true };
   });
