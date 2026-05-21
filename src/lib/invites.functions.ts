@@ -174,6 +174,21 @@ const TokenSchema = z.object({ token: z.string().min(10).max(128) });
 export const getInviteByToken = createServerFn({ method: "POST" })
   .inputValidator((input) => TokenSchema.parse(input))
   .handler(async ({ data }) => {
+    // Rate-limit anonymous token lookups (per IP + token prefix) to mitigate enumeration.
+    try {
+      const { getRequest } = await import("@tanstack/react-start/server");
+      const ip = getClientIp(getRequest());
+      await enforceRateLimit({
+        bucket: "invite.get",
+        key: `${ip}:${data.token.slice(0, 16)}`,
+        limit: 20,
+        windowSec: 60,
+      });
+    } catch (e) {
+      if ((e as any)?.name === "RateLimitError") throw e;
+      // not in request context — best-effort
+    }
+
     const { data: invite } = await supabaseAdmin
       .from("company_members")
       .select("id,company_id,role,invited_email,invite_expires_at,status")
