@@ -17,9 +17,7 @@ export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
     meta: [
-      {
-        title: "PVIA — Procès-verbaux de réception de travaux pour le BTP",
-      },
+      { title: "PVIA — Procès-verbaux de réception de travaux pour le BTP" },
       {
         name: "description",
         content:
@@ -32,8 +30,30 @@ export const Route = createFileRoute("/")({
           "La solution SaaS pour digitaliser vos réceptions de travaux : signature électronique, photos, réserves, PDF automatique.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://pvia.fr/" },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: "https://pvia.fr/" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "PVIA",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web, iOS, Android",
+          description:
+            "PVIA digitalise vos procès-verbaux de réception de travaux : signature électronique, photos, réserves et PDF automatique.",
+          offers: {
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "EUR",
+            description: "Essai gratuit 14 jours, sans carte bancaire.",
+          },
+          publisher: { "@type": "Organization", name: "PVIA", url: "https://pvia.fr" },
+        }),
+      },
+    ],
   }),
 });
 
