@@ -431,8 +431,57 @@ function PvDetail() {
           </div>
         )}
       </Card>
+
+      <Card className="p-6">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Mail className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Historique des emails ({emailLogs.length})</h3>
+          </div>
+          {pv.status === "signe" && pv.pdf_url && (
+            <Button size="sm" variant="outline" onClick={handleResendSigned} disabled={resendingSigned}>
+              {resendingSigned ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+              Renvoyer le PDF signé
+            </Button>
+          )}
+        </div>
+        {emailLogs.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Aucun email envoyé pour ce PV.</p>
+        ) : (
+          <div className="space-y-2">
+            {emailLogs.map((l) => (
+              <div key={l.id} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={l.status === "sent" ? "secondary" : "destructive"} className={l.status === "sent" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" : ""}>
+                      {l.status === "sent" ? "Envoyé" : "Échec"}
+                    </Badge>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground">{labelForType(l.email_type)}</span>
+                  </div>
+                  <p className="mt-1 truncate font-medium">{l.recipient_email}</p>
+                  {l.subject && <p className="truncate text-xs text-muted-foreground">{l.subject}</p>}
+                  {l.error_message && <p className="mt-1 text-xs text-destructive">{l.error_message}</p>}
+                </div>
+                <div className="shrink-0 text-right text-xs text-muted-foreground">
+                  {new Date(l.sent_at || l.created_at).toLocaleString("fr-FR")}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
+}
+
+function labelForType(t: string) {
+  switch (t) {
+    case "signed_to_client": return "PV signé → client";
+    case "signed_copy_to_company": return "Copie entreprise";
+    case "signed_resend": return "Renvoi manuel";
+    case "invite": return "Invitation";
+    default: return t;
+  }
 }
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
