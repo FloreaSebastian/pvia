@@ -203,7 +203,7 @@ export const signPvByToken = createServerFn({ method: "POST" })
 
     // Persist a notification for the owner
     await supabaseAdmin.from("notifications").insert({
-      company_id: pv.company_id,
+      company_id: pv.company_id!,
       user_id: pv.owner_id,
       type: "pv_signed_remote",
       title: "PV signé par le client",
