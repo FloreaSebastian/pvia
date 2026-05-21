@@ -266,6 +266,13 @@ export const signFieldPv = createServerFn({ method: "POST" })
       console.error("PDF generation after field sign failed:", e);
     }
 
+    firePushToCompany(pv.company_id!, {
+      title: "PV signé sur chantier",
+      body: `${pv.numero} a été signé${data.clientName ? ` par ${data.clientName}` : ""}.`,
+      url: `/pv/${pv.id}`,
+      tag: `pv-signed-${pv.id}`,
+    }, { excludeUserId: context.userId });
+
     return { ok: true, pvId: pv.id };
   });
 
