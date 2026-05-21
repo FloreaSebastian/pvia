@@ -57,6 +57,12 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
   const { activeCompanyId } = useCompany();
 
   async function signOut() {
+    // Invalidate the user's push subscriptions BEFORE dropping the session,
+    // so future pushes can't leak to a previous account on shared devices.
+    try {
+      const { wipeMyPushDevices } = await import("@/lib/push-devices.functions");
+      await wipeMyPushDevices();
+    } catch { /* network/offline — best-effort */ }
     await supabase.auth.signOut();
     toast.success("Déconnecté avec succès");
     navigate({ to: "/login" });
