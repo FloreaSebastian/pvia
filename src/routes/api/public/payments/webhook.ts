@@ -47,24 +47,25 @@ async function upsertSubscription(subscription: any, env: StripeEnv) {
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await getSupabase()
+  const db = getSupabase() as any;
+  const { error } = await db
     .from("subscriptions")
     .upsert(row, { onConflict: "stripe_subscription_id" });
   if (error) console.error("[webhook] upsert subscription failed", error);
 
-  // Audit log
-  await getSupabase().from("audit_logs").insert({
+  await db.from("audit_logs").insert({
     company_id: companyId,
     user_id: userId,
     entity_type: "subscription",
-    entity_id: subscription.id as any,
+    entity_id: subscription.id,
     action: `subscription.${subscription.status}`,
     metadata: { plan, environment: env },
-  } as any);
+  });
 }
 
 async function markCanceled(subscription: any, env: StripeEnv) {
-  await getSupabase()
+  const db = getSupabase() as any;
+  await db
     .from("subscriptions")
     .update({ status: "canceled", updated_at: new Date().toISOString() })
     .eq("stripe_subscription_id", subscription.id)
