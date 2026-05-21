@@ -341,6 +341,48 @@ export type Database = {
           },
         ]
       }
+      plan_limits: {
+        Row: {
+          can_advanced_stats: boolean
+          can_branding: boolean
+          can_export_audit: boolean
+          can_remote_sign: boolean
+          created_at: string
+          display_name: string
+          max_members: number | null
+          max_pv_per_month: number | null
+          monthly_price_eur: number
+          plan: string
+          updated_at: string
+        }
+        Insert: {
+          can_advanced_stats?: boolean
+          can_branding?: boolean
+          can_export_audit?: boolean
+          can_remote_sign?: boolean
+          created_at?: string
+          display_name: string
+          max_members?: number | null
+          max_pv_per_month?: number | null
+          monthly_price_eur?: number
+          plan: string
+          updated_at?: string
+        }
+        Update: {
+          can_advanced_stats?: boolean
+          can_branding?: boolean
+          can_export_audit?: boolean
+          can_remote_sign?: boolean
+          created_at?: string
+          display_name?: string
+          max_members?: number | null
+          max_pv_per_month?: number | null
+          monthly_price_eur?: number
+          plan?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -576,6 +618,65 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          company_id: string
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          environment: string
+          id: string
+          plan: string
+          status: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          trial_end: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          company_id: string
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          plan: string
+          status?: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          trial_end?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          company_id?: string
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          plan?: string
+          status?: string
+          stripe_customer_id?: string
+          stripe_subscription_id?: string
+          trial_end?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_fkey"
+            columns: ["plan"]
+            isOneToOne: false
+            referencedRelation: "plan_limits"
+            referencedColumns: ["plan"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -602,13 +703,50 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_add_member: { Args: { _company_id: string }; Returns: boolean }
+      can_create_pv: { Args: { _company_id: string }; Returns: boolean }
       can_manage_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      get_company_limits: {
+        Args: { _company_id: string }
+        Returns: {
+          can_advanced_stats: boolean
+          can_branding: boolean
+          can_export_audit: boolean
+          can_remote_sign: boolean
+          created_at: string
+          display_name: string
+          max_members: number | null
+          max_pv_per_month: number | null
+          monthly_price_eur: number
+          plan: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plan_limits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_company_member_count: {
+        Args: { _company_id: string }
+        Returns: number
+      }
+      get_company_plan: { Args: { _company_id: string }; Returns: string }
+      get_company_pv_count_current_period: {
+        Args: { _company_id: string }
+        Returns: number
+      }
       get_company_role: {
         Args: { _company_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["company_role"]
+      }
+      has_plan_feature: {
+        Args: { _company_id: string; _feature: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
