@@ -1,7 +1,29 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import SignaturePad from "react-signature-canvas";
-import { Upload, Trash2, Plus, Loader2, Save, X } from "lucide-react";
+import {
+  Upload,
+  Trash2,
+  Plus,
+  Loader2,
+  Save,
+  X,
+  ChevronRight,
+  ChevronLeft,
+  Building2,
+  User,
+  MapPin,
+  ClipboardList,
+  Camera,
+  AlertTriangle,
+  PenLine,
+  FileText,
+  CheckCircle2,
+  Eye,
+  Check,
+  Cloud,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,14 +34,15 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
+import { StatusBadge } from "@/components/app/StatusBadge";
 
 export const Route = createFileRoute("/_authenticated/pv/new")({
   component: NewPv,
-  head: () => ({ meta: [{ title: "Nouveau PV — PVIA" }] }),
+  head: () => ({ meta: [{ title: "Créer un PV — PVIA" }] }),
 });
 
-type Photo = { file: File; preview: string; caption: string };
-type Reserve = { description: string; severity: "mineure" | "majeure" };
+type Photo = { file: File; preview: string; caption: string; kind: "avant" | "apres" };
+type Reserve = { description: string; severity: "mineure" | "majeure"; status: "ouverte" | "levee" | "validee" };
 
 const TYPES = [
   { value: "reception", label: "Réception de travaux" },
@@ -27,80 +50,245 @@ const TYPES = [
   { value: "levee_reserves", label: "Levée de réserves" },
 ];
 
+const STEPS = [
+  { id: 1, label: "Entreprise", icon: Building2 },
+  { id: 2, label: "Client", icon: User },
+  { id: 3, label: "Chantier", icon: MapPin },
+  { id: 4, label: "Travaux", icon: ClipboardList },
+  { id: 5, label: "Photos", icon: Camera },
+  { id: 6, label: "Réserves", icon: AlertTriangle },
+  { id: 7, label: "Signatures", icon: PenLine },
+  { id: 8, label: "Aperçu", icon: Eye },
+];
+
+const DRAFT_KEY = "pvia:draft:new-pv";
+
 function NewPv() {
   const navigate = useNavigate();
-  const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null }[]>([]);
-  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [step, setStep] = useState(1);
+  const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null }[]>([]);
+  const [clients, setClients] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   const [form, setForm] = useState({
-    numero: `PV-${Date.now().toString().slice(-6)}`,
+    numero: `PV-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`,
     type: "reception",
+    company_name: "",
+    company_address: "",
+    company_siret: "",
     chantier_id: "",
     client_id: "",
+    new_client_name: "",
+    new_client_email: "",
+    site_address: "",
     reception_date: new Date().toISOString().slice(0, 10),
     description: "",
     observations: "",
+    montant: "",
   });
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
-  const [newReserve, setNewReserve] = useState<Reserve>({ description: "", severity: "mineure" });
+  const [newReserve, setNewReserve] = useState<Reserve>({ description: "", severity: "mineure", status: "ouverte" });
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
 
+  // Load chantiers/clients + draft
   useEffect(() => {
     (async () => {
       const [c, cl] = await Promise.all([
-        supabase.from("chantiers").select("id,name,client_id").order("name"),
-        supabase.from("clients").select("id,name").order("name"),
+        supabase.from("chantiers").select("id,name,client_id,address").order("name"),
+        supabase.from("clients").select("id,name,email,phone").order("name"),
       ]);
       setChantiers(c.data ?? []);
       setClients(cl.data ?? []);
     })();
+
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.form) setForm((f) => ({ ...f, ...parsed.form }));
+        if (parsed.reserves) setReserves(parsed.reserves);
+      }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  function onFiles(files: FileList | null) {
+  // Autosave (form + reserves only; photos & signatures are not serializable)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves }));
+        setLastSaved(new Date());
+      } catch {
+        /* quota or private mode */
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [form, reserves]);
+
+  // Update site address from chantier
+  useEffect(() => {
+    if (form.chantier_id) {
+      const ch = chantiers.find((c) => c.id === form.chantier_id);
+      if (ch) {
+        setForm((f) => ({
+          ...f,
+          site_address: ch.address ?? f.site_address,
+          client_id: ch.client_id ?? f.client_id,
+        }));
+      }
+    }
+  }, [form.chantier_id, chantiers]);
+
+  function onFiles(files: FileList | null, kind: "avant" | "apres") {
     if (!files) return;
-    const next = Array.from(files).map((file) => ({ file, preview: URL.createObjectURL(file), caption: "" }));
+    const next = Array.from(files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+      caption: "",
+      kind,
+    }));
     setPhotos((p) => [...p, ...next]);
   }
 
   function addReserve() {
-    if (!newReserve.description.trim()) return;
+    if (!newReserve.description.trim()) {
+      toast.error("Décrivez la réserve avant de l'ajouter.");
+      return;
+    }
     setReserves((r) => [...r, { ...newReserve }]);
-    setNewReserve({ description: "", severity: "mineure" });
+    setNewReserve({ description: "", severity: "mineure", status: "ouverte" });
   }
 
-  async function generatePdf(numero: string, signs: { client: string | null; company: string | null }) {
+  function buildPdfDoc(signs: { client: string | null; company: string | null }) {
     const doc = new jsPDF();
-    let y = 20;
-    doc.setFontSize(18); doc.text("PROCÈS-VERBAL DE RÉCEPTION", 105, y, { align: "center" });
-    y += 8; doc.setFontSize(11); doc.text(`N° ${numero}`, 105, y, { align: "center" });
-    y += 12; doc.setFontSize(10);
-    doc.text(`Type : ${TYPES.find((t) => t.value === form.type)?.label}`, 14, y); y += 6;
-    doc.text(`Date : ${form.reception_date}`, 14, y); y += 6;
-    const chant = chantiers.find((c) => c.id === form.chantier_id);
-    if (chant) { doc.text(`Chantier : ${chant.name}`, 14, y); y += 6; }
-    const cli = clients.find((c) => c.id === form.client_id);
-    if (cli) { doc.text(`Client : ${cli.name}`, 14, y); y += 6; }
-    y += 4;
-    doc.setFont("helvetica", "bold"); doc.text("Description", 14, y); doc.setFont("helvetica", "normal"); y += 6;
-    doc.text(doc.splitTextToSize(form.description || "—", 180), 14, y); y += Math.max(8, doc.splitTextToSize(form.description || "—", 180).length * 5);
-    y += 4;
-    doc.setFont("helvetica", "bold"); doc.text("Observations", 14, y); doc.setFont("helvetica", "normal"); y += 6;
-    doc.text(doc.splitTextToSize(form.observations || "—", 180), 14, y); y += Math.max(8, doc.splitTextToSize(form.observations || "—", 180).length * 5);
-    if (reserves.length) {
-      y += 4; doc.setFont("helvetica", "bold"); doc.text("Réserves", 14, y); doc.setFont("helvetica", "normal"); y += 6;
-      reserves.forEach((r, i) => { doc.text(`${i + 1}. [${r.severity}] ${r.description}`, 14, y); y += 6; });
-    }
-    if (y > 220) { doc.addPage(); y = 20; }
-    y += 10; doc.setFont("helvetica", "bold"); doc.text("Signatures", 14, y); y += 8;
+    const W = 210;
+    let y = 18;
+
+    // Header band
+    doc.setFillColor(20, 35, 80);
+    doc.rect(0, 0, W, 28, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("PVIA", 14, 14);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("Client :", 14, y); doc.text("Entreprise :", 110, y); y += 4;
-    if (signs.client) doc.addImage(signs.client, "PNG", 14, y, 70, 30);
-    if (signs.company) doc.addImage(signs.company, "PNG", 110, y, 70, 30);
-    return doc.output("blob");
+    doc.text("Réception de travaux intelligente", 14, 20);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(form.numero, W - 14, 18, { align: "right" });
+
+    doc.setTextColor(20, 20, 20);
+    y = 38;
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("PROCÈS-VERBAL DE RÉCEPTION", 105, y, { align: "center" });
+    y += 6;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(110, 110, 110);
+    doc.text(TYPES.find((t) => t.value === form.type)?.label ?? "", 105, y, { align: "center" });
+    doc.setTextColor(20, 20, 20);
+    y += 10;
+
+    // Two-column blocks
+    const block = (x: number, title: string, lines: string[]) => {
+      doc.setFillColor(245, 247, 252);
+      doc.rect(x, y, 88, 6 + lines.length * 5 + 4, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(70, 90, 140);
+      doc.text(title.toUpperCase(), x + 3, y + 4.5);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 30);
+      lines.forEach((l, i) => doc.text(l || "—", x + 3, y + 11 + i * 5));
+    };
+    const cli = clients.find((c) => c.id === form.client_id);
+    block(14, "Entreprise", [form.company_name, form.company_address, form.company_siret && `SIRET ${form.company_siret}`].filter(Boolean) as string[]);
+    block(108, "Client", [cli?.name ?? form.new_client_name, cli?.email ?? form.new_client_email].filter(Boolean) as string[]);
+    y += 30;
+
+    const chant = chantiers.find((c) => c.id === form.chantier_id);
+    block(14, "Chantier", [chant?.name ?? "—", form.site_address].filter(Boolean) as string[]);
+    block(108, "Réception", [`Date : ${form.reception_date}`, form.montant && `Montant : ${form.montant} €`].filter(Boolean) as string[]);
+    y += 30;
+
+    // Description
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Description des travaux", 14, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const desc = doc.splitTextToSize(form.description || "—", 180);
+    doc.text(desc, 14, y);
+    y += desc.length * 5 + 4;
+
+    // Observations
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Observations", 14, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const obs = doc.splitTextToSize(form.observations || "—", 180);
+    doc.text(obs, 14, y);
+    y += obs.length * 5 + 4;
+
+    // Reserves
+    if (reserves.length) {
+      if (y > 220) { doc.addPage(); y = 20; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("Réserves", 14, y);
+      y += 6;
+      doc.setFontSize(9);
+      reserves.forEach((r, i) => {
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i + 1}. [${r.severity.toUpperCase()} · ${r.status}]`, 14, y);
+        doc.setFont("helvetica", "normal");
+        const t = doc.splitTextToSize(r.description, 165);
+        doc.text(t, 45, y);
+        y += Math.max(5, t.length * 5);
+      });
+      y += 4;
+    }
+
+    // Signatures
+    if (y > 220) { doc.addPage(); y = 20; }
+    y += 6;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Signatures", 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(110, 110, 110);
+    doc.text("Client", 14, y);
+    doc.text("Entreprise", 110, y);
+    doc.setTextColor(20, 20, 20);
+    y += 3;
+    doc.setDrawColor(220, 220, 230);
+    doc.rect(14, y, 80, 30);
+    doc.rect(110, y, 80, 30);
+    if (signs.client) doc.addImage(signs.client, "PNG", 16, y + 2, 76, 26);
+    if (signs.company) doc.addImage(signs.company, "PNG", 112, y + 2, 76, 26);
+
+    return doc;
+  }
+
+  async function generatePreview() {
+    const doc = buildPdfDoc({ client: null, company: null });
+    const url = doc.output("bloburl") as unknown as string;
+    setPdfPreviewUrl(url);
   }
 
   async function onSave(status: "brouillon" | "signe") {
@@ -114,16 +302,26 @@ function NewPv() {
 
       if (status === "signe" && (!clientSig || !companySig)) {
         toast.error("Les deux signatures sont requises pour valider.");
-        setSaving(false); return;
+        setSaving(false);
+        return;
       }
 
-      // Generate PDF
-      const pdfBlob = await generatePdf(form.numero, { client: clientSig, company: companySig });
+      const pdfBlob = buildPdfDoc({ client: clientSig, company: companySig }).output("blob");
       const pdfPath = `${user.id}/pv/${form.numero}-${Date.now()}.pdf`;
       const up = await supabase.storage.from("pv-assets").upload(pdfPath, pdfBlob, { contentType: "application/pdf" });
       if (up.error) throw up.error;
 
-      // Insert PV
+      // create client if new
+      let clientId = form.client_id || null;
+      if (!clientId && form.new_client_name.trim()) {
+        const { data: nc } = await supabase
+          .from("clients")
+          .insert({ owner_id: user.id, name: form.new_client_name, email: form.new_client_email || null })
+          .select("id")
+          .single();
+        clientId = nc?.id ?? null;
+      }
+
       const { data: pvIns, error } = await supabase.from("pv").insert({
         owner_id: user.id,
         numero: form.numero,
@@ -131,7 +329,7 @@ function NewPv() {
         status,
         reception_date: form.reception_date,
         chantier_id: form.chantier_id || null,
-        client_id: form.client_id || null,
+        client_id: clientId,
         description: form.description,
         observations: form.observations,
         client_signature: clientSig,
@@ -141,20 +339,33 @@ function NewPv() {
       }).select("id").single();
       if (error) throw error;
 
-      // Upload photos
       for (const p of photos) {
-        const path = `${user.id}/photos/${pvIns.id}/${Date.now()}-${p.file.name}`;
+        const path = `${user.id}/photos/${pvIns.id}/${p.kind}-${Date.now()}-${p.file.name}`;
         const u = await supabase.storage.from("pv-assets").upload(path, p.file);
         if (!u.error) {
-          await supabase.from("pv_photos").insert({ pv_id: pvIns.id, owner_id: user.id, url: path, caption: p.caption });
+          await supabase.from("pv_photos").insert({
+            pv_id: pvIns.id,
+            owner_id: user.id,
+            url: path,
+            caption: `[${p.kind}] ${p.caption}`,
+          });
         }
       }
-      // Insert reserves
+
       if (reserves.length) {
-        await supabase.from("pv_reserves").insert(reserves.map((r) => ({ pv_id: pvIns.id, owner_id: user.id, ...r })));
+        await supabase.from("pv_reserves").insert(
+          reserves.map((r) => ({
+            pv_id: pvIns.id,
+            owner_id: user.id,
+            description: r.description,
+            severity: r.severity,
+            status: r.status,
+          })),
+        );
       }
 
-      toast.success(status === "signe" ? "PV signé et enregistré" : "Brouillon enregistré");
+      localStorage.removeItem(DRAFT_KEY);
+      toast.success(status === "signe" ? "PV signé et archivé avec succès" : "Brouillon enregistré");
       navigate({ to: "/pv" });
     } catch (e) {
       toast.error((e as Error).message);
@@ -163,111 +374,375 @@ function NewPv() {
     }
   }
 
+  // Validation per step
+  const stepValid = useMemo(() => {
+    switch (step) {
+      case 1:
+        return form.company_name.trim().length > 0;
+      case 2:
+        return Boolean(form.client_id || form.new_client_name.trim());
+      case 3:
+        return form.site_address.trim().length > 0 && Boolean(form.reception_date);
+      case 4:
+        return form.description.trim().length > 0;
+      default:
+        return true;
+    }
+  }, [step, form]);
+
+  const progress = (step / STEPS.length) * 100;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Nouveau procès-verbal</h1>
-          <p className="text-sm text-muted-foreground">Remplissez les informations, ajoutez photos et signatures.</p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Link to="/pv" className="hover:text-foreground">Procès-verbaux</Link>
+            <ChevronRight className="h-3 w-3" />
+            <span>Nouveau</span>
+          </div>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Créer un procès-verbal</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Suivez les étapes pour générer un PV professionnel signé électroniquement.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" disabled={saving} onClick={() => onSave("brouillon")}><Save className="h-4 w-4" /> Brouillon</Button>
-          <Button disabled={saving} onClick={() => onSave("signe")}>{saving && <Loader2 className="h-4 w-4 animate-spin" />} Valider & générer PDF</Button>
+        <div className="flex items-center gap-2">
+          {lastSaved && (
+            <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
+              <Cloud className="h-3 w-3 text-emerald-500" /> Sauvegardé {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <Button variant="outline" disabled={saving} onClick={() => onSave("brouillon")}>
+            <Save className="h-4 w-4" /> Brouillon
+          </Button>
         </div>
       </div>
 
-      <Card className="p-6 space-y-4">
-        <h3 className="font-semibold">Informations générales</h3>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div><Label>N° de PV</Label><Input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} /></div>
-          <div>
-            <Label>Type</Label>
-            <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-            </Select>
+      {/* Progress bar */}
+      <Card className="overflow-hidden p-0">
+        <div className="border-b border-border bg-muted/30 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Étape {step} sur {STEPS.length}
+            </span>
+            <span className="text-xs font-medium text-primary">{Math.round(progress)}%</span>
           </div>
-          <div>
-            <Label>Chantier</Label>
-            <Select value={form.chantier_id || "none"} onValueChange={(v) => setForm({ ...form, chantier_id: v === "none" ? "" : v, client_id: chantiers.find(c => c.id === v)?.client_id ?? form.client_id })}>
-              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-              <SelectContent><SelectItem value="none">—</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-            </Select>
+          <div className="h-1.5 overflow-hidden rounded-full bg-border">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70"
+              initial={false}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            />
           </div>
-          <div>
-            <Label>Client</Label>
-            <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
-              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-              <SelectContent><SelectItem value="none">—</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="sm:col-span-2"><Label>Date de réception</Label><Input type="date" value={form.reception_date} onChange={(e) => setForm({ ...form, reception_date: e.target.value })} /></div>
-        </div>
-        <div><Label>Description des travaux</Label><Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-        <div><Label>Observations</Label><Textarea rows={3} value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} /></div>
-      </Card>
-
-      <Card className="p-6 space-y-4">
-        <div className="flex items-center justify-between"><h3 className="font-semibold">Photos du chantier</h3><span className="text-xs text-muted-foreground">{photos.length} photo(s)</span></div>
-        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 p-8 text-sm text-muted-foreground hover:border-primary">
-          <Upload className="h-4 w-4" /> Ajouter des photos
-          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
-        </label>
-        {photos.length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-3">
-            {photos.map((p, i) => (
-              <div key={i} className="group relative overflow-hidden rounded-lg border border-border">
-                <img src={p.preview} alt="" className="aspect-square w-full object-cover" />
-                <button type="button" onClick={() => setPhotos(photos.filter((_, j) => j !== i))} className="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-md bg-background/80"><X className="h-3 w-3" /></button>
-                <Input placeholder="Légende" className="rounded-none border-0 border-t" value={p.caption} onChange={(e) => { const c = [...photos]; c[i].caption = e.target.value; setPhotos(c); }} />
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <Card className="p-6 space-y-4">
-        <h3 className="font-semibold">Réserves</h3>
-        <div className="flex gap-2">
-          <Input placeholder="Description de la réserve" value={newReserve.description} onChange={(e) => setNewReserve({ ...newReserve, description: e.target.value })} />
-          <Select value={newReserve.severity} onValueChange={(v) => setNewReserve({ ...newReserve, severity: v as "mineure" | "majeure" })}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="mineure">Mineure</SelectItem><SelectItem value="majeure">Majeure</SelectItem></SelectContent>
-          </Select>
-          <Button type="button" onClick={addReserve}><Plus className="h-4 w-4" /></Button>
-        </div>
-        {reserves.length > 0 && (
-          <ul className="space-y-2">
-            {reserves.map((r, i) => (
-              <li key={i} className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
-                <span className="flex items-center gap-2"><Badge variant={r.severity === "majeure" ? "destructive" : "secondary"}>{r.severity}</Badge>{r.description}</span>
-                <Button size="icon" variant="ghost" onClick={() => setReserves(reserves.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="font-semibold">Signatures</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Signez avec le doigt ou la souris pour valider le PV.</p>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div>
-            <Label>Signature du client</Label>
-            <div className="mt-1 rounded-lg border border-border bg-muted/30">
-              <SignaturePad ref={clientSigRef} canvasProps={{ className: "w-full h-40 rounded-lg" }} />
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => clientSigRef.current?.clear()} className="mt-2">Effacer</Button>
-          </div>
-          <div>
-            <Label>Signature entreprise</Label>
-            <div className="mt-1 rounded-lg border border-border bg-muted/30">
-              <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full h-40 rounded-lg" }} />
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => companySigRef.current?.clear()} className="mt-2">Effacer</Button>
+          <div className="mt-4 hidden flex-wrap gap-2 md:flex">
+            {STEPS.map((s) => {
+              const Icon = s.icon;
+              const done = s.id < step;
+              const current = s.id === step;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setStep(s.id)}
+                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                    current
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : done
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-muted text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {done ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {/* Step content */}
+        <div className="p-6 sm:p-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              {step === 1 && (
+                <>
+                  <SectionHeader icon={Building2} title="Informations entreprise" desc="Vos coordonnées qui apparaîtront sur le PV." />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Numéro de PV"><Input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} /></Field>
+                    <Field label="Type de PV">
+                      <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Nom de l'entreprise *"><Input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} placeholder="SARL Toitures du Sud" /></Field>
+                    <Field label="SIRET"><Input value={form.company_siret} onChange={(e) => setForm({ ...form, company_siret: e.target.value })} placeholder="123 456 789 00012" /></Field>
+                    <div className="sm:col-span-2"><Field label="Adresse de l'entreprise"><Input value={form.company_address} onChange={(e) => setForm({ ...form, company_address: e.target.value })} placeholder="12 rue des Artisans, 06000 Nice" /></Field></div>
+                  </div>
+                </>
+              )}
+
+              {step === 2 && (
+                <>
+                  <SectionHeader icon={User} title="Informations client" desc="Sélectionnez un client existant ou créez-en un nouveau." />
+                  <Field label="Client existant">
+                    <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
+                      <SelectTrigger><SelectValue placeholder="Choisir un client…" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Nouveau client —</SelectItem>
+                        {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  {!form.client_id && (
+                    <div className="grid gap-4 rounded-xl border border-dashed border-border bg-muted/20 p-4 sm:grid-cols-2">
+                      <Field label="Nom du client *"><Input value={form.new_client_name} onChange={(e) => setForm({ ...form, new_client_name: e.target.value })} placeholder="M. et Mme Mercier" /></Field>
+                      <Field label="Email"><Input type="email" value={form.new_client_email} onChange={(e) => setForm({ ...form, new_client_email: e.target.value })} placeholder="client@email.com" /></Field>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {step === 3 && (
+                <>
+                  <SectionHeader icon={MapPin} title="Adresse du chantier" desc="Le lieu où la réception est effectuée." />
+                  <Field label="Chantier (optionnel)">
+                    <Select value={form.chantier_id || "none"} onValueChange={(v) => setForm({ ...form, chantier_id: v === "none" ? "" : v })}>
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— Aucun chantier lié —</SelectItem>
+                        {chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Adresse complète du chantier *"><Input value={form.site_address} onChange={(e) => setForm({ ...form, site_address: e.target.value })} placeholder="12 chemin des Pins, 06400 Cannes" /></Field>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Date de réception *"><Input type="date" value={form.reception_date} onChange={(e) => setForm({ ...form, reception_date: e.target.value })} /></Field>
+                    <Field label="Montant des travaux (€)"><Input type="number" inputMode="decimal" value={form.montant} onChange={(e) => setForm({ ...form, montant: e.target.value })} placeholder="18450" /></Field>
+                  </div>
+                </>
+              )}
+
+              {step === 4 && (
+                <>
+                  <SectionHeader icon={ClipboardList} title="Description des travaux" desc="Détaillez les prestations réalisées et vos observations." />
+                  <Field label="Description détaillée *"><Textarea rows={6} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Dépose de l'ancienne couverture, pose membrane EPDM + isolation 200mm, pose couverture tuiles canal..." /></Field>
+                  <Field label="Observations complémentaires"><Textarea rows={4} value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} placeholder="Conditions météo, accès chantier, recommandations d'entretien..." /></Field>
+                </>
+              )}
+
+              {step === 5 && (
+                <>
+                  <SectionHeader icon={Camera} title="Photos avant / après" desc="Documentez visuellement le chantier." />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <PhotoUploader label="Photos AVANT" kind="avant" onFiles={onFiles} />
+                    <PhotoUploader label="Photos APRÈS" kind="apres" onFiles={onFiles} />
+                  </div>
+                  {photos.length > 0 && (
+                    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {photos.map((p, i) => (
+                        <div key={i} className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                          <div className="relative">
+                            <img src={p.preview} alt="" className="aspect-square w-full object-cover" />
+                            <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow ${p.kind === "avant" ? "bg-amber-500" : "bg-emerald-500"}`}>
+                              {p.kind}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setPhotos(photos.filter((_, j) => j !== i))}
+                              className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-md bg-background/90 opacity-0 transition-opacity group-hover:opacity-100"
+                              aria-label="Supprimer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <Input
+                            placeholder="Légende…"
+                            className="rounded-none border-0 border-t text-xs"
+                            value={p.caption}
+                            onChange={(e) => {
+                              const c = [...photos];
+                              c[i].caption = e.target.value;
+                              setPhotos(c);
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {step === 6 && (
+                <>
+                  <SectionHeader icon={AlertTriangle} title="Réserves de chantier" desc="Listez les points à corriger avec leur statut." />
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="grid gap-2 sm:grid-cols-[1fr_140px_140px_auto]">
+                      <Input placeholder="Décrire la réserve…" value={newReserve.description} onChange={(e) => setNewReserve({ ...newReserve, description: e.target.value })} />
+                      <Select value={newReserve.severity} onValueChange={(v) => setNewReserve({ ...newReserve, severity: v as Reserve["severity"] })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mineure">Mineure</SelectItem>
+                          <SelectItem value="majeure">Majeure</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={newReserve.status} onValueChange={(v) => setNewReserve({ ...newReserve, status: v as Reserve["status"] })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ouverte">Ouverte</SelectItem>
+                          <SelectItem value="levee">Levée</SelectItem>
+                          <SelectItem value="validee">Validée</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" onClick={addReserve}><Plus className="h-4 w-4" /> Ajouter</Button>
+                    </div>
+                  </div>
+                  {reserves.length > 0 ? (
+                    <ul className="space-y-2">
+                      {reserves.map((r, i) => (
+                        <li key={i} className="flex items-center justify-between rounded-lg border border-border bg-card p-3 text-sm shadow-sm">
+                          <div className="flex flex-1 items-center gap-3">
+                            <span className="grid h-7 w-7 place-items-center rounded-md bg-muted text-xs font-semibold">{i + 1}</span>
+                            <div className="flex-1">
+                              <p className="font-medium">{r.description}</p>
+                              <div className="mt-1 flex gap-2">
+                                <Badge variant={r.severity === "majeure" ? "destructive" : "secondary"}>{r.severity}</Badge>
+                                <StatusBadge status={r.status} />
+                              </div>
+                            </div>
+                          </div>
+                          <Button size="icon" variant="ghost" onClick={() => setReserves(reserves.filter((_, j) => j !== i))}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+                      Aucune réserve. Le PV sera marqué « sans réserve ».
+                    </p>
+                  )}
+                </>
+              )}
+
+              {step === 7 && (
+                <>
+                  <SectionHeader icon={PenLine} title="Signatures électroniques" desc="Signez avec le doigt ou la souris pour valider le PV." />
+                  <div className="grid gap-5 lg:grid-cols-2">
+                    <SignatureBox label="Signature du client" innerRef={clientSigRef} />
+                    <SignatureBox label="Signature entreprise" innerRef={companySigRef} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Les signatures sont horodatées et stockées de manière sécurisée avec valeur probante.
+                  </p>
+                </>
+              )}
+
+              {step === 8 && (
+                <>
+                  <SectionHeader icon={Eye} title="Aperçu du document" desc="Vérifiez le PDF avant validation finale." />
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <Button type="button" variant="outline" onClick={generatePreview}>
+                      <FileText className="h-4 w-4" /> Générer l'aperçu PDF
+                    </Button>
+                    {pdfPreviewUrl && (
+                      <div className="mt-4 overflow-hidden rounded-lg border border-border bg-background">
+                        <iframe src={pdfPreviewUrl} title="Aperçu PV" className="h-[600px] w-full" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                    <p className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" /> Prêt à valider</p>
+                    <p className="mt-1 text-emerald-800/80">
+                      En cliquant sur « Valider & signer », le PV sera enregistré avec ses signatures, photos et réserves, puis archivé au format PDF.
+                    </p>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Footer navigation */}
+        <div className="flex items-center justify-between border-t border-border bg-muted/20 p-4">
+          <Button variant="ghost" disabled={step === 1} onClick={() => setStep((s) => s - 1)}>
+            <ChevronLeft className="h-4 w-4" /> Précédent
+          </Button>
+          <div className="text-xs text-muted-foreground">
+            {STEPS[step - 1].label}
+          </div>
+          {step < STEPS.length ? (
+            <Button
+              disabled={!stepValid}
+              onClick={() => setStep((s) => Math.min(STEPS.length, s + 1))}
+            >
+              Suivant <ChevronRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button disabled={saving} onClick={() => onSave("signe")} className="shadow-md shadow-primary/25">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Valider & signer
+            </Button>
+          )}
+        </div>
       </Card>
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, desc }: { icon: typeof Building2; title: string; desc: string }) {
+  return (
+    <div className="mb-2 flex items-start gap-3 border-b border-border pb-4">
+      <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <h3 className="font-semibold tracking-tight">{title}</h3>
+        <p className="text-sm text-muted-foreground">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function PhotoUploader({ label, kind, onFiles }: { label: string; kind: "avant" | "apres"; onFiles: (f: FileList | null, k: "avant" | "apres") => void }) {
+  return (
+    <label className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-sm transition-all hover:border-primary hover:bg-primary/5 ${kind === "avant" ? "border-amber-300/60 bg-amber-50/40" : "border-emerald-300/60 bg-emerald-50/40"}`}>
+      <Upload className="h-5 w-5 text-muted-foreground" />
+      <span className="font-medium">{label}</span>
+      <span className="text-xs text-muted-foreground">JPG, PNG · Sélection multiple</span>
+      <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => onFiles(e.target.files, kind)} />
+    </label>
+  );
+}
+
+function SignatureBox({ label, innerRef }: { label: string; innerRef: React.RefObject<SignaturePad | null> }) {
+  return (
+    <div>
+      <Label className="text-xs font-medium">{label}</Label>
+      <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
+        <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" />
+      </div>
+      <Button variant="ghost" size="sm" onClick={() => innerRef.current?.clear()} className="mt-1">
+        <Trash2 className="h-3.5 w-3.5" /> Effacer
+      </Button>
     </div>
   );
 }
