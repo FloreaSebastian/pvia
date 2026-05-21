@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as AuthenticatedUpgradeRequiredRouteImport } from './routes/_authenticated/upgrade-required'
 import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
 import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
@@ -56,6 +57,12 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedUpgradeRequiredRoute =
+  AuthenticatedUpgradeRequiredRouteImport.update({
+    id: '/upgrade-required',
+    path: '/upgrade-required',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedTerrainRoute = AuthenticatedTerrainRouteImport.update({
   id: '/terrain',
   path: '/terrain',
@@ -159,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/reserves': typeof AuthenticatedReservesRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
+  '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -182,6 +190,7 @@ export interface FileRoutesByTo {
   '/reserves': typeof AuthenticatedReservesRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
+  '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -207,6 +216,7 @@ export interface FileRoutesById {
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
   '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
+  '/_authenticated/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/reserves'
     | '/statistiques'
     | '/terrain'
+    | '/upgrade-required'
     | '/invite/$token'
     | '/pv/$id'
     | '/pv/new'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/reserves'
     | '/statistiques'
     | '/terrain'
+    | '/upgrade-required'
     | '/invite/$token'
     | '/pv/$id'
     | '/pv/new'
@@ -279,6 +291,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reserves'
     | '/_authenticated/statistiques'
     | '/_authenticated/terrain'
+    | '/_authenticated/upgrade-required'
     | '/invite/$token'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
@@ -335,6 +348,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/upgrade-required': {
+      id: '/_authenticated/upgrade-required'
+      path: '/upgrade-required'
+      fullPath: '/upgrade-required'
+      preLoaderRoute: typeof AuthenticatedUpgradeRequiredRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/terrain': {
       id: '/_authenticated/terrain'
@@ -491,6 +511,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
+  AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
@@ -507,6 +528,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
+  AuthenticatedUpgradeRequiredRoute: AuthenticatedUpgradeRequiredRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
@@ -528,3 +550,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

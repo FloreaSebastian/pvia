@@ -322,12 +322,14 @@ function NewPv() {
       // Backend quota check (authoritative — uses subscriptions table)
       const { data: canCreate } = await supabase.rpc("can_create_pv", { _company_id: activeCompanyId });
       if (!canCreate) {
-        toast.error("Quota PV mensuel atteint. Mettez à niveau votre plan.", {
-          action: { label: "Voir les plans", onClick: () => navigate({ to: "/billing" }) },
+        toast.error("Quota PV mensuel atteint ou abonnement requis.", {
+          action: { label: "Voir les options", onClick: () => navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } }) },
         });
+        navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } });
         setSaving(false);
         return;
       }
+
 
 
       // create client if new

@@ -4,6 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createStripeClient, type StripeEnv } from "./stripe.server";
 import { writeAuditLog } from "./audit.server";
+import { getAccessState } from "./plan-guard.server";
+
 
 const EnvSchema = z.enum(["sandbox", "live"]);
 
@@ -76,6 +78,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       customerId = customer.id;
     }
 
+    // Only offer the 14-day trial on first ever checkout for this company.
+    const trialDays = existing?.stripe_customer_id ? undefined : 14;
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -83,6 +88,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       success_url: `${data.returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${data.returnUrl}?status=cancel`,
       subscription_data: {
+        ...(trialDays ? { trial_period_days: trialDays } : {}),
         metadata: { companyId: data.companyId, userId },
       },
       metadata: { companyId: data.companyId, userId },
@@ -93,11 +99,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       userId,
       entityType: "subscription",
       action: "billing.checkout_started",
-      metadata: { plan: data.priceId, environment: data.environment },
+      metadata: { plan: data.priceId, environment: data.environment, trial_days: trialDays ?? 0 },
     });
 
-    return { url: session.url };
+    return { url: session.url, trialDays: trialDays ?? 0 };
   });
+
 
 /* ------------------------- Stripe Customer Portal ------------------------- */
 
@@ -129,8 +136,18 @@ export const createPortalSession = createServerFn({ method: "POST" })
       customer: sub.stripe_customer_id,
       return_url: data.returnUrl,
     });
+
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "subscription",
+      action: "billing.portal_opened",
+      metadata: { environment: data.environment },
+    });
+
     return { url: portal.url };
   });
+
 
 /* ------------------------- Get plan & usage ------------------------- */
 
@@ -142,7 +159,7 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertCompanyMember(data.companyId, context.userId);
 
-    const [planRes, limitsRes, subRes, pvCountRes, memberCountRes] = await Promise.all([
+    const [planRes, limitsRes, subRes, pvCountRes, memberCountRes, access] = await Promise.all([
       supabaseAdmin.rpc("get_company_plan", { _company_id: data.companyId }),
       supabaseAdmin.from("plan_limits").select("*"),
       supabaseAdmin
@@ -154,6 +171,7 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
         .maybeSingle(),
       supabaseAdmin.rpc("get_company_pv_count_current_period", { _company_id: data.companyId }),
       supabaseAdmin.rpc("get_company_member_count", { _company_id: data.companyId }),
+      getAccessState(data.companyId),
     ]);
 
     const plan = (planRes.data as string) || "starter";
@@ -165,9 +183,11 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
       limits: currentLimits,
       allPlans: allLimits.sort((a, b) => a.monthly_price_eur - b.monthly_price_eur),
       subscription: subRes.data,
+      access,
       usage: {
         pv_this_period: Number(pvCountRes.data ?? 0),
         members: Number(memberCountRes.data ?? 0),
       },
     };
   });
+

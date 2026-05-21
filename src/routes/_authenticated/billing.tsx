@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Check, Loader2, ExternalLink, CreditCard, AlertTriangle } from "lucide-react";
+import { Check, Loader2, ExternalLink, CreditCard, AlertTriangle, Sparkles, Clock, AlertOctagon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { useCompany } from "@/hooks/use-company";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
 import { getStripeEnvironment, PLAN_PRICE_IDS } from "@/lib/stripe";
 
+
 export const Route = createFileRoute("/_authenticated/billing")({
   component: BillingPage,
   head: () => ({ meta: [{ title: "Facturation — PVIA" }] }),
@@ -19,7 +20,8 @@ export const Route = createFileRoute("/_authenticated/billing")({
 
 function BillingPage() {
   const { activeCompanyId, activeRole } = useCompany();
-  const { plan, limits, usage, subscription, allPlans, isLoading, refetch } = useSubscription();
+  const { plan, limits, usage, subscription, allPlans, access, isLoading, refetch } = useSubscription();
+
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
   const [busy, setBusy] = useState<string | null>(null);
@@ -93,26 +95,53 @@ function BillingPage() {
         <p className="mt-1 text-muted-foreground">Plan actif, consommation, gestion de l'abonnement.</p>
       </div>
 
+      {access?.blocked && (
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
+          <AlertOctagon className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div className="flex-1">
+            <div className="font-medium text-destructive">Abonnement requis ({access.state})</div>
+            <p className="mt-0.5 text-muted-foreground">
+              Création PV, signatures distantes, exports et invitations sont bloqués
+              tant que l'abonnement n'est pas régularisé. La lecture des anciens PV reste possible.
+            </p>
+            <Button asChild size="sm" className="mt-3">
+              <Link to="/upgrade-required" search={{ reason: access.state }}>Voir les options</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
+
       {/* Current plan + usage */}
       <Card className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-wider text-muted-foreground">Plan actuel</div>
-            <div className="mt-1 flex items-center gap-3">
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="text-3xl font-semibold">{limits?.display_name ?? plan}</span>
-              <Badge variant={subscription?.status === "active" || subscription?.status === "trialing" ? "default" : "secondary"}>
-                {subscription?.status ?? "free"}
+              <Badge variant={access?.state === "active" || access?.state === "trialing" ? "default" : "secondary"}>
+                {access?.state ?? subscription?.status ?? "free"}
               </Badge>
+              {access?.state === "trialing" && (
+                <Badge className="bg-emerald-600 hover:bg-emerald-600"><Sparkles className="mr-1 h-3 w-3" />Essai actif</Badge>
+              )}
               {subscription?.cancel_at_period_end && (
                 <Badge variant="destructive">Annulation prévue</Badge>
               )}
             </div>
-            {subscription?.current_period_end && (
+            {access?.trial_end && access.state === "trialing" && (
+              <div className="mt-2 flex items-center gap-1.5 text-sm text-emerald-700">
+                <Clock className="h-3.5 w-3.5" />
+                Fin de l'essai gratuit le {new Date(access.trial_end).toLocaleDateString("fr-FR")}
+              </div>
+            )}
+            {subscription?.current_period_end && access?.state !== "trialing" && (
               <div className="mt-2 text-sm text-muted-foreground">
-                Renouvellement le {new Date(subscription.current_period_end).toLocaleDateString("fr-FR")}
+                {subscription.cancel_at_period_end ? "Accès jusqu'au" : "Renouvellement le"} {new Date(subscription.current_period_end).toLocaleDateString("fr-FR")}
               </div>
             )}
           </div>
+
           {canManage && subscription?.stripe_customer_id && (
             <Button variant="outline" onClick={handlePortal} disabled={busy === "portal"}>
               {busy === "portal" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
