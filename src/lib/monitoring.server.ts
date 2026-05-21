@@ -25,7 +25,7 @@ export async function captureError(input: CaptureErrorInput): Promise<void> {
       severity: input.severity ?? "error",
       message: message.slice(0, 2000),
       stack: stack ? stack.slice(0, 8000) : null,
-      context: input.context ?? null,
+      context: (input.context ?? null) as never,
       user_id: input.userId ?? null,
       company_id: input.companyId ?? null,
     });
