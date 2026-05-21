@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
+import { assertCanAddMember } from "./plan-guard.server";
 
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
@@ -63,6 +64,11 @@ export const sendInvite = createServerFn({ method: "POST" })
     if (!membership || !["owner", "admin"].includes(membership.role)) {
       throw new Error("Vous n'avez pas les droits pour inviter des membres.");
     }
+
+    // Plan quota: max members per plan
+    await assertCanAddMember(data.companyId);
+
+
 
     // Company info + inviter profile
     const [{ data: company }, { data: profile }] = await Promise.all([

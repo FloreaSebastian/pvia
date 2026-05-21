@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
 import { deliverSignedPv } from "./email.server";
 import { writeAuditLog } from "./audit.server";
+import { assertPlanFeature } from "./plan-guard.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
@@ -62,6 +63,10 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
     if (!membership) throw new Error("Accès refusé.");
+
+    // Plan gate: remote signature is a Pro/Enterprise feature
+    await assertPlanFeature(pv.company_id, "remote_sign");
+
 
     const [{ data: company }, { data: client }] = await Promise.all([
       supabaseAdmin.from("companies").select("name").eq("id", pv.company_id!).maybeSingle(),
