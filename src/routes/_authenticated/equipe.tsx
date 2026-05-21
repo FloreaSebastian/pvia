@@ -32,6 +32,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany, type CompanyRole } from "@/hooks/use-company";
+import { useServerFn } from "@tanstack/react-start";
+import { sendInvite } from "@/lib/invites.functions";
 
 export const Route = createFileRoute("/_authenticated/equipe")({
   component: TeamPage,
