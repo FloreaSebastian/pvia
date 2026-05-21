@@ -17,6 +17,7 @@ import {
   Smartphone,
   ShieldCheck,
   BarChart3,
+  CreditCard,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const secondaryNav = [
   { to: "/equipe", label: "Équipe", icon: UsersRound },
   { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
   { to: "/historique", label: "Historique entreprise", icon: ShieldCheck },
+  { to: "/billing", label: "Facturation", icon: CreditCard },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
 ] as const;
 
