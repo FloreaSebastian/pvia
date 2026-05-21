@@ -303,6 +303,9 @@ function PvDetail() {
             {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="secondary" className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+              <ShieldCheck className="h-3 w-3" /> Traçabilité complète activée
+            </Badge>
             {pv.pdf_url && (
               <Badge variant="secondary" className="gap-1.5 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
                 <CheckCircle2 className="h-3 w-3" /> PDF signé disponible
