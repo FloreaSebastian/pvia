@@ -17,10 +17,6 @@ export function StatusBadge({ status }: { status: string }) {
     className: "bg-muted text-muted-foreground ring-border",
     Icon: FileEdit,
   };
-    label: status,
-    className: "bg-muted text-muted-foreground ring-border",
-    Icon: FileEdit,
-  };
   const Icon = cfg.Icon;
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${cfg.className}`}>
