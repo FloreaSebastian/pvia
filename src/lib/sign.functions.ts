@@ -255,6 +255,16 @@ export const signPvByToken = createServerFn({ method: "POST" })
       actor: "client",
     });
 
+    // Notify all company members that the client signed remotely.
+    firePushToCompany(pv.company_id!, {
+      title: "PV signé par le client",
+      body: `${pv.numero} vient d'être signé électroniquement.`,
+      url: `/pv/${pv.id}`,
+      tag: `pv-signed-${pv.id}`,
+      requireInteraction: true,
+    });
+
+
     // Generate the final signed PDF, then email it to the client (+ company copy). Both are
     // non-fatal — the signature itself is already persisted.
     try {
