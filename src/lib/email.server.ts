@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { writeAuditLog } from "./audit.server";
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -116,6 +117,12 @@ export async function sendSignedPvEmailTo(opts: {
         error_message: `${resp.status}: ${body.slice(0, 500)}`,
         subject: opts.subject,
       });
+      await writeAuditLog({
+        companyId: opts.companyId, pvId: opts.pvId, entityType: "email",
+        action: "pv.email_failed",
+        metadata: { recipient: opts.recipient, email_type: opts.emailType, status: resp.status },
+        actor: "email",
+      });
       return { recipient: opts.recipient, status: "failed", error: `${resp.status}` };
     }
     const json = (await resp.json().catch(() => ({}))) as { id?: string };
@@ -128,6 +135,12 @@ export async function sendSignedPvEmailTo(opts: {
       resend_id: json.id ?? null,
       subject: opts.subject,
       sent_at: new Date().toISOString(),
+    });
+    await writeAuditLog({
+      companyId: opts.companyId, pvId: opts.pvId, entityType: "email",
+      action: "pv.email_sent",
+      metadata: { recipient: opts.recipient, email_type: opts.emailType, resend_id: json.id ?? null, subject: opts.subject },
+      actor: "email",
     });
     return { recipient: opts.recipient, status: "sent", resendId: json.id };
   } catch (e: any) {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
+import { writeAuditLog } from "./audit.server";
 
 async function assertMember(companyId: string, userId: string) {
   const { data } = await supabaseAdmin
@@ -63,6 +64,12 @@ export const createFieldDraft = createServerFn({ method: "POST" })
       .select("id,numero")
       .single();
     if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId, pvId: pv.id, entityType: "pv", entityId: pv.id,
+      action: "pv.create",
+      newValues: { numero: pv.numero, type: "reception", status: "brouillon", is_field_draft: true },
+      metadata: { source: "field" }, actor: "user",
+    });
     return { id: pv.id, numero: pv.numero };
   });
 
@@ -92,6 +99,11 @@ export const saveFieldDraft = createServerFn({ method: "POST" })
       .update({ ...data.patch, field_last_saved_at: new Date().toISOString() })
       .eq("id", data.pvId);
     if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: pv.company_id, userId: context.userId, pvId: pv.id, entityType: "pv", entityId: pv.id,
+      action: "pv.update", newValues: data.patch as any,
+      metadata: { source: "field_autosave" }, actor: "user",
+    });
     return { ok: true, savedAt: new Date().toISOString() };
   });
 
@@ -145,6 +157,12 @@ export const addFieldPhoto = createServerFn({ method: "POST" })
       .from("pv-assets")
       .createSignedUrl(path, 3600);
 
+    await writeAuditLog({
+      companyId: pv.company_id, userId: context.userId, pvId: pv.id, entityType: "photo", entityId: row.id,
+      action: "photo.add", newValues: { kind: data.kind, path, caption: data.caption ?? null },
+      metadata: { source: "field" }, actor: "user",
+    });
+
     return { photo: { ...row, signedUrl: signed?.signedUrl ?? null } };
   });
 
@@ -175,6 +193,11 @@ export const addFieldReserve = createServerFn({ method: "POST" })
       .select("id,description,severity,status,created_at")
       .single();
     if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: pv.company_id, userId: context.userId, pvId: pv.id, entityType: "reserve", entityId: row.id,
+      action: "reserve.create", newValues: { description: data.description, severity: data.severity, status: "ouverte" },
+      metadata: { source: "field" }, actor: "user",
+    });
     return { reserve: row };
   });
 
@@ -209,8 +232,22 @@ export const signFieldPv = createServerFn({ method: "POST" })
       .eq("id", data.pvId);
     if (error) throw new Error(error.message);
 
+    await writeAuditLog({
+      companyId: pv.company_id, userId: context.userId, pvId: pv.id, entityType: "pv", entityId: pv.id,
+      action: "pv.signed_by_company", newValues: { signed_at: new Date().toISOString(), status: "signe" },
+      metadata: { source: "field", client_name: data.clientName ?? null }, actor: "signature",
+    });
+    await writeAuditLog({
+      companyId: pv.company_id, userId: null, pvId: pv.id, entityType: "pv", entityId: pv.id,
+      action: "pv.signed_by_client", metadata: { source: "field", client_name: data.clientName ?? null }, actor: "client",
+    });
+
     try {
       await buildAndStorePvPdf(pv.id);
+      await writeAuditLog({
+        companyId: pv.company_id, pvId: pv.id, entityType: "pv", entityId: pv.id,
+        action: "pv.pdf_generated", metadata: { trigger: "auto_after_field_sign" }, actor: "pdf",
+      });
     } catch (e) {
       console.error("PDF generation after field sign failed:", e);
     }

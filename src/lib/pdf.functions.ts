@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
+import { writeAuditLog } from "./audit.server";
 
 const Schema = z.object({ pvId: z.string().uuid() });
 
@@ -29,6 +30,16 @@ export const regeneratePvPdf = createServerFn({ method: "POST" })
     if (!m) throw new Error("Accès refusé.");
 
     const path = await buildAndStorePvPdf(pv.id);
+    await writeAuditLog({
+      companyId: pv.company_id,
+      userId,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "pv.pdf_generated",
+      metadata: { trigger: "manual", path },
+      actor: "pdf",
+    });
     return { ok: true, pdfPath: path };
   });
 
@@ -57,6 +68,16 @@ export const getPvPdfSignedUrl = createServerFn({ method: "POST" })
     if (!m) throw new Error("Accès refusé.");
     const { data: s, error } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(pv.pdf_url, 300);
     if (error || !s) throw new Error("PDF indisponible.");
+    await writeAuditLog({
+      companyId: pv.company_id,
+      userId,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "pv.pdf_downloaded",
+      metadata: { path: pv.pdf_url },
+      actor: "user",
+    });
     return { url: s.signedUrl };
   });
 

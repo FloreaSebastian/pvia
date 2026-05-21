@@ -14,6 +14,7 @@ import {
   Copy,
   Mail,
   RotateCw,
+  ShieldCheck,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { sendPvToClient } from "@/lib/sign.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
+import { logUserAction } from "@/lib/audit.functions";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
@@ -52,6 +54,7 @@ type Pv = {
   pdf_generated_at: string | null;
   chantier_id: string | null;
   client_id: string | null;
+  company_id: string | null;
 };
 type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
 type Reserve = { id: string; description: string; severity: string; status: string };
@@ -64,6 +67,7 @@ function PvDetail() {
   const fetchPdfUrl = useServerFn(getPvPdfSignedUrl);
   const resendSignedFn = useServerFn(sendSignedPvEmail);
   const fetchLogsFn = useServerFn(listPvEmailLogs);
+  const logAction = useServerFn(logUserAction);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -157,17 +161,26 @@ function PvDetail() {
   }
 
   async function updateReserve(rid: string, status: string) {
+    const prev = reserves.find((r) => r.id === rid);
     const { error } = await supabase.from("pv_reserves").update({ status }).eq("id", rid);
     if (error) return toast.error(error.message);
     setReserves((rs) => rs.map((r) => (r.id === rid ? { ...r, status } : r)));
     toast.success("Réserve mise à jour");
+    if (pv?.company_id) {
+      const action = status === "levee" ? "reserve.lifted" : status === "validee" ? "reserve.validated" : "reserve.update";
+      logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "reserve", entityId: rid, action, oldValues: { status: prev?.status }, newValues: { status } } }).catch(() => {});
+    }
   }
 
   async function deleteReserve(rid: string) {
     if (!confirm("Supprimer cette réserve ?")) return;
+    const prev = reserves.find((r) => r.id === rid);
     const { error } = await supabase.from("pv_reserves").delete().eq("id", rid);
     if (error) return toast.error(error.message);
     setReserves((rs) => rs.filter((r) => r.id !== rid));
+    if (pv?.company_id) {
+      logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "reserve", entityId: rid, action: "reserve.delete", oldValues: prev ? { description: prev.description, severity: prev.severity, status: prev.status } : null } }).catch(() => {});
+    }
   }
 
   async function downloadPdf() {
@@ -199,11 +212,15 @@ function PvDetail() {
   async function deletePv() {
     if (!pv) return;
     if (!confirm("Supprimer définitivement ce PV ainsi que ses photos et réserves ?")) return;
+    const snapshot = { numero: pv.numero, status: pv.status, type: pv.type };
     // delete dependents (RLS scoped to owner)
     await supabase.from("pv_photos").delete().eq("pv_id", pv.id);
     await supabase.from("pv_reserves").delete().eq("pv_id", pv.id);
     const { error } = await supabase.from("pv").delete().eq("id", pv.id);
     if (error) return toast.error(error.message);
+    if (pv.company_id) {
+      logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "pv", entityId: pv.id, action: "pv.delete", oldValues: snapshot } }).catch(() => {});
+    }
     toast.success("PV supprimé");
     navigate({ to: "/pv" });
   }
@@ -295,6 +312,9 @@ function PvDetail() {
             {regenerating ? "Génération…" : "Régénérer le PDF"}
           </Button>
           {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF signé</Button>}
+          <Link to="/pv/$id/historique" params={{ id: pv.id }}>
+            <Button variant="outline"><ShieldCheck className="h-4 w-4" /> Historique légal</Button>
+          </Link>
           <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
         </div>
       </div>
