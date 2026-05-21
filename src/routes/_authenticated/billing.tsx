@@ -11,6 +11,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
 import { getStripeEnvironment, PLAN_PRICE_IDS } from "@/lib/stripe";
+import { PageHeader } from "@/components/app/PageHeader";
 
 
 export const Route = createFileRoute("/_authenticated/billing")({
@@ -82,18 +83,20 @@ function BillingPage() {
   const memPct = membersMax ? Math.min(100, (usage.members / membersMax) * 100) : 0;
 
   return (
-    <div className="space-y-8 p-6 lg:p-8">
+    <div className="space-y-8 p-4 sm:p-6 lg:p-8">
       {env === "sandbox" && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
           <AlertTriangle className="mr-2 inline h-4 w-4" />
           Mode test Stripe actif. Utilisez la carte <code className="font-mono">4242 4242 4242 4242</code> (date future, CVC 123).
         </div>
       )}
 
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Facturation & abonnement</h1>
-        <p className="mt-1 text-muted-foreground">Plan actif, consommation, gestion de l'abonnement.</p>
-      </div>
+      <PageHeader
+        title="Facturation & abonnement"
+        description="Plan actif, consommation, gestion de l'abonnement."
+        contained={false}
+        className="border-0 bg-transparent px-0 py-0"
+      />
 
       {access?.blocked && (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">

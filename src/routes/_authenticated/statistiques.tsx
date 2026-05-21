@@ -21,6 +21,7 @@ import { getCompanyStats, exportCompanyStatsCsv, exportCompanyStatsPdf } from "@
 import { useCompany } from "@/hooks/use-company";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/app/PageHeader";
 
 export const Route = createFileRoute("/_authenticated/statistiques")({
   component: StatistiquesPage,
@@ -223,25 +224,25 @@ function StatistiquesPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-            <BarChart3 className="h-3.5 w-3.5" /> Analytics
+      <PageHeader
+        eyebrow={<><BarChart3 className="h-3 w-3" /> Analytics</>}
+        title="Statistiques"
+        description="Vue temps réel avec comparaison à la période précédente."
+        contained={false}
+        className="border-0 bg-transparent px-0 py-0"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onExportCsv} disabled={!canExport || !!exporting}>
+              {exporting === "csv" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+              CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={onExportPdf} disabled={!canExport || !!exporting}>
+              {exporting === "pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              PDF
+            </Button>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Statistiques</h1>
-          <p className="text-sm text-muted-foreground">Vue temps réel avec comparaison à la période précédente.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onExportCsv} disabled={!canExport || !!exporting}>
-            {exporting === "csv" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-            CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={onExportPdf} disabled={!canExport || !!exporting}>
-            {exporting === "pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            PDF
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {!canExport && (
         <p className="text-xs text-muted-foreground">L'export est réservé aux rôles Owner, Admin et Manager.</p>

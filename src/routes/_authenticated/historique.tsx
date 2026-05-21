@@ -14,6 +14,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { listCompanyAuditLogs, exportCompanyAuditPdf } from "@/lib/audit.functions";
 import { useCompany } from "@/hooks/use-company";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/app/PageHeader";
 
 export const Route = createFileRoute("/_authenticated/historique")({
   component: HistoriqueEntreprisePage,
@@ -148,25 +149,19 @@ function HistoriqueEntreprisePage() {
 
   return (
     <div className="container max-w-5xl py-8 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-emerald-600" /> Historique entreprise
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {total} événement(s) tracé(s) · {logs.length} chargé(s)
-          </p>
-          <Badge variant="secondary" className="mt-2 gap-1.5 bg-emerald-100 text-emerald-800">
-            <ShieldCheck className="h-3 w-3" /> Traçabilité complète activée
-          </Badge>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader
+        eyebrow={<><ShieldCheck className="h-3 w-3" /> Audit</>}
+        title="Historique entreprise"
+        description={`${total} événement(s) tracé(s) · ${logs.length} chargé(s) · Traçabilité complète activée`}
+        contained={false}
+        className="border-0 bg-transparent px-0 py-0"
+        actions={
           <Button onClick={handleExport} disabled={exporting || !canExport} title={!canExport ? "Réservé aux owner/admin" : undefined}>
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Exporter l'historique entreprise
+            Exporter l'historique
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <Card className="p-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
