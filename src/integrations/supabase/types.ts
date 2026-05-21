@@ -14,16 +14,306 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chantiers: {
+        Row: {
+          address: string | null
+          client_id: string | null
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          owner_id: string
+          start_date: string | null
+          status: string
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          start_date?: string | null
+          status?: string
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          start_date?: string | null
+          status?: string
+          type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chantiers_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          address: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          owner_id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          owner_id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          owner_id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          company_name: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          company_name?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          company_name?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pv: {
+        Row: {
+          chantier_id: string | null
+          client_id: string | null
+          client_signature: string | null
+          company_signature: string | null
+          created_at: string
+          description: string | null
+          id: string
+          numero: string
+          observations: string | null
+          owner_id: string
+          pdf_url: string | null
+          reception_date: string | null
+          signed_at: string | null
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          chantier_id?: string | null
+          client_id?: string | null
+          client_signature?: string | null
+          company_signature?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          numero: string
+          observations?: string | null
+          owner_id: string
+          pdf_url?: string | null
+          reception_date?: string | null
+          signed_at?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          chantier_id?: string | null
+          client_id?: string | null
+          client_signature?: string | null
+          company_signature?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          numero?: string
+          observations?: string | null
+          owner_id?: string
+          pdf_url?: string | null
+          reception_date?: string | null
+          signed_at?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pv_chantier_id_fkey"
+            columns: ["chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pv_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pv_photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          owner_id: string
+          pv_id: string
+          url: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          owner_id: string
+          pv_id: string
+          url: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          owner_id?: string
+          pv_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pv_photos_pv_id_fkey"
+            columns: ["pv_id"]
+            isOneToOne: false
+            referencedRelation: "pv"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pv_reserves: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          owner_id: string
+          pv_id: string
+          severity: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          owner_id: string
+          pv_id: string
+          severity?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          owner_id?: string
+          pv_id?: string
+          severity?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pv_reserves_pv_id_fkey"
+            columns: ["pv_id"]
+            isOneToOne: false
+            referencedRelation: "pv"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "manager" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +440,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "manager", "user"],
+    },
   },
 } as const
