@@ -212,6 +212,11 @@ const SignSchema = z.object({
 export const signPvByToken = createServerFn({ method: "POST" })
   .inputValidator((input) => SignSchema.parse(input))
   .handler(async ({ data }) => {
+    const ip = getClientIp(getRequest());
+    // Strict limit: 5 signature attempts / 10min per IP+token
+    await enforceRateLimit({ bucket: "sign.submit", key: `${ip}:${data.token.slice(0, 16)}`, limit: 5, windowSec: 600 });
+    // Validate signature image (magic bytes)
+    decodeAndValidateImage(data.signatureDataUrl, { maxBytes: 2_000_000 });
     const { data: pv } = await supabaseAdmin
       .from("pv")
       .select("id,sign_token_expires_at,status,client_signature,company_id,owner_id,numero")
