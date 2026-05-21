@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
+import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
 import { Route as AuthenticatedEntrepriseRouteImport } from './routes/_authenticated/entreprise'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
@@ -44,6 +45,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
   id: '/reserves',
   path: '/reserves',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedEquipeRoute = AuthenticatedEquipeRouteImport.update({
+  id: '/equipe',
+  path: '/equipe',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedEntrepriseRoute = AuthenticatedEntrepriseRouteImport.update({
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
+  '/equipe': typeof AuthenticatedEquipeRoute
   '/reserves': typeof AuthenticatedReservesRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
+  '/equipe': typeof AuthenticatedEquipeRoute
   '/reserves': typeof AuthenticatedReservesRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/entreprise': typeof AuthenticatedEntrepriseRoute
+  '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/entreprise'
+    | '/equipe'
     | '/reserves'
     | '/pv/$id'
     | '/pv/new'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/entreprise'
+    | '/equipe'
     | '/reserves'
     | '/pv/$id'
     | '/pv/new'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/_authenticated/clients'
     | '/_authenticated/dashboard'
     | '/_authenticated/entreprise'
+    | '/_authenticated/equipe'
     | '/_authenticated/reserves'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
@@ -208,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/reserves'
       fullPath: '/reserves'
       preLoaderRoute: typeof AuthenticatedReservesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/equipe': {
+      id: '/_authenticated/equipe'
+      path: '/equipe'
+      fullPath: '/equipe'
+      preLoaderRoute: typeof AuthenticatedEquipeRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/entreprise': {
@@ -267,6 +286,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEntrepriseRoute: typeof AuthenticatedEntrepriseRoute
+  AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRoute
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
@@ -278,6 +298,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedClientsRoute: AuthenticatedClientsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEntrepriseRoute: AuthenticatedEntrepriseRoute,
+  AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRoute,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
