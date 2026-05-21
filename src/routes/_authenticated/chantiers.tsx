@@ -60,10 +60,13 @@ function ChantiersPage() {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const payload: Record<string, unknown> = { ...form, owner_id: user.id };
-    if (!payload.client_id) payload.client_id = null;
-    if (!payload.start_date) payload.start_date = null;
-    if (!payload.end_date) payload.end_date = null;
+    const payload = {
+      ...form,
+      owner_id: user.id,
+      client_id: form.client_id || null,
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+    };
     const res = editing
       ? await supabase.from("chantiers").update(payload).eq("id", editing.id)
       : await supabase.from("chantiers").insert(payload);

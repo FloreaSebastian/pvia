@@ -44,7 +44,7 @@ function NewPv() {
   });
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
-  const [newReserve, setNewReserve] = useState({ description: "", severity: "mineure" as const });
+  const [newReserve, setNewReserve] = useState<Reserve>({ description: "", severity: "mineure" });
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
