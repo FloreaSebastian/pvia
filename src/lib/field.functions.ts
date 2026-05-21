@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
 import { writeAuditLog } from "./audit.server";
+import { firePushToCompany } from "./push.server";
 
 async function assertMember(companyId: string, userId: string) {
   const { data } = await supabaseAdmin
@@ -70,6 +71,12 @@ export const createFieldDraft = createServerFn({ method: "POST" })
       newValues: { numero: pv.numero, type: "reception", status: "brouillon", is_field_draft: true },
       metadata: { source: "field" }, actor: "user",
     });
+    firePushToCompany(data.companyId, {
+      title: "Nouveau PV terrain",
+      body: `${pv.numero} vient d'être créé.`,
+      url: `/pv/${pv.id}`,
+      tag: `pv-${pv.id}`,
+    }, { excludeUserId: userId });
     return { id: pv.id, numero: pv.numero };
   });
 
@@ -198,6 +205,13 @@ export const addFieldReserve = createServerFn({ method: "POST" })
       action: "reserve.create", newValues: { description: data.description, severity: data.severity, status: "ouverte" },
       metadata: { source: "field" }, actor: "user",
     });
+    firePushToCompany(pv.company_id!, {
+      title: data.severity === "bloquante" ? "Réserve BLOQUANTE" : "Nouvelle réserve",
+      body: `${pv.numero} — ${data.description.slice(0, 120)}`,
+      url: `/pv/${pv.id}`,
+      tag: `reserve-${row.id}`,
+      data: { severity: data.severity },
+    }, { excludeUserId: context.userId });
     return { reserve: row };
   });
 
@@ -251,6 +265,13 @@ export const signFieldPv = createServerFn({ method: "POST" })
     } catch (e) {
       console.error("PDF generation after field sign failed:", e);
     }
+
+    firePushToCompany(pv.company_id!, {
+      title: "PV signé sur chantier",
+      body: `${pv.numero} a été signé${data.clientName ? ` par ${data.clientName}` : ""}.`,
+      url: `/pv/${pv.id}`,
+      tag: `pv-signed-${pv.id}`,
+    }, { excludeUserId: context.userId });
 
     return { ok: true, pvId: pv.id };
   });

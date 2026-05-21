@@ -6,6 +6,7 @@ import { buildAndStorePvPdf } from "./pdf.server";
 import { deliverSignedPv } from "./email.server";
 import { writeAuditLog } from "./audit.server";
 import { assertPlanFeature } from "./plan-guard.server";
+import { firePushToCompany } from "./push.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
@@ -131,6 +132,13 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       actor: "user",
     });
 
+    firePushToCompany(pv.company_id!, {
+      title: "PV envoyé au client",
+      body: `${pv.numero} → ${data.email.toLowerCase()}`,
+      url: `/pv/${pv.id}`,
+      tag: `pv-sent-${pv.id}`,
+    }, { excludeUserId: userId });
+
     return { ok: true, signUrl };
   });
 
@@ -246,6 +254,16 @@ export const signPvByToken = createServerFn({ method: "POST" })
       metadata: { numero: pv.numero, via: "public_token" },
       actor: "client",
     });
+
+    // Notify all company members that the client signed remotely.
+    firePushToCompany(pv.company_id!, {
+      title: "PV signé par le client",
+      body: `${pv.numero} vient d'être signé électroniquement.`,
+      url: `/pv/${pv.id}`,
+      tag: `pv-signed-${pv.id}`,
+      requireInteraction: true,
+    });
+
 
     // Generate the final signed PDF, then email it to the client (+ company copy). Both are
     // non-fatal — the signature itself is already persisted.

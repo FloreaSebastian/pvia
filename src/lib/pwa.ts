@@ -49,3 +49,13 @@ export function isStandalone(): boolean {
     (navigator as unknown as { standalone?: boolean }).standalone === true
   );
 }
+
+/** Trigger device vibration if supported. Safe no-op otherwise. */
+export function vibrate(pattern: number | number[] = 15): void {
+  if (typeof navigator === "undefined") return;
+  try {
+    (navigator as Navigator & { vibrate?: (p: number | number[]) => boolean }).vibrate?.(pattern);
+  } catch {
+    /* noop */
+  }
+}

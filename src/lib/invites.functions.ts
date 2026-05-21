@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { assertCanAddMember } from "./plan-guard.server";
+import { firePushToCompany } from "./push.server";
 
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
@@ -153,6 +154,13 @@ export const sendInvite = createServerFn({ method: "POST" })
       newValues: { invited_email: data.email.toLowerCase(), role: data.role },
       metadata: { expires_at: expiresAt }, actor: "user",
     });
+
+    firePushToCompany(data.companyId, {
+      title: "Invitation envoyée",
+      body: `${data.email.toLowerCase()} a été invité (${data.role}).`,
+      url: "/equipe",
+      tag: `invite-${data.email.toLowerCase()}`,
+    }, { excludeUserId: userId });
 
     return { ok: true, acceptUrl };
   });
