@@ -20,7 +20,8 @@ export const Route = createFileRoute("/_authenticated/billing")({
 
 function BillingPage() {
   const { activeCompanyId, activeRole } = useCompany();
-  const { plan, limits, usage, subscription, allPlans, isLoading, refetch } = useSubscription();
+  const { plan, limits, usage, subscription, allPlans, access, isLoading, refetch } = useSubscription();
+
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
   const [busy, setBusy] = useState<string | null>(null);
