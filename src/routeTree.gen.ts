@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
+import { Route as AuthenticatedHistoriqueRouteImport } from './routes/_authenticated/historique'
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
 import { Route as AuthenticatedEntrepriseRouteImport } from './routes/_authenticated/entreprise'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -60,6 +61,11 @@ const AuthenticatedTerrainRoute = AuthenticatedTerrainRouteImport.update({
 const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
   id: '/reserves',
   path: '/reserves',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedHistoriqueRoute = AuthenticatedHistoriqueRouteImport.update({
+  id: '/historique',
+  path: '/historique',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedEquipeRoute = AuthenticatedEquipeRouteImport.update({
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/equipe': typeof AuthenticatedEquipeRoute
+  '/historique': typeof AuthenticatedHistoriqueRoute
   '/reserves': typeof AuthenticatedReservesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/equipe': typeof AuthenticatedEquipeRoute
+  '/historique': typeof AuthenticatedHistoriqueRoute
   '/reserves': typeof AuthenticatedReservesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/entreprise': typeof AuthenticatedEntrepriseRoute
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
+  '/_authenticated/historique': typeof AuthenticatedHistoriqueRoute
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/entreprise'
     | '/equipe'
+    | '/historique'
     | '/reserves'
     | '/terrain'
     | '/invite/$token'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/entreprise'
     | '/equipe'
+    | '/historique'
     | '/reserves'
     | '/terrain'
     | '/invite/$token'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/entreprise'
     | '/_authenticated/equipe'
+    | '/_authenticated/historique'
     | '/_authenticated/reserves'
     | '/_authenticated/terrain'
     | '/invite/$token'
@@ -297,6 +309,13 @@ declare module '@tanstack/react-router' {
       path: '/reserves'
       fullPath: '/reserves'
       preLoaderRoute: typeof AuthenticatedReservesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/historique': {
+      id: '/_authenticated/historique'
+      path: '/historique'
+      fullPath: '/historique'
+      preLoaderRoute: typeof AuthenticatedHistoriqueRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/equipe': {
@@ -407,6 +426,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEntrepriseRoute: typeof AuthenticatedEntrepriseRoute
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
+  AuthenticatedHistoriqueRoute: typeof AuthenticatedHistoriqueRoute
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
   AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
@@ -420,6 +440,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEntrepriseRoute: AuthenticatedEntrepriseRoute,
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
+  AuthenticatedHistoriqueRoute: AuthenticatedHistoriqueRoute,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
   AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
