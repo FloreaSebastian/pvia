@@ -36,7 +36,11 @@ export type AuditAction =
   | "client.pdf_downloaded"
   | "client.pv_signed"
   | "client.session_revoked"
-  | "client.all_sessions_revoked";
+  | "client.all_sessions_revoked"
+  | "user.login_code_sent"
+  | "user.login_success"
+  | "user.login_failed"
+  | "user.logout";
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
 
