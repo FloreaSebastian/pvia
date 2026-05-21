@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ClientVerifyRouteImport } from './routes/client.verify'
+import { Route as ClientProfilRouteImport } from './routes/client.profil'
 import { Route as ClientLoginRouteImport } from './routes/client.login'
 import { Route as ClientHistoriqueRouteImport } from './routes/client.historique'
 import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
@@ -75,6 +76,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
 const ClientVerifyRoute = ClientVerifyRouteImport.update({
   id: '/client/verify',
   path: '/client/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientProfilRoute = ClientProfilRouteImport.update({
+  id: '/client/profil',
+  path: '/client/profil',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientLoginRoute = ClientLoginRouteImport.update({
@@ -234,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/client/dashboard': typeof ClientDashboardRoute
   '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
+  '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/client/dashboard': typeof ClientDashboardRoute
   '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
+  '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
@@ -304,6 +312,7 @@ export interface FileRoutesById {
   '/client/dashboard': typeof ClientDashboardRoute
   '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
+  '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
@@ -340,6 +349,7 @@ export interface FileRouteTypes {
     | '/client/dashboard'
     | '/client/historique'
     | '/client/login'
+    | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
     | '/admin/monitoring'
@@ -374,6 +384,7 @@ export interface FileRouteTypes {
     | '/client/dashboard'
     | '/client/historique'
     | '/client/login'
+    | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
     | '/admin/monitoring'
@@ -409,6 +420,7 @@ export interface FileRouteTypes {
     | '/client/dashboard'
     | '/client/historique'
     | '/client/login'
+    | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
     | '/_authenticated/admin/monitoring'
@@ -434,6 +446,7 @@ export interface RootRouteChildren {
   ClientDashboardRoute: typeof ClientDashboardRoute
   ClientHistoriqueRoute: typeof ClientHistoriqueRoute
   ClientLoginRoute: typeof ClientLoginRoute
+  ClientProfilRoute: typeof ClientProfilRoute
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ClientPvIdRoute: typeof ClientPvIdRoute
@@ -492,6 +505,13 @@ declare module '@tanstack/react-router' {
       path: '/client/verify'
       fullPath: '/client/verify'
       preLoaderRoute: typeof ClientVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/profil': {
+      id: '/client/profil'
+      path: '/client/profil'
+      fullPath: '/client/profil'
+      preLoaderRoute: typeof ClientProfilRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/client/login': {
@@ -753,6 +773,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientDashboardRoute: ClientDashboardRoute,
   ClientHistoriqueRoute: ClientHistoriqueRoute,
   ClientLoginRoute: ClientLoginRoute,
+  ClientProfilRoute: ClientProfilRoute,
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
   ClientPvIdRoute: ClientPvIdRoute,
