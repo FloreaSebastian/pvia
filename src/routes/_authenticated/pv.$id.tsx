@@ -205,10 +205,51 @@ function PvDetail() {
         </div>
         <div className="flex gap-2">
           <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
+          {!pv.client_signature && (
+            <Button onClick={openSendDialog}>
+              <Send className="h-4 w-4" /> Envoyer au client pour signature
+            </Button>
+          )}
           {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF</Button>}
           <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
         </div>
       </div>
+
+      <Dialog open={sendOpen} onOpenChange={setSendOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Envoyer au client pour signature</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Un email professionnel sera envoyé à votre client avec un lien sécurisé pour consulter et signer ce PV en ligne. Aucun compte n'est requis.
+            </p>
+            <div>
+              <Label htmlFor="client-email">Email du client</Label>
+              <Input id="client-email" type="email" value={sendEmail} onChange={(e) => setSendEmail(e.target.value)} placeholder="client@exemple.fr" className="mt-1.5" />
+            </div>
+            {lastSignUrl && (
+              <div className="rounded-lg border bg-muted/30 p-3 text-xs">
+                <div className="mb-1 font-medium text-foreground">Lien généré (valable 14 jours)</div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate text-muted-foreground">{lastSignUrl}</code>
+                  <Button size="icon" variant="ghost" onClick={() => { navigator.clipboard.writeText(lastSignUrl); toast.success("Lien copié"); }}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSendOpen(false)}>Fermer</Button>
+            <Button onClick={handleSendToClient} disabled={sendingClient}>
+              {sendingClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sendingClient ? "Envoi…" : "Envoyer l'email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2 space-y-5">
