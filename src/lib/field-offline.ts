@@ -33,7 +33,10 @@ async function withStore<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) =>
   });
 }
 
-export async function enqueue(op: Omit<FieldOp, "id" | "createdAt">): Promise<FieldOp> {
+type DistOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+export type FieldOpInput = DistOmit<FieldOp, "id" | "createdAt">;
+
+export async function enqueue(op: FieldOpInput): Promise<FieldOp> {
   const full = { ...op, id: crypto.randomUUID(), createdAt: Date.now() } as FieldOp;
   await withStore("readwrite", (s) => s.add(full));
   window.dispatchEvent(new Event("pvia:queue-changed"));
