@@ -136,8 +136,18 @@ export const createPortalSession = createServerFn({ method: "POST" })
       customer: sub.stripe_customer_id,
       return_url: data.returnUrl,
     });
+
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "subscription",
+      action: "billing.portal_opened",
+      metadata: { environment: data.environment },
+    });
+
     return { url: portal.url };
   });
+
 
 /* ------------------------- Get plan & usage ------------------------- */
 
