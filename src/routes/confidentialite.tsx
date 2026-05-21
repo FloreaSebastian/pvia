@@ -11,7 +11,12 @@ export const Route = createFileRoute("/confidentialite")({
         content:
           "Comment PVIA collecte, utilise et protège vos données personnelles. Politique conforme au RGPD.",
       },
-      { property: "og:title", content: "Politique de confidentialité — PVIA" },
+      { property: "og:title", content: "Confidentialité & RGPD chez PVIA" },
+      {
+        property: "og:description",
+        content:
+          "Données collectées, finalités, durées de conservation et droits RGPD : la politique de confidentialité complète de PVIA.",
+      },
       { property: "og:url", content: "https://pvia.fr/confidentialite" },
     ],
     links: [{ rel: "canonical", href: "https://pvia.fr/confidentialite" }],

@@ -15,7 +15,24 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-  head: () => ({ meta: [{ title: "Connexion — PVIA" }] }),
+  head: () => ({
+    meta: [
+      { title: "Connexion — PVIA" },
+      {
+        name: "description",
+        content:
+          "Connectez-vous à votre compte PVIA pour créer, signer et archiver vos procès-verbaux de réception de travaux en toute sécurité.",
+      },
+      { property: "og:title", content: "Connexion à votre espace PVIA" },
+      {
+        property: "og:description",
+        content:
+          "Accédez à vos chantiers, PV et signatures électroniques depuis votre espace PVIA sécurisé.",
+      },
+      { property: "og:url", content: "https://pvia.fr/login" },
+    ],
+    links: [{ rel: "canonical", href: "https://pvia.fr/login" }],
+  }),
 });
 
 function LoginPage() {

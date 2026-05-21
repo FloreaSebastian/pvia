@@ -118,6 +118,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           logo: "https://pvia.fr/icons/icon-512.png",
           description:
             "Solution SaaS de procès-verbaux de réception de travaux pour les professionnels du BTP.",
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: "1 rue de la Réception",
+            postalCode: "75001",
+            addressLocality: "Paris",
+            addressCountry: "FR",
+          },
           contactPoint: {
             "@type": "ContactPoint",
             email: "contact@pvia.fr",

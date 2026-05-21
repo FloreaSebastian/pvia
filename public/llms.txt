@@ -1,0 +1,15 @@
+# PVIA
+
+> PVIA est une solution SaaS française qui digitalise les procès-verbaux de réception de travaux pour les professionnels du BTP : création guidée, photos, réserves, signature électronique conforme eIDAS et PDF automatique archivé 10 ans.
+
+## Pages
+
+- [Accueil](/): Présentation de PVIA, fonctionnalités clés et avantages pour les pros du BTP.
+- [Tarifs](/tarifs): Plans Starter, Pro et Entreprise avec essai gratuit 14 jours sans carte bancaire.
+- [Sécurité & RGPD](/securite): Chiffrement, hébergement européen, signature eIDAS et conformité RGPD.
+
+## Optional
+
+- [Mentions légales](/mentions): Éditeur, hébergeur et coordonnées de PVIA SAS.
+- [Conditions Générales de Vente](/cgv): Abonnement, paiement, résiliation et engagements de service.
+- [Politique de confidentialité](/confidentialite): Données collectées, finalités et droits RGPD.

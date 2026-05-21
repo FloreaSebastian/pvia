@@ -25,6 +25,17 @@ export const Route = createFileRoute("/verify")({
   head: () => ({
     meta: [
       { title: "Vérification du code — PVIA" },
+      {
+        name: "description",
+        content:
+          "Saisissez le code à 6 chiffres reçu par email pour vérifier votre compte PVIA et accéder à votre espace sécurisé.",
+      },
+      { property: "og:title", content: "Vérification du code — PVIA" },
+      {
+        property: "og:description",
+        content:
+          "Étape de vérification sécurisée par code à usage unique pour accéder à votre compte PVIA.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
