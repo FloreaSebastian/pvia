@@ -180,11 +180,11 @@ function SignPage() {
         {/* Signature pad */}
         <Card className="p-5">
           <h3 className="mb-3 text-sm font-semibold">Votre signature</h3>
-          <div className="rounded-lg border-2 border-dashed border-border bg-white">
+          <div className="rounded-lg border-2 border-dashed border-border bg-background">
             <SignaturePad
               ref={padRef}
               canvasProps={{ className: "w-full h-48 touch-none rounded-lg" }}
-              penColor="rgb(20, 35, 80)"
+              penColor="currentColor"
             />
           </div>
           <div className="mt-2 flex justify-end">
@@ -215,22 +215,22 @@ function SignPage() {
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
-  return <div className="grid min-h-screen place-items-center bg-slate-50">{children}</div>;
+  return <div className="grid min-h-screen place-items-center bg-muted/30">{children}</div>;
 }
 
 function ErrorScreen({ reason, pvNumero }: { reason?: string; pvNumero?: string }) {
   const map: Record<string, { title: string; body: string; icon: any; color: string }> = {
-    expired: { title: "Lien expiré", body: "Ce lien de signature a expiré. Contactez l'entreprise pour en recevoir un nouveau.", icon: Clock, color: "text-amber-600" },
-    signed: { title: `PV ${pvNumero ?? ""} déjà signé`, body: "Ce procès-verbal a déjà été signé électroniquement. Aucune action supplémentaire n'est requise.", icon: CheckCircle2, color: "text-emerald-600" },
+    expired: { title: "Lien expiré", body: "Ce lien de signature a expiré. Contactez l'entreprise pour en recevoir un nouveau.", icon: Clock, color: "text-warning" },
+    signed: { title: `PV ${pvNumero ?? ""} déjà signé`, body: "Ce procès-verbal a déjà été signé électroniquement. Aucune action supplémentaire n'est requise.", icon: CheckCircle2, color: "text-success" },
     invalid: { title: "Lien invalide", body: "Ce lien n'est pas reconnu. Vérifiez l'URL ou contactez l'entreprise.", icon: AlertCircle, color: "text-destructive" },
   };
   const m = map[reason ?? "invalid"] ?? map.invalid;
   const Icon = m.icon;
   return (
-    <div className="grid min-h-screen place-items-center bg-slate-50 p-6">
-      <Card className="max-w-md p-8 text-center">
+    <div className="grid min-h-screen place-items-center bg-muted/30 p-6">
+      <Card className="max-w-md p-8 text-center shadow-brand">
         <Icon className={`mx-auto h-12 w-12 ${m.color}`} />
-        <h2 className="mt-4 text-xl font-semibold">{m.title}</h2>
+        <h2 className="mt-4 font-display text-xl font-bold">{m.title}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{m.body}</p>
       </Card>
     </div>
@@ -292,12 +292,12 @@ function SuccessScreen({
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-gradient-to-b from-emerald-50 to-white p-6">
-      <Card className="max-w-md p-8 text-center">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100">
-          <CheckCircle2 className="h-9 w-9 text-emerald-600" />
+    <div className="grid min-h-screen place-items-center bg-gradient-to-b from-muted/30 to-background p-6">
+      <Card className="max-w-md p-8 text-center shadow-brand">
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-success/15">
+          <CheckCircle2 className="h-9 w-9 text-success" />
         </div>
-        <h2 className="mt-4 text-2xl font-semibold">Signature enregistrée</h2>
+        <h2 className="mt-4 font-display text-2xl font-bold tracking-tight">Signature enregistrée</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Merci. Le procès-verbal a été signé avec succès. L'entreprise en est informée.
         </p>
@@ -318,7 +318,7 @@ function SuccessScreen({
               <Download className="h-4 w-4" /> Réessayer le téléchargement
             </Button>
           )}
-          {error && <p className="mt-3 text-xs text-amber-700">{error}</p>}
+          {error && <p className="mt-3 text-xs text-warning">{error}</p>}
         </div>
 
         <p className="mt-6 text-xs text-muted-foreground">PVIA · Réception de travaux intelligente</p>
