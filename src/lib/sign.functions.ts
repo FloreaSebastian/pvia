@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -7,6 +8,8 @@ import { deliverSignedPv } from "./email.server";
 import { writeAuditLog } from "./audit.server";
 import { assertPlanFeature } from "./plan-guard.server";
 import { firePushToCompany } from "./push.server";
+import { enforceRateLimit, getClientIp } from "./rate-limit.server";
+import { decodeAndValidateImage } from "./image-validate.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
@@ -46,6 +49,9 @@ export const sendPvToClient = createServerFn({ method: "POST" })
   .inputValidator((input) => PvIdSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context;
+    await enforceRateLimit({ bucket: "sign.send", key: userId, limit: 30, windowSec: 3600 });
+
+
 
     const { data: pv } = await supabaseAdmin
       .from("pv")
@@ -147,6 +153,8 @@ const TokenSchema = z.object({ token: z.string().min(10).max(128) });
 export const getPvByToken = createServerFn({ method: "POST" })
   .inputValidator((input) => TokenSchema.parse(input))
   .handler(async ({ data }) => {
+    const ip = getClientIp(getRequest());
+    await enforceRateLimit({ bucket: "sign.get", key: `${ip}:${data.token.slice(0, 16)}`, limit: 30, windowSec: 60 });
     const { data: pv } = await supabaseAdmin
       .from("pv")
       .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,sign_token_expires_at,company_id,client_id,chantier_id")
@@ -207,6 +215,11 @@ const SignSchema = z.object({
 export const signPvByToken = createServerFn({ method: "POST" })
   .inputValidator((input) => SignSchema.parse(input))
   .handler(async ({ data }) => {
+    const ip = getClientIp(getRequest());
+    // Strict limit: 5 signature attempts / 10min per IP+token
+    await enforceRateLimit({ bucket: "sign.submit", key: `${ip}:${data.token.slice(0, 16)}`, limit: 5, windowSec: 600 });
+    // Validate signature image (magic bytes)
+    decodeAndValidateImage(data.signatureDataUrl, { maxBytes: 2_000_000 });
     const { data: pv } = await supabaseAdmin
       .from("pv")
       .select("id,sign_token_expires_at,status,client_signature,company_id,owner_id,numero")

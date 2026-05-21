@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
 import { writeAuditLog } from "./audit.server";
 import { firePushToCompany } from "./push.server";
+import { decodeAndValidateImage } from "./image-validate.server";
 
 async function assertMember(companyId: string, userId: string) {
   const { data } = await supabaseAdmin
@@ -130,13 +131,8 @@ export const addFieldPhoto = createServerFn({ method: "POST" })
     const pv = await getPvCompany(data.pvId);
     await assertMember(pv.company_id!, context.userId);
 
-    const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/i.exec(data.dataUrl);
-    if (!m) throw new Error("Image invalide.");
-    const ext = m[1].toLowerCase().startsWith("jp") ? "jpg" : m[1].toLowerCase() === "png" ? "png" : "webp";
-    const mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
-    const bin = atob(m[2]);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    // Sniff magic bytes (le content-type déclaré n'est pas digne de confiance)
+    const { bytes, mime, ext } = decodeAndValidateImage(data.dataUrl, { maxBytes: 8_000_000 });
 
     const fileName = `${crypto.randomUUID()}.${ext}`;
     const path = `${pv.company_id}/pv/${pv.id}/field/${fileName}`;
@@ -228,6 +224,9 @@ export const signFieldPv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => SignSchema.parse(i))
   .handler(async ({ data, context }) => {
+    // Strict MIME check on both signature blobs
+    decodeAndValidateImage(data.companySignature, { maxBytes: 2_000_000 });
+    decodeAndValidateImage(data.clientSignature, { maxBytes: 2_000_000 });
     const pv = await getPvCompany(data.pvId);
     await assertMember(pv.company_id!, context.userId);
 

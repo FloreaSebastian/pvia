@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { assertCanAddMember } from "./plan-guard.server";
 import { firePushToCompany } from "./push.server";
+import { enforceRateLimit } from "./rate-limit.server";
 
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
@@ -52,6 +53,9 @@ export const sendInvite = createServerFn({ method: "POST" })
   .inputValidator((input) => InviteSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context;
+    // Limite anti-spam invitations
+    await enforceRateLimit({ bucket: "invite.send", key: userId, limit: 20, windowSec: 3600 });
+    await enforceRateLimit({ bucket: "invite.send.email", key: `${userId}:${data.email.toLowerCase()}`, limit: 3, windowSec: 3600 });
 
     // Verify caller is owner/admin of the company
     const { data: membership } = await supabaseAdmin

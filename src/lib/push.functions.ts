@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { enforceRateLimit } from "./rate-limit.server";
 
 const SubscribeSchema = z.object({
   companyId: z.string().uuid(),
@@ -15,6 +16,7 @@ export const subscribePush = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => SubscribeSchema.parse(i))
   .handler(async ({ data, context }) => {
+    await enforceRateLimit({ bucket: "push.subscribe", key: context.userId, limit: 20, windowSec: 3600 });
     // Verify membership
     const { data: m } = await supabaseAdmin
       .from("company_members")
