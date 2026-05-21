@@ -28,7 +28,6 @@ import { Logo } from "@/components/landing/Logo";
 import { CompanySwitcher } from "@/components/app/CompanySwitcher";
 import { NotificationsBell } from "@/components/app/NotificationsBell";
 import { InstallPrompt } from "@/components/app/InstallPrompt";
-import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
 
 
