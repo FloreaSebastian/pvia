@@ -150,6 +150,8 @@ const TokenSchema = z.object({ token: z.string().min(10).max(128) });
 export const getPvByToken = createServerFn({ method: "POST" })
   .inputValidator((input) => TokenSchema.parse(input))
   .handler(async ({ data }) => {
+    const ip = getClientIp(getRequest());
+    await enforceRateLimit({ bucket: "sign.get", key: `${ip}:${data.token.slice(0, 16)}`, limit: 30, windowSec: 60 });
     const { data: pv } = await supabaseAdmin
       .from("pv")
       .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,sign_token_expires_at,company_id,client_id,chantier_id")
