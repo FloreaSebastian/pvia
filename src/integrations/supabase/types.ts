@@ -162,27 +162,39 @@ export type Database = {
       }
       company_members: {
         Row: {
+          accepted_at: string | null
           company_id: string
           created_at: string
           id: string
+          invite_expires_at: string | null
+          invite_token: string | null
+          invited_by: string | null
           invited_email: string | null
           role: Database["public"]["Enums"]["company_role"]
           status: Database["public"]["Enums"]["member_status"]
           user_id: string | null
         }
         Insert: {
+          accepted_at?: string | null
           company_id: string
           created_at?: string
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
+          invited_by?: string | null
           invited_email?: string | null
           role?: Database["public"]["Enums"]["company_role"]
           status?: Database["public"]["Enums"]["member_status"]
           user_id?: string | null
         }
         Update: {
+          accepted_at?: string | null
           company_id?: string
           created_at?: string
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
+          invited_by?: string | null
           invited_email?: string | null
           role?: Database["public"]["Enums"]["company_role"]
           status?: Database["public"]["Enums"]["member_status"]

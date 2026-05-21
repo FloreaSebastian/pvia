@@ -32,6 +32,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany, type CompanyRole } from "@/hooks/use-company";
+import { useServerFn } from "@tanstack/react-start";
+import { sendInvite } from "@/lib/invites.functions";
 
 export const Route = createFileRoute("/_authenticated/equipe")({
   component: TeamPage,
@@ -62,6 +64,8 @@ function TeamPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<CompanyRole>("user");
+  const [sending, setSending] = useState(false);
+  const sendInviteFn = useServerFn(sendInvite);
 
   async function load() {
     if (!activeCompanyId) return;
@@ -102,19 +106,24 @@ function TeamPage() {
     if (!activeCompanyId) return;
     const email = inviteEmail.trim().toLowerCase();
     if (!email) return;
-    const { error } = await supabase.from("company_members").insert({
-      company_id: activeCompanyId,
-      invited_email: email,
-      role: inviteRole,
-      status: "invited",
-    });
-    if (error) return toast.error(error.message);
-    toast.success(`Invitation enregistrée pour ${email}`);
-    setInviteOpen(false);
-    setInviteEmail("");
-    setInviteRole("user");
-    load();
+    if (inviteRole === "owner") return toast.error("Impossible d'inviter un owner.");
+    setSending(true);
+    try {
+      await sendInviteFn({
+        data: { companyId: activeCompanyId, email, role: inviteRole as "admin" | "manager" | "user" },
+      });
+      toast.success(`Invitation envoyée à ${email}`);
+      setInviteOpen(false);
+      setInviteEmail("");
+      setInviteRole("user");
+      load();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Échec de l'envoi de l'invitation");
+    } finally {
+      setSending(false);
+    }
   }
+
 
   async function changeRole(id: string, role: CompanyRole) {
     const { error } = await supabase.from("company_members").update({ role }).eq("id", id);
@@ -194,7 +203,10 @@ function TeamPage() {
                   </Select>
                 </div>
                 <DialogFooter>
-                  <Button type="submit"><Mail className="h-4 w-4" /> Envoyer l'invitation</Button>
+                  <Button type="submit" disabled={sending}>
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                    {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
