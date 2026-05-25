@@ -32,6 +32,36 @@ function backoffSeconds(attempts: number): number {
   return [30, 120, 600, 3600, 21600][Math.min(attempts, 4)];
 }
 
+const EVENT_LABEL: Record<string, string> = {
+  "pv.created": "Nouveau PV créé",
+  "pv.signed": "PV signé",
+  "pv.sent_to_client": "PV envoyé au client",
+  "reserve.created": "Nouvelle réserve",
+  "reserve.lifted": "Réserve levée",
+  "webhook.test": "Test PVIA",
+};
+
+function formatForChat(format: string, event: string, payload: Record<string, unknown>): unknown {
+  const title = EVENT_LABEL[event] ?? event;
+  const pv = (payload?.pv ?? {}) as Record<string, unknown>;
+  const reserve = (payload?.reserve ?? {}) as Record<string, unknown>;
+  const numero = (pv.numero ?? "") as string;
+  const status = (pv.status ?? "") as string;
+  const desc = (reserve.description ?? "") as string;
+  const lines = [
+    `*${title}*`,
+    numero ? `PV: \`${numero}\`${status ? ` — ${status}` : ""}` : null,
+    desc ? `Réserve: ${desc.slice(0, 200)}` : null,
+  ].filter(Boolean).join("\n");
+
+  if (format === "discord") {
+    return { content: lines };
+  }
+  // slack
+  return { text: lines };
+}
+
+
 export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; status?: number; error?: string }> {
   const { data: d } = await supabaseAdmin
     .from("webhook_deliveries")
