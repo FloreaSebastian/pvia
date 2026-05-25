@@ -19,7 +19,8 @@ type Device = { id: string; user_agent: string | null; last_seen_at: string; cre
 type AuditRow = { id: string; action: string; created_at: string; ip_address: string | null };
 
 function SecuritySettings() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
+  async function signOut() { await supabase.auth.signOut(); window.location.href = "/login"; }
   const { activeCompanyId } = useCompany();
   const [devices, setDevices] = useState<Device[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
