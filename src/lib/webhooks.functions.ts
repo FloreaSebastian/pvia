@@ -127,7 +127,7 @@ export const listWebhooks = createServerFn({ method: "POST" })
     await assertMember(data.companyId, context.userId);
     const { data: rows } = await supabaseAdmin
       .from("webhooks")
-      .select("id,url,events,enabled,description,last_delivery_at,last_status,failure_count,created_at")
+      .select("id,url,events,enabled,description,delivery_format,last_delivery_at,last_status,failure_count,created_at")
       .eq("company_id", data.companyId)
       .order("created_at", { ascending: false });
     return { webhooks: rows ?? [], availableEvents: EVENTS as readonly string[] };
@@ -141,6 +141,7 @@ export const createWebhook = createServerFn({ method: "POST" })
       url: z.string().url().startsWith("https://", { message: "HTTPS requis" }).max(500),
       events: z.array(z.enum(EVENTS)).min(1),
       description: z.string().trim().max(200).optional(),
+      delivery_format: z.enum(["raw", "slack", "discord"]).default("raw"),
     }).parse(i),
   )
   .handler(async ({ data, context }) => {
@@ -155,9 +156,11 @@ export const createWebhook = createServerFn({ method: "POST" })
         secret,
         events: data.events,
         description: data.description ?? null,
+        delivery_format: data.delivery_format,
       })
-      .select("id,url,events,enabled,description,created_at")
+      .select("id,url,events,enabled,description,delivery_format,created_at")
       .single();
+
     if (error) throw new Error(error.message);
     await writeAuditLog({
       action: "company.webhook_created" as never,
