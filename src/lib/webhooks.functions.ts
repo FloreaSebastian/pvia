@@ -184,14 +184,17 @@ export const updateWebhook = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(data.companyId, context.userId);
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      url?: string; events?: string[]; enabled?: boolean; description?: string | null;
+    } = {};
     if (data.url !== undefined) patch.url = data.url;
-    if (data.events !== undefined) patch.events = data.events;
+    if (data.events !== undefined) patch.events = data.events as string[];
     if (data.enabled !== undefined) patch.enabled = data.enabled;
     if (data.description !== undefined) patch.description = data.description;
     const { error } = await supabaseAdmin
       .from("webhooks").update(patch)
       .eq("id", data.id).eq("company_id", data.companyId);
+
     if (error) throw new Error(error.message);
     return { ok: true };
   });
