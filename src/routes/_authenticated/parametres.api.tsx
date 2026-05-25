@@ -30,7 +30,7 @@ type Delivery = { id: string; webhook_id: string; event: string; status: string;
 
 function ApiSettings() {
   const { activeCompanyId, can } = useCompany();
-  const isAdmin = !!can?.manageCompany;
+  const isAdmin = !!can?.("admin");
 
   const listKeysFn = useServerFn(listApiKeys);
   const createKeyFn = useServerFn(createApiKey);
