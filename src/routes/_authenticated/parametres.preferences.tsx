@@ -1,8 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sliders, Moon, Sparkles, Volume2, Sparkle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Sliders, Moon, Sparkles, Volume2, Sparkle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useUserPrefs, type UserPrefs } from "@/components/app/UserPreferencesProvider";
 
@@ -11,8 +19,17 @@ export const Route = createFileRoute("/_authenticated/parametres/preferences")({
   head: () => ({ meta: [{ title: "Préférences — Paramètres PVIA" }] }),
 });
 
+const DEFAULTS: UserPrefs = {
+  dark_mode_enabled: false,
+  ui_density: "comfortable",
+  animations_enabled: true,
+  sounds_enabled: true,
+  onboarding_tips_enabled: true,
+};
+
 function PreferencesSettings() {
   const { prefs, setPref, loading } = useUserPrefs();
+  const [busy, setBusy] = useState(false);
 
   async function update<K extends keyof UserPrefs>(k: K, v: UserPrefs[K]) {
     try {
@@ -23,17 +40,56 @@ function PreferencesSettings() {
     }
   }
 
-  if (loading) {
-    return <div className="grid h-40 place-items-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+  async function resetAll() {
+    setBusy(true);
+    try {
+      for (const k of Object.keys(DEFAULTS) as (keyof UserPrefs)[]) {
+        await setPref(k, DEFAULTS[k] as never);
+      }
+      toast.success("Préférences restaurées.");
+    } finally {
+      setBusy(false);
+    }
   }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-72 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
 
 
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Sliders className="h-4 w-4 text-primary" />
-          <h2 className="font-semibold">Apparence & confort</h2>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sliders className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold">Apparence & confort</h2>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="ghost" disabled={busy} className="text-xs">
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Réinitialiser
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Restaurer les préférences par défaut ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Le thème, la densité, les animations, les sons et les bulles d'aide reviennent à leurs valeurs par défaut.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={resetAll}>Restaurer</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
           Synchronisées sur votre compte, retrouvées sur tous vos appareils.
