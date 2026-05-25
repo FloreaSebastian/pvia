@@ -573,6 +573,42 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_calendar_tokens: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          last_accessed_at: string | null
+          name: string
+          revoked_at: string | null
+          scope: string
+          token: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scope?: string
+          token: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scope?: string
+          token?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1137,6 +1173,7 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          delivery_format: string
           description: string | null
           enabled: boolean
           events: string[]
@@ -1152,6 +1189,7 @@ export type Database = {
           company_id: string
           created_at?: string
           created_by?: string | null
+          delivery_format?: string
           description?: string | null
           enabled?: boolean
           events?: string[]
@@ -1167,6 +1205,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string | null
+          delivery_format?: string
           description?: string | null
           enabled?: boolean
           events?: string[]
