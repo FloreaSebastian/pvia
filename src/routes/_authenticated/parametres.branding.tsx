@@ -17,7 +17,6 @@ export const Route = createFileRoute("/_authenticated/parametres/branding")({
   head: () => ({ meta: [{ title: "Branding — Paramètres PVIA" }] }),
 });
 
-const LOCAL_KEY = "pvia:branding-extras";
 type BrandingExtras = { brandColor: string; emailFooter: string; pdfFooter: string; watermark: string };
 const DEFAULT_EXTRAS: BrandingExtras = {
   brandColor: "#3B82F6",
@@ -41,19 +40,26 @@ function BrandingSettings() {
   useEffect(() => {
     if (!activeCompanyId) return;
     (async () => {
-      const { data } = await supabase
-        .from("companies")
-        .select("name,logo_url")
-        .eq("id", activeCompanyId)
-        .maybeSingle();
-      if (data) {
-        setCompanyName(data.name ?? "");
-        setLogoUrl(data.logo_url ?? "");
+      const [{ data: comp }, { data: settings }] = await Promise.all([
+        supabase.from("companies").select("name,logo_url").eq("id", activeCompanyId).maybeSingle(),
+        supabase
+          .from("company_settings")
+          .select("brand_color,email_footer,pdf_footer,pdf_watermark")
+          .eq("company_id", activeCompanyId)
+          .maybeSingle(),
+      ]);
+      if (comp) {
+        setCompanyName(comp.name ?? "");
+        setLogoUrl(comp.logo_url ?? "");
       }
-      try {
-        const raw = localStorage.getItem(`${LOCAL_KEY}:${activeCompanyId}`);
-        if (raw) setExtras({ ...DEFAULT_EXTRAS, ...JSON.parse(raw) });
-      } catch { /* ignore */ }
+      if (settings) {
+        setExtras({
+          brandColor: settings.brand_color ?? DEFAULT_EXTRAS.brandColor,
+          emailFooter: settings.email_footer ?? DEFAULT_EXTRAS.emailFooter,
+          pdfFooter: settings.pdf_footer ?? DEFAULT_EXTRAS.pdfFooter,
+          watermark: settings.pdf_watermark ?? "",
+        });
+      }
       setLoading(false);
     })();
   }, [activeCompanyId]);
@@ -88,7 +94,16 @@ function BrandingSettings() {
           logo_url: logoUrl,
         } as any,
       });
-      try { localStorage.setItem(`${LOCAL_KEY}:${activeCompanyId}`, JSON.stringify(extras)); } catch { /* ignore */ }
+      const { error: sErr } = await supabase
+        .from("company_settings")
+        .upsert({
+          company_id: activeCompanyId,
+          brand_color: extras.brandColor,
+          email_footer: extras.emailFooter,
+          pdf_footer: extras.pdfFooter,
+          pdf_watermark: extras.watermark,
+        }, { onConflict: "company_id" });
+      if (sErr) throw new Error(sErr.message);
       toast.success("Branding mis à jour.");
     } catch (e) {
       toast.error((e as Error).message);
