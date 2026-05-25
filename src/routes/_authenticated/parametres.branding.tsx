@@ -156,7 +156,7 @@ function BrandingSettings() {
             <Field label="Nom commercial">
               <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} disabled={!can("admin")} />
             </Field>
-            <Field label="Couleur principale (preview seulement)">
+            <Field label="Couleur principale">
               <div className="flex items-center gap-2">
                 <input
                   type="color"
