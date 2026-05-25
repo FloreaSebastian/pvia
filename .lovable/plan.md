@@ -1,173 +1,139 @@
-# Espace client PVIA — Magic code (passwordless)
+# Onboarding obligatoire PVIA
 
-Système d'authentification dédié aux **clients** (destinataires des PV), **totalement séparé** du système `auth.users` Supabase (qui reste réservé aux pros BTP). Les clients existent déjà dans la table `clients` — on s'appuie dessus.
+## Objectif
 
-## 1. Schéma base de données
+Forcer chaque nouvel utilisateur à compléter son profil personnel + les infos de son entreprise avant d'accéder à l'app. Centraliser ensuite ces données pour qu'elles soient réutilisées partout (PDF, emails, branding, exports).
 
-Deux nouvelles tables côté Supabase, **verrouillées par RLS deny-all** (uniquement le service role y accède, jamais le client browser).
+---
 
-```text
-client_auth_codes
-  id uuid pk
-  client_id uuid  -- FK logique vers clients.id (NULL si email orphelin)
-  email text       -- normalisé lowercase
-  code_hash text   -- SHA-256(code + id), jamais le code en clair
-  expires_at timestamptz   -- now() + 10 min
-  attempts int default 0   -- incrémenté à chaque verify raté (max 5)
-  used_at timestamptz      -- NULL tant que non consommé
-  created_at timestamptz
-  ip_address text
-  user_agent text
-  index (email, created_at desc)
+## 1. Migration SQL
 
-client_sessions
-  id uuid pk
-  token_hash text unique   -- SHA-256(token), token jamais stocké en clair
-  client_id uuid           -- nullable si email sans match clients
-  email text
-  expires_at timestamptz   -- now() + 30 jours (sliding)
-  created_at timestamptz
-  last_seen_at timestamptz
-  revoked_at timestamptz   -- logout / révocation
-  ip_address text
-  user_agent text
-  index (token_hash), index (client_id, revoked_at)
-```
+**Table `profiles`** — ajouter :
+- `first_name text`, `last_name text`, `phone text`, `job_title text`, `avatar_url text` (existe déjà ?), `onboarding_completed_at timestamptz`
 
-RLS : `ENABLE ROW LEVEL SECURITY` + **aucune policy** → toute lecture/écriture depuis le navigateur (anon ou authenticated) est refusée. Seules les server functions, via `supabaseAdmin` (service role), y accèdent.
+**Table `companies`** — ajouter :
+- `siren text`, `legal_form text`, `address_line1 text`, `address_line2 text`, `postal_code text`, `city text`, `country text default 'FR'`, `website text`, `vat_number text`, `onboarding_completed_at timestamptz`
+- (garder `siret`, `address`, `phone`, `email`, `logo_url` existants pour rétro-compat)
 
-Cron `pg_cron` quotidien : purge `client_auth_codes` > 24 h et `client_sessions` expirées > 7 jours.
+**Index** : `idx_companies_siren`, `idx_companies_siret`.
 
-## 2. Server functions (`src/lib/client-auth.functions.ts`)
+**RLS** : inchangée — les policies existantes (`is_company_admin` pour update, `auth.uid() = id` pour profiles) couvrent déjà les besoins.
 
-Toutes en `createServerFn`, jamais accessibles côté browser autrement que via RPC.
+---
 
-- **`sendClientLoginCode({ email })`**
-  - Normalise email, valide format (Zod).
-  - Rate-limit : `rate-limit.server` → 3 codes / 15 min par email + 10 / heure par IP.
-  - Invalide tous les codes non utilisés du même email.
-  - Génère code aléatoire 6 chiffres via `crypto.getRandomValues`.
-  - Hash : `sha256(code + row.id)`.
-  - Insert ligne avec IP + UA depuis `getRequest()`.
-  - Envoie email via `email.server.ts` (Resend) — template premium dédié.
-  - Audit log : `client.login_code_sent` (table `audit_logs`, sans pv_id).
-  - **Retour neutre** : `{ ok: true }` même si email inconnu (anti-enumeration).
+## 2. Server functions
 
-- **`verifyClientLoginCode({ email, code })`**
-  - Rate-limit : 10 verify / 10 min par IP.
-  - Cherche dernier code valide (non `used_at`, `expires_at > now()`, `attempts < 5`).
-  - Si pas trouvé → audit `client.login_failed` + erreur générique.
-  - Compare `sha256(code + row.id)` (timing-safe).
-  - Si KO → `attempts++`, audit `client.login_failed`, erreur.
-  - Si OK :
-    - `used_at = now()`.
-    - Cherche `client_id` par email dans `clients` (lowercase match).
-    - Crée `client_sessions` row : token = 32 bytes `crypto.randomUUID` × 2 base64url, stocké hashé.
-    - Set cookie via `setResponseHeader('set-cookie', …)` :
-      `pvia_client_session=<token>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`.
-    - Audit `client.login_success`.
-    - Retour `{ ok: true, hasClient: !!client_id }`.
+### `src/lib/onboarding.functions.ts`
+- `getOnboardingStatus()` — retourne `{ profileComplete, companyComplete, activeCompanyId }`. Profil complet = `first_name`, `last_name`, `phone`, `job_title` + `onboarding_completed_at`. Entreprise complète = `name`, `siret` ou `siren`, `address_line1`, `postal_code`, `city`, + `onboarding_completed_at`.
+- `completeProfile({ first_name, last_name, phone, job_title, avatar_url? })` — valide via Zod, met à jour `profiles`, set `onboarding_completed_at`, audit log `onboarding.profile_completed`.
+- `completeCompany({ companyId, ...fields })` — vérifie `is_company_admin`, valide via Zod (SIREN 9 chiffres, SIRET 14, code postal FR, etc.), met à jour `companies`, audit log `onboarding.company_completed` et `onboarding.completed`.
 
-- **`getClientSession()`**
-  - Lit cookie `pvia_client_session` depuis `getRequestHeader('cookie')`.
-  - Hash → lookup `client_sessions` non révoquée, non expirée.
-  - Update `last_seen_at`.
-  - Retour `{ email, clientId, companyId | null }` ou `null`.
+### `src/lib/siren.functions.ts`
+- `lookupCompanyBySirenOrSiret({ query })` — nettoie espaces, valide 9 ou 14 chiffres, appelle l'API publique **Recherche d'Entreprises** (`https://recherche-entreprises.api.gouv.fr/search?q=<siren>`) — gratuite, sans clé, maintenue par data.gouv. Retourne `{ name, siren, siret, legal_form, address_line1, postal_code, city, naf_label }`. Rate-limit serveur (`enforceRateLimit` 20/min/IP). Audit log `onboarding.company_lookup`. Fallback : retour `{ found: false, error }` → l'UI passe en mode manuel.
 
-- **`logoutClientSession()`**
-  - Marque `revoked_at = now()`.
-  - Set cookie expiré (`Max-Age=0`).
-  - Audit `client.logout`.
+### `src/lib/branding.server.ts` + `branding.functions.ts`
+- `getCompanyBranding(companyId)` — helper central qui retourne `{ name, siren, siret, legal_form, address, address_line1, postal_code, city, country, email, phone, website, vat_number, logo_url }`. Utilisé dans `pdf.server.ts`, `email.server.ts`, `signed-email.functions.ts`, etc. Remplace les `select(...).eq('id', companyId)` dispersés.
 
-- **`getClientPvList()`, `getClientPvDetail({ id })`, `getClientPdfUrl({ id })`** :
-  - Reposent sur `getClientSession()` → 401 si null.
-  - Filtre strict : `pv.client_id = session.clientId` (ou `pv.sent_to_email = session.email` si pas de client_id, pour les emails orphelins).
-  - PDF : génère signed URL Supabase Storage à courte durée (15 min) via `supabaseAdmin`.
+---
 
-## 3. Routes UI (TanStack Start)
+## 3. Routes & flow
 
-```text
-/client/login        → src/routes/client.login.tsx       (publique)
-/client/verify       → src/routes/client.verify.tsx      (publique, lit ?email=)
-/client/dashboard    → src/routes/client.dashboard.tsx   (gated via getClientSession loader)
-/client/pv/$id       → src/routes/client.pv.$id.tsx      (gated, signature inline)
-```
+### Nouvelle route `/onboarding` (sous `_authenticated`)
+Fichier : `src/routes/_authenticated/onboarding.tsx`. Wizard 6 étapes avec `FieldStepper` :
+1. Bienvenue (CTA "Commencer")
+2. Profil perso (form Zod + react-hook-form)
+3. Recherche SIREN/SIRET (input avec debounce 500ms, bouton "Saisir manuellement")
+4. Vérif / édition infos entreprise (préremplies)
+5. Logo + site web (optionnels)
+6. Confirmation → redirect `/dashboard`
 
-Pas sous `_authenticated/` (qui est pour les pros). Gating via redirect dans le loader :
-```ts
-loader: async () => {
-  const s = await getClientSession();
-  if (!s) throw redirect({ to: '/client/login' });
-  return s;
-}
-```
+Sauvegarde auto à chaque étape (les server fns gèrent les updates partiels).
 
-**UI premium** :
-- `client.login.tsx` : champ email seul, gros bouton, branding PVIA, message rassurant ("aucun mot de passe, vous recevrez un code par email").
-- `client.verify.tsx` : utilise `<InputOTP>` (shadcn — déjà installé), auto-focus, auto-submit dès 6 chiffres, timer "renvoyer le code" (60 s), animation succès, gestion 5 tentatives.
-- `client.dashboard.tsx` : liste PV (status badge), bouton télécharger PDF, lien "signer" pour les PV en attente, header avec email + logout.
-- Tout en motion.dev fade-in, responsive mobile-first, palette existante.
+### Garde dans `_authenticated.tsx`
+Ajouter un check : après `useAuth`, query `getOnboardingStatus`. Si `!profileComplete || !companyComplete` ET la route actuelle n'est pas dans la whitelist → `navigate({ to: '/onboarding' })`.
 
-## 4. Email Resend
+**Whitelist** (accessibles avant onboarding) :
+- `/onboarding`, `/billing`, `/logout` (action), route support si elle existe.
 
-Template HTML inline dans `email.server.ts` (méthode `sendClientLoginCodeEmail`) :
-- Sujet : `Votre code de connexion PVIA`.
-- Code en très grand (48 px, mono, spacing).
-- Mention "valide 10 minutes".
-- Ligne discrète : "Connexion depuis IP `1.2.3.4` · Chrome sur macOS".
-- Bouton CTA "Se connecter" → lien `https://pvia.fr/client/verify?email=...`.
-- Footer "Si vous n'avez pas demandé ce code, ignorez cet email".
-- Background blanc, accent `#1e40af` cohérent.
+Logout reste un bouton qui appelle `supabase.auth.signOut()` — toujours accessible via le layout.
 
-## 5. Sécurité — récap
+### Login/signup
+Aucun changement de logique métier — la redirection se fait via le garde `_authenticated`. Les pages publiques (signup, login, verify) restent intactes.
 
-- Codes **jamais stockés en clair** (SHA-256 + id comme sel).
-- Tokens session **jamais stockés en clair** (SHA-256).
-- Cookie `HttpOnly + Secure + SameSite=Lax` — non lisible par JS, donc immunisé XSS sur ce vecteur.
-- Rate-limit envoi (3/15min/email, 10/h/IP) + verify (10/10min/IP).
-- Max 5 tentatives par code → invalidation auto.
-- Invalidation des codes précédents à chaque nouveau `sendClientLoginCode`.
-- Réponse neutre côté send (anti email enumeration).
-- Audit logs détaillés (4 événements).
-- RLS deny-all sur les 2 tables (aucun accès direct browser).
-- Isolation stricte : queries scoped par `clientId`/`email`, jamais par paramètre client.
-- CSP existant déjà compatible (pas de domaine externe ajouté).
+---
 
-## 6. Limitations assumées
+## 4. Réutilisation des données entreprise
 
-- **Pas de WebAuthn / passkeys** — magic code suffisant pour ce use-case.
-- **Pas de "remember this device"** explicite — la session 30 j fait office.
-- **Pas de SSO inter-entreprises** : un client avec le même email dans 2 entreprises voit les PV des 2 (logique métier : c'est le même destinataire physique).
-- **Email orphelin** (pas de ligne `clients` matchant) : on accepte la connexion mais le dashboard sera vide tant qu'aucun PV n'est `sent_to_email = X`.
-- **Rate-limit** reste ad-hoc table-based (cf. contrainte stack).
+Refactor des appels Supabase dispersés vers `getCompanyBranding`:
+- `src/lib/pdf.server.ts` (génération PV)
+- `src/lib/email.server.ts` (emails clients)
+- `src/lib/signed-email.functions.ts`
+- `src/components/client/...` (espace client header)
+- Éventuels exports stats/audit
 
-## 7. Tests bout en bout
+Pas de changement de comportement — juste centralisation.
 
-1. `/client/login` → saisir email d'un client existant → "Code envoyé".
-2. Vérifier email Resend reçu avec code 6 chiffres.
-3. `/client/verify?email=…` → coller le code → redirection auto `/client/dashboard`.
-4. Dashboard liste les PV où `client_id` matche.
-5. Cliquer "Télécharger PDF" → signed URL 15 min.
-6. Cliquer "Signer" → flux signature existant en mode authentifié client.
-7. Logout → cookie effacé, retour `/client/login`.
-8. Retenter avec un mauvais code 5× → message "code invalidé, redemandez-en un".
-9. Spam send code → 4ème en 15 min refusé (429).
-10. Tester depuis 2 devices simultanément → 2 sessions actives, logout d'une seule n'affecte pas l'autre.
+---
 
-## 8. Fichiers à créer / modifier
+## 5. Audit logs
 
-```text
-supabase migration         → 2 tables + cron purge + RLS deny-all
-src/lib/client-auth.server.ts        → helpers (hash, cookie parse, IP)
-src/lib/client-auth.functions.ts     → 4 server fns auth + 3 fns data
-src/lib/email.server.ts              → +sendClientLoginCodeEmail
-src/routes/client.login.tsx
-src/routes/client.verify.tsx
-src/routes/client.dashboard.tsx
-src/routes/client.pv.$id.tsx
-src/components/client/ClientShell.tsx  (header + logout)
-```
+Ajouter au `AuditActionEnum` (Zod) dans `audit.functions.ts` :
+- `onboarding.started`, `onboarding.profile_completed`, `onboarding.company_lookup`, `onboarding.company_completed`, `onboarding.completed`, `company.updated_from_siren`
 
-Aucune modif aux routes pros existantes, aucun impact sur le système auth Supabase.
+---
 
-**OK pour partir là-dessus ?** Une fois validé j'implémente tout d'un trait (migration → server fns → email → routes → tests).
+## 6. UX
+
+- Design cohérent avec `AuthShell` / `Card` existants
+- `Progress` en haut, `FieldStepper` avec labels FR
+- Validation inline avec messages clairs
+- État de loading sur la recherche SIREN ("Recherche en cours…")
+- Message d'erreur si API indispo : "Entreprise introuvable — vous pouvez saisir les informations manuellement"
+- Bouton "Précédent / Suivant" + "Enregistrer et terminer" à la dernière étape
+
+---
+
+## 7. Sécurité
+
+- `completeCompany` vérifie `is_company_admin` côté serveur (server fn) — un user simple ne peut pas modifier l'entreprise
+- Un user simple invité dans une équipe existante voit seulement l'étape profil (l'entreprise est déjà complète → skip)
+- `lookupCompanyBySirenOrSiret` rate-limité (20/min/IP)
+- Zod sur tous les inputs
+
+---
+
+## 8. API SIREN/SIRET
+
+**API utilisée** : `https://recherche-entreprises.api.gouv.fr/search` — service public officiel data.gouv.fr, gratuit, sans clé, sans quota strict. Donnée Sirene/INSEE.
+
+Limites :
+- Pas de SLA garanti — d'où le fallback manuel
+- Données publiques uniquement (pas d'entreprises non-diffusibles)
+
+---
+
+## 9. Tests bout en bout
+
+1. Créer un compte → valider email → être redirigé vers `/onboarding` (pas `/dashboard`)
+2. Remplir profil → étape suivante
+3. Taper un SIRET valide (ex: `552100554` Carrefour) → données préremplies
+4. Modifier, valider → redirigé vers `/dashboard`
+5. Se déconnecter et reconnecter → va direct au dashboard (onboarding done)
+6. Inviter un membre → il signup → onboarding profil uniquement (entreprise déjà OK)
+
+---
+
+## 10. Ne pas casser
+
+OTP client, Stripe, multi-tenant, push, PWA, signatures, PDF, audit, RLS existantes, invitations équipe. La garde `_authenticated` n'affecte pas les routes publiques (`/sign.pv.$token`, `/client.*`, `/invite.$token`).
+
+---
+
+## Livrables
+
+- 1 migration SQL (colonnes profiles + companies)
+- 3 server function files : `onboarding.functions.ts`, `siren.functions.ts`, `branding.functions.ts`
+- 1 server helper : `branding.server.ts`
+- 1 route : `/onboarding` + composants wizard
+- Refacto léger : `_authenticated.tsx` (garde), `pdf.server.ts` / `email.server.ts` (utiliser `getCompanyBranding`)
+- Ajouts `AuditActionEnum`
