@@ -32,6 +32,36 @@ function backoffSeconds(attempts: number): number {
   return [30, 120, 600, 3600, 21600][Math.min(attempts, 4)];
 }
 
+const EVENT_LABEL: Record<string, string> = {
+  "pv.created": "Nouveau PV créé",
+  "pv.signed": "PV signé",
+  "pv.sent_to_client": "PV envoyé au client",
+  "reserve.created": "Nouvelle réserve",
+  "reserve.lifted": "Réserve levée",
+  "webhook.test": "Test PVIA",
+};
+
+function formatForChat(format: string, event: string, payload: Record<string, unknown>): unknown {
+  const title = EVENT_LABEL[event] ?? event;
+  const pv = (payload?.pv ?? {}) as Record<string, unknown>;
+  const reserve = (payload?.reserve ?? {}) as Record<string, unknown>;
+  const numero = (pv.numero ?? "") as string;
+  const status = (pv.status ?? "") as string;
+  const desc = (reserve.description ?? "") as string;
+  const lines = [
+    `*${title}*`,
+    numero ? `PV: \`${numero}\`${status ? ` — ${status}` : ""}` : null,
+    desc ? `Réserve: ${desc.slice(0, 200)}` : null,
+  ].filter(Boolean).join("\n");
+
+  if (format === "discord") {
+    return { content: lines };
+  }
+  // slack
+  return { text: lines };
+}
+
+
 export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; status?: number; error?: string }> {
   const { data: d } = await supabaseAdmin
     .from("webhook_deliveries")
@@ -42,7 +72,7 @@ export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; sta
 
   const { data: hook } = await supabaseAdmin
     .from("webhooks")
-    .select("id,url,secret,enabled,company_id")
+    .select("id,url,secret,enabled,company_id,delivery_format")
     .eq("id", d.webhook_id)
     .maybeSingle();
   if (!hook || !hook.enabled) {
@@ -53,7 +83,10 @@ export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; sta
     return { ok: false, error: "webhook_disabled" };
   }
 
-  const body = JSON.stringify(d.payload);
+  const format = (hook.delivery_format as string | null) ?? "raw";
+  const body = format === "raw"
+    ? JSON.stringify(d.payload)
+    : JSON.stringify(formatForChat(format, d.event as string, d.payload as Record<string, unknown>));
   const ts = Math.floor(Date.now() / 1000);
   const sig = signPayload(hook.secret, ts, body);
   const attempts = (d.attempts ?? 0) + 1;
@@ -78,6 +111,7 @@ export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; sta
     });
     status = res.status;
     responseBody = (await res.text().catch(() => "")).slice(0, 2000);
+
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e);
   } finally {

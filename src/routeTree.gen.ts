@@ -57,6 +57,7 @@ import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_auth
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
+import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
 
 const VerifyRoute = VerifyRouteImport.update({
@@ -311,6 +312,11 @@ const ApiPublicHooksCheckExpiringTrialsRoute =
     path: '/api/public/hooks/check-expiring-trials',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
+  id: '/api/public/calendar/$token',
+  path: '/api/public/calendar/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedPvIdHistoriqueRoute =
   AuthenticatedPvIdHistoriqueRouteImport.update({
     id: '/historique',
@@ -364,6 +370,7 @@ export interface FileRoutesByFullPath {
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
+  '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -413,6 +420,7 @@ export interface FileRoutesByTo {
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
+  '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -465,6 +473,7 @@ export interface FileRoutesById {
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
+  '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -517,6 +526,7 @@ export interface FileRouteTypes {
     | '/parametres/'
     | '/pv/'
     | '/pv/$id/historique'
+    | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
@@ -566,6 +576,7 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/pv'
     | '/pv/$id/historique'
+    | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
@@ -617,6 +628,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/pv/$id/historique'
+    | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
@@ -642,6 +654,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   ClientPvIdRoute: typeof ClientPvIdRoute
   SignPvTokenRoute: typeof SignPvTokenRoute
+  ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
   ApiPublicHooksCheckExpiringTrialsRoute: typeof ApiPublicHooksCheckExpiringTrialsRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
@@ -985,6 +998,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCheckExpiringTrialsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/calendar/$token': {
+      id: '/api/public/calendar/$token'
+      path: '/api/public/calendar/$token'
+      fullPath: '/api/public/calendar/$token'
+      preLoaderRoute: typeof ApiPublicCalendarTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/pv/$id/historique': {
       id: '/_authenticated/pv/$id/historique'
       path: '/historique'
@@ -1112,6 +1132,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   ClientPvIdRoute: ClientPvIdRoute,
   SignPvTokenRoute: SignPvTokenRoute,
+  ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
   ApiPublicHooksCheckExpiringTrialsRoute:
     ApiPublicHooksCheckExpiringTrialsRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
