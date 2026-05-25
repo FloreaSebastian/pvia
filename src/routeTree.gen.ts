@@ -47,8 +47,10 @@ import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 import { Route as AuthenticatedParametresSecuriteRouteImport } from './routes/_authenticated/parametres.securite'
+import { Route as AuthenticatedParametresPreferencesRouteImport } from './routes/_authenticated/parametres.preferences'
 import { Route as AuthenticatedParametresNotificationsRouteImport } from './routes/_authenticated/parametres.notifications'
 import { Route as AuthenticatedParametresIntegrationsRouteImport } from './routes/_authenticated/parametres.integrations'
+import { Route as AuthenticatedParametresDonneesRouteImport } from './routes/_authenticated/parametres.donnees'
 import { Route as AuthenticatedParametresBrandingRouteImport } from './routes/_authenticated/parametres.branding'
 import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
@@ -250,6 +252,12 @@ const AuthenticatedParametresSecuriteRoute =
     path: '/securite',
     getParentRoute: () => AuthenticatedParametresRoute,
   } as any)
+const AuthenticatedParametresPreferencesRoute =
+  AuthenticatedParametresPreferencesRouteImport.update({
+    id: '/preferences',
+    path: '/preferences',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
 const AuthenticatedParametresNotificationsRoute =
   AuthenticatedParametresNotificationsRouteImport.update({
     id: '/notifications',
@@ -260,6 +268,12 @@ const AuthenticatedParametresIntegrationsRoute =
   AuthenticatedParametresIntegrationsRouteImport.update({
     id: '/integrations',
     path: '/integrations',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
+const AuthenticatedParametresDonneesRoute =
+  AuthenticatedParametresDonneesRouteImport.update({
+    id: '/donnees',
+    path: '/donnees',
     getParentRoute: () => AuthenticatedParametresRoute,
   } as any)
 const AuthenticatedParametresBrandingRoute =
@@ -337,8 +351,10 @@ export interface FileRoutesByFullPath {
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
+  '/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -384,8 +400,10 @@ export interface FileRoutesByTo {
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
+  '/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
@@ -434,8 +452,10 @@ export interface FileRoutesById {
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
   '/_authenticated/parametres/branding': typeof AuthenticatedParametresBrandingRoute
+  '/_authenticated/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/_authenticated/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/_authenticated/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/_authenticated/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/_authenticated/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
@@ -484,8 +504,10 @@ export interface FileRouteTypes {
     | '/admin/monitoring'
     | '/parametres/api'
     | '/parametres/branding'
+    | '/parametres/donnees'
     | '/parametres/integrations'
     | '/parametres/notifications'
+    | '/parametres/preferences'
     | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
@@ -531,8 +553,10 @@ export interface FileRouteTypes {
     | '/admin/monitoring'
     | '/parametres/api'
     | '/parametres/branding'
+    | '/parametres/donnees'
     | '/parametres/integrations'
     | '/parametres/notifications'
+    | '/parametres/preferences'
     | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
@@ -580,8 +604,10 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/monitoring'
     | '/_authenticated/parametres/api'
     | '/_authenticated/parametres/branding'
+    | '/_authenticated/parametres/donnees'
     | '/_authenticated/parametres/integrations'
     | '/_authenticated/parametres/notifications'
+    | '/_authenticated/parametres/preferences'
     | '/_authenticated/parametres/securite'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
@@ -889,6 +915,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedParametresSecuriteRouteImport
       parentRoute: typeof AuthenticatedParametresRoute
     }
+    '/_authenticated/parametres/preferences': {
+      id: '/_authenticated/parametres/preferences'
+      path: '/preferences'
+      fullPath: '/parametres/preferences'
+      preLoaderRoute: typeof AuthenticatedParametresPreferencesRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
     '/_authenticated/parametres/notifications': {
       id: '/_authenticated/parametres/notifications'
       path: '/notifications'
@@ -901,6 +934,13 @@ declare module '@tanstack/react-router' {
       path: '/integrations'
       fullPath: '/parametres/integrations'
       preLoaderRoute: typeof AuthenticatedParametresIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
+    '/_authenticated/parametres/donnees': {
+      id: '/_authenticated/parametres/donnees'
+      path: '/donnees'
+      fullPath: '/parametres/donnees'
+      preLoaderRoute: typeof AuthenticatedParametresDonneesRouteImport
       parentRoute: typeof AuthenticatedParametresRoute
     }
     '/_authenticated/parametres/branding': {
@@ -958,8 +998,10 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedParametresRouteChildren {
   AuthenticatedParametresApiRoute: typeof AuthenticatedParametresApiRoute
   AuthenticatedParametresBrandingRoute: typeof AuthenticatedParametresBrandingRoute
+  AuthenticatedParametresDonneesRoute: typeof AuthenticatedParametresDonneesRoute
   AuthenticatedParametresIntegrationsRoute: typeof AuthenticatedParametresIntegrationsRoute
   AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
+  AuthenticatedParametresPreferencesRoute: typeof AuthenticatedParametresPreferencesRoute
   AuthenticatedParametresSecuriteRoute: typeof AuthenticatedParametresSecuriteRoute
   AuthenticatedParametresIndexRoute: typeof AuthenticatedParametresIndexRoute
 }
@@ -968,10 +1010,13 @@ const AuthenticatedParametresRouteChildren: AuthenticatedParametresRouteChildren
   {
     AuthenticatedParametresApiRoute: AuthenticatedParametresApiRoute,
     AuthenticatedParametresBrandingRoute: AuthenticatedParametresBrandingRoute,
+    AuthenticatedParametresDonneesRoute: AuthenticatedParametresDonneesRoute,
     AuthenticatedParametresIntegrationsRoute:
       AuthenticatedParametresIntegrationsRoute,
     AuthenticatedParametresNotificationsRoute:
       AuthenticatedParametresNotificationsRoute,
+    AuthenticatedParametresPreferencesRoute:
+      AuthenticatedParametresPreferencesRoute,
     AuthenticatedParametresSecuriteRoute: AuthenticatedParametresSecuriteRoute,
     AuthenticatedParametresIndexRoute: AuthenticatedParametresIndexRoute,
   }
@@ -1075,3 +1120,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
