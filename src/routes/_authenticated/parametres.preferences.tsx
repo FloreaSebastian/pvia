@@ -65,9 +65,31 @@ function PreferencesSettings() {
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Sliders className="h-4 w-4 text-primary" />
-          <h2 className="font-semibold">Apparence & confort</h2>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sliders className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold">Apparence & confort</h2>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="ghost" disabled={busy} className="text-xs">
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Réinitialiser
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Restaurer les préférences par défaut ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Le thème, la densité, les animations, les sons et les bulles d'aide reviennent à leurs valeurs par défaut.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={resetAll}>Restaurer</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
           Synchronisées sur votre compte, retrouvées sur tous vos appareils.
