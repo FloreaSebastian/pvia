@@ -136,7 +136,7 @@ export async function generatePvPdfBytes(input: {
 
   const drawFooter = () => {
     page.drawLine({ start: { x: MARGIN, y: MARGIN }, end: { x: PAGE_W - MARGIN, y: MARGIN }, thickness: 0.5, color: BORDER });
-    page.drawText(`PVIA - Proces-verbal ${sanitize(pv.numero)}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
+    page.drawText(`PVIA · PV ${sanitize(pv.numero)} · Document généré par PVIA`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
     page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
   };
 
