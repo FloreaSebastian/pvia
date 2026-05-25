@@ -57,6 +57,7 @@ function OnboardingPage() {
   const profileFn = useServerFn(completeProfile);
   const companyFn = useServerFn(completeCompany);
   const lookupFn = useServerFn(lookupCompanyBySirenOrSiret);
+  const uploadLogoFn = useServerFn(uploadCompanyLogo);
 
   const { data: status, isLoading: statusLoading } = useQuery({
     queryKey: ["onboarding-status", user?.id],
@@ -227,13 +228,22 @@ function OnboardingPage() {
 
   async function uploadLogo(file: File) {
     if (!status?.activeCompanyId) return;
-    const path = `${status.activeCompanyId}/logo-${Date.now()}-${file.name}`;
-    const up = await supabase.storage.from("pv-assets").upload(path, file, { upsert: true });
-    if (up.error) return toast.error(up.error.message);
-    const { data } = await supabase.storage.from("pv-assets").createSignedUrl(path, 60 * 60 * 24 * 365);
-    if (data?.signedUrl) {
-      setCompany((c) => ({ ...c, logo_url: data.signedUrl }));
-      toast.success("Logo téléversé");
+    const err = validateLogoFile(file);
+    if (err) return toast.error(err);
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await uploadLogoFn({
+        data: {
+          companyId: status.activeCompanyId,
+          fileName: file.name,
+          mimeType: file.type,
+          base64,
+        },
+      });
+      setCompany((c) => ({ ...c, logo_url: res.url }));
+      toast.success("Logo téléversé.");
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'upload du logo.");
     }
   }
 
