@@ -46,7 +46,9 @@ import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
+import { Route as AuthenticatedParametresSecuriteRouteImport } from './routes/_authenticated/parametres.securite'
 import { Route as AuthenticatedParametresNotificationsRouteImport } from './routes/_authenticated/parametres.notifications'
+import { Route as AuthenticatedParametresBrandingRouteImport } from './routes/_authenticated/parametres.branding'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
@@ -240,10 +242,22 @@ const AuthenticatedPvIdRoute = AuthenticatedPvIdRouteImport.update({
   path: '/pv/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedParametresSecuriteRoute =
+  AuthenticatedParametresSecuriteRouteImport.update({
+    id: '/securite',
+    path: '/securite',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
 const AuthenticatedParametresNotificationsRoute =
   AuthenticatedParametresNotificationsRouteImport.update({
     id: '/notifications',
     path: '/notifications',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
+const AuthenticatedParametresBrandingRoute =
+  AuthenticatedParametresBrandingRouteImport.update({
+    id: '/branding',
+    path: '/branding',
     getParentRoute: () => AuthenticatedParametresRoute,
   } as any)
 const AuthenticatedAdminMonitoringRoute =
@@ -307,7 +321,9 @@ export interface FileRoutesByFullPath {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
@@ -350,7 +366,9 @@ export interface FileRoutesByTo {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
@@ -396,7 +414,9 @@ export interface FileRoutesById {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/_authenticated/parametres/branding': typeof AuthenticatedParametresBrandingRoute
   '/_authenticated/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/_authenticated/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
@@ -442,7 +462,9 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/admin/monitoring'
+    | '/parametres/branding'
     | '/parametres/notifications'
+    | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
@@ -485,7 +507,9 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/admin/monitoring'
+    | '/parametres/branding'
     | '/parametres/notifications'
+    | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
@@ -530,7 +554,9 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/_authenticated/admin/monitoring'
+    | '/_authenticated/parametres/branding'
     | '/_authenticated/parametres/notifications'
+    | '/_authenticated/parametres/securite'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
     | '/_authenticated/terrain/$id'
@@ -830,11 +856,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/parametres/securite': {
+      id: '/_authenticated/parametres/securite'
+      path: '/securite'
+      fullPath: '/parametres/securite'
+      preLoaderRoute: typeof AuthenticatedParametresSecuriteRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
     '/_authenticated/parametres/notifications': {
       id: '/_authenticated/parametres/notifications'
       path: '/notifications'
       fullPath: '/parametres/notifications'
       preLoaderRoute: typeof AuthenticatedParametresNotificationsRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
+    '/_authenticated/parametres/branding': {
+      id: '/_authenticated/parametres/branding'
+      path: '/branding'
+      fullPath: '/parametres/branding'
+      preLoaderRoute: typeof AuthenticatedParametresBrandingRouteImport
       parentRoute: typeof AuthenticatedParametresRoute
     }
     '/_authenticated/admin/monitoring': {
@@ -876,14 +916,18 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedParametresRouteChildren {
+  AuthenticatedParametresBrandingRoute: typeof AuthenticatedParametresBrandingRoute
   AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
+  AuthenticatedParametresSecuriteRoute: typeof AuthenticatedParametresSecuriteRoute
   AuthenticatedParametresIndexRoute: typeof AuthenticatedParametresIndexRoute
 }
 
 const AuthenticatedParametresRouteChildren: AuthenticatedParametresRouteChildren =
   {
+    AuthenticatedParametresBrandingRoute: AuthenticatedParametresBrandingRoute,
     AuthenticatedParametresNotificationsRoute:
       AuthenticatedParametresNotificationsRoute,
+    AuthenticatedParametresSecuriteRoute: AuthenticatedParametresSecuriteRoute,
     AuthenticatedParametresIndexRoute: AuthenticatedParametresIndexRoute,
   }
 
@@ -986,3 +1030,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
