@@ -118,8 +118,8 @@ export const Route = createFileRoute("/api/public/hooks/check-expiring-trials")(
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey");
-        if (!apikey || apikey !== process.env.SUPABASE_PUBLISHABLE_KEY) {
+        const secret = request.headers.get("x-cron-secret");
+        if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
           return new Response("Unauthorized", { status: 401 });
         }
         try {
@@ -131,8 +131,8 @@ export const Route = createFileRoute("/api/public/hooks/check-expiring-trials")(
         }
       },
       GET: async ({ request }) => {
-        const apikey = request.headers.get("apikey");
-        if (!apikey || apikey !== process.env.SUPABASE_PUBLISHABLE_KEY) {
+        const secret = request.headers.get("x-cron-secret");
+        if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
           return new Response("Unauthorized", { status: 401 });
         }
         const r = await run();
