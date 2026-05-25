@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-r
 import { useMemo, useState } from "react";
 import {
   Settings as SettingsIcon, Building2, Palette, Bell, Shield, Users, CreditCard,
-  Plug, Webhook, Sliders, Database, Search, ExternalLink,
+  Plug, Webhook, Sliders, Database, Search, ExternalLink, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ const ITEMS: Item[] = [
   { to: "/parametres/branding",      label: "Branding",           desc: "Logo, couleurs, footer", icon: Palette },
   { to: "/parametres/notifications", label: "Notifications",      desc: "Email, push, rappels",   icon: Bell },
   { to: "/parametres/securite",      label: "Sécurité",           desc: "Sessions, appareils",    icon: Shield },
+  { to: "/parametres/audit",         label: "Audit & monitoring", desc: "Journal, webhooks, mail", icon: Activity },
   { to: "/equipe",                   label: "Utilisateurs",       desc: "Membres, rôles, invits", icon: Users, external: true },
   { to: "/billing",                  label: "Facturation",        desc: "Plan, factures, essai",  icon: CreditCard, external: true },
   { to: "/parametres/integrations",  label: "Intégrations",       desc: "Stripe, Resend, Drive",  icon: Plug },

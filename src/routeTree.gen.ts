@@ -52,6 +52,7 @@ import { Route as AuthenticatedParametresNotificationsRouteImport } from './rout
 import { Route as AuthenticatedParametresIntegrationsRouteImport } from './routes/_authenticated/parametres.integrations'
 import { Route as AuthenticatedParametresDonneesRouteImport } from './routes/_authenticated/parametres.donnees'
 import { Route as AuthenticatedParametresBrandingRouteImport } from './routes/_authenticated/parametres.branding'
+import { Route as AuthenticatedParametresAuditRouteImport } from './routes/_authenticated/parametres.audit'
 import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
@@ -283,6 +284,12 @@ const AuthenticatedParametresBrandingRoute =
     path: '/branding',
     getParentRoute: () => AuthenticatedParametresRoute,
   } as any)
+const AuthenticatedParametresAuditRoute =
+  AuthenticatedParametresAuditRouteImport.update({
+    id: '/audit',
+    path: '/audit',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
 const AuthenticatedParametresApiRoute =
   AuthenticatedParametresApiRouteImport.update({
     id: '/api',
@@ -356,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
+  '/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
   '/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
@@ -406,6 +414,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
+  '/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
   '/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
@@ -459,6 +468,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
+  '/_authenticated/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/_authenticated/parametres/branding': typeof AuthenticatedParametresBrandingRoute
   '/_authenticated/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/_authenticated/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
@@ -512,6 +522,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/admin/monitoring'
     | '/parametres/api'
+    | '/parametres/audit'
     | '/parametres/branding'
     | '/parametres/donnees'
     | '/parametres/integrations'
@@ -562,6 +573,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/admin/monitoring'
     | '/parametres/api'
+    | '/parametres/audit'
     | '/parametres/branding'
     | '/parametres/donnees'
     | '/parametres/integrations'
@@ -614,6 +626,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/_authenticated/admin/monitoring'
     | '/_authenticated/parametres/api'
+    | '/_authenticated/parametres/audit'
     | '/_authenticated/parametres/branding'
     | '/_authenticated/parametres/donnees'
     | '/_authenticated/parametres/integrations'
@@ -963,6 +976,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedParametresBrandingRouteImport
       parentRoute: typeof AuthenticatedParametresRoute
     }
+    '/_authenticated/parametres/audit': {
+      id: '/_authenticated/parametres/audit'
+      path: '/audit'
+      fullPath: '/parametres/audit'
+      preLoaderRoute: typeof AuthenticatedParametresAuditRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
     '/_authenticated/parametres/api': {
       id: '/_authenticated/parametres/api'
       path: '/api'
@@ -1017,6 +1037,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedParametresRouteChildren {
   AuthenticatedParametresApiRoute: typeof AuthenticatedParametresApiRoute
+  AuthenticatedParametresAuditRoute: typeof AuthenticatedParametresAuditRoute
   AuthenticatedParametresBrandingRoute: typeof AuthenticatedParametresBrandingRoute
   AuthenticatedParametresDonneesRoute: typeof AuthenticatedParametresDonneesRoute
   AuthenticatedParametresIntegrationsRoute: typeof AuthenticatedParametresIntegrationsRoute
@@ -1029,6 +1050,7 @@ interface AuthenticatedParametresRouteChildren {
 const AuthenticatedParametresRouteChildren: AuthenticatedParametresRouteChildren =
   {
     AuthenticatedParametresApiRoute: AuthenticatedParametresApiRoute,
+    AuthenticatedParametresAuditRoute: AuthenticatedParametresAuditRoute,
     AuthenticatedParametresBrandingRoute: AuthenticatedParametresBrandingRoute,
     AuthenticatedParametresDonneesRoute: AuthenticatedParametresDonneesRoute,
     AuthenticatedParametresIntegrationsRoute:
