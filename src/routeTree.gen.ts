@@ -30,6 +30,7 @@ import { Route as AuthenticatedUpgradeRequiredRouteImport } from './routes/_auth
 import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
 import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
+import { Route as AuthenticatedParametresRouteImport } from './routes/_authenticated/parametres'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedHistoriqueRouteImport } from './routes/_authenticated/historique'
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
@@ -39,12 +40,19 @@ import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedChantiersRouteImport } from './routes/_authenticated/chantiers'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
+import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
+import { Route as AuthenticatedParametresSecuriteRouteImport } from './routes/_authenticated/parametres.securite'
+import { Route as AuthenticatedParametresPreferencesRouteImport } from './routes/_authenticated/parametres.preferences'
 import { Route as AuthenticatedParametresNotificationsRouteImport } from './routes/_authenticated/parametres.notifications'
+import { Route as AuthenticatedParametresIntegrationsRouteImport } from './routes/_authenticated/parametres.integrations'
+import { Route as AuthenticatedParametresDonneesRouteImport } from './routes/_authenticated/parametres.donnees'
+import { Route as AuthenticatedParametresBrandingRouteImport } from './routes/_authenticated/parametres.branding'
+import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
@@ -157,6 +165,11 @@ const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
   path: '/reserves',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedParametresRoute = AuthenticatedParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -202,6 +215,12 @@ const AuthenticatedPvIndexRoute = AuthenticatedPvIndexRouteImport.update({
   path: '/pv/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedParametresIndexRoute =
+  AuthenticatedParametresIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
 const SignPvTokenRoute = SignPvTokenRouteImport.update({
   id: '/sign/pv/$token',
   path: '/sign/pv/$token',
@@ -227,11 +246,47 @@ const AuthenticatedPvIdRoute = AuthenticatedPvIdRouteImport.update({
   path: '/pv/$id',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedParametresSecuriteRoute =
+  AuthenticatedParametresSecuriteRouteImport.update({
+    id: '/securite',
+    path: '/securite',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
+const AuthenticatedParametresPreferencesRoute =
+  AuthenticatedParametresPreferencesRouteImport.update({
+    id: '/preferences',
+    path: '/preferences',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
 const AuthenticatedParametresNotificationsRoute =
   AuthenticatedParametresNotificationsRouteImport.update({
-    id: '/parametres/notifications',
-    path: '/parametres/notifications',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
+const AuthenticatedParametresIntegrationsRoute =
+  AuthenticatedParametresIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
+const AuthenticatedParametresDonneesRoute =
+  AuthenticatedParametresDonneesRouteImport.update({
+    id: '/donnees',
+    path: '/donnees',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
+const AuthenticatedParametresBrandingRoute =
+  AuthenticatedParametresBrandingRouteImport.update({
+    id: '/branding',
+    path: '/branding',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
+const AuthenticatedParametresApiRoute =
+  AuthenticatedParametresApiRouteImport.update({
+    id: '/api',
+    path: '/api',
+    getParentRoute: () => AuthenticatedParametresRoute,
   } as any)
 const AuthenticatedAdminMonitoringRoute =
   AuthenticatedAdminMonitoringRouteImport.update({
@@ -282,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/equipe': typeof AuthenticatedEquipeRoute
   '/historique': typeof AuthenticatedHistoriqueRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/reserves': typeof AuthenticatedReservesRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
@@ -293,12 +349,19 @@ export interface FileRoutesByFullPath {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/parametres/api': typeof AuthenticatedParametresApiRoute
+  '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
+  '/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
+  '/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
+  '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
@@ -335,12 +398,19 @@ export interface FileRoutesByTo {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/parametres/api': typeof AuthenticatedParametresApiRoute
+  '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
+  '/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
+  '/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
+  '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
@@ -368,6 +438,7 @@ export interface FileRoutesById {
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
   '/_authenticated/historique': typeof AuthenticatedHistoriqueRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
+  '/_authenticated/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
   '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
@@ -379,12 +450,19 @@ export interface FileRoutesById {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
+  '/_authenticated/parametres/branding': typeof AuthenticatedParametresBrandingRoute
+  '/_authenticated/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
+  '/_authenticated/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/_authenticated/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/_authenticated/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
+  '/_authenticated/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
@@ -412,6 +490,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/historique'
     | '/onboarding'
+    | '/parametres'
     | '/reserves'
     | '/statistiques'
     | '/terrain'
@@ -423,12 +502,19 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/admin/monitoring'
+    | '/parametres/api'
+    | '/parametres/branding'
+    | '/parametres/donnees'
+    | '/parametres/integrations'
     | '/parametres/notifications'
+    | '/parametres/preferences'
+    | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/parametres/'
     | '/pv/'
     | '/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
@@ -465,12 +551,19 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/admin/monitoring'
+    | '/parametres/api'
+    | '/parametres/branding'
+    | '/parametres/donnees'
+    | '/parametres/integrations'
     | '/parametres/notifications'
+    | '/parametres/preferences'
+    | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/parametres'
     | '/pv'
     | '/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
@@ -497,6 +590,7 @@ export interface FileRouteTypes {
     | '/_authenticated/equipe'
     | '/_authenticated/historique'
     | '/_authenticated/onboarding'
+    | '/_authenticated/parametres'
     | '/_authenticated/reserves'
     | '/_authenticated/statistiques'
     | '/_authenticated/terrain'
@@ -508,12 +602,19 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/_authenticated/admin/monitoring'
+    | '/_authenticated/parametres/api'
+    | '/_authenticated/parametres/branding'
+    | '/_authenticated/parametres/donnees'
+    | '/_authenticated/parametres/integrations'
     | '/_authenticated/parametres/notifications'
+    | '/_authenticated/parametres/preferences'
+    | '/_authenticated/parametres/securite'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
     | '/_authenticated/terrain/$id'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
@@ -695,6 +796,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReservesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/parametres': {
+      id: '/_authenticated/parametres'
+      path: '/parametres'
+      fullPath: '/parametres'
+      preLoaderRoute: typeof AuthenticatedParametresRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/onboarding': {
       id: '/_authenticated/onboarding'
       path: '/onboarding'
@@ -758,6 +866,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/parametres/': {
+      id: '/_authenticated/parametres/'
+      path: '/'
+      fullPath: '/parametres/'
+      preLoaderRoute: typeof AuthenticatedParametresIndexRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
     '/sign/pv/$token': {
       id: '/sign/pv/$token'
       path: '/sign/pv/$token'
@@ -793,12 +908,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/parametres/securite': {
+      id: '/_authenticated/parametres/securite'
+      path: '/securite'
+      fullPath: '/parametres/securite'
+      preLoaderRoute: typeof AuthenticatedParametresSecuriteRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
+    '/_authenticated/parametres/preferences': {
+      id: '/_authenticated/parametres/preferences'
+      path: '/preferences'
+      fullPath: '/parametres/preferences'
+      preLoaderRoute: typeof AuthenticatedParametresPreferencesRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
     '/_authenticated/parametres/notifications': {
       id: '/_authenticated/parametres/notifications'
-      path: '/parametres/notifications'
+      path: '/notifications'
       fullPath: '/parametres/notifications'
       preLoaderRoute: typeof AuthenticatedParametresNotificationsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
+    '/_authenticated/parametres/integrations': {
+      id: '/_authenticated/parametres/integrations'
+      path: '/integrations'
+      fullPath: '/parametres/integrations'
+      preLoaderRoute: typeof AuthenticatedParametresIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
+    '/_authenticated/parametres/donnees': {
+      id: '/_authenticated/parametres/donnees'
+      path: '/donnees'
+      fullPath: '/parametres/donnees'
+      preLoaderRoute: typeof AuthenticatedParametresDonneesRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
+    '/_authenticated/parametres/branding': {
+      id: '/_authenticated/parametres/branding'
+      path: '/branding'
+      fullPath: '/parametres/branding'
+      preLoaderRoute: typeof AuthenticatedParametresBrandingRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
+    '/_authenticated/parametres/api': {
+      id: '/_authenticated/parametres/api'
+      path: '/api'
+      fullPath: '/parametres/api'
+      preLoaderRoute: typeof AuthenticatedParametresApiRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
     }
     '/_authenticated/admin/monitoring': {
       id: '/_authenticated/admin/monitoring'
@@ -838,6 +995,37 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedParametresRouteChildren {
+  AuthenticatedParametresApiRoute: typeof AuthenticatedParametresApiRoute
+  AuthenticatedParametresBrandingRoute: typeof AuthenticatedParametresBrandingRoute
+  AuthenticatedParametresDonneesRoute: typeof AuthenticatedParametresDonneesRoute
+  AuthenticatedParametresIntegrationsRoute: typeof AuthenticatedParametresIntegrationsRoute
+  AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
+  AuthenticatedParametresPreferencesRoute: typeof AuthenticatedParametresPreferencesRoute
+  AuthenticatedParametresSecuriteRoute: typeof AuthenticatedParametresSecuriteRoute
+  AuthenticatedParametresIndexRoute: typeof AuthenticatedParametresIndexRoute
+}
+
+const AuthenticatedParametresRouteChildren: AuthenticatedParametresRouteChildren =
+  {
+    AuthenticatedParametresApiRoute: AuthenticatedParametresApiRoute,
+    AuthenticatedParametresBrandingRoute: AuthenticatedParametresBrandingRoute,
+    AuthenticatedParametresDonneesRoute: AuthenticatedParametresDonneesRoute,
+    AuthenticatedParametresIntegrationsRoute:
+      AuthenticatedParametresIntegrationsRoute,
+    AuthenticatedParametresNotificationsRoute:
+      AuthenticatedParametresNotificationsRoute,
+    AuthenticatedParametresPreferencesRoute:
+      AuthenticatedParametresPreferencesRoute,
+    AuthenticatedParametresSecuriteRoute: AuthenticatedParametresSecuriteRoute,
+    AuthenticatedParametresIndexRoute: AuthenticatedParametresIndexRoute,
+  }
+
+const AuthenticatedParametresRouteWithChildren =
+  AuthenticatedParametresRoute._addFileChildren(
+    AuthenticatedParametresRouteChildren,
+  )
+
 interface AuthenticatedTerrainRouteChildren {
   AuthenticatedTerrainIdRoute: typeof AuthenticatedTerrainIdRoute
 }
@@ -869,12 +1057,12 @@ interface AuthenticatedRouteChildren {
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
   AuthenticatedHistoriqueRoute: typeof AuthenticatedHistoriqueRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
+  AuthenticatedParametresRoute: typeof AuthenticatedParametresRouteWithChildren
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
-  AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
@@ -889,13 +1077,12 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
   AuthenticatedHistoriqueRoute: AuthenticatedHistoriqueRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
+  AuthenticatedParametresRoute: AuthenticatedParametresRouteWithChildren,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedUpgradeRequiredRoute: AuthenticatedUpgradeRequiredRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
-  AuthenticatedParametresNotificationsRoute:
-    AuthenticatedParametresNotificationsRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
