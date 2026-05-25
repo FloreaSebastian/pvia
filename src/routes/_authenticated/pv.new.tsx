@@ -36,6 +36,9 @@ import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { useCompany } from "@/hooks/use-company";
+import { useServerFn } from "@tanstack/react-start";
+import { createPv } from "@/lib/pv-create.functions";
+import { fileToBase64 } from "@/lib/file-upload";
 
 export const Route = createFileRoute("/_authenticated/pv/new")({
   component: NewPv,
@@ -67,6 +70,7 @@ const DRAFT_KEY = "pvia:draft:new-pv";
 function NewPv() {
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
+  const createPvFn = useServerFn(createPv);
   const [step, setStep] = useState(1);
   const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
@@ -294,127 +298,79 @@ function NewPv() {
   }
 
   async function onSave(status: "brouillon" | "signe") {
+    if (!activeCompanyId) {
+      toast.error("Aucune entreprise active.");
+      return;
+    }
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Non connecté");
-
-      const clientSig = status === "signe" && !clientSigRef.current?.isEmpty() ? clientSigRef.current!.toDataURL("image/png") : null;
-      const companySig = status === "signe" && !companySigRef.current?.isEmpty() ? companySigRef.current!.toDataURL("image/png") : null;
-
+      // Signatures (data URLs) — required when validating
+      const clientSig = status === "signe" && !clientSigRef.current?.isEmpty()
+        ? clientSigRef.current!.toDataURL("image/png")
+        : null;
+      const companySig = status === "signe" && !companySigRef.current?.isEmpty()
+        ? companySigRef.current!.toDataURL("image/png")
+        : null;
       if (status === "signe" && (!clientSig || !companySig)) {
         toast.error("Les deux signatures sont requises pour valider.");
         setSaving(false);
         return;
       }
 
-      const pdfBlob = buildPdfDoc({ client: clientSig, company: companySig }).output("blob");
-      const pdfPath = `${user.id}/pv/${form.numero}-${Date.now()}.pdf`;
-      const up = await supabase.storage.from("pv-assets").upload(pdfPath, pdfBlob, { contentType: "application/pdf" });
-      if (up.error) throw up.error;
+      // Encode photos to base64 (server validates mime + size + magic-number)
+      const encodedPhotos = await Promise.all(
+        photos.map(async (p) => ({
+          base64: await fileToBase64(p.file),
+          mimeType: p.file.type || "image/jpeg",
+          fileName: p.file.name,
+          kind: p.kind,
+          caption: p.caption || "",
+        })),
+      );
 
-      if (!activeCompanyId) {
-        toast.error("Aucune entreprise active.");
-        setSaving(false);
-        return;
-      }
-
-      // Backend quota check (authoritative — uses subscriptions table)
-      const { data: canCreate } = await supabase.rpc("can_create_pv", { _company_id: activeCompanyId });
-      if (!canCreate) {
-        toast.error("Quota PV mensuel atteint ou abonnement requis.", {
-          action: { label: "Voir les options", onClick: () => navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } }) },
-        });
-        navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } });
-        setSaving(false);
-        return;
-      }
-
-
-
-      // create client if new
-      let clientId = form.client_id || null;
-      if (!clientId && form.new_client_name.trim()) {
-        const { data: nc } = await supabase
-          .from("clients")
-          .insert({ owner_id: user.id, company_id: activeCompanyId, name: form.new_client_name, email: form.new_client_email || null })
-          .select("id")
-          .single();
-        clientId = nc?.id ?? null;
-      }
-
-      const { data: pvIns, error } = await supabase.from("pv").insert({
-        owner_id: user.id,
-        company_id: activeCompanyId,
-        numero: form.numero,
-        type: form.type,
-        status,
-        reception_date: form.reception_date,
-        chantier_id: form.chantier_id || null,
-        client_id: clientId,
-        description: form.description,
-        observations: form.observations,
-        client_signature: clientSig,
-        company_signature: companySig,
-        signed_at: status === "signe" ? new Date().toISOString() : null,
-        pdf_url: pdfPath,
-      }).select("id").single();
-      if (error) throw error;
-
-      for (const p of photos) {
-        const path = `${user.id}/photos/${pvIns.id}/${p.kind}-${Date.now()}-${p.file.name}`;
-        const u = await supabase.storage.from("pv-assets").upload(path, p.file);
-        if (!u.error) {
-          await supabase.from("pv_photos").insert({
-            pv_id: pvIns.id,
-            owner_id: user.id,
-            company_id: activeCompanyId,
-            url: path,
-            caption: `[${p.kind}] ${p.caption}`,
-          });
-        }
-      }
-
-      if (reserves.length) {
-        await supabase.from("pv_reserves").insert(
-          reserves.map((r) => ({
-            pv_id: pvIns.id,
-            owner_id: user.id,
-            company_id: activeCompanyId,
+      const res = await createPvFn({
+        data: {
+          companyId: activeCompanyId,
+          status,
+          numero: form.numero,
+          type: form.type as any,
+          reception_date: form.reception_date,
+          chantier_id: form.chantier_id || null,
+          client_id: form.client_id || null,
+          new_client_name: form.new_client_name,
+          new_client_email: form.new_client_email,
+          description: form.description,
+          observations: form.observations,
+          client_signature: clientSig,
+          company_signature: companySig,
+          reserves: reserves.map((r) => ({
             description: r.description,
             severity: r.severity,
             status: r.status,
           })),
-        );
-      }
-
-      // Audit log (non-blocking)
-      try {
-        const { logUserAction } = await import("@/lib/audit.functions");
-        await logUserAction({
-          data: {
-            companyId: activeCompanyId,
-            pvId: pvIns.id,
-            entityType: "pv",
-            entityId: pvIns.id,
-            action: status === "signe" ? "pv.signed_by_company" : "pv.create",
-            newValues: { numero: form.numero, type: form.type, status },
-            metadata: { source: "web_form", photos: photos.length, reserves: reserves.length },
-          },
-        });
-      } catch {}
-
-      // Fire push notification to all company members (except author).
-      try {
-        const { notifyPvCreated } = await import("@/lib/notify-pv.functions");
-        await notifyPvCreated({ data: { pvId: pvIns.id, signed: status === "signe" } });
-      } catch {}
+          photos: encodedPhotos,
+        },
+      });
 
       localStorage.removeItem(DRAFT_KEY);
-      toast.success(status === "signe" ? "PV signé et archivé avec succès" : "Brouillon enregistré");
-      navigate({ to: "/pv" });
-    } catch (e) {
-      toast.error((e as Error).message);
+      toast.success(
+        status === "signe"
+          ? "PV signé et archivé avec succès"
+          : "Brouillon enregistré",
+      );
+      navigate({ to: "/pv/$id", params: { id: res.pvId } });
+    } catch (e: any) {
+      if (e?.code === "PV_QUOTA" || /quota/i.test(e?.message ?? "")) {
+        toast.error("Quota PV mensuel atteint ou abonnement requis.", {
+          action: {
+            label: "Voir les options",
+            onClick: () => navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } }),
+          },
+        });
+        navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } });
+      } else {
+        toast.error(e?.message || "Échec de la création.");
+      }
     } finally {
       setSaving(false);
     }
