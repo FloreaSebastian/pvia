@@ -183,12 +183,32 @@ export async function generatePvPdfBytes(input: {
     }
   };
 
+  const companyAddress = (() => {
+    if (company?.address_line1) {
+      return [
+        company.address_line1,
+        company.address_line2,
+        [company.postal_code, company.city].filter(Boolean).join(" ").trim() || null,
+        company.country,
+      ].filter(Boolean).join(", ");
+    }
+    return company?.address ?? "";
+  })();
+
+  const companyLegalLine = [
+    company?.legal_form,
+    company?.siren ? `SIREN ${company.siren}` : null,
+    company?.siret ? `SIRET ${company.siret}` : null,
+    company?.vat_number ? `TVA ${company.vat_number}` : null,
+  ].filter(Boolean).join(" · ");
+
   drawParty(MARGIN, "Entreprise", [
     company?.name ?? "-",
-    company?.address ?? "",
+    companyAddress,
     company?.email ?? "",
     company?.phone ?? "",
-    company?.siret ? `SIRET ${company.siret}` : "",
+    company?.website ?? "",
+    companyLegalLine,
   ]);
   drawParty(MARGIN + colW + 16, "Client", [
     client?.name ?? "-",
