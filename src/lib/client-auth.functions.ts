@@ -45,18 +45,56 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
     const ip = getClientIp() ?? "unknown";
     const ua = getClientUA();
 
-    // Rate limit (anti-abus). On accepte ce coût même si email inconnu, pour ne pas
-    // donner d'info à l'attaquant.
-    await enforceRateLimit({ bucket: "client_login_send_email", key: email, limit: 3, windowSec: 900 });
-    await enforceRateLimit({ bucket: "client_login_send_ip", key: ip, limit: 10, windowSec: 3600 });
+    // Rate limit (anti-abus, anti-énumération). On absorbe l'erreur pour ne JAMAIS
+    // signaler côté UI qu'un email est connu/rate-limited. On logge côté serveur.
+    try {
+      await enforceRateLimit({ bucket: "client_login_send_email", key: email, limit: 3, windowSec: 900 });
+      await enforceRateLimit({ bucket: "client_login_send_ip", key: ip, limit: 10, windowSec: 3600 });
+    } catch (e: any) {
+      if (e?.name === "RateLimitError") {
+        await writeAuditLog({
+          companyId: null,
+          entityType: "client_auth",
+          action: "client.login_code_rate_limited",
+          metadata: { email, ip, bucket: "send" },
+          actor: "client",
+        });
+        // Réponse neutre — pas d'info à l'attaquant.
+        return { ok: true as const };
+      }
+      throw e;
+    }
 
-    // Cherche un client matchant (par email). Optionnel : si pas trouvé, on envoie
-    // quand même un code (l'utilisateur verra un dashboard vide).
-    const { data: clientRow } = await supabaseAdmin
-      .from("clients")
-      .select("id,email,company_id,name")
-      .ilike("email", email)
-      .maybeSingle();
+    // Cherche un client matchant (par email) OU un PV envoyé à cet email.
+    // Si rien ne matche, on N'ENVOIE PAS de code — PVIA ne doit pas être un
+    // outil d'envoi d'emails non sollicités. On logge et on renvoie une
+    // réponse neutre pour ne pas permettre l'énumération.
+    const [{ data: clientRow }, { data: pvRow }] = await Promise.all([
+      supabaseAdmin
+        .from("clients")
+        .select("id,email,company_id,name")
+        .ilike("email", email)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("pv")
+        .select("id,company_id")
+        .ilike("sent_to_email", email)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const knownCompanyId = clientRow?.company_id ?? pvRow?.company_id ?? null;
+    if (!clientRow && !pvRow) {
+      await writeAuditLog({
+        companyId: null,
+        entityType: "client_auth",
+        action: "client.login_code_ignored_unknown_email",
+        metadata: { email, ip },
+        actor: "client",
+      });
+      // Réponse neutre identique au cas nominal.
+      return { ok: true as const };
+    }
 
     // Invalide les codes précédents non utilisés
     await supabaseAdmin
@@ -81,7 +119,11 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (insErr || !inserted) throw new Error("Impossible de générer un code pour le moment.");
+    if (insErr || !inserted) {
+      // Ne pas révéler la cause. Réponse neutre.
+      console.error("client_auth_codes insert failed:", insErr);
+      return { ok: true as const };
+    }
 
     const hash = await sha256Hex(code + ":" + inserted.id);
     await supabaseAdmin.from("client_auth_codes").update({ code_hash: hash }).eq("id", inserted.id);
@@ -99,10 +141,10 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
     }
 
     await writeAuditLog({
-      companyId: clientRow?.company_id ?? null,
+      companyId: knownCompanyId,
       entityType: "client_auth",
       action: "client.login_code_sent",
-      metadata: { email, has_client: !!clientRow, ip },
+      metadata: { email, has_client: !!clientRow, has_pv: !!pvRow, ip },
       actor: "client",
     });
 
