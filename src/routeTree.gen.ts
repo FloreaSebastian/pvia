@@ -30,6 +30,7 @@ import { Route as AuthenticatedUpgradeRequiredRouteImport } from './routes/_auth
 import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
 import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
+import { Route as AuthenticatedParametresRouteImport } from './routes/_authenticated/parametres'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedHistoriqueRouteImport } from './routes/_authenticated/historique'
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
@@ -157,6 +158,11 @@ const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
   path: '/reserves',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedParametresRoute = AuthenticatedParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -229,9 +235,9 @@ const AuthenticatedPvIdRoute = AuthenticatedPvIdRouteImport.update({
 } as any)
 const AuthenticatedParametresNotificationsRoute =
   AuthenticatedParametresNotificationsRouteImport.update({
-    id: '/parametres/notifications',
-    path: '/parametres/notifications',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedParametresRoute,
   } as any)
 const AuthenticatedAdminMonitoringRoute =
   AuthenticatedAdminMonitoringRouteImport.update({
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/equipe': typeof AuthenticatedEquipeRoute
   '/historique': typeof AuthenticatedHistoriqueRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/reserves': typeof AuthenticatedReservesRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
@@ -324,6 +331,7 @@ export interface FileRoutesByTo {
   '/equipe': typeof AuthenticatedEquipeRoute
   '/historique': typeof AuthenticatedHistoriqueRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/reserves': typeof AuthenticatedReservesRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
@@ -368,6 +376,7 @@ export interface FileRoutesById {
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
   '/_authenticated/historique': typeof AuthenticatedHistoriqueRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
+  '/_authenticated/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
   '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
@@ -412,6 +421,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/historique'
     | '/onboarding'
+    | '/parametres'
     | '/reserves'
     | '/statistiques'
     | '/terrain'
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/historique'
     | '/onboarding'
+    | '/parametres'
     | '/reserves'
     | '/statistiques'
     | '/terrain'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/_authenticated/equipe'
     | '/_authenticated/historique'
     | '/_authenticated/onboarding'
+    | '/_authenticated/parametres'
     | '/_authenticated/reserves'
     | '/_authenticated/statistiques'
     | '/_authenticated/terrain'
@@ -695,6 +707,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReservesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/parametres': {
+      id: '/_authenticated/parametres'
+      path: '/parametres'
+      fullPath: '/parametres'
+      preLoaderRoute: typeof AuthenticatedParametresRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/onboarding': {
       id: '/_authenticated/onboarding'
       path: '/onboarding'
@@ -795,10 +814,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/parametres/notifications': {
       id: '/_authenticated/parametres/notifications'
-      path: '/parametres/notifications'
+      path: '/notifications'
       fullPath: '/parametres/notifications'
       preLoaderRoute: typeof AuthenticatedParametresNotificationsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedParametresRoute
     }
     '/_authenticated/admin/monitoring': {
       id: '/_authenticated/admin/monitoring'
@@ -838,6 +857,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedParametresRouteChildren {
+  AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
+}
+
+const AuthenticatedParametresRouteChildren: AuthenticatedParametresRouteChildren =
+  {
+    AuthenticatedParametresNotificationsRoute:
+      AuthenticatedParametresNotificationsRoute,
+  }
+
+const AuthenticatedParametresRouteWithChildren =
+  AuthenticatedParametresRoute._addFileChildren(
+    AuthenticatedParametresRouteChildren,
+  )
+
 interface AuthenticatedTerrainRouteChildren {
   AuthenticatedTerrainIdRoute: typeof AuthenticatedTerrainIdRoute
 }
@@ -869,12 +903,12 @@ interface AuthenticatedRouteChildren {
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
   AuthenticatedHistoriqueRoute: typeof AuthenticatedHistoriqueRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
+  AuthenticatedParametresRoute: typeof AuthenticatedParametresRouteWithChildren
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
-  AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
@@ -889,13 +923,12 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
   AuthenticatedHistoriqueRoute: AuthenticatedHistoriqueRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
+  AuthenticatedParametresRoute: AuthenticatedParametresRouteWithChildren,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedUpgradeRequiredRoute: AuthenticatedUpgradeRequiredRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
-  AuthenticatedParametresNotificationsRoute:
-    AuthenticatedParametresNotificationsRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
@@ -933,13 +966,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
