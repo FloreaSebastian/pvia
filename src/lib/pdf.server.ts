@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
-import { getCompanyBranding, type CompanyBranding } from "./branding.server";
+import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, type CompanyBranding, type CompanyBrandingSettings, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
 
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
@@ -21,7 +21,8 @@ type Pv = {
 const ACCENT = rgb(0.06, 0.09, 0.16); // slate-900
 const MUTED = rgb(0.42, 0.45, 0.52);
 const BORDER = rgb(0.86, 0.88, 0.91);
-const PRIMARY = rgb(0.12, 0.23, 0.54);
+const DEFAULT_PRIMARY = rgb(0.12, 0.23, 0.54);
+
 
 /** Replace characters that WinAnsi can't encode (used by Helvetica). */
 function sanitize(s: string | null | undefined): string {
