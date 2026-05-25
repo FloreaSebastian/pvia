@@ -150,6 +150,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="fr">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
       </head>
       <body>
         {children}
@@ -164,10 +165,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <AppToaster />
-      <PwaRegister />
-      <AnalyticsTracker />
+      <UserPreferencesProvider>
+        <Outlet />
+        <AppToaster />
+        <PwaRegister />
+        <AnalyticsTracker />
+      </UserPreferencesProvider>
     </QueryClientProvider>
   );
 }
