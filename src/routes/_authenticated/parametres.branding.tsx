@@ -17,6 +17,8 @@ import { useCompany } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { updateCompanyBranding } from "@/lib/branding.functions";
 import { publishBrandingSettings, listBrandingVersions, restoreBrandingVersion } from "@/lib/branding-settings.functions";
+import { uploadCompanyLogo } from "@/lib/company-logo.functions";
+import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
 
 export const Route = createFileRoute("/_authenticated/parametres/branding")({
   component: BrandingSettings,
@@ -49,6 +51,7 @@ function BrandingSettings() {
   const publish = useServerFn(publishBrandingSettings);
   const listVersions = useServerFn(listBrandingVersions);
   const restoreVersion = useServerFn(restoreBrandingVersion);
+  const uploadLogoFn = useServerFn(uploadCompanyLogo);
   const isAdmin = can("admin");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -109,21 +112,28 @@ function BrandingSettings() {
   async function uploadLogo(file: File) {
     if (!activeCompanyId) return;
     if (!isAdmin) return toast.error("Réservé aux administrateurs.");
-    if (file.size > 2 * 1024 * 1024) return toast.error("Logo trop volumineux (max 2 Mo).");
+    const err = validateLogoFile(file);
+    if (err) return toast.error(err);
     setUploading(true);
     try {
-      const path = `${activeCompanyId}/logo-${Date.now()}-${file.name}`;
-      const { error: upErr } = await supabase.storage.from("pv-assets").upload(path, file, { upsert: true });
-      if (upErr) throw new Error(upErr.message);
-      const { data: pub } = supabase.storage.from("pv-assets").getPublicUrl(path);
-      setLogoUrl(pub.publicUrl);
-      toast.success("Logo prêt — cliquez sur Publier pour confirmer.");
+      const base64 = await fileToBase64(file);
+      const res = await uploadLogoFn({
+        data: {
+          companyId: activeCompanyId,
+          fileName: file.name,
+          mimeType: file.type,
+          base64,
+        },
+      });
+      setLogoUrl(res.url);
+      toast.success("Logo mis à jour.");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setUploading(false);
     }
   }
+
 
   async function onPublish() {
     if (!activeCompanyId) return;
