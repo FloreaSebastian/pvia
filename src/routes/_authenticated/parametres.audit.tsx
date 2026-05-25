@@ -220,7 +220,7 @@ function AuditMonitoring() {
         ) : (
           <>
             <ul className="divide-y divide-border">
-              {logs.map((log) => <LogRow key={log.id} log={log} canSeeDetails={canSeeDetails} />)}
+              {logs.map((log: Log) => <LogRow key={log.id} log={log} canSeeDetails={canSeeDetails} />)}
             </ul>
             <div className="mt-4 flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
