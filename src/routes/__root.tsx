@@ -12,6 +12,9 @@ import appCss from "../styles.css?url";
 import { AppToaster } from "@/components/app/AppToaster";
 import { PwaRegister } from "@/components/app/PwaRegister";
 import { AnalyticsTracker } from "@/components/app/AnalyticsTracker";
+import { UserPreferencesProvider } from "@/components/app/UserPreferencesProvider";
+
+const NO_FLASH_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem('pvia.user_prefs.v1')||'{}');var r=document.documentElement;if(p.dark_mode_enabled)r.classList.add('dark');if(p.ui_density)r.dataset.density=p.ui_density;if(p.animations_enabled===false){r.dataset.animations='off';r.style.setProperty('--pvia-motion','0');}}catch(e){}})();`;
 
 function NotFoundComponent() {
   return (
