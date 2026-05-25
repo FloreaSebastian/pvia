@@ -281,7 +281,7 @@ export async function deliverSignedPv(opts: {
   if (!pv.pdf_url) throw new Error("PDF non disponible — veuillez régénérer.");
   if (!pv.signed_at) throw new Error("Le PV n'est pas signé.");
 
-  const [{ data: company }, clientRes, chantierRes, pdfFile] = await Promise.all([
+  const [{ data: company }, clientRes, chantierRes, pdfFile, branding] = await Promise.all([
     supabaseAdmin.from("companies").select("name,email").eq("id", pv.company_id).maybeSingle(),
     pv.client_id
       ? supabaseAdmin.from("clients").select("name,email").eq("id", pv.client_id).maybeSingle()
@@ -290,6 +290,7 @@ export async function deliverSignedPv(opts: {
       ? supabaseAdmin.from("chantiers").select("name").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.storage.from("pv-assets").download(pv.pdf_url),
+    getCompanyBrandingSettings(pv.company_id),
   ]);
   if (pdfFile.error || !pdfFile.data) throw new Error("PDF introuvable dans le stockage.");
   const pdfBytes = new Uint8Array(await pdfFile.data.arrayBuffer());
@@ -322,6 +323,7 @@ export async function deliverSignedPv(opts: {
         pvNumero,
         chantierName: chantier?.name,
         signedAt: pv.signed_at,
+        branding,
       }),
       pdfBytes,
       pdfFilename,
@@ -343,12 +345,14 @@ export async function deliverSignedPv(opts: {
         chantierName: chantier?.name,
         signedAt: pv.signed_at,
         isCopy: true,
+        branding,
       }),
       pdfBytes,
       pdfFilename,
       from,
     });
   }
+
 
   // Notification: signed PV emailed
   const recipientSummary = [clientEmail, companyEmail].filter(Boolean).join(", ");
