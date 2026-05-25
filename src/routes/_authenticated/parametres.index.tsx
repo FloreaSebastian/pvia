@@ -20,6 +20,9 @@ import { SaveStatusBadge } from "@/components/app/SaveStatusBadge";
 import { useAutosave } from "@/hooks/use-autosave";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
+import { useServerFn } from "@tanstack/react-start";
+import { logSettingsEvent } from "@/lib/settings-audit.functions";
+
 
 export const Route = createFileRoute("/_authenticated/parametres/")({
   component: GeneralSettings,
