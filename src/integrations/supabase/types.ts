@@ -334,36 +334,66 @@ export type Database = {
       companies: {
         Row: {
           address: string | null
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          country: string | null
           created_at: string
           email: string | null
           id: string
+          legal_form: string | null
           logo_url: string | null
           name: string
+          onboarding_completed_at: string | null
           phone: string | null
+          postal_code: string | null
+          siren: string | null
           siret: string | null
           updated_at: string
+          vat_number: string | null
+          website: string | null
         }
         Insert: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          legal_form?: string | null
           logo_url?: string | null
           name: string
+          onboarding_completed_at?: string | null
           phone?: string | null
+          postal_code?: string | null
+          siren?: string | null
           siret?: string | null
           updated_at?: string
+          vat_number?: string | null
+          website?: string | null
         }
         Update: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          legal_form?: string | null
           logo_url?: string | null
           name?: string
+          onboarding_completed_at?: string | null
           phone?: string | null
+          postal_code?: string | null
+          siren?: string | null
           siret?: string | null
           updated_at?: string
+          vat_number?: string | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -547,8 +577,12 @@ export type Database = {
           avatar_url: string | null
           company_name: string | null
           created_at: string
+          first_name: string | null
           full_name: string | null
           id: string
+          job_title: string | null
+          last_name: string | null
+          onboarding_completed_at: string | null
           phone: string | null
           updated_at: string
         }
@@ -556,8 +590,12 @@ export type Database = {
           avatar_url?: string | null
           company_name?: string | null
           created_at?: string
+          first_name?: string | null
           full_name?: string | null
           id: string
+          job_title?: string | null
+          last_name?: string | null
+          onboarding_completed_at?: string | null
           phone?: string | null
           updated_at?: string
         }
@@ -565,8 +603,12 @@ export type Database = {
           avatar_url?: string | null
           company_name?: string | null
           created_at?: string
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          job_title?: string | null
+          last_name?: string | null
+          onboarding_completed_at?: string | null
           phone?: string | null
           updated_at?: string
         }

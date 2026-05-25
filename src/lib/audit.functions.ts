@@ -100,6 +100,8 @@ const AuditActionEnum = z.enum([
   "client.pv_viewed","client.pdf_downloaded","client.pv_signed",
   "client.session_revoked","client.all_sessions_revoked",
   "user.login_code_sent","user.login_success","user.login_failed","user.logout",
+  "onboarding.started","onboarding.profile_completed","onboarding.company_lookup",
+  "onboarding.company_completed","onboarding.completed","company.updated_from_siren",
 ]);
 
 const EntityTypeEnum = z.enum([
