@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { updateCompanyBranding } from "@/lib/branding.functions";
+import { uploadCompanyLogo } from "@/lib/company-logo.functions";
+import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
 
 export const Route = createFileRoute("/_authenticated/entreprise")({
   component: CompanyPage,
@@ -46,6 +48,7 @@ function CompanyPage() {
   const [form, setForm] = useState<CompanyForm>(empty);
   const editable = can("admin");
   const save = useServerFn(updateCompanyBranding);
+  const uploadLogoFn = useServerFn(uploadCompanyLogo);
 
   useEffect(() => {
     (async () => {
