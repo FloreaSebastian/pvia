@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
+import { getCompanyBrandingSettings, normalizeHex, DEFAULT_BRANDING_SETTINGS, type CompanyBrandingSettings } from "./branding.server";
+
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -104,8 +106,11 @@ function renderSignedPvEmail(opts: {
   chantierName?: string | null;
   signedAt: string;
   isCopy?: boolean;
+  branding?: CompanyBrandingSettings;
 }) {
   const { companyName, clientName, pvNumero, chantierName, signedAt, isCopy } = opts;
+  const b = opts.branding ?? DEFAULT_BRANDING_SETTINGS;
+  const accent = normalizeHex(b.email_brand_color || b.brand_color, "#1e3a8a");
   const signedDate = new Date(signedAt).toLocaleString("fr-FR", {
     day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
@@ -113,11 +118,15 @@ function renderSignedPvEmail(opts: {
   const intro = isCopy
     ? `Le client <strong>${escapeHtml(clientName)}</strong> vient de signer électroniquement le PV <strong>${escapeHtml(pvNumero)}</strong>.`
     : `Nous avons le plaisir de vous transmettre votre procès-verbal <strong>${escapeHtml(pvNumero)}</strong> signé électroniquement.`;
+  const signatureHtml = b.email_signature
+    ? `<div style="margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0;white-space:pre-line;font-size:13px;color:#475569;line-height:1.55">${escapeHtml(b.email_signature)}</div>`
+    : `<p style="margin:24px 0 0;font-size:13px;color:#64748b;line-height:1.6">Cordialement,<br><strong>${escapeHtml(companyName)}</strong></p>`;
+  const footerText = escapeHtml(b.email_footer || "Cet email a été envoyé par PVIA.");
   return `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a">
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0"><tr><td align="center">
     <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-      <tr><td style="padding:32px 40px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff">
-        <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.7">PVIA · Document signé</div>
+      <tr><td style="padding:32px 40px;background:${accent};color:#fff">
+        <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.75">PVIA · Document signé</div>
         <div style="font-size:24px;font-weight:600;margin-top:8px">${escapeHtml(title)}</div>
       </td></tr>
       <tr><td style="padding:32px 40px">
@@ -125,18 +134,19 @@ function renderSignedPvEmail(opts: {
         <p style="margin:0 0 16px;font-size:15px;line-height:1.6">${intro}</p>
         ${chantierName ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569"><strong>Chantier :</strong> ${escapeHtml(chantierName)}</p>` : ""}
         <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569"><strong>Date de signature :</strong> ${signedDate}</p>
-        <div style="margin:24px 0;padding:16px 20px;background:#f0f9ff;border-left:3px solid #1e3a8a;border-radius:8px">
+        <div style="margin:24px 0;padding:16px 20px;background:#f0f9ff;border-left:3px solid ${accent};border-radius:8px">
           <p style="margin:0;font-size:13px;color:#0c4a6e;line-height:1.6">📎 Le PV signé est joint à cet email au format PDF. Vous pouvez l'archiver, l'imprimer ou le partager.</p>
         </div>
-        <p style="margin:24px 0 0;font-size:13px;color:#64748b;line-height:1.6">Cordialement,<br><strong>${escapeHtml(companyName)}</strong></p>
+        ${signatureHtml}
       </td></tr>
       <tr><td style="padding:20px 40px;background:#f8fafc;color:#94a3b8;font-size:11px;text-align:center;line-height:1.6">
-        Signé électroniquement conformément au règlement eIDAS · PVIA<br>
-        Réception de travaux intelligente
+        ${footerText}<br>
+        Signé électroniquement conformément au règlement eIDAS
       </td></tr>
     </table>
   </td></tr></table></body></html>`;
 }
+
 
 export type SendSignedPvResult = {
   recipient: string;
@@ -271,7 +281,7 @@ export async function deliverSignedPv(opts: {
   if (!pv.pdf_url) throw new Error("PDF non disponible — veuillez régénérer.");
   if (!pv.signed_at) throw new Error("Le PV n'est pas signé.");
 
-  const [{ data: company }, clientRes, chantierRes, pdfFile] = await Promise.all([
+  const [{ data: company }, clientRes, chantierRes, pdfFile, branding] = await Promise.all([
     supabaseAdmin.from("companies").select("name,email").eq("id", pv.company_id).maybeSingle(),
     pv.client_id
       ? supabaseAdmin.from("clients").select("name,email").eq("id", pv.client_id).maybeSingle()
@@ -280,6 +290,7 @@ export async function deliverSignedPv(opts: {
       ? supabaseAdmin.from("chantiers").select("name").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.storage.from("pv-assets").download(pv.pdf_url),
+    getCompanyBrandingSettings(pv.company_id),
   ]);
   if (pdfFile.error || !pdfFile.data) throw new Error("PDF introuvable dans le stockage.");
   const pdfBytes = new Uint8Array(await pdfFile.data.arrayBuffer());
@@ -312,6 +323,7 @@ export async function deliverSignedPv(opts: {
         pvNumero,
         chantierName: chantier?.name,
         signedAt: pv.signed_at,
+        branding,
       }),
       pdfBytes,
       pdfFilename,
@@ -333,12 +345,14 @@ export async function deliverSignedPv(opts: {
         chantierName: chantier?.name,
         signedAt: pv.signed_at,
         isCopy: true,
+        branding,
       }),
       pdfBytes,
       pdfFilename,
       from,
     });
   }
+
 
   // Notification: signed PV emailed
   const recipientSummary = [clientEmail, companyEmail].filter(Boolean).join(", ");

@@ -436,6 +436,33 @@ export type Database = {
         }
         Relationships: []
       }
+      company_branding_versions: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          settings_snapshot: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          settings_snapshot: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          settings_snapshot?: Json
+        }
+        Relationships: []
+      }
       company_members: {
         Row: {
           accepted_at: string | null
@@ -493,8 +520,11 @@ export type Database = {
           currency: string
           custom_css: string | null
           date_format: string
+          email_brand_color: string | null
           email_footer: string
+          email_signature: string | null
           locale: string
+          pdf_brand_color: string | null
           pdf_footer: string
           pdf_watermark: string
           timezone: string
@@ -507,8 +537,11 @@ export type Database = {
           currency?: string
           custom_css?: string | null
           date_format?: string
+          email_brand_color?: string | null
           email_footer?: string
+          email_signature?: string | null
           locale?: string
+          pdf_brand_color?: string | null
           pdf_footer?: string
           pdf_watermark?: string
           timezone?: string
@@ -521,8 +554,11 @@ export type Database = {
           currency?: string
           custom_css?: string | null
           date_format?: string
+          email_brand_color?: string | null
           email_footer?: string
+          email_signature?: string | null
           locale?: string
+          pdf_brand_color?: string | null
           pdf_footer?: string
           pdf_watermark?: string
           timezone?: string

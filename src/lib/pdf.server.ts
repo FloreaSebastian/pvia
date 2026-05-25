@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
-import { getCompanyBranding, type CompanyBranding } from "./branding.server";
+import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, type CompanyBranding, type CompanyBrandingSettings, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
 
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
@@ -21,7 +21,8 @@ type Pv = {
 const ACCENT = rgb(0.06, 0.09, 0.16); // slate-900
 const MUTED = rgb(0.42, 0.45, 0.52);
 const BORDER = rgb(0.86, 0.88, 0.91);
-const PRIMARY = rgb(0.12, 0.23, 0.54);
+const DEFAULT_PRIMARY = rgb(0.12, 0.23, 0.54);
+
 
 /** Replace characters that WinAnsi can't encode (used by Helvetica). */
 function sanitize(s: string | null | undefined): string {
@@ -88,8 +89,19 @@ export async function generatePvPdfBytes(input: {
   chantier: Chantier;
   reserves: Reserve[];
   photos: { caption: string | null; bytes: Uint8Array }[];
+  branding?: CompanyBrandingSettings;
 }): Promise<Uint8Array> {
   const { pv, company, client, chantier, reserves, photos } = input;
+  const branding = input.branding ?? DEFAULT_BRANDING_SETTINGS;
+  const PRIMARY = (() => {
+    const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
+    return rgb(r, g, b);
+  })();
+  const HEADER_BG = (() => {
+    const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
+    // very light tint
+    return rgb(r * 0.05 + 0.95, g * 0.05 + 0.95, b * 0.05 + 0.97);
+  })();
   const pdf = await PDFDocument.create();
   pdf.setTitle(`PV ${pv.numero}`);
   pdf.setCreator("PVIA");
@@ -97,6 +109,7 @@ export async function generatePvPdfBytes(input: {
 
   const helv = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
 
   const PAGE_W = 595.28;
   const PAGE_H = 841.89;
@@ -135,14 +148,29 @@ export async function generatePvPdfBytes(input: {
   };
 
   const drawFooter = () => {
+    // Watermark (diagonal, very light) — drawn under footer line, behind content
+    if (branding.pdf_watermark) {
+      const wm = sanitize(branding.pdf_watermark).slice(0, 40).toUpperCase();
+      page.drawText(wm, {
+        x: PAGE_W / 2 - wm.length * 18,
+        y: PAGE_H / 2,
+        size: 64,
+        font: bold,
+        color: rgb(0.85, 0.85, 0.88),
+        rotate: { type: "degrees", angle: -28 } as any,
+        opacity: 0.18,
+      });
+    }
     page.drawLine({ start: { x: MARGIN, y: MARGIN }, end: { x: PAGE_W - MARGIN, y: MARGIN }, thickness: 0.5, color: BORDER });
-    page.drawText(`PVIA · PV ${sanitize(pv.numero)} · Document généré par PVIA`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
+    const footerText = sanitize(branding.pdf_footer || "Document généré par PVIA.");
+    page.drawText(`PV ${sanitize(pv.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
     page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
   };
 
   // ============ HEADER ============
-  page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: rgb(0.97, 0.98, 1) });
+  page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: HEADER_BG });
   page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
+
 
   // Optional logo
   if (company?.logo_url) {
@@ -367,8 +395,9 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
 
-  const [company, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
+  const [company, brandingSettings, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
     getCompanyBranding(pv.company_id),
+    getCompanyBrandingSettings(pv.company_id),
     pv.client_id
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -392,7 +421,9 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     chantier: (chantierRes as any).data ?? undefined,
     reserves: reservesRes.data ?? [],
     photos,
+    branding: brandingSettings,
   });
+
 
   const path = `${pv.company_id}/pv/${pvId}/PV-${pv.numero}-signed.pdf`;
   const { error: upErr } = await supabaseAdmin.storage
