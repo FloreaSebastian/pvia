@@ -29,6 +29,8 @@ export type AuditAction =
   | "member.removed"
   | "audit.exported"
   | "client.login_code_sent"
+  | "client.login_code_ignored_unknown_email"
+  | "client.login_code_rate_limited"
   | "client.login_success"
   | "client.login_failed"
   | "client.logout"
