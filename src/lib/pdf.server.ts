@@ -148,14 +148,29 @@ export async function generatePvPdfBytes(input: {
   };
 
   const drawFooter = () => {
+    // Watermark (diagonal, very light) — drawn under footer line, behind content
+    if (branding.pdf_watermark) {
+      const wm = sanitize(branding.pdf_watermark).slice(0, 40).toUpperCase();
+      page.drawText(wm, {
+        x: PAGE_W / 2 - wm.length * 18,
+        y: PAGE_H / 2,
+        size: 64,
+        font: bold,
+        color: rgb(0.85, 0.85, 0.88),
+        rotate: { type: "degrees", angle: -28 } as any,
+        opacity: 0.18,
+      });
+    }
     page.drawLine({ start: { x: MARGIN, y: MARGIN }, end: { x: PAGE_W - MARGIN, y: MARGIN }, thickness: 0.5, color: BORDER });
-    page.drawText(`PVIA · PV ${sanitize(pv.numero)} · Document généré par PVIA`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
+    const footerText = sanitize(branding.pdf_footer || "Document généré par PVIA.");
+    page.drawText(`PV ${sanitize(pv.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
     page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
   };
 
   // ============ HEADER ============
-  page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: rgb(0.97, 0.98, 1) });
+  page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: HEADER_BG });
   page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
+
 
   // Optional logo
   if (company?.logo_url) {
