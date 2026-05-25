@@ -89,8 +89,19 @@ export async function generatePvPdfBytes(input: {
   chantier: Chantier;
   reserves: Reserve[];
   photos: { caption: string | null; bytes: Uint8Array }[];
+  branding?: CompanyBrandingSettings;
 }): Promise<Uint8Array> {
   const { pv, company, client, chantier, reserves, photos } = input;
+  const branding = input.branding ?? DEFAULT_BRANDING_SETTINGS;
+  const PRIMARY = (() => {
+    const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
+    return rgb(r, g, b);
+  })();
+  const HEADER_BG = (() => {
+    const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
+    // very light tint
+    return rgb(r * 0.05 + 0.95, g * 0.05 + 0.95, b * 0.05 + 0.97);
+  })();
   const pdf = await PDFDocument.create();
   pdf.setTitle(`PV ${pv.numero}`);
   pdf.setCreator("PVIA");
@@ -98,6 +109,7 @@ export async function generatePvPdfBytes(input: {
 
   const helv = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
 
   const PAGE_W = 595.28;
   const PAGE_H = 841.89;
