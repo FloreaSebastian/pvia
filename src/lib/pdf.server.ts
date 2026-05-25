@@ -367,8 +367,8 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
 
-  const [{ data: company }, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
-    supabaseAdmin.from("companies").select("name,address,phone,email,siret,logo_url").eq("id", pv.company_id).maybeSingle(),
+  const [company, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
+    getCompanyBranding(pv.company_id),
     pv.client_id
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
