@@ -141,7 +141,7 @@ function GeneralSettings() {
       <Card className="p-6">
         <h2 className="mb-1 font-semibold">Langue & format</h2>
         <p className="mb-4 text-xs text-muted-foreground">
-          Préférences locales. Stockées sur cet appareil — la synchronisation cloud arrive bientôt.
+          Préférences partagées par toute l'entreprise. Modifiables par les administrateurs.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Langue">
