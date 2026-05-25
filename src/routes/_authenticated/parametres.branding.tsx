@@ -17,6 +17,8 @@ import { useCompany } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { updateCompanyBranding } from "@/lib/branding.functions";
 import { publishBrandingSettings, listBrandingVersions, restoreBrandingVersion } from "@/lib/branding-settings.functions";
+import { uploadCompanyLogo } from "@/lib/company-logo.functions";
+import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
 
 export const Route = createFileRoute("/_authenticated/parametres/branding")({
   component: BrandingSettings,
