@@ -40,7 +40,13 @@ export type AuditAction =
   | "user.login_code_sent"
   | "user.login_success"
   | "user.login_failed"
-  | "user.logout";
+  | "user.logout"
+  | "onboarding.started"
+  | "onboarding.profile_completed"
+  | "onboarding.company_lookup"
+  | "onboarding.company_completed"
+  | "onboarding.completed"
+  | "company.updated_from_siren";
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
 
