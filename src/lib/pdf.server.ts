@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
+import { getCompanyBranding, type CompanyBranding } from "./branding.server";
 
-type Company = { name?: string | null; address?: string | null; phone?: string | null; email?: string | null; siret?: string | null; logo_url?: string | null } | undefined;
+type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
 type Chantier = { name?: string | null; address?: string | null } | undefined;
 type Reserve = { description: string; severity: string; status: string };
