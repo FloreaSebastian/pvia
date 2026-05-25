@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
+import { getCompanyBranding, type CompanyBranding } from "./branding.server";
 
-type Company = { name?: string | null; address?: string | null; phone?: string | null; email?: string | null; siret?: string | null; logo_url?: string | null } | undefined;
+type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
 type Chantier = { name?: string | null; address?: string | null } | undefined;
 type Reserve = { description: string; severity: string; status: string };
@@ -135,7 +136,7 @@ export async function generatePvPdfBytes(input: {
 
   const drawFooter = () => {
     page.drawLine({ start: { x: MARGIN, y: MARGIN }, end: { x: PAGE_W - MARGIN, y: MARGIN }, thickness: 0.5, color: BORDER });
-    page.drawText(`PVIA - Proces-verbal ${sanitize(pv.numero)}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
+    page.drawText(`PVIA · PV ${sanitize(pv.numero)} · Document généré par PVIA`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
     page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
   };
 
@@ -182,12 +183,32 @@ export async function generatePvPdfBytes(input: {
     }
   };
 
+  const companyAddress = (() => {
+    if (company?.address_line1) {
+      return [
+        company.address_line1,
+        company.address_line2,
+        [company.postal_code, company.city].filter(Boolean).join(" ").trim() || null,
+        company.country,
+      ].filter(Boolean).join(", ");
+    }
+    return company?.address ?? "";
+  })();
+
+  const companyLegalLine = [
+    company?.legal_form,
+    company?.siren ? `SIREN ${company.siren}` : null,
+    company?.siret ? `SIRET ${company.siret}` : null,
+    company?.vat_number ? `TVA ${company.vat_number}` : null,
+  ].filter(Boolean).join(" · ");
+
   drawParty(MARGIN, "Entreprise", [
     company?.name ?? "-",
-    company?.address ?? "",
+    companyAddress,
     company?.email ?? "",
     company?.phone ?? "",
-    company?.siret ? `SIRET ${company.siret}` : "",
+    company?.website ?? "",
+    companyLegalLine,
   ]);
   drawParty(MARGIN + colW + 16, "Client", [
     client?.name ?? "-",
@@ -346,8 +367,8 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
 
-  const [{ data: company }, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
-    supabaseAdmin.from("companies").select("name,address,phone,email,siret,logo_url").eq("id", pv.company_id).maybeSingle(),
+  const [company, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
+    getCompanyBranding(pv.company_id),
     pv.client_id
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),

@@ -46,7 +46,10 @@ export type AuditAction =
   | "onboarding.company_lookup"
   | "onboarding.company_completed"
   | "onboarding.completed"
-  | "company.updated_from_siren";
+  | "company.updated_from_siren"
+  | "company.branding_updated"
+  | "company.logo_updated"
+  | "company.legal_info_updated";
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
 

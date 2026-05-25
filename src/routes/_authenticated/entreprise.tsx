@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Building2, Save, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
+import { updateCompanyBranding } from "@/lib/branding.functions";
 
 export const Route = createFileRoute("/_authenticated/entreprise")({
   component: CompanyPage,
@@ -17,26 +18,34 @@ export const Route = createFileRoute("/_authenticated/entreprise")({
 
 type CompanyForm = {
   name: string;
+  legal_form: string;
+  siren: string;
   siret: string;
-  address: string;
+  vat_number: string;
+  address_line1: string;
+  address_line2: string;
+  postal_code: string;
+  city: string;
+  country: string;
   phone: string;
   email: string;
+  website: string;
   logo_url: string;
+};
+
+const empty: CompanyForm = {
+  name: "", legal_form: "", siren: "", siret: "", vat_number: "",
+  address_line1: "", address_line2: "", postal_code: "", city: "", country: "FR",
+  phone: "", email: "", website: "", logo_url: "",
 };
 
 function CompanyPage() {
   const { activeCompanyId, can, refresh } = useCompany();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<CompanyForm>({
-    name: "",
-    siret: "",
-    address: "",
-    phone: "",
-    email: "",
-    logo_url: "",
-  });
+  const [form, setForm] = useState<CompanyForm>(empty);
   const editable = can("admin");
+  const save = useServerFn(updateCompanyBranding);
 
   useEffect(() => {
     (async () => {
@@ -44,16 +53,24 @@ function CompanyPage() {
       setLoading(true);
       const { data } = await supabase
         .from("companies")
-        .select("name,siret,address,phone,email,logo_url")
+        .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url")
         .eq("id", activeCompanyId)
         .single();
       if (data) {
         setForm({
           name: data.name ?? "",
+          legal_form: data.legal_form ?? "",
+          siren: data.siren ?? "",
           siret: data.siret ?? "",
-          address: data.address ?? "",
+          vat_number: data.vat_number ?? "",
+          address_line1: data.address_line1 ?? "",
+          address_line2: data.address_line2 ?? "",
+          postal_code: data.postal_code ?? "",
+          city: data.city ?? "",
+          country: data.country ?? "FR",
           phone: data.phone ?? "",
           email: data.email ?? "",
+          website: data.website ?? "",
           logo_url: data.logo_url ?? "",
         });
       }
@@ -61,25 +78,21 @@ function CompanyPage() {
     })();
   }, [activeCompanyId]);
 
-  async function save(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!activeCompanyId) return;
+    if (form.siren && !/^\d{9}$/.test(form.siren)) return toast.error("SIREN : 9 chiffres requis");
+    if (form.siret && !/^\d{14}$/.test(form.siret)) return toast.error("SIRET : 14 chiffres requis");
     setSaving(true);
-    const { error } = await supabase
-      .from("companies")
-      .update({
-        name: form.name,
-        siret: form.siret || null,
-        address: form.address || null,
-        phone: form.phone || null,
-        email: form.email || null,
-        logo_url: form.logo_url || null,
-      })
-      .eq("id", activeCompanyId);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success("Entreprise mise à jour");
-    refresh();
+    try {
+      await save({ data: { companyId: activeCompanyId, ...form } as any });
+      toast.success("Entreprise mise à jour");
+      refresh();
+    } catch (err: any) {
+      toast.error(err?.message || "Échec de la mise à jour");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function uploadLogo(file: File) {
@@ -90,7 +103,7 @@ function CompanyPage() {
     const { data } = await supabase.storage.from("pv-assets").createSignedUrl(path, 60 * 60 * 24 * 365);
     if (data?.signedUrl) {
       setForm((f) => ({ ...f, logo_url: data.signedUrl }));
-      toast.success("Logo téléversé");
+      toast.success("Logo téléversé — pensez à enregistrer");
     }
   }
 
@@ -108,12 +121,13 @@ function CompanyPage() {
         <p className="text-xs font-medium uppercase tracking-wider text-primary">Paramètres</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Entreprise</h1>
         <p className="text-sm text-muted-foreground">
-          Informations utilisées sur tous les PV générés.
+          Informations utilisées sur tous les PV, emails et exports.
         </p>
       </div>
 
       <Card className="p-6">
-        <form onSubmit={save} className="space-y-5">
+        <form onSubmit={onSubmit} className="space-y-6">
+          {/* Logo */}
           <div className="flex items-center gap-4">
             <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-xl border border-border bg-muted">
               {form.logo_url ? (
@@ -134,55 +148,83 @@ function CompanyPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <Label>Nom de l'entreprise *</Label>
-              <Input
-                required
-                disabled={!editable}
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
+          {/* Identité */}
+          <section className="space-y-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Identité légale</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label>Raison sociale *</Label>
+                <Input required disabled={!editable} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </div>
+              <div>
+                <Label>Forme juridique</Label>
+                <Input placeholder="SARL, SAS…" disabled={!editable} value={form.legal_form} onChange={(e) => setForm({ ...form, legal_form: e.target.value })} />
+              </div>
+              <div>
+                <Label>TVA intracommunautaire</Label>
+                <Input placeholder="FRXX999999999" disabled={!editable} value={form.vat_number} onChange={(e) => setForm({ ...form, vat_number: e.target.value.toUpperCase() })} />
+              </div>
+              <div>
+                <Label>SIREN</Label>
+                <Input maxLength={9} inputMode="numeric" disabled={!editable} value={form.siren} onChange={(e) => setForm({ ...form, siren: e.target.value.replace(/\D/g, "") })} />
+              </div>
+              <div>
+                <Label>SIRET</Label>
+                <Input maxLength={14} inputMode="numeric" disabled={!editable} value={form.siret} onChange={(e) => setForm({ ...form, siret: e.target.value.replace(/\D/g, "") })} />
+              </div>
             </div>
-            <div>
-              <Label>SIRET</Label>
-              <Input
-                disabled={!editable}
-                value={form.siret}
-                onChange={(e) => setForm({ ...form, siret: e.target.value })}
-              />
+          </section>
+
+          {/* Adresse */}
+          <section className="space-y-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Adresse</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label>Adresse ligne 1</Label>
+                <Input disabled={!editable} value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Adresse ligne 2</Label>
+                <Input disabled={!editable} value={form.address_line2} onChange={(e) => setForm({ ...form, address_line2: e.target.value })} />
+              </div>
+              <div>
+                <Label>Code postal</Label>
+                <Input disabled={!editable} value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} />
+              </div>
+              <div>
+                <Label>Ville</Label>
+                <Input disabled={!editable} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+              </div>
+              <div>
+                <Label>Pays</Label>
+                <Input disabled={!editable} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+              </div>
             </div>
-            <div>
-              <Label>Téléphone</Label>
-              <Input
-                disabled={!editable}
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
+          </section>
+
+          {/* Contact */}
+          <section className="space-y-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Contact</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>Téléphone</Label>
+                <Input disabled={!editable} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input type="email" disabled={!editable} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Site web</Label>
+                <Input placeholder="https://…" disabled={!editable} value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
+              </div>
             </div>
-            <div className="sm:col-span-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                disabled={!editable}
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Label>Adresse</Label>
-              <Textarea
-                disabled={!editable}
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-              />
-            </div>
-          </div>
+          </section>
 
           {editable ? (
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Enregistrer
               </Button>
             </div>
