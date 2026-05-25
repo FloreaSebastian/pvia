@@ -318,3 +318,19 @@
   .legal-prose a:hover { color: oklch(from var(--primary) calc(l - 0.05) c h); }
   .legal-prose strong { color: var(--foreground); font-weight: 600; }
 }
+
+/* User preferences: animations + density */
+html[data-animations="off"] *,
+html[data-animations="off"] *::before,
+html[data-animations="off"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+html[data-density="compact"] {
+  --pvia-density-scale: 0.875;
+}
+html[data-density="compact"] body {
+  font-size: 14px;
+}

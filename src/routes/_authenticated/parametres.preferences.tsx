@@ -1,76 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Loader2, Sliders, Moon, Sparkles, Volume2, Sparkle } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useUserPrefs, type UserPrefs } from "@/components/app/UserPreferencesProvider";
 
 export const Route = createFileRoute("/_authenticated/parametres/preferences")({
   component: PreferencesSettings,
   head: () => ({ meta: [{ title: "Préférences — Paramètres PVIA" }] }),
 });
 
-type Prefs = {
-  dark_mode_enabled: boolean;
-  ui_density: "comfortable" | "compact";
-  animations_enabled: boolean;
-  sounds_enabled: boolean;
-  onboarding_tips_enabled: boolean;
-};
-const DEFAULTS: Prefs = {
-  dark_mode_enabled: false,
-  ui_density: "comfortable",
-  animations_enabled: true,
-  sounds_enabled: true,
-  onboarding_tips_enabled: true,
-};
-
 function PreferencesSettings() {
-  const { user } = useAuth();
-  const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
-  const [loading, setLoading] = useState(true);
+  const { prefs, setPref, loading } = useUserPrefs();
 
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const { data } = await supabase
-        .from("user_preferences")
-        .select("dark_mode_enabled,ui_density,animations_enabled,sounds_enabled,onboarding_tips_enabled")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (data) {
-        setPrefs({
-          dark_mode_enabled: !!data.dark_mode_enabled,
-          ui_density: (data.ui_density as Prefs["ui_density"]) ?? "comfortable",
-          animations_enabled: !!data.animations_enabled,
-          sounds_enabled: !!data.sounds_enabled,
-          onboarding_tips_enabled: !!data.onboarding_tips_enabled,
-        });
-      }
-      setLoading(false);
-    })();
-  }, [user]);
-
-  async function update<K extends keyof Prefs>(k: K, v: Prefs[K]) {
-    if (!user) return;
-    const next = { ...prefs, [k]: v };
-    setPrefs(next);
-    const { error } = await supabase
-      .from("user_preferences")
-      .upsert({ user_id: user.id, ...next }, { onConflict: "user_id" });
-    if (error) {
-      toast.error(error.message);
-    } else {
+  async function update<K extends keyof UserPrefs>(k: K, v: UserPrefs[K]) {
+    try {
+      await setPref(k, v);
       toast.success("Préférence enregistrée.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
     }
   }
 
   if (loading) {
     return <div className="grid h-40 place-items-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>;
   }
+
 
   return (
     <div className="space-y-6">
