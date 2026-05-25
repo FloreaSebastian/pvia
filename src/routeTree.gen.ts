@@ -40,6 +40,7 @@ import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedChantiersRouteImport } from './routes/_authenticated/chantiers'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
+import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
@@ -208,6 +209,12 @@ const AuthenticatedPvIndexRoute = AuthenticatedPvIndexRouteImport.update({
   path: '/pv/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedParametresIndexRoute =
+  AuthenticatedParametresIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
 const SignPvTokenRoute = SignPvTokenRouteImport.update({
   id: '/sign/pv/$token',
   path: '/sign/pv/$token',
@@ -306,6 +313,7 @@ export interface FileRoutesByFullPath {
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
@@ -331,7 +339,6 @@ export interface FileRoutesByTo {
   '/equipe': typeof AuthenticatedEquipeRoute
   '/historique': typeof AuthenticatedHistoriqueRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
-  '/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/reserves': typeof AuthenticatedReservesRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/terrain': typeof AuthenticatedTerrainRouteWithChildren
@@ -349,6 +356,7 @@ export interface FileRoutesByTo {
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
@@ -394,6 +402,7 @@ export interface FileRoutesById {
   '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
@@ -439,6 +448,7 @@ export interface FileRouteTypes {
     | '/terrain/$id'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/parametres/'
     | '/pv/'
     | '/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
@@ -464,7 +474,6 @@ export interface FileRouteTypes {
     | '/equipe'
     | '/historique'
     | '/onboarding'
-    | '/parametres'
     | '/reserves'
     | '/statistiques'
     | '/terrain'
@@ -482,6 +491,7 @@ export interface FileRouteTypes {
     | '/terrain/$id'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/parametres'
     | '/pv'
     | '/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/_authenticated/terrain/$id'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/pv/$id/historique'
     | '/api/public/hooks/check-expiring-trials'
@@ -777,6 +788,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/parametres/': {
+      id: '/_authenticated/parametres/'
+      path: '/'
+      fullPath: '/parametres/'
+      preLoaderRoute: typeof AuthenticatedParametresIndexRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
     '/sign/pv/$token': {
       id: '/sign/pv/$token'
       path: '/sign/pv/$token'
@@ -859,12 +877,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedParametresRouteChildren {
   AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
+  AuthenticatedParametresIndexRoute: typeof AuthenticatedParametresIndexRoute
 }
 
 const AuthenticatedParametresRouteChildren: AuthenticatedParametresRouteChildren =
   {
     AuthenticatedParametresNotificationsRoute:
       AuthenticatedParametresNotificationsRoute,
+    AuthenticatedParametresIndexRoute: AuthenticatedParametresIndexRoute,
   }
 
 const AuthenticatedParametresRouteWithChildren =
