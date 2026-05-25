@@ -58,11 +58,12 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
  *    'unsafe-inline' nécessaire pour le bootstrap TanStack Start (hydration scripts inline)
  *    et pour les JSON-LD inlinés via head().scripts.
  *  - style-src: 'self' + 'unsafe-inline' (Tailwind / shadcn / motion injectent du style inline)
+ *    + https://fonts.googleapis.com (feuilles CSS Google Fonts)
  *  - img-src: 'self' data: blob: https: (photos chantier, signatures dataURL, OG previews)
  *  - connect-src: 'self' + Supabase REST/Realtime/Storage + Stripe API + Resend
  *  - frame-src: Stripe (Elements + 3DS hooks)
  *  - worker-src: 'self' blob: (service worker + workers internes)
- *  - font-src: 'self' data:
+ *  - font-src: 'self' data: + https://fonts.gstatic.com (fichiers de fontes Google)
  *  - frame-ancestors 'none' (anti-clickjacking renforcé, complète X-Frame-Options)
  *  - upgrade-insecure-requests : tout passe en HTTPS
  *
@@ -78,9 +79,9 @@ function buildCsp(): string {
     "object-src 'none'",
     "frame-ancestors 'none'",
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com`,
-    `style-src 'self' 'unsafe-inline'`,
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `img-src 'self' data: blob: https:`,
-    `font-src 'self' data:`,
+    `font-src 'self' data: https://fonts.gstatic.com`,
     `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.resend.com`,
     `frame-src https://js.stripe.com https://hooks.stripe.com`,
     `worker-src 'self' blob:`,
