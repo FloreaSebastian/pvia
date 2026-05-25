@@ -26,6 +26,7 @@ const ITEMS: Item[] = [
   { to: "/parametres/branding",      label: "Branding",           desc: "Logo, couleurs, footer", icon: Palette },
   { to: "/parametres/notifications", label: "Notifications",      desc: "Email, push, rappels",   icon: Bell },
   { to: "/parametres/securite",      label: "Sécurité",           desc: "Sessions, appareils",    icon: Shield },
+  { to: "/parametres/audit",         label: "Audit & monitoring", desc: "Journal, webhooks, mail", icon: Activity },
   { to: "/equipe",                   label: "Utilisateurs",       desc: "Membres, rôles, invits", icon: Users, external: true },
   { to: "/billing",                  label: "Facturation",        desc: "Plan, factures, essai",  icon: CreditCard, external: true },
   { to: "/parametres/integrations",  label: "Intégrations",       desc: "Stripe, Resend, Drive",  icon: Plug },
