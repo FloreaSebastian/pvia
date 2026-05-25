@@ -97,13 +97,23 @@ function CompanyPage() {
 
   async function uploadLogo(file: File) {
     if (!activeCompanyId) return;
-    const path = `${activeCompanyId}/logo-${Date.now()}-${file.name}`;
-    const up = await supabase.storage.from("pv-assets").upload(path, file, { upsert: true });
-    if (up.error) return toast.error(up.error.message);
-    const { data } = await supabase.storage.from("pv-assets").createSignedUrl(path, 60 * 60 * 24 * 365);
-    if (data?.signedUrl) {
-      setForm((f) => ({ ...f, logo_url: data.signedUrl }));
-      toast.success("Logo téléversé — pensez à enregistrer");
+    const err = validateLogoFile(file);
+    if (err) return toast.error(err);
+    try {
+      const base64 = await fileToBase64(file);
+      const res = await uploadLogoFn({
+        data: {
+          companyId: activeCompanyId,
+          fileName: file.name,
+          mimeType: file.type,
+          base64,
+        },
+      });
+      setForm((f) => ({ ...f, logo_url: res.url }));
+      toast.success("Logo téléversé et enregistré.");
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'upload du logo.");
     }
   }
 
