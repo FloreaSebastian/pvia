@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { getOnboardingStatus, completeProfile, completeCompany } from "@/lib/onboarding.functions";
 import { lookupCompanyBySirenOrSiret, type SirenLookupResult } from "@/lib/siren.functions";
+import { uploadCompanyLogo } from "@/lib/company-logo.functions";
+import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   component: OnboardingPage,
