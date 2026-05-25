@@ -447,6 +447,51 @@ export type Database = {
           },
         ]
       }
+      company_settings: {
+        Row: {
+          brand_color: string
+          company_id: string
+          currency: string
+          custom_css: string | null
+          date_format: string
+          email_footer: string
+          locale: string
+          pdf_footer: string
+          pdf_watermark: string
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          brand_color?: string
+          company_id: string
+          currency?: string
+          custom_css?: string | null
+          date_format?: string
+          email_footer?: string
+          locale?: string
+          pdf_footer?: string
+          pdf_watermark?: string
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          brand_color?: string
+          company_id?: string
+          currency?: string
+          custom_css?: string | null
+          date_format?: string
+          email_footer?: string
+          locale?: string
+          pdf_footer?: string
+          pdf_watermark?: string
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           company_id: string | null
@@ -940,6 +985,36 @@ export type Database = {
             referencedColumns: ["plan"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          animations_enabled: boolean
+          dark_mode_enabled: boolean
+          onboarding_tips_enabled: boolean
+          sounds_enabled: boolean
+          ui_density: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          animations_enabled?: boolean
+          dark_mode_enabled?: boolean
+          onboarding_tips_enabled?: boolean
+          sounds_enabled?: boolean
+          ui_density?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          animations_enabled?: boolean
+          dark_mode_enabled?: boolean
+          onboarding_tips_enabled?: boolean
+          sounds_enabled?: boolean
+          ui_density?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
