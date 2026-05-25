@@ -395,8 +395,9 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
 
-  const [company, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
+  const [company, brandingSettings, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
     getCompanyBranding(pv.company_id),
+    getCompanyBrandingSettings(pv.company_id),
     pv.client_id
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -420,7 +421,9 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     chantier: (chantierRes as any).data ?? undefined,
     reserves: reservesRes.data ?? [],
     photos,
+    branding: brandingSettings,
   });
+
 
   const path = `${pv.company_id}/pv/${pvId}/PV-${pv.numero}-signed.pdf`;
   const { error: upErr } = await supabaseAdmin.storage
