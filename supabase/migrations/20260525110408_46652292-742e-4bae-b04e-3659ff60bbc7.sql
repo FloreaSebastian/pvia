@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "company_logos_public_read" ON storage.objects;
