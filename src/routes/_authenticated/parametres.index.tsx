@@ -16,13 +16,12 @@ export const Route = createFileRoute("/_authenticated/parametres/")({
   head: () => ({ meta: [{ title: "Général — Paramètres PVIA" }] }),
 });
 
-const PREF_KEY = "pvia:locale-prefs";
 type LocalePrefs = { language: "fr" | "en"; timezone: string; currency: "EUR" | "USD" | "GBP"; dateFormat: "fr" | "iso" | "us" };
 const DEFAULT_PREFS: LocalePrefs = { language: "fr", timezone: "Europe/Paris", currency: "EUR", dateFormat: "fr" };
 
 function GeneralSettings() {
   const { user } = useAuth();
-  const { activeCompanyId, memberships } = useCompany();
+  const { activeCompanyId, memberships, can } = useCompany();
   const company = memberships.find((m) => m.company_id === activeCompanyId)?.company ?? null;
 
   const [loading, setLoading] = useState(true);
@@ -44,13 +43,22 @@ function GeneralSettings() {
         phone: data.phone ?? "",
         job_title: data.job_title ?? "",
       });
-      try {
-        const raw = localStorage.getItem(PREF_KEY);
-        if (raw) setPrefs({ ...DEFAULT_PREFS, ...JSON.parse(raw) });
-      } catch { /* ignore */ }
+      if (activeCompanyId) {
+        const { data: cs } = await supabase
+          .from("company_settings")
+          .select("locale,timezone,currency,date_format")
+          .eq("company_id", activeCompanyId)
+          .maybeSingle();
+        if (cs) setPrefs({
+          language: (cs.locale as LocalePrefs["language"]) ?? "fr",
+          timezone: cs.timezone ?? "Europe/Paris",
+          currency: (cs.currency as LocalePrefs["currency"]) ?? "EUR",
+          dateFormat: (cs.date_format as LocalePrefs["dateFormat"]) ?? "fr",
+        });
+      }
       setLoading(false);
     })();
-  }, [user]);
+  }, [user, activeCompanyId]);
 
   async function saveProfile() {
     if (!user) return;
@@ -70,10 +78,22 @@ function GeneralSettings() {
     toast.success("Profil enregistré.");
   }
 
-  function savePrefs(next: LocalePrefs) {
+  async function savePrefs(next: LocalePrefs) {
     setPrefs(next);
-    try { localStorage.setItem(PREF_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-    toast.success("Préférences enregistrées sur cet appareil.");
+    if (!activeCompanyId) return;
+    if (!can("admin")) return toast.error("Réservé aux administrateurs.");
+    const { error } = await supabase
+      .from("company_settings")
+      .upsert({
+        company_id: activeCompanyId,
+        locale: next.language,
+        timezone: next.timezone,
+        currency: next.currency,
+        date_format: next.dateFormat,
+        updated_by: user?.id,
+      }, { onConflict: "company_id" });
+    if (error) toast.error(error.message);
+    else toast.success("Préférences entreprise enregistrées.");
   }
 
   if (loading) {
@@ -121,7 +141,7 @@ function GeneralSettings() {
       <Card className="p-6">
         <h2 className="mb-1 font-semibold">Langue & format</h2>
         <p className="mb-4 text-xs text-muted-foreground">
-          Préférences locales. Stockées sur cet appareil — la synchronisation cloud arrive bientôt.
+          Préférences partagées par toute l'entreprise. Modifiables par les administrateurs.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Langue">
