@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-r
 import { useMemo, useState } from "react";
 import {
   Settings as SettingsIcon, Building2, Palette, Bell, Shield, Users, CreditCard,
-  Plug, Webhook, Sliders, Database, Search, ExternalLink,
+  Plug, Webhook, Sliders, Database, Search, ExternalLink, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
