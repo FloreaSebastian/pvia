@@ -265,7 +265,7 @@ export const createPv = createServerFn({ method: "POST" })
       entityType: "pv",
       entityId: pvId,
       action: data.status === "signe" ? "pv.signed_by_company" : "pv.create",
-      newValues: { numero: data.numero, type: data.type, status: data.status },
+      newValues: { numero: assignedNumero, type: "reception", status: data.status },
       metadata: {
         source: "web_form",
         photos: uploadedPhotos,
