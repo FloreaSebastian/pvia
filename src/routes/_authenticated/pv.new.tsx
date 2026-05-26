@@ -510,18 +510,22 @@ function NewPv() {
           <div className="mt-5 hidden flex-wrap gap-1.5 md:flex">
             {STEPS.map((s) => {
               const Icon = s.icon;
-              const done = s.id < step;
+              const done = s.id < step && !stepErrors[s.id];
               const current = s.id === step;
+              const locked = s.id > step && s.id > maxStepReached;
               return (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setStep(s.id)}
+                  disabled={locked}
+                  onClick={() => goToStep(s.id)}
                   className={`group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
                     current
                       ? "bg-primary text-primary-foreground shadow-brand"
                       : done
                       ? "bg-success/10 text-success hover:bg-success/15"
+                      : locked
+                      ? "bg-muted/40 text-muted-foreground/50 cursor-not-allowed"
                       : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
@@ -534,13 +538,14 @@ function NewPv() {
                         : "bg-background/60"
                     }`}
                   >
-                    {done ? <Check className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
+                    {done ? <Check className="h-2.5 w-2.5" /> : locked ? <Lock className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
                   </span>
                   {s.label}
                 </button>
               );
             })}
           </div>
+
         </div>
 
         {/* Step content */}
