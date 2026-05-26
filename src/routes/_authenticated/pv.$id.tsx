@@ -478,9 +478,16 @@ function PvDetail() {
       </Card>
 
       <Card className="p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold">Réserves ({reserves.length})</h3>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Réserves ({reserves.length})</h3>
+          </div>
+          {reserves.some((r) => r.status === "ouverte") && (
+            <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }}>
+              <Button size="sm"><CheckCircle2 className="h-4 w-4" /> Créer une levée de réserves</Button>
+            </Link>
+          )}
         </div>
         {reserves.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Aucune réserve.</p>

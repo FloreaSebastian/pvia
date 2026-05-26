@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-r
 import { useMemo, useState } from "react";
 import {
   Settings as SettingsIcon, Building2, Palette, Bell, Shield, Users, CreditCard,
-  Plug, Webhook, Sliders, Database, Search, ExternalLink, Activity, Menu, Command as CmdIcon,
+  Plug, Webhook, Sliders, Database, Search, ExternalLink, Activity, Menu, Command as CmdIcon, Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ const ITEMS: Item[] = [
   { to: "/parametres/branding",      group: "Organisation", label: "Branding",         desc: "Logo, couleurs, footer",  icon: Palette },
   { to: "/equipe",                   group: "Organisation", label: "Utilisateurs",     desc: "Membres, rôles, invits",  icon: Users, external: true },
   { to: "/billing",                  group: "Organisation", label: "Facturation",      desc: "Plan, factures, essai",   icon: CreditCard, external: true },
+  { to: "/parametres/numerotation",  group: "Organisation", label: "Numérotation PV",  desc: "Format, préfixe, séquence", icon: Hash },
 
   { to: "/parametres/notifications", group: "Communication", label: "Notifications",   desc: "Email, push, rappels",    icon: Bell },
   { to: "/parametres/integrations",  group: "Communication", label: "Intégrations",    desc: "Calendrier, Slack, Discord", icon: Plug },

@@ -1,139 +1,109 @@
-# Onboarding obligatoire PVIA
-
 ## Objectif
 
-Forcer chaque nouvel utilisateur à compléter son profil personnel + les infos de son entreprise avant d'accéder à l'app. Centraliser ensuite ces données pour qu'elles soient réutilisées partout (PDF, emails, branding, exports).
+Refactorer `/pv/new` et `/pv/:id` pour numérotation auto serveur, type fixé, et ajouter un flux complet de **Levée de réserves** (table dédiée, PDF, audit, push, webhooks).
 
 ---
 
-## 1. Migration SQL
+## 1. Migrations SQL
 
-**Table `profiles`** — ajouter :
-- `first_name text`, `last_name text`, `phone text`, `job_title text`, `avatar_url text` (existe déjà ?), `onboarding_completed_at timestamptz`
+**Migration A — Numérotation**
+- `ALTER TABLE company_settings ADD COLUMN pv_number_prefix text NOT NULL DEFAULT 'PV'`
+- `pv_number_include_year boolean DEFAULT true`
+- `pv_number_next integer DEFAULT 1`
+- `pv_number_digits integer DEFAULT 5`
+- `pv_number_separator text DEFAULT '-'`
+- `ALTER TABLE pv ADD CONSTRAINT pv_company_numero_unique UNIQUE (company_id, numero)`
+- RPC `generate_next_pv_number(_company_id uuid) RETURNS text` — `SECURITY DEFINER`, `FOR UPDATE` sur la ligne `company_settings`, incrémente `pv_number_next`, retourne le numéro formaté. Auto-insert ligne settings si absente.
 
-**Table `companies`** — ajouter :
-- `siren text`, `legal_form text`, `address_line1 text`, `address_line2 text`, `postal_code text`, `city text`, `country text default 'FR'`, `website text`, `vat_number text`, `onboarding_completed_at timestamptz`
-- (garder `siret`, `address`, `phone`, `email`, `logo_url` existants pour rétro-compat)
-
-**Index** : `idx_companies_siren`, `idx_companies_siret`.
-
-**RLS** : inchangée — les policies existantes (`is_company_admin` pour update, `auth.uid() = id` pour profiles) couvrent déjà les besoins.
+**Migration B — Levée de réserves**
+- Table `reserve_lift_reports` (id, company_id, pv_id, numero, status [`brouillon`|`signe`], comment, company_signature, client_signature, signed_at, pdf_url, created_by, timestamps)
+- Table `reserve_lift_items` (id, report_id, reserve_id, old_status, new_status, comment, photo_urls text[], created_at)
+- RLS : SELECT membres actifs ; INSERT/UPDATE manager+ via `can_manage_company` ; DELETE admin+
+- Triggers webhook `reserve_lift.created`, `reserve_lift.signed`
+- Numérotation : réutiliser la séquence PV avec suffixe `-LR-NN` calculé serveur (compte des reports existants pour ce `pv_id`)
 
 ---
 
 ## 2. Server functions
 
-### `src/lib/onboarding.functions.ts`
-- `getOnboardingStatus()` — retourne `{ profileComplete, companyComplete, activeCompanyId }`. Profil complet = `first_name`, `last_name`, `phone`, `job_title` + `onboarding_completed_at`. Entreprise complète = `name`, `siret` ou `siren`, `address_line1`, `postal_code`, `city`, + `onboarding_completed_at`.
-- `completeProfile({ first_name, last_name, phone, job_title, avatar_url? })` — valide via Zod, met à jour `profiles`, set `onboarding_completed_at`, audit log `onboarding.profile_completed`.
-- `completeCompany({ companyId, ...fields })` — vérifie `is_company_admin`, valide via Zod (SIREN 9 chiffres, SIRET 14, code postal FR, etc.), met à jour `companies`, audit log `onboarding.company_completed` et `onboarding.completed`.
+**Modif `src/lib/pv-create.functions.ts`**
+- Retirer `numero` et `type` du schema d'entrée
+- Forcer `type = 'reception'`
+- Appeler RPC `generate_next_pv_number(companyId)` en début de handler
+- Retry léger en cas de collision unique (1 retry)
 
-### `src/lib/siren.functions.ts`
-- `lookupCompanyBySirenOrSiret({ query })` — nettoie espaces, valide 9 ou 14 chiffres, appelle l'API publique **Recherche d'Entreprises** (`https://recherche-entreprises.api.gouv.fr/search?q=<siren>`) — gratuite, sans clé, maintenue par data.gouv. Retourne `{ name, siren, siret, legal_form, address_line1, postal_code, city, naf_label }`. Rate-limit serveur (`enforceRateLimit` 20/min/IP). Audit log `onboarding.company_lookup`. Fallback : retour `{ found: false, error }` → l'UI passe en mode manuel.
+**Nouveau `src/lib/reserve-lift.functions.ts`**
+- `createReserveLift({ pvId, comment, reserveIds[], photos[], clientSignature?, companySignature, requireClientSignature })`
+- Vérifie membership + manage_company + PV appartient à la company
+- Insert report + items, update `pv_reserves.status='levee'` pour les sélectionnées
+- Upload photos via service role dans `pv-assets/{companyId}/lifts/{reportId}/...`
+- Génère PDF via nouveau `buildAndStoreReserveLiftPdf(reportId)`
+- Audit `reserve_lift.created`, `reserve_lift.signed`, `reserve.lifted`, et `pv.all_reserves_lifted` si plus aucune réserve ouverte
+- Push fan-out + webhooks (auto via triggers DB)
 
-### `src/lib/branding.server.ts` + `branding.functions.ts`
-- `getCompanyBranding(companyId)` — helper central qui retourne `{ name, siren, siret, legal_form, address, address_line1, postal_code, city, country, email, phone, website, vat_number, logo_url }`. Utilisé dans `pdf.server.ts`, `email.server.ts`, `signed-email.functions.ts`, etc. Remplace les `select(...).eq('id', companyId)` dispersés.
-
----
-
-## 3. Routes & flow
-
-### Nouvelle route `/onboarding` (sous `_authenticated`)
-Fichier : `src/routes/_authenticated/onboarding.tsx`. Wizard 6 étapes avec `FieldStepper` :
-1. Bienvenue (CTA "Commencer")
-2. Profil perso (form Zod + react-hook-form)
-3. Recherche SIREN/SIRET (input avec debounce 500ms, bouton "Saisir manuellement")
-4. Vérif / édition infos entreprise (préremplies)
-5. Logo + site web (optionnels)
-6. Confirmation → redirect `/dashboard`
-
-Sauvegarde auto à chaque étape (les server fns gèrent les updates partiels).
-
-### Garde dans `_authenticated.tsx`
-Ajouter un check : après `useAuth`, query `getOnboardingStatus`. Si `!profileComplete || !companyComplete` ET la route actuelle n'est pas dans la whitelist → `navigate({ to: '/onboarding' })`.
-
-**Whitelist** (accessibles avant onboarding) :
-- `/onboarding`, `/billing`, `/logout` (action), route support si elle existe.
-
-Logout reste un bouton qui appelle `supabase.auth.signOut()` — toujours accessible via le layout.
-
-### Login/signup
-Aucun changement de logique métier — la redirection se fait via le garde `_authenticated`. Les pages publiques (signup, login, verify) restent intactes.
+**Nouveau `src/lib/reserve-lift.server.ts`**
+- Helpers validation photo/signature (réutilise ceux de `pv-create.server.ts`)
+- `buildAndStoreReserveLiftPdf(reportId)` — pdf-lib, calque sur `pdf.server.ts`
 
 ---
 
-## 4. Réutilisation des données entreprise
+## 3. Frontend
 
-Refactor des appels Supabase dispersés vers `getCompanyBranding`:
-- `src/lib/pdf.server.ts` (génération PV)
-- `src/lib/email.server.ts` (emails clients)
-- `src/lib/signed-email.functions.ts`
-- `src/components/client/...` (espace client header)
-- Éventuels exports stats/audit
+**`src/routes/_authenticated/pv.new.tsx`**
+- Supprimer champ `numero` (input) → afficher "Numéro attribué à la création" en read-only avec preview live calculée
+- Supprimer sélecteur `type` → bandeau fixe "Procès-verbal de réception de travaux"
+- Ne plus envoyer `numero`/`type` à `createPv`
 
-Pas de changement de comportement — juste centralisation.
+**Nouveau `src/routes/_authenticated/parametres.numerotation.tsx`**
+- Form édition des 5 champs `pv_number_*`
+- Preview live `PV-2026-00001`
+- Ajouter entrée dans `parametres.tsx` (nav settings)
 
----
+**Nouveau `src/routes/_authenticated/pv.$id.levee-reserves.tsx`**
+- Liste réserves ouvertes (checkbox sélection)
+- Champ commentaire global + commentaire/photos par réserve
+- Signature entreprise (obligatoire), signature client (toggle obligatoire/optionnel)
+- Submit → `createReserveLift` → redirect `/pv/:id`
 
-## 5. Audit logs
+**Modif `src/routes/_authenticated/pv.$id.tsx`**
+- Bloc "Réserves" avec statut (aucune / ouvertes / partielles / toutes levées)
+- CTA "Créer une levée de réserves" si ouvertes
+- Liste des levées existantes + lien PDF
 
-Ajouter au `AuditActionEnum` (Zod) dans `audit.functions.ts` :
-- `onboarding.started`, `onboarding.profile_completed`, `onboarding.company_lookup`, `onboarding.company_completed`, `onboarding.completed`, `company.updated_from_siren`
-
----
-
-## 6. UX
-
-- Design cohérent avec `AuthShell` / `Card` existants
-- `Progress` en haut, `FieldStepper` avec labels FR
-- Validation inline avec messages clairs
-- État de loading sur la recherche SIREN ("Recherche en cours…")
-- Message d'erreur si API indispo : "Entreprise introuvable — vous pouvez saisir les informations manuellement"
-- Bouton "Précédent / Suivant" + "Enregistrer et terminer" à la dernière étape
+**Modif `src/routes/_authenticated/reserves.tsx`**
+- Action inline "Lever la réserve" (raccourci vers `/pv/:id/levee-reserves` avec preselect)
+- Filtre statut ouvertes/levées/validées (si pas déjà présent)
 
 ---
 
-## 7. Sécurité
+## 4. Audit / Push / Webhooks
 
-- `completeCompany` vérifie `is_company_admin` côté serveur (server fn) — un user simple ne peut pas modifier l'entreprise
-- Un user simple invité dans une équipe existante voit seulement l'étape profil (l'entreprise est déjà complète → skip)
-- `lookupCompanyBySirenOrSiret` rate-limité (20/min/IP)
-- Zod sur tous les inputs
+Ajouter actions dans `AuditAction` union (`audit.server.ts`) :
+- `reserve_lift.created`, `reserve_lift.signed`
+- `reserve.status_lifted`, `pv.has_open_reserves`, `pv.all_reserves_lifted`
 
----
+Push via `firePushToCompany` dans `createReserveLift`.
 
-## 8. API SIREN/SIRET
-
-**API utilisée** : `https://recherche-entreprises.api.gouv.fr/search` — service public officiel data.gouv.fr, gratuit, sans clé, sans quota strict. Donnée Sirene/INSEE.
-
-Limites :
-- Pas de SLA garanti — d'où le fallback manuel
-- Données publiques uniquement (pas d'entreprises non-diffusibles)
+Webhooks : trigger DB sur `reserve_lift_reports` (INSERT → `reserve_lift.created`; UPDATE status=signe → `reserve_lift.signed`). `reserve.lifted` déjà géré par `webhook_on_reserve_event`. Ajouter event `pv.reserves_completed` côté createReserveLift (appel `enqueue_webhook_event` via RPC ou helper).
 
 ---
 
-## 9. Tests bout en bout
+## 5. Tests manuels (livrés à l'utilisateur en fin)
 
-1. Créer un compte → valider email → être redirigé vers `/onboarding` (pas `/dashboard`)
-2. Remplir profil → étape suivante
-3. Taper un SIRET valide (ex: `552100554` Carrefour) → données préremplies
-4. Modifier, valider → redirigé vers `/dashboard`
-5. Se déconnecter et reconnecter → va direct au dashboard (onboarding done)
-6. Inviter un membre → il signup → onboarding profil uniquement (entreprise déjà OK)
-
----
-
-## 10. Ne pas casser
-
-OTP client, Stripe, multi-tenant, push, PWA, signatures, PDF, audit, RLS existantes, invitations équipe. La garde `_authenticated` n'affecte pas les routes publiques (`/sign.pv.$token`, `/client.*`, `/invite.$token`).
+- Création PV → numéro auto attribué, unique, croissant
+- 2 créations simultanées (double-click) → pas de doublon
+- Settings numérotation → preview live, sauvegarde, nouveau PV suit le format
+- PV signé avec réserves → bloc réserves affiche "ouvertes"
+- Levée de réserves brouillon → signé → réserves passent à `levee`, PDF généré
+- Levée partielle puis 2e levée → `all_reserves_lifted` déclenché à la fin
+- `/admin/monitoring` voit `reserve_lift.created`, `reserve_lift.signed`, `push.sent`, webhook `reserve_lift.created`
 
 ---
 
-## Livrables
+## Notes techniques
 
-- 1 migration SQL (colonnes profiles + companies)
-- 3 server function files : `onboarding.functions.ts`, `siren.functions.ts`, `branding.functions.ts`
-- 1 server helper : `branding.server.ts`
-- 1 route : `/onboarding` + composants wizard
-- Refacto léger : `_authenticated.tsx` (garde), `pdf.server.ts` / `email.server.ts` (utiliser `getCompanyBranding`)
-- Ajouts `AuditActionEnum`
+- Numérotation : la RPC verrouille via `SELECT ... FOR UPDATE` la ligne `company_settings`. Auto-INSERT si manquante avec les valeurs par défaut.
+- Contrainte unique sert de filet de sécurité ; retry une seule fois en cas de collision (impossible si RPC OK).
+- Type PV : `'reception'` enum-like en DB existant ; on whitelist côté server, ignore tout input client.
+- PDF levée : signature client optionnelle selon flag `require_client_signature` stocké dans `reserve_lift_reports.metadata` (ajouter colonne `metadata jsonb`).
+- Pas de modifications RLS sur tables existantes.

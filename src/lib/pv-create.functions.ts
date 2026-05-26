@@ -45,8 +45,6 @@ const PhotoSchema = z.object({
 const InputSchema = z.object({
   companyId: z.string().uuid(),
   status: z.enum(["brouillon", "signe"]),
-  numero: z.string().trim().min(1).max(80),
-  type: z.enum(["reception", "reception_reserves", "levee_reserves"]),
   reception_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide"),
   chantier_id: z.string().uuid().nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),
@@ -54,7 +52,7 @@ const InputSchema = z.object({
   new_client_email: z.string().trim().max(200).optional().default(""),
   description: z.string().trim().max(20_000).optional().default(""),
   observations: z.string().trim().max(20_000).optional().default(""),
-  client_signature: z.string().max(800_000).nullable().optional(), // data URL (PNG)
+  client_signature: z.string().max(800_000).nullable().optional(),
   company_signature: z.string().max(800_000).nullable().optional(),
   reserves: z.array(ReserveSchema).max(50).optional().default([]),
   photos: z.array(PhotoSchema).max(PHOTO_MAX_COUNT).optional().default([]),
@@ -165,28 +163,40 @@ export const createPv = createServerFn({ method: "POST" })
       clientId = nc?.id ?? null;
     }
 
-    // 7. Insert PV
+    // 7. Generate atomic PV number (server-authoritative) + insert PV.
+    // One retry in the (impossible-via-RPC) case the unique constraint trips.
     const nowIso = new Date().toISOString();
-    const { data: pvIns, error: pvErr } = await supabaseAdmin
-      .from("pv")
-      .insert({
-        owner_id: userId,
-        company_id: data.companyId,
-        numero: data.numero,
-        type: data.type,
-        status: data.status,
-        reception_date: data.reception_date,
-        chantier_id: data.chantier_id || null,
-        client_id: clientId,
-        description: data.description || null,
-        observations: data.observations || null,
-        client_signature: clientSig,
-        company_signature: companySig,
-        signed_at: data.status === "signe" ? nowIso : null,
-      })
-      .select("id,numero,company_id,owner_id")
-      .single();
-    if (pvErr || !pvIns) throw new Error(`Création PV : ${pvErr?.message ?? "inconnue"}`);
+    let pvIns: { id: string; numero: string; company_id: string | null; owner_id: string } | null = null;
+    let lastErr: { message: string } | null = null;
+    let assignedNumero = "";
+    for (let attempt = 0; attempt < 2 && !pvIns; attempt++) {
+      const { data: numRes, error: numErr } = await supabaseAdmin
+        .rpc("generate_next_pv_number", { _company_id: data.companyId });
+      if (numErr || !numRes) throw new Error(`Numérotation : ${numErr?.message ?? "indisponible"}`);
+      assignedNumero = numRes as unknown as string;
+      const { data: ins, error: pvErr } = await supabaseAdmin
+        .from("pv")
+        .insert({
+          owner_id: userId,
+          company_id: data.companyId,
+          numero: assignedNumero,
+          type: "reception",
+          status: data.status,
+          reception_date: data.reception_date,
+          chantier_id: data.chantier_id || null,
+          client_id: clientId,
+          description: data.description || null,
+          observations: data.observations || null,
+          client_signature: clientSig,
+          company_signature: companySig,
+          signed_at: data.status === "signe" ? nowIso : null,
+        })
+        .select("id,numero,company_id,owner_id")
+        .single();
+      if (!pvErr && ins) { pvIns = ins; break; }
+      lastErr = pvErr ?? { message: "inconnue" };
+    }
+    if (!pvIns) throw new Error(`Création PV : ${lastErr?.message ?? "inconnue"}`);
 
     const pvId = pvIns.id;
 
@@ -255,7 +265,7 @@ export const createPv = createServerFn({ method: "POST" })
       entityType: "pv",
       entityId: pvId,
       action: data.status === "signe" ? "pv.signed_by_company" : "pv.create",
-      newValues: { numero: data.numero, type: data.type, status: data.status },
+      newValues: { numero: assignedNumero, type: "reception", status: data.status },
       metadata: {
         source: "web_form",
         photos: uploadedPhotos,
