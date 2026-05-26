@@ -92,18 +92,19 @@ function NewPv() {
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
   const createPvFn = useServerFn(createPv);
+  const getBrandingFn = useServerFn(getCompanyBrandingFn);
   const [step, setStep] = useState(1);
+  const [maxStepReached, setMaxStepReached] = useState(1);
   const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [branding, setBranding] = useState<Branding | null>(null);
+  const [brandingLoading, setBrandingLoading] = useState(true);
 
   const [form, setForm] = useState({
     numero: `PV-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`,
     type: "reception",
-    company_name: "",
-    company_address: "",
-    company_siret: "",
     chantier_id: "",
     client_id: "",
     new_client_name: "",
