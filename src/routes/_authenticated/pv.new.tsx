@@ -157,6 +157,21 @@ function NewPv() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompanyId]);
 
+  // Preview du prochain numéro (informatif uniquement, le serveur reste autoritaire)
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    getNumberingFn({ data: { companyId: activeCompanyId } })
+      .then((s: any) => {
+        const prefix = s.pv_number_prefix ?? "PV";
+        const sep = s.pv_number_separator ?? "-";
+        const year = s.pv_number_include_year ? `${new Date().getFullYear()}${sep}` : "";
+        const num = String(s.pv_number_next ?? 1).padStart(s.pv_number_digits ?? 5, "0");
+        setNumeroPreview(`${prefix}${sep}${year}${num}`);
+      })
+      .catch(() => setNumeroPreview(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId]);
+
   const brandingComplete = useMemo(() => {
     if (!branding) return false;
     const hasAddress = !!(branding.address_line1 || branding.address);
