@@ -280,6 +280,40 @@ export async function generatePvPdfBytes(input: {
   }
   y -= 70;
 
+  // ============ DECLARATION ============
+  const withRes = !!pv.reception_with_reserves;
+  const declLines: string[] = [];
+  if (pv.work_reference_type && pv.work_reference_number) {
+    const typeLabel = {
+      devis: "devis",
+      bon_commande: "bon de commande",
+      marche: "marché",
+      manuel: "document",
+    }[pv.work_reference_type] ?? "document";
+    const ref = `Au titre du ${typeLabel} n° ${pv.work_reference_number}` +
+      (pv.work_reference_date ? ` en date du ${formatDate(pv.work_reference_date)}` : "") +
+      (pv.work_reference_amount != null ? ` d'un montant de ${pv.work_reference_amount} EUR` : "") + ".";
+    declLines.push(ref);
+  }
+  declLines.push(
+    withRes
+      ? "La reception est prononcee AVEC RESERVES, listees ci-dessous."
+      : "La reception est prononcee SANS RESERVE.",
+  );
+  if (withRes && pv.reserve_completion_delay) {
+    declLines.push(`Delai global convenu pour la levee : ${pv.reserve_completion_delay}` +
+      (pv.reserve_due_date ? ` (echeance ${formatDate(pv.reserve_due_date)}).` : "."));
+  }
+  ensureSpace(declLines.length * 14 + 28);
+  drawText("DECLARATION DE RECEPTION", { size: 9, font: bold, color: PRIMARY });
+  y -= 14;
+  for (const l of declLines) {
+    const wrapped = wrapLines(helv, l, 10, CONTENT_W);
+    for (const w of wrapped) { page.drawText(w, { x: MARGIN, y, size: 10, font: helv, color: ACCENT }); y -= 14; }
+  }
+  y -= 6;
+
+
   // ============ DESCRIPTION ============
   ensureSpace(40);
   drawText("DESCRIPTION DES TRAVAUX", { size: 9, font: bold, color: PRIMARY });
