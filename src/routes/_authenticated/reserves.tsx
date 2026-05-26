@@ -144,7 +144,12 @@ function ReservesPage() {
                     {r.pv?.numero} <ExternalLink className="h-3 w-3" />
                   </Link>
                 </TableCell>
-                <TableCell className="max-w-md truncate">{r.description}</TableCell>
+                <TableCell className="max-w-md">
+                  {r.nature && <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{r.nature}</div>}
+                  <div className="truncate">{r.description}</div>
+                  {r.work_to_execute && <div className="mt-0.5 truncate text-xs text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</div>}
+                  {r.due_date && <div className="mt-0.5 text-xs text-warning">Échéance : {new Date(r.due_date).toLocaleDateString("fr-FR")}</div>}
+                </TableCell>
                 <TableCell><StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill></TableCell>
                 <TableCell>
                   <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
