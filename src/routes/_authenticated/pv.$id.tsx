@@ -56,6 +56,17 @@ type Pv = {
   chantier_id: string | null;
   client_id: string | null;
   company_id: string | null;
+  reception_with_reserves: boolean | null;
+  work_reference_type: string | null;
+  work_reference_number: string | null;
+  work_reference_date: string | null;
+  work_reference_amount: number | null;
+  reserve_completion_delay: string | null;
+  reserve_due_date: string | null;
+  reserve_lift_status: string | null;
+  chantier_address: string | null;
+  chantier_postal_code: string | null;
+  chantier_city: string | null;
 };
 type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
 type Reserve = { id: string; description: string; severity: string; status: string };
