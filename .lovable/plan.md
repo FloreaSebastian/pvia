@@ -1,109 +1,156 @@
-## Objectif
+# Refonte métier du PV de réception
 
-Refactorer `/pv/new` et `/pv/:id` pour numérotation auto serveur, type fixé, et ajouter un flux complet de **Levée de réserves** (table dédiée, PDF, audit, push, webhooks).
+Objectif : aligner `/pv/new` sur un vrai PV de réception (CAPEB), avec autocomplete adresse, référence devis/BC, choix avec/sans réserves, workflow dynamique, suivi auto de levée et PDF conforme.
 
 ---
 
 ## 1. Migrations SQL
 
-**Migration A — Numérotation**
-- `ALTER TABLE company_settings ADD COLUMN pv_number_prefix text NOT NULL DEFAULT 'PV'`
-- `pv_number_include_year boolean DEFAULT true`
-- `pv_number_next integer DEFAULT 1`
-- `pv_number_digits integer DEFAULT 5`
-- `pv_number_separator text DEFAULT '-'`
-- `ALTER TABLE pv ADD CONSTRAINT pv_company_numero_unique UNIQUE (company_id, numero)`
-- RPC `generate_next_pv_number(_company_id uuid) RETURNS text` — `SECURITY DEFINER`, `FOR UPDATE` sur la ligne `company_settings`, incrémente `pv_number_next`, retourne le numéro formaté. Auto-insert ligne settings si absente.
+**Table `pv` — colonnes ajoutées**
+- `reception_with_reserves boolean NOT NULL DEFAULT false`
+- `work_reference_type text` (`devis` | `bon_commande` | `marche` | `manuel`)
+- `work_reference_number text`
+- `work_reference_date date`
+- `work_reference_amount numeric(12,2)`
+- `reserve_completion_delay text` (ex : « 30 jours »)
+- `reserve_due_date date`
+- `chantier_postal_code text`, `chantier_city text` (déjà `address`, `latitude`, `longitude` côté `chantiers` ; on duplique sur `pv` pour snapshot PV)
 
-**Migration B — Levée de réserves**
-- Table `reserve_lift_reports` (id, company_id, pv_id, numero, status [`brouillon`|`signe`], comment, company_signature, client_signature, signed_at, pdf_url, created_by, timestamps)
-- Table `reserve_lift_items` (id, report_id, reserve_id, old_status, new_status, comment, photo_urls text[], created_at)
-- RLS : SELECT membres actifs ; INSERT/UPDATE manager+ via `can_manage_company` ; DELETE admin+
-- Triggers webhook `reserve_lift.created`, `reserve_lift.signed`
-- Numérotation : réutiliser la séquence PV avec suffixe `-LR-NN` calculé serveur (compte des reports existants pour ce `pv_id`)
+**Table `pv_reserves` — colonnes ajoutées**
+- `nature text` (typologie courte : finitions / sécurité / conformité…)
+- `work_to_execute text`
+- `due_date date`
+- `lifted_at timestamptz`
+
+**Table `chantiers` — colonnes ajoutées (si manquantes)**
+- `postal_code text`, `city text`, `latitude double precision`, `longitude double precision`
+
+**Suivi de levée**
+- Réutiliser `reserve_lift_reports` existant. Ajouter colonne `reserve_lift_status` sur `pv` :
+  `text NOT NULL DEFAULT 'none'` valeurs : `none` | `pending` | `partial` | `completed`.
+- Trigger `pv` après `INSERT` : si `reception_with_reserves` → set `reserve_lift_status='pending'`.
+- Trigger `pv_reserves` après `UPDATE status` : recalcule `reserve_lift_status` du PV parent (none/pending/partial/completed).
+
+Pas de changement RLS.
 
 ---
 
 ## 2. Server functions
 
+**Nouveau `src/lib/address.functions.ts`**
+- `searchAddressSuggestions({ query })` : `createServerFn` POST, middleware auth.
+- Validation : `query` trim, min 3, max 200.
+- Rate limit via `rate_limits` (bucket `address_search`, key = userId, 30 req / 60s).
+- Appel `https://api-adresse.data.gouv.fr/search/?q=...&limit=5&autocomplete=1`.
+- Retourne `[{ label, address, postalCode, city, latitude, longitude }]`.
+
 **Modif `src/lib/pv-create.functions.ts`**
-- Retirer `numero` et `type` du schema d'entrée
-- Forcer `type = 'reception'`
-- Appeler RPC `generate_next_pv_number(companyId)` en début de handler
-- Retry léger en cas de collision unique (1 retry)
+- Schema entrée ajoute : `reception_with_reserves`, `work_reference_*`, `reserve_completion_delay`, `reserve_due_date`, `chantier_address`, `chantier_postal_code`, `chantier_city`, `chantier_latitude`, `chantier_longitude`. Réserves enrichies (`nature`, `work_to_execute`, `due_date`).
+- Validation serveur autoritative :
+  - Si `reception_with_reserves === false` → ignorer `reserves` et `photos` (forcer `[]`).
+  - Si `true` → exiger ≥ 1 réserve avec `description` et `work_to_execute`.
+- Insert pv avec nouveaux champs. Insert réserves enrichies.
+- Pas de génération du PV de levée ; trigger DB pose `reserve_lift_status='pending'`.
+- Audit : ajouter `metadata.reception_with_reserves`.
 
-**Nouveau `src/lib/reserve-lift.functions.ts`**
-- `createReserveLift({ pvId, comment, reserveIds[], photos[], clientSignature?, companySignature, requireClientSignature })`
-- Vérifie membership + manage_company + PV appartient à la company
-- Insert report + items, update `pv_reserves.status='levee'` pour les sélectionnées
-- Upload photos via service role dans `pv-assets/{companyId}/lifts/{reportId}/...`
-- Génère PDF via nouveau `buildAndStoreReserveLiftPdf(reportId)`
-- Audit `reserve_lift.created`, `reserve_lift.signed`, `reserve.lifted`, et `pv.all_reserves_lifted` si plus aucune réserve ouverte
-- Push fan-out + webhooks (auto via triggers DB)
-
-**Nouveau `src/lib/reserve-lift.server.ts`**
-- Helpers validation photo/signature (réutilise ceux de `pv-create.server.ts`)
-- `buildAndStoreReserveLiftPdf(reportId)` — pdf-lib, calque sur `pdf.server.ts`
+**Modif `src/lib/pdf.server.ts`**
+- Titre : `PROCÈS-VERBAL DE RÉCEPTION DES TRAVAUX`.
+- Bloc « Au titre du {type} n° {number} en date du {date} » si `work_reference_*`.
+- Déclaration : `La réception est prononcée sans réserve.` ou `... avec réserves.`.
+- Si avec réserves : section « État des réserves » (nature, description, travaux à exécuter, délai, échéance).
+- Bloc délai global + date limite.
+- Footer mention exemplaires / version numérique PVIA.
 
 ---
 
-## 3. Frontend
+## 3. Frontend `/pv/new`
 
-**`src/routes/_authenticated/pv.new.tsx`**
-- Supprimer champ `numero` (input) → afficher "Numéro attribué à la création" en read-only avec preview live calculée
-- Supprimer sélecteur `type` → bandeau fixe "Procès-verbal de réception de travaux"
-- Ne plus envoyer `numero`/`type` à `createPv`
+**Nouveau composant `src/components/pv/AddressAutocomplete.tsx`**
+- Input contrôlé + debounce 250ms + dropdown suggestions.
+- Appelle `searchAddressSuggestions` via `useServerFn`.
+- onSelect → remplit `address`, `postal_code`, `city`, `latitude`, `longitude`.
+- Fallback saisie manuelle si 0 suggestion.
 
-**Nouveau `src/routes/_authenticated/parametres.numerotation.tsx`**
-- Form édition des 5 champs `pv_number_*`
-- Preview live `PV-2026-00001`
-- Ajouter entrée dans `parametres.tsx` (nav settings)
+**Refonte `src/routes/_authenticated/pv.new.tsx`**
 
-**Nouveau `src/routes/_authenticated/pv.$id.levee-reserves.tsx`**
-- Liste réserves ouvertes (checkbox sélection)
-- Champ commentaire global + commentaire/photos par réserve
-- Signature entreprise (obligatoire), signature client (toggle obligatoire/optionnel)
-- Submit → `createReserveLift` → redirect `/pv/:id`
+État ajouté : `receptionWithReserves: boolean | null`, `workRef: {type, number, date, amount}`, `reserveDelay`, `reserveDueDate`, champs adresse étendus, réserves enrichies.
+
+Stepper dynamique :
+- `null` (pas encore choisi) : Entreprise → Client → Chantier → Travaux → **Décision réserves** → Signatures → Aperçu
+- `false` : Entreprise → Client → Chantier → Travaux → Signatures → Aperçu
+- `true` : Entreprise → Client → Chantier → Travaux → Réserves → Photos → Signatures → Aperçu
+
+Étape **Décision réserves** : 2 cards (« Sans réserve » / « Avec réserves »). Si bascule `true → false` et réserves saisies → `confirm()` avant purge.
+
+Étape **Travaux** enrichie : select type référence (devis / bon de commande / marché / manuel), n°, date, montant, description.
+
+Étape **Chantier** : `AddressAutocomplete` + champs CP/ville auto, lat/long cachés.
+
+Étape **Réserves** : pour chaque réserve, champs `description`, `nature`, `work_to_execute`, `severity`, `due_date`. + champs PV-level `reserve_completion_delay` et `reserve_due_date`.
+
+Soumission : envoie tous les nouveaux champs ; bloque si `receptionWithReserves === null`.
 
 **Modif `src/routes/_authenticated/pv.$id.tsx`**
-- Bloc "Réserves" avec statut (aucune / ouvertes / partielles / toutes levées)
-- CTA "Créer une levée de réserves" si ouvertes
-- Liste des levées existantes + lien PDF
+- Afficher référence travaux, déclaration réception, délai/échéance réserves.
+- Badge `reserve_lift_status` + CTA conditionnel « Préparer la levée de réserves » (déjà partiel, à harmoniser).
 
 **Modif `src/routes/_authenticated/reserves.tsx`**
-- Action inline "Lever la réserve" (raccourci vers `/pv/:id/levee-reserves` avec preselect)
-- Filtre statut ouvertes/levées/validées (si pas déjà présent)
+- Afficher `nature`, `work_to_execute`, `due_date`. Filtre par `reserve_lift_status` du PV parent.
 
 ---
 
-## 4. Audit / Push / Webhooks
+## 4. UX
 
-Ajouter actions dans `AuditAction` union (`audit.server.ts`) :
-- `reserve_lift.created`, `reserve_lift.signed`
-- `reserve.status_lifted`, `pv.has_open_reserves`, `pv.all_reserves_lifted`
-
-Push via `firePushToCompany` dans `createReserveLift`.
-
-Webhooks : trigger DB sur `reserve_lift_reports` (INSERT → `reserve_lift.created`; UPDATE status=signe → `reserve_lift.signed`). `reserve.lifted` déjà géré par `webhook_on_reserve_event`. Ajouter event `pv.reserves_completed` côté createReserveLift (appel `enqueue_webhook_event` via RPC ou helper).
+- Cards radio grandes au choix réserves (icônes Check / AlertTriangle).
+- Résumé latéral dynamique (déjà présent) montrant : référence travaux, type réception, nb réserves.
+- Mobile-friendly : stepper compact, autocomplete plein écran sur mobile.
+- Wording métier (« maître d'ouvrage », « entreprise titulaire », « délai global »).
+- Autosave conservé tel quel (mêmes clés étendues).
 
 ---
 
-## 5. Tests manuels (livrés à l'utilisateur en fin)
+## 5. Sécurité serveur
 
-- Création PV → numéro auto attribué, unique, croissant
-- 2 créations simultanées (double-click) → pas de doublon
-- Settings numérotation → preview live, sauvegarde, nouveau PV suit le format
-- PV signé avec réserves → bloc réserves affiche "ouvertes"
-- Levée de réserves brouillon → signé → réserves passent à `levee`, PDF généré
-- Levée partielle puis 2e levée → `all_reserves_lifted` déclenché à la fin
-- `/admin/monitoring` voit `reserve_lift.created`, `reserve_lift.signed`, `push.sent`, webhook `reserve_lift.created`
+`createPv` :
+- Whitelist stricte des champs.
+- Si `reception_with_reserves=false` → `reserves=[]`, `photos=[]` (ignore tentative manipulation).
+- Si `true` → exige ≥ 1 réserve valide (description + work_to_execute non vides), sinon `Error('Réserves manquantes.')`.
+- Génération suivi levée **uniquement** via trigger DB, jamais via input client.
+- Rate limit `address_search` côté serveur.
+
+---
+
+## 6. Fichiers touchés
+
+Nouveaux :
+- `src/lib/address.functions.ts`
+- `src/components/pv/AddressAutocomplete.tsx`
+- `supabase/migrations/<ts>_pv_reception_metier.sql`
+
+Modifiés :
+- `src/lib/pv-create.functions.ts`
+- `src/lib/pdf.server.ts`
+- `src/routes/_authenticated/pv.new.tsx`
+- `src/routes/_authenticated/pv.$id.tsx`
+- `src/routes/_authenticated/reserves.tsx`
+
+---
+
+## 7. Tests manuels livrés
+
+- Recherche adresse « 10 rue de » → suggestions, sélection remplit CP/ville/coords.
+- PV sans réserve : stepper saute Réserves/Photos, PDF mentionne « sans réserve », `reserve_lift_status='none'`.
+- PV avec réserves : ≥ 1 réserve obligatoire, PDF affiche état + délai, `reserve_lift_status='pending'`.
+- Bascule avec→sans réserves : confirmation puis purge locale.
+- Tentative POST direct `reserves` avec `reception_with_reserves=false` → ignoré côté serveur.
+- Levée complète des réserves → `reserve_lift_status='completed'` (trigger DB).
+- Référence devis affichée dans PDF + page PV.
 
 ---
 
 ## Notes techniques
 
-- Numérotation : la RPC verrouille via `SELECT ... FOR UPDATE` la ligne `company_settings`. Auto-INSERT si manquante avec les valeurs par défaut.
-- Contrainte unique sert de filet de sécurité ; retry une seule fois en cas de collision (impossible si RPC OK).
-- Type PV : `'reception'` enum-like en DB existant ; on whitelist côté server, ignore tout input client.
-- PDF levée : signature client optionnelle selon flag `require_client_signature` stocké dans `reserve_lift_reports.metadata` (ajouter colonne `metadata jsonb`).
-- Pas de modifications RLS sur tables existantes.
+- API adresse data.gouv : libre, sans clé, quota raisonnable, parfait pour autocomplete.
+- Triggers DB pour `reserve_lift_status` évitent toute incohérence côté code.
+- Pas de table devis créée : on stocke uniquement les champs `work_reference_*` sur PV. Migration vers vraie table devis = travail futur.
+- PDF reste pdf-lib (pas de refonte template, juste sections ajoutées).

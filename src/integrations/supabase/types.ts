@@ -185,14 +185,18 @@ export type Database = {
       chantiers: {
         Row: {
           address: string | null
+          city: string | null
           client_id: string | null
           company_id: string | null
           created_at: string
           description: string | null
           end_date: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
           owner_id: string
+          postal_code: string | null
           start_date: string | null
           status: string
           type: string | null
@@ -200,14 +204,18 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          city?: string | null
           client_id?: string | null
           company_id?: string | null
           created_at?: string
           description?: string | null
           end_date?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
           owner_id: string
+          postal_code?: string | null
           start_date?: string | null
           status?: string
           type?: string | null
@@ -215,14 +223,18 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          city?: string | null
           client_id?: string | null
           company_id?: string | null
           created_at?: string
           description?: string | null
           end_date?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           owner_id?: string
+          postal_code?: string | null
           start_date?: string | null
           status?: string
           type?: string | null
@@ -823,7 +835,10 @@ export type Database = {
       }
       pv: {
         Row: {
+          chantier_address: string | null
+          chantier_city: string | null
           chantier_id: string | null
+          chantier_postal_code: string | null
           client_id: string | null
           client_signature: string | null
           company_id: string | null
@@ -841,6 +856,10 @@ export type Database = {
           pdf_generated_at: string | null
           pdf_url: string | null
           reception_date: string | null
+          reception_with_reserves: boolean
+          reserve_completion_delay: string | null
+          reserve_due_date: string | null
+          reserve_lift_status: string
           sent_to_client_at: string | null
           sent_to_email: string | null
           sign_token: string | null
@@ -849,9 +868,16 @@ export type Database = {
           status: string
           type: string
           updated_at: string
+          work_reference_amount: number | null
+          work_reference_date: string | null
+          work_reference_number: string | null
+          work_reference_type: string | null
         }
         Insert: {
+          chantier_address?: string | null
+          chantier_city?: string | null
           chantier_id?: string | null
+          chantier_postal_code?: string | null
           client_id?: string | null
           client_signature?: string | null
           company_id?: string | null
@@ -869,6 +895,10 @@ export type Database = {
           pdf_generated_at?: string | null
           pdf_url?: string | null
           reception_date?: string | null
+          reception_with_reserves?: boolean
+          reserve_completion_delay?: string | null
+          reserve_due_date?: string | null
+          reserve_lift_status?: string
           sent_to_client_at?: string | null
           sent_to_email?: string | null
           sign_token?: string | null
@@ -877,9 +907,16 @@ export type Database = {
           status?: string
           type?: string
           updated_at?: string
+          work_reference_amount?: number | null
+          work_reference_date?: string | null
+          work_reference_number?: string | null
+          work_reference_type?: string | null
         }
         Update: {
+          chantier_address?: string | null
+          chantier_city?: string | null
           chantier_id?: string | null
+          chantier_postal_code?: string | null
           client_id?: string | null
           client_signature?: string | null
           company_id?: string | null
@@ -897,6 +934,10 @@ export type Database = {
           pdf_generated_at?: string | null
           pdf_url?: string | null
           reception_date?: string | null
+          reception_with_reserves?: boolean
+          reserve_completion_delay?: string | null
+          reserve_due_date?: string | null
+          reserve_lift_status?: string
           sent_to_client_at?: string | null
           sent_to_email?: string | null
           sign_token?: string | null
@@ -905,6 +946,10 @@ export type Database = {
           status?: string
           type?: string
           updated_at?: string
+          work_reference_amount?: number | null
+          work_reference_date?: string | null
+          work_reference_number?: string | null
+          work_reference_type?: string | null
         }
         Relationships: [
           {
@@ -983,31 +1028,43 @@ export type Database = {
           company_id: string | null
           created_at: string
           description: string
+          due_date: string | null
           id: string
+          lifted_at: string | null
+          nature: string | null
           owner_id: string
           pv_id: string
           severity: string
           status: string
+          work_to_execute: string | null
         }
         Insert: {
           company_id?: string | null
           created_at?: string
           description: string
+          due_date?: string | null
           id?: string
+          lifted_at?: string | null
+          nature?: string | null
           owner_id: string
           pv_id: string
           severity?: string
           status?: string
+          work_to_execute?: string | null
         }
         Update: {
           company_id?: string | null
           created_at?: string
           description?: string
+          due_date?: string | null
           id?: string
+          lifted_at?: string | null
+          nature?: string | null
           owner_id?: string
           pv_id?: string
           severity?: string
           status?: string
+          work_to_execute?: string | null
         }
         Relationships: [
           {

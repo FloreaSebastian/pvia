@@ -4,7 +4,14 @@ import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, type Compan
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
 type Chantier = { name?: string | null; address?: string | null } | undefined;
-type Reserve = { description: string; severity: string; status: string };
+type Reserve = {
+  description: string;
+  severity: string;
+  status: string;
+  nature?: string | null;
+  work_to_execute?: string | null;
+  due_date?: string | null;
+};
 type Pv = {
   numero: string;
   type: string;
@@ -16,6 +23,16 @@ type Pv = {
   company_signature: string | null;
   signed_at: string | null;
   created_at: string;
+  reception_with_reserves?: boolean | null;
+  work_reference_type?: string | null;
+  work_reference_number?: string | null;
+  work_reference_date?: string | null;
+  work_reference_amount?: number | null;
+  reserve_completion_delay?: string | null;
+  reserve_due_date?: string | null;
+  chantier_address?: string | null;
+  chantier_postal_code?: string | null;
+  chantier_city?: string | null;
 };
 
 const ACCENT = rgb(0.06, 0.09, 0.16); // slate-900
@@ -262,6 +279,40 @@ export async function generatePvPdfBytes(input: {
     drawText(chantier.address, { x: MARGIN + 12, y: y - 48, size: 8, font: helv, color: MUTED, maxWidth: infoCol - 16 });
   }
   y -= 70;
+
+  // ============ DECLARATION ============
+  const withRes = !!pv.reception_with_reserves;
+  const declLines: string[] = [];
+  if (pv.work_reference_type && pv.work_reference_number) {
+    const typeLabel = {
+      devis: "devis",
+      bon_commande: "bon de commande",
+      marche: "marché",
+      manuel: "document",
+    }[pv.work_reference_type] ?? "document";
+    const ref = `Au titre du ${typeLabel} n° ${pv.work_reference_number}` +
+      (pv.work_reference_date ? ` en date du ${formatDate(pv.work_reference_date)}` : "") +
+      (pv.work_reference_amount != null ? ` d'un montant de ${pv.work_reference_amount} EUR` : "") + ".";
+    declLines.push(ref);
+  }
+  declLines.push(
+    withRes
+      ? "La reception est prononcee AVEC RESERVES, listees ci-dessous."
+      : "La reception est prononcee SANS RESERVE.",
+  );
+  if (withRes && pv.reserve_completion_delay) {
+    declLines.push(`Delai global convenu pour la levee : ${pv.reserve_completion_delay}` +
+      (pv.reserve_due_date ? ` (echeance ${formatDate(pv.reserve_due_date)}).` : "."));
+  }
+  ensureSpace(declLines.length * 14 + 28);
+  drawText("DECLARATION DE RECEPTION", { size: 9, font: bold, color: PRIMARY });
+  y -= 14;
+  for (const l of declLines) {
+    const wrapped = wrapLines(helv, l, 10, CONTENT_W);
+    for (const w of wrapped) { page.drawText(w, { x: MARGIN, y, size: 10, font: helv, color: ACCENT }); y -= 14; }
+  }
+  y -= 6;
+
 
   // ============ DESCRIPTION ============
   ensureSpace(40);

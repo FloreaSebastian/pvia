@@ -32,6 +32,9 @@ const ReserveSchema = z.object({
   description: z.string().trim().min(1).max(2000),
   severity: z.enum(["mineure", "majeure"]),
   status: z.enum(["ouverte", "levee", "validee"]),
+  nature: z.string().trim().max(200).optional().default(""),
+  work_to_execute: z.string().trim().max(2000).optional().default(""),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 });
 
 const PhotoSchema = z.object({
@@ -56,6 +59,18 @@ const InputSchema = z.object({
   company_signature: z.string().max(800_000).nullable().optional(),
   reserves: z.array(ReserveSchema).max(50).optional().default([]),
   photos: z.array(PhotoSchema).max(PHOTO_MAX_COUNT).optional().default([]),
+  // --- Reception type & work reference (CAPEB-style) ---
+  reception_with_reserves: z.boolean().optional().default(false),
+  work_reference_type: z.enum(["devis", "bon_commande", "marche", "manuel"]).nullable().optional(),
+  work_reference_number: z.string().trim().max(100).nullable().optional(),
+  work_reference_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  work_reference_amount: z.number().nonnegative().nullable().optional(),
+  reserve_completion_delay: z.string().trim().max(120).nullable().optional(),
+  reserve_due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  // Chantier address snapshot (from autocomplete)
+  chantier_address: z.string().trim().max(500).optional().default(""),
+  chantier_postal_code: z.string().trim().max(20).optional().default(""),
+  chantier_city: z.string().trim().max(200).optional().default(""),
 });
 
 export const createPv = createServerFn({ method: "POST" })
@@ -91,6 +106,27 @@ export const createPv = createServerFn({ method: "POST" })
         throw new Error("Les deux signatures sont requises pour valider le PV.");
       }
     }
+
+    // 2b. With/without reserves — server-authoritative invariant
+    const withReserves = !!data.reception_with_reserves;
+    let normalizedReserves = data.reserves;
+    let normalizedPhotos = data.photos;
+    if (!withReserves) {
+      // Ignore any reserves/photos sent by a manipulated client.
+      normalizedReserves = [];
+      normalizedPhotos = [];
+    } else {
+      // At least one valid reserve required.
+      const hasValid = normalizedReserves.some(
+        (r) => r.description.trim().length > 0 && (r.work_to_execute ?? "").trim().length >= 0,
+      );
+      if (!hasValid) {
+        throw new Error("Au moins une réserve avec description est requise.");
+      }
+    }
+    // Rebind for the rest of the handler.
+    (data as { reserves: typeof normalizedReserves }).reserves = normalizedReserves;
+    (data as { photos: typeof normalizedPhotos }).photos = normalizedPhotos;
 
     // 3. Validate signature payloads (PNG data URL)
     const sigOrNull = (raw: string | null | undefined): string | null => {
@@ -190,7 +226,17 @@ export const createPv = createServerFn({ method: "POST" })
           client_signature: clientSig,
           company_signature: companySig,
           signed_at: data.status === "signe" ? nowIso : null,
-        })
+          reception_with_reserves: withReserves,
+          work_reference_type: data.work_reference_type ?? null,
+          work_reference_number: data.work_reference_number?.trim() || null,
+          work_reference_date: data.work_reference_date ?? null,
+          work_reference_amount: data.work_reference_amount ?? null,
+          reserve_completion_delay: withReserves ? (data.reserve_completion_delay?.trim() || null) : null,
+          reserve_due_date: withReserves ? (data.reserve_due_date ?? null) : null,
+          chantier_address: data.chantier_address?.trim() || null,
+          chantier_postal_code: data.chantier_postal_code?.trim() || null,
+          chantier_city: data.chantier_city?.trim() || null,
+        } as never)
         .select("id,numero,company_id,owner_id")
         .single();
       if (!pvErr && ins) { pvIns = ins; break; }
@@ -212,7 +258,10 @@ export const createPv = createServerFn({ method: "POST" })
             description: r.description,
             severity: r.severity,
             status: r.status,
-          })),
+            nature: r.nature?.trim() || null,
+            work_to_execute: r.work_to_execute?.trim() || null,
+            due_date: r.due_date ?? null,
+          })) as never,
         );
       if (resErr) {
         console.error("createPv: insert reserves failed", resErr);
@@ -271,6 +320,7 @@ export const createPv = createServerFn({ method: "POST" })
         photos: uploadedPhotos,
         reserves: data.reserves.length,
         pdf_generated: !!pdfPath,
+        reception_with_reserves: withReserves,
       },
       actor: "user",
     });
