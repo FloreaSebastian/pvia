@@ -412,9 +412,15 @@ function NewPv() {
           },
         });
         navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } });
+      } else if (e?.code === "COMPANY_INCOMPLETE" || /COMPANY_INCOMPLETE|entreprise incomplète/i.test(e?.message ?? "")) {
+        toast.error("Fiche entreprise incomplète. Complétez-la avant de créer un PV.", {
+          action: { label: "Compléter", onClick: () => navigate({ to: "/entreprise" }) },
+        });
+        setStep(1);
       } else {
         toast.error(e?.message || "Échec de la création.");
       }
+
     } finally {
       setSaving(false);
     }
