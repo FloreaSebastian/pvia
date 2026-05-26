@@ -240,7 +240,7 @@ function NewPv() {
       lines.forEach((l, i) => doc.text(l || "—", x + 3, y + 11 + i * 5));
     };
     const cli = clients.find((c) => c.id === form.client_id);
-    block(14, "Entreprise", [form.company_name, form.company_address, form.company_siret && `SIRET ${form.company_siret}`].filter(Boolean) as string[]);
+    block(14, "Entreprise", [branding?.name ?? "", branding?.address ?? "", branding?.siret ? `SIRET ${branding.siret}` : ""].filter(Boolean) as string[]);
     block(108, "Client", [cli?.name ?? form.new_client_name, cli?.email ?? form.new_client_email].filter(Boolean) as string[]);
     y += 30;
 
