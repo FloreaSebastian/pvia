@@ -847,18 +847,30 @@ function NewPv() {
             {STEPS[step - 1].label}
           </div>
           {step < STEPS.length ? (
-            <Button
-              disabled={!stepValid}
-              onClick={() => setStep((s) => Math.min(STEPS.length, s + 1))}
-            >
-              Suivant <ChevronRight className="h-4 w-4" />
-            </Button>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      disabled={!stepValid}
+                      onClick={() => goToStep(step + 1)}
+                    >
+                      Suivant <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!stepValid && stepErrors[step] && (
+                  <TooltipContent>{stepErrors[step]}</TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           ) : (
             <Button disabled={saving} onClick={() => onSave("signe")} className="shadow-brand">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Valider & signer
             </Button>
           )}
+
         </div>
       </Card>
     </div>
