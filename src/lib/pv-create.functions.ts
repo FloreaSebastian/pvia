@@ -107,6 +107,27 @@ export const createPv = createServerFn({ method: "POST" })
       }
     }
 
+    // 2b. With/without reserves — server-authoritative invariant
+    const withReserves = !!data.reception_with_reserves;
+    let normalizedReserves = data.reserves;
+    let normalizedPhotos = data.photos;
+    if (!withReserves) {
+      // Ignore any reserves/photos sent by a manipulated client.
+      normalizedReserves = [];
+      normalizedPhotos = [];
+    } else {
+      // At least one valid reserve required.
+      const hasValid = normalizedReserves.some(
+        (r) => r.description.trim().length > 0 && (r.work_to_execute ?? "").trim().length >= 0,
+      );
+      if (!hasValid) {
+        throw new Error("Au moins une réserve avec description est requise.");
+      }
+    }
+    // Rebind for the rest of the handler.
+    (data as { reserves: typeof normalizedReserves }).reserves = normalizedReserves;
+    (data as { photos: typeof normalizedPhotos }).photos = normalizedPhotos;
+
     // 3. Validate signature payloads (PNG data URL)
     const sigOrNull = (raw: string | null | undefined): string | null => {
       if (!raw) return null;
