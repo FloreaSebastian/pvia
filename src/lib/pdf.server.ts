@@ -4,7 +4,14 @@ import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, type Compan
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
 type Chantier = { name?: string | null; address?: string | null } | undefined;
-type Reserve = { description: string; severity: string; status: string };
+type Reserve = {
+  description: string;
+  severity: string;
+  status: string;
+  nature?: string | null;
+  work_to_execute?: string | null;
+  due_date?: string | null;
+};
 type Pv = {
   numero: string;
   type: string;
@@ -16,6 +23,16 @@ type Pv = {
   company_signature: string | null;
   signed_at: string | null;
   created_at: string;
+  reception_with_reserves?: boolean | null;
+  work_reference_type?: string | null;
+  work_reference_number?: string | null;
+  work_reference_date?: string | null;
+  work_reference_amount?: number | null;
+  reserve_completion_delay?: string | null;
+  reserve_due_date?: string | null;
+  chantier_address?: string | null;
+  chantier_postal_code?: string | null;
+  chantier_city?: string | null;
 };
 
 const ACCENT = rgb(0.06, 0.09, 0.16); // slate-900
