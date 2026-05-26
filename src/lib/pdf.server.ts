@@ -466,7 +466,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
       ? supabaseAdmin.from("chantiers").select("name,address").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("pv_photos").select("id,url,caption").eq("pv_id", pvId).order("created_at"),
-    supabaseAdmin.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).order("created_at"),
+    supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").eq("pv_id", pvId).order("created_at"),
   ]);
 
   const photos: { caption: string | null; bytes: Uint8Array }[] = [];
