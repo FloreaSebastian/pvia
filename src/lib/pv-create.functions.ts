@@ -320,6 +320,7 @@ export const createPv = createServerFn({ method: "POST" })
         photos: uploadedPhotos,
         reserves: data.reserves.length,
         pdf_generated: !!pdfPath,
+        reception_with_reserves: withReserves,
       },
       actor: "user",
     });
