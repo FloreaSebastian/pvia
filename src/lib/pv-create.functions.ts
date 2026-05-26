@@ -163,28 +163,40 @@ export const createPv = createServerFn({ method: "POST" })
       clientId = nc?.id ?? null;
     }
 
-    // 7. Insert PV
+    // 7. Generate atomic PV number (server-authoritative) + insert PV.
+    // One retry in the (impossible-via-RPC) case the unique constraint trips.
     const nowIso = new Date().toISOString();
-    const { data: pvIns, error: pvErr } = await supabaseAdmin
-      .from("pv")
-      .insert({
-        owner_id: userId,
-        company_id: data.companyId,
-        numero: data.numero,
-        type: data.type,
-        status: data.status,
-        reception_date: data.reception_date,
-        chantier_id: data.chantier_id || null,
-        client_id: clientId,
-        description: data.description || null,
-        observations: data.observations || null,
-        client_signature: clientSig,
-        company_signature: companySig,
-        signed_at: data.status === "signe" ? nowIso : null,
-      })
-      .select("id,numero,company_id,owner_id")
-      .single();
-    if (pvErr || !pvIns) throw new Error(`Création PV : ${pvErr?.message ?? "inconnue"}`);
+    let pvIns: { id: string; numero: string; company_id: string | null; owner_id: string } | null = null;
+    let lastErr: { message: string } | null = null;
+    let assignedNumero = "";
+    for (let attempt = 0; attempt < 2 && !pvIns; attempt++) {
+      const { data: numRes, error: numErr } = await supabaseAdmin
+        .rpc("generate_next_pv_number", { _company_id: data.companyId });
+      if (numErr || !numRes) throw new Error(`Numérotation : ${numErr?.message ?? "indisponible"}`);
+      assignedNumero = numRes as unknown as string;
+      const { data: ins, error: pvErr } = await supabaseAdmin
+        .from("pv")
+        .insert({
+          owner_id: userId,
+          company_id: data.companyId,
+          numero: assignedNumero,
+          type: "reception",
+          status: data.status,
+          reception_date: data.reception_date,
+          chantier_id: data.chantier_id || null,
+          client_id: clientId,
+          description: data.description || null,
+          observations: data.observations || null,
+          client_signature: clientSig,
+          company_signature: companySig,
+          signed_at: data.status === "signe" ? nowIso : null,
+        })
+        .select("id,numero,company_id,owner_id")
+        .single();
+      if (!pvErr && ins) { pvIns = ins; break; }
+      lastErr = pvErr ?? { message: "inconnue" };
+    }
+    if (!pvIns) throw new Error(`Création PV : ${lastErr?.message ?? "inconnue"}`);
 
     const pvId = pvIns.id;
 
