@@ -449,6 +449,36 @@ function PvDetail() {
             <Info label="Date de réception">{pv.reception_date ? new Date(pv.reception_date).toLocaleDateString("fr-FR") : "—"}</Info>
             <Info label="Chantier">{chantierName ?? "—"}</Info>
             <Info label="Client">{clientName ?? "—"}</Info>
+            <Info label="Décision">
+              {pv.reception_with_reserves == null ? "—" : pv.reception_with_reserves ? (
+                <span className="inline-flex items-center gap-1 text-warning"><AlertCircle className="h-3.5 w-3.5" /> Avec réserves</span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Sans réserve</span>
+              )}
+            </Info>
+            <Info label="Levée de réserves">
+              {pv.reserve_lift_status && pv.reserve_lift_status !== "none" ? (
+                <StatusPill tone={pv.reserve_lift_status === "completed" ? "success" : pv.reserve_lift_status === "partial" ? "warning" : "destructive"} dot>
+                  {pv.reserve_lift_status}
+                </StatusPill>
+              ) : "—"}
+            </Info>
+            {pv.work_reference_type && (
+              <Info label="Référence travaux">
+                {pv.work_reference_type}{pv.work_reference_number ? ` n° ${pv.work_reference_number}` : ""}
+                {pv.work_reference_date ? ` · ${new Date(pv.work_reference_date).toLocaleDateString("fr-FR")}` : ""}
+                {pv.work_reference_amount ? ` · ${pv.work_reference_amount} €` : ""}
+              </Info>
+            )}
+            {(pv.chantier_address || pv.chantier_city) && (
+              <Info label="Adresse chantier">{[pv.chantier_address, [pv.chantier_postal_code, pv.chantier_city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</Info>
+            )}
+            {pv.reception_with_reserves && (pv.reserve_completion_delay || pv.reserve_due_date) && (
+              <Info label="Délai levée">
+                {pv.reserve_completion_delay || "—"}
+                {pv.reserve_due_date ? ` (échéance ${new Date(pv.reserve_due_date).toLocaleDateString("fr-FR")})` : ""}
+              </Info>
+            )}
           </div>
           <div>
             <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Description des travaux</p>
