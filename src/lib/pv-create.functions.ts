@@ -76,6 +76,17 @@ export const createPv = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!member) throw new Error("Accès refusé.");
 
+    // 1b. Company branding completeness (server-authoritative)
+    const branding = await getCompanyBranding(data.companyId);
+    const hasAddress = !!(branding?.address_line1 || branding?.address);
+    const hasIdent = !!(branding?.siret || branding?.siren);
+    const hasContact = !!(branding?.email || branding?.phone);
+    if (!branding?.name || !hasIdent || !hasAddress || !hasContact) {
+      const err = new Error("Fiche entreprise incomplète. Complétez nom, SIRET/SIREN, adresse et contact.");
+      (err as any).code = "COMPANY_INCOMPLETE";
+      throw err;
+    }
+
     // 2. Signed PV requires both signatures
     if (data.status === "signe") {
       if (!data.client_signature || !data.company_signature) {
