@@ -48,6 +48,7 @@ import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 import { Route as AuthenticatedParametresSecuriteRouteImport } from './routes/_authenticated/parametres.securite'
 import { Route as AuthenticatedParametresPreferencesRouteImport } from './routes/_authenticated/parametres.preferences'
+import { Route as AuthenticatedParametresNumerotationRouteImport } from './routes/_authenticated/parametres.numerotation'
 import { Route as AuthenticatedParametresNotificationsRouteImport } from './routes/_authenticated/parametres.notifications'
 import { Route as AuthenticatedParametresIntegrationsRouteImport } from './routes/_authenticated/parametres.integrations'
 import { Route as AuthenticatedParametresDonneesRouteImport } from './routes/_authenticated/parametres.donnees'
@@ -59,6 +60,7 @@ import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/publi
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
+import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
 
 const VerifyRoute = VerifyRouteImport.update({
@@ -260,6 +262,12 @@ const AuthenticatedParametresPreferencesRoute =
     path: '/preferences',
     getParentRoute: () => AuthenticatedParametresRoute,
   } as any)
+const AuthenticatedParametresNumerotationRoute =
+  AuthenticatedParametresNumerotationRouteImport.update({
+    id: '/numerotation',
+    path: '/numerotation',
+    getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
 const AuthenticatedParametresNotificationsRoute =
   AuthenticatedParametresNotificationsRouteImport.update({
     id: '/notifications',
@@ -324,6 +332,12 @@ const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
   path: '/api/public/calendar/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedPvIdLeveeReservesRoute =
+  AuthenticatedPvIdLeveeReservesRouteImport.update({
+    id: '/levee-reserves',
+    path: '/levee-reserves',
+    getParentRoute: () => AuthenticatedPvIdRoute,
+  } as any)
 const AuthenticatedPvIdHistoriqueRoute =
   AuthenticatedPvIdHistoriqueRouteImport.update({
     id: '/historique',
@@ -368,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/parametres/numerotation': typeof AuthenticatedParametresNumerotationRoute
   '/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
@@ -378,6 +393,7 @@ export interface FileRoutesByFullPath {
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
+  '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -419,6 +435,7 @@ export interface FileRoutesByTo {
   '/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/parametres/numerotation': typeof AuthenticatedParametresNumerotationRoute
   '/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
@@ -429,6 +446,7 @@ export interface FileRoutesByTo {
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
+  '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -473,6 +491,7 @@ export interface FileRoutesById {
   '/_authenticated/parametres/donnees': typeof AuthenticatedParametresDonneesRoute
   '/_authenticated/parametres/integrations': typeof AuthenticatedParametresIntegrationsRoute
   '/_authenticated/parametres/notifications': typeof AuthenticatedParametresNotificationsRoute
+  '/_authenticated/parametres/numerotation': typeof AuthenticatedParametresNumerotationRoute
   '/_authenticated/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/_authenticated/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
@@ -483,6 +502,7 @@ export interface FileRoutesById {
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
+  '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -527,6 +547,7 @@ export interface FileRouteTypes {
     | '/parametres/donnees'
     | '/parametres/integrations'
     | '/parametres/notifications'
+    | '/parametres/numerotation'
     | '/parametres/preferences'
     | '/parametres/securite'
     | '/pv/$id'
@@ -537,6 +558,7 @@ export interface FileRouteTypes {
     | '/parametres/'
     | '/pv/'
     | '/pv/$id/historique'
+    | '/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
@@ -578,6 +600,7 @@ export interface FileRouteTypes {
     | '/parametres/donnees'
     | '/parametres/integrations'
     | '/parametres/notifications'
+    | '/parametres/numerotation'
     | '/parametres/preferences'
     | '/parametres/securite'
     | '/pv/$id'
@@ -588,6 +611,7 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/pv'
     | '/pv/$id/historique'
+    | '/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
@@ -631,6 +655,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/donnees'
     | '/_authenticated/parametres/integrations'
     | '/_authenticated/parametres/notifications'
+    | '/_authenticated/parametres/numerotation'
     | '/_authenticated/parametres/preferences'
     | '/_authenticated/parametres/securite'
     | '/_authenticated/pv/$id'
@@ -641,6 +666,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/pv/$id/historique'
+    | '/_authenticated/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
@@ -948,6 +974,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedParametresPreferencesRouteImport
       parentRoute: typeof AuthenticatedParametresRoute
     }
+    '/_authenticated/parametres/numerotation': {
+      id: '/_authenticated/parametres/numerotation'
+      path: '/numerotation'
+      fullPath: '/parametres/numerotation'
+      preLoaderRoute: typeof AuthenticatedParametresNumerotationRouteImport
+      parentRoute: typeof AuthenticatedParametresRoute
+    }
     '/_authenticated/parametres/notifications': {
       id: '/_authenticated/parametres/notifications'
       path: '/notifications'
@@ -1025,6 +1058,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCalendarTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/pv/$id/levee-reserves': {
+      id: '/_authenticated/pv/$id/levee-reserves'
+      path: '/levee-reserves'
+      fullPath: '/pv/$id/levee-reserves'
+      preLoaderRoute: typeof AuthenticatedPvIdLeveeReservesRouteImport
+      parentRoute: typeof AuthenticatedPvIdRoute
+    }
     '/_authenticated/pv/$id/historique': {
       id: '/_authenticated/pv/$id/historique'
       path: '/historique'
@@ -1042,6 +1082,7 @@ interface AuthenticatedParametresRouteChildren {
   AuthenticatedParametresDonneesRoute: typeof AuthenticatedParametresDonneesRoute
   AuthenticatedParametresIntegrationsRoute: typeof AuthenticatedParametresIntegrationsRoute
   AuthenticatedParametresNotificationsRoute: typeof AuthenticatedParametresNotificationsRoute
+  AuthenticatedParametresNumerotationRoute: typeof AuthenticatedParametresNumerotationRoute
   AuthenticatedParametresPreferencesRoute: typeof AuthenticatedParametresPreferencesRoute
   AuthenticatedParametresSecuriteRoute: typeof AuthenticatedParametresSecuriteRoute
   AuthenticatedParametresIndexRoute: typeof AuthenticatedParametresIndexRoute
@@ -1057,6 +1098,8 @@ const AuthenticatedParametresRouteChildren: AuthenticatedParametresRouteChildren
       AuthenticatedParametresIntegrationsRoute,
     AuthenticatedParametresNotificationsRoute:
       AuthenticatedParametresNotificationsRoute,
+    AuthenticatedParametresNumerotationRoute:
+      AuthenticatedParametresNumerotationRoute,
     AuthenticatedParametresPreferencesRoute:
       AuthenticatedParametresPreferencesRoute,
     AuthenticatedParametresSecuriteRoute: AuthenticatedParametresSecuriteRoute,
@@ -1081,10 +1124,12 @@ const AuthenticatedTerrainRouteWithChildren =
 
 interface AuthenticatedPvIdRouteChildren {
   AuthenticatedPvIdHistoriqueRoute: typeof AuthenticatedPvIdHistoriqueRoute
+  AuthenticatedPvIdLeveeReservesRoute: typeof AuthenticatedPvIdLeveeReservesRoute
 }
 
 const AuthenticatedPvIdRouteChildren: AuthenticatedPvIdRouteChildren = {
   AuthenticatedPvIdHistoriqueRoute: AuthenticatedPvIdHistoriqueRoute,
+  AuthenticatedPvIdLeveeReservesRoute: AuthenticatedPvIdLeveeReservesRoute,
 }
 
 const AuthenticatedPvIdRouteWithChildren =
