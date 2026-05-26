@@ -38,7 +38,28 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 import { useCompany } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { createPv } from "@/lib/pv-create.functions";
+import { getCompanyBrandingFn } from "@/lib/branding.functions";
 import { fileToBase64 } from "@/lib/file-upload";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Lock } from "lucide-react";
+
+type Branding = {
+  id: string;
+  name: string;
+  legal_form: string | null;
+  siren: string | null;
+  siret: string | null;
+  address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  postal_code: string | null;
+  city: string | null;
+  country: string | null;
+  email: string | null;
+  phone: string | null;
+  logo_url: string | null;
+};
 
 export const Route = createFileRoute("/_authenticated/pv/new")({
   component: NewPv,
@@ -71,18 +92,19 @@ function NewPv() {
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
   const createPvFn = useServerFn(createPv);
+  const getBrandingFn = useServerFn(getCompanyBrandingFn);
   const [step, setStep] = useState(1);
+  const [maxStepReached, setMaxStepReached] = useState(1);
   const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [branding, setBranding] = useState<Branding | null>(null);
+  const [brandingLoading, setBrandingLoading] = useState(true);
 
   const [form, setForm] = useState({
     numero: `PV-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`,
     type: "reception",
-    company_name: "",
-    company_address: "",
-    company_siret: "",
     chantier_id: "",
     client_id: "",
     new_client_name: "",
@@ -123,6 +145,28 @@ function NewPv() {
       /* ignore */
     }
   }, []);
+
+  // Load company branding (server-side, single source of truth)
+  useEffect(() => {
+    if (!activeCompanyId) {
+      setBrandingLoading(false);
+      return;
+    }
+    setBrandingLoading(true);
+    getBrandingFn({ data: { companyId: activeCompanyId } })
+      .then((b) => setBranding((b as Branding) ?? null))
+      .catch(() => setBranding(null))
+      .finally(() => setBrandingLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId]);
+
+  const brandingComplete = useMemo(() => {
+    if (!branding) return false;
+    const hasAddress = !!(branding.address_line1 || branding.address);
+    const hasIdent = !!(branding.siret || branding.siren);
+    const hasContact = !!(branding.email || branding.phone);
+    return !!branding.name && hasIdent && hasAddress && hasContact;
+  }, [branding]);
 
   // Autosave (form + reserves only; photos & signatures are not serializable)
   useEffect(() => {
@@ -218,7 +262,7 @@ function NewPv() {
       lines.forEach((l, i) => doc.text(l || "—", x + 3, y + 11 + i * 5));
     };
     const cli = clients.find((c) => c.id === form.client_id);
-    block(14, "Entreprise", [form.company_name, form.company_address, form.company_siret && `SIRET ${form.company_siret}`].filter(Boolean) as string[]);
+    block(14, "Entreprise", [branding?.name ?? "", branding?.address ?? "", branding?.siret ? `SIRET ${branding.siret}` : ""].filter(Boolean) as string[]);
     block(108, "Client", [cli?.name ?? form.new_client_name, cli?.email ?? form.new_client_email].filter(Boolean) as string[]);
     y += 30;
 
@@ -368,29 +412,60 @@ function NewPv() {
           },
         });
         navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } });
+      } else if (e?.code === "COMPANY_INCOMPLETE" || /COMPANY_INCOMPLETE|entreprise incomplète/i.test(e?.message ?? "")) {
+        toast.error("Fiche entreprise incomplète. Complétez-la avant de créer un PV.", {
+          action: { label: "Compléter", onClick: () => navigate({ to: "/entreprise" }) },
+        });
+        setStep(1);
       } else {
         toast.error(e?.message || "Échec de la création.");
       }
+
     } finally {
       setSaving(false);
     }
   }
 
   // Validation per step
-  const stepValid = useMemo(() => {
-    switch (step) {
-      case 1:
-        return form.company_name.trim().length > 0;
-      case 2:
-        return Boolean(form.client_id || form.new_client_name.trim());
-      case 3:
-        return form.site_address.trim().length > 0 && Boolean(form.reception_date);
-      case 4:
-        return form.description.trim().length > 0;
-      default:
-        return true;
+  const stepErrors = useMemo<Record<number, string | null>>(() => {
+    return {
+      1: brandingComplete ? null : "Fiche entreprise incomplète.",
+      2: form.client_id || form.new_client_name.trim()
+        ? (form.client_id || form.new_client_email.trim() || form.new_client_name.trim().length > 1
+            ? null
+            : "Renseignez au moins un email ou téléphone client.")
+        : "Sélectionnez un client ou créez-en un.",
+      3: form.site_address.trim().length > 0 && form.reception_date
+        ? null
+        : "Adresse chantier et date de réception obligatoires.",
+      4: form.description.trim().length > 0 ? null : "Description des travaux obligatoire.",
+      5: null,
+      6: null,
+      7: null,
+      8: null,
+    };
+  }, [brandingComplete, form]);
+  const stepValid = stepErrors[step] === null;
+
+  // Track furthest reached step
+  useEffect(() => {
+    setMaxStepReached((m) => Math.max(m, step));
+  }, [step]);
+
+  function goToStep(target: number) {
+    if (target <= step) {
+      setStep(target);
+      return;
     }
-  }, [step, form]);
+    // Only allow forward jump if all intermediate steps are valid
+    for (let i = step; i < target; i++) {
+      if (stepErrors[i]) {
+        toast.error(stepErrors[i] || "Étape précédente invalide.");
+        return;
+      }
+    }
+    setStep(target);
+  }
 
   const progress = (step / STEPS.length) * 100;
 
@@ -441,18 +516,22 @@ function NewPv() {
           <div className="mt-5 hidden flex-wrap gap-1.5 md:flex">
             {STEPS.map((s) => {
               const Icon = s.icon;
-              const done = s.id < step;
+              const done = s.id < step && !stepErrors[s.id];
               const current = s.id === step;
+              const locked = s.id > step && s.id > maxStepReached;
               return (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setStep(s.id)}
+                  disabled={locked}
+                  onClick={() => goToStep(s.id)}
                   className={`group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
                     current
                       ? "bg-primary text-primary-foreground shadow-brand"
                       : done
                       ? "bg-success/10 text-success hover:bg-success/15"
+                      : locked
+                      ? "bg-muted/40 text-muted-foreground/50 cursor-not-allowed"
                       : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
@@ -465,13 +544,14 @@ function NewPv() {
                         : "bg-background/60"
                     }`}
                   >
-                    {done ? <Check className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
+                    {done ? <Check className="h-2.5 w-2.5" /> : locked ? <Lock className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
                   </span>
                   {s.label}
                 </button>
               );
             })}
           </div>
+
         </div>
 
         {/* Step content */}
@@ -487,7 +567,7 @@ function NewPv() {
             >
               {step === 1 && (
                 <>
-                  <SectionHeader icon={Building2} title="Informations entreprise" desc="Vos coordonnées qui apparaîtront sur le PV." />
+                  <SectionHeader icon={Building2} title="Informations entreprise" desc="Vos coordonnées qui apparaîtront sur le PV — issues de votre fiche entreprise." />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Numéro de PV"><Input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} /></Field>
                     <Field label="Type de PV">
@@ -496,12 +576,92 @@ function NewPv() {
                         <SelectContent>{TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                       </Select>
                     </Field>
-                    <Field label="Nom de l'entreprise *"><Input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} placeholder="SARL Toitures du Sud" /></Field>
-                    <Field label="SIRET"><Input value={form.company_siret} onChange={(e) => setForm({ ...form, company_siret: e.target.value })} placeholder="123 456 789 00012" /></Field>
-                    <div className="sm:col-span-2"><Field label="Adresse de l'entreprise"><Input value={form.company_address} onChange={(e) => setForm({ ...form, company_address: e.target.value })} placeholder="12 rue des Artisans, 06000 Nice" /></Field></div>
                   </div>
+
+                  {brandingLoading ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Chargement de votre fiche entreprise…
+                    </div>
+                  ) : !brandingComplete ? (
+                    <Alert variant="destructive" className="border-destructive/40 bg-destructive/5">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Fiche entreprise incomplète</AlertTitle>
+                      <AlertDescription className="space-y-3">
+                        <p>
+                          Pour créer un procès-verbal, votre fiche entreprise doit contenir au minimum :
+                          nom, SIRET ou SIREN, adresse et email ou téléphone.
+                        </p>
+                        <Button asChild size="sm" variant="default">
+                          <Link to="/entreprise">Compléter ma fiche entreprise</Link>
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-border bg-gradient-to-br from-muted/30 to-background p-5">
+                        <div className="flex items-start gap-4">
+                          {branding?.logo_url ? (
+                            <img
+                              src={branding.logo_url}
+                              alt={branding.name}
+                              className="h-16 w-16 shrink-0 rounded-lg border border-border object-contain bg-background"
+                            />
+                          ) : (
+                            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted-foreground">
+                              <Building2 className="h-7 w-7" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="truncate text-lg font-semibold">{branding?.name}</h4>
+                              <Badge variant="secondary" className="gap-1">
+                                <Lock className="h-3 w-3" /> Verrouillé
+                              </Badge>
+                            </div>
+                            {branding?.legal_form && (
+                              <p className="text-xs text-muted-foreground">{branding.legal_form}</p>
+                            )}
+                            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                              <ReadOnlyRow label="SIRET" value={branding?.siret} />
+                              <ReadOnlyRow label="SIREN" value={branding?.siren} />
+                              <ReadOnlyRow label="Email" value={branding?.email} />
+                              <ReadOnlyRow label="Téléphone" value={branding?.phone} />
+                              <div className="sm:col-span-2">
+                                <ReadOnlyRow
+                                  label="Adresse"
+                                  value={
+                                    branding?.address_line1
+                                      ? [
+                                          branding.address_line1,
+                                          branding.address_line2,
+                                          [branding.postal_code, branding.city].filter(Boolean).join(" "),
+                                          branding.country,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(", ")
+                                      : branding?.address
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-muted/10 px-4 py-3 text-xs text-muted-foreground">
+                        <span>
+                          Ces informations proviennent de votre fiche entreprise. Pour les modifier,
+                          allez dans Paramètres &gt; Entreprise.
+                        </span>
+                        <Button asChild size="sm" variant="outline">
+                          <Link to="/entreprise">Modifier ma fiche entreprise</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
+
+
 
               {step === 2 && (
                 <>
@@ -693,18 +853,30 @@ function NewPv() {
             {STEPS[step - 1].label}
           </div>
           {step < STEPS.length ? (
-            <Button
-              disabled={!stepValid}
-              onClick={() => setStep((s) => Math.min(STEPS.length, s + 1))}
-            >
-              Suivant <ChevronRight className="h-4 w-4" />
-            </Button>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      disabled={!stepValid}
+                      onClick={() => goToStep(step + 1)}
+                    >
+                      Suivant <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!stepValid && stepErrors[step] && (
+                  <TooltipContent>{stepErrors[step]}</TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           ) : (
             <Button disabled={saving} onClick={() => onSave("signe")} className="shadow-brand">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Valider & signer
             </Button>
           )}
+
         </div>
       </Card>
     </div>
@@ -721,6 +893,15 @@ function SectionHeader({ icon: Icon, title, desc }: { icon: typeof Building2; ti
         <h3 className="font-semibold tracking-tight">{title}</h3>
         <p className="text-sm text-muted-foreground">{desc}</p>
       </div>
+    </div>
+  );
+}
+
+function ReadOnlyRow({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="truncate text-sm text-foreground">{value || <span className="text-muted-foreground/60">—</span>}</span>
     </div>
   );
 }
