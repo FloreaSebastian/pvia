@@ -110,7 +110,7 @@ function ClientHistorique() {
                           params={{ id: e.pv_id! }}
                           className="text-primary hover:underline"
                         >
-                          PV {e.pv_numero}
+                          N° {e.pv_numero}
                         </Link>
                       )}
                       <Badge variant="outline" className="ml-auto shrink-0 text-[10px]">

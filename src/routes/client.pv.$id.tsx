@@ -107,7 +107,7 @@ function ClientPvDetail() {
 
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">PV {pv.numero}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">N° {pv.numero}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {company?.name && (
               <span className="inline-flex items-center gap-1">
