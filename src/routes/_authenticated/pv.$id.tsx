@@ -295,9 +295,9 @@ function PvDetail() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Link to="/pv" className="hover:text-foreground">Procès-verbaux</Link>
             <ChevronRight className="h-3 w-3" />
-            <span>{pv.numero}</span>
+            <span>N° {pv.numero}</span>
           </div>
-          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">PV {pv.numero}</h1>
+          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">N° {pv.numero}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Créé le {new Date(pv.created_at).toLocaleDateString("fr-FR")}
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}

@@ -39,6 +39,7 @@ import { useCompany } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { createPv } from "@/lib/pv-create.functions";
 import { getCompanyBrandingFn } from "@/lib/branding.functions";
+import { getPvNumberingSettings } from "@/lib/pv-numbering.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -89,6 +90,7 @@ function NewPv() {
   const { activeCompanyId } = useCompany();
   const createPvFn = useServerFn(createPv);
   const getBrandingFn = useServerFn(getCompanyBrandingFn);
+  const getNumberingFn = useServerFn(getPvNumberingSettings);
   const [step, setStep] = useState(1);
   const [maxStepReached, setMaxStepReached] = useState(1);
   const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null }[]>([]);
@@ -97,6 +99,7 @@ function NewPv() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [branding, setBranding] = useState<Branding | null>(null);
   const [brandingLoading, setBrandingLoading] = useState(true);
+  const [numeroPreview, setNumeroPreview] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     chantier_id: "",
@@ -151,6 +154,21 @@ function NewPv() {
       .then((b) => setBranding((b as Branding) ?? null))
       .catch(() => setBranding(null))
       .finally(() => setBrandingLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId]);
+
+  // Preview du prochain numéro (informatif uniquement, le serveur reste autoritaire)
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    getNumberingFn({ data: { companyId: activeCompanyId } })
+      .then((s: any) => {
+        const prefix = s.pv_number_prefix ?? "PV";
+        const sep = s.pv_number_separator ?? "-";
+        const year = s.pv_number_include_year ? `${new Date().getFullYear()}${sep}` : "";
+        const num = String(s.pv_number_next ?? 1).padStart(s.pv_number_digits ?? 5, "0");
+        setNumeroPreview(`${prefix}${sep}${year}${num}`);
+      })
+      .catch(() => setNumeroPreview(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompanyId]);
 
@@ -560,22 +578,16 @@ function NewPv() {
               {step === 1 && (
                 <>
                   <SectionHeader icon={Building2} title="Informations entreprise" desc="Vos coordonnées qui apparaîtront sur le PV — issues de votre fiche entreprise." />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Numéro de PV</div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold text-foreground">Attribué automatiquement</span>
-                        <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Verrouillé</Badge>
+                  <div className="rounded-xl border border-border bg-muted/10 px-5 py-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                      <div className="font-mono text-base font-semibold tracking-tight text-foreground">
+                        N° {numeroPreview ?? "attribué à l'enregistrement"}
+                        {numeroPreview && (
+                          <span className="ml-2 text-[11px] font-sans font-normal text-muted-foreground">(aperçu)</span>
+                        )}
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Le numéro est généré côté serveur à la création (format : Paramètres &gt; Numérotation).
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type de PV</div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="text-sm font-semibold text-foreground">Procès-verbal de réception de travaux</span>
-                        <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Fixé</Badge>
+                      <div className="text-sm text-muted-foreground">
+                        <span className="text-foreground">Document :</span> Procès-verbal de réception de travaux
                       </div>
                     </div>
                   </div>

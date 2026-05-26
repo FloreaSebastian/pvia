@@ -192,7 +192,7 @@ function PvList() {
             {filtered.map((p) => (
               <TableRow key={p.id} className="group cursor-pointer hover:bg-muted/40">
                 <TableCell className="font-medium">
-                  <Link to="/pv/$id" params={{ id: p.id }} className="hover:underline">{p.numero}</Link>
+                  <Link to="/pv/$id" params={{ id: p.id }} className="font-mono hover:underline">N° {p.numero}</Link>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{p.type}</TableCell>
                 <TableCell><PvStatusPill status={p.status} /></TableCell>

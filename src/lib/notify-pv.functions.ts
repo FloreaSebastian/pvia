@@ -39,8 +39,8 @@ export const notifyPvCreated = createServerFn({ method: "POST" })
 
     const title = data.signed ? "PV signé" : "Nouveau PV";
     const body = data.signed
-      ? `Le PV ${pv.numero} a été signé.`
-      : `Le PV ${pv.numero} vient d'être créé.`;
+      ? `Le N° ${pv.numero} a été signé.`
+      : `Le N° ${pv.numero} vient d'être créé.`;
 
     firePushToCompany(
       pv.company_id,

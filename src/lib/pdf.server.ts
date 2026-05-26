@@ -103,7 +103,7 @@ export async function generatePvPdfBytes(input: {
     return rgb(r * 0.05 + 0.95, g * 0.05 + 0.95, b * 0.05 + 0.97);
   })();
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`PV ${pv.numero}`);
+  pdf.setTitle(`N° ${pv.numero}`);
   pdf.setCreator("PVIA");
   pdf.setProducer("PVIA");
 
@@ -163,7 +163,7 @@ export async function generatePvPdfBytes(input: {
     }
     page.drawLine({ start: { x: MARGIN, y: MARGIN }, end: { x: PAGE_W - MARGIN, y: MARGIN }, thickness: 0.5, color: BORDER });
     const footerText = sanitize(branding.pdf_footer || "Document généré par PVIA.");
-    page.drawText(`PV ${sanitize(pv.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
+    page.drawText(`N° ${sanitize(pv.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
     page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
   };
 

@@ -117,7 +117,7 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       body: JSON.stringify({
         from: "PVIA <onboarding@resend.dev>",
         to: [data.email],
-        subject: `${company?.name || "PVIA"} — PV ${pv.numero} à signer`,
+        subject: `${company?.name || "PVIA"} — N° ${pv.numero} à signer`,
         html,
       }),
     });
@@ -253,7 +253,7 @@ export const signPvByToken = createServerFn({ method: "POST" })
       user_id: pv.owner_id,
       type: "pv_signed_remote",
       title: "PV signé par le client",
-      body: `Le PV ${pv.numero} a été signé électroniquement.`,
+      body: `Le N° ${pv.numero} a été signé électroniquement.`,
     });
 
     await writeAuditLog({

@@ -118,7 +118,7 @@ function ClientDashboard() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold">PV {pv.numero}</span>
+                        <span className="font-semibold">N° {pv.numero}</span>
                         {isSigned ? (
                           <StatusPill tone="success" size="sm" dot>Signé</StatusPill>
                         ) : needsSign ? (
