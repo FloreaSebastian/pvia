@@ -69,11 +69,7 @@ export const Route = createFileRoute("/_authenticated/pv/new")({
 type Photo = { file: File; preview: string; caption: string; kind: "avant" | "apres" };
 type Reserve = { description: string; severity: "mineure" | "majeure"; status: "ouverte" | "levee" | "validee" };
 
-const TYPES = [
-  { value: "reception", label: "Réception de travaux" },
-  { value: "reception_reserves", label: "Réception avec réserves" },
-  { value: "levee_reserves", label: "Levée de réserves" },
-];
+// Type is fixed server-side to "reception" — no client choice.
 
 const STEPS = [
   { id: 1, label: "Entreprise", icon: Building2 },
