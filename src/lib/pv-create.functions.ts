@@ -32,6 +32,9 @@ const ReserveSchema = z.object({
   description: z.string().trim().min(1).max(2000),
   severity: z.enum(["mineure", "majeure"]),
   status: z.enum(["ouverte", "levee", "validee"]),
+  nature: z.string().trim().max(200).optional().default(""),
+  work_to_execute: z.string().trim().max(2000).optional().default(""),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 });
 
 const PhotoSchema = z.object({
@@ -56,6 +59,18 @@ const InputSchema = z.object({
   company_signature: z.string().max(800_000).nullable().optional(),
   reserves: z.array(ReserveSchema).max(50).optional().default([]),
   photos: z.array(PhotoSchema).max(PHOTO_MAX_COUNT).optional().default([]),
+  // --- Reception type & work reference (CAPEB-style) ---
+  reception_with_reserves: z.boolean().optional().default(false),
+  work_reference_type: z.enum(["devis", "bon_commande", "marche", "manuel"]).nullable().optional(),
+  work_reference_number: z.string().trim().max(100).nullable().optional(),
+  work_reference_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  work_reference_amount: z.number().nonnegative().nullable().optional(),
+  reserve_completion_delay: z.string().trim().max(120).nullable().optional(),
+  reserve_due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  // Chantier address snapshot (from autocomplete)
+  chantier_address: z.string().trim().max(500).optional().default(""),
+  chantier_postal_code: z.string().trim().max(20).optional().default(""),
+  chantier_city: z.string().trim().max(200).optional().default(""),
 });
 
 export const createPv = createServerFn({ method: "POST" })
