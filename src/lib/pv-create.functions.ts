@@ -258,7 +258,10 @@ export const createPv = createServerFn({ method: "POST" })
             description: r.description,
             severity: r.severity,
             status: r.status,
-          })),
+            nature: r.nature?.trim() || null,
+            work_to_execute: r.work_to_execute?.trim() || null,
+            due_date: r.due_date ?? null,
+          })) as never,
         );
       if (resErr) {
         console.error("createPv: insert reserves failed", resErr);
