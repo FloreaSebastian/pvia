@@ -24,6 +24,9 @@ type Row = {
   status: string;
   created_at: string;
   pv_id: string;
+  nature: string | null;
+  work_to_execute: string | null;
+  due_date: string | null;
   pv: { numero: string } | null;
 };
 
@@ -36,7 +39,7 @@ function ReservesPage() {
     if (!activeCompanyId) return;
     const { data, error } = await supabase
       .from("pv_reserves")
-      .select("id,description,severity,status,created_at,pv_id")
+      .select("id,description,severity,status,created_at,pv_id,nature,work_to_execute,due_date")
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
     if (error) return toast.error(error.message);
@@ -141,7 +144,12 @@ function ReservesPage() {
                     {r.pv?.numero} <ExternalLink className="h-3 w-3" />
                   </Link>
                 </TableCell>
-                <TableCell className="max-w-md truncate">{r.description}</TableCell>
+                <TableCell className="max-w-md">
+                  {r.nature && <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{r.nature}</div>}
+                  <div className="truncate">{r.description}</div>
+                  {r.work_to_execute && <div className="mt-0.5 truncate text-xs text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</div>}
+                  {r.due_date && <div className="mt-0.5 text-xs text-warning">Échéance : {new Date(r.due_date).toLocaleDateString("fr-FR")}</div>}
+                </TableCell>
                 <TableCell><StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill></TableCell>
                 <TableCell>
                   <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
