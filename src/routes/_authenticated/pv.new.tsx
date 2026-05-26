@@ -578,22 +578,16 @@ function NewPv() {
               {step === 1 && (
                 <>
                   <SectionHeader icon={Building2} title="Informations entreprise" desc="Vos coordonnées qui apparaîtront sur le PV — issues de votre fiche entreprise." />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Numéro de PV</div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold text-foreground">Attribué automatiquement</span>
-                        <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Verrouillé</Badge>
+                  <div className="rounded-xl border border-border bg-muted/10 px-5 py-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                      <div className="font-mono text-base font-semibold tracking-tight text-foreground">
+                        N° {numeroPreview ?? "attribué à l'enregistrement"}
+                        {numeroPreview && (
+                          <span className="ml-2 text-[11px] font-sans font-normal text-muted-foreground">(aperçu)</span>
+                        )}
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Le numéro est généré côté serveur à la création (format : Paramètres &gt; Numérotation).
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type de PV</div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="text-sm font-semibold text-foreground">Procès-verbal de réception de travaux</span>
-                        <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Fixé</Badge>
+                      <div className="text-sm text-muted-foreground">
+                        <span className="text-foreground">Document :</span> Procès-verbal de réception de travaux
                       </div>
                     </div>
                   </div>
