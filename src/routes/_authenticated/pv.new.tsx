@@ -556,7 +556,7 @@ function NewPv() {
             >
               {step === 1 && (
                 <>
-                  <SectionHeader icon={Building2} title="Informations entreprise" desc="Vos coordonnées qui apparaîtront sur le PV." />
+                  <SectionHeader icon={Building2} title="Informations entreprise" desc="Vos coordonnées qui apparaîtront sur le PV — issues de votre fiche entreprise." />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Numéro de PV"><Input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} /></Field>
                     <Field label="Type de PV">
@@ -565,12 +565,92 @@ function NewPv() {
                         <SelectContent>{TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                       </Select>
                     </Field>
-                    <Field label="Nom de l'entreprise *"><Input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} placeholder="SARL Toitures du Sud" /></Field>
-                    <Field label="SIRET"><Input value={form.company_siret} onChange={(e) => setForm({ ...form, company_siret: e.target.value })} placeholder="123 456 789 00012" /></Field>
-                    <div className="sm:col-span-2"><Field label="Adresse de l'entreprise"><Input value={form.company_address} onChange={(e) => setForm({ ...form, company_address: e.target.value })} placeholder="12 rue des Artisans, 06000 Nice" /></Field></div>
                   </div>
+
+                  {brandingLoading ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Chargement de votre fiche entreprise…
+                    </div>
+                  ) : !brandingComplete ? (
+                    <Alert variant="destructive" className="border-destructive/40 bg-destructive/5">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Fiche entreprise incomplète</AlertTitle>
+                      <AlertDescription className="space-y-3">
+                        <p>
+                          Pour créer un procès-verbal, votre fiche entreprise doit contenir au minimum :
+                          nom, SIRET ou SIREN, adresse et email ou téléphone.
+                        </p>
+                        <Button asChild size="sm" variant="default">
+                          <Link to="/entreprise">Compléter ma fiche entreprise</Link>
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-border bg-gradient-to-br from-muted/30 to-background p-5">
+                        <div className="flex items-start gap-4">
+                          {branding?.logo_url ? (
+                            <img
+                              src={branding.logo_url}
+                              alt={branding.name}
+                              className="h-16 w-16 shrink-0 rounded-lg border border-border object-contain bg-background"
+                            />
+                          ) : (
+                            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted-foreground">
+                              <Building2 className="h-7 w-7" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="truncate text-lg font-semibold">{branding?.name}</h4>
+                              <Badge variant="secondary" className="gap-1">
+                                <Lock className="h-3 w-3" /> Verrouillé
+                              </Badge>
+                            </div>
+                            {branding?.legal_form && (
+                              <p className="text-xs text-muted-foreground">{branding.legal_form}</p>
+                            )}
+                            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                              <ReadOnlyRow label="SIRET" value={branding?.siret} />
+                              <ReadOnlyRow label="SIREN" value={branding?.siren} />
+                              <ReadOnlyRow label="Email" value={branding?.email} />
+                              <ReadOnlyRow label="Téléphone" value={branding?.phone} />
+                              <div className="sm:col-span-2">
+                                <ReadOnlyRow
+                                  label="Adresse"
+                                  value={
+                                    branding?.address_line1
+                                      ? [
+                                          branding.address_line1,
+                                          branding.address_line2,
+                                          [branding.postal_code, branding.city].filter(Boolean).join(" "),
+                                          branding.country,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(", ")
+                                      : branding?.address
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-muted/10 px-4 py-3 text-xs text-muted-foreground">
+                        <span>
+                          Ces informations proviennent de votre fiche entreprise. Pour les modifier,
+                          allez dans Paramètres &gt; Entreprise.
+                        </span>
+                        <Button asChild size="sm" variant="outline">
+                          <Link to="/entreprise">Modifier ma fiche entreprise</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
+
+
 
               {step === 2 && (
                 <>
