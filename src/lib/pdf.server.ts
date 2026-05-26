@@ -339,15 +339,25 @@ export async function generatePvPdfBytes(input: {
     drawText(`RESERVES (${reserves.length})`, { size: 9, font: bold, color: PRIMARY });
     y -= 16;
     for (const r of reserves) {
-      const lines = wrapLines(helv, r.description, 9, CONTENT_W - 24);
-      const h = Math.max(34, lines.length * 12 + 22);
+      const descLines = wrapLines(helv, r.description, 9, CONTENT_W - 24);
+      const workLines = r.work_to_execute ? wrapLines(helv, `Travaux a executer : ${r.work_to_execute}`, 8, CONTENT_W - 24) : [];
+      const natureLine = r.nature ? 1 : 0;
+      const metaLine = (r.due_date ? 1 : 0);
+      const totalLines = descLines.length + workLines.length + natureLine + metaLine;
+      const h = Math.max(40, totalLines * 11 + 26);
       ensureSpace(h + 6);
       page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, borderColor: BORDER, borderWidth: 0.5, color: rgb(0.99, 0.99, 1) });
-      const sevColor = r.severity === "majeure" ? rgb(0.86, 0.15, 0.15) : rgb(0.92, 0.62, 0.07);
+      const sevColor = r.severity === "majeure" || r.severity === "bloquante"
+        ? rgb(0.86, 0.15, 0.15)
+        : rgb(0.92, 0.62, 0.07);
       page.drawRectangle({ x: MARGIN, y: y - h, width: 3, height: h, color: sevColor });
-      page.drawText(`${sanitize(r.severity).toUpperCase()} - ${sanitize(r.status).toUpperCase()}`, { x: MARGIN + 12, y: y - 14, size: 7, font: bold, color: sevColor });
+      const header = `${sanitize(r.severity).toUpperCase()} - ${sanitize(r.status).toUpperCase()}`
+        + (r.nature ? `  |  ${sanitize(r.nature).toUpperCase()}` : "")
+        + (r.due_date ? `  |  ECHEANCE ${sanitize(formatDate(r.due_date))}` : "");
+      page.drawText(header, { x: MARGIN + 12, y: y - 14, size: 7, font: bold, color: sevColor });
       let yy = y - 28;
-      for (const l of lines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 9, font: helv, color: ACCENT }); yy -= 12; }
+      for (const l of descLines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 9, font: helv, color: ACCENT }); yy -= 11; }
+      for (const l of workLines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 8, font: helv, color: MUTED }); yy -= 11; }
       y -= h + 6;
     }
     y -= 6;
