@@ -146,6 +146,28 @@ function NewPv() {
     }
   }, []);
 
+  // Load company branding (server-side, single source of truth)
+  useEffect(() => {
+    if (!activeCompanyId) {
+      setBrandingLoading(false);
+      return;
+    }
+    setBrandingLoading(true);
+    getBrandingFn({ data: { companyId: activeCompanyId } })
+      .then((b) => setBranding((b as Branding) ?? null))
+      .catch(() => setBranding(null))
+      .finally(() => setBrandingLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId]);
+
+  const brandingComplete = useMemo(() => {
+    if (!branding) return false;
+    const hasAddress = !!(branding.address_line1 || branding.address);
+    const hasIdent = !!(branding.siret || branding.siren);
+    const hasContact = !!(branding.email || branding.phone);
+    return !!branding.name && hasIdent && hasAddress && hasContact;
+  }, [branding]);
+
   // Autosave (form + reserves only; photos & signatures are not serializable)
   useEffect(() => {
     const t = setTimeout(() => {
