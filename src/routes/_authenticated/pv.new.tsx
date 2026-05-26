@@ -103,8 +103,6 @@ function NewPv() {
   const [brandingLoading, setBrandingLoading] = useState(true);
 
   const [form, setForm] = useState({
-    numero: `PV-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`,
-    type: "reception",
     chantier_id: "",
     client_id: "",
     new_client_name: "",
