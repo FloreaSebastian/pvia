@@ -15,6 +15,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { firePushToCompany } from "./push.server";
 import { buildAndStorePvPdf } from "./pdf.server";
+import { getCompanyBranding } from "./branding.server";
 import {
   PHOTO_MAX_BYTES,
   PHOTO_MAX_COUNT,
