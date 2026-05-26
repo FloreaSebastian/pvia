@@ -38,7 +38,28 @@ import { StatusBadge } from "@/components/app/StatusBadge";
 import { useCompany } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { createPv } from "@/lib/pv-create.functions";
+import { getCompanyBrandingFn } from "@/lib/branding.functions";
 import { fileToBase64 } from "@/lib/file-upload";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Lock } from "lucide-react";
+
+type Branding = {
+  id: string;
+  name: string;
+  legal_form: string | null;
+  siren: string | null;
+  siret: string | null;
+  address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  postal_code: string | null;
+  city: string | null;
+  country: string | null;
+  email: string | null;
+  phone: string | null;
+  logo_url: string | null;
+};
 
 export const Route = createFileRoute("/_authenticated/pv/new")({
   component: NewPv,
