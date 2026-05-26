@@ -45,8 +45,6 @@ const PhotoSchema = z.object({
 const InputSchema = z.object({
   companyId: z.string().uuid(),
   status: z.enum(["brouillon", "signe"]),
-  numero: z.string().trim().min(1).max(80),
-  type: z.enum(["reception", "reception_reserves", "levee_reserves"]),
   reception_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide"),
   chantier_id: z.string().uuid().nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),
@@ -54,7 +52,7 @@ const InputSchema = z.object({
   new_client_email: z.string().trim().max(200).optional().default(""),
   description: z.string().trim().max(20_000).optional().default(""),
   observations: z.string().trim().max(20_000).optional().default(""),
-  client_signature: z.string().max(800_000).nullable().optional(), // data URL (PNG)
+  client_signature: z.string().max(800_000).nullable().optional(),
   company_signature: z.string().max(800_000).nullable().optional(),
   reserves: z.array(ReserveSchema).max(50).optional().default([]),
   photos: z.array(PhotoSchema).max(PHOTO_MAX_COUNT).optional().default([]),
