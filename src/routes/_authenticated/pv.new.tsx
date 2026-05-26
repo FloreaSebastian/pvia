@@ -90,6 +90,7 @@ function NewPv() {
   const { activeCompanyId } = useCompany();
   const createPvFn = useServerFn(createPv);
   const getBrandingFn = useServerFn(getCompanyBrandingFn);
+  const getNumberingFn = useServerFn(getPvNumberingSettings);
   const [step, setStep] = useState(1);
   const [maxStepReached, setMaxStepReached] = useState(1);
   const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null }[]>([]);
@@ -98,6 +99,7 @@ function NewPv() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [branding, setBranding] = useState<Branding | null>(null);
   const [brandingLoading, setBrandingLoading] = useState(true);
+  const [numeroPreview, setNumeroPreview] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     chantier_id: "",
