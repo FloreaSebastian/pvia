@@ -891,6 +891,15 @@ function SectionHeader({ icon: Icon, title, desc }: { icon: typeof Building2; ti
   );
 }
 
+function ReadOnlyRow({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="truncate text-sm text-foreground">{value || <span className="text-muted-foreground/60">—</span>}</span>
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
