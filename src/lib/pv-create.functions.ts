@@ -226,7 +226,17 @@ export const createPv = createServerFn({ method: "POST" })
           client_signature: clientSig,
           company_signature: companySig,
           signed_at: data.status === "signe" ? nowIso : null,
-        })
+          reception_with_reserves: withReserves,
+          work_reference_type: data.work_reference_type ?? null,
+          work_reference_number: data.work_reference_number?.trim() || null,
+          work_reference_date: data.work_reference_date ?? null,
+          work_reference_amount: data.work_reference_amount ?? null,
+          reserve_completion_delay: withReserves ? (data.reserve_completion_delay?.trim() || null) : null,
+          reserve_due_date: withReserves ? (data.reserve_due_date ?? null) : null,
+          chantier_address: data.chantier_address?.trim() || null,
+          chantier_postal_code: data.chantier_postal_code?.trim() || null,
+          chantier_city: data.chantier_city?.trim() || null,
+        } as never)
         .select("id,numero,company_id,owner_id")
         .single();
       if (!pvErr && ins) { pvIns = ins; break; }
