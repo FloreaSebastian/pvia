@@ -421,20 +421,45 @@ function NewPv() {
   }
 
   // Validation per step
-  const stepValid = useMemo(() => {
-    switch (step) {
-      case 1:
-        return form.company_name.trim().length > 0;
-      case 2:
-        return Boolean(form.client_id || form.new_client_name.trim());
-      case 3:
-        return form.site_address.trim().length > 0 && Boolean(form.reception_date);
-      case 4:
-        return form.description.trim().length > 0;
-      default:
-        return true;
+  const stepErrors = useMemo<Record<number, string | null>>(() => {
+    return {
+      1: brandingComplete ? null : "Fiche entreprise incomplète.",
+      2: form.client_id || form.new_client_name.trim()
+        ? (form.client_id || form.new_client_email.trim() || form.new_client_name.trim().length > 1
+            ? null
+            : "Renseignez au moins un email ou téléphone client.")
+        : "Sélectionnez un client ou créez-en un.",
+      3: form.site_address.trim().length > 0 && form.reception_date
+        ? null
+        : "Adresse chantier et date de réception obligatoires.",
+      4: form.description.trim().length > 0 ? null : "Description des travaux obligatoire.",
+      5: null,
+      6: null,
+      7: null,
+      8: null,
+    };
+  }, [brandingComplete, form]);
+  const stepValid = stepErrors[step] === null;
+
+  // Track furthest reached step
+  useEffect(() => {
+    setMaxStepReached((m) => Math.max(m, step));
+  }, [step]);
+
+  function goToStep(target: number) {
+    if (target <= step) {
+      setStep(target);
+      return;
     }
-  }, [step, form]);
+    // Only allow forward jump if all intermediate steps are valid
+    for (let i = step; i < target; i++) {
+      if (stepErrors[i]) {
+        toast.error(stepErrors[i] || "Étape précédente invalide.");
+        return;
+      }
+    }
+    setStep(target);
+  }
 
   const progress = (step / STEPS.length) * 100;
 
