@@ -527,6 +527,11 @@ export type Database = {
           pdf_brand_color: string | null
           pdf_footer: string
           pdf_watermark: string
+          pv_number_digits: number
+          pv_number_include_year: boolean
+          pv_number_next: number
+          pv_number_prefix: string
+          pv_number_separator: string
           timezone: string
           updated_at: string
           updated_by: string | null
@@ -544,6 +549,11 @@ export type Database = {
           pdf_brand_color?: string | null
           pdf_footer?: string
           pdf_watermark?: string
+          pv_number_digits?: number
+          pv_number_include_year?: boolean
+          pv_number_next?: number
+          pv_number_prefix?: string
+          pv_number_separator?: string
           timezone?: string
           updated_at?: string
           updated_by?: string | null
@@ -561,6 +571,11 @@ export type Database = {
           pdf_brand_color?: string | null
           pdf_footer?: string
           pdf_watermark?: string
+          pv_number_digits?: number
+          pv_number_include_year?: boolean
+          pv_number_next?: number
+          pv_number_prefix?: string
+          pv_number_separator?: string
           timezone?: string
           updated_at?: string
           updated_by?: string | null
@@ -1038,6 +1053,101 @@ export type Database = {
         }
         Relationships: []
       }
+      reserve_lift_items: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          new_status: string
+          old_status: string | null
+          photo_urls: string[]
+          report_id: string
+          reserve_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          new_status?: string
+          old_status?: string | null
+          photo_urls?: string[]
+          report_id: string
+          reserve_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          new_status?: string
+          old_status?: string | null
+          photo_urls?: string[]
+          report_id?: string
+          reserve_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reserve_lift_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reserve_lift_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reserve_lift_reports: {
+        Row: {
+          client_signature: string | null
+          comment: string | null
+          company_id: string
+          company_signature: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          numero: string
+          pdf_generated_at: string | null
+          pdf_url: string | null
+          pv_id: string
+          require_client_signature: boolean
+          signed_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_signature?: string | null
+          comment?: string | null
+          company_id: string
+          company_signature?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          numero: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          pv_id: string
+          require_client_signature?: boolean
+          signed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_signature?: string | null
+          comment?: string | null
+          company_id?: string
+          company_signature?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          numero?: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          pv_id?: string
+          require_client_signature?: boolean
+          signed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean
@@ -1272,6 +1382,10 @@ export type Database = {
       enqueue_webhook_event: {
         Args: { _company_id: string; _event: string; _payload: Json }
         Returns: undefined
+      }
+      generate_next_pv_number: {
+        Args: { _company_id: string }
+        Returns: string
       }
       get_company_limits: {
         Args: { _company_id: string }
