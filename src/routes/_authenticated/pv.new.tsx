@@ -230,7 +230,7 @@ function NewPv() {
     doc.text("Réception de travaux intelligente", 14, 20);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text(form.numero, W - 14, 18, { align: "right" });
+    doc.text("Numéro attribué à la création", W - 14, 18, { align: "right" });
 
     doc.setTextColor(20, 20, 20);
     y = 38;
@@ -242,7 +242,7 @@ function NewPv() {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(110, 110, 110);
-    doc.text(TYPES.find((t) => t.value === form.type)?.label ?? "", 105, y, { align: "center" });
+    doc.text("Réception de travaux", 105, y, { align: "center" });
     doc.setTextColor(20, 20, 20);
     y += 10;
 
@@ -374,8 +374,6 @@ function NewPv() {
         data: {
           companyId: activeCompanyId,
           status,
-          numero: form.numero,
-          type: form.type as any,
           reception_date: form.reception_date,
           chantier_id: form.chantier_id || null,
           client_id: form.client_id || null,
@@ -567,13 +565,23 @@ function NewPv() {
                 <>
                   <SectionHeader icon={Building2} title="Informations entreprise" desc="Vos coordonnées qui apparaîtront sur le PV — issues de votre fiche entreprise." />
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Numéro de PV"><Input value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} /></Field>
-                    <Field label="Type de PV">
-                      <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </Field>
+                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Numéro de PV</div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="font-mono text-sm font-semibold text-foreground">Attribué automatiquement</span>
+                        <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Verrouillé</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Le numéro est généré côté serveur à la création (format : Paramètres &gt; Numérotation).
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type de PV</div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">Procès-verbal de réception de travaux</span>
+                        <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Fixé</Badge>
+                      </div>
+                    </div>
                   </div>
 
                   {brandingLoading ? (
