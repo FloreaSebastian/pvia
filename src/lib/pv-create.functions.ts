@@ -143,7 +143,7 @@ export const createPv = createServerFn({ method: "POST" })
         if (!otp) throw new Error("OTP introuvable.");
         if (otp.company_id !== data.companyId) throw new Error("OTP invalide pour cette entreprise.");
         if (!otp.used_at) throw new Error("OTP non vérifié.");
-        otpRecord = otp as NonNullable<typeof otpRecord>;
+        otpRecord = otp as OtpRecord;
       }
     }
     if (status === "en_attente") {
