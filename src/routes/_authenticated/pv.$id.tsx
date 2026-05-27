@@ -70,7 +70,7 @@ type Pv = {
   chantier_city: string | null;
 };
 type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
-type Reserve = { id: string; description: string; severity: string; status: string };
+type Reserve = { id: string; description: string; severity: string; status: string; lifted_at?: string | null; validated_at?: string | null };
 
 function PvDetail() {
   const { id } = Route.useParams();
@@ -99,7 +99,7 @@ function PvDetail() {
   const [resendingSigned, setResendingSigned] = useState(false);
   const [lastEvent, setLastEvent] = useState<{ action: string; created_at: string; user_name: string | null } | null>(null);
   const [auditTotal, setAuditTotal] = useState<number>(0);
-  const [lifts, setLifts] = useState<Array<{ id: string; numero: string; status: string; signed_at: string | null; pdf_url: string | null; created_at: string }>>([]);
+  const [lifts, setLifts] = useState<Array<{ id: string; numero: string; status: string; signed_at: string | null; pdf_url: string | null; created_at: string; client_validated_at?: string | null; client_validated_email?: string | null }>>([]);
   const fetchAuditFn = useServerFn(listPvAuditLogs);
 
 
@@ -115,7 +115,7 @@ function PvDetail() {
 
     const [photosRes, reservesRes] = await Promise.all([
       supabase.from("pv_photos").select("id,url,caption").eq("pv_id", id),
-      supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", id).order("created_at"),
+      supabase.from("pv_reserves").select("id,description,severity,status,lifted_at,validated_at").eq("pv_id", id).order("created_at"),
     ]);
     const ph = (photosRes.data ?? []) as Photo[];
     // Sign URLs for photos
@@ -600,26 +600,38 @@ function PvDetail() {
                 <p className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">Aucun PV de levée pour le moment.</p>
               ) : (
                 <div className="space-y-2">
-                  {lifts.map((l) => (
-                    <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">N° {l.numero}</span>
-                        <StatusPill tone={l.status === "signe" ? "success" : "neutral"} dot>{l.status === "signe" ? "Signé" : "Brouillon"}</StatusPill>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(l.signed_at || l.created_at).toLocaleString("fr-FR")}
-                        </span>
+                  {lifts.map((l) => {
+                    const validated = !!l.client_validated_at;
+                    const liftStatusLabel = validated ? "Validée par client" : l.status === "signe" ? "En attente validation client" : "Brouillon";
+                    const liftTone = validated ? "success" : l.status === "signe" ? "warning" : "neutral";
+                    return (
+                      <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">N° {l.numero}</span>
+                          <StatusPill tone={liftTone as any} dot>{liftStatusLabel}</StatusPill>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(l.signed_at || l.created_at).toLocaleString("fr-FR")}
+                          </span>
+                          {validated && (
+                            <span className="text-xs text-muted-foreground">
+                              · Validée le {new Date(l.client_validated_at!).toLocaleString("fr-FR")}
+                              {l.client_validated_email ? ` par ${l.client_validated_email}` : ""}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {l.pdf_url ? (
+                            <Button size="sm" variant={validated ? "default" : "outline"} onClick={() => downloadLiftPdf(l.id)}>
+                              <Download className="h-3.5 w-3.5" />
+                              {validated ? " Télécharger le PV de levée validé" : " Télécharger le PV de levée signé entreprise"}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">PDF non généré</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {l.pdf_url ? (
-                          <Button size="sm" variant="outline" onClick={() => downloadLiftPdf(l.id)}>
-                            <Download className="h-3.5 w-3.5" /> Télécharger PDF
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">PDF non généré</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -643,28 +655,38 @@ function PvDetail() {
           <p className="py-8 text-center text-sm text-muted-foreground">Aucune réserve.</p>
         ) : (
           <div className="space-y-2">
-            {reserves.map((r) => (
-              <div key={r.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill>
-                    <StatusPill tone={r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning"} dot>{r.status}</StatusPill>
+            {reserves.map((r) => {
+              const statusLabel = r.status === "ouverte" ? "Ouverte" : r.status === "levee" ? "Levée par l'entreprise" : r.status === "validee" ? "Validée par le client" : r.status;
+              const statusTone = r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning";
+              return (
+                <div key={r.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill>
+                      <StatusPill tone={statusTone as any} dot>{statusLabel}</StatusPill>
+                    </div>
+                    <p className="mt-2 text-sm">{r.description}</p>
+                    {(r.lifted_at || r.validated_at) && (
+                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                        {r.lifted_at && <span>Levée le {new Date(r.lifted_at).toLocaleString("fr-FR")}</span>}
+                        {r.validated_at && <span>Validée client le {new Date(r.validated_at).toLocaleString("fr-FR")}</span>}
+                      </div>
+                    )}
                   </div>
-                  <p className="mt-2 text-sm">{r.description}</p>
+                  <Select value={r.status} onValueChange={(v) => updateReserve(r.id, v)}>
+                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ouverte">Ouverte</SelectItem>
+                      <SelectItem value="levee">Levée</SelectItem>
+                      <SelectItem value="validee">Validée</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="icon" variant="ghost" onClick={() => deleteReserve(r.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
-                <Select value={r.status} onValueChange={(v) => updateReserve(r.id, v)}>
-                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ouverte">Ouverte</SelectItem>
-                    <SelectItem value="levee">Levée</SelectItem>
-                    <SelectItem value="validee">Validée</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button size="icon" variant="ghost" onClick={() => deleteReserve(r.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>

@@ -27,6 +27,8 @@ type Row = {
   nature: string | null;
   work_to_execute: string | null;
   due_date: string | null;
+  lifted_at: string | null;
+  validated_at: string | null;
   pv: { numero: string } | null;
 };
 
@@ -39,7 +41,7 @@ function ReservesPage() {
     if (!activeCompanyId) return;
     const { data, error } = await supabase
       .from("pv_reserves")
-      .select("id,description,severity,status,created_at,pv_id,nature,work_to_execute,due_date")
+      .select("id,description,severity,status,created_at,pv_id,nature,work_to_execute,due_date,lifted_at,validated_at")
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
     if (error) return toast.error(error.message);
@@ -152,14 +154,18 @@ function ReservesPage() {
                 </TableCell>
                 <TableCell><StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill></TableCell>
                 <TableCell>
-                  <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
-                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ouverte">Ouverte</SelectItem>
-                      <SelectItem value="levee">Levée</SelectItem>
-                      <SelectItem value="validee">Validée</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-1">
+                    <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
+                      <SelectTrigger className="h-8 w-44 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ouverte">Ouverte</SelectItem>
+                        <SelectItem value="levee">Levée par l'entreprise</SelectItem>
+                        <SelectItem value="validee">Validée par le client</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {r.lifted_at && <div className="text-[10px] text-muted-foreground">Levée : {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</div>}
+                    {r.validated_at && <div className="text-[10px] text-success">Validée client : {new Date(r.validated_at).toLocaleDateString("fr-FR")}</div>}
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString("fr-FR")}</TableCell>
                 <TableCell className="text-right">
