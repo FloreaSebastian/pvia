@@ -305,3 +305,57 @@ export const getReserveLiftPdfUrl = createServerFn({ method: "POST" })
     if (!signed?.signedUrl) throw new Error("Lien indisponible.");
     return { url: signed.signedUrl };
   });
+
+/**
+ * Resend the client-validated reserve-lift PDF email to client + company copy.
+ * Owner/admin/manager only. Report must be `client_validated`.
+ */
+export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ reportId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+    const { data: report } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .select("id,company_id,pv_id,numero,status,client_validated_at,pdf_url")
+      .eq("id", data.reportId)
+      .maybeSingle();
+    if (!report) throw new Error("Levée introuvable.");
+    if (!report.client_validated_at || report.status !== "client_validated") {
+      throw new Error("Cette levée n'est pas encore validée par le client.");
+    }
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("role,status")
+      .eq("company_id", report.company_id)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member || !["owner", "admin", "manager"].includes(member.role)) {
+      throw new Error("Accès refusé.");
+    }
+
+    // Ensure PDF exists (regenerate if missing)
+    if (!report.pdf_url) {
+      try {
+        await buildAndStoreReserveLiftPdf(report.id);
+      } catch (e: any) {
+        throw new Error(`Régénération PDF échouée : ${e?.message ?? "inconnue"}`);
+      }
+    }
+
+    await deliverSignedReserveLift({ reportId: report.id });
+
+    await writeAuditLog({
+      companyId: report.company_id,
+      userId,
+      pvId: report.pv_id,
+      entityType: "reserve_lift",
+      entityId: report.id,
+      action: "reserve_lift.client_validated_email_resent",
+      metadata: { numero: report.numero },
+      actor: "user",
+    });
+
+    return { ok: true as const };
+  });
