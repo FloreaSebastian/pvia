@@ -206,6 +206,7 @@ export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; sta
   let responseBody = "";
   let errorMsg: string | undefined;
   try {
+    await assertSafeWebhookUrl(hook.url);
     const res = await fetch(hook.url, {
       method: "POST",
       headers: {
@@ -217,13 +218,20 @@ export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; sta
       },
       body,
       signal: ac.signal,
+      redirect: "error",
     });
     status = res.status;
-    responseBody = (await res.text().catch(() => "")).slice(0, 2000);
-
+    // Only persist response bodies for successful 2xx responses to avoid
+    // exfiltration of internal data from unexpected hosts.
+    if (status >= 200 && status < 300) {
+      responseBody = (await res.text().catch(() => "")).slice(0, 2000);
+    } else {
+      responseBody = "";
+    }
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e);
   } finally {
+
     clearTimeout(to);
   }
 
