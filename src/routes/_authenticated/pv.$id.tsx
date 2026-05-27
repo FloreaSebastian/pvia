@@ -153,6 +153,25 @@ function PvDetail() {
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
+  const loadLifts = useCallback(async () => {
+    try {
+      const { lifts } = await listLiftsFn({ data: { pvId: id } });
+      setLifts(lifts as any);
+    } catch { /* silent */ }
+  }, [listLiftsFn, id]);
+
+  useEffect(() => { loadLifts(); }, [loadLifts]);
+
+  async function downloadLiftPdf(reportId: string) {
+    try {
+      const { url } = await getLiftPdfFn({ data: { reportId } });
+      window.open(url, "_blank");
+    } catch (e: any) {
+      toast.error(e?.message || "PDF indisponible");
+    }
+  }
+
+
   const loadLastEvent = useCallback(async () => {
     try {
       const res = await fetchAuditFn({ data: { pvId: id, limit: 1, offset: 0 } });
