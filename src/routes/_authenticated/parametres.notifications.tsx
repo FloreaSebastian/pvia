@@ -1,15 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { Bell, BellOff, Smartphone, Trash2, Send, Loader2 } from "lucide-react";
+import { Bell, BellOff, Smartphone, Trash2, Send, Loader2, Mail, Plus, X, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { isPwaUnsafeHost, urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from "@/lib/pwa";
 import { useCompany } from "@/hooks/use-company";
 import { subscribePush, unsubscribePush } from "@/lib/push.functions";
 import { listMyPushDevices, deleteMyPushDevice } from "@/lib/push-devices.functions";
 import { sendTestPush } from "@/lib/notify-pv.functions";
+import { getPvEmailSettings, updatePvEmailSettings } from "@/lib/pv-email-settings.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/_authenticated/parametres/notifications")({
   component: NotificationsSettings,
