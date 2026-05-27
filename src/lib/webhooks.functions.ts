@@ -36,6 +36,8 @@ async function assertAdmin(companyId: string, userId: string) {
     .maybeSingle();
   const role = data?.role as string | undefined;
   if (role !== "owner" && role !== "admin") throw new Error("Accès refusé.");
+  const { assertSubscriptionUsable } = await import("./plan-guard.server");
+  await assertSubscriptionUsable(companyId, userId);
 }
 async function assertMember(companyId: string, userId: string) {
   const { data } = await supabaseAdmin

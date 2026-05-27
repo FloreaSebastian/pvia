@@ -89,6 +89,10 @@ export const createPv = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!member) throw new Error("Accès refusé.");
 
+    // 1a. Suspension + plan quota gate (throws COMPANY_SUSPENDED:* or SUBSCRIPTION_REQUIRED:*)
+    const { assertCanCreatePv } = await import("./plan-guard.server");
+    await assertCanCreatePv(data.companyId, userId);
+
     // 1b. Company branding completeness (server-authoritative)
     const branding = await getCompanyBranding(data.companyId);
     const hasAddress = !!(branding?.address_line1 || branding?.address);

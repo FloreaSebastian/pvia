@@ -29,7 +29,9 @@ import { CompanySwitcher } from "@/components/app/CompanySwitcher";
 import { NotificationsBell } from "@/components/app/NotificationsBell";
 import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { BottomNav } from "@/components/app/BottomNav";
+import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
+import { useSuspension } from "@/hooks/use-suspension";
 
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -54,6 +56,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const { activeCompanyId } = useCompany();
+  const { suspended } = useSuspension();
 
   async function signOut() {
     try {
@@ -215,11 +218,13 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <Link to="/pv/new" className="hidden sm:block">
-              <Button size="sm" className="shadow-elevation-sm">
-                <Plus className="h-4 w-4" /> Créer un PV
-              </Button>
-            </Link>
+            {!suspended && (
+              <Link to="/pv/new" className="hidden sm:block">
+                <Button size="sm" className="shadow-elevation-sm">
+                  <Plus className="h-4 w-4" /> Créer un PV
+                </Button>
+              </Link>
+            )}
             <NotificationsBell />
 
             <div className="grid h-8 w-8 place-items-center rounded-full bg-brand-gradient text-xs font-semibold text-primary-foreground shadow-elevation-sm">
@@ -227,6 +232,8 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
             </div>
           </div>
         </header>
+
+        <SuspensionBanner />
 
         <main className="mx-auto w-full max-w-[1400px] p-4 pb-[max(5rem,env(safe-area-inset-bottom))] lg:p-8 lg:pb-12">
           {children}
