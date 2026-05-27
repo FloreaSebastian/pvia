@@ -290,6 +290,7 @@ function PvDetail() {
 
   async function deletePv() {
     if (!pv) return;
+    if (pv.locked_at) return toast.error("Ce PV est signé et verrouillé — suppression interdite.");
     if (!confirm("Supprimer définitivement ce PV ainsi que ses photos et réserves ?")) return;
     const snapshot = { numero: pv.numero, status: pv.status, type: pv.type };
     // delete dependents (RLS scoped to owner)
