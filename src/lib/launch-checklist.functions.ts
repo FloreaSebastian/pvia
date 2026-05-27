@@ -41,16 +41,23 @@ export const updateLaunchChecklistItem = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }): Promise<LaunchChecklistItem> => {
     await requirePlatformAdmin(context.userId);
-    const patch: Record<string, unknown> = {};
+    const now = new Date().toISOString();
+    const patch: {
+      status?: "todo" | "passed" | "failed" | "skipped";
+      tested_at?: string | null;
+      tested_by?: string | null;
+      notes?: string | null;
+    } = {};
     if (data.status !== undefined) {
       patch.status = data.status;
-      patch.tested_at = data.status === "todo" ? null : new Date().toISOString();
+      patch.tested_at = data.status === "todo" ? null : now;
       patch.tested_by = data.status === "todo" ? null : context.userId;
     }
     if (data.notes !== undefined) patch.notes = data.notes;
     const { data: row, error } = await supabaseAdmin
       .from("launch_checklist_items")
       .update(patch)
+
       .eq("id", data.id)
       .select("*")
       .single();
