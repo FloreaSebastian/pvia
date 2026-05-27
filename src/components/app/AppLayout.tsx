@@ -29,7 +29,9 @@ import { CompanySwitcher } from "@/components/app/CompanySwitcher";
 import { NotificationsBell } from "@/components/app/NotificationsBell";
 import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { BottomNav } from "@/components/app/BottomNav";
+import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
+import { useSuspension } from "@/hooks/use-suspension";
 
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
