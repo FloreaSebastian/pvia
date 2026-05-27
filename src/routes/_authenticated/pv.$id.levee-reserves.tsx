@@ -26,6 +26,7 @@ type Reserve = { id: string; description: string; severity: string; status: stri
 
 function LeveeReserves() {
   const { id: pvId } = Route.useParams();
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const createFn = useServerFn(createReserveLift);
 
