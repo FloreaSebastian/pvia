@@ -1,0 +1,1 @@
+SELECT cron.unschedule('check-expiring-trials-daily');
