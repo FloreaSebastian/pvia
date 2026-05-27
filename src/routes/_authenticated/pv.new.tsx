@@ -378,6 +378,10 @@ function NewPv() {
       if (e?.code === "PV_QUOTA" || /quota/i.test(e?.message ?? "")) {
         toast.error("Quota PV mensuel atteint ou abonnement requis.");
         navigate({ to: "/upgrade-required", search: { reason: "pv_quota" } });
+      } else if (e?.code === "SIGNATURE_REQUIRED" || /SIGNATURE_REQUIRED/i.test(e?.message ?? "")) {
+        toast.error("Veuillez signer en tant qu'entreprise avant de valider le PV.");
+        const idx = STEPS.findIndex((s) => s.id === ID_SIGNATURES);
+        if (idx >= 0) setStepIdx(idx);
       } else if (e?.code === "COMPANY_INCOMPLETE" || /COMPANY_INCOMPLETE|entreprise incomplète/i.test(e?.message ?? "")) {
         toast.error("Fiche entreprise incomplète.");
         setStepIdx(0);
