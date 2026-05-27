@@ -1376,6 +1376,12 @@ export type Database = {
           created_by: string | null
           id: string
           note: string
+          priority: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          type: string
+          updated_at: string
           visibility: string
         }
         Insert: {
@@ -1384,6 +1390,12 @@ export type Database = {
           created_by?: string | null
           id?: string
           note: string
+          priority?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
           visibility?: string
         }
         Update: {
@@ -1392,6 +1404,12 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string
+          priority?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
           visibility?: string
         }
         Relationships: []
