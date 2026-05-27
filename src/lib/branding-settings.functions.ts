@@ -30,6 +30,8 @@ async function requireAdmin(companyId: string, userId: string) {
   if (!data || (data.role !== "owner" && data.role !== "admin")) {
     throw new Error("Réservé aux administrateurs.");
   }
+  const { assertSubscriptionUsable } = await import("./plan-guard.server");
+  await assertSubscriptionUsable(companyId, userId);
 }
 
 export const publishBrandingSettings = createServerFn({ method: "POST" })
