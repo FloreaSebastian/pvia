@@ -86,7 +86,7 @@ function LoginPage() {
   return (
     <AuthShell
       brandHeading={<>Connexion sans mot de passe.<br />Simple, rapide, sécurisée.</>}
-      brandSubtitle="Recevez un code à 6 chiffres par email. Plus de mot de passe oublié, plus de friction."
+      brandSubtitle="Recevez un code à 8 chiffres par email. Plus de mot de passe oublié, plus de friction."
       bullets={[
         "Authentification chiffrée bout-en-bout",
         "Conforme RGPD · hébergement EU",
