@@ -59,9 +59,9 @@ export async function sendClientLoginCodeEmail(opts: {
   code: string;
   ip: string;
   device: string;
+  companyId?: string | null;
 }): Promise<void> {
   const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) throw new Error("RESEND_API_KEY manquant");
   const appUrl = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || "https://pvia.fr";
   const verifyUrl = `${appUrl}/client/verify?email=${encodeURIComponent(opts.to)}`;
   const from = process.env.RESEND_FROM_EMAIL || `PVIA <onboarding@resend.dev>`;
@@ -72,20 +72,47 @@ export async function sendClientLoginCodeEmail(opts: {
     verifyUrl,
     expiresMin: 10,
   });
+  const subject = "Votre code de connexion PVIA";
+
+  // OTP code = sensitive secret. Log the attempt for audit/monitoring but
+  // NEVER persist the payload — auto-retry would re-emit a stale code and
+  // the code is short-lived (10 min) anyway. Failed sends surface in admin
+  // monitoring as `manual_required`.
+  async function logAttempt(status: "sent" | "failed", error?: string, resendId?: string) {
+    try {
+      await supabaseAdmin.from("email_logs").insert({
+        company_id: opts.companyId ?? null,
+        recipient_email: opts.to,
+        email_type: "client_login_code",
+        subject,
+        status,
+        error_message: error ?? null,
+        resend_id: resendId ?? null,
+        payload: null,
+        max_retries: 0,
+        retries_count: 0,
+        sent_at: status === "sent" ? new Date().toISOString() : null,
+      } as never);
+    } catch {}
+  }
+
+  if (!resendKey) {
+    await logAttempt("failed", "RESEND_API_KEY manquant");
+    throw new Error("RESEND_API_KEY manquant");
+  }
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [opts.to],
-      subject: "Votre code de connexion PVIA",
-      html,
-    }),
+    body: JSON.stringify({ from, to: [opts.to], subject, html }),
   });
   if (!resp.ok) {
     const body = await resp.text();
-    throw new Error(`Resend ${resp.status}: ${body.slice(0, 200)}`);
+    const err = `Resend ${resp.status}: ${body.slice(0, 200)}`;
+    await logAttempt("failed", err);
+    throw new Error(err);
   }
+  const j = (await resp.json().catch(() => ({}))) as { id?: string };
+  await logAttempt("sent", undefined, j.id);
 }
 
 
