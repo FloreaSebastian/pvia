@@ -86,7 +86,13 @@ function VerifyPage() {
     }
     await logEvent({ data: { action: "user.login_success", email, metadata: { method: "otp" } } }).catch(() => {});
     toast.success("Connexion réussie");
-    navigate({ to: "/dashboard" });
+    const { data: { user } } = await supabase.auth.getUser();
+    let isAdmin = false;
+    if (user) {
+      const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+      isAdmin = !!role;
+    }
+    navigate({ to: isAdmin ? "/admin/dashboard" : "/dashboard" });
   }
 
   async function onResend() {
