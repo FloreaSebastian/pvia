@@ -112,6 +112,9 @@ function Page() {
           {c.suspension_reason && <p className="text-xs text-red-300 mt-1">Raison: {c.suspension_reason}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link to="/admin/support/$companyId" params={{ companyId: id }}>
+            <Button size="sm" variant="outline">Centre support</Button>
+          </Link>
           <Button size="sm" variant="outline" disabled={busy}
             onClick={() => run(() => setStatusFn({ data: { companyId: id, status: "watched" } }), "Marquée à surveiller")}>
             À surveiller
