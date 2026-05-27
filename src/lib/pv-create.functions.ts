@@ -104,10 +104,12 @@ export const createPv = createServerFn({ method: "POST" })
       throw err;
     }
 
-    // 2. Signed PV requires both signatures
+    // 2. Signed PV requires at least the company signature (client signature optional)
     if (data.status === "signe") {
-      if (!data.client_signature || !data.company_signature) {
-        throw new Error("Les deux signatures sont requises pour valider le PV.");
+      if (!data.company_signature) {
+        const err = new Error("Signature entreprise requise pour valider le PV.");
+        (err as any).code = "SIGNATURE_REQUIRED";
+        throw err;
       }
     }
 
