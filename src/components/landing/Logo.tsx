@@ -1,13 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { FileSignature } from "lucide-react";
+import pviaLogo from "@/assets/pvia-logo.png";
 
 export function Logo({ withBaseline = false, className = "" }: { withBaseline?: boolean; className?: string }) {
   return (
     <Link to="/" className={`flex items-center gap-2.5 ${className}`}>
-      <div className="relative grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-brand">
-        <FileSignature className="h-5 w-5" />
-        <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success ring-2 ring-background" />
-      </div>
+      <img
+        src={pviaLogo}
+        alt="PVIA"
+        className="h-10 w-10 object-contain"
+        loading="eager"
+        decoding="async"
+      />
       <div className="flex flex-col leading-none">
         <span className="font-display text-lg font-bold tracking-tight">
           <span className="text-gradient">PV</span>
