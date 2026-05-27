@@ -675,6 +675,48 @@ export type Database = {
         }
         Relationships: []
       }
+      launch_checklist_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          key: string
+          label: string
+          notes: string | null
+          position: number
+          status: string
+          tested_at: string | null
+          tested_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          key: string
+          label: string
+          notes?: string | null
+          position?: number
+          status?: string
+          tested_at?: string | null
+          tested_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          key?: string
+          label?: string
+          notes?: string | null
+          position?: number
+          status?: string
+          tested_at?: string | null
+          tested_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
