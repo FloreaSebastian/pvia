@@ -96,6 +96,23 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
 
 /** SUBSCRIPTION_REQUIRED:<state> — the prefix lets the UI detect & redirect. */
 export async function assertSubscriptionUsable(companyId: string, userId?: string): Promise<AccessInfo> {
+  // Hard block: platform-suspended companies cannot perform write actions.
+  const { data: comp } = await supabaseAdmin
+    .from("companies")
+    .select("suspended_at,support_status,suspension_reason")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (comp && ((comp as any).suspended_at || (comp as any).support_status === "blocked")) {
+    await writeAuditLog({
+      companyId,
+      userId: userId ?? null,
+      entityType: "company",
+      action: "company.suspended_block",
+      metadata: { reason: (comp as any).suspension_reason ?? null },
+    });
+    throw new Error(`COMPANY_SUSPENDED:${(comp as any).suspension_reason ?? "support"}`);
+  }
+
   const access = await getAccessState(companyId);
   if (access.blocked) {
     await writeAuditLog({
@@ -109,6 +126,7 @@ export async function assertSubscriptionUsable(companyId: string, userId?: strin
   }
   return access;
 }
+
 
 export async function assertCanCreatePv(companyId: string, userId?: string) {
   await assertSubscriptionUsable(companyId, userId);
