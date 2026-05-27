@@ -143,7 +143,7 @@ export const sendInvite = createServerFn({ method: "POST" })
       companyId: data.companyId,
       retryable: true,
       payload: {
-        from: "PVIA <onboarding@resend.dev>",
+        from: process.env.RESEND_FROM_EMAIL || "PVIA <noreply@pvia.fr>",
         to: [data.email],
         subject: `${profile?.full_name || "PVIA"} vous invite sur ${company.name}`,
         html,
