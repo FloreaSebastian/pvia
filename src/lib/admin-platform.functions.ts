@@ -623,7 +623,7 @@ export const adminRetryEmailNow = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ logId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await requirePlatformAdmin(context.userId);
-    // Force the row eligible for the next drain pass.
+    const { data: row } = await supabaseAdmin.from("email_logs").select("company_id").eq("id", data.logId).maybeSingle();
     await supabaseAdmin.from("email_logs").update({
       status: "retrying",
       next_retry_at: new Date().toISOString(),
@@ -631,7 +631,8 @@ export const adminRetryEmailNow = createServerFn({ method: "POST" })
     const { drainFailedEmails } = await import("./retry.server");
     const r = await drainFailedEmails(1);
     await writeAuditLog({
-      userId: context.userId, entityType: "email", entityId: data.logId,
+      companyId: (row as any)?.company_id ?? null, userId: context.userId,
+      entityType: "email", entityId: data.logId,
       action: "admin.email_retry_now", metadata: r as any, actor: "user",
     });
     return r;
@@ -642,11 +643,13 @@ export const adminMarkEmailDead = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ logId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await requirePlatformAdmin(context.userId);
+    const { data: row } = await supabaseAdmin.from("email_logs").select("company_id").eq("id", data.logId).maybeSingle();
     await supabaseAdmin.from("email_logs").update({
       status: "dead", next_retry_at: null,
     }).eq("id", data.logId);
     await writeAuditLog({
-      userId: context.userId, entityType: "email", entityId: data.logId,
+      companyId: (row as any)?.company_id ?? null, userId: context.userId,
+      entityType: "email", entityId: data.logId,
       action: "admin.email_marked_dead", actor: "user",
     });
     return { ok: true };
@@ -657,6 +660,7 @@ export const adminRetryWebhookNow = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ deliveryId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     await requirePlatformAdmin(context.userId);
+    const { data: row } = await supabaseAdmin.from("webhook_deliveries").select("company_id").eq("id", data.deliveryId).maybeSingle();
     await supabaseAdmin.from("webhook_deliveries").update({
       status: "pending",
       next_attempt_at: new Date().toISOString(),
@@ -664,8 +668,10 @@ export const adminRetryWebhookNow = createServerFn({ method: "POST" })
     const { deliverOne } = await import("./webhooks.server");
     const r = await deliverOne(data.deliveryId);
     await writeAuditLog({
-      userId: context.userId, entityType: "webhook_delivery", entityId: data.deliveryId,
+      companyId: (row as any)?.company_id ?? null, userId: context.userId,
+      entityType: "webhook_delivery", entityId: data.deliveryId,
       action: "admin.webhook_retry_now", metadata: r as any, actor: "user",
     });
     return r;
   });
+
