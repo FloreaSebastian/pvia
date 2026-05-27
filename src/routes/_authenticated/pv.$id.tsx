@@ -99,7 +99,7 @@ function PvDetail() {
   const [resendingSigned, setResendingSigned] = useState(false);
   const [lastEvent, setLastEvent] = useState<{ action: string; created_at: string; user_name: string | null } | null>(null);
   const [auditTotal, setAuditTotal] = useState<number>(0);
-  const [lifts, setLifts] = useState<Array<{ id: string; numero: string; status: string; signed_at: string | null; pdf_url: string | null; created_at: string }>>([]);
+  const [lifts, setLifts] = useState<Array<{ id: string; numero: string; status: string; signed_at: string | null; pdf_url: string | null; created_at: string; client_validated_at?: string | null; client_validated_email?: string | null }>>([]);
   const fetchAuditFn = useServerFn(listPvAuditLogs);
 
 
