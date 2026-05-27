@@ -409,6 +409,8 @@ export const exportCompanyAuditPdf = createServerFn({ method: "POST" })
     if (role !== "owner" && role !== "admin") {
       throw new Error("Seuls owner et admin peuvent exporter l'historique entreprise.");
     }
+    const { assertSubscriptionUsable } = await import("./plan-guard.server");
+    await assertSubscriptionUsable(data.companyId, context.userId);
 
     const [{ data: company }, { data: exporter }] = await Promise.all([
       supabaseAdmin.from("companies").select("name,siret,address").eq("id", data.companyId).maybeSingle(),
