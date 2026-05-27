@@ -64,7 +64,7 @@ export async function sendClientLoginCodeEmail(opts: {
   const resendKey = process.env.RESEND_API_KEY;
   const appUrl = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || "https://pvia.fr";
   const verifyUrl = `${appUrl}/client/verify?email=${encodeURIComponent(opts.to)}`;
-  const from = process.env.RESEND_FROM_EMAIL || `PVIA <onboarding@resend.dev>`;
+  const from = process.env.RESEND_FROM_EMAIL || `PVIA <noreply@pvia.fr>`;
   const html = renderClientLoginCodeEmail({
     code: opts.code,
     ip: opts.ip,
