@@ -1390,3 +1390,38 @@ function RecapBlock({ title, lines }: { title: string; lines: (string | null | u
     </div>
   );
 }
+
+function ModeCard({
+  active, onClick, icon, title, desc, badge,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  badge?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-left rounded-xl border-2 p-5 transition-all ${
+        active ? "border-primary bg-primary/10 shadow-brand" : "border-border bg-muted/10 hover:border-primary/40 hover:bg-primary/5"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+          {icon}
+        </div>
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="font-semibold text-foreground">{title}</h4>
+            {badge && <Badge variant="secondary" className="text-[10px]">{badge}</Badge>}
+            {active && <Check className="h-4 w-4 text-primary" />}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
+        </div>
+      </div>
+    </button>
+  );
+}
