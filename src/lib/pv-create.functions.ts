@@ -495,5 +495,8 @@ export const createPv = createServerFn({ method: "POST" })
       pdfPath,
       uploadedPhotos,
       reservesCount: data.reserves.length,
+      remoteSignUrl,
+      signatureMode: sigMode,
+      status: data.status,
     };
   });
