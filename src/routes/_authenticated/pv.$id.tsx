@@ -497,7 +497,7 @@ function PvDetail() {
             <Info label="Levée de réserves">
               {pv.reserve_lift_status && pv.reserve_lift_status !== "none" ? (
                 <StatusPill tone={pv.reserve_lift_status === "completed" ? "success" : pv.reserve_lift_status === "partial" ? "warning" : "destructive"} dot>
-                  {pv.reserve_lift_status}
+                  {pv.reserve_lift_status === "completed" ? "Toutes réserves levées" : pv.reserve_lift_status === "partial" ? "Levée partielle" : "Levée à prévoir"}
                 </StatusPill>
               ) : "—"}
             </Info>
