@@ -36,8 +36,11 @@ const EVENT_LABEL: Record<string, string> = {
   "pv.created": "Nouveau PV créé",
   "pv.signed": "PV signé",
   "pv.sent_to_client": "PV envoyé au client",
+  "pv.all_reserves_lifted": "Toutes les réserves levées",
   "reserve.created": "Nouvelle réserve",
   "reserve.lifted": "Réserve levée",
+  "reserve_lift.created": "Levée de réserves créée",
+  "reserve_lift.signed": "Levée de réserves signée",
   "webhook.test": "Test PVIA",
 };
 
