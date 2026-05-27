@@ -56,6 +56,7 @@ import { Route as AuthenticatedParametresBrandingRouteImport } from './routes/_a
 import { Route as AuthenticatedParametresAuditRouteImport } from './routes/_authenticated/parametres.audit'
 import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
+import { Route as AuthenticatedAdminLaunchChecklistRouteImport } from './routes/_authenticated/admin.launch-checklist'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
@@ -311,6 +312,12 @@ const AuthenticatedAdminMonitoringRoute =
     path: '/admin/monitoring',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminLaunchChecklistRoute =
+  AuthenticatedAdminLaunchChecklistRouteImport.update({
+    id: '/admin/launch-checklist',
+    path: '/admin/launch-checklist',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -382,6 +389,7 @@ export interface FileRoutesByFullPath {
   '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
@@ -436,6 +444,7 @@ export interface FileRoutesByTo {
   '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
@@ -493,6 +502,7 @@ export interface FileRoutesById {
   '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
   '/_authenticated/parametres/audit': typeof AuthenticatedParametresAuditRoute
@@ -550,6 +560,7 @@ export interface FileRouteTypes {
     | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
+    | '/admin/launch-checklist'
     | '/admin/monitoring'
     | '/parametres/api'
     | '/parametres/audit'
@@ -604,6 +615,7 @@ export interface FileRouteTypes {
     | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
+    | '/admin/launch-checklist'
     | '/admin/monitoring'
     | '/parametres/api'
     | '/parametres/audit'
@@ -660,6 +672,7 @@ export interface FileRouteTypes {
     | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
+    | '/_authenticated/admin/launch-checklist'
     | '/_authenticated/admin/monitoring'
     | '/_authenticated/parametres/api'
     | '/_authenticated/parametres/audit'
@@ -1043,6 +1056,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminMonitoringRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/launch-checklist': {
+      id: '/_authenticated/admin/launch-checklist'
+      path: '/admin/launch-checklist'
+      fullPath: '/admin/launch-checklist'
+      preLoaderRoute: typeof AuthenticatedAdminLaunchChecklistRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -1169,6 +1189,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
+  AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
@@ -1189,6 +1210,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedUpgradeRequiredRoute: AuthenticatedUpgradeRequiredRoute,
+  AuthenticatedAdminLaunchChecklistRoute:
+    AuthenticatedAdminLaunchChecklistRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
