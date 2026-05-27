@@ -47,7 +47,10 @@ const PhotoSchema = z.object({
 
 const InputSchema = z.object({
   companyId: z.string().uuid(),
-  status: z.enum(["brouillon", "signe"]),
+  status: z.enum(["brouillon", "signe", "en_attente"]),
+  signature_mode: z.enum(["remote", "onsite"]).nullable().optional(),
+  client_identity_email: z.string().trim().toLowerCase().email().max(255).nullable().optional(),
+  client_otp_id: z.string().uuid().nullable().optional(),
   reception_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide"),
   chantier_id: z.string().uuid().nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),
@@ -72,6 +75,7 @@ const InputSchema = z.object({
   chantier_postal_code: z.string().trim().max(20).optional().default(""),
   chantier_city: z.string().trim().max(200).optional().default(""),
 });
+
 
 export const createPv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -104,14 +108,60 @@ export const createPv = createServerFn({ method: "POST" })
       throw err;
     }
 
-    // 2. Signed PV requires at least the company signature (client signature optional)
-    if (data.status === "signe") {
+    // 2. Status / signature mode coherence (server-authoritative).
+    const sigMode = data.signature_mode ?? null;
+    const status = data.status;
+    type OtpRecord = { id: string; email: string; pv_id: string | null; company_id: string; used_at: string | null };
+    let otpRecord: OtpRecord | null = null;
+    if (status === "signe") {
       if (!data.company_signature) {
         const err = new Error("Signature entreprise requise pour valider le PV.");
         (err as any).code = "SIGNATURE_REQUIRED";
         throw err;
       }
+      if (sigMode === "remote") {
+        const err = new Error("Mode signature à distance : utilisez le statut en_attente puis l'envoi au client.");
+        (err as any).code = "REMOTE_MUST_WAIT_CLIENT";
+        throw err;
+      }
+      if (sigMode === "onsite") {
+        if (!data.client_signature) {
+          const err = new Error("Signature client requise (signature sur place).");
+          (err as any).code = "CLIENT_SIGNATURE_REQUIRED";
+          throw err;
+        }
+        if (!data.client_otp_id) {
+          const err = new Error("Identité client non confirmée (OTP requis).");
+          (err as any).code = "OTP_REQUIRED";
+          throw err;
+        }
+        const { data: otp } = await supabaseAdmin
+          .from("pv_onsite_otp")
+          .select("id,email,pv_id,company_id,used_at")
+          .eq("id", data.client_otp_id)
+          .maybeSingle();
+        if (!otp) throw new Error("OTP introuvable.");
+        if (otp.company_id !== data.companyId) throw new Error("OTP invalide pour cette entreprise.");
+        if (!otp.used_at) throw new Error("OTP non vérifié.");
+        otpRecord = otp as OtpRecord;
+      }
     }
+    if (status === "en_attente") {
+      if (sigMode !== "remote") {
+        throw new Error("Le statut en_attente est réservé à la signature à distance.");
+      }
+      if (!data.company_signature) {
+        const err = new Error("Signature entreprise requise.");
+        (err as any).code = "SIGNATURE_REQUIRED";
+        throw err;
+      }
+      if (!data.client_identity_email) {
+        const err = new Error("Email client requis pour l'envoi de la signature à distance.");
+        (err as any).code = "CLIENT_EMAIL_REQUIRED";
+        throw err;
+      }
+    }
+
 
     // 2b. With/without reserves — server-authoritative invariant
     const withReserves = !!data.reception_with_reserves;
@@ -232,6 +282,11 @@ export const createPv = createServerFn({ method: "POST" })
           client_signature: clientSig,
           company_signature: companySig,
           signed_at: data.status === "signe" ? nowIso : null,
+          signature_mode: sigMode,
+          client_identity_email: data.client_identity_email ?? otpRecord?.email ?? null,
+          client_identity_verified_at: otpRecord ? nowIso : null,
+          client_identity_verified_by: otpRecord ? "onsite_otp" : null,
+          client_otp_verified: !!otpRecord,
           reception_with_reserves: withReserves,
           work_reference_type: data.work_reference_type ?? null,
           work_reference_number: data.work_reference_number?.trim() || null,
@@ -242,6 +297,7 @@ export const createPv = createServerFn({ method: "POST" })
           chantier_address: data.chantier_address?.trim() || null,
           chantier_postal_code: data.chantier_postal_code?.trim() || null,
           chantier_city: data.chantier_city?.trim() || null,
+
         } as never)
         .select("id,numero,company_id,owner_id")
         .single();
@@ -301,16 +357,85 @@ export const createPv = createServerFn({ method: "POST" })
       }
     }
 
-    // 10. Generate signed PDF server-side (only when status is signed)
+    // 9b. Link OTP to PV for onsite mode
+    if (otpRecord) {
+      await supabaseAdmin
+        .from("pv_onsite_otp")
+        .update({ pv_id: pvId } as never)
+        .eq("id", otpRecord.id);
+    }
+
+    // 10. Generate signed PDF server-side + auto-email (onsite signed only)
     let pdfPath: string | null = null;
     if (data.status === "signe") {
       try {
         pdfPath = await buildAndStorePvPdf(pvId);
       } catch (e) {
         console.error("createPv: PDF generation failed", e);
-        // Don't fail the whole creation; PDF can be regenerated later.
+      }
+      try {
+        const { deliverSignedPv } = await import("./email.server");
+        await deliverSignedPv({ pvId, trigger: "auto" });
+      } catch (e) {
+        console.error("createPv: signed email delivery failed", e);
       }
     }
+
+    // 10b. Remote signature flow → generate sign token and email the link
+    let remoteSignUrl: string | null = null;
+    if (data.status === "en_attente" && sigMode === "remote" && data.client_identity_email) {
+      try {
+        const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+        const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
+        await supabaseAdmin
+          .from("pv")
+          .update({
+            sign_token: token,
+            sign_token_expires_at: expiresAt,
+            sent_to_client_at: new Date().toISOString(),
+            sent_to_email: data.client_identity_email,
+          } as never)
+          .eq("id", pvId);
+        const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+        remoteSignUrl = `${appUrl}/sign/pv/${token}`;
+        const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
+        const [{ data: company }, { data: clientRow }] = await Promise.all([
+          supabaseAdmin.from("companies").select("name").eq("id", data.companyId).maybeSingle(),
+          clientId ? supabaseAdmin.from("clients").select("name").eq("id", clientId).maybeSingle() : Promise.resolve({ data: null }),
+        ]);
+        const companyName = company?.name || "PVIA";
+        const clientName = (clientRow as any)?.name || "Cher client";
+        const expFr = new Date(expiresAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+        const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+        const html = `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,sans-serif;color:#0f172a"><table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0"><tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden"><tr><td style="padding:32px 40px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff"><div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.7">PVIA · Signature électronique</div><div style="font-size:24px;font-weight:600;margin-top:8px">PV ${esc(assignedNumero)} à signer</div></td></tr><tr><td style="padding:32px 40px"><p style="font-size:15px;line-height:1.6">Bonjour ${esc(clientName)},</p><p style="font-size:15px;line-height:1.6"><strong>${esc(companyName)}</strong> vous transmet le procès-verbal <strong>${esc(assignedNumero)}</strong> pour signature électronique.</p><table cellpadding="0" cellspacing="0"><tr><td style="border-radius:10px;background:#1e3a8a"><a href="${remoteSignUrl}" style="display:inline-block;padding:14px 28px;color:#fff;text-decoration:none;font-weight:600">Consulter et signer →</a></td></tr></table><p style="margin-top:24px;font-size:12px;color:#94a3b8">Lien valable jusqu'au ${expFr}.</p></td></tr></table></td></tr></table></body></html>`;
+        await sendEmailWithRetryLog({
+          emailType: "pv_sign_link",
+          companyId: data.companyId,
+          pvId,
+          retryable: true,
+          payload: {
+            from: process.env.RESEND_FROM_EMAIL || "PVIA <noreply@pvia.fr>",
+            to: [data.client_identity_email],
+            subject: `${companyName} — N° ${assignedNumero} à signer`,
+            html,
+          },
+        });
+        await writeAuditLog({
+          companyId: data.companyId,
+          userId,
+          pvId,
+          entityType: "pv",
+          entityId: pvId,
+          action: "pv.remote_signature_sent",
+          newValues: { sent_to_email: data.client_identity_email },
+          metadata: { numero: assignedNumero },
+          actor: "user",
+        });
+      } catch (e) {
+        console.error("createPv: remote sign link send failed", e);
+      }
+    }
+
 
     // 11. Audit log
     await writeAuditLog({
@@ -370,5 +495,8 @@ export const createPv = createServerFn({ method: "POST" })
       pdfPath,
       uploadedPhotos,
       reservesCount: data.reserves.length,
+      remoteSignUrl,
+      signatureMode: sigMode,
+      status: data.status,
     };
   });
