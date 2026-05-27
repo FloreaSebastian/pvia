@@ -1041,6 +1041,7 @@ function SignatureBox({
   clearLabel,
   onValidate,
   onClear,
+  onEnd,
 }: {
   label: string;
   innerRef: React.RefObject<SignaturePad | null>;
@@ -1050,6 +1051,7 @@ function SignatureBox({
   clearLabel: string;
   onValidate: () => void;
   onClear: () => void;
+  onEnd: () => void;
 }) {
   return (
     <div>
@@ -1058,7 +1060,7 @@ function SignatureBox({
         {saved && <Badge variant="secondary" className="gap-1 text-[11px]"><CheckCircle2 className="h-3 w-3" /> {savedLabel}</Badge>}
       </div>
       <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
-        <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" />
+        <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={onValidate}>
