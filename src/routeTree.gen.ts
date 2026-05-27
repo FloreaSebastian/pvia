@@ -62,12 +62,14 @@ import { Route as AuthenticatedAdminLaunchChecklistRouteImport } from './routes/
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
 import { Route as AuthenticatedAdminCompaniesRouteImport } from './routes/_authenticated/admin.companies'
 import { Route as AuthenticatedAdminBillingRouteImport } from './routes/_authenticated/admin.billing'
+import { Route as AuthenticatedAdminSupportIndexRouteImport } from './routes/_authenticated/admin.support.index'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
+import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
 import { Route as AuthenticatedAdminCompaniesIdRouteImport } from './routes/_authenticated/admin.companies.$id'
 import { Route as ClientPvIdLeveeReservesLiftIdRouteImport } from './routes/client.pv.$id.levee-reserves.$liftId'
 
@@ -354,6 +356,12 @@ const AuthenticatedAdminBillingRoute =
     path: '/admin/billing',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminSupportIndexRoute =
+  AuthenticatedAdminSupportIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminSupportRoute,
+  } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -387,6 +395,12 @@ const AuthenticatedPvIdHistoriqueRoute =
     id: '/historique',
     path: '/historique',
     getParentRoute: () => AuthenticatedPvIdRoute,
+  } as any)
+const AuthenticatedAdminSupportCompanyIdRoute =
+  AuthenticatedAdminSupportCompanyIdRouteImport.update({
+    id: '/$companyId',
+    path: '/$companyId',
+    getParentRoute: () => AuthenticatedAdminSupportRoute,
   } as any)
 const AuthenticatedAdminCompaniesIdRoute =
   AuthenticatedAdminCompaniesIdRouteImport.update({
@@ -437,7 +451,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
-  '/admin/support': typeof AuthenticatedAdminSupportRoute
+  '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
@@ -455,12 +469,14 @@ export interface FileRoutesByFullPath {
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/admin/support/': typeof AuthenticatedAdminSupportIndexRoute
   '/client/pv/$id/levee-reserves/$liftId': typeof ClientPvIdLeveeReservesLiftIdRoute
 }
 export interface FileRoutesByTo {
@@ -498,7 +514,6 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
-  '/admin/support': typeof AuthenticatedAdminSupportRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
@@ -516,12 +531,14 @@ export interface FileRoutesByTo {
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/admin/support': typeof AuthenticatedAdminSupportIndexRoute
   '/client/pv/$id/levee-reserves/$liftId': typeof ClientPvIdLeveeReservesLiftIdRoute
 }
 export interface FileRoutesById {
@@ -562,7 +579,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
-  '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRoute
+  '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
   '/_authenticated/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/_authenticated/parametres/branding': typeof AuthenticatedParametresBrandingRoute
@@ -580,12 +597,14 @@ export interface FileRoutesById {
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/_authenticated/admin/support/': typeof AuthenticatedAdminSupportIndexRoute
   '/client/pv/$id/levee-reserves/$liftId': typeof ClientPvIdLeveeReservesLiftIdRoute
 }
 export interface FileRouteTypes {
@@ -644,12 +663,14 @@ export interface FileRouteTypes {
     | '/parametres/'
     | '/pv/'
     | '/admin/companies/$id'
+    | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
+    | '/admin/support/'
     | '/client/pv/$id/levee-reserves/$liftId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -687,7 +708,6 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
-    | '/admin/support'
     | '/parametres/api'
     | '/parametres/audit'
     | '/parametres/branding'
@@ -705,12 +725,14 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/pv'
     | '/admin/companies/$id'
+    | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
+    | '/admin/support'
     | '/client/pv/$id/levee-reserves/$liftId'
   id:
     | '__root__'
@@ -768,12 +790,14 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/admin/companies/$id'
+    | '/_authenticated/admin/support/$companyId'
     | '/_authenticated/pv/$id/historique'
     | '/_authenticated/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
+    | '/_authenticated/admin/support/'
     | '/client/pv/$id/levee-reserves/$liftId'
   fileRoutesById: FileRoutesById
 }
@@ -1176,6 +1200,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBillingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/support/': {
+      id: '/_authenticated/admin/support/'
+      path: '/'
+      fullPath: '/admin/support/'
+      preLoaderRoute: typeof AuthenticatedAdminSupportIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminSupportRoute
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -1217,6 +1248,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/pv/$id/historique'
       preLoaderRoute: typeof AuthenticatedPvIdHistoriqueRouteImport
       parentRoute: typeof AuthenticatedPvIdRoute
+    }
+    '/_authenticated/admin/support/$companyId': {
+      id: '/_authenticated/admin/support/$companyId'
+      path: '/$companyId'
+      fullPath: '/admin/support/$companyId'
+      preLoaderRoute: typeof AuthenticatedAdminSupportCompanyIdRouteImport
+      parentRoute: typeof AuthenticatedAdminSupportRoute
     }
     '/_authenticated/admin/companies/$id': {
       id: '/_authenticated/admin/companies/$id'
@@ -1296,6 +1334,23 @@ const AuthenticatedAdminCompaniesRouteWithChildren =
     AuthenticatedAdminCompaniesRouteChildren,
   )
 
+interface AuthenticatedAdminSupportRouteChildren {
+  AuthenticatedAdminSupportCompanyIdRoute: typeof AuthenticatedAdminSupportCompanyIdRoute
+  AuthenticatedAdminSupportIndexRoute: typeof AuthenticatedAdminSupportIndexRoute
+}
+
+const AuthenticatedAdminSupportRouteChildren: AuthenticatedAdminSupportRouteChildren =
+  {
+    AuthenticatedAdminSupportCompanyIdRoute:
+      AuthenticatedAdminSupportCompanyIdRoute,
+    AuthenticatedAdminSupportIndexRoute: AuthenticatedAdminSupportIndexRoute,
+  }
+
+const AuthenticatedAdminSupportRouteWithChildren =
+  AuthenticatedAdminSupportRoute._addFileChildren(
+    AuthenticatedAdminSupportRouteChildren,
+  )
+
 interface AuthenticatedPvIdRouteChildren {
   AuthenticatedPvIdHistoriqueRoute: typeof AuthenticatedPvIdHistoriqueRoute
   AuthenticatedPvIdLeveeReservesRoute: typeof AuthenticatedPvIdLeveeReservesRoute
@@ -1329,7 +1384,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
   AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
-  AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRoute
+  AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
@@ -1357,7 +1412,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminLaunchChecklistRoute:
     AuthenticatedAdminLaunchChecklistRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
-  AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRoute,
+  AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRouteWithChildren,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
