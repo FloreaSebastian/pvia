@@ -108,14 +108,59 @@ export const createPv = createServerFn({ method: "POST" })
       throw err;
     }
 
-    // 2. Signed PV requires at least the company signature (client signature optional)
-    if (data.status === "signe") {
+    // 2. Status / signature mode coherence (server-authoritative).
+    const sigMode = data.signature_mode ?? null;
+    const status = data.status;
+    let otpRecord: { id: string; email: string; pv_id: string | null; company_id: string; used_at: string | null } | null = null;
+    if (status === "signe") {
       if (!data.company_signature) {
         const err = new Error("Signature entreprise requise pour valider le PV.");
         (err as any).code = "SIGNATURE_REQUIRED";
         throw err;
       }
+      if (sigMode === "remote") {
+        const err = new Error("Mode signature à distance : utilisez le statut en_attente puis l'envoi au client.");
+        (err as any).code = "REMOTE_MUST_WAIT_CLIENT";
+        throw err;
+      }
+      if (sigMode === "onsite") {
+        if (!data.client_signature) {
+          const err = new Error("Signature client requise (signature sur place).");
+          (err as any).code = "CLIENT_SIGNATURE_REQUIRED";
+          throw err;
+        }
+        if (!data.client_otp_id) {
+          const err = new Error("Identité client non confirmée (OTP requis).");
+          (err as any).code = "OTP_REQUIRED";
+          throw err;
+        }
+        const { data: otp } = await supabaseAdmin
+          .from("pv_onsite_otp")
+          .select("id,email,pv_id,company_id,used_at")
+          .eq("id", data.client_otp_id)
+          .maybeSingle();
+        if (!otp) throw new Error("OTP introuvable.");
+        if (otp.company_id !== data.companyId) throw new Error("OTP invalide pour cette entreprise.");
+        if (!otp.used_at) throw new Error("OTP non vérifié.");
+        otpRecord = otp as typeof otpRecord;
+      }
     }
+    if (status === "en_attente") {
+      if (sigMode !== "remote") {
+        throw new Error("Le statut en_attente est réservé à la signature à distance.");
+      }
+      if (!data.company_signature) {
+        const err = new Error("Signature entreprise requise.");
+        (err as any).code = "SIGNATURE_REQUIRED";
+        throw err;
+      }
+      if (!data.client_identity_email) {
+        const err = new Error("Email client requis pour l'envoi de la signature à distance.");
+        (err as any).code = "CLIENT_EMAIL_REQUIRED";
+        throw err;
+      }
+    }
+
 
     // 2b. With/without reserves — server-authoritative invariant
     const withReserves = !!data.reception_with_reserves;
