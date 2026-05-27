@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getPlatformStats } from "@/lib/admin-platform.functions";
-import { AdminNav } from "@/components/admin/AdminNav";
+
 import { Card } from "@/components/ui/card";
 import { Loader2, Building2, Users, FileText, Mail, AlertTriangle, CreditCard, Webhook, ShieldAlert } from "lucide-react";
 
@@ -37,12 +37,12 @@ function Page() {
   useEffect(() => { fn().then(setData).catch(console.error); }, [fn]);
 
   if (!data) return (
-    <div><AdminNav /><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div></div>
+    <div><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div></div>
   );
 
   return (
     <div>
-      <AdminNav />
+      
       <h1 className="mb-1 text-2xl font-bold">Cockpit plateforme PVIA</h1>
       <p className="mb-6 text-sm text-muted-foreground">Vue d'ensemble de toutes les entreprises et de l'activité globale.</p>
 

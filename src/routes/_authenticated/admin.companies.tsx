@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listAdminCompanies } from "@/lib/admin-platform.functions";
-import { AdminNav } from "@/components/admin/AdminNav";
+
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,7 +39,7 @@ function Page() {
 
   return (
     <div>
-      <AdminNav />
+      
       <div className="mb-4 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold">Entreprises</h1>
