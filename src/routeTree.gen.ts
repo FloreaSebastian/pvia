@@ -66,6 +66,7 @@ import { Route as AuthenticatedAdminSupportIndexRouteImport } from './routes/_au
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksDrainWebhooksRouteImport } from './routes/api/public/hooks/drain-webhooks'
+import { Route as ApiPublicHooksDrainEmailsRouteImport } from './routes/api/public/hooks/drain-emails'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
@@ -380,6 +381,12 @@ const ApiPublicHooksDrainWebhooksRoute =
     path: '/api/public/hooks/drain-webhooks',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksDrainEmailsRoute =
+  ApiPublicHooksDrainEmailsRouteImport.update({
+    id: '/api/public/hooks/drain-emails',
+    path: '/api/public/hooks/drain-emails',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksCheckExpiringTrialsRoute =
   ApiPublicHooksCheckExpiringTrialsRouteImport.update({
     id: '/api/public/hooks/check-expiring-trials',
@@ -481,6 +488,7 @@ export interface FileRoutesByFullPath {
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -544,6 +552,7 @@ export interface FileRoutesByTo {
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -611,6 +620,7 @@ export interface FileRoutesById {
   '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -678,6 +688,7 @@ export interface FileRouteTypes {
     | '/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
@@ -741,6 +752,7 @@ export interface FileRouteTypes {
     | '/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
@@ -807,6 +819,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
@@ -836,6 +849,7 @@ export interface RootRouteChildren {
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
   ApiPublicHooksCheckExpiringTrialsRoute: typeof ApiPublicHooksCheckExpiringTrialsRoute
+  ApiPublicHooksDrainEmailsRoute: typeof ApiPublicHooksDrainEmailsRoute
   ApiPublicHooksDrainWebhooksRoute: typeof ApiPublicHooksDrainWebhooksRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
@@ -1242,6 +1256,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksDrainWebhooksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/drain-emails': {
+      id: '/api/public/hooks/drain-emails'
+      path: '/api/public/hooks/drain-emails'
+      fullPath: '/api/public/hooks/drain-emails'
+      preLoaderRoute: typeof ApiPublicHooksDrainEmailsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/check-expiring-trials': {
       id: '/api/public/hooks/check-expiring-trials'
       path: '/api/public/hooks/check-expiring-trials'
@@ -1478,6 +1499,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
   ApiPublicHooksCheckExpiringTrialsRoute:
     ApiPublicHooksCheckExpiringTrialsRoute,
+  ApiPublicHooksDrainEmailsRoute: ApiPublicHooksDrainEmailsRoute,
   ApiPublicHooksDrainWebhooksRoute: ApiPublicHooksDrainWebhooksRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
