@@ -69,6 +69,7 @@ import { Route as ApiPublicHooksDrainWebhooksRouteImport } from './routes/api/pu
 import { Route as ApiPublicHooksDrainEmailsRouteImport } from './routes/api/public/hooks/drain-emails'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
+import { Route as ApiPublicAuthSendEmailHookRouteImport } from './routes/api/public/auth/send-email-hook'
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
 import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
@@ -398,6 +399,12 @@ const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
   path: '/api/public/calendar/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAuthSendEmailHookRoute =
+  ApiPublicAuthSendEmailHookRouteImport.update({
+    id: '/api/public/auth/send-email-hook',
+    path: '/api/public/auth/send-email-hook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedPvIdLeveeReservesRoute =
   AuthenticatedPvIdLeveeReservesRouteImport.update({
     id: '/levee-reserves',
@@ -486,6 +493,7 @@ export interface FileRoutesByFullPath {
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
+  '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
@@ -550,6 +558,7 @@ export interface FileRoutesByTo {
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
+  '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
@@ -618,6 +627,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
+  '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
@@ -686,6 +696,7 @@ export interface FileRouteTypes {
     | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
+    | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
@@ -750,6 +761,7 @@ export interface FileRouteTypes {
     | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
+    | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
@@ -817,6 +829,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/support/$companyId'
     | '/_authenticated/pv/$id/historique'
     | '/_authenticated/pv/$id/levee-reserves'
+    | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
@@ -847,6 +860,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   ClientPvIdRoute: typeof ClientPvIdRouteWithChildren
   SignPvTokenRoute: typeof SignPvTokenRoute
+  ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
   ApiPublicHooksCheckExpiringTrialsRoute: typeof ApiPublicHooksCheckExpiringTrialsRoute
   ApiPublicHooksDrainEmailsRoute: typeof ApiPublicHooksDrainEmailsRoute
@@ -1277,6 +1291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCalendarTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/auth/send-email-hook': {
+      id: '/api/public/auth/send-email-hook'
+      path: '/api/public/auth/send-email-hook'
+      fullPath: '/api/public/auth/send-email-hook'
+      preLoaderRoute: typeof ApiPublicAuthSendEmailHookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/pv/$id/levee-reserves': {
       id: '/_authenticated/pv/$id/levee-reserves'
       path: '/levee-reserves'
@@ -1496,6 +1517,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   ClientPvIdRoute: ClientPvIdRouteWithChildren,
   SignPvTokenRoute: SignPvTokenRoute,
+  ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
   ApiPublicHooksCheckExpiringTrialsRoute:
     ApiPublicHooksCheckExpiringTrialsRoute,
