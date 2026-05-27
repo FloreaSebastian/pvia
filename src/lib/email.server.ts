@@ -482,8 +482,11 @@ export async function deliverSignedPv(opts: {
   if (!pv.pdf_url) throw new Error("PDF non disponible — veuillez régénérer.");
   if (!pv.signed_at) throw new Error("Le PV n'est pas signé.");
 
-  const [{ data: company }, clientRes, chantierRes, pdfFile, branding] = await Promise.all([
+  const [{ data: company }, { data: settings }, clientRes, chantierRes, pdfFile, branding] = await Promise.all([
     supabaseAdmin.from("companies").select("name,email").eq("id", pv.company_id).maybeSingle(),
+    supabaseAdmin.from("company_settings")
+      .select("pv_email_recipients,pv_email_cc,send_signed_pv_to_company,company_signed_email")
+      .eq("company_id", pv.company_id).maybeSingle(),
     pv.client_id
       ? supabaseAdmin.from("clients").select("name,email").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -507,7 +510,14 @@ export async function deliverSignedPv(opts: {
   const copySubject = `[Copie] PV ${pvNumero} signé par ${clientName}`;
 
   const clientEmail = client?.email || pv.sent_to_email || null;
-  const companyEmail = company?.email || null;
+  const sendToCompany = (settings as any)?.send_signed_pv_to_company !== false;
+  const companyEmail = sendToCompany ? ((settings as any)?.company_signed_email || company?.email || null) : null;
+  const ccExtra: string[] = [
+    ...(((settings as any)?.pv_email_recipients ?? []) as string[]),
+    ...(((settings as any)?.pv_email_cc ?? []) as string[]),
+  ]
+    .map((e) => e?.trim().toLowerCase())
+    .filter((e): e is string => !!e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
 
   const results: { client?: SendSignedPvResult; company?: SendSignedPvResult; pvNumero: string } = { pvNumero };
 
@@ -519,16 +529,10 @@ export async function deliverSignedPv(opts: {
       emailType: opts.trigger === "manual" ? "signed_resend" : "signed_to_client",
       subject,
       html: renderSignedPvEmail({
-        companyName,
-        clientName,
-        pvNumero,
-        chantierName: chantier?.name,
-        signedAt: pv.signed_at,
-        branding,
+        companyName, clientName, pvNumero,
+        chantierName: chantier?.name, signedAt: pv.signed_at, branding,
       }),
-      pdfBytes,
-      pdfFilename,
-      from,
+      pdfBytes, pdfFilename, from,
     });
   }
 
@@ -540,31 +544,44 @@ export async function deliverSignedPv(opts: {
       emailType: "signed_copy_to_company",
       subject: copySubject,
       html: renderSignedPvEmail({
-        companyName,
-        clientName,
-        pvNumero,
-        chantierName: chantier?.name,
-        signedAt: pv.signed_at,
-        isCopy: true,
-        branding,
+        companyName, clientName, pvNumero,
+        chantierName: chantier?.name, signedAt: pv.signed_at, isCopy: true, branding,
       }),
-      pdfBytes,
-      pdfFilename,
-      from,
+      pdfBytes, pdfFilename, from,
     });
   }
 
+  // Additional CC recipients (configured in company settings)
+  const ccSeen = new Set<string>(
+    [clientEmail, companyEmail].filter(Boolean).map((e) => e!.toLowerCase()),
+  );
+  for (const cc of ccExtra) {
+    if (ccSeen.has(cc)) continue;
+    ccSeen.add(cc);
+    await sendSignedPvEmailTo({
+      pvId: pv.id,
+      companyId: pv.company_id,
+      recipient: cc,
+      emailType: "signed_copy_to_company",
+      subject: copySubject,
+      html: renderSignedPvEmail({
+        companyName, clientName, pvNumero,
+        chantierName: chantier?.name, signedAt: pv.signed_at, isCopy: true, branding,
+      }),
+      pdfBytes, pdfFilename, from,
+    });
+  }
 
-  // Notification: signed PV emailed
-  const recipientSummary = [clientEmail, companyEmail].filter(Boolean).join(", ");
-  if (recipientSummary) {
+  const allRecipients = Array.from(ccSeen);
+  if (allRecipients.length) {
     await supabaseAdmin.from("notifications").insert({
       company_id: pv.company_id,
       type: "pv_signed_emailed",
       title: "PV signé envoyé par email",
-      body: `Le PV ${pvNumero} signé a été envoyé à ${recipientSummary}.`,
+      body: `Le PV ${pvNumero} signé a été envoyé à ${allRecipients.join(", ")}.`,
     });
   }
 
   return results;
 }
+
