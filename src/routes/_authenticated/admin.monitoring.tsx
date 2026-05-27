@@ -71,10 +71,17 @@ function MonitoringPage() {
   const healthFn = useServerFn(getHealthStatus);
   const csvFn = useServerFn(downloadAppErrorsCsv);
 
+  const retryFn = useServerFn(getRetryQueueStats);
+
   const [errors, setErrors] = useState<AppError[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
   const [health, setHealth] = useState<{ checks: HealthCheck[]; at: string } | null>(null);
+  const [retry, setRetry] = useState<{
+    webhooks: { pending: number; retrying: number; dead: number };
+    emails: { pending: number; retrying: number; dead: number };
+    retryEvents24h: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [severity, setSeverity] = useState<"all" | "info" | "warning" | "error" | "critical">("all");
   const [resolved, setResolved] = useState<"open" | "resolved" | "all">("open");
@@ -84,15 +91,17 @@ function MonitoringPage() {
   const reload = async () => {
     setLoading(true);
     try {
-      const [list, st, hc] = await Promise.all([
+      const [list, st, hc, rt] = await Promise.all([
         listFn({ data: { severity, resolved, source: source || undefined, limit: 100, offset: 0 } }),
         statsFn(),
         healthFn(),
+        retryFn(),
       ]);
       setErrors(list.errors as AppError[]);
       setTotal(list.total);
       setStats(st as Stats);
       setHealth(hc);
+      setRetry(rt);
     } catch (e: any) {
       toast.error(e?.message ?? "Erreur");
     } finally {
