@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
+import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
 import { toast } from "sonner";
 
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const logEvent = useServerFn(logUserAuthEvent);
+  const sendLoginCode = useServerFn(sendEnterpriseLoginCode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -47,22 +49,16 @@ function LoginPage() {
     const normalized = email.trim().toLowerCase();
     if (!normalized) return;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalized,
-      options: { shouldCreateUser: false },
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(
-        error.message.includes("not found") || error.message.includes("Signups")
-          ? "Aucun compte associé à cet email."
-          : error.message,
-      );
-      return;
+    try {
+      await sendLoginCode({ data: { email: normalized } });
+      await logEvent({ data: { action: "user.login_code_sent", email: normalized } }).catch(() => {});
+      toast.success("Code envoyé. Vérifiez votre boîte mail.");
+      navigate({ to: "/verify", search: { email: normalized } });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Impossible d'envoyer le code.");
+    } finally {
+      setLoading(false);
     }
-    await logEvent({ data: { action: "user.login_code_sent", email: normalized } }).catch(() => {});
-    toast.success("Code envoyé. Vérifiez votre boîte mail.");
-    navigate({ to: "/verify", search: { email: normalized } });
   }
 
   async function onPassword(e: React.FormEvent) {
