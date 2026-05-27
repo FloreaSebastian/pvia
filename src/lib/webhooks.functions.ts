@@ -20,6 +20,7 @@ const EVENTS = [
   "reserve.lifted",
   "reserve_lift.created",
   "reserve_lift.signed",
+  "reserve_lift.client_validated",
   "member.invited",
   "member.joined",
   "subscription.updated",

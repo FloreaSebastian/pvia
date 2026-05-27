@@ -22,6 +22,45 @@ export function hashApiKey(full: string): string {
   return crypto.createHash("sha256").update(full).digest("hex");
 }
 
+/**
+ * Enqueue a webhook delivery for every enabled webhook in `companyId`
+ * subscribed to `event`. Never throws — webhook dispatch must not break
+ * business logic.
+ */
+export async function dispatchWebhookEvent(
+  companyId: string,
+  event: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data: hooks } = await supabaseAdmin
+      .from("webhooks")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("enabled", true)
+      .contains("events", [event]);
+    if (!hooks?.length) return;
+    const body = {
+      event,
+      occurred_at: new Date().toISOString(),
+      company_id: companyId,
+      ...payload,
+    };
+    await supabaseAdmin.from("webhook_deliveries").insert(
+      hooks.map((h: any) => ({
+        webhook_id: h.id,
+        company_id: companyId,
+        event,
+        payload: body,
+      })),
+    );
+    // Best-effort drain (don't await)
+    void drainPending(companyId, 10).catch(() => null);
+  } catch (e) {
+    console.error("dispatchWebhookEvent failed:", e);
+  }
+}
+
 function signPayload(secret: string, ts: number, body: string): string {
   const mac = crypto.createHmac("sha256", secret).update(`${ts}.${body}`).digest("hex");
   return `t=${ts},v1=${mac}`;
@@ -41,6 +80,7 @@ const EVENT_LABEL: Record<string, string> = {
   "reserve.lifted": "Réserve levée",
   "reserve_lift.created": "Levée de réserves créée",
   "reserve_lift.signed": "Levée de réserves signée",
+  "reserve_lift.client_validated": "Levée de réserves validée par le client",
   "webhook.test": "Test PVIA",
 };
 

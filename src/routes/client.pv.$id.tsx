@@ -29,6 +29,7 @@ import {
   getClientPdfSignedUrl,
   signPvAsClient,
 } from "@/lib/client-auth.functions";
+import { listClientReserveLifts } from "@/lib/client-reserve-lift.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/pv/$id")({
@@ -53,11 +54,16 @@ function ClientPvDetail() {
   const detailFn = useServerFn(getClientPvDetail);
   const pdfFn = useServerFn(getClientPdfSignedUrl);
   const signFn = useServerFn(signPvAsClient);
+  const liftsFn = useServerFn(listClientReserveLifts);
   const qc = useQueryClient();
 
   const q = useQuery({
     queryKey: ["client.pv", id],
     queryFn: () => detailFn({ data: { pvId: id } }),
+  });
+  const liftsQ = useQuery({
+    queryKey: ["client.lifts", id],
+    queryFn: () => liftsFn({ data: { pvId: id } }),
   });
 
   async function download() {
@@ -220,6 +226,43 @@ function ClientPvDetail() {
           </div>
         </Card>
       )}
+
+      {liftsQ.data && liftsQ.data.lifts.length > 0 && (
+        <Card className="mt-4 p-5">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Levée de réserves ({liftsQ.data.lifts.length})
+          </h2>
+          <ul className="space-y-2">
+            {liftsQ.data.lifts.map((l: any) => {
+              const validated = !!l.client_validated_at;
+              return (
+                <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3">
+                  <div>
+                    <p className="text-sm font-medium">N° {l.numero}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {l.items_count} réserve(s) · {new Date(l.created_at).toLocaleDateString("fr-FR")}
+                      {validated && ` · validée le ${new Date(l.client_validated_at).toLocaleDateString("fr-FR")}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {validated ? (
+                      <Badge className="bg-success/15 text-success hover:bg-success/15">Validée</Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-warning/40 text-warning">À valider</Badge>
+                    )}
+                    <Link to="/client/pv/$id/levee-reserves/$liftId" params={{ id, liftId: l.id }}>
+                      <Button size="sm" variant={validated ? "outline" : "default"}>
+                        {validated ? "Consulter" : "Consulter & valider"}
+                      </Button>
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+
 
       <div className="mt-6">
         {isSigned ? (
