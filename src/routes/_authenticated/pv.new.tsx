@@ -448,7 +448,7 @@ function NewPv() {
             </span>
           )}
           <Button variant="outline" disabled={saving} onClick={() => onSave("brouillon")}>
-            <Save className="h-4 w-4" /> Brouillon
+            <Save className="h-4 w-4" /> Enregistrer en brouillon
           </Button>
         </div>
       </div>
