@@ -769,6 +769,7 @@ function labelForType(t: string) {
     case "signed_copy_to_company": return "Copie entreprise";
     case "signed_resend": return "Renvoi manuel";
     case "invite": return "Invitation";
+    case "reserve_lift_validated": return "Levée validée → client";
     default: return t;
   }
 }
