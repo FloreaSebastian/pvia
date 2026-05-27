@@ -168,6 +168,8 @@ function NewPv() {
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
+  const [clientSignatureDataUrl, setClientSignatureDataUrl] = useState<string | null>(null);
+  const [companySignatureDataUrl, setCompanySignatureDataUrl] = useState<string | null>(null);
 
   // Stepper dynamique
   const STEPS = useMemo<StepDef[]>(() => {
@@ -292,6 +294,50 @@ function NewPv() {
     setWithReserves(value);
   }
 
+  function readSignature(ref: typeof companySigRef, emptyMessage: string): string | null {
+    const pad = ref.current;
+    if (!pad) {
+      toast.error(emptyMessage);
+      return null;
+    }
+    try {
+      if (pad.isEmpty()) {
+        toast.error(emptyMessage);
+        return null;
+      }
+      return pad.getTrimmedCanvas().toDataURL("image/png");
+    } catch {
+      toast.error("Impossible d'enregistrer la signature. Réessayez.");
+      return null;
+    }
+  }
+
+  function saveCompanySignature() {
+    const dataUrl = readSignature(companySigRef, "Signez dans le cadre entreprise avant de valider la signature.");
+    if (!dataUrl) return;
+    setCompanySignatureDataUrl(dataUrl);
+    toast.success("Signature entreprise enregistrée.");
+  }
+
+  function clearCompanySignature() {
+    companySigRef.current?.clear();
+    setCompanySignatureDataUrl(null);
+    toast.message("Signature entreprise effacée.");
+  }
+
+  function saveClientSignature() {
+    const dataUrl = readSignature(clientSigRef, "Signez dans le cadre client avant de valider la signature.");
+    if (!dataUrl) return;
+    setClientSignatureDataUrl(dataUrl);
+    toast.success("Signature client enregistrée.");
+  }
+
+  function clearClientSignature() {
+    clientSigRef.current?.clear();
+    setClientSignatureDataUrl(null);
+    toast.message("Signature client effacée.");
+  }
+
   async function onSave(status: "brouillon" | "signe") {
     if (!activeCompanyId) return toast.error("Aucune entreprise active.");
     if (withReserves === null) {
@@ -302,20 +348,10 @@ function NewPv() {
     }
     setSaving(true);
     try {
-      const safeToDataUrl = (ref: typeof companySigRef): string | null => {
-        const pad = ref.current;
-        if (!pad) return null;
-        try {
-          if (typeof pad.isEmpty === "function" && pad.isEmpty()) return null;
-          return pad.toDataURL("image/png");
-        } catch {
-          return null;
-        }
-      };
-      const companySig = status === "signe" ? safeToDataUrl(companySigRef) : null;
-      const clientSig = status === "signe" ? safeToDataUrl(clientSigRef) : null;
+      const companySig = status === "signe" ? companySignatureDataUrl : null;
+      const clientSig = status === "signe" ? clientSignatureDataUrl : null;
       if (status === "signe" && !companySig) {
-        toast.error("Veuillez signer en tant qu'entreprise avant de valider le PV.");
+        toast.error("Validez la signature entreprise avant de signer le PV.");
         const idx = STEPS.findIndex((s) => s.id === ID_SIGNATURES);
         if (idx >= 0) setStepIdx(idx);
         setSaving(false);
