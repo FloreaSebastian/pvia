@@ -56,6 +56,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const { activeCompanyId } = useCompany();
+  const { suspended } = useSuspension();
 
   async function signOut() {
     try {
