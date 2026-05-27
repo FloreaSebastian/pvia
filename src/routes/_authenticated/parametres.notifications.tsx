@@ -37,12 +37,58 @@ function NotificationsSettings() {
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
 
+  // PV signed email settings
+  const getSettingsFn = useServerFn(getPvEmailSettings);
+  const updateSettingsFn = useServerFn(updatePvEmailSettings);
+  const [sendCompanyCopy, setSendCompanyCopy] = useState(true);
+  const [companySignedEmail, setCompanySignedEmail] = useState("");
+  const [pvRecipients, setPvRecipients] = useState<string[]>([]);
+  const [pvCc, setPvCc] = useState<string[]>([]);
+  const [newRecipient, setNewRecipient] = useState("");
+  const [newCc, setNewCc] = useState("");
+  const [savingPvEmail, setSavingPvEmail] = useState(false);
+
   const refresh = useCallback(async () => {
     try {
       const r = await listMyPushDevices();
       setDevices(r.devices as Device[]);
     } catch {/* ignore */}
   }, []);
+
+  // Load PV email settings when company changes
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    getSettingsFn({ data: { companyId: activeCompanyId } })
+      .then((s) => {
+        setSendCompanyCopy(s.send_signed_pv_to_company);
+        setCompanySignedEmail(s.company_signed_email ?? "");
+        setPvRecipients(s.pv_email_recipients ?? []);
+        setPvCc(s.pv_email_cc ?? []);
+      })
+      .catch(() => { /* keep defaults */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId]);
+
+  async function savePvEmailSettings() {
+    if (!activeCompanyId) return toast.error("Aucune entreprise active.");
+    setSavingPvEmail(true);
+    try {
+      await updateSettingsFn({
+        data: {
+          companyId: activeCompanyId,
+          send_signed_pv_to_company: sendCompanyCopy,
+          company_signed_email: companySignedEmail.trim() || null,
+          pv_email_recipients: pvRecipients,
+          pv_email_cc: pvCc,
+        },
+      });
+      toast.success("Paramètres d'envoi enregistrés.");
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'enregistrement.");
+    } finally {
+      setSavingPvEmail(false);
+    }
+  }
 
   useEffect(() => {
     const ok =
