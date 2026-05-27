@@ -27,6 +27,8 @@ type Row = {
   nature: string | null;
   work_to_execute: string | null;
   due_date: string | null;
+  lifted_at: string | null;
+  validated_at: string | null;
   pv: { numero: string } | null;
 };
 
@@ -39,7 +41,7 @@ function ReservesPage() {
     if (!activeCompanyId) return;
     const { data, error } = await supabase
       .from("pv_reserves")
-      .select("id,description,severity,status,created_at,pv_id,nature,work_to_execute,due_date")
+      .select("id,description,severity,status,created_at,pv_id,nature,work_to_execute,due_date,lifted_at,validated_at")
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
     if (error) return toast.error(error.message);
