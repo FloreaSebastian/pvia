@@ -130,9 +130,6 @@ export const sendInvite = createServerFn({ method: "POST" })
     const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.app").replace(/\/$/, "");
     const acceptUrl = `${appUrl}/invite/${token}`;
 
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) throw new Error("RESEND_API_KEY manquant côté serveur.");
-
     const html = renderEmail({
       companyName: company.name,
       inviterName: profile?.full_name || "Un administrateur",
@@ -140,23 +137,21 @@ export const sendInvite = createServerFn({ method: "POST" })
       acceptUrl,
     });
 
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
+    const sendRes = await sendEmailWithRetryLog({
+      emailType: "member_invite",
+      companyId: data.companyId,
+      retryable: true,
+      payload: {
         from: "PVIA <onboarding@resend.dev>",
         to: [data.email],
         subject: `${profile?.full_name || "PVIA"} vous invite sur ${company.name}`,
         html,
-      }),
+      },
     });
-
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(`Échec envoi email (${resp.status}): ${body}`);
+    if (sendRes.status === "failed") {
+      // Invitation row was already created — the queued log will auto-retry.
+      throw new Error(`Échec envoi email: ${sendRes.error ?? "inconnue"} (sera relancé automatiquement)`);
     }
 
     await writeAuditLog({
