@@ -7,7 +7,7 @@ export function Logo({ withBaseline = false, className = "" }: { withBaseline?: 
       <img
         src={pviaLogo}
         alt="PVIA"
-        className="h-10 w-10 object-contain"
+        className="h-14 w-14 object-contain"
         loading="eager"
         decoding="async"
       />

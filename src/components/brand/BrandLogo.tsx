@@ -24,7 +24,7 @@ export function BrandLogo({ variant = "default", className, withLink = false, ta
         alt="PVIA"
         className={cn(
           "object-contain transition-transform group-hover:scale-105",
-          isCompact ? "h-7 w-7" : "h-9 w-9",
+          isCompact ? "h-10 w-10" : "h-12 w-12",
           isMono && "brightness-0 invert",
         )}
         loading="eager"
