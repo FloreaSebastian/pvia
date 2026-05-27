@@ -41,12 +41,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { createPv } from "@/lib/pv-create.functions";
 import { getCompanyBrandingFn } from "@/lib/branding.functions";
 import { getPvNumberingSettings } from "@/lib/pv-numbering.functions";
-import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
-import { Mail, ShieldAlert, Send } from "lucide-react";
 
 type Branding = {
   id: string;
