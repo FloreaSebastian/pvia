@@ -12,6 +12,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { supabase } from "@/integrations/supabase/client";
+import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
 import { toast } from "sonner";
 
@@ -45,6 +46,7 @@ function VerifyPage() {
   const { email = "" } = Route.useSearch();
   const navigate = useNavigate();
   const logEvent = useServerFn(logUserAuthEvent);
+  const resendLoginCode = useServerFn(sendEnterpriseLoginCode);
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -74,7 +76,7 @@ function VerifyPage() {
     const { error } = await supabase.auth.verifyOtp({
       email,
       token: value,
-      type: "email",
+      type: "magiclink",
     });
     setLoading(false);
     if (error) {
@@ -97,19 +99,17 @@ function VerifyPage() {
 
   async function onResend() {
     if (cooldown > 0 || !email) return;
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false },
-    });
-    if (error) {
-      toast.error(error.message);
+    try {
+      await resendLoginCode({ data: { email } });
+      await logEvent({ data: { action: "user.login_code_sent", email } }).catch(() => {});
+      toast.success("Nouveau code envoyé");
+      setCooldown(60);
+      setCode("");
+      submittedRef.current = false;
+    } catch (err: any) {
+      toast.error(err?.message ?? "Échec de l'envoi");
       return;
     }
-    await logEvent({ data: { action: "user.login_code_sent", email } }).catch(() => {});
-    toast.success("Nouveau code envoyé");
-    setCooldown(60);
-    setCode("");
-    submittedRef.current = false;
   }
 
   return (
