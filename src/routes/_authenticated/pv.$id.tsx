@@ -70,7 +70,7 @@ type Pv = {
   chantier_city: string | null;
 };
 type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
-type Reserve = { id: string; description: string; severity: string; status: string };
+type Reserve = { id: string; description: string; severity: string; status: string; lifted_at?: string | null; validated_at?: string | null };
 
 function PvDetail() {
   const { id } = Route.useParams();
