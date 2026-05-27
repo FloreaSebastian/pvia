@@ -29,6 +29,7 @@ import {
   getClientPdfSignedUrl,
   signPvAsClient,
 } from "@/lib/client-auth.functions";
+import { listClientReserveLifts } from "@/lib/client-reserve-lift.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/pv/$id")({
@@ -53,11 +54,16 @@ function ClientPvDetail() {
   const detailFn = useServerFn(getClientPvDetail);
   const pdfFn = useServerFn(getClientPdfSignedUrl);
   const signFn = useServerFn(signPvAsClient);
+  const liftsFn = useServerFn(listClientReserveLifts);
   const qc = useQueryClient();
 
   const q = useQuery({
     queryKey: ["client.pv", id],
     queryFn: () => detailFn({ data: { pvId: id } }),
+  });
+  const liftsQ = useQuery({
+    queryKey: ["client.lifts", id],
+    queryFn: () => liftsFn({ data: { pvId: id } }),
   });
 
   async function download() {
