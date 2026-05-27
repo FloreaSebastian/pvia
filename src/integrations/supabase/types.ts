@@ -400,6 +400,10 @@ export type Database = {
           postal_code: string | null
           siren: string | null
           siret: string | null
+          support_status: string
+          suspended_at: string | null
+          suspended_by: string | null
+          suspension_reason: string | null
           updated_at: string
           vat_number: string | null
           website: string | null
@@ -421,6 +425,10 @@ export type Database = {
           postal_code?: string | null
           siren?: string | null
           siret?: string | null
+          support_status?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           updated_at?: string
           vat_number?: string | null
           website?: string | null
@@ -442,6 +450,10 @@ export type Database = {
           postal_code?: string | null
           siren?: string | null
           siret?: string | null
+          support_status?: string
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           updated_at?: string
           vat_number?: string | null
           website?: string | null
@@ -636,6 +648,42 @@ export type Database = {
           sent_at?: string | null
           status?: string
           subject?: string | null
+        }
+        Relationships: []
+      }
+      impersonation_sessions: {
+        Row: {
+          admin_user_id: string
+          company_id: string
+          ended_at: string | null
+          ended_reason: string | null
+          expires_at: string
+          id: string
+          read_only: boolean
+          reason: string | null
+          started_at: string
+        }
+        Insert: {
+          admin_user_id: string
+          company_id: string
+          ended_at?: string | null
+          ended_reason?: string | null
+          expires_at: string
+          id?: string
+          read_only?: boolean
+          reason?: string | null
+          started_at?: string
+        }
+        Update: {
+          admin_user_id?: string
+          company_id?: string
+          ended_at?: string | null
+          ended_reason?: string | null
+          expires_at?: string
+          id?: string
+          read_only?: boolean
+          reason?: string | null
+          started_at?: string
         }
         Relationships: []
       }
@@ -1320,6 +1368,33 @@ export type Database = {
             referencedColumns: ["plan"]
           },
         ]
+      }
+      support_notes: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string
+          visibility: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note: string
+          visibility?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string
+          visibility?: string
+        }
+        Relationships: []
       }
       user_preferences: {
         Row: {
