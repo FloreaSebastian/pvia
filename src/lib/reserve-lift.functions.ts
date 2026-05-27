@@ -89,6 +89,10 @@ export const createReserveLift = createServerFn({ method: "POST" })
       throw new Error("Accès refusé : seul un manager peut créer une levée de réserves.");
     }
 
+    // Suspension / billing gate.
+    const { assertSubscriptionUsable } = await import("./plan-guard.server");
+    await assertSubscriptionUsable(pv.company_id, userId);
+
     // 2. Validate signatures
     if (data.status === "signe") {
       if (!data.companySignature) throw new Error("Signature entreprise obligatoire.");
