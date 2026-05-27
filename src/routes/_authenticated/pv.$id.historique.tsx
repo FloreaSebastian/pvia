@@ -55,6 +55,8 @@ const ACTION_META: Record<string, { label: string; icon: any; badge: string; ton
   "reserve_lift.created": { label: "Levée de réserves créée", icon: ShieldCheck, badge: "Système", tone: "bg-primary/15 text-primary" },
   "reserve_lift.signed": { label: "Levée signée par l'entreprise", icon: PenSquare, badge: "Signature", tone: "bg-success/15 text-success" },
   "reserve_lift.client_validated": { label: "Levée validée par le client", icon: CheckCircle2, badge: "Client", tone: "bg-success/15 text-success" },
+  "reserve_lift.client_validated_email_sent": { label: "Email de validation envoyé", icon: Mail, badge: "Email", tone: "bg-primary/15 text-primary" },
+  "reserve_lift.client_validated_email_resent": { label: "Email de validation renvoyé", icon: Mail, badge: "Email", tone: "bg-primary/15 text-primary" },
   "photo.add": { label: "Photo ajoutée", icon: Camera, badge: "Utilisateur", tone: "bg-primary/15 text-primary" },
   "photo.delete": { label: "Photo supprimée", icon: Trash2, badge: "Utilisateur", tone: "bg-destructive/15 text-destructive" },
   "member.invited": { label: "Membre invité", icon: UserPlus, badge: "Équipe", tone: "bg-primary/15 text-primary" },
