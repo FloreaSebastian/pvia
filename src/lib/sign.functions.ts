@@ -100,9 +100,6 @@ export const sendPvToClient = createServerFn({ method: "POST" })
     const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.app").replace(/\/$/, "");
     const signUrl = `${appUrl}/sign/pv/${token}`;
 
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) throw new Error("RESEND_API_KEY manquant côté serveur.");
-
     const html = renderSignEmail({
       companyName: company?.name || "PVIA",
       clientName: client?.name || "Cher client",
@@ -111,19 +108,21 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       expiresAt,
     });
 
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
+    const sendRes = await sendEmailWithRetryLog({
+      emailType: "pv_sign_link",
+      companyId: pv.company_id!,
+      pvId: pv.id,
+      retryable: true,
+      payload: {
         from: "PVIA <onboarding@resend.dev>",
         to: [data.email],
         subject: `${company?.name || "PVIA"} — N° ${pv.numero} à signer`,
         html,
-      }),
+      },
     });
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(`Échec envoi email (${resp.status}): ${body}`);
+    if (sendRes.status === "failed") {
+      throw new Error(`Échec envoi email: ${sendRes.error ?? "inconnue"} (sera relancé automatiquement)`);
     }
 
     await writeAuditLog({
