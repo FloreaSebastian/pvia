@@ -115,7 +115,7 @@ function PvDetail() {
 
     const [photosRes, reservesRes] = await Promise.all([
       supabase.from("pv_photos").select("id,url,caption").eq("pv_id", id),
-      supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", id).order("created_at"),
+      supabase.from("pv_reserves").select("id,description,severity,status,lifted_at,validated_at").eq("pv_id", id).order("created_at"),
     ]);
     const ph = (photosRes.data ?? []) as Photo[];
     // Sign URLs for photos
