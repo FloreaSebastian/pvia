@@ -163,9 +163,18 @@ function ReservesPage() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString("fr-FR")}</TableCell>
                 <TableCell className="text-right">
-                  <Button size="icon" variant="ghost" onClick={() => remove(r.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    {r.status === "ouverte" && (
+                      <Link to="/pv/$id/levee-reserves" params={{ id: r.pv_id }} search={{ reserveId: r.id }}>
+                        <Button size="sm" variant="outline" className="h-8">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                        </Button>
+                      </Link>
+                    )}
+                    <Button size="icon" variant="ghost" onClick={() => remove(r.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
