@@ -839,8 +839,26 @@ function NewPv() {
                 <>
                   <SectionHeader icon={PenLine} title="Signatures électroniques" desc={withReserves ? "Réception avec réserves — levée à prévoir." : "Réception sans réserve."} />
                   <div className="grid gap-5 lg:grid-cols-2">
-                    <SignatureBox label="Signature du client" innerRef={clientSigRef} />
-                    <SignatureBox label="Signature entreprise" innerRef={companySigRef} />
+                    <SignatureBox
+                      label="Signature du client"
+                      innerRef={clientSigRef}
+                      saved={!!clientSignatureDataUrl}
+                      savedLabel="Signature client enregistrée"
+                      validateLabel="Valider la signature client"
+                      clearLabel="Effacer signature client"
+                      onValidate={saveClientSignature}
+                      onClear={clearClientSignature}
+                    />
+                    <SignatureBox
+                      label="Signature entreprise"
+                      innerRef={companySigRef}
+                      saved={!!companySignatureDataUrl}
+                      savedLabel="Signature entreprise enregistrée"
+                      validateLabel="Valider la signature entreprise"
+                      clearLabel="Effacer signature entreprise"
+                      onValidate={saveCompanySignature}
+                      onClear={clearCompanySignature}
+                    />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Vous pouvez aussi enregistrer en brouillon et signer plus tard.
@@ -881,11 +899,23 @@ function NewPv() {
                       </p>
                     )}
                   </div>
-                  <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success">
-                    <p className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" /> Prêt à valider</p>
-                    <p className="mt-1 text-success/80">
-                      « Valider & signer » enregistre le PV, génère le PDF et notifie votre équipe.
+                  <div className={`rounded-xl border p-4 text-sm ${companySignatureDataUrl ? "border-success/30 bg-success/10 text-success" : "border-warning/40 bg-warning/10 text-warning-foreground"}`}>
+                    <p className="flex items-center gap-2 font-semibold">
+                      {companySignatureDataUrl ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                      Signature entreprise : {companySignatureDataUrl ? "enregistrée" : "manquante"}
                     </p>
+                    <p className="mt-1 flex items-center gap-2 opacity-80">
+                      <User className="h-4 w-4" /> Signature client : {clientSignatureDataUrl ? "enregistrée" : "non renseignée"}
+                    </p>
+                    {companySignatureDataUrl ? (
+                      <p className="mt-2 text-success/80">
+                        « Valider & signer » enregistre le PV, génère le PDF et notifie votre équipe.
+                      </p>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setStepIdx(STEPS.findIndex((s) => s.id === ID_SIGNATURES))}>
+                        <PenLine className="h-4 w-4" /> Retour signer
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -914,10 +944,21 @@ function NewPv() {
               </Tooltip>
             </TooltipProvider>
           ) : (
-            <Button disabled={saving} onClick={() => onSave("signe")} className="shadow-brand">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              Valider & signer
-            </Button>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button disabled={saving || !companySignatureDataUrl} onClick={() => onSave("signe")} className="shadow-brand">
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      Valider & signer
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!companySignatureDataUrl && (
+                  <TooltipContent>Validez d'abord la signature entreprise.</TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </Card>
