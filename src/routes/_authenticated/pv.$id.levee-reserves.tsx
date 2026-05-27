@@ -16,6 +16,9 @@ import { fileToBase64 } from "@/lib/file-upload";
 
 export const Route = createFileRoute("/_authenticated/pv/$id/levee-reserves")({
   component: LeveeReserves,
+  validateSearch: (s: Record<string, unknown>) => ({
+    reserveId: typeof s.reserveId === "string" ? s.reserveId : undefined,
+  }),
   head: () => ({ meta: [{ title: "Levée de réserves — PVIA" }] }),
 });
 
