@@ -168,6 +168,8 @@ function NewPv() {
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
+  const [clientSignatureDataUrl, setClientSignatureDataUrl] = useState<string | null>(null);
+  const [companySignatureDataUrl, setCompanySignatureDataUrl] = useState<string | null>(null);
 
   // Stepper dynamique
   const STEPS = useMemo<StepDef[]>(() => {
@@ -292,6 +294,60 @@ function NewPv() {
     setWithReserves(value);
   }
 
+  function readSignature(ref: typeof companySigRef, emptyMessage: string): string | null {
+    const pad = ref.current;
+    if (!pad) {
+      toast.error(emptyMessage);
+      return null;
+    }
+    try {
+      if (pad.isEmpty()) {
+        toast.error(emptyMessage);
+        return null;
+      }
+      return pad.getTrimmedCanvas().toDataURL("image/png");
+    } catch {
+      toast.error("Impossible d'enregistrer la signature. Réessayez.");
+      return null;
+    }
+  }
+
+  function syncSignature(ref: typeof companySigRef, onSync: (dataUrl: string | null) => void) {
+    const pad = ref.current;
+    if (!pad) return;
+    try {
+      onSync(pad.isEmpty() ? null : pad.getTrimmedCanvas().toDataURL("image/png"));
+    } catch {
+      onSync(null);
+    }
+  }
+
+  function saveCompanySignature() {
+    const dataUrl = readSignature(companySigRef, "Signez dans le cadre entreprise avant de valider la signature.");
+    if (!dataUrl) return;
+    setCompanySignatureDataUrl(dataUrl);
+    toast.success("Signature entreprise enregistrée.");
+  }
+
+  function clearCompanySignature() {
+    companySigRef.current?.clear();
+    setCompanySignatureDataUrl(null);
+    toast.message("Signature entreprise effacée.");
+  }
+
+  function saveClientSignature() {
+    const dataUrl = readSignature(clientSigRef, "Signez dans le cadre client avant de valider la signature.");
+    if (!dataUrl) return;
+    setClientSignatureDataUrl(dataUrl);
+    toast.success("Signature client enregistrée.");
+  }
+
+  function clearClientSignature() {
+    clientSigRef.current?.clear();
+    setClientSignatureDataUrl(null);
+    toast.message("Signature client effacée.");
+  }
+
   async function onSave(status: "brouillon" | "signe") {
     if (!activeCompanyId) return toast.error("Aucune entreprise active.");
     if (withReserves === null) {
@@ -302,20 +358,10 @@ function NewPv() {
     }
     setSaving(true);
     try {
-      const safeToDataUrl = (ref: typeof companySigRef): string | null => {
-        const pad = ref.current;
-        if (!pad) return null;
-        try {
-          if (typeof pad.isEmpty === "function" && pad.isEmpty()) return null;
-          return pad.toDataURL("image/png");
-        } catch {
-          return null;
-        }
-      };
-      const companySig = status === "signe" ? safeToDataUrl(companySigRef) : null;
-      const clientSig = status === "signe" ? safeToDataUrl(clientSigRef) : null;
+      const companySig = status === "signe" ? companySignatureDataUrl : null;
+      const clientSig = status === "signe" ? clientSignatureDataUrl : null;
       if (status === "signe" && !companySig) {
-        toast.error("Veuillez signer en tant qu'entreprise avant de valider le PV.");
+        toast.error("Validez la signature entreprise avant de signer le PV.");
         const idx = STEPS.findIndex((s) => s.id === ID_SIGNATURES);
         if (idx >= 0) setStepIdx(idx);
         setSaving(false);
@@ -803,8 +849,30 @@ function NewPv() {
                 <>
                   <SectionHeader icon={PenLine} title="Signatures électroniques" desc={withReserves ? "Réception avec réserves — levée à prévoir." : "Réception sans réserve."} />
                   <div className="grid gap-5 lg:grid-cols-2">
-                    <SignatureBox label="Signature du client" innerRef={clientSigRef} />
-                    <SignatureBox label="Signature entreprise" innerRef={companySigRef} />
+                    <SignatureBox
+                      label="Signature du client"
+                      innerRef={clientSigRef}
+                      saved={!!clientSignatureDataUrl}
+                      savedDataUrl={clientSignatureDataUrl}
+                      savedLabel="Signature client enregistrée"
+                      validateLabel="Valider la signature client"
+                      clearLabel="Effacer signature client"
+                      onValidate={saveClientSignature}
+                      onClear={clearClientSignature}
+                      onEnd={() => syncSignature(clientSigRef, setClientSignatureDataUrl)}
+                    />
+                    <SignatureBox
+                      label="Signature entreprise"
+                      innerRef={companySigRef}
+                      saved={!!companySignatureDataUrl}
+                      savedDataUrl={companySignatureDataUrl}
+                      savedLabel="Signature entreprise enregistrée"
+                      validateLabel="Valider la signature entreprise"
+                      clearLabel="Effacer signature entreprise"
+                      onValidate={saveCompanySignature}
+                      onClear={clearCompanySignature}
+                      onEnd={() => syncSignature(companySigRef, setCompanySignatureDataUrl)}
+                    />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Vous pouvez aussi enregistrer en brouillon et signer plus tard.
@@ -845,11 +913,23 @@ function NewPv() {
                       </p>
                     )}
                   </div>
-                  <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success">
-                    <p className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" /> Prêt à valider</p>
-                    <p className="mt-1 text-success/80">
-                      « Valider & signer » enregistre le PV, génère le PDF et notifie votre équipe.
+                  <div className={`rounded-xl border p-4 text-sm ${companySignatureDataUrl ? "border-success/30 bg-success/10 text-success" : "border-warning/40 bg-warning/10 text-warning-foreground"}`}>
+                    <p className="flex items-center gap-2 font-semibold">
+                      {companySignatureDataUrl ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                      Signature entreprise : {companySignatureDataUrl ? "enregistrée" : "manquante"}
                     </p>
+                    <p className="mt-1 flex items-center gap-2 opacity-80">
+                      <User className="h-4 w-4" /> Signature client : {clientSignatureDataUrl ? "enregistrée" : "non renseignée"}
+                    </p>
+                    {companySignatureDataUrl ? (
+                      <p className="mt-2 text-success/80">
+                        « Valider & signer » enregistre le PV, génère le PDF et notifie votre équipe.
+                      </p>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setStepIdx(STEPS.findIndex((s) => s.id === ID_SIGNATURES))}>
+                        <PenLine className="h-4 w-4" /> Retour signer
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -878,10 +958,21 @@ function NewPv() {
               </Tooltip>
             </TooltipProvider>
           ) : (
-            <Button disabled={saving} onClick={() => onSave("signe")} className="shadow-brand">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              Valider & signer
-            </Button>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button disabled={saving || !companySignatureDataUrl} onClick={() => onSave("signe")} className="shadow-brand">
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      Valider & signer
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!companySignatureDataUrl && (
+                  <TooltipContent>Validez d'abord la signature entreprise.</TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </Card>
@@ -943,16 +1034,51 @@ function PhotoUploader({ label, kind, onFiles }: { label: string; kind: "avant" 
   );
 }
 
-function SignatureBox({ label, innerRef }: { label: string; innerRef: React.RefObject<SignaturePad | null> }) {
+function SignatureBox({
+  label,
+  innerRef,
+  saved,
+  savedDataUrl,
+  savedLabel,
+  validateLabel,
+  clearLabel,
+  onValidate,
+  onClear,
+  onEnd,
+}: {
+  label: string;
+  innerRef: React.RefObject<SignaturePad | null>;
+  saved: boolean;
+  savedDataUrl: string | null;
+  savedLabel: string;
+  validateLabel: string;
+  clearLabel: string;
+  onValidate: () => void;
+  onClear: () => void;
+  onEnd: () => void;
+}) {
   return (
     <div>
-      <Label className="text-xs font-medium">{label}</Label>
-      <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
-        <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" />
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs font-medium">{label}</Label>
+        {saved && <Badge variant="secondary" className="gap-1 text-[11px]"><CheckCircle2 className="h-3 w-3" /> {savedLabel}</Badge>}
       </div>
-      <Button variant="ghost" size="sm" onClick={() => innerRef.current?.clear()} className="mt-1">
-        <Trash2 className="h-3.5 w-3.5" /> Effacer
-      </Button>
+      <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
+        <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
+      </div>
+      {savedDataUrl && (
+        <div className="mt-2 rounded-lg border border-border bg-background p-2">
+          <img src={savedDataUrl} alt={savedLabel} className="h-16 w-full object-contain" />
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button type="button" size="sm" onClick={onValidate}>
+          <Check className="h-3.5 w-3.5" /> {validateLabel}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+          <Trash2 className="h-3.5 w-3.5" /> {clearLabel}
+        </Button>
+      </div>
     </div>
   );
 }
