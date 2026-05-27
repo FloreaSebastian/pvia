@@ -632,7 +632,7 @@ export const adminRetryEmailNow = createServerFn({ method: "POST" })
     const r = await drainFailedEmails(1);
     await writeAuditLog({
       userId: context.userId, entityType: "email", entityId: data.logId,
-      action: "admin.email_retry_now", metadata: r as any, actor: "admin",
+      action: "admin.email_retry_now", metadata: r as any, actor: "user",
     });
     return r;
   });
@@ -647,7 +647,7 @@ export const adminMarkEmailDead = createServerFn({ method: "POST" })
     }).eq("id", data.logId);
     await writeAuditLog({
       userId: context.userId, entityType: "email", entityId: data.logId,
-      action: "admin.email_marked_dead", actor: "admin",
+      action: "admin.email_marked_dead", actor: "user",
     });
     return { ok: true };
   });
@@ -665,7 +665,7 @@ export const adminRetryWebhookNow = createServerFn({ method: "POST" })
     const r = await deliverOne(data.deliveryId);
     await writeAuditLog({
       userId: context.userId, entityType: "webhook_delivery", entityId: data.deliveryId,
-      action: "admin.webhook_retry_now", metadata: r as any, actor: "admin",
+      action: "admin.webhook_retry_now", metadata: r as any, actor: "user",
     });
     return r;
   });
