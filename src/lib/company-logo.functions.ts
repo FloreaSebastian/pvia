@@ -60,6 +60,8 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
     if (!m || (m.role !== "owner" && m.role !== "admin")) {
       throw new Error("Seuls les administrateurs peuvent modifier le logo.");
     }
+    const { assertSubscriptionUsable } = await import("./plan-guard.server");
+    await assertSubscriptionUsable(data.companyId, userId);
 
     // 2. Validate declared mime
     const declared = data.mimeType.toLowerCase();
