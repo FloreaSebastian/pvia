@@ -375,7 +375,42 @@ function NewPv() {
     toast.message("Signature client effacée.");
   }
 
-  async function onSave(status: "brouillon" | "signe") {
+  async function handleSendOtp() {
+    if (!activeCompanyId) return toast.error("Aucune entreprise active.");
+    if (!onsiteOtpEmail.trim()) return toast.error("Email client requis.");
+    setOnsiteOtpLoading(true);
+    try {
+      const r = await sendOtpFn({
+        data: { companyId: activeCompanyId, email: onsiteOtpEmail.trim().toLowerCase() },
+      });
+      setOnsiteOtpId(r.otpId);
+      setOnsiteOtpSent(true);
+      setOnsiteOtpVerified(false);
+      setOnsiteOtpCode("");
+      toast.success("Code envoyé par email au client.");
+    } catch (e: any) {
+      toast.error(e?.message || "Envoi du code impossible.");
+    } finally {
+      setOnsiteOtpLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!onsiteOtpId) return toast.error("Envoyez d'abord un code.");
+    if (!/^\d{6}$/.test(onsiteOtpCode)) return toast.error("Code à 6 chiffres requis.");
+    setOnsiteOtpLoading(true);
+    try {
+      await verifyOtpFn({ data: { otpId: onsiteOtpId, code: onsiteOtpCode } });
+      setOnsiteOtpVerified(true);
+      toast.success("Identité client confirmée.");
+    } catch (e: any) {
+      toast.error(e?.message || "Code invalide.");
+    } finally {
+      setOnsiteOtpLoading(false);
+    }
+  }
+
+  async function onSave(action: "brouillon" | "remote" | "onsite") {
     if (!activeCompanyId) return toast.error("Aucune entreprise active.");
     if (withReserves === null) {
       toast.error("Choisissez si le PV est avec ou sans réserves.");
@@ -383,17 +418,52 @@ function NewPv() {
       if (idx >= 0) setStepIdx(idx);
       return;
     }
-    setSaving(true);
-    try {
-      const companySig = status === "signe" ? companySignatureDataUrl : null;
-      const clientSig = status === "signe" ? clientSignatureDataUrl : null;
-      if (status === "signe" && !companySig) {
-        toast.error("Validez la signature entreprise avant de signer le PV.");
+
+    // Client-side guards for final signing
+    if (action !== "brouillon") {
+      if (!signatureMode) {
+        toast.error("Choisissez le mode de signature.");
         const idx = STEPS.findIndex((s) => s.id === ID_SIGNATURES);
         if (idx >= 0) setStepIdx(idx);
-        setSaving(false);
         return;
       }
+      if (!companySignatureDataUrl) {
+        toast.error("Validez la signature entreprise.");
+        const idx = STEPS.findIndex((s) => s.id === ID_SIGNATURES);
+        if (idx >= 0) setStepIdx(idx);
+        return;
+      }
+      if (action === "onsite") {
+        if (!clientSignatureDataUrl) {
+          toast.error("Validez la signature client.");
+          const idx = STEPS.findIndex((s) => s.id === ID_SIGNATURES);
+          if (idx >= 0) setStepIdx(idx);
+          return;
+        }
+        if (!onsiteOtpVerified || !onsiteOtpId) {
+          toast.error("Confirmez l'identité du client avec le code OTP.");
+          return;
+        }
+      }
+      if (action === "remote") {
+        if (!onsiteOtpEmail.trim()) {
+          toast.error("Email client requis pour la signature à distance.");
+          return;
+        }
+      }
+    }
+
+    setSaving(true);
+    try {
+      const status: "brouillon" | "signe" | "en_attente" =
+        action === "brouillon" ? "brouillon" : action === "onsite" ? "signe" : "en_attente";
+      const sigMode: "remote" | "onsite" | null =
+        action === "brouillon" ? signatureMode : action;
+      const companySig = action === "brouillon" ? null : companySignatureDataUrl;
+      const clientSig = action === "onsite" ? clientSignatureDataUrl : null;
+      const identityEmail =
+        action === "brouillon" ? null : onsiteOtpEmail.trim().toLowerCase() || null;
+      const otpId = action === "onsite" ? onsiteOtpId : null;
 
       const encodedPhotos = withReserves
         ? await Promise.all(photos.map(async (p) => ({
@@ -413,6 +483,9 @@ function NewPv() {
         data: {
           companyId: activeCompanyId,
           status,
+          signature_mode: sigMode,
+          client_identity_email: identityEmail,
+          client_otp_id: otpId,
           reception_date: form.reception_date,
           chantier_id: form.chantier_id || null,
           client_id: form.client_id || null,
@@ -445,7 +518,11 @@ function NewPv() {
       });
 
       localStorage.removeItem(DRAFT_KEY);
-      toast.success(status === "signe" ? "PV signé et archivé" : "Brouillon enregistré");
+      const msg =
+        action === "brouillon" ? "Brouillon enregistré"
+        : action === "onsite" ? "PV signé et archivé"
+        : "PV créé — lien de signature envoyé au client";
+      toast.success(msg);
       navigate({ to: "/pv/$id", params: { id: res.pvId } });
     } catch (e: any) {
       if (e?.code === "PV_QUOTA" || /quota/i.test(e?.message ?? "")) {
