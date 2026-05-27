@@ -39,6 +39,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedChantiersRouteImport } from './routes/_authenticated/chantiers'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
+import { Route as AuthenticatedAccountSuspendedRouteImport } from './routes/_authenticated/account-suspended'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
@@ -221,6 +222,12 @@ const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAccountSuspendedRoute =
+  AuthenticatedAccountSuspendedRouteImport.update({
+    id: '/account-suspended',
+    path: '/account-suspended',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPvIndexRoute = AuthenticatedPvIndexRouteImport.update({
   id: '/pv/',
   path: '/pv/',
@@ -405,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
+  '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
@@ -466,6 +474,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
+  '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
@@ -528,6 +537,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
+  '/_authenticated/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/chantiers': typeof AuthenticatedChantiersRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
@@ -591,6 +601,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/tarifs'
     | '/verify'
+    | '/account-suspended'
     | '/billing'
     | '/chantiers'
     | '/clients'
@@ -652,6 +663,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/tarifs'
     | '/verify'
+    | '/account-suspended'
     | '/billing'
     | '/chantiers'
     | '/clients'
@@ -713,6 +725,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/tarifs'
     | '/verify'
+    | '/_authenticated/account-suspended'
     | '/_authenticated/billing'
     | '/_authenticated/chantiers'
     | '/_authenticated/clients'
@@ -1000,6 +1013,13 @@ declare module '@tanstack/react-router' {
       path: '/billing'
       fullPath: '/billing'
       preLoaderRoute: typeof AuthenticatedBillingRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/account-suspended': {
+      id: '/_authenticated/account-suspended'
+      path: '/account-suspended'
+      fullPath: '/account-suspended'
+      preLoaderRoute: typeof AuthenticatedAccountSuspendedRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/pv/': {
@@ -1290,6 +1310,7 @@ const AuthenticatedPvIdRouteWithChildren =
   AuthenticatedPvIdRoute._addFileChildren(AuthenticatedPvIdRouteChildren)
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAccountSuspendedRoute: typeof AuthenticatedAccountSuspendedRoute
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
   AuthenticatedChantiersRoute: typeof AuthenticatedChantiersRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
@@ -1315,6 +1336,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAccountSuspendedRoute: AuthenticatedAccountSuspendedRoute,
   AuthenticatedBillingRoute: AuthenticatedBillingRoute,
   AuthenticatedChantiersRoute: AuthenticatedChantiersRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRoute,
