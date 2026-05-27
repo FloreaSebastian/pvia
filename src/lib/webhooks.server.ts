@@ -1,5 +1,71 @@
 import crypto from "node:crypto";
+import dns from "node:dns/promises";
+import net from "node:net";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
+/**
+ * SSRF guard. Block requests targeting internal/loopback/link-local/cloud
+ * metadata ranges, regardless of how DNS resolves the hostname.
+ */
+function isBlockedIp(ip: string): boolean {
+  if (!ip) return true;
+  const v = net.isIP(ip);
+  if (v === 4) {
+    const [a, b] = ip.split(".").map(Number);
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 0) return true;
+    if (a === 169 && b === 254) return true; // link-local + AWS/GCP metadata
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (a >= 224) return true; // multicast / reserved
+    return false;
+  }
+  if (v === 6) {
+    const lower = ip.toLowerCase();
+    if (lower === "::1" || lower === "::") return true;
+    if (lower.startsWith("fe80:")) return true; // link-local
+    if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // ULA
+    if (lower.startsWith("ff")) return true; // multicast
+    // IPv4-mapped IPv6 ::ffff:a.b.c.d
+    const m = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (m) return isBlockedIp(m[1]);
+    return false;
+  }
+  return true;
+}
+
+async function assertSafeWebhookUrl(rawUrl: string): Promise<void> {
+  let u: URL;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    throw new Error("URL invalide");
+  }
+  if (u.protocol !== "https:") throw new Error("HTTPS requis");
+  const host = u.hostname.toLowerCase();
+  if (!host) throw new Error("Hôte invalide");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal")) {
+    throw new Error("Hôte interne refusé");
+  }
+  // If literal IP, check directly; else resolve all A/AAAA and reject any private.
+  if (net.isIP(host)) {
+    if (isBlockedIp(host)) throw new Error("Adresse IP interne refusée");
+    return;
+  }
+  let addrs: { address: string; family: number }[] = [];
+  try {
+    addrs = await dns.lookup(host, { all: true, verbatim: true });
+  } catch {
+    throw new Error("Résolution DNS impossible");
+  }
+  if (!addrs.length) throw new Error("Résolution DNS impossible");
+  for (const a of addrs) {
+    if (isBlockedIp(a.address)) throw new Error("Cible réseau interne refusée");
+  }
+}
+
 
 const MAX_ATTEMPTS = 5;
 const TIMEOUT_MS = 8000;
@@ -140,6 +206,7 @@ export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; sta
   let responseBody = "";
   let errorMsg: string | undefined;
   try {
+    await assertSafeWebhookUrl(hook.url);
     const res = await fetch(hook.url, {
       method: "POST",
       headers: {
@@ -151,13 +218,20 @@ export async function deliverOne(deliveryId: string): Promise<{ ok: boolean; sta
       },
       body,
       signal: ac.signal,
+      redirect: "error",
     });
     status = res.status;
-    responseBody = (await res.text().catch(() => "")).slice(0, 2000);
-
+    // Only persist response bodies for successful 2xx responses to avoid
+    // exfiltration of internal data from unexpected hosts.
+    if (status >= 200 && status < 300) {
+      responseBody = (await res.text().catch(() => "")).slice(0, 2000);
+    } else {
+      responseBody = "";
+    }
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e);
   } finally {
+
     clearTimeout(to);
   }
 
