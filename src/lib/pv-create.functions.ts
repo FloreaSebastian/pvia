@@ -281,6 +281,11 @@ export const createPv = createServerFn({ method: "POST" })
           client_signature: clientSig,
           company_signature: companySig,
           signed_at: data.status === "signe" ? nowIso : null,
+          signature_mode: sigMode,
+          client_identity_email: data.client_identity_email ?? otpRecord?.email ?? null,
+          client_identity_verified_at: otpRecord ? nowIso : null,
+          client_identity_verified_by: otpRecord ? "onsite_otp" : null,
+          client_otp_verified: !!otpRecord,
           reception_with_reserves: withReserves,
           work_reference_type: data.work_reference_type ?? null,
           work_reference_number: data.work_reference_number?.trim() || null,
@@ -291,6 +296,7 @@ export const createPv = createServerFn({ method: "POST" })
           chantier_address: data.chantier_address?.trim() || null,
           chantier_postal_code: data.chantier_postal_code?.trim() || null,
           chantier_city: data.chantier_city?.trim() || null,
+
         } as never)
         .select("id,numero,company_id,owner_id")
         .single();
