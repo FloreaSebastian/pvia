@@ -69,6 +69,7 @@ import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
+import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
 import { Route as AuthenticatedAdminCompaniesIdRouteImport } from './routes/_authenticated/admin.companies.$id'
 import { Route as ClientPvIdLeveeReservesLiftIdRouteImport } from './routes/client.pv.$id.levee-reserves.$liftId'
 
@@ -395,6 +396,12 @@ const AuthenticatedPvIdHistoriqueRoute =
     path: '/historique',
     getParentRoute: () => AuthenticatedPvIdRoute,
   } as any)
+const AuthenticatedAdminSupportCompanyIdRoute =
+  AuthenticatedAdminSupportCompanyIdRouteImport.update({
+    id: '/$companyId',
+    path: '/$companyId',
+    getParentRoute: () => AuthenticatedAdminSupportRoute,
+  } as any)
 const AuthenticatedAdminCompaniesIdRoute =
   AuthenticatedAdminCompaniesIdRouteImport.update({
     id: '/$id',
@@ -462,6 +469,7 @@ export interface FileRoutesByFullPath {
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
@@ -523,6 +531,7 @@ export interface FileRoutesByTo {
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
@@ -588,6 +597,7 @@ export interface FileRoutesById {
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
@@ -653,6 +663,7 @@ export interface FileRouteTypes {
     | '/parametres/'
     | '/pv/'
     | '/admin/companies/$id'
+    | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
@@ -714,6 +725,7 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/pv'
     | '/admin/companies/$id'
+    | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
@@ -778,6 +790,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/admin/companies/$id'
+    | '/_authenticated/admin/support/$companyId'
     | '/_authenticated/pv/$id/historique'
     | '/_authenticated/pv/$id/levee-reserves'
     | '/api/public/calendar/$token'
@@ -1236,6 +1249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvIdHistoriqueRouteImport
       parentRoute: typeof AuthenticatedPvIdRoute
     }
+    '/_authenticated/admin/support/$companyId': {
+      id: '/_authenticated/admin/support/$companyId'
+      path: '/$companyId'
+      fullPath: '/admin/support/$companyId'
+      preLoaderRoute: typeof AuthenticatedAdminSupportCompanyIdRouteImport
+      parentRoute: typeof AuthenticatedAdminSupportRoute
+    }
     '/_authenticated/admin/companies/$id': {
       id: '/_authenticated/admin/companies/$id'
       path: '/$id'
@@ -1315,11 +1335,14 @@ const AuthenticatedAdminCompaniesRouteWithChildren =
   )
 
 interface AuthenticatedAdminSupportRouteChildren {
+  AuthenticatedAdminSupportCompanyIdRoute: typeof AuthenticatedAdminSupportCompanyIdRoute
   AuthenticatedAdminSupportIndexRoute: typeof AuthenticatedAdminSupportIndexRoute
 }
 
 const AuthenticatedAdminSupportRouteChildren: AuthenticatedAdminSupportRouteChildren =
   {
+    AuthenticatedAdminSupportCompanyIdRoute:
+      AuthenticatedAdminSupportCompanyIdRoute,
     AuthenticatedAdminSupportIndexRoute: AuthenticatedAdminSupportIndexRoute,
   }
 
