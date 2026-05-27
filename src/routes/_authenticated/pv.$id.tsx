@@ -83,6 +83,8 @@ function PvDetail() {
   const logAction = useServerFn(logUserAction);
   const listLiftsFn = useServerFn(listReserveLifts);
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
+  const resendLiftFn = useServerFn(resendValidatedReserveLiftEmail);
+  const [resendingLiftId, setResendingLiftId] = useState<string | null>(null);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
