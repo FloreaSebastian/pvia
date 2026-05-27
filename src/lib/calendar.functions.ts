@@ -25,7 +25,8 @@ export const listCalendarTokens = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => CompanySchema.parse(i))
   .handler(async ({ data, context }) => {
-    await assertMember(data.companyId, context.userId);
+    await assertAdmin(data.companyId, context.userId);
+
     const { data: rows } = await supabaseAdmin
       .from("integration_calendar_tokens")
       .select("id,name,scope,token,revoked_at,last_accessed_at,created_at")
