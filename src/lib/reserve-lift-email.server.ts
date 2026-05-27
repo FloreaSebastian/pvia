@@ -175,7 +175,7 @@ export async function deliverSignedReserveLift(opts: { reportId: string }): Prom
   const pvNumero = pv?.numero ?? "—";
   const numero = report.numero;
   const pdfFilename = `Levee-${numero}.pdf`;
-  const from = process.env.RESEND_FROM_EMAIL || `${companyName} <onboarding@resend.dev>`;
+  const from = process.env.RESEND_FROM_EMAIL || `${companyName} <noreply@pvia.fr>`;
   const subject = `Levée de réserves validée – N° ${numero}`;
   const copySubject = `[Copie] Levée ${numero} validée par ${clientName}`;
 

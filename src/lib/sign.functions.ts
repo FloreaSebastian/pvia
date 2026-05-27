@@ -97,7 +97,7 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       .eq("id", pv.id);
     if (updErr) throw new Error(updErr.message);
 
-    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.app").replace(/\/$/, "");
+    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
     const signUrl = `${appUrl}/sign/pv/${token}`;
 
     const html = renderSignEmail({
@@ -115,7 +115,7 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       pvId: pv.id,
       retryable: true,
       payload: {
-        from: "PVIA <onboarding@resend.dev>",
+        from: process.env.RESEND_FROM_EMAIL || "PVIA <noreply@pvia.fr>",
         to: [data.email],
         subject: `${company?.name || "PVIA"} — N° ${pv.numero} à signer`,
         html,
