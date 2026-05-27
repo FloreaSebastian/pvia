@@ -164,6 +164,10 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
     if (!canSeeDetails) {
       throw new Error("Seuls owner et admin peuvent exporter l'historique complet.");
     }
+    if (pv.company_id) {
+      const { assertSubscriptionUsable } = await import("./plan-guard.server");
+      await assertSubscriptionUsable(pv.company_id, context.userId);
+    }
 
     // Fetch the full PV record + related context
     const { data: fullPv } = await supabaseAdmin
