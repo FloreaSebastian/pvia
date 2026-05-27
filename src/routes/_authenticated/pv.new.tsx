@@ -178,6 +178,15 @@ function NewPv() {
   const [clientSignatureDataUrl, setClientSignatureDataUrl] = useState<string | null>(null);
   const [companySignatureDataUrl, setCompanySignatureDataUrl] = useState<string | null>(null);
 
+  // Signature mode + OTP
+  const [signatureMode, setSignatureMode] = useState<"remote" | "onsite" | null>(null);
+  const [onsiteOtpEmail, setOnsiteOtpEmail] = useState("");
+  const [onsiteOtpCode, setOnsiteOtpCode] = useState("");
+  const [onsiteOtpId, setOnsiteOtpId] = useState<string | null>(null);
+  const [onsiteOtpSent, setOnsiteOtpSent] = useState(false);
+  const [onsiteOtpVerified, setOnsiteOtpVerified] = useState(false);
+  const [onsiteOtpLoading, setOnsiteOtpLoading] = useState(false);
+
   // Stepper dynamique
   const STEPS = useMemo<StepDef[]>(() => {
     if (withReserves === true) return [...STEPS_BASE, ...STEPS_TAIL_WITH_RES];
