@@ -312,6 +312,16 @@ function NewPv() {
     }
   }
 
+  function syncSignature(ref: typeof companySigRef, onSync: (dataUrl: string | null) => void) {
+    const pad = ref.current;
+    if (!pad) return;
+    try {
+      onSync(pad.isEmpty() ? null : pad.getTrimmedCanvas().toDataURL("image/png"));
+    } catch {
+      onSync(null);
+    }
+  }
+
   function saveCompanySignature() {
     const dataUrl = readSignature(companySigRef, "Signez dans le cadre entreprise avant de valider la signature.");
     if (!dataUrl) return;
@@ -848,6 +858,7 @@ function NewPv() {
                       clearLabel="Effacer signature client"
                       onValidate={saveClientSignature}
                       onClear={clearClientSignature}
+                      onEnd={() => syncSignature(clientSigRef, setClientSignatureDataUrl)}
                     />
                     <SignatureBox
                       label="Signature entreprise"
@@ -858,6 +869,7 @@ function NewPv() {
                       clearLabel="Effacer signature entreprise"
                       onValidate={saveCompanySignature}
                       onClear={clearCompanySignature}
+                      onEnd={() => syncSignature(companySigRef, setCompanySignatureDataUrl)}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
