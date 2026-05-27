@@ -274,8 +274,10 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
     }
 
     // Email + notify
+    let emailSent = false;
     try {
       await deliverSignedReserveLift({ reportId: report.id });
+      emailSent = true;
     } catch (e) {
       console.error("reserve-lift email failed:", e);
     }
