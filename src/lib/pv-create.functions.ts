@@ -111,7 +111,8 @@ export const createPv = createServerFn({ method: "POST" })
     // 2. Status / signature mode coherence (server-authoritative).
     const sigMode = data.signature_mode ?? null;
     const status = data.status;
-    let otpRecord: { id: string; email: string; pv_id: string | null; company_id: string; used_at: string | null } | null = null;
+    type OtpRecord = { id: string; email: string; pv_id: string | null; company_id: string; used_at: string | null };
+    let otpRecord: OtpRecord | null = null;
     if (status === "signe") {
       if (!data.company_signature) {
         const err = new Error("Signature entreprise requise pour valider le PV.");
