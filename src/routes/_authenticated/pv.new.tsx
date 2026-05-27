@@ -280,6 +280,17 @@ function NewPv() {
     }
   }, [form.chantier_id, chantiers]);
 
+  // Reset OTP and prefill onsite email when client changes
+  useEffect(() => {
+    const cl = clients.find((c) => c.id === form.client_id);
+    const email = cl?.email || form.new_client_email || "";
+    setOnsiteOtpEmail(email);
+    setOnsiteOtpId(null);
+    setOnsiteOtpSent(false);
+    setOnsiteOtpVerified(false);
+    setOnsiteOtpCode("");
+  }, [form.client_id, form.new_client_email, clients]);
+
   function onFiles(files: FileList | null, kind: "avant" | "apres" | "autre") {
     if (!files) return;
     const next = Array.from(files).map((file) => ({
