@@ -21,7 +21,7 @@ async function audit(action: string, companyId: string | null, entityType: strin
       entity_type: entityType,
       entity_id: entityId,
       action,
-      metadata: meta,
+      metadata: meta as any,
     });
   } catch {}
 }
