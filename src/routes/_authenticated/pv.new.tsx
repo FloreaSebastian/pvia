@@ -302,12 +302,22 @@ function NewPv() {
     }
     setSaving(true);
     try {
-      const clientSig = status === "signe" && !clientSigRef.current?.isEmpty()
-        ? clientSigRef.current!.toDataURL("image/png") : null;
-      const companySig = status === "signe" && !companySigRef.current?.isEmpty()
-        ? companySigRef.current!.toDataURL("image/png") : null;
-      if (status === "signe" && (!clientSig || !companySig)) {
-        toast.error("Les deux signatures sont requises pour valider.");
+      const safeToDataUrl = (ref: typeof companySigRef): string | null => {
+        const pad = ref.current;
+        if (!pad) return null;
+        try {
+          if (typeof pad.isEmpty === "function" && pad.isEmpty()) return null;
+          return pad.toDataURL("image/png");
+        } catch {
+          return null;
+        }
+      };
+      const companySig = status === "signe" ? safeToDataUrl(companySigRef) : null;
+      const clientSig = status === "signe" ? safeToDataUrl(clientSigRef) : null;
+      if (status === "signe" && !companySig) {
+        toast.error("Veuillez signer en tant qu'entreprise avant de valider le PV.");
+        const idx = STEPS.findIndex((s) => s.id === ID_SIGNATURES);
+        if (idx >= 0) setStepIdx(idx);
         setSaving(false);
         return;
       }
