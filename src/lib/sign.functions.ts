@@ -115,7 +115,7 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       pvId: pv.id,
       retryable: true,
       payload: {
-        from: "PVIA <onboarding@resend.dev>",
+        from: process.env.RESEND_FROM_EMAIL || "PVIA <noreply@pvia.fr>",
         to: [data.email],
         subject: `${company?.name || "PVIA"} — N° ${pv.numero} à signer`,
         html,
