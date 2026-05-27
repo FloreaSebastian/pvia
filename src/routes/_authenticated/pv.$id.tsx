@@ -81,6 +81,8 @@ function PvDetail() {
   const resendSignedFn = useServerFn(sendSignedPvEmail);
   const fetchLogsFn = useServerFn(listPvEmailLogs);
   const logAction = useServerFn(logUserAction);
+  const listLiftsFn = useServerFn(listReserveLifts);
+  const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -97,6 +99,7 @@ function PvDetail() {
   const [resendingSigned, setResendingSigned] = useState(false);
   const [lastEvent, setLastEvent] = useState<{ action: string; created_at: string; user_name: string | null } | null>(null);
   const [auditTotal, setAuditTotal] = useState<number>(0);
+  const [lifts, setLifts] = useState<Array<{ id: string; numero: string; status: string; signed_at: string | null; pdf_url: string | null; created_at: string }>>([]);
   const fetchAuditFn = useServerFn(listPvAuditLogs);
 
 
