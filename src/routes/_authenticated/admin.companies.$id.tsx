@@ -6,7 +6,7 @@ import {
   getAdminCompanyDetail, adminSuspendCompany, adminReactivateCompany,
   adminResetCompanyOnboarding, adminAddSupportNote,
 } from "@/lib/admin-platform.functions";
-import { AdminNav } from "@/components/admin/AdminNav";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +49,7 @@ function Page() {
   const load = () => getFn({ data: { id } }).then(setD).catch((e) => toast.error(e.message));
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
-  if (!d) return <div><AdminNav /><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div></div>;
+  if (!d) return <div><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div></div>;
 
   async function action(fn: () => Promise<any>, msg: string) {
     setBusy(true);
@@ -61,7 +61,7 @@ function Page() {
   const c = d.company;
   return (
     <div>
-      <AdminNav />
+      
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">{c.name}</h1>

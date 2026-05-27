@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listAdminSupportIssues, adminRetryFailedWebhook } from "@/lib/admin-platform.functions";
-import { AdminNav } from "@/components/admin/AdminNav";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +29,7 @@ function Page() {
   const load = () => fn().then(setD);
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
-  if (!d) return <div><AdminNav /><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div></div>;
+  if (!d) return <div><div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin" /></div></div>;
 
   async function retry(id: string) {
     try { await retryFn({ data: { deliveryId: id } }); toast.success("Webhook replanifié"); await load(); }
@@ -38,7 +38,7 @@ function Page() {
 
   return (
     <div>
-      <AdminNav />
+      
       <h1 className="mb-1 text-2xl font-bold">Support — entreprises en difficulté</h1>
       <p className="mb-6 text-sm text-muted-foreground">Dernière semaine. Actions de remédiation rapides.</p>
 
