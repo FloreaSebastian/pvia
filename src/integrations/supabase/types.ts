@@ -1036,6 +1036,7 @@ export type Database = {
           pv_id: string
           severity: string
           status: string
+          validated_at: string | null
           work_to_execute: string | null
         }
         Insert: {
@@ -1050,6 +1051,7 @@ export type Database = {
           pv_id: string
           severity?: string
           status?: string
+          validated_at?: string | null
           work_to_execute?: string | null
         }
         Update: {
@@ -1064,6 +1066,7 @@ export type Database = {
           pv_id?: string
           severity?: string
           status?: string
+          validated_at?: string | null
           work_to_execute?: string | null
         }
         Relationships: [
@@ -1154,6 +1157,9 @@ export type Database = {
       reserve_lift_reports: {
         Row: {
           client_signature: string | null
+          client_validated_at: string | null
+          client_validated_email: string | null
+          client_validated_ip: string | null
           comment: string | null
           company_id: string
           company_signature: string | null
@@ -1171,6 +1177,9 @@ export type Database = {
         }
         Insert: {
           client_signature?: string | null
+          client_validated_at?: string | null
+          client_validated_email?: string | null
+          client_validated_ip?: string | null
           comment?: string | null
           company_id: string
           company_signature?: string | null
@@ -1188,6 +1197,9 @@ export type Database = {
         }
         Update: {
           client_signature?: string | null
+          client_validated_at?: string | null
+          client_validated_email?: string | null
+          client_validated_ip?: string | null
           comment?: string | null
           company_id?: string
           company_signature?: string | null
