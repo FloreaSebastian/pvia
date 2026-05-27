@@ -600,26 +600,38 @@ function PvDetail() {
                 <p className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">Aucun PV de levée pour le moment.</p>
               ) : (
                 <div className="space-y-2">
-                  {lifts.map((l) => (
-                    <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">N° {l.numero}</span>
-                        <StatusPill tone={l.status === "signe" ? "success" : "neutral"} dot>{l.status === "signe" ? "Signé" : "Brouillon"}</StatusPill>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(l.signed_at || l.created_at).toLocaleString("fr-FR")}
-                        </span>
+                  {lifts.map((l) => {
+                    const validated = !!l.client_validated_at;
+                    const liftStatusLabel = validated ? "Validée par client" : l.status === "signe" ? "En attente validation client" : "Brouillon";
+                    const liftTone = validated ? "success" : l.status === "signe" ? "warning" : "neutral";
+                    return (
+                      <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">N° {l.numero}</span>
+                          <StatusPill tone={liftTone as any} dot>{liftStatusLabel}</StatusPill>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(l.signed_at || l.created_at).toLocaleString("fr-FR")}
+                          </span>
+                          {validated && (
+                            <span className="text-xs text-muted-foreground">
+                              · Validée le {new Date(l.client_validated_at!).toLocaleString("fr-FR")}
+                              {l.client_validated_email ? ` par ${l.client_validated_email}` : ""}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {l.pdf_url ? (
+                            <Button size="sm" variant={validated ? "default" : "outline"} onClick={() => downloadLiftPdf(l.id)}>
+                              <Download className="h-3.5 w-3.5" />
+                              {validated ? " Télécharger le PV de levée validé" : " Télécharger le PV de levée signé entreprise"}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">PDF non généré</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {l.pdf_url ? (
-                          <Button size="sm" variant="outline" onClick={() => downloadLiftPdf(l.id)}>
-                            <Download className="h-3.5 w-3.5" /> Télécharger PDF
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">PDF non généré</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
