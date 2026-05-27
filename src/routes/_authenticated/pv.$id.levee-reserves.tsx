@@ -16,6 +16,9 @@ import { fileToBase64 } from "@/lib/file-upload";
 
 export const Route = createFileRoute("/_authenticated/pv/$id/levee-reserves")({
   component: LeveeReserves,
+  validateSearch: (s: Record<string, unknown>) => ({
+    reserveId: typeof s.reserveId === "string" ? s.reserveId : undefined,
+  }),
   head: () => ({ meta: [{ title: "Levée de réserves — PVIA" }] }),
 });
 
@@ -23,6 +26,7 @@ type Reserve = { id: string; description: string; severity: string; status: stri
 
 function LeveeReserves() {
   const { id: pvId } = Route.useParams();
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const createFn = useServerFn(createReserveLift);
 
@@ -43,13 +47,18 @@ function LeveeReserves() {
     (async () => {
       const [pvRes, resRes] = await Promise.all([
         supabase.from("pv").select("numero").eq("id", pvId).maybeSingle(),
-        supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).eq("status", "ouverte").order("created_at"),
+        supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).in("status", ["ouverte", "levee"]).order("created_at"),
       ]);
       setPvNumero(pvRes.data?.numero ?? "");
-      setReserves((resRes.data ?? []) as Reserve[]);
+      const rs = (resRes.data ?? []) as Reserve[];
+      setReserves(rs);
+      // Pre-select reserve from query param
+      if (search.reserveId && rs.some((r) => r.id === search.reserveId)) {
+        setSelected({ [search.reserveId]: true });
+      }
       setLoading(false);
     })();
-  }, [pvId]);
+  }, [pvId, search.reserveId]);
 
   async function onSubmit(status: "brouillon" | "signe") {
     const ids = Object.keys(selected).filter((id) => selected[id]);

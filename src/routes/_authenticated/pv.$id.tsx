@@ -31,6 +31,7 @@ import { sendPvToClient } from "@/lib/sign.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
+import { listReserveLifts, getReserveLiftPdfUrl } from "@/lib/reserve-lift.functions";
 import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
@@ -80,6 +81,8 @@ function PvDetail() {
   const resendSignedFn = useServerFn(sendSignedPvEmail);
   const fetchLogsFn = useServerFn(listPvEmailLogs);
   const logAction = useServerFn(logUserAction);
+  const listLiftsFn = useServerFn(listReserveLifts);
+  const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -96,6 +99,7 @@ function PvDetail() {
   const [resendingSigned, setResendingSigned] = useState(false);
   const [lastEvent, setLastEvent] = useState<{ action: string; created_at: string; user_name: string | null } | null>(null);
   const [auditTotal, setAuditTotal] = useState<number>(0);
+  const [lifts, setLifts] = useState<Array<{ id: string; numero: string; status: string; signed_at: string | null; pdf_url: string | null; created_at: string }>>([]);
   const fetchAuditFn = useServerFn(listPvAuditLogs);
 
 
@@ -148,6 +152,25 @@ function PvDetail() {
   }, [fetchLogsFn, id]);
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  const loadLifts = useCallback(async () => {
+    try {
+      const { lifts } = await listLiftsFn({ data: { pvId: id } });
+      setLifts(lifts as any);
+    } catch { /* silent */ }
+  }, [listLiftsFn, id]);
+
+  useEffect(() => { loadLifts(); }, [loadLifts]);
+
+  async function downloadLiftPdf(reportId: string) {
+    try {
+      const { url } = await getLiftPdfFn({ data: { reportId } });
+      window.open(url, "_blank");
+    } catch (e: any) {
+      toast.error(e?.message || "PDF indisponible");
+    }
+  }
+
 
   const loadLastEvent = useCallback(async () => {
     try {
@@ -517,6 +540,92 @@ function PvDetail() {
           </div>
         )}
       </Card>
+
+      {(() => {
+        const total = reserves.length;
+        const open = reserves.filter((r) => r.status === "ouverte").length;
+        const lifted = reserves.filter((r) => r.status === "levee").length;
+        const validated = reserves.filter((r) => r.status === "validee").length;
+        const liftStatus = pv.reserve_lift_status ?? (total === 0 ? "none" : open === total ? "pending" : open === 0 ? "completed" : "partial");
+        const globalLabel =
+          liftStatus === "none" ? "Aucune réserve"
+          : liftStatus === "pending" ? "Levée à prévoir"
+          : liftStatus === "partial" ? "Levée partielle"
+          : "Toutes réserves levées";
+        const globalTone =
+          liftStatus === "completed" ? "success"
+          : liftStatus === "partial" ? "warning"
+          : liftStatus === "pending" ? "destructive"
+          : "neutral";
+        return (
+          <Card className="p-6 space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold">Suivi des réserves</h3>
+                <StatusPill tone={globalTone as any} dot>{globalLabel}</StatusPill>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(liftStatus === "pending" || liftStatus === "partial") && (
+                  <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }}>
+                    <Button size="sm"><CheckCircle2 className="h-4 w-4" /> Préparer la levée de réserves</Button>
+                  </Link>
+                )}
+                {liftStatus === "completed" && lifts[0] && (
+                  <Button size="sm" variant="outline" onClick={() => lifts[0].pdf_url && downloadLiftPdf(lifts[0].id)} disabled={!lifts[0].pdf_url}>
+                    <Download className="h-4 w-4" /> Voir le PV de levée
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-4">
+              {[
+                { label: "Total", value: total, tone: "neutral" as const },
+                { label: "Ouvertes", value: open, tone: "destructive" as const },
+                { label: "Levées", value: lifted, tone: "warning" as const },
+                { label: "Validées", value: validated, tone: "success" as const },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
+                    <StatusPill tone={s.tone} size="sm" dot>{s.value}</StatusPill>
+                  </div>
+                  <p className="mt-1 font-display text-2xl font-bold">{s.value}</p>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">PV de levée émis ({lifts.length})</p>
+              {lifts.length === 0 ? (
+                <p className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">Aucun PV de levée pour le moment.</p>
+              ) : (
+                <div className="space-y-2">
+                  {lifts.map((l) => (
+                    <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">N° {l.numero}</span>
+                        <StatusPill tone={l.status === "signe" ? "success" : "neutral"} dot>{l.status === "signe" ? "Signé" : "Brouillon"}</StatusPill>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(l.signed_at || l.created_at).toLocaleString("fr-FR")}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {l.pdf_url ? (
+                          <Button size="sm" variant="outline" onClick={() => downloadLiftPdf(l.id)}>
+                            <Download className="h-3.5 w-3.5" /> Télécharger PDF
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">PDF non généré</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        );
+      })()}
 
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between gap-2">
