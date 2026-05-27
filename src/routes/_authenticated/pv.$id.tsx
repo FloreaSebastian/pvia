@@ -359,6 +359,15 @@ function PvDetail() {
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <StatusPill tone="success" icon={<ShieldCheck />}>Traçabilité complète</StatusPill>
+            {pv.locked_at && (
+              <StatusPill tone="success" icon={<ShieldCheck />}>PV signé — verrouillé</StatusPill>
+            )}
+            {pv.signature_mode === "remote" && pv.status === "en_attente" && (
+              <StatusPill tone="warning" icon={<Mail />}>Signature à distance — en attente client</StatusPill>
+            )}
+            {pv.signature_mode === "onsite" && pv.status === "signe" && (
+              <StatusPill tone="success" icon={<CheckCircle2 />}>Signature sur place validée</StatusPill>
+            )}
             {pv.pdf_url && (
               <StatusPill tone="success" icon={<CheckCircle2 />}>PDF signé disponible</StatusPill>
             )}
@@ -374,9 +383,9 @@ function PvDetail() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
-          {!pv.client_signature && (
+          {!pv.client_signature && !pv.locked_at && (
             <Button onClick={openSendDialog}>
-              <Send className="h-4 w-4" /> Envoyer au client pour signature
+              <Send className="h-4 w-4" /> {pv.signature_mode === "remote" && pv.status === "en_attente" ? "Renvoyer le lien de signature" : "Envoyer au client pour signature"}
             </Button>
           )}
           {pv.status === "signe" && pv.pdf_url && (
@@ -385,15 +394,19 @@ function PvDetail() {
               {resendingSigned ? "Envoi…" : "Renvoyer le PDF signé"}
             </Button>
           )}
-          <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
-            {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-            {regenerating ? "Génération…" : "Régénérer le PDF"}
-          </Button>
+          {!pv.locked_at && (
+            <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
+              {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {regenerating ? "Génération…" : "Régénérer le PDF"}
+            </Button>
+          )}
           {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF signé</Button>}
           <Link to="/pv/$id/historique" params={{ id: pv.id }}>
             <Button variant="outline"><ShieldCheck className="h-4 w-4" /> Historique légal</Button>
           </Link>
-          <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
+          {!pv.locked_at && (
+            <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
+          )}
         </div>
       </div>
 
