@@ -1,15 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { Bell, BellOff, Smartphone, Trash2, Send, Loader2 } from "lucide-react";
+import { Bell, BellOff, Smartphone, Trash2, Send, Loader2, Mail, Plus, X, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { isPwaUnsafeHost, urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from "@/lib/pwa";
 import { useCompany } from "@/hooks/use-company";
 import { subscribePush, unsubscribePush } from "@/lib/push.functions";
 import { listMyPushDevices, deleteMyPushDevice } from "@/lib/push-devices.functions";
 import { sendTestPush } from "@/lib/notify-pv.functions";
+import { getPvEmailSettings, updatePvEmailSettings } from "@/lib/pv-email-settings.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/_authenticated/parametres/notifications")({
   component: NotificationsSettings,
@@ -33,12 +37,58 @@ function NotificationsSettings() {
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
 
+  // PV signed email settings
+  const getSettingsFn = useServerFn(getPvEmailSettings);
+  const updateSettingsFn = useServerFn(updatePvEmailSettings);
+  const [sendCompanyCopy, setSendCompanyCopy] = useState(true);
+  const [companySignedEmail, setCompanySignedEmail] = useState("");
+  const [pvRecipients, setPvRecipients] = useState<string[]>([]);
+  const [pvCc, setPvCc] = useState<string[]>([]);
+  const [newRecipient, setNewRecipient] = useState("");
+  const [newCc, setNewCc] = useState("");
+  const [savingPvEmail, setSavingPvEmail] = useState(false);
+
   const refresh = useCallback(async () => {
     try {
       const r = await listMyPushDevices();
       setDevices(r.devices as Device[]);
     } catch {/* ignore */}
   }, []);
+
+  // Load PV email settings when company changes
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    getSettingsFn({ data: { companyId: activeCompanyId } })
+      .then((s) => {
+        setSendCompanyCopy(s.send_signed_pv_to_company);
+        setCompanySignedEmail(s.company_signed_email ?? "");
+        setPvRecipients(s.pv_email_recipients ?? []);
+        setPvCc(s.pv_email_cc ?? []);
+      })
+      .catch(() => { /* keep defaults */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId]);
+
+  async function savePvEmailSettings() {
+    if (!activeCompanyId) return toast.error("Aucune entreprise active.");
+    setSavingPvEmail(true);
+    try {
+      await updateSettingsFn({
+        data: {
+          companyId: activeCompanyId,
+          send_signed_pv_to_company: sendCompanyCopy,
+          company_signed_email: companySignedEmail.trim() || null,
+          pv_email_recipients: pvRecipients,
+          pv_email_cc: pvCc,
+        },
+      });
+      toast.success("Paramètres d'envoi enregistrés.");
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'enregistrement.");
+    } finally {
+      setSavingPvEmail(false);
+    }
+  }
 
   useEffect(() => {
     const ok =
@@ -212,6 +262,132 @@ function NotificationsSettings() {
           })}
         </ul>
       </Card>
+
+      <Card className="p-5">
+        <div className="flex items-start gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary">
+            <Mail className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-semibold">Envoi automatique des PV signés</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Définissez qui reçoit automatiquement le PDF signé une fois le PV finalisé.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-5">
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/20 p-3">
+            <div>
+              <div className="text-sm font-medium">Envoyer une copie à l'entreprise</div>
+              <p className="text-xs text-muted-foreground">Le PDF signé est aussi envoyé à votre adresse principale.</p>
+            </div>
+            <Switch checked={sendCompanyCopy} onCheckedChange={setSendCompanyCopy} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Email principal entreprise (optionnel)</Label>
+            <Input
+              type="email"
+              value={companySignedEmail}
+              onChange={(e) => setCompanySignedEmail(e.target.value)}
+              placeholder="archives@monentreprise.fr"
+            />
+            <p className="text-[11px] text-muted-foreground">Si vide, l'email de la fiche entreprise sera utilisé.</p>
+          </div>
+
+          <EmailList
+            label="Destinataires supplémentaires (TO)"
+            help="Ces adresses recevront chaque PV signé en plus du client."
+            emails={pvRecipients}
+            setEmails={setPvRecipients}
+            value={newRecipient}
+            setValue={setNewRecipient}
+          />
+
+          <EmailList
+            label="Copies (CC)"
+            help="Ces adresses recevront chaque PV signé en copie."
+            emails={pvCc}
+            setEmails={setPvCc}
+            value={newCc}
+            setValue={setNewCc}
+          />
+
+          <div className="flex justify-end">
+            <Button onClick={savePvEmailSettings} disabled={savingPvEmail}>
+              {savingPvEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function EmailList({
+  label, help, emails, setEmails, value, setValue,
+}: {
+  label: string;
+  help: string;
+  emails: string[];
+  setEmails: (e: string[]) => void;
+  value: string;
+  setValue: (v: string) => void;
+}) {
+  function add() {
+    const v = value.trim().toLowerCase();
+    if (!v) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      toast.error("Email invalide.");
+      return;
+    }
+    if (emails.includes(v)) {
+      toast.message("Email déjà ajouté.");
+      return;
+    }
+    if (emails.length >= 10) {
+      toast.error("10 emails maximum.");
+      return;
+    }
+    setEmails([...emails, v]);
+    setValue("");
+  }
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}</Label>
+      <p className="text-[11px] text-muted-foreground">{help}</p>
+      <div className="flex gap-2">
+        <Input
+          type="email"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          placeholder="email@exemple.com"
+        />
+        <Button type="button" variant="outline" onClick={add}>
+          <Plus className="h-4 w-4" /> Ajouter
+        </Button>
+      </div>
+      {emails.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {emails.map((e) => (
+            <li key={e} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-3 py-1 text-xs">
+              <Mail className="h-3 w-3 text-muted-foreground" />
+              {e}
+              <button
+                type="button"
+                onClick={() => setEmails(emails.filter((x) => x !== e))}
+                className="ml-1 grid h-4 w-4 place-items-center rounded-full hover:bg-destructive/20"
+                aria-label="Retirer"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
