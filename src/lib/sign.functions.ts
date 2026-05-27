@@ -97,7 +97,7 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       .eq("id", pv.id);
     if (updErr) throw new Error(updErr.message);
 
-    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.app").replace(/\/$/, "");
+    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
     const signUrl = `${appUrl}/sign/pv/${token}`;
 
     const html = renderSignEmail({
