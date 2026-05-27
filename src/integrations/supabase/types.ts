@@ -1123,7 +1123,7 @@ export type Database = {
           expires_at: string
           id: string
           ip_address: string | null
-          pv_id: string
+          pv_id: string | null
           used_at: string | null
           user_agent: string | null
         }
@@ -1136,7 +1136,7 @@ export type Database = {
           expires_at: string
           id?: string
           ip_address?: string | null
-          pv_id: string
+          pv_id?: string | null
           used_at?: string | null
           user_agent?: string | null
         }
@@ -1149,7 +1149,7 @@ export type Database = {
           expires_at?: string
           id?: string
           ip_address?: string | null
-          pv_id?: string
+          pv_id?: string | null
           used_at?: string | null
           user_agent?: string | null
         }
