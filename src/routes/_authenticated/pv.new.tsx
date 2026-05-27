@@ -1020,16 +1020,42 @@ function PhotoUploader({ label, kind, onFiles }: { label: string; kind: "avant" 
   );
 }
 
-function SignatureBox({ label, innerRef }: { label: string; innerRef: React.RefObject<SignaturePad | null> }) {
+function SignatureBox({
+  label,
+  innerRef,
+  saved,
+  savedLabel,
+  validateLabel,
+  clearLabel,
+  onValidate,
+  onClear,
+}: {
+  label: string;
+  innerRef: React.RefObject<SignaturePad | null>;
+  saved: boolean;
+  savedLabel: string;
+  validateLabel: string;
+  clearLabel: string;
+  onValidate: () => void;
+  onClear: () => void;
+}) {
   return (
     <div>
-      <Label className="text-xs font-medium">{label}</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs font-medium">{label}</Label>
+        {saved && <Badge variant="secondary" className="gap-1 text-[11px]"><CheckCircle2 className="h-3 w-3" /> {savedLabel}</Badge>}
+      </div>
       <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
         <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" />
       </div>
-      <Button variant="ghost" size="sm" onClick={() => innerRef.current?.clear()} className="mt-1">
-        <Trash2 className="h-3.5 w-3.5" /> Effacer
-      </Button>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button type="button" size="sm" onClick={onValidate}>
+          <Check className="h-3.5 w-3.5" /> {validateLabel}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+          <Trash2 className="h-3.5 w-3.5" /> {clearLabel}
+        </Button>
+      </div>
     </div>
   );
 }
