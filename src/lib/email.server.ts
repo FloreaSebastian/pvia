@@ -328,7 +328,7 @@ export async function deliverSignedPv(opts: {
   const clientName = client?.name || "Cher client";
   const pvNumero = pv.numero;
   const pdfFilename = `PV-${pvNumero}-signe.pdf`;
-  const from = process.env.RESEND_FROM_EMAIL || `${companyName} <onboarding@resend.dev>`;
+  const from = process.env.RESEND_FROM_EMAIL || `${companyName} <noreply@pvia.fr>`;
   const subject = `Votre procès-verbal signé – PVIA (${pvNumero})`;
   const copySubject = `[Copie] PV ${pvNumero} signé par ${clientName}`;
 
