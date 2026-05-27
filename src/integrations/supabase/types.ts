@@ -544,6 +544,7 @@ export type Database = {
         Row: {
           brand_color: string
           company_id: string
+          company_signed_email: string | null
           currency: string
           custom_css: string | null
           date_format: string
@@ -554,11 +555,14 @@ export type Database = {
           pdf_brand_color: string | null
           pdf_footer: string
           pdf_watermark: string
+          pv_email_cc: string[]
+          pv_email_recipients: string[]
           pv_number_digits: number
           pv_number_include_year: boolean
           pv_number_next: number
           pv_number_prefix: string
           pv_number_separator: string
+          send_signed_pv_to_company: boolean
           timezone: string
           updated_at: string
           updated_by: string | null
@@ -566,6 +570,7 @@ export type Database = {
         Insert: {
           brand_color?: string
           company_id: string
+          company_signed_email?: string | null
           currency?: string
           custom_css?: string | null
           date_format?: string
@@ -576,11 +581,14 @@ export type Database = {
           pdf_brand_color?: string | null
           pdf_footer?: string
           pdf_watermark?: string
+          pv_email_cc?: string[]
+          pv_email_recipients?: string[]
           pv_number_digits?: number
           pv_number_include_year?: boolean
           pv_number_next?: number
           pv_number_prefix?: string
           pv_number_separator?: string
+          send_signed_pv_to_company?: boolean
           timezone?: string
           updated_at?: string
           updated_by?: string | null
@@ -588,6 +596,7 @@ export type Database = {
         Update: {
           brand_color?: string
           company_id?: string
+          company_signed_email?: string | null
           currency?: string
           custom_css?: string | null
           date_format?: string
@@ -598,11 +607,14 @@ export type Database = {
           pdf_brand_color?: string | null
           pdf_footer?: string
           pdf_watermark?: string
+          pv_email_cc?: string[]
+          pv_email_recipients?: string[]
           pv_number_digits?: number
           pv_number_include_year?: boolean
           pv_number_next?: number
           pv_number_prefix?: string
           pv_number_separator?: string
+          send_signed_pv_to_company?: boolean
           timezone?: string
           updated_at?: string
           updated_by?: string | null
@@ -945,6 +957,11 @@ export type Database = {
           chantier_id: string | null
           chantier_postal_code: string | null
           client_id: string | null
+          client_identity_email: string | null
+          client_identity_phone: string | null
+          client_identity_verified_at: string | null
+          client_identity_verified_by: string | null
+          client_otp_verified: boolean
           client_signature: string | null
           company_id: string | null
           company_signature: string | null
@@ -954,6 +971,7 @@ export type Database = {
           id: string
           is_field_draft: boolean
           latitude: number | null
+          locked_at: string | null
           longitude: number | null
           numero: string
           observations: string | null
@@ -969,6 +987,7 @@ export type Database = {
           sent_to_email: string | null
           sign_token: string | null
           sign_token_expires_at: string | null
+          signature_mode: string | null
           signed_at: string | null
           status: string
           type: string
@@ -984,6 +1003,11 @@ export type Database = {
           chantier_id?: string | null
           chantier_postal_code?: string | null
           client_id?: string | null
+          client_identity_email?: string | null
+          client_identity_phone?: string | null
+          client_identity_verified_at?: string | null
+          client_identity_verified_by?: string | null
+          client_otp_verified?: boolean
           client_signature?: string | null
           company_id?: string | null
           company_signature?: string | null
@@ -993,6 +1017,7 @@ export type Database = {
           id?: string
           is_field_draft?: boolean
           latitude?: number | null
+          locked_at?: string | null
           longitude?: number | null
           numero: string
           observations?: string | null
@@ -1008,6 +1033,7 @@ export type Database = {
           sent_to_email?: string | null
           sign_token?: string | null
           sign_token_expires_at?: string | null
+          signature_mode?: string | null
           signed_at?: string | null
           status?: string
           type?: string
@@ -1023,6 +1049,11 @@ export type Database = {
           chantier_id?: string | null
           chantier_postal_code?: string | null
           client_id?: string | null
+          client_identity_email?: string | null
+          client_identity_phone?: string | null
+          client_identity_verified_at?: string | null
+          client_identity_verified_by?: string | null
+          client_otp_verified?: boolean
           client_signature?: string | null
           company_id?: string | null
           company_signature?: string | null
@@ -1032,6 +1063,7 @@ export type Database = {
           id?: string
           is_field_draft?: boolean
           latitude?: number | null
+          locked_at?: string | null
           longitude?: number | null
           numero?: string
           observations?: string | null
@@ -1047,6 +1079,7 @@ export type Database = {
           sent_to_email?: string | null
           sign_token?: string | null
           sign_token_expires_at?: string | null
+          signature_mode?: string | null
           signed_at?: string | null
           status?: string
           type?: string
@@ -1079,6 +1112,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pv_onsite_otp: {
+        Row: {
+          attempts: number
+          code_hash: string
+          company_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          pv_id: string | null
+          used_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          company_id: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          pv_id?: string | null
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          company_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          pv_id?: string | null
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
       }
       pv_photos: {
         Row: {

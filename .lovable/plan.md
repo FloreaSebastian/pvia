@@ -1,156 +1,99 @@
-# Refonte métier du PV de réception
+# Workflow signature PVIA — distance vs sur place
 
-Objectif : aligner `/pv/new` sur un vrai PV de réception (CAPEB), avec autocomplete adresse, référence devis/BC, choix avec/sans réserves, workflow dynamique, suivi auto de levée et PDF conforme.
+C'est un chantier important (DB + server + UI + emails + audit). Voici le plan que je propose avant de toucher au code.
 
----
+## 1. Migration DB
 
-## 1. Migrations SQL
+Nouvelles colonnes sur `pv` :
+- `signature_mode` text check in ('remote','onsite'), nullable jusqu'à choix
+- `client_identity_verified_at` timestamptz
+- `client_identity_verified_by` text ('email'|'sms')
+- `client_identity_email` text
+- `client_identity_phone` text
+- `client_otp_verified` boolean default false
+- `locked_at` timestamptz (set quand status='signe')
 
-**Table `pv` — colonnes ajoutées**
-- `reception_with_reserves boolean NOT NULL DEFAULT false`
-- `work_reference_type text` (`devis` | `bon_commande` | `marche` | `manuel`)
-- `work_reference_number text`
-- `work_reference_date date`
-- `work_reference_amount numeric(12,2)`
-- `reserve_completion_delay text` (ex : « 30 jours »)
-- `reserve_due_date date`
-- `chantier_postal_code text`, `chantier_city text` (déjà `address`, `latitude`, `longitude` côté `chantiers` ; on duplique sur `pv` pour snapshot PV)
+Nouveau statut autorisé : `en_attente_signature_client` (déjà utilisé partiellement comme `en_attente`, on garde un alias).
 
-**Table `pv_reserves` — colonnes ajoutées**
-- `nature text` (typologie courte : finitions / sécurité / conformité…)
-- `work_to_execute text`
-- `due_date date`
-- `lifted_at timestamptz`
+Nouvelle table `pv_onsite_otp` :
+- id, pv_id, email, code_hash, expires_at (10 min), attempts (max 5), used_at, created_at, ip, ua
+- RLS : membre de la company du PV peut insert/select
 
-**Table `chantiers` — colonnes ajoutées (si manquantes)**
-- `postal_code text`, `city text`, `latitude double precision`, `longitude double precision`
+Sur `company_settings` :
+- `pv_email_recipients` text[] (CC additionnels)
+- `pv_email_cc` text[] (alias bcc)
+- `send_signed_pv_to_company` boolean default true
+- `company_signed_email` text (email principal pour copies)
 
-**Suivi de levée**
-- Réutiliser `reserve_lift_reports` existant. Ajouter colonne `reserve_lift_status` sur `pv` :
-  `text NOT NULL DEFAULT 'none'` valeurs : `none` | `pending` | `partial` | `completed`.
-- Trigger `pv` après `INSERT` : si `reception_with_reserves` → set `reserve_lift_status='pending'`.
-- Trigger `pv_reserves` après `UPDATE status` : recalcule `reserve_lift_status` du PV parent (none/pending/partial/completed).
+Trigger : si `status` passe à 'signe' → set `locked_at = now()`.
 
-Pas de changement RLS.
+## 2. Server functions (src/lib/)
 
----
+**Nouveaux (`sign-onsite.functions.ts`)**
+- `sendOnsiteClientOtp({ pvId, email })` — génère OTP, hash, insert, email
+- `verifyOnsiteClientOtp({ pvId, code })` — vérifie, marque `client_otp_verified=true`, `client_identity_verified_*`
+- `finalizeOnsiteSignedPv({ pvId, companySignature, clientSignature })` — exige otp_verified, signature_mode='onsite', set status='signe', génère PDF, envoie emails
 
-## 2. Server functions
+**Modifs (`sign.functions.ts`)**
+- `sendPvToClient` (distance) : exige `signature_mode='remote'` et `company_signature` présente, set status='en_attente_signature_client'
+- `signPvByToken` : déjà OK, mais ajoute envoi email entreprise + CC après signature
 
-**Nouveau `src/lib/address.functions.ts`**
-- `searchAddressSuggestions({ query })` : `createServerFn` POST, middleware auth.
-- Validation : `query` trim, min 3, max 200.
-- Rate limit via `rate_limits` (bucket `address_search`, key = userId, 30 req / 60s).
-- Appel `https://api-adresse.data.gouv.fr/search/?q=...&limit=5&autocomplete=1`.
-- Retourne `[{ label, address, postalCode, city, latitude, longitude }]`.
+**Modifs (`pv-create.functions.ts`)**
+- Accepter `signature_mode` à la création
+- Si onsite + status='signe' demandé → exiger `client_otp_verified=true` (vérifier en DB)
 
-**Modif `src/lib/pv-create.functions.ts`**
-- Schema entrée ajoute : `reception_with_reserves`, `work_reference_*`, `reserve_completion_delay`, `reserve_due_date`, `chantier_address`, `chantier_postal_code`, `chantier_city`, `chantier_latitude`, `chantier_longitude`. Réserves enrichies (`nature`, `work_to_execute`, `due_date`).
-- Validation serveur autoritative :
-  - Si `reception_with_reserves === false` → ignorer `reserves` et `photos` (forcer `[]`).
-  - Si `true` → exiger ≥ 1 réserve avec `description` et `work_to_execute`.
-- Insert pv avec nouveaux champs. Insert réserves enrichies.
-- Pas de génération du PV de levée ; trigger DB pose `reserve_lift_status='pending'`.
-- Audit : ajouter `metadata.reception_with_reserves`.
+**Nouveaux helpers**
+- `lockSignedPv` (interne) appelée par triggers/handlers
+- `resendSignedPvEmail({ pvId })` — réenvoie PDF signé
+- Guard partagé `assertNotLocked(pv)` → throw `PV_LOCKED_SIGNED` dans toutes les fns update/delete (update/delete pv, photos, reserves)
 
-**Modif `src/lib/pdf.server.ts`**
-- Titre : `PROCÈS-VERBAL DE RÉCEPTION DES TRAVAUX`.
-- Bloc « Au titre du {type} n° {number} en date du {date} » si `work_reference_*`.
-- Déclaration : `La réception est prononcée sans réserve.` ou `... avec réserves.`.
-- Si avec réserves : section « État des réserves » (nature, description, travaux à exécuter, délai, échéance).
-- Bloc délai global + date limite.
-- Footer mention exemplaires / version numérique PVIA.
+**`email.server.ts`**
+- `deliverSignedPv` existe — étendre pour inclure CC depuis `company_settings.pv_email_cc` et copie entreprise
+- Nouveau template `renderOnsiteOtpEmail`
 
----
+## 3. UI
 
-## 3. Frontend `/pv/new`
+**`/pv/new`**
+- Étape Signatures : RadioGroup "Mode de signature" (distance / sur place) — obligatoire avant les pads
+- Mode distance : pad entreprise uniquement + champ email client + bouton "Envoyer pour signature"
+- Mode sur place : pad entreprise + pad client + bloc OTP (envoyer code, saisir, valider) + badge "Client confirmé ✓"
+- Bouton "Valider & signer" actif seulement si :
+  - distance : signature entreprise + email
+  - sur place : 2 signatures + OTP verifié
 
-**Nouveau composant `src/components/pv/AddressAutocomplete.tsx`**
-- Input contrôlé + debounce 250ms + dropdown suggestions.
-- Appelle `searchAddressSuggestions` via `useServerFn`.
-- onSelect → remplit `address`, `postal_code`, `city`, `latitude`, `longitude`.
-- Fallback saisie manuelle si 0 suggestion.
+**`/pv/$id`**
+- Si `status='signe'` → badge "PV signé — verrouillé", masquer boutons supprimer/modifier
+- Bouton "Renvoyer PDF signé" appelle `resendSignedPvEmail`
 
-**Refonte `src/routes/_authenticated/pv.new.tsx`**
+**`/parametres/notifications`**
+- Section "Envoi automatique des PV signés"
+  - email principal entreprise
+  - emails en copie (multi)
+  - toggle copie entreprise
 
-État ajouté : `receptionWithReserves: boolean | null`, `workRef: {type, number, date, amount}`, `reserveDelay`, `reserveDueDate`, champs adresse étendus, réserves enrichies.
+## 4. Audit & notifications
 
-Stepper dynamique :
-- `null` (pas encore choisi) : Entreprise → Client → Chantier → Travaux → **Décision réserves** → Signatures → Aperçu
-- `false` : Entreprise → Client → Chantier → Travaux → Signatures → Aperçu
-- `true` : Entreprise → Client → Chantier → Travaux → Réserves → Photos → Signatures → Aperçu
+Actions audit ajoutées (déjà partiellement en place) :
+- pv.signature_mode_selected, pv.remote_signature_sent, pv.onsite_otp_sent, pv.onsite_otp_verified, pv.signed_locked, pv.signed_email_sent, pv.signed_email_resent, pv.delete_blocked_signed
 
-Étape **Décision réserves** : 2 cards (« Sans réserve » / « Avec réserves »). Si bascule `true → false` et réserves saisies → `confirm()` avant purge.
+Notifications push existantes étendues (déjà en place pour signe/sent).
 
-Étape **Travaux** enrichie : select type référence (devis / bon de commande / marché / manuel), n°, date, montant, description.
+## 5. Tests manuels
 
-Étape **Chantier** : `AddressAutocomplete` + champs CP/ville auto, lat/long cachés.
-
-Étape **Réserves** : pour chaque réserve, champs `description`, `nature`, `work_to_execute`, `severity`, `due_date`. + champs PV-level `reserve_completion_delay` et `reserve_due_date`.
-
-Soumission : envoie tous les nouveaux champs ; bloque si `receptionWithReserves === null`.
-
-**Modif `src/routes/_authenticated/pv.$id.tsx`**
-- Afficher référence travaux, déclaration réception, délai/échéance réserves.
-- Badge `reserve_lift_status` + CTA conditionnel « Préparer la levée de réserves » (déjà partiel, à harmoniser).
-
-**Modif `src/routes/_authenticated/reserves.tsx`**
-- Afficher `nature`, `work_to_execute`, `due_date`. Filtre par `reserve_lift_status` du PV parent.
+Workflow distance complet, workflow sur place complet, tentative delete PV signé → erreur, tentative update PV signé → erreur, brouillon reste modifiable.
 
 ---
 
-## 4. UX
+## ⚠️ Avant de partir
 
-- Cards radio grandes au choix réserves (icônes Check / AlertTriangle).
-- Résumé latéral dynamique (déjà présent) montrant : référence travaux, type réception, nb réserves.
-- Mobile-friendly : stepper compact, autocomplete plein écran sur mobile.
-- Wording métier (« maître d'ouvrage », « entreprise titulaire », « délai global »).
-- Autosave conservé tel quel (mêmes clés étendues).
+C'est ~10-15 fichiers modifiés/créés + 1 migration DB + 1 nouvelle table. Quelques décisions à confirmer :
 
----
+**Q1 — Statut intermédiaire** : tu as déjà `en_attente` dans le code (utilisé par `sendPvToClient`). Je propose de **réutiliser `en_attente`** comme alias de `en_attente_signature_client` plutôt que d'ajouter un nouveau statut (évite migration de données). OK ?
 
-## 5. Sécurité serveur
+**Q2 — OTP onsite sur le même appareil** : le client saisit son email sur l'appareil de l'entreprise, reçoit un code par mail, le saisit. Tu confirmes que l'email client est obligatoirement collecté à cette étape (même si pas de `client_id` rattaché) ?
 
-`createPv` :
-- Whitelist stricte des champs.
-- Si `reception_with_reserves=false` → `reserves=[]`, `photos=[]` (ignore tentative manipulation).
-- Si `true` → exige ≥ 1 réserve valide (description + work_to_execute non vides), sinon `Error('Réserves manquantes.')`.
-- Génération suivi levée **uniquement** via trigger DB, jamais via input client.
-- Rate limit `address_search` côté serveur.
+**Q3 — Verrouillage** : "impossible de modifier les champs principaux" — je verrouille **toutes** les mutations sur pv/photos/reserves quand status='signe', sauf création de levée de réserves. OK ?
 
----
+**Q4 — Paramètres notifications** : tu préfères que je mette la section "Envoi PV signés" dans `/parametres/notifications` (existant) ou `/parametres/branding` ? Je propose **notifications**.
 
-## 6. Fichiers touchés
-
-Nouveaux :
-- `src/lib/address.functions.ts`
-- `src/components/pv/AddressAutocomplete.tsx`
-- `supabase/migrations/<ts>_pv_reception_metier.sql`
-
-Modifiés :
-- `src/lib/pv-create.functions.ts`
-- `src/lib/pdf.server.ts`
-- `src/routes/_authenticated/pv.new.tsx`
-- `src/routes/_authenticated/pv.$id.tsx`
-- `src/routes/_authenticated/reserves.tsx`
-
----
-
-## 7. Tests manuels livrés
-
-- Recherche adresse « 10 rue de » → suggestions, sélection remplit CP/ville/coords.
-- PV sans réserve : stepper saute Réserves/Photos, PDF mentionne « sans réserve », `reserve_lift_status='none'`.
-- PV avec réserves : ≥ 1 réserve obligatoire, PDF affiche état + délai, `reserve_lift_status='pending'`.
-- Bascule avec→sans réserves : confirmation puis purge locale.
-- Tentative POST direct `reserves` avec `reception_with_reserves=false` → ignoré côté serveur.
-- Levée complète des réserves → `reserve_lift_status='completed'` (trigger DB).
-- Référence devis affichée dans PDF + page PV.
-
----
-
-## Notes techniques
-
-- API adresse data.gouv : libre, sans clé, quota raisonnable, parfait pour autocomplete.
-- Triggers DB pour `reserve_lift_status` évitent toute incohérence côté code.
-- Pas de table devis créée : on stocke uniquement les champs `work_reference_*` sur PV. Migration vers vraie table devis = travail futur.
-- PDF reste pdf-lib (pas de refonte template, juste sections ajoutées).
+Dis-moi go ou ajuste, et j'enchaîne en une passe.
