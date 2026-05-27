@@ -276,7 +276,7 @@ export const listReserveLifts = createServerFn({ method: "POST" })
     if (!m) throw new Error("Accès refusé.");
     const { data: rows } = await supabaseAdmin
       .from("reserve_lift_reports")
-      .select("id,numero,status,signed_at,pdf_url,created_at")
+      .select("id,numero,status,signed_at,pdf_url,created_at,client_validated_at,client_validated_email")
       .eq("pv_id", data.pvId)
       .order("created_at", { ascending: false });
     return { lifts: rows ?? [] };
