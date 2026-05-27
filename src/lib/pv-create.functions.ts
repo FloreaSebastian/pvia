@@ -357,16 +357,85 @@ export const createPv = createServerFn({ method: "POST" })
       }
     }
 
-    // 10. Generate signed PDF server-side (only when status is signed)
+    // 9b. Link OTP to PV for onsite mode
+    if (otpRecord) {
+      await supabaseAdmin
+        .from("pv_onsite_otp")
+        .update({ pv_id: pvId } as never)
+        .eq("id", otpRecord.id);
+    }
+
+    // 10. Generate signed PDF server-side + auto-email (onsite signed only)
     let pdfPath: string | null = null;
     if (data.status === "signe") {
       try {
         pdfPath = await buildAndStorePvPdf(pvId);
       } catch (e) {
         console.error("createPv: PDF generation failed", e);
-        // Don't fail the whole creation; PDF can be regenerated later.
+      }
+      try {
+        const { deliverSignedPv } = await import("./email.server");
+        await deliverSignedPv({ pvId, trigger: "auto" });
+      } catch (e) {
+        console.error("createPv: signed email delivery failed", e);
       }
     }
+
+    // 10b. Remote signature flow → generate sign token and email the link
+    let remoteSignUrl: string | null = null;
+    if (data.status === "en_attente" && sigMode === "remote" && data.client_identity_email) {
+      try {
+        const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+        const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
+        await supabaseAdmin
+          .from("pv")
+          .update({
+            sign_token: token,
+            sign_token_expires_at: expiresAt,
+            sent_to_client_at: new Date().toISOString(),
+            sent_to_email: data.client_identity_email,
+          } as never)
+          .eq("id", pvId);
+        const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+        remoteSignUrl = `${appUrl}/sign/pv/${token}`;
+        const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
+        const [{ data: company }, { data: clientRow }] = await Promise.all([
+          supabaseAdmin.from("companies").select("name").eq("id", data.companyId).maybeSingle(),
+          clientId ? supabaseAdmin.from("clients").select("name").eq("id", clientId).maybeSingle() : Promise.resolve({ data: null }),
+        ]);
+        const companyName = company?.name || "PVIA";
+        const clientName = (clientRow as any)?.name || "Cher client";
+        const expFr = new Date(expiresAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+        const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+        const html = `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,sans-serif;color:#0f172a"><table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0"><tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden"><tr><td style="padding:32px 40px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff"><div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.7">PVIA · Signature électronique</div><div style="font-size:24px;font-weight:600;margin-top:8px">PV ${esc(assignedNumero)} à signer</div></td></tr><tr><td style="padding:32px 40px"><p style="font-size:15px;line-height:1.6">Bonjour ${esc(clientName)},</p><p style="font-size:15px;line-height:1.6"><strong>${esc(companyName)}</strong> vous transmet le procès-verbal <strong>${esc(assignedNumero)}</strong> pour signature électronique.</p><table cellpadding="0" cellspacing="0"><tr><td style="border-radius:10px;background:#1e3a8a"><a href="${remoteSignUrl}" style="display:inline-block;padding:14px 28px;color:#fff;text-decoration:none;font-weight:600">Consulter et signer →</a></td></tr></table><p style="margin-top:24px;font-size:12px;color:#94a3b8">Lien valable jusqu'au ${expFr}.</p></td></tr></table></td></tr></table></body></html>`;
+        await sendEmailWithRetryLog({
+          emailType: "pv_sign_link",
+          companyId: data.companyId,
+          pvId,
+          retryable: true,
+          payload: {
+            from: process.env.RESEND_FROM_EMAIL || "PVIA <noreply@pvia.fr>",
+            to: [data.client_identity_email],
+            subject: `${companyName} — N° ${assignedNumero} à signer`,
+            html,
+          },
+        });
+        await writeAuditLog({
+          companyId: data.companyId,
+          userId,
+          pvId,
+          entityType: "pv",
+          entityId: pvId,
+          action: "pv.remote_signature_sent",
+          newValues: { sent_to_email: data.client_identity_email },
+          metadata: { numero: assignedNumero },
+          actor: "user",
+        });
+      } catch (e) {
+        console.error("createPv: remote sign link send failed", e);
+      }
+    }
+
 
     // 11. Audit log
     await writeAuditLog({
