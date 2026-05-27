@@ -173,6 +173,19 @@ function PvDetail() {
     }
   }
 
+  async function resendLiftValidatedEmail(reportId: string) {
+    setResendingLiftId(reportId);
+    try {
+      await resendLiftFn({ data: { reportId } });
+      toast.success("PDF validé renvoyé par email.");
+      loadLogs();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi");
+    } finally {
+      setResendingLiftId(null);
+    }
+  }
+
 
   const loadLastEvent = useCallback(async () => {
     try {
