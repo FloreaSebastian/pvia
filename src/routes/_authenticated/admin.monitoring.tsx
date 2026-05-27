@@ -181,6 +181,29 @@ function MonitoringPage() {
         </Card>
       </div>
 
+      {/* Retry queues */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Webhooks en attente</div>
+          <div className="text-2xl font-semibold mt-1">{(retry?.webhooks.pending ?? 0) + (retry?.webhooks.retrying ?? 0)}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">pending {retry?.webhooks.pending ?? 0} · retrying {retry?.webhooks.retrying ?? 0}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Emails en attente</div>
+          <div className="text-2xl font-semibold mt-1">{(retry?.emails.pending ?? 0) + (retry?.emails.retrying ?? 0)}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">failed {retry?.emails.pending ?? 0} · retrying {retry?.emails.retrying ?? 0}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-destructive" /> Dead letters</div>
+          <div className="text-2xl font-semibold mt-1 text-destructive">{(retry?.webhooks.dead ?? 0) + (retry?.emails.dead ?? 0)}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">wh {retry?.webhooks.dead ?? 0} · em {retry?.emails.dead ?? 0}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Évènements retry 24h</div>
+          <div className="text-2xl font-semibold mt-1">{retry?.retryEvents24h ?? 0}</div>
+        </Card>
+      </div>
+
       {/* Health */}
       <Card className="p-4">
         <h2 className="font-semibold flex items-center gap-2 mb-3"><Server className="h-4 w-4" /> Santé des services</h2>
