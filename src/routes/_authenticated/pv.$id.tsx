@@ -68,6 +68,11 @@ type Pv = {
   chantier_address: string | null;
   chantier_postal_code: string | null;
   chantier_city: string | null;
+  signature_mode: "remote" | "onsite" | null;
+  locked_at: string | null;
+  client_identity_email: string | null;
+  client_otp_verified: boolean | null;
+  sent_to_email: string | null;
 };
 type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
 type Reserve = { id: string; description: string; severity: string; status: string; lifted_at?: string | null; validated_at?: string | null };
