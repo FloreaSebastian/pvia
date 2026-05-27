@@ -199,7 +199,7 @@ export const listAdminSupportIssues = createServerFn({ method: "POST" })
 
     const [errors, emailFails, hookFails, pastDue, stuckOnboarding] = await Promise.all([
       supabaseAdmin.from("app_errors").select("id,severity,source,message,company_id,created_at").eq("resolved", false).gte("created_at", since).order("created_at", { ascending: false }).limit(50),
-      supabaseAdmin.from("email_logs").select("id,email_type,recipient_email,error_message,company_id,created_at").eq("status", "failed").gte("created_at", since).order("created_at", { ascending: false }).limit(50),
+      supabaseAdmin.from("email_logs").select("id,email_type,recipient_email,error_message,company_id,created_at,payload,status,retries_count,max_retries").in("status", ["failed", "retrying", "dead"]).gte("created_at", since).order("created_at", { ascending: false }).limit(50),
       supabaseAdmin.from("webhook_deliveries").select("id,event,response_code,error,company_id,created_at").eq("status", "failed").gte("created_at", since).order("created_at", { ascending: false }).limit(50),
       supabaseAdmin.from("subscriptions").select("company_id,plan,status,current_period_end").eq("status", "past_due"),
       supabaseAdmin.from("companies").select("id,name,email,created_at").is("onboarding_completed_at", null).lte("created_at", new Date(Date.now() - 3 * 86400_000).toISOString()).order("created_at", { ascending: false }).limit(50),
