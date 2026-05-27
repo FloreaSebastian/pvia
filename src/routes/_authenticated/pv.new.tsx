@@ -123,6 +123,8 @@ function NewPv() {
   const createPvFn = useServerFn(createPv);
   const getBrandingFn = useServerFn(getCompanyBrandingFn);
   const getNumberingFn = useServerFn(getPvNumberingSettings);
+  const sendOtpFn = useServerFn(sendOnsiteClientOtp);
+  const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
 
   const [stepIdx, setStepIdx] = useState(0);
   const [maxStepIdx, setMaxStepIdx] = useState(0);
