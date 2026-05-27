@@ -951,33 +951,152 @@ function NewPv() {
 
               {currentStep.id === ID_SIGNATURES && (
                 <>
-                  <SectionHeader icon={PenLine} title="Signatures électroniques" desc={withReserves ? "Réception avec réserves — levée à prévoir." : "Réception sans réserve."} />
-                  <div className="grid gap-5 lg:grid-cols-2">
-                    <SignatureBox
-                      label="Signature du client"
-                      innerRef={clientSigRef}
-                      saved={!!clientSignatureDataUrl}
-                      savedDataUrl={clientSignatureDataUrl}
-                      savedLabel="Signature client enregistrée"
-                      validateLabel="Valider la signature client"
-                      clearLabel="Effacer signature client"
-                      onValidate={saveClientSignature}
-                      onClear={clearClientSignature}
-                      onEnd={() => syncSignature(clientSigRef, setClientSignatureDataUrl)}
+                  <SectionHeader icon={PenLine} title="Signatures électroniques" desc="Choisissez le mode de signature puis validez la signature entreprise." />
+
+                  {/* Mode selector */}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <ModeCard
+                      active={signatureMode === "remote"}
+                      onClick={() => setSignatureMode("remote")}
+                      icon={<MonitorSmartphone className="h-6 w-6" />}
+                      title="Signature à distance"
+                      badge="Recommandé"
+                      desc="Le client reçoit un lien sécurisé par email et signe depuis son propre appareil."
                     />
-                    <SignatureBox
-                      label="Signature entreprise"
-                      innerRef={companySigRef}
-                      saved={!!companySignatureDataUrl}
-                      savedDataUrl={companySignatureDataUrl}
-                      savedLabel="Signature entreprise enregistrée"
-                      validateLabel="Valider la signature entreprise"
-                      clearLabel="Effacer signature entreprise"
-                      onValidate={saveCompanySignature}
-                      onClear={clearCompanySignature}
-                      onEnd={() => syncSignature(companySigRef, setCompanySignatureDataUrl)}
+                    <ModeCard
+                      active={signatureMode === "onsite"}
+                      onClick={() => setSignatureMode("onsite")}
+                      icon={<Smartphone className="h-6 w-6" />}
+                      title="Signature sur place"
+                      desc="Le client signe directement sur votre appareil et confirme son identité avec un code reçu par email."
                     />
                   </div>
+
+                  {signatureMode && (
+                    <>
+                      {/* Company signature (always required) */}
+                      <SignatureBox
+                        label="Signature entreprise"
+                        innerRef={companySigRef}
+                        saved={!!companySignatureDataUrl}
+                        savedDataUrl={companySignatureDataUrl}
+                        savedLabel="Signature entreprise enregistrée"
+                        validateLabel="Enregistrer signature entreprise"
+                        clearLabel="Effacer"
+                        onValidate={saveCompanySignature}
+                        onClear={clearCompanySignature}
+                        onEnd={() => syncSignature(companySigRef, setCompanySignatureDataUrl)}
+                      />
+
+                      {signatureMode === "remote" && (
+                        <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                          <div className="flex items-start gap-3">
+                            <Mail className="mt-0.5 h-5 w-5 text-primary" />
+                            <div className="flex-1">
+                              <h4 className="text-sm font-semibold">Envoi au client</h4>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Le client recevra un email avec un lien sécurisé pour signer (valable 14 jours).
+                              </p>
+                            </div>
+                          </div>
+                          <Field label="Email du client *">
+                            <Input
+                              type="email"
+                              value={onsiteOtpEmail}
+                              onChange={(e) => setOnsiteOtpEmail(e.target.value)}
+                              placeholder="client@email.com"
+                            />
+                          </Field>
+                        </div>
+                      )}
+
+                      {signatureMode === "onsite" && (
+                        <>
+                          <SignatureBox
+                            label="Signature client (sur place)"
+                            innerRef={clientSigRef}
+                            saved={!!clientSignatureDataUrl}
+                            savedDataUrl={clientSignatureDataUrl}
+                            savedLabel="Signature client enregistrée"
+                            validateLabel="Enregistrer signature client"
+                            clearLabel="Effacer"
+                            onValidate={saveClientSignature}
+                            onClear={clearClientSignature}
+                            onEnd={() => syncSignature(clientSigRef, setClientSignatureDataUrl)}
+                          />
+
+                          <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                            <div className="flex items-start gap-3">
+                              <ShieldCheck className="mt-0.5 h-5 w-5 text-primary" />
+                              <div className="flex-1">
+                                <h4 className="text-sm font-semibold">Confirmation d'identité client</h4>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  Un code à 6 chiffres est envoyé par email au client pour confirmer son identité.
+                                </p>
+                              </div>
+                              {onsiteOtpVerified && (
+                                <Badge variant="secondary" className="gap-1">
+                                  <CheckCircle2 className="h-3 w-3" /> Identité confirmée
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                              <Field label="Email du client *">
+                                <Input
+                                  type="email"
+                                  value={onsiteOtpEmail}
+                                  onChange={(e) => {
+                                    setOnsiteOtpEmail(e.target.value);
+                                    setOnsiteOtpVerified(false);
+                                    setOnsiteOtpId(null);
+                                    setOnsiteOtpSent(false);
+                                  }}
+                                  placeholder="client@email.com"
+                                  disabled={onsiteOtpVerified}
+                                />
+                              </Field>
+                              <div className="flex items-end">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={handleSendOtp}
+                                  disabled={onsiteOtpLoading || !onsiteOtpEmail.trim() || onsiteOtpVerified}
+                                >
+                                  {onsiteOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                  {onsiteOtpSent ? "Renvoyer le code" : "Envoyer le code"}
+                                </Button>
+                              </div>
+                            </div>
+                            {onsiteOtpSent && !onsiteOtpVerified && (
+                              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                                <Field label="Code reçu par le client (6 chiffres) *">
+                                  <Input
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    value={onsiteOtpCode}
+                                    onChange={(e) => setOnsiteOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                    placeholder="123456"
+                                    className="font-mono tracking-[0.4em] text-center text-lg"
+                                  />
+                                </Field>
+                                <div className="flex items-end">
+                                  <Button
+                                    type="button"
+                                    onClick={handleVerifyOtp}
+                                    disabled={onsiteOtpLoading || onsiteOtpCode.length !== 6}
+                                  >
+                                    {onsiteOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                    Valider le code
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+
                   <p className="text-xs text-muted-foreground">
                     Vous pouvez aussi enregistrer en brouillon et signer plus tard.
                   </p>
@@ -1005,35 +1124,45 @@ function NewPv() {
                       {withReserves ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                       {withReserves ? `Réception avec ${reserves.length} réserve${reserves.length > 1 ? "s" : ""}` : "Réception sans réserve"}
                     </p>
-                    <p className="mt-1 opacity-80">
-                      {withReserves
-                        ? "Un suivi de levée de réserves sera créé automatiquement."
-                        : "Le PV sera clôturé sans réserve."}
-                    </p>
-                    {withReserves && (form.reserve_completion_delay || form.reserve_due_date) && (
-                      <p className="mt-1 text-xs opacity-80">
-                        Délai global : {form.reserve_completion_delay || "—"}
-                        {form.reserve_due_date && ` · échéance ${form.reserve_due_date}`}
-                      </p>
-                    )}
                   </div>
-                  <div className={`rounded-xl border p-4 text-sm ${companySignatureDataUrl ? "border-success/30 bg-success/10 text-success" : "border-warning/40 bg-warning/10 text-warning-foreground"}`}>
+
+                  {/* Signature recap */}
+                  <div className="rounded-xl border border-border bg-muted/10 p-4 text-sm space-y-2">
                     <p className="flex items-center gap-2 font-semibold">
-                      {companySignatureDataUrl ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                      Signature entreprise : {companySignatureDataUrl ? "enregistrée" : "manquante"}
+                      <PenLine className="h-4 w-4" /> Signature
                     </p>
-                    <p className="mt-1 flex items-center gap-2 opacity-80">
-                      <User className="h-4 w-4" /> Signature client : {clientSignatureDataUrl ? "enregistrée" : "non renseignée"}
-                    </p>
-                    {companySignatureDataUrl ? (
-                      <p className="mt-2 text-success/80">
-                        « Valider & signer » enregistre le PV, génère le PDF et notifie votre équipe.
-                      </p>
+                    {!signatureMode ? (
+                      <p className="text-warning">Aucun mode de signature choisi.</p>
                     ) : (
-                      <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setStepIdx(STEPS.findIndex((s) => s.id === ID_SIGNATURES))}>
-                        <PenLine className="h-4 w-4" /> Retour signer
-                      </Button>
+                      <>
+                        <p>Mode : <strong>{signatureMode === "remote" ? "Signature à distance" : "Signature sur place"}</strong></p>
+                        <p className={companySignatureDataUrl ? "text-success" : "text-warning"}>
+                          Signature entreprise : {companySignatureDataUrl ? "enregistrée ✓" : "manquante"}
+                        </p>
+                        {signatureMode === "remote" && (
+                          <>
+                            <p>Email client : {onsiteOtpEmail || <span className="text-warning">manquant</span>}</p>
+                            <p className="text-muted-foreground">Statut final : en attente de signature client</p>
+                          </>
+                        )}
+                        {signatureMode === "onsite" && (
+                          <>
+                            <p className={clientSignatureDataUrl ? "text-success" : "text-warning"}>
+                              Signature client : {clientSignatureDataUrl ? "enregistrée ✓" : "manquante"}
+                            </p>
+                            <p className={onsiteOtpVerified ? "text-success" : "text-warning"}>
+                              Identité client : {onsiteOtpVerified ? "confirmée ✓" : "non confirmée"}
+                            </p>
+                            <p className="text-muted-foreground">Statut final : signé et verrouillé</p>
+                          </>
+                        )}
+                      </>
                     )}
+                    {!signatureMode || !companySignatureDataUrl ? (
+                      <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setStepIdx(STEPS.findIndex((s) => s.id === ID_SIGNATURES))}>
+                        <PenLine className="h-4 w-4" /> Retour aux signatures
+                      </Button>
+                    ) : null}
                   </div>
                 </>
               )}
@@ -1061,23 +1190,49 @@ function NewPv() {
                 )}
               </Tooltip>
             </TooltipProvider>
-          ) : (
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button disabled={saving || !companySignatureDataUrl} onClick={() => onSave("signe")} className="shadow-brand">
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      Valider & signer
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {!companySignatureDataUrl && (
-                  <TooltipContent>Validez d'abord la signature entreprise.</TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          ) : (() => {
+            const finalAction: "remote" | "onsite" | null = signatureMode;
+            const finalReady =
+              !!finalAction &&
+              !!companySignatureDataUrl &&
+              (finalAction === "remote"
+                ? !!onsiteOtpEmail.trim()
+                : !!clientSignatureDataUrl && onsiteOtpVerified);
+            const finalLabel =
+              finalAction === "remote" ? "Créer et envoyer au client"
+              : finalAction === "onsite" ? "Signer définitivement le PV"
+              : "Choisir le mode de signature";
+            const tooltip = !finalAction
+              ? "Choisissez le mode de signature."
+              : !companySignatureDataUrl
+              ? "Validez la signature entreprise."
+              : finalAction === "remote"
+              ? "Renseignez l'email du client."
+              : !clientSignatureDataUrl
+              ? "Validez la signature client."
+              : !onsiteOtpVerified
+              ? "Confirmez l'identité client avec le code OTP."
+              : null;
+            return (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        disabled={saving || !finalReady}
+                        onClick={() => finalAction && onSave(finalAction)}
+                        className="shadow-brand"
+                      >
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : finalAction === "remote" ? <Send className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                        {finalLabel}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {tooltip && <TooltipContent>{tooltip}</TooltipContent>}
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })()}
         </div>
       </Card>
     </div>
