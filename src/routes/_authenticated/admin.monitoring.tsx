@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listAppErrors, getMonitoringStats, setAppErrorResolved, getHealthStatus, downloadAppErrorsCsv,
 } from "@/lib/monitoring.functions";
+import { getRetryQueueStats } from "@/lib/admin-platform.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,10 +71,17 @@ function MonitoringPage() {
   const healthFn = useServerFn(getHealthStatus);
   const csvFn = useServerFn(downloadAppErrorsCsv);
 
+  const retryFn = useServerFn(getRetryQueueStats);
+
   const [errors, setErrors] = useState<AppError[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
   const [health, setHealth] = useState<{ checks: HealthCheck[]; at: string } | null>(null);
+  const [retry, setRetry] = useState<{
+    webhooks: { pending: number; retrying: number; dead: number };
+    emails: { pending: number; retrying: number; dead: number };
+    retryEvents24h: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [severity, setSeverity] = useState<"all" | "info" | "warning" | "error" | "critical">("all");
   const [resolved, setResolved] = useState<"open" | "resolved" | "all">("open");
@@ -83,15 +91,17 @@ function MonitoringPage() {
   const reload = async () => {
     setLoading(true);
     try {
-      const [list, st, hc] = await Promise.all([
+      const [list, st, hc, rt] = await Promise.all([
         listFn({ data: { severity, resolved, source: source || undefined, limit: 100, offset: 0 } }),
         statsFn(),
         healthFn(),
+        retryFn(),
       ]);
       setErrors(list.errors as AppError[]);
       setTotal(list.total);
       setStats(st as Stats);
       setHealth(hc);
+      setRetry(rt);
     } catch (e: any) {
       toast.error(e?.message ?? "Erreur");
     } finally {
@@ -168,6 +178,29 @@ function MonitoringPage() {
               </StatusPill>
             ))}
           </div>
+        </Card>
+      </div>
+
+      {/* Retry queues */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Webhooks en attente</div>
+          <div className="text-2xl font-semibold mt-1">{(retry?.webhooks.pending ?? 0) + (retry?.webhooks.retrying ?? 0)}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">pending {retry?.webhooks.pending ?? 0} · retrying {retry?.webhooks.retrying ?? 0}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Emails en attente</div>
+          <div className="text-2xl font-semibold mt-1">{(retry?.emails.pending ?? 0) + (retry?.emails.retrying ?? 0)}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">failed {retry?.emails.pending ?? 0} · retrying {retry?.emails.retrying ?? 0}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-destructive" /> Dead letters</div>
+          <div className="text-2xl font-semibold mt-1 text-destructive">{(retry?.webhooks.dead ?? 0) + (retry?.emails.dead ?? 0)}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">wh {retry?.webhooks.dead ?? 0} · em {retry?.emails.dead ?? 0}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Évènements retry 24h</div>
+          <div className="text-2xl font-semibold mt-1">{retry?.retryEvents24h ?? 0}</div>
         </Card>
       </div>
 

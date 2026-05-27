@@ -616,9 +616,13 @@ export type Database = {
           email_type: string
           error_message: string | null
           id: string
+          max_retries: number
+          next_retry_at: string | null
+          payload: Json | null
           pv_id: string | null
           recipient_email: string
           resend_id: string | null
+          retries_count: number
           sent_at: string | null
           status: string
           subject: string | null
@@ -629,9 +633,13 @@ export type Database = {
           email_type: string
           error_message?: string | null
           id?: string
+          max_retries?: number
+          next_retry_at?: string | null
+          payload?: Json | null
           pv_id?: string | null
           recipient_email: string
           resend_id?: string | null
+          retries_count?: number
           sent_at?: string | null
           status?: string
           subject?: string | null
@@ -642,9 +650,13 @@ export type Database = {
           email_type?: string
           error_message?: string | null
           id?: string
+          max_retries?: number
+          next_retry_at?: string | null
+          payload?: Json | null
           pv_id?: string | null
           recipient_email?: string
           resend_id?: string | null
+          retries_count?: number
           sent_at?: string | null
           status?: string
           subject?: string | null
@@ -1474,6 +1486,7 @@ export type Database = {
           error: string | null
           event: string
           id: string
+          max_attempts: number
           next_attempt_at: string
           payload: Json
           response_body: string | null
@@ -1489,6 +1502,7 @@ export type Database = {
           error?: string | null
           event: string
           id?: string
+          max_attempts?: number
           next_attempt_at?: string
           payload: Json
           response_body?: string | null
@@ -1504,6 +1518,7 @@ export type Database = {
           error?: string | null
           event?: string
           id?: string
+          max_attempts?: number
           next_attempt_at?: string
           payload?: Json
           response_body?: string | null
