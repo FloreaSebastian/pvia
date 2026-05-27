@@ -131,7 +131,7 @@ function renderEnterpriseLoginCodeEmail(opts: {
       </td></tr>
       <tr><td style="padding:8px 36px 0">
         <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155">
-          Utilisez ce code à 6 chiffres pour accéder à votre espace professionnel PVIA.
+          Utilisez ce code à 8 chiffres pour accéder à votre espace professionnel PVIA.
         </p>
         <div style="margin:24px 0;padding:22px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;text-align:center">
           <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:42px;letter-spacing:14px;font-weight:800;color:#1e40af">${escapeHtml(code)}</div>

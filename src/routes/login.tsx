@@ -86,7 +86,7 @@ function LoginPage() {
   return (
     <AuthShell
       brandHeading={<>Connexion sans mot de passe.<br />Simple, rapide, sécurisée.</>}
-      brandSubtitle="Recevez un code à 6 chiffres par email. Plus de mot de passe oublié, plus de friction."
+      brandSubtitle="Recevez un code à 8 chiffres par email. Plus de mot de passe oublié, plus de friction."
       bullets={[
         "Authentification chiffrée bout-en-bout",
         "Conforme RGPD · hébergement EU",
@@ -125,7 +125,7 @@ function LoginPage() {
                 Recevoir mon code
               </Button>
               <p className="text-xs text-muted-foreground">
-                Un code à 6 chiffres valide 10 minutes vous sera envoyé.
+                Un code à 8 chiffres valide 10 minutes vous sera envoyé.
               </p>
             </form>
           </TabsContent>
