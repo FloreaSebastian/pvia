@@ -64,15 +64,30 @@ function Page() {
         <Card className="p-4">
           <h2 className="mb-2 text-sm font-semibold">Emails échoués ({d.emailFailures.length})</h2>
           <ul className="divide-y text-sm">
-            {d.emailFailures.map((e: any) => (
-              <li key={e.id} className="py-1.5">
-                <div className="flex justify-between">
-                  <span>{e.email_type} → {e.recipient_email}</span>
-                  {e.company_id && <Link to="/admin/support/$companyId" params={{ companyId: e.company_id }} className="text-xs hover:underline">Fiche →</Link>}
-                </div>
-                {e.error_message && <div className="text-xs text-destructive">{e.error_message.slice(0, 140)}</div>}
-              </li>
-            ))}
+            {d.emailFailures.map((e: any) => {
+              const retryable = !!e.payload;
+              const dead = e.status === "dead";
+              return (
+                <li key={e.id} className="py-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="truncate">
+                      <span className="mr-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide" style={{
+                        background: dead ? "hsl(var(--destructive) / 0.15)" : retryable ? "hsl(var(--primary) / 0.12)" : "hsl(var(--muted))",
+                        color: dead ? "hsl(var(--destructive))" : retryable ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+                      }}>
+                        {dead ? "dead" : retryable ? `retry ${e.retries_count ?? 0}/${e.max_retries ?? 5}` : "manual"}
+                      </span>
+                      {e.email_type} → {e.recipient_email}
+                    </span>
+                    {e.company_id && <Link to="/admin/support/$companyId" params={{ companyId: e.company_id }} className="text-xs hover:underline">Fiche →</Link>}
+                  </div>
+                  {e.error_message && <div className="mt-0.5 text-xs text-destructive">{e.error_message.slice(0, 160)}</div>}
+                  {!retryable && !dead && (
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">Pièce jointe ou secret requis — relance manuelle.</div>
+                  )}
+                </li>
+              );
+            })}
             {d.emailFailures.length === 0 && <li className="py-1.5 text-xs text-muted-foreground">Aucun.</li>}
           </ul>
         </Card>
