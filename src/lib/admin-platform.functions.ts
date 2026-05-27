@@ -592,3 +592,80 @@ export const getAdminBillingOverview = createServerFn({ method: "POST" })
     };
   });
 
+
+/* ----------------------------- Retry queue KPIs --------------------------- */
+
+export const getRetryQueueStats = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requirePlatformAdmin(context.userId);
+    const since24h = new Date(Date.now() - 86400_000).toISOString();
+    const [whPending, whRetrying, whDead, emPending, emRetrying, emDead, retried24] = await Promise.all([
+      supabaseAdmin.from("webhook_deliveries").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabaseAdmin.from("webhook_deliveries").select("id", { count: "exact", head: true }).eq("status", "retrying"),
+      supabaseAdmin.from("webhook_deliveries").select("id", { count: "exact", head: true }).eq("status", "dead"),
+      supabaseAdmin.from("email_logs").select("id", { count: "exact", head: true }).eq("status", "failed"),
+      supabaseAdmin.from("email_logs").select("id", { count: "exact", head: true }).eq("status", "retrying"),
+      supabaseAdmin.from("email_logs").select("id", { count: "exact", head: true }).eq("status", "dead"),
+      supabaseAdmin.from("audit_logs").select("id", { count: "exact", head: true })
+        .in("action", ["webhook.delivery_retried", "email.delivery_retried", "webhook.delivery_dead", "email.delivery_dead"])
+        .gte("created_at", since24h),
+    ]);
+    return {
+      webhooks: { pending: whPending.count ?? 0, retrying: whRetrying.count ?? 0, dead: whDead.count ?? 0 },
+      emails: { pending: emPending.count ?? 0, retrying: emRetrying.count ?? 0, dead: emDead.count ?? 0 },
+      retryEvents24h: retried24.count ?? 0,
+    };
+  });
+
+export const adminRetryEmailNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ logId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    // Force the row eligible for the next drain pass.
+    await supabaseAdmin.from("email_logs").update({
+      status: "retrying",
+      next_retry_at: new Date().toISOString(),
+    }).eq("id", data.logId);
+    const { drainFailedEmails } = await import("./retry.server");
+    const r = await drainFailedEmails(1);
+    await writeAuditLog({
+      userId: context.userId, entityType: "email", entityId: data.logId,
+      action: "admin.email_retry_now", metadata: r as any, actor: "admin",
+    });
+    return r;
+  });
+
+export const adminMarkEmailDead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ logId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    await supabaseAdmin.from("email_logs").update({
+      status: "dead", next_retry_at: null,
+    }).eq("id", data.logId);
+    await writeAuditLog({
+      userId: context.userId, entityType: "email", entityId: data.logId,
+      action: "admin.email_marked_dead", actor: "admin",
+    });
+    return { ok: true };
+  });
+
+export const adminRetryWebhookNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ deliveryId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    await supabaseAdmin.from("webhook_deliveries").update({
+      status: "pending",
+      next_attempt_at: new Date().toISOString(),
+    }).eq("id", data.deliveryId);
+    const { deliverOne } = await import("./webhooks.server");
+    const r = await deliverOne(data.deliveryId);
+    await writeAuditLog({
+      userId: context.userId, entityType: "webhook_delivery", entityId: data.deliveryId,
+      action: "admin.webhook_retry_now", metadata: r as any, actor: "admin",
+    });
+    return r;
+  });
