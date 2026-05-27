@@ -216,22 +216,39 @@ export const listAdminSupportIssues = createServerFn({ method: "POST" })
 
 /* ------------------------------- Admin actions --------------------------- */
 
-const SuspendSchema = z.object({ companyId: z.string().uuid(), reason: z.string().max(500).optional() });
+const SuspendSchema = z.object({
+  companyId: z.string().uuid(),
+  reason: z.string().max(500).optional(),
+});
 
 export const adminSuspendCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => SuspendSchema.parse(i))
   .handler(async ({ data, context }) => {
     await requirePlatformAdmin(context.userId);
-    // Soft-suspend: mark any active subscription as canceled (no schema change).
-    await supabaseAdmin
-      .from("subscriptions")
-      .update({ status: "canceled", cancel_at_period_end: true, updated_at: new Date().toISOString() })
-      .eq("company_id", data.companyId)
-      .in("status", ["active", "trialing", "past_due"]);
+    const oldRow = await supabaseAdmin
+      .from("companies")
+      .select("suspended_at,support_status,suspension_reason")
+      .eq("id", data.companyId)
+      .maybeSingle();
+    const { error } = await supabaseAdmin
+      .from("companies")
+      .update({
+        suspended_at: new Date().toISOString(),
+        suspended_by: context.userId,
+        suspension_reason: data.reason ?? null,
+        support_status: "blocked",
+      } as any)
+      .eq("id", data.companyId);
+    if (error) throw new Error(error.message);
     await writeAuditLog({
-      companyId: data.companyId, userId: context.userId, entityType: "platform_admin",
-      action: "admin.company_suspended", metadata: { reason: data.reason ?? null }, actor: "user",
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "company",
+      action: "admin.company_suspended",
+      oldValues: (oldRow.data as any) ?? null,
+      newValues: { suspended: true, reason: data.reason ?? null, support_status: "blocked" },
+      actor: "user",
     });
     return { ok: true };
   });
@@ -241,14 +258,54 @@ export const adminReactivateCompany = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     await requirePlatformAdmin(context.userId);
-    await supabaseAdmin
-      .from("subscriptions")
-      .update({ status: "active", cancel_at_period_end: false, updated_at: new Date().toISOString() })
-      .eq("company_id", data.companyId)
-      .eq("status", "canceled");
+    const { error } = await supabaseAdmin
+      .from("companies")
+      .update({
+        suspended_at: null,
+        suspended_by: null,
+        suspension_reason: null,
+        support_status: "active",
+      } as any)
+      .eq("id", data.companyId);
+    if (error) throw new Error(error.message);
     await writeAuditLog({
-      companyId: data.companyId, userId: context.userId, entityType: "platform_admin",
-      action: "admin.company_reactivated", actor: "user",
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "company",
+      action: "admin.company_reactivated",
+      actor: "user",
+    });
+    return { ok: true };
+  });
+
+export const adminSetSupportStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({
+      companyId: z.string().uuid(),
+      status: z.enum(["active", "watched", "blocked"]),
+    }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    const patch: any = { support_status: data.status };
+    if (data.status === "blocked") {
+      patch.suspended_at = new Date().toISOString();
+      patch.suspended_by = context.userId;
+    } else {
+      patch.suspended_at = null;
+      patch.suspended_by = null;
+      patch.suspension_reason = null;
+    }
+    const { error } = await supabaseAdmin.from("companies").update(patch).eq("id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "company",
+      action: "admin.support_status_changed",
+      newValues: { support_status: data.status },
+      actor: "user",
     });
     return { ok: true };
   });
@@ -264,8 +321,11 @@ export const adminResetCompanyOnboarding = createServerFn({ method: "POST" })
       .eq("id", data.companyId);
     if (error) throw new Error(error.message);
     await writeAuditLog({
-      companyId: data.companyId, userId: context.userId, entityType: "platform_admin",
-      action: "admin.onboarding_reset", actor: "user",
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "platform_admin",
+      action: "admin.onboarding_reset",
+      actor: "user",
     });
     return { ok: true };
   });
@@ -281,22 +341,254 @@ export const adminRetryFailedWebhook = createServerFn({ method: "POST" })
       .eq("id", data.deliveryId);
     if (error) throw new Error(error.message);
     await writeAuditLog({
-      companyId: null, userId: context.userId, entityType: "platform_admin",
-      action: "admin.webhook_retried", metadata: { deliveryId: data.deliveryId }, actor: "user",
+      companyId: null,
+      userId: context.userId,
+      entityType: "platform_admin",
+      action: "admin.webhook_retried",
+      metadata: { deliveryId: data.deliveryId },
+      actor: "user",
     });
     return { ok: true };
+  });
+
+export const adminRetryFailedEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ emailLogId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    // Mark as pending — the email worker (or a manual resend flow) will pick it up.
+    await supabaseAdmin
+      .from("email_logs")
+      .update({ status: "queued", error_message: null })
+      .eq("id", data.emailLogId);
+    await writeAuditLog({
+      companyId: null,
+      userId: context.userId,
+      entityType: "platform_admin",
+      action: "admin.email_retried",
+      metadata: { emailLogId: data.emailLogId },
+      actor: "user",
+    });
+    return { ok: true };
+  });
+
+export const adminResendInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ memberId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    // Bump expiry; client invite flow can regenerate on demand.
+    const newExpiry = new Date(Date.now() + 7 * 86400_000).toISOString();
+    const { error } = await supabaseAdmin
+      .from("company_members")
+      .update({ invite_expires_at: newExpiry })
+      .eq("id", data.memberId)
+      .eq("status", "invited");
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: null,
+      userId: context.userId,
+      entityType: "platform_admin",
+      action: "admin.invite_extended",
+      metadata: { memberId: data.memberId, newExpiry },
+      actor: "user",
+    });
+    return { ok: true };
+  });
+
+export const adminResyncStripeSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    // Mark stale so the next billing webhook/refresh picks it up.
+    await supabaseAdmin
+      .from("subscriptions")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("company_id", data.companyId);
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "platform_admin",
+      action: "admin.stripe_resync_requested",
+      actor: "user",
+    });
+    return { ok: true };
+  });
+
+/* ------------------------------- Support notes --------------------------- */
+
+export const adminListSupportNotes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    const { data: rows, error } = await supabaseAdmin
+      .from("support_notes" as any)
+      .select("id,note,visibility,created_at,created_by")
+      .eq("company_id", data.companyId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { notes: (rows as any[]) ?? [] };
   });
 
 export const adminAddSupportNote = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z.object({ companyId: z.string().uuid(), note: z.string().min(1).max(2000) }).parse(i),
+    z.object({
+      companyId: z.string().uuid(),
+      note: z.string().min(1).max(2000),
+      visibility: z.enum(["internal", "customer_visible"]).default("internal"),
+    }).parse(i),
   )
   .handler(async ({ data, context }) => {
     await requirePlatformAdmin(context.userId);
+    const { error } = await supabaseAdmin.from("support_notes" as any).insert({
+      company_id: data.companyId,
+      created_by: context.userId,
+      note: data.note,
+      visibility: data.visibility,
+    });
+    if (error) throw new Error(error.message);
     await writeAuditLog({
-      companyId: data.companyId, userId: context.userId, entityType: "platform_admin",
-      action: "admin.support_note_created", metadata: { note: data.note }, actor: "user",
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "support_note",
+      action: "admin.support_note_created",
+      metadata: { visibility: data.visibility },
+      actor: "user",
     });
     return { ok: true };
   });
+
+export const adminDeleteSupportNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ id: z.string().uuid(), companyId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    await supabaseAdmin.from("support_notes" as any).delete().eq("id", data.id);
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "support_note",
+      action: "admin.support_note_deleted",
+      metadata: { id: data.id },
+      actor: "user",
+    });
+    return { ok: true };
+  });
+
+/* ------------------------------- Impersonation --------------------------- */
+
+const IMPERSONATION_MAX_MINUTES = 30;
+
+export const adminStartImpersonation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({
+      companyId: z.string().uuid(),
+      reason: z.string().min(3).max(500),
+    }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    const expiresAt = new Date(Date.now() + IMPERSONATION_MAX_MINUTES * 60_000).toISOString();
+    const { data: row, error } = await supabaseAdmin
+      .from("impersonation_sessions" as any)
+      .insert({
+        admin_user_id: context.userId,
+        company_id: data.companyId,
+        reason: data.reason,
+        read_only: true,
+        expires_at: expiresAt,
+      })
+      .select("id,expires_at")
+      .single();
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId: context.userId,
+      entityType: "impersonation",
+      entityId: (row as any).id,
+      action: "admin.impersonation_started",
+      metadata: { reason: data.reason, expires_at: expiresAt, read_only: true },
+      actor: "user",
+    });
+    return { sessionId: (row as any).id, expiresAt };
+  });
+
+export const adminEndImpersonation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ sessionId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
+    const { data: row } = await supabaseAdmin
+      .from("impersonation_sessions" as any)
+      .select("company_id")
+      .eq("id", data.sessionId)
+      .maybeSingle();
+    await supabaseAdmin
+      .from("impersonation_sessions" as any)
+      .update({ ended_at: new Date().toISOString(), ended_reason: "manual" })
+      .eq("id", data.sessionId);
+    await writeAuditLog({
+      companyId: (row as any)?.company_id ?? null,
+      userId: context.userId,
+      entityType: "impersonation",
+      entityId: data.sessionId,
+      action: "admin.impersonation_ended",
+      actor: "user",
+    });
+    return { ok: true };
+  });
+
+/* --------------------------------- Billing ------------------------------- */
+
+export const getAdminBillingOverview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requirePlatformAdmin(context.userId);
+
+    const [subs, plans, companies] = await Promise.all([
+      supabaseAdmin
+        .from("subscriptions")
+        .select("id,company_id,plan,status,current_period_end,trial_end,cancel_at_period_end,created_at,environment"),
+      supabaseAdmin.from("plan_limits").select("plan,monthly_price_eur,display_name"),
+      supabaseAdmin.from("companies").select("id,name,email"),
+    ]);
+
+    const priceByPlan: Record<string, number> = {};
+    for (const p of plans.data ?? []) priceByPlan[(p as any).plan] = (p as any).monthly_price_eur ?? 0;
+
+    const companyById: Record<string, any> = {};
+    for (const c of companies.data ?? []) companyById[(c as any).id] = c;
+
+    const subRows = (subs.data ?? []) as any[];
+    const buckets = { active: [] as any[], trialing: [] as any[], past_due: [] as any[], canceled: [] as any[] };
+    let mrr = 0;
+    for (const s of subRows) {
+      const enriched = { ...s, company: companyById[s.company_id], monthly_price_eur: priceByPlan[s.plan] ?? 0 };
+      if (s.status === "active" || s.status === "trialing" || s.status === "past_due" || s.status === "canceled") {
+        (buckets as any)[s.status].push(enriched);
+      }
+      if (s.status === "active" || s.status === "past_due") mrr += priceByPlan[s.plan] ?? 0;
+    }
+
+    const subscribedIds = new Set(subRows.map((s) => s.company_id));
+    const noSub = (companies.data ?? []).filter((c) => !subscribedIds.has((c as any).id));
+
+    return {
+      mrrEstimateEur: mrr,
+      counts: {
+        active: buckets.active.length,
+        trialing: buckets.trialing.length,
+        past_due: buckets.past_due.length,
+        canceled: buckets.canceled.length,
+        no_sub: noSub.length,
+        total_companies: (companies.data ?? []).length,
+      },
+      buckets,
+      noSub,
+    };
+  });
+
