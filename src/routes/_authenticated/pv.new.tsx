@@ -853,6 +853,7 @@ function NewPv() {
                       label="Signature du client"
                       innerRef={clientSigRef}
                       saved={!!clientSignatureDataUrl}
+                      savedDataUrl={clientSignatureDataUrl}
                       savedLabel="Signature client enregistrée"
                       validateLabel="Valider la signature client"
                       clearLabel="Effacer signature client"
@@ -864,6 +865,7 @@ function NewPv() {
                       label="Signature entreprise"
                       innerRef={companySigRef}
                       saved={!!companySignatureDataUrl}
+                      savedDataUrl={companySignatureDataUrl}
                       savedLabel="Signature entreprise enregistrée"
                       validateLabel="Valider la signature entreprise"
                       clearLabel="Effacer signature entreprise"
@@ -1036,6 +1038,7 @@ function SignatureBox({
   label,
   innerRef,
   saved,
+  savedDataUrl,
   savedLabel,
   validateLabel,
   clearLabel,
@@ -1046,6 +1049,7 @@ function SignatureBox({
   label: string;
   innerRef: React.RefObject<SignaturePad | null>;
   saved: boolean;
+  savedDataUrl: string | null;
   savedLabel: string;
   validateLabel: string;
   clearLabel: string;
@@ -1062,6 +1066,11 @@ function SignatureBox({
       <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
         <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
       </div>
+      {savedDataUrl && (
+        <div className="mt-2 rounded-lg border border-border bg-background p-2">
+          <img src={savedDataUrl} alt={savedLabel} className="h-16 w-full object-contain" />
+        </div>
+      )}
       <div className="mt-2 flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={onValidate}>
           <Check className="h-3.5 w-3.5" /> {validateLabel}
