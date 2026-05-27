@@ -70,7 +70,7 @@ function wrapLines(font: PDFFont, text: string, size: number, maxWidth: number):
 export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<string> {
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
-    .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at")
+    .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email")
     .eq("id", reportId)
     .maybeSingle();
   if (!report?.company_id) throw new Error("Rapport introuvable.");
@@ -310,6 +310,15 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   await drawSig(MARGIN, "Entreprise", report.company_signature);
   await drawSig(MARGIN + sigW + 16, "Client", report.client_signature);
   y -= sigH + 16;
+
+  if ((report as any).client_validated_at) {
+    ensureSpace(28);
+    page.drawText(
+      sanitize(`Validée par le client (${(report as any).client_validated_email ?? "—"}) le ${formatDate((report as any).client_validated_at, true)}`),
+      { x: MARGIN, y, size: 8.5, font: bold, color: rgb(0.13, 0.6, 0.3) },
+    );
+    y -= 16;
+  }
 
   // Mentions
   ensureSpace(40);
