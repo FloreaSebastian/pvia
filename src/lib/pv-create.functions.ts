@@ -47,7 +47,10 @@ const PhotoSchema = z.object({
 
 const InputSchema = z.object({
   companyId: z.string().uuid(),
-  status: z.enum(["brouillon", "signe"]),
+  status: z.enum(["brouillon", "signe", "en_attente"]),
+  signature_mode: z.enum(["remote", "onsite"]).nullable().optional(),
+  client_identity_email: z.string().trim().toLowerCase().email().max(255).nullable().optional(),
+  client_otp_id: z.string().uuid().nullable().optional(),
   reception_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide"),
   chantier_id: z.string().uuid().nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),
@@ -72,6 +75,7 @@ const InputSchema = z.object({
   chantier_postal_code: z.string().trim().max(20).optional().default(""),
   chantier_city: z.string().trim().max(200).optional().default(""),
 });
+
 
 export const createPv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
