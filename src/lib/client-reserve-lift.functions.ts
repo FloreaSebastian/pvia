@@ -274,8 +274,10 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
     }
 
     // Email + notify
+    let emailSent = false;
     try {
       await deliverSignedReserveLift({ reportId: report.id });
+      emailSent = true;
     } catch (e) {
       console.error("reserve-lift email failed:", e);
     }
@@ -313,6 +315,17 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
       metadata: { actor_email: s.email, ip, ua, numero: report.numero, items: reserveIds.length },
       actor: "client",
     });
+    if (emailSent) {
+      await writeAuditLog({
+        companyId: report.company_id,
+        pvId: pv.id,
+        entityType: "reserve_lift",
+        entityId: report.id,
+        action: "reserve_lift.client_validated_email_sent",
+        metadata: { numero: report.numero, recipient: s.email },
+        actor: "email",
+      });
+    }
     for (const rid of reserveIds) {
       await writeAuditLog({
         companyId: report.company_id,

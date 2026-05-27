@@ -24,6 +24,8 @@ export type AuditAction =
   | "reserve_lift.created"
   | "reserve_lift.signed"
   | "reserve_lift.client_validated"
+  | "reserve_lift.client_validated_email_sent"
+  | "reserve_lift.client_validated_email_resent"
   | "pv.has_open_reserves"
   | "pv.all_reserves_lifted"
   | "push.sent"

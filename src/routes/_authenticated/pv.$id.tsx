@@ -31,7 +31,7 @@ import { sendPvToClient } from "@/lib/sign.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
-import { listReserveLifts, getReserveLiftPdfUrl } from "@/lib/reserve-lift.functions";
+import { listReserveLifts, getReserveLiftPdfUrl, resendValidatedReserveLiftEmail } from "@/lib/reserve-lift.functions";
 import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
@@ -83,6 +83,8 @@ function PvDetail() {
   const logAction = useServerFn(logUserAction);
   const listLiftsFn = useServerFn(listReserveLifts);
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
+  const resendLiftFn = useServerFn(resendValidatedReserveLiftEmail);
+  const [resendingLiftId, setResendingLiftId] = useState<string | null>(null);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -168,6 +170,19 @@ function PvDetail() {
       window.open(url, "_blank");
     } catch (e: any) {
       toast.error(e?.message || "PDF indisponible");
+    }
+  }
+
+  async function resendLiftValidatedEmail(reportId: string) {
+    setResendingLiftId(reportId);
+    try {
+      await resendLiftFn({ data: { reportId } });
+      toast.success("PDF validé renvoyé par email.");
+      loadLogs();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi");
+    } finally {
+      setResendingLiftId(null);
     }
   }
 
@@ -604,6 +619,9 @@ function PvDetail() {
                     const validated = !!l.client_validated_at;
                     const liftStatusLabel = validated ? "Validée par client" : l.status === "signe" ? "En attente validation client" : "Brouillon";
                     const liftTone = validated ? "success" : l.status === "signe" ? "warning" : "neutral";
+                    const lastValidationEmail = validated
+                      ? emailLogs.find((log) => log.email_type === "reserve_lift_validated" && log.status === "sent")
+                      : null;
                     return (
                       <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
                         <div className="flex flex-wrap items-center gap-2">
@@ -618,6 +636,12 @@ function PvDetail() {
                               {l.client_validated_email ? ` par ${l.client_validated_email}` : ""}
                             </span>
                           )}
+                          {lastValidationEmail && (
+                            <StatusPill tone="info" icon={<Mail />} size="sm">
+                              Email de validation envoyé {lastValidationEmail.sent_at ? `le ${new Date(lastValidationEmail.sent_at).toLocaleString("fr-FR")}` : ""}
+                              {lastValidationEmail.recipient_email ? ` à ${lastValidationEmail.recipient_email}` : ""}
+                            </StatusPill>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {l.pdf_url ? (
@@ -627,6 +651,12 @@ function PvDetail() {
                             </Button>
                           ) : (
                             <span className="text-xs text-muted-foreground">PDF non généré</span>
+                          )}
+                          {validated && (
+                            <Button size="sm" variant="outline" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
+                              {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+                              Renvoyer le PDF validé
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -739,6 +769,7 @@ function labelForType(t: string) {
     case "signed_copy_to_company": return "Copie entreprise";
     case "signed_resend": return "Renvoi manuel";
     case "invite": return "Invitation";
+    case "reserve_lift_validated": return "Levée validée → client";
     default: return t;
   }
 }
