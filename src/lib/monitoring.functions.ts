@@ -2,16 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requirePlatformAdmin } from "./admin-guard.server";
 
-async function assertPlatformAdmin(userId: string) {
-  const { data } = await supabaseAdmin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!data) throw new Error("Accès réservé aux administrateurs de la plateforme.");
-}
+// Backward-compatible alias used throughout this module.
+const assertPlatformAdmin = requirePlatformAdmin;
+
 
 /* ----------------------------- List errors ----------------------------- */
 

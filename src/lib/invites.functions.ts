@@ -82,8 +82,12 @@ export const sendInvite = createServerFn({ method: "POST" })
     ]);
     if (!company) throw new Error("Entreprise introuvable.");
 
-    // Generate secure token
+    // Generate secure token (returned in email link only) + store SHA-256 hash in DB
     const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    const tokenHashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+    const tokenHash = Array.from(new Uint8Array(tokenHashBuf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
     const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 
     // Upsert invitation row
@@ -101,10 +105,11 @@ export const sendInvite = createServerFn({ method: "POST" })
         .update({
           role: data.role,
           status: "invited",
-          invite_token: token,
+          invite_token: null,
+          invite_token_hash: tokenHash,
           invite_expires_at: expiresAt,
           invited_by: userId,
-        })
+        } as never)
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
     } else {
@@ -113,12 +118,14 @@ export const sendInvite = createServerFn({ method: "POST" })
         invited_email: data.email.toLowerCase(),
         role: data.role,
         status: "invited",
-        invite_token: token,
+        invite_token: null,
+        invite_token_hash: tokenHash,
         invite_expires_at: expiresAt,
         invited_by: userId,
-      });
+      } as never);
       if (error) throw new Error(error.message);
     }
+
 
     const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.app").replace(/\/$/, "");
     const acceptUrl = `${appUrl}/invite/${token}`;
@@ -189,10 +196,15 @@ export const getInviteByToken = createServerFn({ method: "POST" })
       // not in request context — best-effort
     }
 
+    const tokenHashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data.token));
+    const tokenHash = Array.from(new Uint8Array(tokenHashBuf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
     const { data: invite } = await supabaseAdmin
       .from("company_members")
       .select("id,company_id,role,invited_email,invite_expires_at,status")
-      .eq("invite_token", data.token)
+      .eq("invite_token_hash" as never, tokenHash)
       .maybeSingle();
     if (!invite) return { valid: false as const };
     if (invite.status !== "invited") return { valid: false as const, reason: "used" };
@@ -220,10 +232,15 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
     const { userId, claims } = context;
     const email = (claims as any)?.email as string | undefined;
 
+    const tokenHashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data.token));
+    const tokenHash = Array.from(new Uint8Array(tokenHashBuf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
     const { data: invite } = await supabaseAdmin
       .from("company_members")
       .select("id,invited_email,invite_expires_at,status")
-      .eq("invite_token", data.token)
+      .eq("invite_token_hash" as never, tokenHash)
       .maybeSingle();
     if (!invite) throw new Error("Invitation introuvable.");
     if (invite.status !== "invited") throw new Error("Invitation déjà utilisée.");
@@ -239,10 +256,12 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
         status: "active",
         invited_email: null,
         invite_token: null,
+        invite_token_hash: null,
         accepted_at: new Date().toISOString(),
-      })
+      } as never)
       .eq("id", invite.id);
     if (error) throw new Error(error.message);
+
 
     // Lookup company for audit context
     const { data: row } = await supabaseAdmin
