@@ -41,6 +41,7 @@ const EVENT_LABEL: Record<string, string> = {
   "reserve.lifted": "Réserve levée",
   "reserve_lift.created": "Levée de réserves créée",
   "reserve_lift.signed": "Levée de réserves signée",
+  "reserve_lift.client_validated": "Levée de réserves validée par le client",
   "webhook.test": "Test PVIA",
 };
 
