@@ -76,8 +76,11 @@ function LoginPage() {
     const { data: { user } } = await supabase.auth.getUser();
     let isAdmin = false;
     if (user) {
-      const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
-      isAdmin = !!role;
+      const { isPlatformAdminEmail } = await import("@/lib/platform-admin");
+      if (isPlatformAdminEmail(user.email)) {
+        const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        isAdmin = !!role;
+      }
     }
     navigate({ to: isAdmin ? "/admin/dashboard" : "/dashboard" });
   }
