@@ -127,7 +127,7 @@ export const sendInvite = createServerFn({ method: "POST" })
     }
 
 
-    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.app").replace(/\/$/, "");
+    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
     const acceptUrl = `${appUrl}/invite/${token}`;
 
     const html = renderEmail({
