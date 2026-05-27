@@ -207,6 +207,88 @@ export async function sendEnterpriseLoginCodeEmail(opts: {
   await logAttempt("sent", undefined, j.id);
 }
 
+/**
+ * Onsite client OTP — sent during in-person PV signature to confirm the
+ * client's identity by email before locking the PV as 'signe'.
+ */
+function renderOnsiteOtpEmail(opts: { code: string; companyName: string }) {
+  const { code, companyName } = opts;
+  return `<!doctype html><html><body style="margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;background:#f6f7f9"><tr><td align="center">
+    <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+      <tr><td style="padding:28px 36px 8px">
+        <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#1e3a8a;font-weight:700">PVIA · Confirmation de signature</div>
+        <div style="font-size:22px;font-weight:700;margin-top:10px;color:#0f172a">Validez votre signature</div>
+      </td></tr>
+      <tr><td style="padding:8px 36px 0">
+        <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155">
+          <strong>${escapeHtml(companyName)}</strong> vous demande de confirmer la signature d'un procès-verbal de réception de travaux. Communiquez le code ci-dessous au technicien sur place pour valider votre signature.
+        </p>
+        <div style="margin:24px 0;padding:22px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;text-align:center">
+          <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:42px;letter-spacing:14px;font-weight:800;color:#1e3a8a">${escapeHtml(code)}</div>
+          <div style="margin-top:10px;font-size:12px;color:#64748b">Valide 10 minutes · usage unique</div>
+        </div>
+        <div style="margin:20px 0 0;padding:14px 16px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:8px;font-size:12px;color:#78350f;line-height:1.6">
+          ⚠️ Ne transmettez ce code à personne d'autre que le technicien présent sur place pour signature. Si vous n'êtes pas en train de signer un PV, ignorez cet email.
+        </div>
+      </td></tr>
+      <tr><td style="padding:20px 36px 28px;color:#94a3b8;font-size:11px;text-align:center;line-height:1.6">
+        PVIA — Réception de travaux intelligente
+      </td></tr>
+    </table>
+  </td></tr></table></body></html>`;
+}
+
+export async function sendOnsiteOtpEmail(opts: {
+  to: string;
+  code: string;
+  companyName: string;
+  companyId: string;
+}): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL || `PVIA <noreply@pvia.fr>`;
+  const subject = `Code de confirmation – Signature PV ${opts.companyName}`;
+  const html = renderOnsiteOtpEmail({ code: opts.code, companyName: opts.companyName });
+
+  async function logAttempt(status: "sent" | "failed", error?: string, resendId?: string) {
+    try {
+      await supabaseAdmin.from("email_logs").insert({
+        company_id: opts.companyId,
+        recipient_email: opts.to,
+        email_type: "onsite_client_otp",
+        subject,
+        status,
+        error_message: error ?? null,
+        resend_id: resendId ?? null,
+        payload: null,
+        max_retries: 0,
+        retries_count: 0,
+        sent_at: status === "sent" ? new Date().toISOString() : null,
+      } as never);
+    } catch {}
+  }
+
+  if (!resendKey) {
+    await logAttempt("failed", "RESEND_API_KEY manquant");
+    throw new Error("Configuration email indisponible.");
+  }
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: [opts.to], subject, html }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    await logAttempt("failed", `Resend ${resp.status}: ${body.slice(0, 200)}`);
+    throw new Error("Impossible d'envoyer le code de confirmation.");
+  }
+  const j = (await resp.json().catch(() => ({}))) as { id?: string };
+  await logAttempt("sent", undefined, j.id);
+}
+
+
+
+
 
 function bytesToBase64(bytes: Uint8Array): string {
   // Chunk to avoid call stack issues on large buffers
