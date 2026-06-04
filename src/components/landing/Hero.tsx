@@ -3,8 +3,9 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, ShieldCheck, Star } from "lucide-react";
 import heroFallback from "@/assets/hero-fallback.jpg";
+import heroVideo from "@/assets/hero-bg.mp4.asset.json";
 
-const HERO_VIDEO_SRC = "/hero-bg.mp4";
+const HERO_VIDEO_SRC = heroVideo.url;
 
 export function Hero() {
   return (
