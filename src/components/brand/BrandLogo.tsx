@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import pviaMark from "@/assets/pvia-mark.png.asset.json";
+import pviaWordmark from "@/assets/pvia-wordmark.png.asset.json";
 
 type Props = {
   variant?: "default" | "compact" | "mono";
@@ -21,7 +22,8 @@ export function BrandLogo({ variant = "default", className, withLink = false, ta
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <img
         src={pviaMark.url}
-        alt="PVIA"
+        alt=""
+        aria-hidden="true"
         className={cn(
           "object-contain transition-transform group-hover:scale-105",
           isCompact ? "h-10 w-10" : "h-12 w-12",
@@ -31,19 +33,21 @@ export function BrandLogo({ variant = "default", className, withLink = false, ta
         decoding="async"
       />
       <span className="flex flex-col leading-none">
-        <span
+        <img
+          src={pviaWordmark.url}
+          alt="PVIA"
           className={cn(
-            "font-display font-bold tracking-tight",
-            isCompact ? "text-base" : "text-lg",
-            isMono ? "text-primary-foreground" : "text-foreground",
+            "object-contain",
+            isCompact ? "h-5 w-auto" : "h-6 w-auto",
+            isMono && "brightness-0 invert",
           )}
-        >
-          PVIA
-        </span>
+          loading="eager"
+          decoding="async"
+        />
         {tagline && (
           <span
             className={cn(
-              "mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em]",
+              "mt-1 text-[10px] font-medium uppercase tracking-[0.14em]",
               isMono ? "text-primary-foreground/70" : "text-muted-foreground",
             )}
           >
