@@ -3,9 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, ShieldCheck, Star } from "lucide-react";
 import heroFallback from "@/assets/hero-fallback.jpg";
-import heroVideo from "../../../public/hero-bg.mp4.asset.json";
 
-const HERO_VIDEO_SRC = heroVideo.url;
+const HERO_VIDEO_SRC = "/hero-bg.mp4";
 
 export function Hero() {
   return (
@@ -23,7 +22,6 @@ export function Hero() {
         >
           <video
             className="h-full w-full object-cover"
-            style={{ filter: "brightness(1.15) contrast(1.05) saturate(1.1)" }}
             autoPlay
             muted
             loop
@@ -37,14 +35,9 @@ export function Hero() {
         </motion.div>
       </div>
 
-      {/* Light overlay only — max 30% to keep UI screens visible */}
-      <div
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.30))",
-        }}
-      />
+      {/* Overlay for legibility */}
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,rgba(10,15,30,0.55),rgba(5,8,20,0.85))]" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/40 via-black/55 to-black/80" />
 
       <div className="relative mx-auto w-full max-w-7xl px-4 py-32 sm:px-6 sm:py-40 lg:px-8">
         <div className="mx-auto max-w-4xl text-center text-white">
@@ -63,7 +56,6 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
             className="mt-6 text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl"
-            style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)" }}
           >
             Le logiciel de réception de travaux{" "}
             <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
@@ -75,8 +67,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="mx-auto mt-6 max-w-2xl text-pretty text-base text-white/90 sm:text-lg"
-            style={{ textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}
+            className="mx-auto mt-6 max-w-2xl text-pretty text-base text-white/80 sm:text-lg"
           >
             Créez, signez, suivez et archivez tous vos procès-verbaux de réception
             en quelques minutes.
