@@ -20,7 +20,7 @@ export function BrandLogo({ variant = "default", className, withLink = false, ta
   const content = (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <img
-        src={pviaLogo}
+        src={pviaMark.url}
         alt="PVIA"
         className={cn(
           "object-contain transition-transform group-hover:scale-105",
