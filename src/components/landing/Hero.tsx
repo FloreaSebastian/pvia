@@ -37,16 +37,14 @@ export function Hero() {
         </motion.div>
       </div>
 
-      {/* Light overlay only — keep video visible */}
+      {/* Light overlay only — max 30% to keep UI screens visible */}
       <div
         className="absolute inset-0 -z-10"
         style={{
           background:
-            "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.35))",
+            "linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.30))",
         }}
       />
-      {/* Slightly stronger on mobile for legibility */}
-      <div className="absolute inset-0 -z-10 bg-black/10 sm:hidden" />
 
       <div className="relative mx-auto w-full max-w-7xl px-4 py-32 sm:px-6 sm:py-40 lg:px-8">
         <div className="mx-auto max-w-4xl text-center text-white">
