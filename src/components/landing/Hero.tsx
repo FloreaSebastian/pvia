@@ -65,6 +65,7 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
             className="mt-6 text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl"
+            style={{ textShadow: "0 2px 12px rgba(0,0,0,0.45)" }}
           >
             Le logiciel de réception de travaux{" "}
             <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
