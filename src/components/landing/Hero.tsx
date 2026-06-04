@@ -77,7 +77,8 @@ export function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="mx-auto mt-6 max-w-2xl text-pretty text-base text-white/80 sm:text-lg"
+            className="mx-auto mt-6 max-w-2xl text-pretty text-base text-white/90 sm:text-lg"
+            style={{ textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}
           >
             Créez, signez, suivez et archivez tous vos procès-verbaux de réception
             en quelques minutes.
