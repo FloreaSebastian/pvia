@@ -11,9 +11,9 @@ export function Hero() {
   return (
     <section
       id="hero"
-      className="relative isolate flex min-h-[100svh] items-center overflow-hidden"
+      className="relative isolate flex min-h-[100svh] items-center overflow-hidden bg-white"
     >
-      {/* Background video + fallback */}
+      {/* Background video */}
       <div className="absolute inset-0 -z-20">
         <motion.div
           initial={{ scale: 1.08 }}
@@ -23,6 +23,7 @@ export function Hero() {
         >
           <video
             className="h-full w-full object-cover"
+            style={{ filter: "brightness(1.15) contrast(1.05) saturate(1.10)" }}
             autoPlay
             muted
             loop
@@ -36,19 +37,29 @@ export function Hero() {
         </motion.div>
       </div>
 
-      {/* Overlay for legibility */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,rgba(10,15,30,0.55),rgba(5,8,20,0.85))]" />
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/40 via-black/55 to-black/80" />
+      {/* Soft white veil – keeps the video visible */}
+      <div
+        className="absolute inset-0 -z-10"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.65))",
+        }}
+      />
 
-      <div className="relative mx-auto w-full max-w-7xl px-4 py-32 sm:px-6 sm:py-40 lg:px-8">
-        <div className="mx-auto max-w-4xl text-center text-white">
+      <div className="relative mx-auto w-full max-w-6xl px-4 py-28 sm:px-6 sm:py-36 lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          className="mx-auto max-w-4xl rounded-[24px] border border-white/40 bg-white/55 p-8 text-center shadow-2xl shadow-slate-900/10 backdrop-blur-xl sm:p-12 lg:p-16"
+        >
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 shadow-sm backdrop-blur-md"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-900/10 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur"
           >
-            <ShieldCheck className="h-3.5 w-3.5 text-white" />
+            <ShieldCheck className="h-3.5 w-3.5 text-slate-700" />
             Conforme BTP · Signature électronique · Export PDF
           </motion.div>
 
@@ -57,9 +68,10 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
             className="mt-6 text-balance font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl"
+            style={{ color: "#0F172A" }}
           >
             Le logiciel de réception de travaux{" "}
-            <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 bg-clip-text text-transparent">
               nouvelle génération.
             </span>
           </motion.h1>
@@ -68,7 +80,8 @@ export function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="mx-auto mt-6 max-w-2xl text-pretty text-base text-white/80 sm:text-lg"
+            className="mx-auto mt-6 max-w-2xl text-pretty text-base sm:text-lg"
+            style={{ color: "#334155" }}
           >
             Créez, signez, suivez et archivez tous vos procès-verbaux de réception
             en quelques minutes.
@@ -82,7 +95,7 @@ export function Hero() {
           >
             <Button
               size="lg"
-              className="h-12 border border-white/10 bg-white px-6 text-foreground shadow-2xl shadow-black/30 backdrop-blur hover:bg-white/90"
+              className="h-12 bg-[#0F172A] px-6 text-white shadow-xl shadow-slate-900/20 transition-all hover:-translate-y-0.5 hover:bg-[#1e293b]"
               asChild
             >
               <Link to="/signup">
@@ -92,7 +105,7 @@ export function Hero() {
             <Button
               size="lg"
               variant="outline"
-              className="h-12 border-white/30 bg-white/10 px-6 text-white backdrop-blur-md hover:bg-white/20 hover:text-white"
+              className="h-12 border-slate-900/15 bg-white/70 px-6 text-slate-900 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/90 hover:text-slate-900"
             >
               <Play className="mr-1 h-4 w-4" /> Voir une démonstration
             </Button>
@@ -102,7 +115,7 @@ export function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.5 }}
-            className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/70"
+            className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-600"
           >
             <span className="flex items-center gap-1.5">
               <span className="flex -space-x-1">
@@ -110,13 +123,13 @@ export function Hero() {
                   <Star key={i} className="h-3.5 w-3.5 fill-warning text-warning" />
                 ))}
               </span>
-              <span className="font-medium text-white">4,9/5</span>
+              <span className="font-medium text-slate-900">4,9/5</span>
               <span>· 320 avis vérifiés</span>
             </span>
-            <span className="hidden h-3 w-px bg-white/20 sm:block" />
+            <span className="hidden h-3 w-px bg-slate-900/15 sm:block" />
             <span>Gratuit pendant 14 jours · Sans carte bancaire</span>
           </motion.div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Bottom fade into next section */}
