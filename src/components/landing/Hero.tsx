@@ -51,7 +51,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
-          className="mx-auto max-w-4xl rounded-[24px] border border-white/40 bg-white/55 p-8 text-center shadow-2xl shadow-slate-900/10 backdrop-blur-xl sm:p-12 lg:p-16"
+          className="mx-auto max-w-4xl p-8 text-center sm:p-12 lg:p-16"
         >
           <motion.div
             initial={{ opacity: 0, y: 10 }}
