@@ -5,6 +5,7 @@ import { ArrowRight, Play, ShieldCheck, Star } from "lucide-react";
 import heroFallback from "@/assets/hero-fallback.jpg";
 
 const HERO_VIDEO_SRC = "/hero-bg.mp4";
+const HERO_VIDEO_MOBILE_SRC = "/hero-bg-mobile.mp4";
 
 export function Hero() {
   return (
@@ -20,8 +21,9 @@ export function Hero() {
           transition={{ duration: 12, ease: "easeOut" }}
           className="h-full w-full"
         >
+          {/* Desktop / landscape */}
           <video
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover portrait:hidden md:block"
             style={{ filter: "brightness(1.15) contrast(1.05) saturate(1.10)" }}
             autoPlay
             muted
@@ -32,6 +34,20 @@ export function Hero() {
             aria-hidden="true"
           >
             <source src={HERO_VIDEO_SRC} type="video/mp4" />
+          </video>
+          {/* Mobile portrait */}
+          <video
+            className="hidden h-full w-full object-cover portrait:block md:portrait:hidden"
+            style={{ filter: "brightness(1.15) contrast(1.05) saturate(1.10)" }}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            poster={heroFallback}
+            aria-hidden="true"
+          >
+            <source src={HERO_VIDEO_MOBILE_SRC} type="video/mp4" />
           </video>
         </motion.div>
       </div>
