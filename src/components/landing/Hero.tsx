@@ -23,6 +23,7 @@ export function Hero() {
         >
           <video
             className="h-full w-full object-cover"
+            style={{ filter: "brightness(1.15) contrast(1.05) saturate(1.1)" }}
             autoPlay
             muted
             loop
@@ -36,9 +37,16 @@ export function Hero() {
         </motion.div>
       </div>
 
-      {/* Overlay for legibility */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,rgba(10,15,30,0.55),rgba(5,8,20,0.85))]" />
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/40 via-black/55 to-black/80" />
+      {/* Light overlay only — keep video visible */}
+      <div
+        className="absolute inset-0 -z-10"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.35))",
+        }}
+      />
+      {/* Slightly stronger on mobile for legibility */}
+      <div className="absolute inset-0 -z-10 bg-black/10 sm:hidden" />
 
       <div className="relative mx-auto w-full max-w-7xl px-4 py-32 sm:px-6 sm:py-40 lg:px-8">
         <div className="mx-auto max-w-4xl text-center text-white">
