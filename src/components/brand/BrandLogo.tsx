@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import pviaLogo from "@/assets/pvia-logo.png";
+import pviaMark from "@/assets/pvia-mark.png.asset.json";
 
 type Props = {
   variant?: "default" | "compact" | "mono";
