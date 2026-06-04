@@ -1,11 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import pviaLogo from "@/assets/pvia-logo.png";
+import pviaMark from "@/assets/pvia-mark.png.asset.json";
 
 export function Logo({ withBaseline = false, className = "" }: { withBaseline?: boolean; className?: string }) {
   return (
     <Link to="/" className={`flex items-center gap-2.5 ${className}`}>
       <img
-        src={pviaLogo}
+        src={pviaMark.url}
         alt="PVIA"
         className="h-14 w-14 object-contain"
         loading="eager"
