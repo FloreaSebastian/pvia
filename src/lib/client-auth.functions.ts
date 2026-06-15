@@ -438,10 +438,8 @@ export const signPvAsClient = createServerFn({ method: "POST" })
   .inputValidator((d) => SignClientSchema.parse(d))
   .handler(async ({ data }) => {
     const s = await requireSession();
-    const { getRequest } = await import("@tanstack/react-start/server");
-    const _req = getRequest();
     const ip = getClientIp() ?? "unknown";
-    const userAgent = (_req.headers.get("user-agent") ?? "").slice(0, 500);
+    const userAgent = (getClientUA() ?? "").slice(0, 500);
     await enforceRateLimit({
       bucket: "client_sign_submit",
       key: `${s.email}:${data.pvId}`,
