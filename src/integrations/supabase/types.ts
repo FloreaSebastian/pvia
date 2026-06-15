@@ -963,8 +963,12 @@ export type Database = {
           client_identity_verified_by: string | null
           client_otp_verified: boolean
           client_signature: string | null
+          client_signature_ip: unknown
+          client_signature_user_agent: string | null
           company_id: string | null
           company_signature: string | null
+          consent_at: string | null
+          consent_text: string | null
           created_at: string
           description: string | null
           field_last_saved_at: string | null
@@ -987,6 +991,7 @@ export type Database = {
           sent_to_email: string | null
           sign_token: string | null
           sign_token_expires_at: string | null
+          sign_token_hash: string | null
           signature_mode: string | null
           signed_at: string | null
           status: string
@@ -1009,8 +1014,12 @@ export type Database = {
           client_identity_verified_by?: string | null
           client_otp_verified?: boolean
           client_signature?: string | null
+          client_signature_ip?: unknown
+          client_signature_user_agent?: string | null
           company_id?: string | null
           company_signature?: string | null
+          consent_at?: string | null
+          consent_text?: string | null
           created_at?: string
           description?: string | null
           field_last_saved_at?: string | null
@@ -1033,6 +1042,7 @@ export type Database = {
           sent_to_email?: string | null
           sign_token?: string | null
           sign_token_expires_at?: string | null
+          sign_token_hash?: string | null
           signature_mode?: string | null
           signed_at?: string | null
           status?: string
@@ -1055,8 +1065,12 @@ export type Database = {
           client_identity_verified_by?: string | null
           client_otp_verified?: boolean
           client_signature?: string | null
+          client_signature_ip?: unknown
+          client_signature_user_agent?: string | null
           company_id?: string | null
           company_signature?: string | null
+          consent_at?: string | null
+          consent_text?: string | null
           created_at?: string
           description?: string | null
           field_last_saved_at?: string | null
@@ -1079,6 +1093,7 @@ export type Database = {
           sent_to_email?: string | null
           sign_token?: string | null
           sign_token_expires_at?: string | null
+          sign_token_hash?: string | null
           signature_mode?: string | null
           signed_at?: string | null
           status?: string

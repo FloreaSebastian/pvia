@@ -439,6 +439,7 @@ export const signPvAsClient = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const s = await requireSession();
     const ip = getClientIp() ?? "unknown";
+    const userAgent = (getClientUA() ?? "").slice(0, 500);
     await enforceRateLimit({
       bucket: "client_sign_submit",
       key: `${s.email}:${data.pvId}`,
@@ -463,20 +464,29 @@ export const signPvAsClient = createServerFn({ method: "POST" })
       throw new Error("Ce PV n'est pas en attente de signature.");
     }
 
-    // Persist signature + reissue token as short-lived download key
-    const downloadKey =
-      crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    // Persist signature + reissue token as short-lived download key.
+    // Only the SHA-256 hash is stored; the raw key is returned once.
+    const { generateSignToken, sha256Hex, SIGN_CONSENT_TEXT_V1 } = await import("./sign-token.server");
+    const downloadKey = generateSignToken();
+    const downloadKeyHash = await sha256Hex(downloadKey);
     const downloadExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
+    const ua = userAgent;
 
     const { error: updErr } = await supabaseAdmin
       .from("pv")
       .update({
         client_signature: data.signatureDataUrl,
         status: "signe",
-        signed_at: new Date().toISOString(),
-        sign_token: downloadKey,
+        signed_at: nowIso,
+        sign_token: null,
+        sign_token_hash: downloadKeyHash,
         sign_token_expires_at: downloadExpires,
-      })
+        client_signature_ip: ip || null,
+        client_signature_user_agent: ua || null,
+        consent_text: SIGN_CONSENT_TEXT_V1,
+        consent_at: nowIso,
+      } as never)
       .eq("id", pv.id);
     if (updErr) throw new Error(updErr.message);
 

@@ -10,6 +10,7 @@ import { assertPlanFeature } from "./plan-guard.server";
 import { firePushToCompany } from "./push.server";
 import { enforceRateLimit, getClientIp } from "./rate-limit.server";
 import { decodeAndValidateImage } from "./image-validate.server";
+import { generateSignToken, sha256Hex, SIGN_CONSENT_TEXT_V1 } from "./sign-token.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
@@ -82,18 +83,22 @@ export const sendPvToClient = createServerFn({ method: "POST" })
         : Promise.resolve({ data: null }),
     ]);
 
-    const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    const token = generateSignToken();
+    const tokenHash = await sha256Hex(token);
     const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
 
     const { error: updErr } = await supabaseAdmin
       .from("pv")
       .update({
-        sign_token: token,
+        // Raw token is NEVER persisted — only the SHA-256 hash. The raw
+        // token is delivered to the client through the signed email link.
+        sign_token: null,
+        sign_token_hash: tokenHash,
         sign_token_expires_at: expiresAt,
         sent_to_client_at: new Date().toISOString(),
         sent_to_email: data.email.toLowerCase(),
         status: "en_attente",
-      })
+      } as never)
       .eq("id", pv.id);
     if (updErr) throw new Error(updErr.message);
 
@@ -154,10 +159,11 @@ export const getPvByToken = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const ip = getClientIp(getRequest());
     await enforceRateLimit({ bucket: "sign.get", key: `${ip}:${data.token.slice(0, 16)}`, limit: 30, windowSec: 60 });
+    const tokenHash = await sha256Hex(data.token);
     const { data: pv } = await supabaseAdmin
       .from("pv")
       .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,sign_token_expires_at,company_id,client_id,chantier_id")
-      .eq("sign_token", data.token)
+      .eq("sign_token_hash", tokenHash)
       .maybeSingle();
     if (!pv) return { valid: false as const, reason: "invalid" as const };
     if (pv.sign_token_expires_at && new Date(pv.sign_token_expires_at) < new Date())
@@ -209,20 +215,24 @@ export const getPvByToken = createServerFn({ method: "POST" })
 const SignSchema = z.object({
   token: z.string().min(10).max(128),
   signatureDataUrl: z.string().startsWith("data:image/").max(2_000_000),
+  consent: z.literal(true),
 });
 
 export const signPvByToken = createServerFn({ method: "POST" })
   .inputValidator((input) => SignSchema.parse(input))
   .handler(async ({ data }) => {
-    const ip = getClientIp(getRequest());
+    const req = getRequest();
+    const ip = getClientIp(req);
+    const userAgent = (req.headers.get("user-agent") ?? "").slice(0, 500);
     // Strict limit: 5 signature attempts / 10min per IP+token
     await enforceRateLimit({ bucket: "sign.submit", key: `${ip}:${data.token.slice(0, 16)}`, limit: 5, windowSec: 600 });
     // Validate signature image (magic bytes)
     decodeAndValidateImage(data.signatureDataUrl, { maxBytes: 2_000_000 });
+    const tokenHash = await sha256Hex(data.token);
     const { data: pv } = await supabaseAdmin
       .from("pv")
       .select("id,sign_token_expires_at,status,client_signature,company_id,owner_id,numero")
-      .eq("sign_token", data.token)
+      .eq("sign_token_hash", tokenHash)
       .maybeSingle();
     if (!pv) throw new Error("Lien invalide.");
     if (pv.sign_token_expires_at && new Date(pv.sign_token_expires_at) < new Date())
@@ -230,19 +240,29 @@ export const signPvByToken = createServerFn({ method: "POST" })
     if (pv.client_signature) throw new Error("PV déjà signé.");
 
     // Reissue the token as a short-lived download key (24h) so the client can fetch the
-    // generated PDF immediately after signing without re-authenticating.
-    const downloadKey = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    // generated PDF immediately after signing without re-authenticating. The raw key is
+    // returned ONCE in the response; only its hash is persisted.
+    const downloadKey = generateSignToken();
+    const downloadKeyHash = await sha256Hex(downloadKey);
     const downloadExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
 
     const { error } = await supabaseAdmin
       .from("pv")
       .update({
         client_signature: data.signatureDataUrl,
         status: "signe",
-        signed_at: new Date().toISOString(),
-        sign_token: downloadKey,
+        signed_at: nowIso,
+        sign_token: null,
+        sign_token_hash: downloadKeyHash,
         sign_token_expires_at: downloadExpires,
-      })
+        // eIDAS SES evidence — set ONLY during this en_attente → signe
+        // transition; the pv_block_locked_changes trigger forbids them afterwards.
+        client_signature_ip: ip || null,
+        client_signature_user_agent: userAgent || null,
+        consent_text: SIGN_CONSENT_TEXT_V1,
+        consent_at: nowIso,
+      } as never)
       .eq("id", pv.id);
     if (error) throw new Error(error.message);
 
@@ -263,7 +283,7 @@ export const signPvByToken = createServerFn({ method: "POST" })
       entityId: pv.id,
       action: "pv.signed_by_client",
       newValues: { signed_at: new Date().toISOString(), status: "signe" },
-      metadata: { numero: pv.numero, via: "public_token" },
+      metadata: { numero: pv.numero, via: "public_token", ip, user_agent: userAgent, consent_text_version: "v1" },
       actor: "client",
     });
 
