@@ -4,7 +4,7 @@
  * Schedule via pg_cron every 1-2 minutes.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { drainFailedEmails } from "@/lib/retry.server";
+import { drainFailedEmails, sweepStaleEmailFailures } from "@/lib/retry.server";
 
 function unauthorized(request: Request): boolean {
   const secret = request.headers.get("x-cron-secret");
@@ -18,7 +18,8 @@ export const Route = createFileRoute("/api/public/hooks/drain-emails")({
         if (unauthorized(request)) return new Response("Unauthorized", { status: 401 });
         try {
           const r = await drainFailedEmails(50);
-          return Response.json({ ok: true, ...r });
+          const s = await sweepStaleEmailFailures(30);
+          return Response.json({ ok: true, ...r, promotedToDead: s.promoted });
         } catch (e) {
           console.error("[drain-emails] failed", e);
           return Response.json({ ok: false, error: (e as Error).message }, { status: 500 });
@@ -27,7 +28,8 @@ export const Route = createFileRoute("/api/public/hooks/drain-emails")({
       GET: async ({ request }) => {
         if (unauthorized(request)) return new Response("Unauthorized", { status: 401 });
         const r = await drainFailedEmails(50);
-        return Response.json({ ok: true, ...r });
+        const s = await sweepStaleEmailFailures(30);
+        return Response.json({ ok: true, ...r, promotedToDead: s.promoted });
       },
     },
   },

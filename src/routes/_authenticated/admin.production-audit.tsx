@@ -37,33 +37,33 @@ const FINDINGS: Finding[] = [
   // ====== CRITIQUES — toutes résolues ======
   // WF-C1/C2/C3, ST-C1/C2/C3/C4, EM-C1/C2 : voir migrations 20260615210605 + sprint final.
 
-  // ====== MAJEURS RESTANTS ======
-  // Workflows: WF-M1→M8 résolus en Phase 2 (visibilité erreurs + TOCTOU).
-  // Voir migration 20260615212735 + processing-status.server.ts.
+  // ====== MAJEURS — tous résolus (sprint final) ======
+  // ST-M1, ST-M3 : webhook past_due + auto-suspend (migration 20260615211937).
+  // ST-M2 : adminResyncStripeSubscription → recovery réelle via Stripe API
+  //   + audits stripe.subscription_recovered / _failed. Bouton "Réparer
+  //   abonnement" sur /admin/support/$companyId.
+  // ST-M4 : notifySubscriptionStatusChange dans webhook + audit granulaire
+  //   (stripe.subscription_activated / trialing / past_due / canceled / unpaid)
+  //   + push fanout owners/admins + notifications app.
+  // ST-M5 : singleton Stripe via getStripeClient(env) (per-isolate, par env).
+  //   Webhook utilise désormais supabaseAdmin partagé (dynamic import) au lieu
+  //   d'un createClient dupliqué. getStripeSingletonStats() pour mesure.
+  // ST-M6 : APP_ENV explicite (src/lib/app-env.server.ts + VITE_APP_ENV) ;
+  //   fallback hostname conservé. Exposé dans /api/public/health/deep
+  //   ("app_env") et /admin/go-live (config.appEnv / appEnvExplicit).
+  // EM-M1 : sweepStaleEmailFailures() promeut les échecs non-rejouables
+  //   (PDF en pièce jointe) vers status='dead' après 30 min, branché dans
+  //   /api/public/hooks/drain-emails. Monitoring déjà unifié (retry +
+  //   mark resolved) sur /admin/monitoring.
+  // EM-M2, EM-M3 : email-throttle (60s idempotence).
+  // WF-M1→M8 : visibilité erreurs + TOCTOU (Phase 2).
+  // MT-M1, MT-M2 : storage policies + email_logs platform-admin only.
 
-  // MAJEURS — Stripe (ST-M1 & ST-M3 corrigés)
-  { id: "ST-M2", sev: "majeur", domain: "Stripe", title: "`companyId` absent d'invoice.metadata — fallback partiel",
-    file: "src/routes/api/public/payments/webhook.ts:152-170",
-    detail: "Fallback DB en place. Reste à compléter via stripe.subscriptions.retrieve si la subscription n'est pas encore connue.",
-    fix: "Appeler stripe.subscriptions.retrieve en dernier recours." },
-  { id: "ST-M4", sev: "majeur", domain: "Stripe", title: "Pas de notification sur subscription.updated",
-    file: "src/routes/api/public/payments/webhook.ts:275-283",
-    detail: "Réactivation, fin de trial, upgrade : aucune notification push créée.",
-    fix: "Détecter transitions de status et créer notification." },
-  { id: "ST-M5", sev: "majeur", domain: "Stripe", title: "Singleton Supabase dans webhook serverless",
-    file: "src/routes/api/public/payments/webhook.ts:5-11",
-    detail: "let _supabase module-level. Risque de state corruption entre requêtes concurrentes en Worker.",
-    fix: "Utiliser supabaseAdmin importé depuis @/integrations/supabase/client.server." },
-  { id: "ST-M6", sev: "majeur", domain: "Stripe", title: "Détection env par hostname spoofable",
-    file: "src/lib/stripe.ts:6-14",
-    detail: "Un domaine custom sur un projet preview (sans '-dev') basculera en mode live → vraies transactions accidentelles.",
-    fix: "Détecter via env var explicite côté serveur." },
-
-  // MAJEURS — Emails (EM-M2 & EM-M3 corrigés)
-  { id: "EM-M1", sev: "majeur", domain: "Emails", title: "Emails avec pièce jointe sans retry ni dead-letter",
-    file: "src/lib/email.server.ts:363-465 ; src/lib/reserve-lift-email.server.ts:71-143",
-    detail: "PV signé et levée validée : pas de next_retry_at, pas de statut 'dead', aucune alerte admin. Visibilité uniquement via scraping monitoring.",
-    fix: "Stocker payload (sans le PDF binaire, le re-générer) + pipeline retry unifié." },
+  // ====== MINEURS — ne pas traiter dans ce sprint ======
+  { id: "WF-m1", sev: "mineur", domain: "Workflow PV", title: "OTP onsite orphelin bypass `pv_id`",
+    file: "src/lib/signature-otp.server.ts:152-157",
+    detail: "Check `if (opts.expectedPvId && otp.pv_id && ...)` : si otp.pv_id reste null (update échoué), le check passe.",
+    fix: "Throw si pv_id null à la consommation onsite." },
 
   // ====== MINEURS — ne pas traiter dans ce sprint ======
   { id: "WF-m1", sev: "mineur", domain: "Workflow PV", title: "OTP onsite orphelin bypass `pv_id`",

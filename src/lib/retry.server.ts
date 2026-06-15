@@ -216,3 +216,44 @@ export async function drainPendingWebhooks(limit = 100): Promise<{ scanned: numb
 
   return { scanned: list.length, delivered, retried, dead };
 }
+
+/**
+ * EM-M1 — Unified DLQ sweep.
+ *
+ * Some emails (PV signé PDF, levée validée PDF, validation client, paiement
+ * échoué) are logged as `failed` with a null payload because the binary
+ * attachment can't be safely replayed. Without this sweep, they stay in
+ * `failed` forever and pollute the "retryable" bucket.
+ *
+ * Rule: any row in `failed` status with no payload and older than
+ * `staleMinutes` (default 30) is terminal → promote to `dead` so the
+ * monitoring page surfaces them in the dead-letter bucket and the
+ * "mark resolved" workflow can clear them.
+ */
+export async function sweepStaleEmailFailures(
+  staleMinutes = 30,
+): Promise<{ promoted: number }> {
+  const cutoff = new Date(Date.now() - staleMinutes * 60_000).toISOString();
+  const { data: rows } = await supabaseAdmin
+    .from("email_logs")
+    .select("id,company_id,email_type")
+    .eq("status", "failed")
+    .is("payload", null)
+    .lt("created_at", cutoff)
+    .limit(200);
+  const list = (rows ?? []) as any[];
+  if (!list.length) return { promoted: 0 };
+
+  await supabaseAdmin
+    .from("email_logs")
+    .update({ status: "dead", next_retry_at: null })
+    .in("id", list.map((r) => r.id));
+
+  for (const r of list) {
+    await audit("email.delivery_dead", r.company_id, "email", r.id, {
+      email_type: r.email_type,
+      reason: "stale_non_retryable",
+    });
+  }
+  return { promoted: list.length };
+}
