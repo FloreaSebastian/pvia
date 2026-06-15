@@ -228,9 +228,63 @@ function SignPage() {
           </Card>
         )}
 
-        {/* Signature pad */}
+        {/* OTP — vérification d'identité par email (eIDAS) */}
         <Card className="p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Vérification d'identité</h3>
+            {otpVerified && (
+              <StatusPill tone="success" icon={<ShieldCheck />} size="sm">Identité vérifiée</StatusPill>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pour des raisons légales (eIDAS), vous devez confirmer votre identité par un code à 6 chiffres envoyé à votre adresse email avant de signer.
+          </p>
+
+          {!otpId && !otpVerified && (
+            <Button onClick={handleSendOtp} disabled={otpSending} variant="outline" size="sm" className="mt-3">
+              {otpSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              {otpSending ? "Envoi…" : "Envoyer le code de vérification"}
+            </Button>
+          )}
+
+          {otpId && !otpVerified && (
+            <div className="mt-3 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Code envoyé à <strong className="text-foreground">{otpEmailMasked}</strong>. Valable 10 minutes.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+                <Button onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length !== 6} size="sm">
+                  {otpVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Valider le code
+                </Button>
+                <Button onClick={handleSendOtp} disabled={otpSending} variant="ghost" size="sm">
+                  Renvoyer
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Signature pad */}
+        <Card className={`p-5 ${!otpVerified ? "opacity-60" : ""}`}>
           <h3 className="mb-3 text-sm font-semibold">Votre signature</h3>
+          {!otpVerified && (
+            <div className="mb-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning-foreground">
+              <AlertCircle className="mr-1 inline h-3.5 w-3.5" />
+              Vérifiez votre identité ci-dessus avant de signer.
+            </div>
+          )}
           <div className="rounded-lg border-2 border-dashed border-border bg-background">
             <SignaturePad
               ref={padRef}
@@ -258,11 +312,12 @@ function SignPage() {
             </span>
           </label>
 
-          <Button onClick={handleSign} disabled={submitting} size="lg" className="mt-4 w-full">
+          <Button onClick={handleSign} disabled={submitting || !otpVerified} size="lg" className="mt-4 w-full">
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            {submitting ? "Signature en cours…" : "Signer le PV"}
+            {submitting ? "Signature en cours…" : otpVerified ? "Signer le PV" : "Vérification d'identité requise"}
           </Button>
         </Card>
+
 
         <p className="pt-4 text-center text-xs text-muted-foreground">
           Signature sécurisée propulsée par <strong>PVIA</strong> · Réception de travaux intelligente
