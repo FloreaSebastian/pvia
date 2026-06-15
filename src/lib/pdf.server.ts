@@ -548,11 +548,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export async function buildAndStorePvPdf(pvId: string): Promise<string> {
   const { data: pv } = await supabaseAdmin
     .from("pv")
-    .select(
-      "id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at,owner_id," +
-      "signature_mode,client_identity_email,client_identity_verified_at,client_identity_verified_by," +
-      "client_signature_ip,client_signature_user_agent,consent_text,consent_at"
-    )
+    .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at,owner_id,signature_mode,client_identity_email,client_identity_verified_at,client_identity_verified_by,client_signature_ip,client_signature_user_agent,consent_text,consent_at")
     .eq("id", pvId)
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
