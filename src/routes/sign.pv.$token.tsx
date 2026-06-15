@@ -2,15 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
 import { useServerFn } from "@tanstack/react-start";
-import { getPvByToken, signPvByToken } from "@/lib/sign.functions";
+import { getPvByToken, signPvByToken, sendRemoteClientOtp, verifyRemoteClientOtp } from "@/lib/sign.functions";
 import { getSignedPvPdfPublic } from "@/lib/pdf.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusPill } from "@/components/ui/status-pill";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, Camera, Eraser, ShieldCheck, Clock, Download } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, Camera, Eraser, ShieldCheck, Clock, Download, Mail, KeyRound } from "lucide-react";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/sign/pv/$token")({
   component: SignPage,
@@ -24,11 +26,21 @@ function SignPage() {
   const fetchPv = useServerFn(getPvByToken);
   const signPv = useServerFn(signPvByToken);
   const getPdfUrl = useServerFn(getSignedPvPdfPublic);
+  const sendOtp = useServerFn(sendRemoteClientOtp);
+  const verifyOtp = useServerFn(verifyRemoteClientOtp);
   const [state, setState] = useState<{ loading: boolean; data: LoadedData | null }>({ loading: true, data: null });
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ pvId: string; downloadKey: string } | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
+
+  // OTP state
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpId, setOtpId] = useState<string | null>(null);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpEmailMasked, setOtpEmailMasked] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPv({ data: { token } })
@@ -49,7 +61,45 @@ function SignPage() {
 
   const { pv, company, client, chantier, photos, reserves } = data;
 
+  async function handleSendOtp() {
+    setOtpSending(true);
+    try {
+      const res = await sendOtp({ data: { token } });
+      setOtpId(res.otpId);
+      setOtpEmailMasked(res.emailMasked);
+      setOtpVerified(false);
+      setOtpCode("");
+      toast.success(`Code envoyé à ${res.emailMasked}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Impossible d'envoyer le code.");
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpId) return;
+    if (!/^\d{6}$/.test(otpCode)) {
+      toast.error("Le code doit contenir 6 chiffres.");
+      return;
+    }
+    setOtpVerifying(true);
+    try {
+      await verifyOtp({ data: { token, otpId, code: otpCode } });
+      setOtpVerified(true);
+      toast.success("Identité vérifiée.");
+    } catch (e: any) {
+      toast.error(e?.message || "Code invalide.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  }
+
   async function handleSign() {
+    if (!otpVerified || !otpId) {
+      toast.error("Veuillez d'abord vérifier votre identité par code email.");
+      return;
+    }
     if (!padRef.current || padRef.current.isEmpty()) {
       toast.error("Veuillez apposer votre signature.");
       return;
@@ -61,7 +111,7 @@ function SignPage() {
     const signatureDataUrl = padRef.current.getCanvas().toDataURL("image/png");
     setSubmitting(true);
     try {
-      const res = await signPv({ data: { token, signatureDataUrl, consent: true } });
+      const res = await signPv({ data: { token, signatureDataUrl, consent: true, otpId } });
       setDone({ pvId: res.pvId, downloadKey: res.downloadKey });
     } catch (e: any) {
       toast.error(e?.message || "Échec de la signature");
@@ -69,6 +119,7 @@ function SignPage() {
       setSubmitting(false);
     }
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background pb-16">
@@ -86,7 +137,7 @@ function SignPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
             Procès-verbal de {pv.type === "reception" ? "réception" : pv.type}
           </p>
-          <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight sm:text-4xl">PV {pv.numero}</h1>
+          <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight sm:text-4xl">N° {pv.numero}</h1>
           {pv.expiresAt && (
             <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" /> Lien valable jusqu'au {new Date(pv.expiresAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
@@ -177,9 +228,63 @@ function SignPage() {
           </Card>
         )}
 
-        {/* Signature pad */}
+        {/* OTP — vérification d'identité par email (eIDAS) */}
         <Card className="p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Vérification d'identité</h3>
+            {otpVerified && (
+              <StatusPill tone="success" icon={<ShieldCheck />} size="sm">Identité vérifiée</StatusPill>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Pour des raisons légales (eIDAS), vous devez confirmer votre identité par un code à 6 chiffres envoyé à votre adresse email avant de signer.
+          </p>
+
+          {!otpId && !otpVerified && (
+            <Button onClick={handleSendOtp} disabled={otpSending} variant="outline" size="sm" className="mt-3">
+              {otpSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              {otpSending ? "Envoi…" : "Envoyer le code de vérification"}
+            </Button>
+          )}
+
+          {otpId && !otpVerified && (
+            <div className="mt-3 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Code envoyé à <strong className="text-foreground">{otpEmailMasked}</strong>. Valable 10 minutes.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+                <Button onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length !== 6} size="sm">
+                  {otpVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Valider le code
+                </Button>
+                <Button onClick={handleSendOtp} disabled={otpSending} variant="ghost" size="sm">
+                  Renvoyer
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Signature pad */}
+        <Card className={`p-5 ${!otpVerified ? "opacity-60" : ""}`}>
           <h3 className="mb-3 text-sm font-semibold">Votre signature</h3>
+          {!otpVerified && (
+            <div className="mb-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning-foreground">
+              <AlertCircle className="mr-1 inline h-3.5 w-3.5" />
+              Vérifiez votre identité ci-dessus avant de signer.
+            </div>
+          )}
           <div className="rounded-lg border-2 border-dashed border-border bg-background">
             <SignaturePad
               ref={padRef}
@@ -207,11 +312,12 @@ function SignPage() {
             </span>
           </label>
 
-          <Button onClick={handleSign} disabled={submitting} size="lg" className="mt-4 w-full">
+          <Button onClick={handleSign} disabled={submitting || !otpVerified} size="lg" className="mt-4 w-full">
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            {submitting ? "Signature en cours…" : "Signer le PV"}
+            {submitting ? "Signature en cours…" : otpVerified ? "Signer le PV" : "Vérification d'identité requise"}
           </Button>
         </Card>
+
 
         <p className="pt-4 text-center text-xs text-muted-foreground">
           Signature sécurisée propulsée par <strong>PVIA</strong> · Réception de travaux intelligente
@@ -228,7 +334,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 function ErrorScreen({ reason, pvNumero }: { reason?: string; pvNumero?: string }) {
   const map: Record<string, { title: string; body: string; icon: any; color: string }> = {
     expired: { title: "Lien expiré", body: "Ce lien de signature a expiré. Contactez l'entreprise pour en recevoir un nouveau.", icon: Clock, color: "text-warning" },
-    signed: { title: `PV ${pvNumero ?? ""} déjà signé`, body: "Ce procès-verbal a déjà été signé électroniquement. Aucune action supplémentaire n'est requise.", icon: CheckCircle2, color: "text-success" },
+    signed: { title: `N° ${pvNumero ?? ""} déjà signé`, body: "Ce procès-verbal a déjà été signé électroniquement. Aucune action supplémentaire n'est requise.", icon: CheckCircle2, color: "text-success" },
     invalid: { title: "Lien invalide", body: "Ce lien n'est pas reconnu. Vérifiez l'URL ou contactez l'entreprise.", icon: AlertCircle, color: "text-destructive" },
   };
   const m = map[reason ?? "invalid"] ?? map.invalid;

@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
 import { useServerFn } from "@tanstack/react-start";
 import { sendPvToClient } from "@/lib/sign.functions";
+import { updatePvStatus } from "@/lib/pv-status.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
@@ -81,6 +82,7 @@ function PvDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const sendPv = useServerFn(sendPvToClient);
+  const changeStatusFn = useServerFn(updatePvStatus);
   const regenPdf = useServerFn(regeneratePvPdf);
   const fetchPdfUrl = useServerFn(getPvPdfSignedUrl);
   const resendSignedFn = useServerFn(sendSignedPvEmail);
@@ -221,23 +223,21 @@ function PvDetail() {
 
   async function changeStatus(status: string) {
     if (!pv) return;
-    const prevStatus = pv.status;
-    const patch: { status: string; signed_at?: string | null } = { status };
-    if (status === "signe") patch.signed_at = new Date().toISOString();
-    const { error } = await supabase.from("pv").update(patch).eq("id", pv.id);
-    if (error) return toast.error(error.message);
-    toast.success("Statut mis à jour");
-    if (pv.company_id) {
-      logAction({ data: {
-        companyId: pv.company_id, pvId: pv.id, entityType: "pv", entityId: pv.id,
-        action: "pv.updated",
-        oldValues: { status: prevStatus },
-        newValues: { status },
-      } }).catch(() => {});
+    if (status === pv.status) return;
+    if (status !== "brouillon" && status !== "archive") {
+      toast.error("Seules les transitions brouillon ↔ archive sont autorisées.");
+      return;
     }
-    load();
-    loadLastEvent();
+    try {
+      await changeStatusFn({ data: { pvId: pv.id, status: status as "brouillon" | "archive" } });
+      toast.success("Statut mis à jour");
+      load();
+      loadLastEvent();
+    } catch (e: any) {
+      toast.error(e?.message || "Statut non modifiable");
+    }
   }
+
 
   async function updateReserve(rid: string, status: string) {
     const prev = reserves.find((r) => r.id === rid);
@@ -490,15 +490,19 @@ function PvDetail() {
             <h3 className="font-semibold">Informations</h3>
             <div className="flex items-center gap-2">
               <PvStatusPill status={pv.status} />
-              <Select value={pv.status} onValueChange={changeStatus}>
-                <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="brouillon">Brouillon</SelectItem>
-                  <SelectItem value="en_attente">En attente</SelectItem>
-                  <SelectItem value="signe">Signé</SelectItem>
-                  <SelectItem value="archive">Archivé</SelectItem>
-                </SelectContent>
-              </Select>
+              {!pv.locked_at && (pv.status === "brouillon" || pv.status === "archive") ? (
+                <Select value={pv.status} onValueChange={changeStatus}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="brouillon">Brouillon</SelectItem>
+                    <SelectItem value="archive">Archivé</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">
+                  {pv.locked_at ? "Verrouillé" : "Statut géré par le flux de signature"}
+                </span>
+              )}
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 text-sm">
