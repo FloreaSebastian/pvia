@@ -2,42 +2,38 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const ALLOWED_ADMIN_DOMAIN = "@pvia.fr";
 
-/** Rôles considérés comme administrateur plateforme (transition). */
-const PLATFORM_ADMIN_ROLES = ["platform_admin", "admin"] as const satisfies ReadonlyArray<"platform_admin" | "admin">;
-
 export function isPlatformAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   return email.trim().toLowerCase().endsWith(ALLOWED_ADMIN_DOMAIN);
 }
 
 /**
- * Server-side guard: throws if the user is not a platform admin.
- *
- * Conditions cumulatives:
+ * Server-side guard plateforme — règle FINALE (post-cleanup) :
  *  - email se terminant par "@pvia.fr"
- *  - user_roles.role IN ('platform_admin','admin')
- *    ('admin' accepté en transition — voir migration de promotion contact@pvia.fr)
+ *  - user_roles.role = 'platform_admin'
  *
- * Loggue une entrée d'audit en cas de refus.
+ * Le rôle 'admin' n'est plus accepté pour le cockpit plateforme.
+ * Loggue un audit en cas de refus.
  */
 export async function requirePlatformAdmin(userId: string): Promise<void> {
   const DENY = "Accès réservé à l'équipe PVIA.";
   if (!userId) throw new Error(DENY);
 
-  const [{ data: userRes }, { data: roleRows, error: roleErr }] = await Promise.all([
+  const [{ data: userRes }, { data: roleRow, error: roleErr }] = await Promise.all([
     supabaseAdmin.auth.admin.getUserById(userId),
     supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .in("role", ["platform_admin", "admin"]),
+      .eq("role", "platform_admin")
+      .maybeSingle(),
   ]);
 
   if (roleErr) throw new Error(roleErr.message);
 
   const email = userRes?.user?.email ?? null;
   const emailOk = isPlatformAdminEmail(email);
-  const roleOk = Array.isArray(roleRows) && roleRows.length > 0;
+  const roleOk = !!roleRow;
 
   if (!emailOk || !roleOk) {
     try {
@@ -51,3 +47,4 @@ export async function requirePlatformAdmin(userId: string): Promise<void> {
     throw new Error(DENY);
   }
 }
+

@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/admin/launch-checklist")({
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .in("role", ["platform_admin","admin"]).limit(1).maybeSingle();
+      .eq("role", "platform_admin").maybeSingle();
     if (!data) throw redirect({ to: "/admin/forbidden" });
   },
 });
