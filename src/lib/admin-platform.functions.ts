@@ -395,24 +395,119 @@ export const adminResendInvite = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * ST-M2 — Repair / resync Stripe subscription.
+ *
+ * Reconciles the local `subscriptions` row with what Stripe actually has.
+ * Useful when:
+ *  - a webhook was lost (missing row in DB)
+ *  - the DB row drifted (wrong status, wrong period)
+ *
+ * Algorithm:
+ *   1. Look up the company's customer id (either from DB or from
+ *      Stripe by metadata.companyId).
+ *   2. List subscriptions on that customer.
+ *   3. Upsert each one into `subscriptions` mirroring webhook logic.
+ *   4. Audit success / failure.
+ */
 export const adminResyncStripeSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     await requirePlatformAdmin(context.userId);
-    // Mark stale so the next billing webhook/refresh picks it up.
-    await supabaseAdmin
-      .from("subscriptions")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("company_id", data.companyId);
-    await writeAuditLog({
-      companyId: data.companyId,
-      userId: context.userId,
-      entityType: "platform_admin",
-      action: "admin.stripe_resync_requested",
-      actor: "user",
-    });
-    return { ok: true };
+
+    const companyId = data.companyId;
+    const { getStripeClient, priceToPlan } = await import("./stripe.server");
+    const { getServerStripeEnv } = await import("./app-env.server");
+    const env = getServerStripeEnv();
+
+    try {
+      const stripe = getStripeClient(env);
+
+      // Resolve customer: prefer DB row, fall back to Stripe search by metadata.
+      const { data: existing } = await supabaseAdmin
+        .from("subscriptions")
+        .select("stripe_customer_id,stripe_subscription_id")
+        .eq("company_id", companyId)
+        .eq("environment", env)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let customerId = existing?.stripe_customer_id ?? null;
+
+      if (!customerId) {
+        const search = await stripe.customers.search({
+          query: `metadata['companyId']:'${companyId}'`,
+          limit: 1,
+        });
+        customerId = search.data[0]?.id ?? null;
+      }
+
+      if (!customerId) {
+        await writeAuditLog({
+          companyId, userId: context.userId, entityType: "subscription",
+          action: "stripe.subscription_recovery_failed",
+          metadata: { reason: "no_customer_found", environment: env }, actor: "user",
+        });
+        return { ok: false, reason: "no_customer_found", recovered: 0 };
+      }
+
+      const subs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        expand: ["data.items.data.price"],
+        limit: 20,
+      });
+
+      let recovered = 0;
+      let failed = 0;
+      for (const sub of subs.data) {
+        try {
+          const item = sub.items?.data?.[0] as any;
+          const plan = priceToPlan(item?.price);
+          if (!plan) continue;
+          const periodStart = item?.current_period_start ?? (sub as any).current_period_start;
+          const periodEnd = item?.current_period_end ?? (sub as any).current_period_end;
+
+          await supabaseAdmin.from("subscriptions").upsert({
+            company_id: companyId,
+            user_id: (sub.metadata?.userId as string | undefined) ?? null,
+            stripe_subscription_id: sub.id,
+            stripe_customer_id: typeof sub.customer === "string" ? sub.customer : (sub.customer as any)?.id ?? customerId,
+            plan,
+            status: sub.status,
+            current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
+            current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+            cancel_at_period_end: sub.cancel_at_period_end ?? false,
+            trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+            environment: env,
+            updated_at: new Date().toISOString(),
+          } as any, { onConflict: "stripe_subscription_id" });
+          recovered++;
+        } catch (e) {
+          failed++;
+          console.error("[repair] upsert failed", sub.id, e);
+        }
+      }
+
+      await writeAuditLog({
+        companyId, userId: context.userId, entityType: "subscription",
+        action: "stripe.subscription_recovered",
+        metadata: { recovered, failed, customerId, environment: env, total: subs.data.length },
+        actor: "user",
+      });
+
+      return { ok: true, recovered, failed, customerId, total: subs.data.length };
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      await writeAuditLog({
+        companyId, userId: context.userId, entityType: "subscription",
+        action: "stripe.subscription_recovery_failed",
+        metadata: { error: msg, environment: env }, actor: "user",
+      });
+      throw new Error(`Stripe repair failed: ${msg}`);
+    }
   });
 
 /* ------------------------------- Support notes --------------------------- */
