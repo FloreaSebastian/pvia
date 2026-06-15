@@ -74,6 +74,10 @@ type Pv = {
   client_identity_email: string | null;
   client_otp_verified: boolean | null;
   sent_to_email: string | null;
+  processing_status?: string | null;
+  processing_errors?: Array<{ step: string; message: string; at: string }> | null;
+  pdf_generation_status?: string | null;
+  photos_failed_count?: number | null;
 };
 type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
 type Reserve = { id: string; description: string; severity: string; status: string; lifted_at?: string | null; validated_at?: string | null };
