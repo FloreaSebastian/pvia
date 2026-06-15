@@ -4,7 +4,7 @@
  * Schedule via pg_cron every 1-2 minutes.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { drainFailedEmails } from "@/lib/retry.server";
+import { drainFailedEmails, sweepStaleEmailFailures } from "@/lib/retry.server";
 
 function unauthorized(request: Request): boolean {
   const secret = request.headers.get("x-cron-secret");
