@@ -413,10 +413,11 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
     .upload(path, bytes, { contentType: "application/pdf", upsert: true });
   if (upErr) throw new Error(`Échec upload PDF: ${upErr.message}`);
 
-  await supabaseAdmin
+  const { error: pdfUpdErr } = await supabaseAdmin
     .from("reserve_lift_reports")
     .update({ pdf_url: path, pdf_generated_at: new Date().toISOString() } as any)
     .eq("id", reportId);
+  if (pdfUpdErr) throw new Error(`Échec persistance pdf_url: ${pdfUpdErr.message}`);
 
   return path;
 }
