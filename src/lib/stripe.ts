@@ -1,12 +1,19 @@
 /**
  * Returns the current Stripe environment.
- * In dev/preview: sandbox. Published builds use live.
- * Detected via the host so the published site automatically switches.
+ *
+ * ST-M6: prefer explicit `VITE_APP_ENV` over hostname sniffing so a
+ * production custom domain mapped to a preview project does NOT silently
+ * promote to live Stripe. Only `VITE_APP_ENV === "production"` enables live.
+ *
+ * Hostname remains as a defence-in-depth fallback for older deployments.
  */
 export function getStripeEnvironment(): "sandbox" | "live" {
+  const explicit = (import.meta.env.VITE_APP_ENV ?? "").toLowerCase();
+  if (explicit === "production") return "live";
+  if (explicit === "preview" || explicit === "local") return "sandbox";
+
   if (typeof window === "undefined") return "sandbox";
   const host = window.location.hostname;
-  // Lovable preview hosts contain "-dev" or "id-preview" or are localhost.
   if (host.includes("-dev") || host.includes("id-preview") || host === "localhost" || host.startsWith("127.")) {
     return "sandbox";
   }
