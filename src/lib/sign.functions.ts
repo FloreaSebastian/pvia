@@ -335,3 +335,140 @@ export const signPvByToken = createServerFn({ method: "POST" })
 
     return { ok: true, pvId: pv.id, downloadKey };
   });
+
+
+// ────────────────────────────────────────────────────────────────────────
+// Remote-signature OTP (eIDAS — identity verification of the client signer)
+// Public endpoints (no auth) — gated by token + IP rate limit.
+// ────────────────────────────────────────────────────────────────────────
+
+const RemoteOtpSendSchema = z.object({ token: z.string().min(10).max(128) });
+
+export const sendRemoteClientOtp = createServerFn({ method: "POST" })
+  .inputValidator((i) => RemoteOtpSendSchema.parse(i))
+  .handler(async ({ data }) => {
+    const ip = getClientIp(getRequest());
+    await enforceRateLimit({
+      bucket: "sign.otp.send",
+      key: `${ip}:${data.token.slice(0, 16)}`,
+      limit: 5,
+      windowSec: 600,
+    });
+    const tokenHash = await sha256Hex(data.token);
+    const { data: pv } = await supabaseAdmin
+      .from("pv")
+      .select("id,company_id,sent_to_email,sign_token_expires_at,client_signature,numero")
+      .eq("sign_token_hash", tokenHash)
+      .maybeSingle();
+    if (!pv) throw new Error("Lien invalide.");
+    if (pv.client_signature) throw new Error("PV déjà signé.");
+    if (pv.sign_token_expires_at && new Date(pv.sign_token_expires_at) < new Date())
+      throw new Error("Lien expiré.");
+    const email = pv.sent_to_email;
+    if (!email) throw new Error("Aucune adresse email cible.");
+
+    const code = generateNumericCode();
+    const codeHash = await sha256Hex(code);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const ua = getClientUA();
+
+    const { data: ins, error } = await supabaseAdmin
+      .from("pv_onsite_otp")
+      .insert({
+        company_id: pv.company_id!,
+        pv_id: pv.id,
+        email: normalizeEmail(email),
+        code_hash: codeHash,
+        expires_at: expiresAt,
+        ip_address: ip,
+        user_agent: ua,
+      })
+      .select("id")
+      .single();
+    if (error || !ins) throw new Error(`OTP : ${error?.message ?? "inconnue"}`);
+
+    const { data: company } = await supabaseAdmin
+      .from("companies").select("name").eq("id", pv.company_id!).maybeSingle();
+
+    await sendOnsiteOtpEmail({
+      to: email,
+      code,
+      companyName: company?.name ?? "PVIA",
+      companyId: pv.company_id!,
+    });
+
+    await writeAuditLog({
+      companyId: pv.company_id,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "pv.remote_otp_sent",
+      metadata: { numero: pv.numero, email_masked: email.replace(/(.).+(@.+)/, "$1***$2") },
+      actor: "client",
+    });
+
+    return { ok: true, otpId: ins.id, expiresAt, emailMasked: email.replace(/(.).+(@.+)/, "$1***$2") };
+  });
+
+const RemoteOtpVerifySchema = z.object({
+  token: z.string().min(10).max(128),
+  otpId: z.string().uuid(),
+  code: z.string().regex(/^\d{6}$/),
+});
+
+export const verifyRemoteClientOtp = createServerFn({ method: "POST" })
+  .inputValidator((i) => RemoteOtpVerifySchema.parse(i))
+  .handler(async ({ data }) => {
+    const ip = getClientIp(getRequest());
+    await enforceRateLimit({
+      bucket: "sign.otp.verify",
+      key: `${ip}:${data.otpId}`,
+      limit: 10,
+      windowSec: 600,
+    });
+    const tokenHash = await sha256Hex(data.token);
+    const { data: pv } = await supabaseAdmin
+      .from("pv")
+      .select("id,company_id,numero,client_signature")
+      .eq("sign_token_hash", tokenHash)
+      .maybeSingle();
+    if (!pv) throw new Error("Lien invalide.");
+    if (pv.client_signature) throw new Error("PV déjà signé.");
+
+    const { data: otp } = await supabaseAdmin
+      .from("pv_onsite_otp")
+      .select("*")
+      .eq("id", data.otpId)
+      .maybeSingle();
+    if (!otp) throw new Error("Code introuvable.");
+    if (otp.pv_id !== pv.id) throw new Error("Code invalide.");
+    if (otp.used_at) throw new Error("Code déjà utilisé.");
+    if (new Date(otp.expires_at) < new Date()) throw new Error("Code expiré. Renvoyez un nouveau code.");
+    if ((otp.attempts ?? 0) >= 5) throw new Error("Trop de tentatives. Renvoyez un nouveau code.");
+
+    const codeHash = await sha256Hex(data.code);
+    if (codeHash !== otp.code_hash) {
+      await supabaseAdmin
+        .from("pv_onsite_otp")
+        .update({ attempts: (otp.attempts ?? 0) + 1 })
+        .eq("id", otp.id);
+      throw new Error("Code invalide.");
+    }
+
+    await supabaseAdmin
+      .from("pv_onsite_otp")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", otp.id);
+
+    await writeAuditLog({
+      companyId: pv.company_id,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "pv.remote_otp_verified",
+      metadata: { numero: pv.numero },
+      actor: "client",
+    });
+
+    return { ok: true, otpId: otp.id };
+  });
