@@ -695,6 +695,16 @@ function PvDetail() {
                               Renvoyer le PDF validé
                             </Button>
                           )}
+                          {!validated && l.status === "signe" && (
+                            <Button size="sm" variant="outline" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
+                              {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                              Renvoyer demande de validation
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                         </div>
                       </div>
                     );
