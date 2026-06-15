@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
-import { type StripeEnv, verifyWebhook, priceToPlan, createStripeClient, assertStripeEnvConsistent, checkStripeEnv } from "@/lib/stripe.server";
+import { type StripeEnv, verifyWebhook, priceToPlan, getStripeClient, assertStripeEnvConsistent, checkStripeEnv } from "@/lib/stripe.server";
 import { sendPaymentFailedEmail } from "@/lib/billing-email.server";
 
-let _supabase: ReturnType<typeof createClient> | null = null;
-function getSupabase() {
-  if (!_supabase) {
-    _supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  }
-  return _supabase;
+// ST-M5: route file lives in client module graph — dynamic import only.
+// Caches the shared admin client per-isolate after first call.
+let _adminClient: any = null;
+async function getSupabase() {
+  if (_adminClient) return _adminClient;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  _adminClient = supabaseAdmin;
+  return _adminClient;
 }
 
 function tsToIso(seconds: number | null | undefined): string | null {
