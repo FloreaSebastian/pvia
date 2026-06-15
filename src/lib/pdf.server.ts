@@ -448,6 +448,78 @@ export async function generatePvPdfBytes(input: {
   await drawSig(MARGIN + sigW + 16, "Client", pv.client_signature);
   y -= sigH + 16;
 
+
+  // ============ PREUVE DE SIGNATURE ELECTRONIQUE (eIDAS SES) ============
+  if (pv.status === "signe" || pv.signed_at || pv.client_identity_email) {
+    ensureSpace(220);
+    drawText("PREUVE DE SIGNATURE ELECTRONIQUE", { size: 9, font: bold, color: PRIMARY });
+    y -= 14;
+
+    const proofBoxH = 170;
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - proofBoxH,
+      width: CONTENT_W,
+      height: proofBoxH,
+      borderColor: BORDER,
+      borderWidth: 0.5,
+      color: rgb(0.985, 0.99, 1),
+    });
+
+    const colXa = MARGIN + 12;
+    const colXb = MARGIN + CONTENT_W / 2 + 6;
+    const colW2 = CONTENT_W / 2 - 18;
+    let ya = y - 16;
+    let yb = y - 16;
+
+    const proofField = (col: "a" | "b", label: string, value: string) => {
+      const x = col === "a" ? colXa : colXb;
+      let cy = col === "a" ? ya : yb;
+      page.drawText(label.toUpperCase(), { x, y: cy, size: 6.5, font: bold, color: MUTED });
+      cy -= 10;
+      const lines = wrapLines(helv, value || "-", 8.5, colW2);
+      for (const l of lines.slice(0, 2)) {
+        page.drawText(l, { x, y: cy, size: 8.5, font: helv, color: ACCENT });
+        cy -= 11;
+      }
+      cy -= 4;
+      if (col === "a") ya = cy; else yb = cy;
+    };
+
+    const mode = pv.signature_mode === "remote"
+      ? "Signature electronique a distance avec verification OTP par email"
+      : pv.signature_mode === "onsite"
+        ? "Signature electronique sur place avec verification OTP par email"
+        : "Signature electronique simple";
+
+    // Column A — parties
+    proofField("a", "Signataire entreprise", proof?.companySignatoryName || company?.name || "-");
+    proofField("a", "Signature entreprise", formatDate(pv.signed_at, true));
+    proofField("a", "Email client verifie", pv.client_identity_email || client?.email || "-");
+    proofField("a", "Identite verifiee le", formatDate(pv.client_identity_verified_at, true));
+    proofField("a", "Signature client", formatDate(pv.signed_at, true));
+
+    // Column B — traceability
+    proofField("b", "Methode de signature", mode);
+    proofField("b", "Adresse IP client", pv.client_signature_ip || "-");
+    proofField("b", "Navigateur client", shortUA(pv.client_signature_user_agent));
+    proofField("b", "Consentement", pv.consent_at ? `Accepte le ${formatDate(pv.consent_at, true)}` : "-");
+    proofField("b", "Version consentement", pv.consent_text ? sanitize(pv.consent_text).slice(0, 8) : "-");
+
+    y -= proofBoxH + 6;
+
+    // Doc fingerprint footer (inside proof zone)
+    ensureSpace(40);
+    drawText("Empreinte numerique du document", { size: 7, font: bold, color: MUTED });
+    y -= 10;
+    drawText(`UUID : ${pv.id ?? "-"}`, { size: 7, font: helv, color: MUTED });
+    y -= 10;
+    drawText(`N° : ${pv.numero}   ·   Genere le ${formatDate(proof?.pdfGeneratedAt ?? new Date().toISOString(), true)}`, { size: 7, font: helv, color: MUTED });
+    y -= 10;
+    drawText(`SHA-256 : ${proof?.pdfSha256 ?? "(calcule a la generation)"}`, { size: 6.5, font: helv, color: MUTED, maxWidth: CONTENT_W });
+    y -= 12;
+  }
+
   // ============ MENTIONS ============
   ensureSpace(80);
   drawText("MENTIONS LEGALES", { size: 8, font: bold, color: MUTED });
@@ -455,9 +527,16 @@ export async function generatePvPdfBytes(input: {
   const mentions =
     "Le present proces-verbal de reception fait foi de la livraison des travaux decrits ci-dessus. " +
     "Sauf reserves expressement formulees ci-dessus, le client reconnait avoir constate la bonne execution des travaux. " +
-    "Les reserves listees devront etre levees dans les delais convenus. Document signe electroniquement conformement au reglement eIDAS.";
+    "Les reserves listees devront etre levees dans les delais convenus.";
   const ml = wrapLines(helv, mentions, 7.5, CONTENT_W);
   for (const l of ml) { page.drawText(l, { x: MARGIN, y, size: 7.5, font: helv, color: MUTED }); y -= 11; }
+  y -= 4;
+  for (const m of EIDAS_MENTIONS) {
+    for (const l of wrapLines(helv, m, 7, CONTENT_W)) {
+      page.drawText(l, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
+      y -= 10;
+    }
+  }
 
   drawFooter();
   return await pdf.save();
