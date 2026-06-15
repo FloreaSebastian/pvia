@@ -30,7 +30,8 @@ import {
 
 const ReserveSchema = z.object({
   description: z.string().trim().min(1).max(2000),
-  severity: z.enum(["mineure", "majeure"]),
+  // "bloquante" doit être accepté côté serveur (l'UI le proposait déjà).
+  severity: z.enum(["mineure", "majeure", "bloquante"]),
   status: z.enum(["ouverte", "levee", "validee"]),
   nature: z.string().trim().max(200).optional().default(""),
   work_to_execute: z.string().trim().max(2000).optional().default(""),
