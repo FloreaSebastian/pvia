@@ -45,6 +45,7 @@ import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
@@ -60,6 +61,7 @@ import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as AuthenticatedAdminLaunchChecklistRouteImport } from './routes/_authenticated/admin.launch-checklist'
+import { Route as AuthenticatedAdminGoLiveRouteImport } from './routes/_authenticated/admin.go-live'
 import { Route as AuthenticatedAdminForbiddenRouteImport } from './routes/_authenticated/admin.forbidden'
 import { Route as AuthenticatedAdminEmailsRouteImport } from './routes/_authenticated/admin.emails'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
@@ -67,16 +69,19 @@ import { Route as AuthenticatedAdminComplianceRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminCompaniesRouteImport } from './routes/_authenticated/admin.companies'
 import { Route as AuthenticatedAdminBillingRouteImport } from './routes/_authenticated/admin.billing'
 import { Route as AuthenticatedAdminSupportIndexRouteImport } from './routes/_authenticated/admin.support.index'
+import { Route as AuthenticatedAdminGoLiveIndexRouteImport } from './routes/_authenticated/admin.go-live.index'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksDrainWebhooksRouteImport } from './routes/api/public/hooks/drain-webhooks'
 import { Route as ApiPublicHooksDrainEmailsRouteImport } from './routes/api/public/hooks/drain-emails'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
+import { Route as ApiPublicHealthDeepRouteImport } from './routes/api/public/health.deep'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as ApiPublicAuthSendEmailHookRouteImport } from './routes/api/public/auth/send-email-hook'
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
 import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
+import { Route as AuthenticatedAdminGoLiveReportRouteImport } from './routes/_authenticated/admin.go-live.report'
 import { Route as AuthenticatedAdminCompaniesIdRouteImport } from './routes/_authenticated/admin.companies.$id'
 import { Route as ClientPvIdLeveeReservesLiftIdRouteImport } from './routes/client.pv.$id.levee-reserves.$liftId'
 
@@ -263,6 +268,11 @@ const ClientPvIdRoute = ClientPvIdRouteImport.update({
   path: '/client/pv/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedTerrainIdRoute = AuthenticatedTerrainIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -350,6 +360,12 @@ const AuthenticatedAdminLaunchChecklistRoute =
     path: '/admin/launch-checklist',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminGoLiveRoute =
+  AuthenticatedAdminGoLiveRouteImport.update({
+    id: '/admin/go-live',
+    path: '/admin/go-live',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminForbiddenRoute =
   AuthenticatedAdminForbiddenRouteImport.update({
     id: '/admin/forbidden',
@@ -392,6 +408,12 @@ const AuthenticatedAdminSupportIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAdminSupportRoute,
   } as any)
+const AuthenticatedAdminGoLiveIndexRoute =
+  AuthenticatedAdminGoLiveIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminGoLiveRoute,
+  } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -421,6 +443,11 @@ const ApiPublicHooksCheckExpiringTrialsRoute =
     path: '/api/public/hooks/check-expiring-trials',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHealthDeepRoute = ApiPublicHealthDeepRouteImport.update({
+  id: '/deep',
+  path: '/deep',
+  getParentRoute: () => ApiPublicHealthRoute,
+} as any)
 const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
   id: '/api/public/calendar/$token',
   path: '/api/public/calendar/$token',
@@ -449,6 +476,12 @@ const AuthenticatedAdminSupportCompanyIdRoute =
     id: '/$companyId',
     path: '/$companyId',
     getParentRoute: () => AuthenticatedAdminSupportRoute,
+  } as any)
+const AuthenticatedAdminGoLiveReportRoute =
+  AuthenticatedAdminGoLiveReportRouteImport.update({
+    id: '/report',
+    path: '/report',
+    getParentRoute: () => AuthenticatedAdminGoLiveRoute,
   } as any)
 const AuthenticatedAdminCompaniesIdRoute =
   AuthenticatedAdminCompaniesIdRouteImport.update({
@@ -501,6 +534,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
+  '/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
@@ -516,21 +550,25 @@ export interface FileRoutesByFullPath {
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/admin/go-live/': typeof AuthenticatedAdminGoLiveIndexRoute
   '/admin/support/': typeof AuthenticatedAdminSupportIndexRoute
   '/client/pv/$id/levee-reserves/$liftId': typeof ClientPvIdLeveeReservesLiftIdRoute
 }
@@ -585,21 +623,25 @@ export interface FileRoutesByTo {
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/admin/go-live': typeof AuthenticatedAdminGoLiveIndexRoute
   '/admin/support': typeof AuthenticatedAdminSupportIndexRoute
   '/client/pv/$id/levee-reserves/$liftId': typeof ClientPvIdLeveeReservesLiftIdRoute
 }
@@ -643,6 +685,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/_authenticated/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
+  '/_authenticated/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
@@ -658,21 +701,25 @@ export interface FileRoutesById {
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/_authenticated/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/_authenticated/admin/go-live/': typeof AuthenticatedAdminGoLiveIndexRoute
   '/_authenticated/admin/support/': typeof AuthenticatedAdminSupportIndexRoute
   '/client/pv/$id/levee-reserves/$liftId': typeof ClientPvIdLeveeReservesLiftIdRoute
 }
@@ -716,6 +763,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/emails'
     | '/admin/forbidden'
+    | '/admin/go-live'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
     | '/admin/support'
@@ -731,21 +779,25 @@ export interface FileRouteTypes {
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
+    | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/parametres/'
     | '/pv/'
     | '/admin/companies/$id'
+    | '/admin/go-live/report'
     | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
+    | '/admin/go-live/'
     | '/admin/support/'
     | '/client/pv/$id/levee-reserves/$liftId'
   fileRoutesByTo: FileRoutesByTo
@@ -800,21 +852,25 @@ export interface FileRouteTypes {
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
+    | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/parametres'
     | '/pv'
     | '/admin/companies/$id'
+    | '/admin/go-live/report'
     | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
+    | '/admin/go-live'
     | '/admin/support'
     | '/client/pv/$id/levee-reserves/$liftId'
   id:
@@ -857,6 +913,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/dashboard'
     | '/_authenticated/admin/emails'
     | '/_authenticated/admin/forbidden'
+    | '/_authenticated/admin/go-live'
     | '/_authenticated/admin/launch-checklist'
     | '/_authenticated/admin/monitoring'
     | '/_authenticated/admin/support'
@@ -872,21 +929,25 @@ export interface FileRouteTypes {
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
     | '/_authenticated/terrain/$id'
+    | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/admin/companies/$id'
+    | '/_authenticated/admin/go-live/report'
     | '/_authenticated/admin/support/$companyId'
     | '/_authenticated/pv/$id/historique'
     | '/_authenticated/pv/$id/levee-reserves'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
     | '/api/public/payments/webhook'
+    | '/_authenticated/admin/go-live/'
     | '/_authenticated/admin/support/'
     | '/client/pv/$id/levee-reserves/$liftId'
   fileRoutesById: FileRoutesById
@@ -910,6 +971,7 @@ export interface RootRouteChildren {
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ClientPvIdRoute: typeof ClientPvIdRouteWithChildren
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
@@ -1175,6 +1237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientPvIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/terrain/$id': {
       id: '/_authenticated/terrain/$id'
       path: '/$id'
@@ -1280,6 +1349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLaunchChecklistRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/go-live': {
+      id: '/_authenticated/admin/go-live'
+      path: '/admin/go-live'
+      fullPath: '/admin/go-live'
+      preLoaderRoute: typeof AuthenticatedAdminGoLiveRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/forbidden': {
       id: '/_authenticated/admin/forbidden'
       path: '/admin/forbidden'
@@ -1329,6 +1405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSupportIndexRouteImport
       parentRoute: typeof AuthenticatedAdminSupportRoute
     }
+    '/_authenticated/admin/go-live/': {
+      id: '/_authenticated/admin/go-live/'
+      path: '/'
+      fullPath: '/admin/go-live/'
+      preLoaderRoute: typeof AuthenticatedAdminGoLiveIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminGoLiveRoute
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -1364,6 +1447,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCheckExpiringTrialsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/health/deep': {
+      id: '/api/public/health/deep'
+      path: '/deep'
+      fullPath: '/api/public/health/deep'
+      preLoaderRoute: typeof ApiPublicHealthDeepRouteImport
+      parentRoute: typeof ApiPublicHealthRoute
+    }
     '/api/public/calendar/$token': {
       id: '/api/public/calendar/$token'
       path: '/api/public/calendar/$token'
@@ -1398,6 +1488,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/support/$companyId'
       preLoaderRoute: typeof AuthenticatedAdminSupportCompanyIdRouteImport
       parentRoute: typeof AuthenticatedAdminSupportRoute
+    }
+    '/_authenticated/admin/go-live/report': {
+      id: '/_authenticated/admin/go-live/report'
+      path: '/report'
+      fullPath: '/admin/go-live/report'
+      preLoaderRoute: typeof AuthenticatedAdminGoLiveReportRouteImport
+      parentRoute: typeof AuthenticatedAdminGoLiveRoute
     }
     '/_authenticated/admin/companies/$id': {
       id: '/_authenticated/admin/companies/$id'
@@ -1477,6 +1574,22 @@ const AuthenticatedAdminCompaniesRouteWithChildren =
     AuthenticatedAdminCompaniesRouteChildren,
   )
 
+interface AuthenticatedAdminGoLiveRouteChildren {
+  AuthenticatedAdminGoLiveReportRoute: typeof AuthenticatedAdminGoLiveReportRoute
+  AuthenticatedAdminGoLiveIndexRoute: typeof AuthenticatedAdminGoLiveIndexRoute
+}
+
+const AuthenticatedAdminGoLiveRouteChildren: AuthenticatedAdminGoLiveRouteChildren =
+  {
+    AuthenticatedAdminGoLiveReportRoute: AuthenticatedAdminGoLiveReportRoute,
+    AuthenticatedAdminGoLiveIndexRoute: AuthenticatedAdminGoLiveIndexRoute,
+  }
+
+const AuthenticatedAdminGoLiveRouteWithChildren =
+  AuthenticatedAdminGoLiveRoute._addFileChildren(
+    AuthenticatedAdminGoLiveRouteChildren,
+  )
+
 interface AuthenticatedAdminSupportRouteChildren {
   AuthenticatedAdminSupportCompanyIdRoute: typeof AuthenticatedAdminSupportCompanyIdRoute
   AuthenticatedAdminSupportIndexRoute: typeof AuthenticatedAdminSupportIndexRoute
@@ -1528,6 +1641,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
   AuthenticatedAdminEmailsRoute: typeof AuthenticatedAdminEmailsRoute
   AuthenticatedAdminForbiddenRoute: typeof AuthenticatedAdminForbiddenRoute
+  AuthenticatedAdminGoLiveRoute: typeof AuthenticatedAdminGoLiveRouteWithChildren
   AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
@@ -1558,6 +1672,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
   AuthenticatedAdminEmailsRoute: AuthenticatedAdminEmailsRoute,
   AuthenticatedAdminForbiddenRoute: AuthenticatedAdminForbiddenRoute,
+  AuthenticatedAdminGoLiveRoute: AuthenticatedAdminGoLiveRouteWithChildren,
   AuthenticatedAdminLaunchChecklistRoute:
     AuthenticatedAdminLaunchChecklistRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
@@ -1569,6 +1684,18 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
+)
+
+interface ApiPublicHealthRouteChildren {
+  ApiPublicHealthDeepRoute: typeof ApiPublicHealthDeepRoute
+}
+
+const ApiPublicHealthRouteChildren: ApiPublicHealthRouteChildren = {
+  ApiPublicHealthDeepRoute: ApiPublicHealthDeepRoute,
+}
+
+const ApiPublicHealthRouteWithChildren = ApiPublicHealthRoute._addFileChildren(
+  ApiPublicHealthRouteChildren,
 )
 
 interface ClientPvIdRouteChildren {
@@ -1602,6 +1729,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ClientPvIdRoute: ClientPvIdRouteWithChildren,
   SignPvTokenRoute: SignPvTokenRoute,
   ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
@@ -1616,13 +1744,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

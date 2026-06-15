@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   listAppErrors, getMonitoringStats, setAppErrorResolved, getHealthStatus, downloadAppErrorsCsv,
+  getEmailQueueStats, retryEmailSend, markEmailResolved,
+  getWebhookQueueStats, retryWebhookDelivery,
 } from "@/lib/monitoring.functions";
 import { getRetryQueueStats } from "@/lib/admin-platform.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,6 +73,11 @@ function MonitoringPage() {
   const resolveFn = useServerFn(setAppErrorResolved);
   const healthFn = useServerFn(getHealthStatus);
   const csvFn = useServerFn(downloadAppErrorsCsv);
+  const emailQueueFn = useServerFn(getEmailQueueStats);
+  const retryEmailFn = useServerFn(retryEmailSend);
+  const markEmailFn = useServerFn(markEmailResolved);
+  const webhookQueueFn = useServerFn(getWebhookQueueStats);
+  const retryWebhookFn = useServerFn(retryWebhookDelivery);
 
   const retryFn = useServerFn(getRetryQueueStats);
 
@@ -78,6 +85,8 @@ function MonitoringPage() {
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
   const [health, setHealth] = useState<{ checks: HealthCheck[]; at: string } | null>(null);
+  const [emailQueue, setEmailQueue] = useState<Awaited<ReturnType<typeof emailQueueFn>> | null>(null);
+  const [webhookQueue, setWebhookQueue] = useState<Awaited<ReturnType<typeof webhookQueueFn>> | null>(null);
   const [retry, setRetry] = useState<{
     webhooks: { pending: number; retrying: number; dead: number };
     emails: { pending: number; retrying: number; dead: number };
@@ -92,21 +101,53 @@ function MonitoringPage() {
   const reload = async () => {
     setLoading(true);
     try {
-      const [list, st, hc, rt] = await Promise.all([
+      const [list, st, hc, rt, eq, wq] = await Promise.all([
         listFn({ data: { severity, resolved, source: source || undefined, limit: 100, offset: 0 } }),
         statsFn(),
         healthFn(),
         retryFn(),
+        emailQueueFn(),
+        webhookQueueFn(),
       ]);
       setErrors(list.errors as AppError[]);
       setTotal(list.total);
       setStats(st as Stats);
       setHealth(hc);
       setRetry(rt);
+      setEmailQueue(eq);
+      setWebhookQueue(wq);
     } catch (e: any) {
       toast.error(e?.message ?? "Erreur");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onRetryEmail = async (id: string) => {
+    try {
+      await retryEmailFn({ data: { id } });
+      toast.success("Email remis en file");
+      reload();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
+    }
+  };
+  const onMarkEmail = async (id: string) => {
+    try {
+      await markEmailFn({ data: { id } });
+      toast.success("Marqué résolu");
+      reload();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
+    }
+  };
+  const onRetryWebhook = async (id: string) => {
+    try {
+      await retryWebhookFn({ data: { id } });
+      toast.success("Webhook remis en file");
+      reload();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
     }
   };
 
@@ -233,6 +274,74 @@ function MonitoringPage() {
               </Badge>
             ))}
           </div>
+        </Card>
+      )}
+
+      {/* Email queue */}
+      {emailQueue && (
+        <Card className="p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">File emails (7j)</h2>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="secondary">sent {emailQueue.counts.sent ?? 0}</Badge>
+              <Badge variant="secondary">retry {emailQueue.counts.retrying ?? 0}</Badge>
+              <Badge variant={(emailQueue.counts.failed ?? 0) > 0 ? "destructive" : "secondary"}>failed {emailQueue.counts.failed ?? 0}</Badge>
+              <Badge variant={(emailQueue.counts.dead ?? 0) > 0 ? "destructive" : "secondary"}>dead {emailQueue.counts.dead ?? 0}</Badge>
+            </div>
+          </div>
+          {emailQueue.recent.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun échec récent.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {emailQueue.recent.map((r: any) => (
+                <div key={r.id} className="flex flex-wrap items-center gap-2 rounded border p-2 text-xs">
+                  <Badge variant={r.status === "dead" ? "destructive" : "outline"}>{r.status}</Badge>
+                  <span className="font-mono">{r.email_type}</span>
+                  <span className="text-muted-foreground">{r.recipient_email}</span>
+                  <span className="text-muted-foreground">×{r.retries_count}</span>
+                  {r.error_message && <span className="truncate text-destructive">{r.error_message}</span>}
+                  <span className="ml-auto flex gap-1">
+                    <Button size="sm" variant="outline" onClick={() => onRetryEmail(r.id)}>Relancer</Button>
+                    <Button size="sm" variant="ghost" onClick={() => onMarkEmail(r.id)}>Résolu</Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Webhook queue */}
+      {webhookQueue && (
+        <Card className="p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">File webhooks (7j)</h2>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="secondary">delivered {webhookQueue.counts.delivered ?? 0}</Badge>
+              <Badge variant="secondary">pending {webhookQueue.counts.pending ?? 0}</Badge>
+              <Badge variant="secondary">retry {webhookQueue.counts.retrying ?? 0}</Badge>
+              <Badge variant={(webhookQueue.counts.failed ?? 0) > 0 ? "destructive" : "secondary"}>failed {webhookQueue.counts.failed ?? 0}</Badge>
+              <Badge variant={(webhookQueue.counts.dead ?? 0) > 0 ? "destructive" : "secondary"}>dead {webhookQueue.counts.dead ?? 0}</Badge>
+            </div>
+          </div>
+          {webhookQueue.recent.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun échec récent.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {webhookQueue.recent.map((r: any) => (
+                <div key={r.id} className="flex flex-wrap items-center gap-2 rounded border p-2 text-xs">
+                  <Badge variant={r.status === "dead" ? "destructive" : "outline"}>{r.status}</Badge>
+                  <span className="font-mono">{r.event}</span>
+                  <span className="text-muted-foreground">×{r.attempts}</span>
+                  {r.response_code && <span className="text-muted-foreground">HTTP {r.response_code}</span>}
+                  {r.error && <span className="truncate text-destructive">{r.error}</span>}
+                  <span className="ml-auto">
+                    <Button size="sm" variant="outline" onClick={() => onRetryWebhook(r.id)}>Relancer</Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
