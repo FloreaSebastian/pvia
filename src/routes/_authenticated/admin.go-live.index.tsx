@@ -227,15 +227,39 @@ function Page() {
       </div>
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        Environnement production
+      </h2>
+      <Card className="mb-6 p-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <CfgRow
+            ok={data.config.appEnvExplicit && data.config.appEnv === "production"}
+            label={`APP_ENV = ${data.config.appEnv}${data.config.appEnvExplicit ? "" : " (inféré)"}`}
+          />
+          <CfgRow
+            ok={data.config.viteAppEnv === "production"}
+            label={`VITE_APP_ENV = ${data.config.viteAppEnv ?? "—"}`}
+          />
+          <CfgRow
+            ok={!!data.config.publicAppUrlValue}
+            label={`Domaine = ${data.config.publicAppUrlValue ?? "—"}`}
+          />
+          <CfgRow
+            ok={data.config.stripeLivePresent && data.config.stripeLiveOk}
+            label="Stripe LIVE cohérent"
+          />
+          <CfgRow ok={data.config.resend} label="Resend API key" />
+          <CfgRow ok={data.config.resendFromEmail} label="RESEND_FROM_EMAIL" />
+        </div>
+      </Card>
+
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
         Configuration
       </h2>
       <Card className="p-4">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <CfgRow ok={data.config.stripe} label="Stripe (clé présente)" />
-          <CfgRow ok={data.config.resend} label="Resend (clé présente)" />
           <CfgRow ok={data.config.vapid} label="Push VAPID" />
           <CfgRow ok={data.config.cronSecret} label="CRON_SECRET" />
-          <CfgRow ok={data.config.publicAppUrl} label="PUBLIC_APP_URL" />
         </div>
       </Card>
 
