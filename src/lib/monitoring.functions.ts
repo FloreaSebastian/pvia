@@ -166,3 +166,107 @@ export const downloadAppErrorsCsv = createServerFn({ method: "POST" })
       .join("\n");
     return { csv: header + body, filename: `app-errors-${new Date().toISOString().slice(0, 10)}.csv` };
   });
+
+/* ===================== Email queue monitoring ===================== */
+
+export const getEmailQueueStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertPlatformAdmin(context.userId);
+    const last7d = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+
+    const [{ data: rows7d }, { data: recentFails }] = await Promise.all([
+      supabaseAdmin.from("email_logs").select("status").gte("created_at", last7d),
+      supabaseAdmin
+        .from("email_logs")
+        .select("id,recipient_email,email_type,status,error_message,retries_count,created_at")
+        .in("status", ["failed", "retrying", "dead"])
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    const counts: Record<string, number> = { sent: 0, retrying: 0, failed: 0, dead: 0 };
+    for (const r of (rows7d ?? []) as Array<{ status: string }>) {
+      counts[r.status] = (counts[r.status] ?? 0) + 1;
+    }
+    return { counts, recent: recentFails ?? [] };
+  });
+
+export const retryEmailSend = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ id: z.string().uuid() }).parse(i))
+  .handler(async ({ context, data }) => {
+    await assertPlatformAdmin(context.userId);
+    const { error } = await supabaseAdmin
+      .from("email_logs")
+      .update({
+        status: "retrying",
+        next_retry_at: new Date().toISOString(),
+        error_message: null,
+      })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const markEmailResolved = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ id: z.string().uuid() }).parse(i))
+  .handler(async ({ context, data }) => {
+    await assertPlatformAdmin(context.userId);
+    // No `resolved` column: encode via status="sent" + note in error_message
+    const { error } = await supabaseAdmin
+      .from("email_logs")
+      .update({ status: "sent", error_message: "resolved by admin" })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* ==================== Webhook queue monitoring ==================== */
+
+export const getWebhookQueueStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertPlatformAdmin(context.userId);
+    const last7d = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+
+    const [{ data: rows7d }, { data: recentFails }] = await Promise.all([
+      supabaseAdmin.from("webhook_deliveries").select("status").gte("created_at", last7d),
+      supabaseAdmin
+        .from("webhook_deliveries")
+        .select("id,webhook_id,event,status,attempts,error,response_code,created_at")
+        .in("status", ["failed", "retrying", "dead"])
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    const counts: Record<string, number> = {
+      delivered: 0,
+      pending: 0,
+      retrying: 0,
+      failed: 0,
+      dead: 0,
+    };
+    for (const r of (rows7d ?? []) as Array<{ status: string }>) {
+      counts[r.status] = (counts[r.status] ?? 0) + 1;
+    }
+    return { counts, recent: recentFails ?? [] };
+  });
+
+export const retryWebhookDelivery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ id: z.string().uuid() }).parse(i))
+  .handler(async ({ context, data }) => {
+    await assertPlatformAdmin(context.userId);
+    const { error } = await supabaseAdmin
+      .from("webhook_deliveries")
+      .update({
+        status: "pending",
+        next_attempt_at: new Date().toISOString(),
+        error: null,
+      })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
