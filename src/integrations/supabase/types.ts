@@ -621,6 +621,59 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_checklist_items: {
+        Row: {
+          category: string
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          item_key: string
+          notes: string | null
+          status: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          value: string | null
+        }
+        Insert: {
+          category: string
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_key: string
+          notes?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_key?: string
+          notes?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_checklist_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           company_id: string | null
@@ -1683,6 +1736,7 @@ export type Database = {
     }
     Functions: {
       can_add_member: { Args: { _company_id: string }; Returns: boolean }
+      can_create_company: { Args: { _user_id: string }; Returns: boolean }
       can_create_pv: { Args: { _company_id: string }; Returns: boolean }
       can_manage_company: {
         Args: { _company_id: string; _user_id: string }
@@ -1757,9 +1811,10 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "manager" | "user"
+      app_role: "admin" | "manager" | "user" | "platform_admin"
       company_role: "owner" | "admin" | "manager" | "user"
       member_status: "active" | "invited" | "suspended"
     }
@@ -1889,7 +1944,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "user"],
+      app_role: ["admin", "manager", "user", "platform_admin"],
       company_role: ["owner", "admin", "manager", "user"],
       member_status: ["active", "invited", "suspended"],
     },
