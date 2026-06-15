@@ -277,6 +277,74 @@ function MonitoringPage() {
         </Card>
       )}
 
+      {/* Email queue */}
+      {emailQueue && (
+        <Card className="p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">File emails (7j)</h2>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="secondary">sent {emailQueue.counts.sent ?? 0}</Badge>
+              <Badge variant="secondary">retry {emailQueue.counts.retrying ?? 0}</Badge>
+              <Badge variant={(emailQueue.counts.failed ?? 0) > 0 ? "destructive" : "secondary"}>failed {emailQueue.counts.failed ?? 0}</Badge>
+              <Badge variant={(emailQueue.counts.dead ?? 0) > 0 ? "destructive" : "secondary"}>dead {emailQueue.counts.dead ?? 0}</Badge>
+            </div>
+          </div>
+          {emailQueue.recent.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun échec récent.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {emailQueue.recent.map((r: any) => (
+                <div key={r.id} className="flex flex-wrap items-center gap-2 rounded border p-2 text-xs">
+                  <Badge variant={r.status === "dead" ? "destructive" : "outline"}>{r.status}</Badge>
+                  <span className="font-mono">{r.email_type}</span>
+                  <span className="text-muted-foreground">{r.recipient_email}</span>
+                  <span className="text-muted-foreground">×{r.retries_count}</span>
+                  {r.error_message && <span className="truncate text-destructive">{r.error_message}</span>}
+                  <span className="ml-auto flex gap-1">
+                    <Button size="sm" variant="outline" onClick={() => onRetryEmail(r.id)}>Relancer</Button>
+                    <Button size="sm" variant="ghost" onClick={() => onMarkEmail(r.id)}>Résolu</Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Webhook queue */}
+      {webhookQueue && (
+        <Card className="p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">File webhooks (7j)</h2>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="secondary">delivered {webhookQueue.counts.delivered ?? 0}</Badge>
+              <Badge variant="secondary">pending {webhookQueue.counts.pending ?? 0}</Badge>
+              <Badge variant="secondary">retry {webhookQueue.counts.retrying ?? 0}</Badge>
+              <Badge variant={(webhookQueue.counts.failed ?? 0) > 0 ? "destructive" : "secondary"}>failed {webhookQueue.counts.failed ?? 0}</Badge>
+              <Badge variant={(webhookQueue.counts.dead ?? 0) > 0 ? "destructive" : "secondary"}>dead {webhookQueue.counts.dead ?? 0}</Badge>
+            </div>
+          </div>
+          {webhookQueue.recent.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun échec récent.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {webhookQueue.recent.map((r: any) => (
+                <div key={r.id} className="flex flex-wrap items-center gap-2 rounded border p-2 text-xs">
+                  <Badge variant={r.status === "dead" ? "destructive" : "outline"}>{r.status}</Badge>
+                  <span className="font-mono">{r.event}</span>
+                  <span className="text-muted-foreground">×{r.attempts}</span>
+                  {r.response_code && <span className="text-muted-foreground">HTTP {r.response_code}</span>}
+                  {r.error && <span className="truncate text-destructive">{r.error}</span>}
+                  <span className="ml-auto">
+                    <Button size="sm" variant="outline" onClick={() => onRetryWebhook(r.id)}>Relancer</Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Filters */}
       <Card className="p-4 flex flex-wrap gap-3 items-center">
         <Select value={severity} onValueChange={(v) => setSeverity(v as any)}>
