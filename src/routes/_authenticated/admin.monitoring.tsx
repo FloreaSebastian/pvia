@@ -101,21 +101,53 @@ function MonitoringPage() {
   const reload = async () => {
     setLoading(true);
     try {
-      const [list, st, hc, rt] = await Promise.all([
+      const [list, st, hc, rt, eq, wq] = await Promise.all([
         listFn({ data: { severity, resolved, source: source || undefined, limit: 100, offset: 0 } }),
         statsFn(),
         healthFn(),
         retryFn(),
+        emailQueueFn(),
+        webhookQueueFn(),
       ]);
       setErrors(list.errors as AppError[]);
       setTotal(list.total);
       setStats(st as Stats);
       setHealth(hc);
       setRetry(rt);
+      setEmailQueue(eq);
+      setWebhookQueue(wq);
     } catch (e: any) {
       toast.error(e?.message ?? "Erreur");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onRetryEmail = async (id: string) => {
+    try {
+      await retryEmailFn({ data: { id } });
+      toast.success("Email remis en file");
+      reload();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
+    }
+  };
+  const onMarkEmail = async (id: string) => {
+    try {
+      await markEmailFn({ data: { id } });
+      toast.success("Marqué résolu");
+      reload();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
+    }
+  };
+  const onRetryWebhook = async (id: string) => {
+    try {
+      await retryWebhookFn({ data: { id } });
+      toast.success("Webhook remis en file");
+      reload();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erreur");
     }
   };
 
