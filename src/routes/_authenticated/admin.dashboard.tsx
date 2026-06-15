@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getPlatformStats } from "@/lib/admin-platform.functions";
 
 import { Card } from "@/components/ui/card";
-import { Loader2, Building2, Users, FileText, Mail, AlertTriangle, CreditCard, Webhook, ShieldAlert } from "lucide-react";
+import { Loader2, Building2, Users, FileText, Mail, AlertTriangle, CreditCard, Webhook, ShieldAlert, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/dashboard")({
   component: Page,
@@ -46,7 +46,11 @@ function Page() {
     <div>
       
       <h1 className="mb-1 text-2xl font-bold">Cockpit plateforme PVIA</h1>
-      <p className="mb-6 text-sm text-muted-foreground">Vue d'ensemble de toutes les entreprises et de l'activité globale.</p>
+      <p className="mb-4 text-sm text-muted-foreground">Vue d'ensemble de toutes les entreprises et de l'activité globale.</p>
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Link to="/admin/compliance" className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"><ShieldCheck className="h-3.5 w-3.5"/> Conformité CNIL</Link>
+        <Link to="/admin/emails" className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"><Mail className="h-3.5 w-3.5"/> Catalogue emails</Link>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi icon={Building2} label="Entreprises" value={data.companies.total} sub={`${data.companies.onboarded} onboardées`} />
