@@ -69,6 +69,15 @@ async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { au
   };
 
   const db = (await getSupabase()) as any;
+
+  // ST-M4: detect status transition for notifications.
+  const { data: prevRow } = await db
+    .from("subscriptions")
+    .select("status")
+    .eq("stripe_subscription_id", subscription.id)
+    .maybeSingle();
+  const prevStatus: string | null = prevRow?.status ?? null;
+
   const { error } = await db
     .from("subscriptions")
     .upsert(row, { onConflict: "stripe_subscription_id" });
@@ -79,7 +88,101 @@ async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { au
     entityType: "subscription",
     entityId: subscription.id,
     action: opts?.auditAction ?? `subscription.${subscription.status}`,
-    metadata: { plan, environment: env },
+    metadata: { plan, environment: env, prevStatus },
+  });
+
+  // ST-M4: notify on status transitions (active / trialing / past_due / canceled / unpaid).
+  if (prevStatus !== subscription.status) {
+    await notifySubscriptionStatusChange({
+      companyId,
+      subscriptionId: subscription.id,
+      prevStatus,
+      newStatus: subscription.status,
+      plan,
+      env,
+    });
+  }
+}
+
+const STATUS_NOTIFS: Record<string, { title: string; body: string; auditAction: string }> = {
+  active: { title: "Abonnement actif",
+    body: "Votre abonnement PVIA est actif. Merci !",
+    auditAction: "stripe.subscription_activated" },
+  trialing: { title: "Période d'essai démarrée",
+    body: "Votre essai PVIA est en cours.",
+    auditAction: "stripe.subscription_trialing" },
+  past_due: { title: "Paiement en retard",
+    body: "Votre dernier paiement n'a pas abouti. Mettez à jour votre moyen de paiement.",
+    auditAction: "stripe.subscription_past_due" },
+  canceled: { title: "Abonnement annulé",
+    body: "Votre abonnement PVIA a été annulé.",
+    auditAction: "stripe.subscription_canceled" },
+  unpaid: { title: "Abonnement impayé",
+    body: "Toutes les tentatives de prélèvement ont échoué. Régularisez pour réactiver l'accès.",
+    auditAction: "stripe.subscription_unpaid" },
+};
+
+async function notifySubscriptionStatusChange(args: {
+  companyId: string;
+  subscriptionId: string;
+  prevStatus: string | null;
+  newStatus: string;
+  plan: string | null;
+  env: StripeEnv;
+}) {
+  const cfg = STATUS_NOTIFS[args.newStatus];
+  if (!cfg) return;
+
+  // App notification (per-company fanout to owners/admins).
+  try {
+    const db = (await getSupabase()) as any;
+    const { data: members } = await db
+      .from("company_members")
+      .select("user_id")
+      .eq("company_id", args.companyId)
+      .eq("status", "active")
+      .in("role", ["owner", "admin"]);
+    const rows = (members ?? [])
+      .filter((m: any) => m.user_id)
+      .map((m: any) => ({
+        company_id: args.companyId,
+        user_id: m.user_id,
+        type: cfg.auditAction,
+        title: cfg.title,
+        body: cfg.body,
+      }));
+    if (rows.length) await db.from("notifications").insert(rows);
+  } catch (e) {
+    console.error("[webhook] notification insert failed", e);
+  }
+
+  // Push notification (best-effort).
+  try {
+    const { sendPushToCompany } = await import("@/lib/push.server");
+    await sendPushToCompany(args.companyId, {
+      title: cfg.title,
+      body: cfg.body,
+      url: "/billing",
+      tag: `sub-${args.newStatus}-${args.subscriptionId}`,
+      requireInteraction: args.newStatus === "past_due" || args.newStatus === "unpaid",
+      data: { kind: cfg.auditAction },
+    });
+  } catch (e) {
+    console.error("[webhook] push fanout failed", e);
+  }
+
+  // Audit (granular per transition, in addition to subscription.<status>).
+  await audit({
+    companyId: args.companyId,
+    entityType: "subscription",
+    entityId: args.subscriptionId,
+    action: cfg.auditAction,
+    metadata: {
+      prevStatus: args.prevStatus,
+      newStatus: args.newStatus,
+      plan: args.plan,
+      environment: args.env,
+    },
   });
 }
 
