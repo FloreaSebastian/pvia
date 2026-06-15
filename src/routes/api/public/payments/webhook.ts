@@ -122,19 +122,39 @@ async function handleCheckoutCompleted(session: any, env: StripeEnv) {
   }
 }
 
-// ST-C2/C3: idempotent cancellation with audit.
-// Upsert ensures the row exists even if `subscription.deleted` arrives
-// before `subscription.created` (out-of-order webhook delivery).
+// ST-C2/C3 + ST-M3: idempotent cancellation with audit + auto-suspend company.
 async function markCanceled(subscription: any, env: StripeEnv) {
-  // Re-use upsertSubscription with a forced canceled status; this preserves
-  // the canonical row shape (NOT NULL columns satisfied) and writes the
-  // standard subscription.canceled audit.
   await upsertSubscription({ ...subscription, status: "canceled" }, env, {
     auditAction: "stripe.cancel_processed",
   });
 
   const companyId = subscription.metadata?.companyId;
   if (companyId) {
+    // ST-M3: auto-suspend the company so RLS guards (plan-guard) block
+    // further writes. Idempotent: only set suspended_at if currently null.
+    try {
+      const db = getSupabase() as any;
+      const { data: existing } = await db
+        .from("companies")
+        .select("id,suspended_at")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (existing && !existing.suspended_at) {
+        await db.from("companies")
+          .update({ suspended_at: new Date().toISOString() })
+          .eq("id", companyId);
+        await audit({
+          companyId,
+          entityType: "company",
+          entityId: companyId,
+          action: "company.auto_suspended",
+          metadata: { reason: "subscription_canceled", subscription_id: subscription.id, environment: env },
+        });
+      }
+    } catch (e) {
+      console.error("[webhook] auto-suspend failed", e);
+    }
+
     try {
       const { firePushToCompany } = await import("@/lib/push.server");
       firePushToCompany(companyId, {
