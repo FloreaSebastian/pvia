@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, type CompanyBranding, type CompanyBrandingSettings, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
+import { sha256OfBytes, shortUA, EIDAS_MENTIONS } from "./signature-proof.server";
 
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
@@ -13,6 +14,7 @@ type Reserve = {
   due_date?: string | null;
 };
 type Pv = {
+  id?: string;
   numero: string;
   type: string;
   status: string;
@@ -33,6 +35,21 @@ type Pv = {
   chantier_address?: string | null;
   chantier_postal_code?: string | null;
   chantier_city?: string | null;
+  // eIDAS evidence
+  signature_mode?: string | null;
+  client_identity_email?: string | null;
+  client_identity_verified_at?: string | null;
+  client_identity_verified_by?: string | null;
+  client_signature_ip?: string | null;
+  client_signature_user_agent?: string | null;
+  consent_text?: string | null;
+  consent_at?: string | null;
+};
+
+export type SignatureProofMeta = {
+  companySignatoryName?: string | null;
+  pdfSha256?: string | null;
+  pdfGeneratedAt: string;
 };
 
 const ACCENT = rgb(0.06, 0.09, 0.16); // slate-900
