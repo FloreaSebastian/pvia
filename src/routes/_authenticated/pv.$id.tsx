@@ -82,6 +82,7 @@ function PvDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const sendPv = useServerFn(sendPvToClient);
+  const changeStatusFn = useServerFn(updatePvStatus);
   const regenPdf = useServerFn(regeneratePvPdf);
   const fetchPdfUrl = useServerFn(getPvPdfSignedUrl);
   const resendSignedFn = useServerFn(sendSignedPvEmail);
