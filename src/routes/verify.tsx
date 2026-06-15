@@ -2,10 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, KeyRound, Loader2, MessageSquare, RefreshCw } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { z } from "zod";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   InputOTP,
   InputOTPGroup,
@@ -14,11 +18,15 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { sendEnterpriseLoginCode, verifyEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
+import { assertPasswordFallbackAllowed, getAuthFallbackConfig } from "@/lib/auth-fallback.functions";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
   email: z.string().email().optional(),
 });
+
+const FALLBACK_AFTER = 3;
+const MAX_OTP_ERRORS = 5;
 
 export const Route = createFileRoute("/verify")({
   validateSearch: (s) => searchSchema.parse(s),
@@ -48,10 +56,18 @@ function VerifyPage() {
   const logEvent = useServerFn(logUserAuthEvent);
   const resendLoginCode = useServerFn(sendEnterpriseLoginCode);
   const verifyLoginCode = useServerFn(verifyEnterpriseLoginCode);
+  const assertPwdAllowed = useServerFn(assertPasswordFallbackAllowed);
+  const fetchFallbackCfg = useServerFn(getAuthFallbackConfig);
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(60);
+  const [errorCount, setErrorCount] = useState(0);
+  const [otpBlocked, setOtpBlocked] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [smsEnabled, setSmsEnabled] = useState(false);
   const submittedRef = useRef(false);
 
   useEffect(() => {
@@ -61,11 +77,30 @@ function VerifyPage() {
   }, [cooldown]);
 
   useEffect(() => {
-    if (code.length === 6 && !submittedRef.current && !loading) {
+    fetchFallbackCfg()
+      .then((c) => setSmsEnabled(!!c?.smsEnabled))
+      .catch(() => setSmsEnabled(false));
+  }, [fetchFallbackCfg]);
+
+  useEffect(() => {
+    if (code.length === 6 && !submittedRef.current && !loading && !otpBlocked) {
       submittedRef.current = true;
       void submit(code);
     }
-  }, [code, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [code, loading, otpBlocked]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function finalizeLogin() {
+    const { data: { user } } = await supabase.auth.getUser();
+    let isAdmin = false;
+    if (user) {
+      const { isPlatformAdminEmail } = await import("@/lib/platform-admin");
+      if (isPlatformAdminEmail(user.email)) {
+        const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "platform_admin").maybeSingle();
+        isAdmin = !!role;
+      }
+    }
+    navigate({ to: isAdmin ? "/admin/dashboard" : "/dashboard" });
+  }
 
   async function submit(value: string) {
     if (!email) {
@@ -81,7 +116,16 @@ function VerifyPage() {
     } catch (err: any) {
       setLoading(false);
       await logEvent({ data: { action: "user.login_failed", email, metadata: { method: "otp" } } }).catch(() => {});
-      toast.error(err?.message ?? "Code invalide");
+      const next = errorCount + 1;
+      setErrorCount(next);
+      const msg = err?.message ?? "Code invalide";
+      toast.error(msg);
+      if (next >= MAX_OTP_ERRORS || /Trop de tentatives/i.test(msg)) {
+        setOtpBlocked(true);
+        setShowPassword(true);
+      } else if (next >= FALLBACK_AFTER) {
+        setShowPassword(true);
+      }
       setCode("");
       submittedRef.current = false;
       return;
@@ -100,16 +144,7 @@ function VerifyPage() {
     }
     await logEvent({ data: { action: "user.login_success", email, metadata: { method: "otp" } } }).catch(() => {});
     toast.success("Connexion réussie");
-    const { data: { user } } = await supabase.auth.getUser();
-    let isAdmin = false;
-    if (user) {
-      const { isPlatformAdminEmail } = await import("@/lib/platform-admin");
-      if (isPlatformAdminEmail(user.email)) {
-        const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "platform_admin").maybeSingle();
-        isAdmin = !!role;
-      }
-    }
-    navigate({ to: isAdmin ? "/admin/dashboard" : "/dashboard" });
+    await finalizeLogin();
   }
 
   async function onResend() {
@@ -121,10 +156,38 @@ function VerifyPage() {
       setCooldown(60);
       setCode("");
       submittedRef.current = false;
+      setErrorCount(0);
+      setOtpBlocked(false);
     } catch (err: any) {
       toast.error(err?.message ?? "Échec de l'envoi");
+    }
+  }
+
+  async function onPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !password) return;
+    setPwdLoading(true);
+    try {
+      await assertPwdAllowed({ data: { email } });
+    } catch (err: any) {
+      setPwdLoading(false);
+      toast.error(err?.message ?? "Trop de tentatives. Réessayez plus tard.");
       return;
     }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setPwdLoading(false);
+    if (error) {
+      // Generic message — never reveal whether the account exists.
+      await logEvent({
+        data: { action: "user.login_password_fallback_failed", email, metadata: { reason: "invalid_credentials" } },
+      }).catch(() => {});
+      toast.error("Identifiants incorrects.");
+      setPassword("");
+      return;
+    }
+    await logEvent({ data: { action: "user.login_password_fallback_success", email } }).catch(() => {});
+    toast.success("Connexion réussie");
+    await finalizeLogin();
   }
 
   return (
@@ -155,7 +218,7 @@ function VerifyPage() {
               value={code}
               onChange={setCode}
               autoFocus
-              disabled={loading}
+              disabled={loading || otpBlocked}
               containerClassName="gap-2"
             >
               <InputOTPGroup>
@@ -175,6 +238,12 @@ function VerifyPage() {
             </div>
           )}
 
+          {otpBlocked && (
+            <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              Trop de tentatives. Demandez un nouveau code ou utilisez le mot de passe ci-dessous.
+            </div>
+          )}
+
           <div className="mt-6 flex items-center justify-between border-t border-border/60 pt-4 text-xs text-muted-foreground">
             <span>Le code expire dans 10 minutes</span>
             <button
@@ -187,6 +256,86 @@ function VerifyPage() {
               {cooldown > 0 ? `Renvoyer (${cooldown}s)` : "Renvoyer le code"}
             </button>
           </div>
+
+          {(errorCount >= FALLBACK_AFTER || otpBlocked) && (
+            <div className="mt-6 space-y-4 border-t border-border/60 pt-5">
+              <div>
+                <div className="font-display text-sm font-semibold">
+                  Vous n'arrivez pas à recevoir ou valider votre code&nbsp;?
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Choisissez une autre méthode de connexion.
+                </p>
+              </div>
+
+              {!showPassword && (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowPassword(true)}
+                    className="justify-start gap-2"
+                  >
+                    <KeyRound className="h-4 w-4" /> Se connecter avec mot de passe
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!smsEnabled}
+                    onClick={() => smsEnabled && toast.info("Bientôt disponible.")}
+                    className="justify-start gap-2"
+                  >
+                    <MessageSquare className="h-4 w-4" /> Recevoir un code par SMS
+                    {!smsEnabled && (
+                      <Badge variant="secondary" className="ml-auto text-[10px]">
+                        Bientôt
+                      </Badge>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {showPassword && (
+                <form onSubmit={onPasswordSubmit} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fallback-password" className="text-xs">
+                      Mot de passe
+                    </Label>
+                    <Input
+                      id="fallback-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                      required
+                      minLength={6}
+                      maxLength={128}
+                      disabled={pwdLoading}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button type="submit" disabled={pwdLoading || !password} className="flex-1">
+                      {pwdLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Se connecter"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowPassword(false);
+                        setPassword("");
+                      }}
+                      disabled={pwdLoading}
+                    >
+                      Annuler
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Si vous avez oublié votre mot de passe, demandez un nouveau code par email.
+                  </p>
+                </form>
+              )}
+            </div>
+          )}
         </Card>
       </motion.div>
     </div>
