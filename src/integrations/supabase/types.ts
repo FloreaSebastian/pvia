@@ -1181,48 +1181,6 @@ export type Database = {
           },
         ]
       }
-      pv_onsite_otp: {
-        Row: {
-          attempts: number
-          code_hash: string
-          company_id: string
-          created_at: string
-          email: string
-          expires_at: string
-          id: string
-          ip_address: string | null
-          pv_id: string | null
-          used_at: string | null
-          user_agent: string | null
-        }
-        Insert: {
-          attempts?: number
-          code_hash: string
-          company_id: string
-          created_at?: string
-          email: string
-          expires_at: string
-          id?: string
-          ip_address?: string | null
-          pv_id?: string | null
-          used_at?: string | null
-          user_agent?: string | null
-        }
-        Update: {
-          attempts?: number
-          code_hash?: string
-          company_id?: string
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          ip_address?: string | null
-          pv_id?: string | null
-          used_at?: string | null
-          user_agent?: string | null
-        }
-        Relationships: []
-      }
       pv_photos: {
         Row: {
           caption: string | null
@@ -1333,6 +1291,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pv_signature_otps: {
+        Row: {
+          attempts: number
+          code_hash: string
+          company_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          pv_id: string | null
+          signature_mode: string
+          used_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          company_id: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          pv_id?: string | null
+          signature_mode?: string
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          company_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          pv_id?: string | null
+          signature_mode?: string
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
       }
       rate_limits: {
         Row: {
@@ -1732,7 +1735,48 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      pv_onsite_otp: {
+        Row: {
+          attempts: number | null
+          code_hash: string | null
+          company_id: string | null
+          created_at: string | null
+          email: string | null
+          expires_at: string | null
+          id: string | null
+          ip_address: string | null
+          pv_id: string | null
+          used_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          code_hash?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string | null
+          ip_address?: string | null
+          pv_id?: string | null
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          code_hash?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string | null
+          ip_address?: string | null
+          pv_id?: string | null
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_add_member: { Args: { _company_id: string }; Returns: boolean }
