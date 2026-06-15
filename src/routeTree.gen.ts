@@ -61,6 +61,7 @@ import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as AuthenticatedAdminLaunchChecklistRouteImport } from './routes/_authenticated/admin.launch-checklist'
+import { Route as AuthenticatedAdminGoLiveRouteImport } from './routes/_authenticated/admin.go-live'
 import { Route as AuthenticatedAdminForbiddenRouteImport } from './routes/_authenticated/admin.forbidden'
 import { Route as AuthenticatedAdminEmailsRouteImport } from './routes/_authenticated/admin.emails'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
@@ -359,6 +360,12 @@ const AuthenticatedAdminLaunchChecklistRoute =
     path: '/admin/launch-checklist',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminGoLiveRoute =
+  AuthenticatedAdminGoLiveRouteImport.update({
+    id: '/admin/go-live',
+    path: '/admin/go-live',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminForbiddenRoute =
   AuthenticatedAdminForbiddenRouteImport.update({
     id: '/admin/forbidden',
@@ -403,9 +410,9 @@ const AuthenticatedAdminSupportIndexRoute =
   } as any)
 const AuthenticatedAdminGoLiveIndexRoute =
   AuthenticatedAdminGoLiveIndexRouteImport.update({
-    id: '/admin/go-live/',
-    path: '/admin/go-live/',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAdminGoLiveRoute,
   } as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
@@ -472,9 +479,9 @@ const AuthenticatedAdminSupportCompanyIdRoute =
   } as any)
 const AuthenticatedAdminGoLiveReportRoute =
   AuthenticatedAdminGoLiveReportRouteImport.update({
-    id: '/admin/go-live/report',
-    path: '/admin/go-live/report',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/report',
+    path: '/report',
+    getParentRoute: () => AuthenticatedAdminGoLiveRoute,
   } as any)
 const AuthenticatedAdminCompaniesIdRoute =
   AuthenticatedAdminCompaniesIdRouteImport.update({
@@ -527,6 +534,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
+  '/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
@@ -677,6 +685,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/_authenticated/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
+  '/_authenticated/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
@@ -754,6 +763,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/emails'
     | '/admin/forbidden'
+    | '/admin/go-live'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
     | '/admin/support'
@@ -903,6 +913,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/dashboard'
     | '/_authenticated/admin/emails'
     | '/_authenticated/admin/forbidden'
+    | '/_authenticated/admin/go-live'
     | '/_authenticated/admin/launch-checklist'
     | '/_authenticated/admin/monitoring'
     | '/_authenticated/admin/support'
@@ -1338,6 +1349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLaunchChecklistRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/go-live': {
+      id: '/_authenticated/admin/go-live'
+      path: '/admin/go-live'
+      fullPath: '/admin/go-live'
+      preLoaderRoute: typeof AuthenticatedAdminGoLiveRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/forbidden': {
       id: '/_authenticated/admin/forbidden'
       path: '/admin/forbidden'
@@ -1389,10 +1407,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/admin/go-live/': {
       id: '/_authenticated/admin/go-live/'
-      path: '/admin/go-live'
+      path: '/'
       fullPath: '/admin/go-live/'
       preLoaderRoute: typeof AuthenticatedAdminGoLiveIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedAdminGoLiveRoute
     }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
@@ -1473,10 +1491,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/admin/go-live/report': {
       id: '/_authenticated/admin/go-live/report'
-      path: '/admin/go-live/report'
+      path: '/report'
       fullPath: '/admin/go-live/report'
       preLoaderRoute: typeof AuthenticatedAdminGoLiveReportRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedAdminGoLiveRoute
     }
     '/_authenticated/admin/companies/$id': {
       id: '/_authenticated/admin/companies/$id'
@@ -1556,6 +1574,22 @@ const AuthenticatedAdminCompaniesRouteWithChildren =
     AuthenticatedAdminCompaniesRouteChildren,
   )
 
+interface AuthenticatedAdminGoLiveRouteChildren {
+  AuthenticatedAdminGoLiveReportRoute: typeof AuthenticatedAdminGoLiveReportRoute
+  AuthenticatedAdminGoLiveIndexRoute: typeof AuthenticatedAdminGoLiveIndexRoute
+}
+
+const AuthenticatedAdminGoLiveRouteChildren: AuthenticatedAdminGoLiveRouteChildren =
+  {
+    AuthenticatedAdminGoLiveReportRoute: AuthenticatedAdminGoLiveReportRoute,
+    AuthenticatedAdminGoLiveIndexRoute: AuthenticatedAdminGoLiveIndexRoute,
+  }
+
+const AuthenticatedAdminGoLiveRouteWithChildren =
+  AuthenticatedAdminGoLiveRoute._addFileChildren(
+    AuthenticatedAdminGoLiveRouteChildren,
+  )
+
 interface AuthenticatedAdminSupportRouteChildren {
   AuthenticatedAdminSupportCompanyIdRoute: typeof AuthenticatedAdminSupportCompanyIdRoute
   AuthenticatedAdminSupportIndexRoute: typeof AuthenticatedAdminSupportIndexRoute
@@ -1607,14 +1641,13 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
   AuthenticatedAdminEmailsRoute: typeof AuthenticatedAdminEmailsRoute
   AuthenticatedAdminForbiddenRoute: typeof AuthenticatedAdminForbiddenRoute
+  AuthenticatedAdminGoLiveRoute: typeof AuthenticatedAdminGoLiveRouteWithChildren
   AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
-  AuthenticatedAdminGoLiveReportRoute: typeof AuthenticatedAdminGoLiveReportRoute
-  AuthenticatedAdminGoLiveIndexRoute: typeof AuthenticatedAdminGoLiveIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -1639,6 +1672,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
   AuthenticatedAdminEmailsRoute: AuthenticatedAdminEmailsRoute,
   AuthenticatedAdminForbiddenRoute: AuthenticatedAdminForbiddenRoute,
+  AuthenticatedAdminGoLiveRoute: AuthenticatedAdminGoLiveRouteWithChildren,
   AuthenticatedAdminLaunchChecklistRoute:
     AuthenticatedAdminLaunchChecklistRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
@@ -1646,8 +1680,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
-  AuthenticatedAdminGoLiveReportRoute: AuthenticatedAdminGoLiveReportRoute,
-  AuthenticatedAdminGoLiveIndexRoute: AuthenticatedAdminGoLiveIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
