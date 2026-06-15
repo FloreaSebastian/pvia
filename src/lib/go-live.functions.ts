@@ -112,6 +112,9 @@ export const getGoLiveStatus = createServerFn({ method: "GET" })
       ),
     ]);
 
+    const { checkStripeEnv } = await import("./stripe.server");
+    const stripeSandbox = checkStripeEnv("sandbox");
+    const stripeLive = checkStripeEnv("live");
     const config = {
       stripe: !!(process.env.STRIPE_LIVE_API_KEY || process.env.STRIPE_SANDBOX_API_KEY),
       resend: !!process.env.RESEND_API_KEY,
@@ -132,6 +135,14 @@ export const getGoLiveStatus = createServerFn({ method: "GET" })
     if (wDead > 0) blockers.push(`${wDead} webhook(s) en dead-letter`);
     if (criticalOpen > 0) blockers.push(`${criticalOpen} erreur(s) critique(s) ouverte(s)`);
     if (!config.stripe) blockers.push("Stripe non configuré");
+    // ST-C4: block publication on Stripe env mismatch (live takes precedence
+    // since prod will use live keys).
+    if (process.env.STRIPE_LIVE_API_KEY && !stripeLive.ok) {
+      blockers.push(`Stripe LIVE incohérent : ${stripeLive.errors.join("; ")}`);
+    }
+    if (process.env.STRIPE_SANDBOX_API_KEY && !stripeSandbox.ok) {
+      warnings.push(`Stripe SANDBOX incohérent : ${stripeSandbox.errors.join("; ")}`);
+    }
     if (!config.resend) blockers.push("Resend non configuré");
     if (!config.cronSecret) warnings.push("CRON_SECRET absent");
     if (!config.vapid) warnings.push("VAPID push non configuré");
