@@ -20,6 +20,7 @@ import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
 import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ClientVerifyRouteImport } from './routes/client.verify'
 import { Route as ClientProfilRouteImport } from './routes/client.profil'
@@ -129,6 +130,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -474,6 +480,7 @@ export interface FileRoutesByFullPath {
   '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
@@ -541,6 +548,7 @@ export interface FileRoutesByTo {
   '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
@@ -610,6 +618,7 @@ export interface FileRoutesById {
   '/client/profil': typeof ClientProfilRoute
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
@@ -680,6 +689,7 @@ export interface FileRouteTypes {
     | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
+    | '/legal/privacy'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/dashboard'
@@ -747,6 +757,7 @@ export interface FileRouteTypes {
     | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
+    | '/legal/privacy'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/dashboard'
@@ -815,6 +826,7 @@ export interface FileRouteTypes {
     | '/client/profil'
     | '/client/verify'
     | '/invite/$token'
+    | '/legal/privacy'
     | '/_authenticated/admin/billing'
     | '/_authenticated/admin/companies'
     | '/_authenticated/admin/dashboard'
@@ -871,6 +883,7 @@ export interface RootRouteChildren {
   ClientProfilRoute: typeof ClientProfilRoute
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
   ClientPvIdRoute: typeof ClientPvIdRouteWithChildren
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
@@ -959,6 +972,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
@@ -1537,6 +1557,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientProfilRoute: ClientProfilRoute,
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
   ClientPvIdRoute: ClientPvIdRouteWithChildren,
   SignPvTokenRoute: SignPvTokenRoute,
   ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
