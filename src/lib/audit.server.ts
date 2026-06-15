@@ -77,7 +77,15 @@ export type AuditAction =
   | "settings.search_used"
   | "branding.published"
   | "branding.rollback"
-  | "admin.role_cleanup";
+  | "admin.role_cleanup"
+  | "pv.double_signature_blocked"
+  | "pv.otp_reuse_blocked"
+  | "reserve_lift.number_collision"
+  | "stripe.checkout_completed"
+  | "stripe.subscription_created"
+  | "stripe.cancel_processed"
+  | "stripe.cancel_duplicate_ignored"
+  | "stripe.duplicate_ignored";
 
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";

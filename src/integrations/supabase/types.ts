@@ -1468,6 +1468,30 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_webhook_events: {
+        Row: {
+          environment: string
+          event_id: string
+          event_type: string
+          payload: Json | null
+          processed_at: string
+        }
+        Insert: {
+          environment: string
+          event_id: string
+          event_type: string
+          payload?: Json | null
+          processed_at?: string
+        }
+        Update: {
+          environment?: string
+          event_id?: string
+          event_type?: string
+          payload?: Json | null
+          processed_at?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean
@@ -1748,12 +1772,20 @@ export type Database = {
       cleanup_analytics_events: { Args: never; Returns: undefined }
       cleanup_client_auth: { Args: never; Returns: undefined }
       cleanup_rate_limits: { Args: never; Returns: number }
+      consume_signature_otp: {
+        Args: { p_code_hash: string; p_otp_id: string }
+        Returns: Json
+      }
       enqueue_webhook_event: {
         Args: { _company_id: string; _event: string; _payload: Json }
         Returns: undefined
       }
       generate_next_pv_number: {
         Args: { _company_id: string }
+        Returns: string
+      }
+      generate_next_reserve_lift_number: {
+        Args: { p_pv_id: string }
         Returns: string
       }
       get_company_limits: {
