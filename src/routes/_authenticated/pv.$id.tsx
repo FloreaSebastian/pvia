@@ -191,7 +191,20 @@ function PvDetail() {
       toast.error(e?.message || "Échec de l'envoi");
     } finally {
       setResendingLiftId(null);
+  }
+
+  async function resendLiftValidationRequest(reportId: string) {
+    setResendingLiftId(reportId);
+    try {
+      const r = await resendLiftValidationFn({ data: { reportId } });
+      toast.success(r.recipient ? `Demande renvoyée à ${r.recipient}` : "Demande de validation renvoyée.");
+      loadLogs();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi");
+    } finally {
+      setResendingLiftId(null);
     }
+  }
   }
 
 
