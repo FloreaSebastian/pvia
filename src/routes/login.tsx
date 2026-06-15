@@ -128,7 +128,7 @@ function LoginPage() {
                 Recevoir mon code
               </Button>
               <p className="text-xs text-muted-foreground">
-                Un code à 8 chiffres valide 10 minutes vous sera envoyé.
+                Un code à 6 chiffres valide 10 minutes vous sera envoyé.
               </p>
             </form>
           </TabsContent>
