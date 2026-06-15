@@ -366,6 +366,37 @@ function PvDetail() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
+  return (
+    <div className="space-y-6">
+      {pv.processing_status && pv.processing_status !== "ok" && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="h-5 w-5 mt-0.5 text-amber-700" />
+            <div className="flex-1 text-sm">
+              <div className="font-semibold">
+                PV créé avec des erreurs partielles
+                {pv.processing_status === "failed" ? " (critique)" : ""}
+              </div>
+              <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                {pv.pdf_generation_status === "failed" && (
+                  <li>Génération PDF échouée — utilisez « Régénérer le PDF ».</li>
+                )}
+                {(pv.photos_failed_count ?? 0) > 0 && (
+                  <li>{pv.photos_failed_count} photo(s) non importée(s).</li>
+                )}
+                {(pv.processing_errors ?? []).slice(0, 5).map((err, i) => (
+                  <li key={i} className="font-mono text-xs">
+                    {err.step} — {err.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Link to="/pv" className="hover:text-foreground">Procès-verbaux</Link>
             <ChevronRight className="h-3 w-3" />
             <span>N° {pv.numero}</span>
