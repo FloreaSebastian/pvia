@@ -14,7 +14,8 @@ export const getIsPlatformAdmin = createServerFn({ method: "POST" })
       .from("user_roles")
       .select("role")
       .eq("user_id", context.userId)
-      .eq("role", "admin")
+      .in("role", ["platform_admin", "admin"])
+      .limit(1)
       .maybeSingle();
     return { isAdmin: !!data };
   });
