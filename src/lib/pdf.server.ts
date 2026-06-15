@@ -548,12 +548,16 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export async function buildAndStorePvPdf(pvId: string): Promise<string> {
   const { data: pv } = await supabaseAdmin
     .from("pv")
-    .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at")
+    .select(
+      "id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at,owner_id," +
+      "signature_mode,client_identity_email,client_identity_verified_at,client_identity_verified_by," +
+      "client_signature_ip,client_signature_user_agent,consent_text,consent_at"
+    )
     .eq("id", pvId)
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
 
-  const [company, brandingSettings, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
+  const [company, brandingSettings, clientRes, chantierRes, photosRes, reservesRes, ownerRes] = await Promise.all([
     getCompanyBranding(pv.company_id),
     getCompanyBrandingSettings(pv.company_id),
     pv.client_id
@@ -564,6 +568,9 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("pv_photos").select("id,url,caption").eq("pv_id", pvId).order("created_at"),
     supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").eq("pv_id", pvId).order("created_at"),
+    pv.owner_id
+      ? supabaseAdmin.from("profiles").select("full_name").eq("id", pv.owner_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const photos: { caption: string | null; bytes: Uint8Array }[] = [];
@@ -572,16 +579,57 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     if (f) photos.push({ caption: p.caption, bytes: new Uint8Array(await f.arrayBuffer()) });
   }
 
-  const pdfBytes = await generatePvPdfBytes({
-    pv,
+  // If client_identity_email is empty, try to lift it from the latest verified signature OTP.
+  let clientEmailEvidence = (pv as any).client_identity_email as string | null;
+  let identityVerifiedAt = (pv as any).client_identity_verified_at as string | null;
+  if (!clientEmailEvidence) {
+    const { data: otp } = await supabaseAdmin
+      .from("pv_signature_otps")
+      .select("email,used_at,signature_mode")
+      .eq("pv_id", pvId)
+      .not("used_at", "is", null)
+      .order("used_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (otp) {
+      clientEmailEvidence = otp.email;
+      identityVerifiedAt = identityVerifiedAt ?? otp.used_at;
+    }
+  }
+
+  const enrichedPv = {
+    ...pv,
+    client_identity_email: clientEmailEvidence,
+    client_identity_verified_at: identityVerifiedAt,
+  } as any;
+
+  const generatedAt = new Date().toISOString();
+  const companySignatoryName = (ownerRes as any).data?.full_name ?? company?.name ?? null;
+
+  // Pass 1: build PDF without hash to compute its SHA-256.
+  const passOneBytes = await generatePvPdfBytes({
+    pv: enrichedPv,
     company: company ?? undefined,
     client: (clientRes as any).data ?? undefined,
     chantier: (chantierRes as any).data ?? undefined,
     reserves: reservesRes.data ?? [],
     photos,
     branding: brandingSettings,
+    proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256: null },
   });
+  const pdfSha256 = await sha256OfBytes(passOneBytes);
 
+  // Pass 2: embed the hash into the proof block.
+  const pdfBytes = await generatePvPdfBytes({
+    pv: enrichedPv,
+    company: company ?? undefined,
+    client: (clientRes as any).data ?? undefined,
+    chantier: (chantierRes as any).data ?? undefined,
+    reserves: reservesRes.data ?? [],
+    photos,
+    branding: brandingSettings,
+    proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256 },
+  });
 
   const path = `${pv.company_id}/pv/${pvId}/PV-${pv.numero}-signed.pdf`;
   const { error: upErr } = await supabaseAdmin.storage
@@ -591,7 +639,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
 
   const { error: updErr } = await supabaseAdmin
     .from("pv")
-    .update({ pdf_url: path, pdf_generated_at: new Date().toISOString() } as any)
+    .update({ pdf_url: path, pdf_generated_at: generatedAt } as any)
     .eq("id", pvId);
   if (updErr) throw new Error(updErr.message);
 
