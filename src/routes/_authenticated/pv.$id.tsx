@@ -32,7 +32,7 @@ import { updatePvStatus } from "@/lib/pv-status.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
-import { listReserveLifts, getReserveLiftPdfUrl, resendValidatedReserveLiftEmail } from "@/lib/reserve-lift.functions";
+import { listReserveLifts, getReserveLiftPdfUrl, resendValidatedReserveLiftEmail, resendReserveLiftValidationEmail } from "@/lib/reserve-lift.functions";
 import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
