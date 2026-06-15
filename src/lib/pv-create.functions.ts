@@ -524,7 +524,10 @@ export const createPv = createServerFn({ method: "POST" })
       uploadedPhotos,
       reservesCount: data.reserves.length,
       remoteSignUrl,
+      remoteSignEmailStatus,
+      remoteSignEmailError,
       signatureMode: sigMode,
       status: data.status,
     };
   });
+
