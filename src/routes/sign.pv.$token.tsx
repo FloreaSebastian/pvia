@@ -193,10 +193,17 @@ function SignPage() {
             </Button>
           </div>
 
-          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-muted/40">
+          <div className="mt-4 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+            <p className="mb-2 font-semibold text-foreground">Mentions légales — signature électronique simple (eIDAS art. 3.10)</p>
+            <p>
+              En signant, vous apposez une <strong>signature électronique simple</strong> au sens du règlement européen eIDAS n°910/2014. Elle <strong>ne constitue pas une signature électronique qualifiée</strong>. À titre de preuve, nous conservons votre adresse IP, votre navigateur, l'horodatage de la signature et l'intégralité du document signé. Vous pouvez à tout moment contester cette signature en cas d'usurpation en contactant l'entreprise émettrice.
+            </p>
+          </div>
+
+          <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-muted/40">
             <Checkbox checked={consent} onCheckedChange={(v) => setConsent(!!v)} className="mt-0.5" />
             <span className="text-sm leading-relaxed">
-              Je confirme avoir pris connaissance du procès-verbal, des éventuelles réserves et accepte de signer électroniquement ce document. Cette signature a la même valeur juridique qu'une signature manuscrite.
+              J'ai pris connaissance de l'intégralité du procès-verbal et des éventuelles réserves. J'accepte expressément les mentions légales ci-dessus et confirme signer ce document de manière électronique.
             </span>
           </label>
 
