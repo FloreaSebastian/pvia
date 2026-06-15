@@ -29,7 +29,7 @@ export const Route = createFileRoute("/verify")({
       {
         name: "description",
         content:
-          "Saisissez le code à 8 chiffres reçu par email pour vérifier votre compte PVIA et accéder à votre espace sécurisé.",
+          "Saisissez le code à 6 chiffres reçu par email pour vérifier votre compte PVIA et accéder à votre espace sécurisé.",
       },
       { property: "og:title", content: "Vérification du code — PVIA" },
       {
