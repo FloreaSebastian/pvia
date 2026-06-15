@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/app/PageHeader";
 
-export const Route = createFileRoute("/_authenticated/admin/go-live")({
+export const Route = createFileRoute("/_authenticated/admin/go-live/")({
   component: Page,
   head: () => ({ meta: [{ title: "Go-Live — PVIA" }] }),
   beforeLoad: async () => {

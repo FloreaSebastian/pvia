@@ -80,6 +80,7 @@ import { Route as ApiPublicAuthSendEmailHookRouteImport } from './routes/api/pub
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
 import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
+import { Route as AuthenticatedAdminGoLiveReportRouteImport } from './routes/_authenticated/admin.go-live.report'
 import { Route as AuthenticatedAdminCompaniesIdRouteImport } from './routes/_authenticated/admin.companies.$id'
 import { Route as ClientPvIdLeveeReservesLiftIdRouteImport } from './routes/client.pv.$id.levee-reserves.$liftId'
 
@@ -469,6 +470,12 @@ const AuthenticatedAdminSupportCompanyIdRoute =
     path: '/$companyId',
     getParentRoute: () => AuthenticatedAdminSupportRoute,
   } as any)
+const AuthenticatedAdminGoLiveReportRoute =
+  AuthenticatedAdminGoLiveReportRouteImport.update({
+    id: '/report',
+    path: '/report',
+    getParentRoute: () => AuthenticatedAdminGoLiveRoute,
+  } as any)
 const AuthenticatedAdminCompaniesIdRoute =
   AuthenticatedAdminCompaniesIdRouteImport.update({
     id: '/$id',
@@ -520,7 +527,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
-  '/admin/go-live': typeof AuthenticatedAdminGoLiveRoute
+  '/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
@@ -542,6 +549,7 @@ export interface FileRoutesByFullPath {
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
@@ -593,7 +601,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
-  '/admin/go-live': typeof AuthenticatedAdminGoLiveRoute
+  '/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -614,6 +622,7 @@ export interface FileRoutesByTo {
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
@@ -668,7 +677,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/_authenticated/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
-  '/_authenticated/admin/go-live': typeof AuthenticatedAdminGoLiveRoute
+  '/_authenticated/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
@@ -690,6 +699,7 @@ export interface FileRoutesById {
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
+  '/_authenticated/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
@@ -766,6 +776,7 @@ export interface FileRouteTypes {
     | '/parametres/'
     | '/pv/'
     | '/admin/companies/$id'
+    | '/admin/go-live/report'
     | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
@@ -838,6 +849,7 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/pv'
     | '/admin/companies/$id'
+    | '/admin/go-live/report'
     | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
@@ -913,6 +925,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/admin/companies/$id'
+    | '/_authenticated/admin/go-live/report'
     | '/_authenticated/admin/support/$companyId'
     | '/_authenticated/pv/$id/historique'
     | '/_authenticated/pv/$id/levee-reserves'
@@ -1458,6 +1471,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSupportCompanyIdRouteImport
       parentRoute: typeof AuthenticatedAdminSupportRoute
     }
+    '/_authenticated/admin/go-live/report': {
+      id: '/_authenticated/admin/go-live/report'
+      path: '/report'
+      fullPath: '/admin/go-live/report'
+      preLoaderRoute: typeof AuthenticatedAdminGoLiveReportRouteImport
+      parentRoute: typeof AuthenticatedAdminGoLiveRoute
+    }
     '/_authenticated/admin/companies/$id': {
       id: '/_authenticated/admin/companies/$id'
       path: '/$id'
@@ -1536,6 +1556,20 @@ const AuthenticatedAdminCompaniesRouteWithChildren =
     AuthenticatedAdminCompaniesRouteChildren,
   )
 
+interface AuthenticatedAdminGoLiveRouteChildren {
+  AuthenticatedAdminGoLiveReportRoute: typeof AuthenticatedAdminGoLiveReportRoute
+}
+
+const AuthenticatedAdminGoLiveRouteChildren: AuthenticatedAdminGoLiveRouteChildren =
+  {
+    AuthenticatedAdminGoLiveReportRoute: AuthenticatedAdminGoLiveReportRoute,
+  }
+
+const AuthenticatedAdminGoLiveRouteWithChildren =
+  AuthenticatedAdminGoLiveRoute._addFileChildren(
+    AuthenticatedAdminGoLiveRouteChildren,
+  )
+
 interface AuthenticatedAdminSupportRouteChildren {
   AuthenticatedAdminSupportCompanyIdRoute: typeof AuthenticatedAdminSupportCompanyIdRoute
   AuthenticatedAdminSupportIndexRoute: typeof AuthenticatedAdminSupportIndexRoute
@@ -1587,7 +1621,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
   AuthenticatedAdminEmailsRoute: typeof AuthenticatedAdminEmailsRoute
   AuthenticatedAdminForbiddenRoute: typeof AuthenticatedAdminForbiddenRoute
-  AuthenticatedAdminGoLiveRoute: typeof AuthenticatedAdminGoLiveRoute
+  AuthenticatedAdminGoLiveRoute: typeof AuthenticatedAdminGoLiveRouteWithChildren
   AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
@@ -1618,7 +1652,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
   AuthenticatedAdminEmailsRoute: AuthenticatedAdminEmailsRoute,
   AuthenticatedAdminForbiddenRoute: AuthenticatedAdminForbiddenRoute,
-  AuthenticatedAdminGoLiveRoute: AuthenticatedAdminGoLiveRoute,
+  AuthenticatedAdminGoLiveRoute: AuthenticatedAdminGoLiveRouteWithChildren,
   AuthenticatedAdminLaunchChecklistRoute:
     AuthenticatedAdminLaunchChecklistRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
