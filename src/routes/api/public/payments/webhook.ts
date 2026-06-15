@@ -207,6 +207,21 @@ async function notifyPaymentFailed(invoice: any, env: StripeEnv) {
     metadata: { amount_due: invoice.amount_due, currency: invoice.currency, environment: env },
   });
 
+  // ST-M1: persist past_due on the subscription row so the UI/plan-guard
+  // sees the correct state even before customer.subscription.updated lands.
+  if (subscriptionId) {
+    try {
+      const db = getSupabase() as any;
+      await db
+        .from("subscriptions")
+        .update({ status: "past_due", updated_at: new Date().toISOString() })
+        .eq("stripe_subscription_id", subscriptionId)
+        .neq("status", "canceled");
+    } catch (e) {
+      console.error("[webhook] subscription past_due update failed", e);
+    }
+  }
+
   // EM-C2: send "payment failed" email (idempotent per invoice_id).
   try {
     await sendPaymentFailedEmail({
