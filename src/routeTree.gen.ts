@@ -62,6 +62,7 @@ import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminLaunchChecklistRouteImport } from './routes/_authenticated/admin.launch-checklist'
 import { Route as AuthenticatedAdminForbiddenRouteImport } from './routes/_authenticated/admin.forbidden'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
+import { Route as AuthenticatedAdminComplianceRouteImport } from './routes/_authenticated/admin.compliance'
 import { Route as AuthenticatedAdminCompaniesRouteImport } from './routes/_authenticated/admin.companies'
 import { Route as AuthenticatedAdminBillingRouteImport } from './routes/_authenticated/admin.billing'
 import { Route as AuthenticatedAdminSupportIndexRouteImport } from './routes/_authenticated/admin.support.index'
@@ -360,6 +361,12 @@ const AuthenticatedAdminDashboardRoute =
     path: '/admin/dashboard',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminComplianceRoute =
+  AuthenticatedAdminComplianceRouteImport.update({
+    id: '/admin/compliance',
+    path: '/admin/compliance',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminCompaniesRoute =
   AuthenticatedAdminCompaniesRouteImport.update({
     id: '/admin/companies',
@@ -483,6 +490,7 @@ export interface FileRoutesByFullPath {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
+  '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
@@ -551,6 +559,7 @@ export interface FileRoutesByTo {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
+  '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
@@ -621,6 +630,7 @@ export interface FileRoutesById {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
+  '/_authenticated/admin/compliance': typeof AuthenticatedAdminComplianceRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
   '/_authenticated/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
   '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
@@ -692,6 +702,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/admin/billing'
     | '/admin/companies'
+    | '/admin/compliance'
     | '/admin/dashboard'
     | '/admin/forbidden'
     | '/admin/launch-checklist'
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/admin/billing'
     | '/admin/companies'
+    | '/admin/compliance'
     | '/admin/dashboard'
     | '/admin/forbidden'
     | '/admin/launch-checklist'
@@ -829,6 +841,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/_authenticated/admin/billing'
     | '/_authenticated/admin/companies'
+    | '/_authenticated/admin/compliance'
     | '/_authenticated/admin/dashboard'
     | '/_authenticated/admin/forbidden'
     | '/_authenticated/admin/launch-checklist'
@@ -1268,6 +1281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/compliance': {
+      id: '/_authenticated/admin/compliance'
+      path: '/admin/compliance'
+      fullPath: '/admin/compliance'
+      preLoaderRoute: typeof AuthenticatedAdminComplianceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/companies': {
       id: '/_authenticated/admin/companies'
       path: '/admin/companies'
@@ -1484,6 +1504,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
   AuthenticatedAdminBillingRoute: typeof AuthenticatedAdminBillingRoute
   AuthenticatedAdminCompaniesRoute: typeof AuthenticatedAdminCompaniesRouteWithChildren
+  AuthenticatedAdminComplianceRoute: typeof AuthenticatedAdminComplianceRoute
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
   AuthenticatedAdminForbiddenRoute: typeof AuthenticatedAdminForbiddenRoute
   AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
@@ -1512,6 +1533,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminBillingRoute: AuthenticatedAdminBillingRoute,
   AuthenticatedAdminCompaniesRoute:
     AuthenticatedAdminCompaniesRouteWithChildren,
+  AuthenticatedAdminComplianceRoute: AuthenticatedAdminComplianceRoute,
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
   AuthenticatedAdminForbiddenRoute: AuthenticatedAdminForbiddenRoute,
   AuthenticatedAdminLaunchChecklistRoute:
