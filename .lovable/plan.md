@@ -1,99 +1,118 @@
-# Workflow signature PVIA — distance vs sur place
+## Sprint Production QA & sécurité finale
 
-C'est un chantier important (DB + server + UI + emails + audit). Voici le plan que je propose avant de toucher au code.
+### État existant constaté
 
-## 1. Migration DB
+- **Checklist** : `launch_checklist_items` contient déjà 30 items (auth, onboarding, PV no/with réserves, signatures onsite/remote OTP, PDF, emails client/entreprise, verrouillage, suppression refusée, levée, validation client, webhooks, push, Stripe, monitoring, PWA, CSP…). Les 20 tests demandés sont déjà couverts. `updateLaunchChecklistItem` gère statut + notes + tested_at + tested_by. UI à compléter au besoin (boutons réussi/échec).
+- **Monitoring** : `/admin/monitoring` existe avec `app_errors`, stats, health snapshot serveur. À étendre avec emails/webhooks retrying/dead + actions relancer/marquer résolu.
+- **Admin guard** : `requirePlatformAdmin` (email `@pvia.fr` + `user_roles.platform_admin`) déjà en place sur toutes les serverFn admin.
 
-Nouvelles colonnes sur `pv` :
-- `signature_mode` text check in ('remote','onsite'), nullable jusqu'à choix
-- `client_identity_verified_at` timestamptz
-- `client_identity_verified_by` text ('email'|'sms')
-- `client_identity_email` text
-- `client_identity_phone` text
-- `client_otp_verified` boolean default false
-- `locked_at` timestamptz (set quand status='signe')
+### P1 — Compléter la checklist UI
 
-Nouveau statut autorisé : `en_attente_signature_client` (déjà utilisé partiellement comme `en_attente`, on garde un alias).
+Vérifier que `admin.launch-checklist.tsx` affiche déjà status / notes / date / testeur / boutons réussi-échec. Si manquant, brancher les boutons sur `updateLaunchChecklistItem`. Ajouter 2-3 items manquants si nécessaire (expiration essai, admin support/monitoring couverts). Pas de migration sauf si gaps réels.
 
-Nouvelle table `pv_onsite_otp` :
-- id, pv_id, email, code_hash, expires_at (10 min), attempts (max 5), used_at, created_at, ip, ua
-- RLS : membre de la company du PV peut insert/select
+### P2 — Page `/admin/go-live`
 
-Sur `company_settings` :
-- `pv_email_recipients` text[] (CC additionnels)
-- `pv_email_cc` text[] (alias bcc)
-- `send_signed_pv_to_company` boolean default true
-- `company_signed_email` text (email principal pour copies)
+Fichier : `src/routes/_authenticated/admin.go-live.tsx`
+ServerFn : `src/lib/go-live.functions.ts` → `getGoLiveStatus()`
 
-Trigger : si `status` passe à 'signe' → set `locked_at = now()`.
+Retourne :
 
-## 2. Server functions (src/lib/)
+- Score checklist (passed / total, %)
+- Emails : retrying, dead (depuis `email_send_log` état `dlq` / `error`)
+- Webhooks : retrying, dead (depuis `webhook_deliveries` status `failed` / `dead`)
+- `app_errors` critical non résolus
+- Crons actifs (lecture `pg_cron.job` via RPC ou skip si non disponible → afficher N/A)
+- Stripe configuré (`STRIPE_LIVE_API_KEY` ou sandbox)
+- Resend configuré (`RESEND_API_KEY`)
+- Domaine email (statut via `email_send_state` ou fallback "à vérifier")
+- Nombre d'entreprises, PV signés
+- Dernier test réussi (max(`tested_at`) checklist)
 
-**Nouveaux (`sign-onsite.functions.ts`)**
-- `sendOnsiteClientOtp({ pvId, email })` — génère OTP, hash, insert, email
-- `verifyOnsiteClientOtp({ pvId, code })` — vérifie, marque `client_otp_verified=true`, `client_identity_verified_*`
-- `finalizeOnsiteSignedPv({ pvId, companySignature, clientSignature })` — exige otp_verified, signature_mode='onsite', set status='signe', génère PDF, envoie emails
+Décision serveur :
 
-**Modifs (`sign.functions.ts`)**
-- `sendPvToClient` (distance) : exige `signature_mode='remote'` et `company_signature` présente, set status='en_attente_signature_client'
-- `signPvByToken` : déjà OK, mais ajoute envoi email entreprise + CC après signature
+- **Bloqué** si checklist < 50% ou Stripe absent + emails dead > 0
+- **Prêt sous réserve** si checklist 50-99% sans bloquant
+- **Prêt publication** si checklist = 100%, emails dead = 0, webhooks dead = 0, critical = 0, Stripe + Resend configurés
 
-**Modifs (`pv-create.functions.ts`)**
-- Accepter `signature_mode` à la création
-- Si onsite + status='signe' demandé → exiger `client_otp_verified=true` (vérifier en DB)
+UI : carte verdict + grille de métriques + lien vers `report`.
 
-**Nouveaux helpers**
-- `lockSignedPv` (interne) appelée par triggers/handlers
-- `resendSignedPvEmail({ pvId })` — réenvoie PDF signé
-- Guard partagé `assertNotLocked(pv)` → throw `PV_LOCKED_SIGNED` dans toutes les fns update/delete (update/delete pv, photos, reserves)
+### P3 — Health endpoints publics
 
-**`email.server.ts`**
-- `deliverSignedPv` existe — étendre pour inclure CC depuis `company_settings.pv_email_cc` et copie entreprise
-- Nouveau template `renderOnsiteOtpEmail`
+- `src/routes/api/public/health.ts` : GET → `{ ok: true, version, ts }` (200, sans secret).
+- `src/routes/api/public/health/deep.ts` : GET, protégé par header `x-cron-secret` (`CRON_SECRET`). Renvoie :
+  - DB (ping `companies`)
+  - Storage (list `pv-assets`)
+  - Resend configuré
+  - Stripe configuré
+  - VAPID configuré
+  - Supabase auth (`auth.admin.listUsers` head)
+  - cron secret OK
+  - 200 si tout OK, 503 sinon.
 
-## 3. UI
+Version lue depuis `package.json` (constante au build).
 
-**`/pv/new`**
-- Étape Signatures : RadioGroup "Mode de signature" (distance / sur place) — obligatoire avant les pads
-- Mode distance : pad entreprise uniquement + champ email client + bouton "Envoyer pour signature"
-- Mode sur place : pad entreprise + pad client + bloc OTP (envoyer code, saisir, valider) + badge "Client confirmé ✓"
-- Bouton "Valider & signer" actif seulement si :
-  - distance : signature entreprise + email
-  - sur place : 2 signatures + OTP verifié
+### P4 — Monitoring renforcé
 
-**`/pv/$id`**
-- Si `status='signe'` → badge "PV signé — verrouillé", masquer boutons supprimer/modifier
-- Bouton "Renvoyer PDF signé" appelle `resendSignedPvEmail`
+Étendre `src/lib/monitoring.functions.ts` :
 
-**`/parametres/notifications`**
-- Section "Envoi automatique des PV signés"
-  - email principal entreprise
-  - emails en copie (multi)
-  - toggle copie entreprise
+- `getEmailQueueStats()` : count par status (`queued`, `retrying`, `failed`, `dlq`, `sent`) depuis `email_send_log` derniers 7j + 10 derniers échecs.
+- `getWebhookQueueStats()` : count `webhook_deliveries` par status + 10 derniers dead.
+- `retryWebhookDelivery({ id })` : remet `status='pending'`, `next_attempt_at=now()`, `error=null`.
+- `markEmailResolved({ id })` : tag `resolved=true` (ou note) sur `email_send_log`.
+- `retryEmailSend({ id })` : reset `status='queued'`, attempts=0 si la table le permet.
 
-## 4. Audit & notifications
+Page `admin.monitoring.tsx` : nouveaux blocs "File emails" et "File webhooks" avec listes + boutons relancer / résolu.
 
-Actions audit ajoutées (déjà partiellement en place) :
-- pv.signature_mode_selected, pv.remote_signature_sent, pv.onsite_otp_sent, pv.onsite_otp_verified, pv.signed_locked, pv.signed_email_sent, pv.signed_email_resent, pv.delete_blocked_signed
+### P5 — Rapport final `/admin/go-live/report`
 
-Notifications push existantes étendues (déjà en place pour signe/sent).
+Fichier : `src/routes/_authenticated/admin.go-live.report.tsx`
+Reutilise `getGoLiveStatus` + ajoute `getGoLiveReport()` qui compile :
 
-## 5. Tests manuels
+- État sécurité (RLS via supabase linter count, role admin = 0)
+- Conformité (compliance_checklist_items % done)
+- Emails (queue + DLQ)
+- Webhooks (queue + dead)
+- Stripe (clés présentes, subscriptions actives)
+- Stockage (taille buckets, échantillon)
+- PV/signature (total, signés, verrouillés, signatures à distance vs onsite)
+- Risques restants (texte généré à partir des compteurs)
+- Décision finale (réutilise verdict de P2)
 
-Workflow distance complet, workflow sur place complet, tentative delete PV signé → erreur, tentative update PV signé → erreur, brouillon reste modifiable.
+Bouton "Export Markdown" + version imprimable. Pas de PDF natif (rendu navigateur via `window.print`).
 
----
+### Sécurité
 
-## ⚠️ Avant de partir
+- Toutes les serverFn nouvelles utilisent `requireSupabaseAuth` + `requirePlatformAdmin`.
+- Routes `/admin/go-live*` ont `beforeLoad` avec `isPlatformAdminEmail`.
+- `/api/public/health/deep` exige `x-cron-secret === process.env.CRON_SECRET` (timing-safe compare).
+- `/api/public/health` reste public mais ne fuite aucun détail.
 
-C'est ~10-15 fichiers modifiés/créés + 1 migration DB + 1 nouvelle table. Quelques décisions à confirmer :
+### Détails techniques
 
-**Q1 — Statut intermédiaire** : tu as déjà `en_attente` dans le code (utilisé par `sendPvToClient`). Je propose de **réutiliser `en_attente`** comme alias de `en_attente_signature_client` plutôt que d'ajouter un nouveau statut (évite migration de données). OK ?
+```text
+src/lib/go-live.functions.ts        (nouveau)
+src/lib/go-live-report.functions.ts (nouveau)
+src/lib/monitoring.functions.ts     (étendu : email/webhook stats + retry)
+src/routes/_authenticated/admin.go-live.tsx          (nouveau)
+src/routes/_authenticated/admin.go-live.report.tsx   (nouveau)
+src/routes/_authenticated/admin.monitoring.tsx       (étendu : blocs email/webhook)
+src/routes/_authenticated/admin.launch-checklist.tsx (vérif/complément UI)
+src/routes/api/public/health.ts                      (nouveau)
+src/routes/api/public/health.deep.ts                 (nouveau, x-cron-secret)
+```
 
-**Q2 — OTP onsite sur le même appareil** : le client saisit son email sur l'appareil de l'entreprise, reçoit un code par mail, le saisit. Tu confirmes que l'email client est obligatoirement collecté à cette étape (même si pas de `client_id` rattaché) ?
+Aucune migration SQL (toutes les tables existent). `bunx tsc --noEmit` en fin.
 
-**Q3 — Verrouillage** : "impossible de modifier les champs principaux" — je verrouille **toutes** les mutations sur pv/photos/reserves quand status='signe', sauf création de levée de réserves. OK ?
+### Tests
 
-**Q4 — Paramètres notifications** : tu préfères que je mette la section "Envoi PV signés" dans `/parametres/notifications` (existant) ou `/parametres/branding` ? Je propose **notifications**.
+- `bunx tsc --noEmit` → 0 erreur
+- `curl /api/public/health` → 200
+- `curl /api/public/health/deep` sans header → 401, avec bon header → 200
+- Toutes les routes `/admin/*` redirigent vers `/admin/forbidden` si email ≠ `@pvia.fr`
+- GitHub se synchronise automatiquement
 
-Dis-moi go ou ajuste, et j'enchaîne en une passe.
+### Hors scope ce sprint
+
+- pg_cron job introspection si RPC non dispo (afficher N/A)
+- Export PDF natif du rapport (utilisera `window.print`)
+- Test automatique end-to-end (Playwright) — checklist reste manuelle
