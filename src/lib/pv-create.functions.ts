@@ -384,6 +384,8 @@ export const createPv = createServerFn({ method: "POST" })
 
     // 10b. Remote signature flow → generate sign token and email the link
     let remoteSignUrl: string | null = null;
+    let remoteSignEmailStatus: "sent" | "failed" | "skipped" = "skipped";
+    let remoteSignEmailError: string | null = null;
     if (data.status === "en_attente" && sigMode === "remote" && data.client_identity_email) {
       try {
         const { generateSignToken, sha256Hex } = await import("./sign-token.server");
@@ -411,8 +413,8 @@ export const createPv = createServerFn({ method: "POST" })
         const clientName = (clientRow as any)?.name || "Cher client";
         const expFr = new Date(expiresAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
         const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
-        const html = `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,sans-serif;color:#0f172a"><table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0"><tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden"><tr><td style="padding:32px 40px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff"><div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.7">PVIA · Signature électronique</div><div style="font-size:24px;font-weight:600;margin-top:8px">PV ${esc(assignedNumero)} à signer</div></td></tr><tr><td style="padding:32px 40px"><p style="font-size:15px;line-height:1.6">Bonjour ${esc(clientName)},</p><p style="font-size:15px;line-height:1.6"><strong>${esc(companyName)}</strong> vous transmet le procès-verbal <strong>${esc(assignedNumero)}</strong> pour signature électronique.</p><table cellpadding="0" cellspacing="0"><tr><td style="border-radius:10px;background:#1e3a8a"><a href="${remoteSignUrl}" style="display:inline-block;padding:14px 28px;color:#fff;text-decoration:none;font-weight:600">Consulter et signer →</a></td></tr></table><p style="margin-top:24px;font-size:12px;color:#94a3b8">Lien valable jusqu'au ${expFr}.</p></td></tr></table></td></tr></table></body></html>`;
-        await sendEmailWithRetryLog({
+        const html = `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,sans-serif;color:#0f172a"><table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0"><tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden"><tr><td style="padding:32px 40px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff"><div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.7">PVIA · Signature électronique</div><div style="font-size:24px;font-weight:600;margin-top:8px">N° ${esc(assignedNumero)} à signer</div></td></tr><tr><td style="padding:32px 40px"><p style="font-size:15px;line-height:1.6">Bonjour ${esc(clientName)},</p><p style="font-size:15px;line-height:1.6"><strong>${esc(companyName)}</strong> vous transmet le procès-verbal <strong>${esc(assignedNumero)}</strong> pour signature électronique.</p><table cellpadding="0" cellspacing="0"><tr><td style="border-radius:10px;background:#1e3a8a"><a href="${remoteSignUrl}" style="display:inline-block;padding:14px 28px;color:#fff;text-decoration:none;font-weight:600">Consulter et signer →</a></td></tr></table><p style="margin-top:24px;font-size:12px;color:#94a3b8">Lien valable jusqu'au ${expFr}.</p></td></tr></table></td></tr></table></body></html>`;
+        const sendRes = await sendEmailWithRetryLog({
           emailType: "pv_sign_link",
           companyId: data.companyId,
           pvId,
@@ -424,21 +426,43 @@ export const createPv = createServerFn({ method: "POST" })
             html,
           },
         });
+        if (sendRes.status === "failed") {
+          remoteSignEmailStatus = "failed";
+          remoteSignEmailError = sendRes.error ?? "inconnue";
+        } else {
+          remoteSignEmailStatus = "sent";
+        }
         await writeAuditLog({
           companyId: data.companyId,
           userId,
           pvId,
           entityType: "pv",
           entityId: pvId,
-          action: "pv.remote_signature_sent",
+          action: remoteSignEmailStatus === "sent"
+            ? "pv.remote_signature_sent"
+            : "pv.remote_signature_send_failed",
           newValues: { sent_to_email: data.client_identity_email },
-          metadata: { numero: assignedNumero },
+          metadata: { numero: assignedNumero, error: remoteSignEmailError },
           actor: "user",
         });
-      } catch (e) {
+      } catch (e: any) {
+        // Lien créé mais email indisponible : on ne masque plus l'erreur.
+        remoteSignEmailStatus = "failed";
+        remoteSignEmailError = e?.message ?? String(e);
         console.error("createPv: remote sign link send failed", e);
+        await writeAuditLog({
+          companyId: data.companyId,
+          userId,
+          pvId,
+          entityType: "pv",
+          entityId: pvId,
+          action: "pv.remote_signature_send_failed",
+          metadata: { numero: assignedNumero, error: remoteSignEmailError },
+          actor: "user",
+        });
       }
     }
+
 
 
     // 11. Audit log
