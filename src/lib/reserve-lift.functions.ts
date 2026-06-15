@@ -9,6 +9,7 @@ import { writeAuditLog } from "./audit.server";
 import { firePushToCompany } from "./push.server";
 import { buildAndStoreReserveLiftPdf } from "./reserve-lift.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
+import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
 import {
   PHOTO_ALLOWED_MIMES,
   PHOTO_MAX_BYTES,
@@ -212,7 +213,16 @@ export const createReserveLift = createServerFn({ method: "POST" })
         pdfPath = await buildAndStoreReserveLiftPdf(reportId);
       } catch (e) {
         console.error("reserve-lift: PDF failed", e);
+    }
+
+    // EM-C1: when company signs the lift, ask the client to validate.
+    if (data.status === "signe") {
+      try {
+        await sendReserveLiftValidationRequestEmail({ reportId });
+      } catch (e) {
+        console.error("reserve-lift: validation email failed", e);
       }
+    }
     }
 
     // 9. Audit
@@ -381,4 +391,39 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
     });
 
     return { ok: true as const };
+  });
+
+/**
+ * EM-C1 — Manual "resend validation request" trigger from /pv/:id.
+ * Owner/admin/manager only. Report must be signed (status='signe') and
+ * not yet client-validated.
+ */
+export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ reportId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+    const { data: report } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .select("id,company_id,pv_id,status,client_validated_at")
+      .eq("id", data.reportId)
+      .maybeSingle();
+    if (!report) throw new Error("Levée introuvable.");
+    if (report.status !== "signe") throw new Error("La levée doit être signée par l'entreprise.");
+    if (report.client_validated_at) throw new Error("La levée est déjà validée par le client.");
+
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("role,status")
+      .eq("company_id", report.company_id)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member || !["owner", "admin", "manager"].includes(member.role)) {
+      throw new Error("Accès refusé.");
+    }
+
+    const res = await sendReserveLiftValidationRequestEmail({ reportId: report.id });
+    if (!res.ok) throw new Error(res.error || "Envoi échoué.");
+    return { ok: true as const, recipient: res.recipient };
   });

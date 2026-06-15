@@ -79,3 +79,61 @@ export function priceToPlan(price: any): "starter" | "pro" | "enterprise" | null
   if (key.startsWith("enterprise")) return "enterprise";
   return null;
 }
+
+/**
+ * ST-C4 — Guard environnement Stripe.
+ *
+ * Verifies that the required credentials for the requested env are present
+ * and roughly shaped correctly. Returns a structured report instead of
+ * throwing so callers can surface mismatch details (health/deep, go-live).
+ *
+ * NOTE on key prefixes: in this project the `STRIPE_*_API_KEY` env vars are
+ * connector-gateway connection identifiers, not raw Stripe secret keys, so
+ * they typically don't carry the `sk_live_` / `sk_test_` prefixes. We still
+ * accept a real Stripe secret key shape when present (defence in depth) and
+ * always validate the matching webhook secret prefix (`whsec_`).
+ */
+export type StripeEnvReport = {
+  env: StripeEnv;
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+};
+
+export function checkStripeEnv(env: StripeEnv): StripeEnvReport {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const apiKey = env === "live" ? process.env.STRIPE_LIVE_API_KEY : process.env.STRIPE_SANDBOX_API_KEY;
+  const whSecret = env === "live"
+    ? process.env.PAYMENTS_LIVE_WEBHOOK_SECRET
+    : process.env.PAYMENTS_SANDBOX_WEBHOOK_SECRET;
+
+  if (!apiKey) errors.push(`API key missing (${env === "live" ? "STRIPE_LIVE_API_KEY" : "STRIPE_SANDBOX_API_KEY"})`);
+  if (!whSecret) errors.push(`Webhook secret missing (${env === "live" ? "PAYMENTS_LIVE_WEBHOOK_SECRET" : "PAYMENTS_SANDBOX_WEBHOOK_SECRET"})`);
+
+  // If a raw Stripe SK shape leaked into the wrong slot, refuse outright.
+  if (apiKey?.startsWith("sk_live_") && env === "sandbox") {
+    errors.push("STRIPE_SANDBOX_API_KEY appears to be a LIVE Stripe secret key");
+  }
+  if (apiKey?.startsWith("sk_test_") && env === "live") {
+    errors.push("STRIPE_LIVE_API_KEY appears to be a TEST Stripe secret key");
+  }
+  // Webhook secret prefix sanity (Stripe always uses whsec_)
+  if (whSecret && !whSecret.startsWith("whsec_")) {
+    errors.push(`Webhook secret for ${env} does not look like a Stripe whsec_ value`);
+  }
+
+  return { env, ok: errors.length === 0, errors, warnings };
+}
+
+/**
+ * Throws if the env-specific credentials are missing or mismatched.
+ * Use at the top of webhook handlers / before any Stripe API call.
+ */
+export function assertStripeEnvConsistent(env: StripeEnv): void {
+  const r = checkStripeEnv(env);
+  if (!r.ok) {
+    throw new Error(`STRIPE_ENV_MISMATCH:${env}: ${r.errors.join("; ")}`);
+  }
+}
+

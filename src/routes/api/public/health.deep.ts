@@ -57,9 +57,21 @@ export const Route = createFileRoute("/api/public/health/deep")({
 
         // Config flags
         checks.push({ name: "resend_config", ok: !!process.env.RESEND_API_KEY });
+        // ST-C4: granular Stripe env consistency checks
+        const { checkStripeEnv } = await import("@/lib/stripe.server");
+        const sandboxReport = checkStripeEnv("sandbox");
+        const liveReport = checkStripeEnv("live");
+        const anyStripe = !!(process.env.STRIPE_LIVE_API_KEY || process.env.STRIPE_SANDBOX_API_KEY);
+        checks.push({ name: "stripe_config", ok: anyStripe, detail: anyStripe ? undefined : "no Stripe key configured" });
         checks.push({
-          name: "stripe_config",
-          ok: !!(process.env.STRIPE_LIVE_API_KEY || process.env.STRIPE_SANDBOX_API_KEY),
+          name: "stripe_env_sandbox",
+          ok: sandboxReport.ok,
+          detail: sandboxReport.errors.join("; ") || undefined,
+        });
+        checks.push({
+          name: "stripe_env_live",
+          ok: liveReport.ok,
+          detail: liveReport.errors.join("; ") || undefined,
         });
         checks.push({
           name: "vapid_config",

@@ -32,7 +32,7 @@ import { updatePvStatus } from "@/lib/pv-status.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
-import { listReserveLifts, getReserveLiftPdfUrl, resendValidatedReserveLiftEmail } from "@/lib/reserve-lift.functions";
+import { listReserveLifts, getReserveLiftPdfUrl, resendValidatedReserveLiftEmail, resendReserveLiftValidationEmail } from "@/lib/reserve-lift.functions";
 import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
@@ -91,6 +91,7 @@ function PvDetail() {
   const listLiftsFn = useServerFn(listReserveLifts);
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
   const resendLiftFn = useServerFn(resendValidatedReserveLiftEmail);
+  const resendLiftValidationFn = useServerFn(resendReserveLiftValidationEmail);
   const [resendingLiftId, setResendingLiftId] = useState<string | null>(null);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -185,6 +186,19 @@ function PvDetail() {
     try {
       await resendLiftFn({ data: { reportId } });
       toast.success("PDF validé renvoyé par email.");
+      loadLogs();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi");
+    } finally {
+      setResendingLiftId(null);
+    }
+  }
+
+  async function resendLiftValidationRequest(reportId: string) {
+    setResendingLiftId(reportId);
+    try {
+      const r = await resendLiftValidationFn({ data: { reportId } });
+      toast.success(r.recipient ? `Demande renvoyée à ${r.recipient}` : "Demande de validation renvoyée.");
       loadLogs();
     } catch (e: any) {
       toast.error(e?.message || "Échec de l'envoi");
@@ -679,6 +693,12 @@ function PvDetail() {
                             <Button size="sm" variant="outline" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
                               {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
                               Renvoyer le PDF validé
+                            </Button>
+                          )}
+                          {!validated && l.status === "signe" && (
+                            <Button size="sm" variant="outline" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
+                              {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                              Renvoyer demande de validation
                             </Button>
                           )}
                         </div>

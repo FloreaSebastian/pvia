@@ -85,7 +85,12 @@ export type AuditAction =
   | "stripe.subscription_created"
   | "stripe.cancel_processed"
   | "stripe.cancel_duplicate_ignored"
-  | "stripe.duplicate_ignored";
+  | "stripe.duplicate_ignored"
+  | "stripe.env_mismatch_blocked"
+  | "reserve_lift.validation_email_sent"
+  | "reserve_lift.validation_email_failed"
+  | "billing.payment_failed_email_sent"
+  | "billing.payment_failed_email_failed";
 
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
