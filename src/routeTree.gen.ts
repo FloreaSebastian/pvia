@@ -61,6 +61,7 @@ import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as AuthenticatedAdminLaunchChecklistRouteImport } from './routes/_authenticated/admin.launch-checklist'
 import { Route as AuthenticatedAdminForbiddenRouteImport } from './routes/_authenticated/admin.forbidden'
+import { Route as AuthenticatedAdminEmailsRouteImport } from './routes/_authenticated/admin.emails'
 import { Route as AuthenticatedAdminDashboardRouteImport } from './routes/_authenticated/admin.dashboard'
 import { Route as AuthenticatedAdminComplianceRouteImport } from './routes/_authenticated/admin.compliance'
 import { Route as AuthenticatedAdminCompaniesRouteImport } from './routes/_authenticated/admin.companies'
@@ -355,6 +356,12 @@ const AuthenticatedAdminForbiddenRoute =
     path: '/admin/forbidden',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminEmailsRoute =
+  AuthenticatedAdminEmailsRouteImport.update({
+    id: '/admin/emails',
+    path: '/admin/emails',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminDashboardRoute =
   AuthenticatedAdminDashboardRouteImport.update({
     id: '/admin/dashboard',
@@ -492,6 +499,7 @@ export interface FileRoutesByFullPath {
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
@@ -561,6 +569,7 @@ export interface FileRoutesByTo {
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
   '/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
@@ -632,6 +641,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/_authenticated/admin/compliance': typeof AuthenticatedAdminComplianceRoute
   '/_authenticated/admin/dashboard': typeof AuthenticatedAdminDashboardRoute
+  '/_authenticated/admin/emails': typeof AuthenticatedAdminEmailsRoute
   '/_authenticated/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
   '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
@@ -704,6 +714,7 @@ export interface FileRouteTypes {
     | '/admin/companies'
     | '/admin/compliance'
     | '/admin/dashboard'
+    | '/admin/emails'
     | '/admin/forbidden'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
@@ -773,6 +784,7 @@ export interface FileRouteTypes {
     | '/admin/companies'
     | '/admin/compliance'
     | '/admin/dashboard'
+    | '/admin/emails'
     | '/admin/forbidden'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
@@ -843,6 +855,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/companies'
     | '/_authenticated/admin/compliance'
     | '/_authenticated/admin/dashboard'
+    | '/_authenticated/admin/emails'
     | '/_authenticated/admin/forbidden'
     | '/_authenticated/admin/launch-checklist'
     | '/_authenticated/admin/monitoring'
@@ -1274,6 +1287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminForbiddenRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/emails': {
+      id: '/_authenticated/admin/emails'
+      path: '/admin/emails'
+      fullPath: '/admin/emails'
+      preLoaderRoute: typeof AuthenticatedAdminEmailsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/dashboard': {
       id: '/_authenticated/admin/dashboard'
       path: '/admin/dashboard'
@@ -1506,6 +1526,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminCompaniesRoute: typeof AuthenticatedAdminCompaniesRouteWithChildren
   AuthenticatedAdminComplianceRoute: typeof AuthenticatedAdminComplianceRoute
   AuthenticatedAdminDashboardRoute: typeof AuthenticatedAdminDashboardRoute
+  AuthenticatedAdminEmailsRoute: typeof AuthenticatedAdminEmailsRoute
   AuthenticatedAdminForbiddenRoute: typeof AuthenticatedAdminForbiddenRoute
   AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
@@ -1535,6 +1556,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAdminCompaniesRouteWithChildren,
   AuthenticatedAdminComplianceRoute: AuthenticatedAdminComplianceRoute,
   AuthenticatedAdminDashboardRoute: AuthenticatedAdminDashboardRoute,
+  AuthenticatedAdminEmailsRoute: AuthenticatedAdminEmailsRoute,
   AuthenticatedAdminForbiddenRoute: AuthenticatedAdminForbiddenRoute,
   AuthenticatedAdminLaunchChecklistRoute:
     AuthenticatedAdminLaunchChecklistRoute,
