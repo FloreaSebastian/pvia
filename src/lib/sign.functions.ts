@@ -12,7 +12,12 @@ import { enforceRateLimit, getClientIp } from "./rate-limit.server";
 import { decodeAndValidateImage } from "./image-validate.server";
 import { generateSignToken, sha256Hex, SIGN_CONSENT_TEXT_V1 } from "./sign-token.server";
 import { sendOnsiteOtpEmail } from "./email.server";
-import { generateNumericCode, normalizeEmail, getClientUA } from "./client-auth.server";
+import {
+  createSignatureOtp,
+  verifySignatureOtp,
+  assertSignatureOtpVerified,
+  maskEmail,
+} from "./signature-otp.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
@@ -244,14 +249,12 @@ export const signPvByToken = createServerFn({ method: "POST" })
     if (pv.client_signature) throw new Error("PV déjà signé.");
 
     // OTP must exist, belong to this PV, and be verified (used_at set).
-    const { data: otp } = await supabaseAdmin
-      .from("pv_onsite_otp")
-      .select("id,pv_id,company_id,used_at,email")
-      .eq("id", data.otpId)
-      .maybeSingle();
-    if (!otp) throw new Error("Vérification d'identité requise.");
-    if (otp.pv_id !== pv.id) throw new Error("Code de vérification invalide.");
-    if (!otp.used_at) throw new Error("Code de vérification non validé.");
+    const otp = await assertSignatureOtpVerified({
+      otpId: data.otpId,
+      expectedPvId: pv.id,
+      expectedCompanyId: pv.company_id ?? undefined,
+      expectedMode: "remote",
+    });
 
     // Reissue the token as a short-lived download key (24h) so the client can fetch the
     // generated PDF immediately after signing without re-authenticating. The raw key is
@@ -367,25 +370,12 @@ export const sendRemoteClientOtp = createServerFn({ method: "POST" })
     const email = pv.sent_to_email;
     if (!email) throw new Error("Aucune adresse email cible.");
 
-    const code = generateNumericCode();
-    const codeHash = await sha256Hex(code);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const ua = getClientUA();
-
-    const { data: ins, error } = await supabaseAdmin
-      .from("pv_onsite_otp")
-      .insert({
-        company_id: pv.company_id!,
-        pv_id: pv.id,
-        email: normalizeEmail(email),
-        code_hash: codeHash,
-        expires_at: expiresAt,
-        ip_address: ip,
-        user_agent: ua,
-      })
-      .select("id")
-      .single();
-    if (error || !ins) throw new Error(`OTP : ${error?.message ?? "inconnue"}`);
+    const { id: otpId, code, expiresAt } = await createSignatureOtp({
+      companyId: pv.company_id!,
+      pvId: pv.id,
+      email,
+      mode: "remote",
+    });
 
     const { data: company } = await supabaseAdmin
       .from("companies").select("name").eq("id", pv.company_id!).maybeSingle();
@@ -403,11 +393,11 @@ export const sendRemoteClientOtp = createServerFn({ method: "POST" })
       entityType: "pv",
       entityId: pv.id,
       action: "pv.remote_otp_sent",
-      metadata: { numero: pv.numero, email_masked: email.replace(/(.).+(@.+)/, "$1***$2") },
+      metadata: { numero: pv.numero, email_masked: maskEmail(email) },
       actor: "client",
     });
 
-    return { ok: true, otpId: ins.id, expiresAt, emailMasked: email.replace(/(.).+(@.+)/, "$1***$2") };
+    return { ok: true, otpId, expiresAt, emailMasked: maskEmail(email) };
   });
 
 const RemoteOtpVerifySchema = z.object({
@@ -435,30 +425,13 @@ export const verifyRemoteClientOtp = createServerFn({ method: "POST" })
     if (!pv) throw new Error("Lien invalide.");
     if (pv.client_signature) throw new Error("PV déjà signé.");
 
-    const { data: otp } = await supabaseAdmin
-      .from("pv_onsite_otp")
-      .select("*")
-      .eq("id", data.otpId)
-      .maybeSingle();
-    if (!otp) throw new Error("Code introuvable.");
-    if (otp.pv_id !== pv.id) throw new Error("Code invalide.");
-    if (otp.used_at) throw new Error("Code déjà utilisé.");
-    if (new Date(otp.expires_at) < new Date()) throw new Error("Code expiré. Renvoyez un nouveau code.");
-    if ((otp.attempts ?? 0) >= 5) throw new Error("Trop de tentatives. Renvoyez un nouveau code.");
-
-    const codeHash = await sha256Hex(data.code);
-    if (codeHash !== otp.code_hash) {
-      await supabaseAdmin
-        .from("pv_onsite_otp")
-        .update({ attempts: (otp.attempts ?? 0) + 1 })
-        .eq("id", otp.id);
-      throw new Error("Code invalide.");
-    }
-
-    await supabaseAdmin
-      .from("pv_onsite_otp")
-      .update({ used_at: new Date().toISOString() })
-      .eq("id", otp.id);
+    const otp = await verifySignatureOtp({
+      otpId: data.otpId,
+      code: data.code,
+      expectedPvId: pv.id,
+      expectedCompanyId: pv.company_id ?? undefined,
+      expectedMode: "remote",
+    });
 
     await writeAuditLog({
       companyId: pv.company_id,
@@ -466,7 +439,7 @@ export const verifyRemoteClientOtp = createServerFn({ method: "POST" })
       entityType: "pv",
       entityId: pv.id,
       action: "pv.remote_otp_verified",
-      metadata: { numero: pv.numero },
+      metadata: { numero: pv.numero, email_masked: maskEmail(otp.email) },
       actor: "client",
     });
 

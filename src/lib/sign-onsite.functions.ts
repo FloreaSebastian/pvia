@@ -1,19 +1,22 @@
 /**
  * Onsite signature OTP flow.
  *
- * When a PV is signed on-site (both entreprise + client physically present
- * on the same device), the client must additionally confirm their identity
- * with a 6-digit OTP sent by email before the PV is locked as `signe`.
+ * When a PV is signed on-site (entreprise + client on the same device), the
+ * client confirms their identity with a 6-digit OTP sent by email before the
+ * PV is locked as `signe`. Delegates persistence to `signature-otp.server.ts`.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendOnsiteOtpEmail } from "./email.server";
 import { writeAuditLog } from "./audit.server";
-import { enforceRateLimit, getClientIp } from "./rate-limit.server";
-import { sha256Hex, generateNumericCode, normalizeEmail, getClientUA } from "./client-auth.server";
+import { enforceRateLimit } from "./rate-limit.server";
+import {
+  createSignatureOtp,
+  verifySignatureOtp,
+  maskEmail,
+} from "./signature-otp.server";
 
 const SendSchema = z.object({
   companyId: z.string().uuid(),
@@ -27,7 +30,6 @@ export const sendOnsiteClientOtp = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
 
-    // Membership check
     const { data: m } = await supabaseAdmin
       .from("company_members")
       .select("id")
@@ -44,26 +46,12 @@ export const sendOnsiteClientOtp = createServerFn({ method: "POST" })
       windowSec: 600,
     });
 
-    const code = generateNumericCode();
-    const codeHash = await sha256Hex(code);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const ip = getClientIp(getRequest());
-    const ua = getClientUA();
-
-    const { data: ins, error } = await supabaseAdmin
-      .from("pv_onsite_otp")
-      .insert({
-        company_id: data.companyId,
-        pv_id: data.pvId ?? null,
-        email: normalizeEmail(data.email),
-        code_hash: codeHash,
-        expires_at: expiresAt,
-        ip_address: ip,
-        user_agent: ua,
-      })
-      .select("id")
-      .single();
-    if (error || !ins) throw new Error(`OTP : ${error?.message ?? "inconnue"}`);
+    const { id: otpId, code, expiresAt } = await createSignatureOtp({
+      companyId: data.companyId,
+      pvId: data.pvId ?? null,
+      email: data.email,
+      mode: "onsite",
+    });
 
     const { data: company } = await supabaseAdmin
       .from("companies").select("name").eq("id", data.companyId).maybeSingle();
@@ -81,11 +69,11 @@ export const sendOnsiteClientOtp = createServerFn({ method: "POST" })
       pvId: data.pvId ?? undefined,
       entityType: "pv",
       action: "pv.onsite_otp_sent",
-      metadata: { email: data.email },
+      metadata: { email_masked: maskEmail(data.email) },
       actor: "user",
     });
 
-    return { ok: true, otpId: ins.id, expiresAt };
+    return { ok: true, otpId, expiresAt };
   });
 
 const VerifySchema = z.object({
@@ -99,40 +87,28 @@ export const verifyOnsiteClientOtp = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context;
 
-    const { data: otp } = await supabaseAdmin
-      .from("pv_onsite_otp")
-      .select("*")
+    // Pre-check membership against the OTP's company before verification.
+    const { data: otpHead } = await supabaseAdmin
+      .from("pv_signature_otps")
+      .select("company_id")
       .eq("id", data.otpId)
       .maybeSingle();
-    if (!otp) throw new Error("Code introuvable.");
+    if (!otpHead) throw new Error("Code introuvable.");
 
-    // Membership check
     const { data: m } = await supabaseAdmin
       .from("company_members")
       .select("id")
-      .eq("company_id", otp.company_id)
+      .eq("company_id", otpHead.company_id)
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
     if (!m) throw new Error("Accès refusé.");
 
-    if (otp.used_at) throw new Error("Code déjà utilisé.");
-    if (new Date(otp.expires_at) < new Date()) throw new Error("Code expiré. Renvoyez un nouveau code.");
-    if ((otp.attempts ?? 0) >= 5) throw new Error("Trop de tentatives. Renvoyez un nouveau code.");
-
-    const codeHash = await sha256Hex(data.code);
-    if (codeHash !== otp.code_hash) {
-      await supabaseAdmin
-        .from("pv_onsite_otp")
-        .update({ attempts: (otp.attempts ?? 0) + 1 })
-        .eq("id", otp.id);
-      throw new Error("Code invalide.");
-    }
-
-    await supabaseAdmin
-      .from("pv_onsite_otp")
-      .update({ used_at: new Date().toISOString() })
-      .eq("id", otp.id);
+    const otp = await verifySignatureOtp({
+      otpId: data.otpId,
+      code: data.code,
+      expectedMode: "onsite",
+    });
 
     await writeAuditLog({
       companyId: otp.company_id,
@@ -140,7 +116,7 @@ export const verifyOnsiteClientOtp = createServerFn({ method: "POST" })
       pvId: otp.pv_id ?? undefined,
       entityType: "pv",
       action: "pv.onsite_otp_verified",
-      metadata: { email: otp.email },
+      metadata: { email_masked: maskEmail(otp.email) },
       actor: "user",
     });
 
