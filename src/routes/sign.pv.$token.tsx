@@ -2,15 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
 import { useServerFn } from "@tanstack/react-start";
-import { getPvByToken, signPvByToken } from "@/lib/sign.functions";
+import { getPvByToken, signPvByToken, sendRemoteClientOtp, verifyRemoteClientOtp } from "@/lib/sign.functions";
 import { getSignedPvPdfPublic } from "@/lib/pdf.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusPill } from "@/components/ui/status-pill";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, Camera, Eraser, ShieldCheck, Clock, Download } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, Camera, Eraser, ShieldCheck, Clock, Download, Mail, KeyRound } from "lucide-react";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/sign/pv/$token")({
   component: SignPage,
