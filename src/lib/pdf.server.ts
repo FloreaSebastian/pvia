@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, type CompanyBranding, type CompanyBrandingSettings, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
+import { sha256OfBytes, shortUA, EIDAS_MENTIONS } from "./signature-proof.server";
 
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
@@ -13,6 +14,7 @@ type Reserve = {
   due_date?: string | null;
 };
 type Pv = {
+  id?: string;
   numero: string;
   type: string;
   status: string;
@@ -33,6 +35,21 @@ type Pv = {
   chantier_address?: string | null;
   chantier_postal_code?: string | null;
   chantier_city?: string | null;
+  // eIDAS evidence
+  signature_mode?: string | null;
+  client_identity_email?: string | null;
+  client_identity_verified_at?: string | null;
+  client_identity_verified_by?: string | null;
+  client_signature_ip?: string | null;
+  client_signature_user_agent?: string | null;
+  consent_text?: string | null;
+  consent_at?: string | null;
+};
+
+export type SignatureProofMeta = {
+  companySignatoryName?: string | null;
+  pdfSha256?: string | null;
+  pdfGeneratedAt: string;
 };
 
 const ACCENT = rgb(0.06, 0.09, 0.16); // slate-900
@@ -107,8 +124,9 @@ export async function generatePvPdfBytes(input: {
   reserves: Reserve[];
   photos: { caption: string | null; bytes: Uint8Array }[];
   branding?: CompanyBrandingSettings;
+  proof?: SignatureProofMeta;
 }): Promise<Uint8Array> {
-  const { pv, company, client, chantier, reserves, photos } = input;
+  const { pv, company, client, chantier, reserves, photos, proof } = input;
   const branding = input.branding ?? DEFAULT_BRANDING_SETTINGS;
   const PRIMARY = (() => {
     const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
@@ -430,6 +448,78 @@ export async function generatePvPdfBytes(input: {
   await drawSig(MARGIN + sigW + 16, "Client", pv.client_signature);
   y -= sigH + 16;
 
+
+  // ============ PREUVE DE SIGNATURE ELECTRONIQUE (eIDAS SES) ============
+  if (pv.status === "signe" || pv.signed_at || pv.client_identity_email) {
+    ensureSpace(220);
+    drawText("PREUVE DE SIGNATURE ELECTRONIQUE", { size: 9, font: bold, color: PRIMARY });
+    y -= 14;
+
+    const proofBoxH = 170;
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - proofBoxH,
+      width: CONTENT_W,
+      height: proofBoxH,
+      borderColor: BORDER,
+      borderWidth: 0.5,
+      color: rgb(0.985, 0.99, 1),
+    });
+
+    const colXa = MARGIN + 12;
+    const colXb = MARGIN + CONTENT_W / 2 + 6;
+    const colW2 = CONTENT_W / 2 - 18;
+    let ya = y - 16;
+    let yb = y - 16;
+
+    const proofField = (col: "a" | "b", label: string, value: string) => {
+      const x = col === "a" ? colXa : colXb;
+      let cy = col === "a" ? ya : yb;
+      page.drawText(label.toUpperCase(), { x, y: cy, size: 6.5, font: bold, color: MUTED });
+      cy -= 10;
+      const lines = wrapLines(helv, value || "-", 8.5, colW2);
+      for (const l of lines.slice(0, 2)) {
+        page.drawText(l, { x, y: cy, size: 8.5, font: helv, color: ACCENT });
+        cy -= 11;
+      }
+      cy -= 4;
+      if (col === "a") ya = cy; else yb = cy;
+    };
+
+    const mode = pv.signature_mode === "remote"
+      ? "Signature electronique a distance avec verification OTP par email"
+      : pv.signature_mode === "onsite"
+        ? "Signature electronique sur place avec verification OTP par email"
+        : "Signature electronique simple";
+
+    // Column A — parties
+    proofField("a", "Signataire entreprise", proof?.companySignatoryName || company?.name || "-");
+    proofField("a", "Signature entreprise", formatDate(pv.signed_at, true));
+    proofField("a", "Email client verifie", pv.client_identity_email || client?.email || "-");
+    proofField("a", "Identite verifiee le", formatDate(pv.client_identity_verified_at, true));
+    proofField("a", "Signature client", formatDate(pv.signed_at, true));
+
+    // Column B — traceability
+    proofField("b", "Methode de signature", mode);
+    proofField("b", "Adresse IP client", pv.client_signature_ip || "-");
+    proofField("b", "Navigateur client", shortUA(pv.client_signature_user_agent));
+    proofField("b", "Consentement", pv.consent_at ? `Accepte le ${formatDate(pv.consent_at, true)}` : "-");
+    proofField("b", "Version consentement", pv.consent_text ? sanitize(pv.consent_text).slice(0, 8) : "-");
+
+    y -= proofBoxH + 6;
+
+    // Doc fingerprint footer (inside proof zone)
+    ensureSpace(40);
+    drawText("Empreinte numerique du document", { size: 7, font: bold, color: MUTED });
+    y -= 10;
+    drawText(`UUID : ${pv.id ?? "-"}`, { size: 7, font: helv, color: MUTED });
+    y -= 10;
+    drawText(`N° : ${pv.numero}   ·   Genere le ${formatDate(proof?.pdfGeneratedAt ?? new Date().toISOString(), true)}`, { size: 7, font: helv, color: MUTED });
+    y -= 10;
+    drawText(`SHA-256 : ${proof?.pdfSha256 ?? "(calcule a la generation)"}`, { size: 6.5, font: helv, color: MUTED, maxWidth: CONTENT_W });
+    y -= 12;
+  }
+
   // ============ MENTIONS ============
   ensureSpace(80);
   drawText("MENTIONS LEGALES", { size: 8, font: bold, color: MUTED });
@@ -437,9 +527,16 @@ export async function generatePvPdfBytes(input: {
   const mentions =
     "Le present proces-verbal de reception fait foi de la livraison des travaux decrits ci-dessus. " +
     "Sauf reserves expressement formulees ci-dessus, le client reconnait avoir constate la bonne execution des travaux. " +
-    "Les reserves listees devront etre levees dans les delais convenus. Document signe electroniquement conformement au reglement eIDAS.";
+    "Les reserves listees devront etre levees dans les delais convenus.";
   const ml = wrapLines(helv, mentions, 7.5, CONTENT_W);
   for (const l of ml) { page.drawText(l, { x: MARGIN, y, size: 7.5, font: helv, color: MUTED }); y -= 11; }
+  y -= 4;
+  for (const m of EIDAS_MENTIONS) {
+    for (const l of wrapLines(helv, m, 7, CONTENT_W)) {
+      page.drawText(l, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
+      y -= 10;
+    }
+  }
 
   drawFooter();
   return await pdf.save();
@@ -451,12 +548,12 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export async function buildAndStorePvPdf(pvId: string): Promise<string> {
   const { data: pv } = await supabaseAdmin
     .from("pv")
-    .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at")
+    .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at,owner_id,signature_mode,client_identity_email,client_identity_verified_at,client_identity_verified_by,client_signature_ip,client_signature_user_agent,consent_text,consent_at")
     .eq("id", pvId)
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
 
-  const [company, brandingSettings, clientRes, chantierRes, photosRes, reservesRes] = await Promise.all([
+  const [company, brandingSettings, clientRes, chantierRes, photosRes, reservesRes, ownerRes] = await Promise.all([
     getCompanyBranding(pv.company_id),
     getCompanyBrandingSettings(pv.company_id),
     pv.client_id
@@ -467,6 +564,9 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("pv_photos").select("id,url,caption").eq("pv_id", pvId).order("created_at"),
     supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").eq("pv_id", pvId).order("created_at"),
+    pv.owner_id
+      ? supabaseAdmin.from("profiles").select("full_name").eq("id", pv.owner_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const photos: { caption: string | null; bytes: Uint8Array }[] = [];
@@ -475,16 +575,57 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     if (f) photos.push({ caption: p.caption, bytes: new Uint8Array(await f.arrayBuffer()) });
   }
 
-  const pdfBytes = await generatePvPdfBytes({
-    pv,
+  // If client_identity_email is empty, try to lift it from the latest verified signature OTP.
+  let clientEmailEvidence = (pv as any).client_identity_email as string | null;
+  let identityVerifiedAt = (pv as any).client_identity_verified_at as string | null;
+  if (!clientEmailEvidence) {
+    const { data: otp } = await supabaseAdmin
+      .from("pv_signature_otps")
+      .select("email,used_at,signature_mode")
+      .eq("pv_id", pvId)
+      .not("used_at", "is", null)
+      .order("used_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (otp) {
+      clientEmailEvidence = otp.email;
+      identityVerifiedAt = identityVerifiedAt ?? otp.used_at;
+    }
+  }
+
+  const enrichedPv = {
+    ...pv,
+    client_identity_email: clientEmailEvidence,
+    client_identity_verified_at: identityVerifiedAt,
+  } as any;
+
+  const generatedAt = new Date().toISOString();
+  const companySignatoryName = (ownerRes as any).data?.full_name ?? company?.name ?? null;
+
+  // Pass 1: build PDF without hash to compute its SHA-256.
+  const passOneBytes = await generatePvPdfBytes({
+    pv: enrichedPv,
     company: company ?? undefined,
     client: (clientRes as any).data ?? undefined,
     chantier: (chantierRes as any).data ?? undefined,
     reserves: reservesRes.data ?? [],
     photos,
     branding: brandingSettings,
+    proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256: null },
   });
+  const pdfSha256 = await sha256OfBytes(passOneBytes);
 
+  // Pass 2: embed the hash into the proof block.
+  const pdfBytes = await generatePvPdfBytes({
+    pv: enrichedPv,
+    company: company ?? undefined,
+    client: (clientRes as any).data ?? undefined,
+    chantier: (chantierRes as any).data ?? undefined,
+    reserves: reservesRes.data ?? [],
+    photos,
+    branding: brandingSettings,
+    proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256 },
+  });
 
   const path = `${pv.company_id}/pv/${pvId}/PV-${pv.numero}-signed.pdf`;
   const { error: upErr } = await supabaseAdmin.storage
@@ -494,7 +635,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
 
   const { error: updErr } = await supabaseAdmin
     .from("pv")
-    .update({ pdf_url: path, pdf_generated_at: new Date().toISOString() } as any)
+    .update({ pdf_url: path, pdf_generated_at: generatedAt } as any)
     .eq("id", pvId);
   if (updErr) throw new Error(updErr.message);
 
