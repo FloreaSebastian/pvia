@@ -1735,48 +1735,7 @@ export type Database = {
       }
     }
     Views: {
-      pv_onsite_otp: {
-        Row: {
-          attempts: number | null
-          code_hash: string | null
-          company_id: string | null
-          created_at: string | null
-          email: string | null
-          expires_at: string | null
-          id: string | null
-          ip_address: string | null
-          pv_id: string | null
-          used_at: string | null
-          user_agent: string | null
-        }
-        Insert: {
-          attempts?: number | null
-          code_hash?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          email?: string | null
-          expires_at?: string | null
-          id?: string | null
-          ip_address?: string | null
-          pv_id?: string | null
-          used_at?: string | null
-          user_agent?: string | null
-        }
-        Update: {
-          attempts?: number | null
-          code_hash?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          email?: string | null
-          expires_at?: string | null
-          id?: string | null
-          ip_address?: string | null
-          pv_id?: string | null
-          used_at?: string | null
-          user_agent?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       can_add_member: { Args: { _company_id: string }; Returns: boolean }
