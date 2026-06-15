@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 const ALLOWED_ADMIN_DOMAIN = "@pvia.fr";
 
 /** Rôles considérés comme administrateur plateforme (transition). */
-const PLATFORM_ADMIN_ROLES = ["platform_admin", "admin"] as const;
+const PLATFORM_ADMIN_ROLES = ["platform_admin", "admin"] as const satisfies ReadonlyArray<"platform_admin" | "admin">;
 
 export function isPlatformAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
