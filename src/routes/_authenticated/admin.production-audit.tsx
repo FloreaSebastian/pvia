@@ -38,39 +38,8 @@ const FINDINGS: Finding[] = [
   // WF-C1/C2/C3, ST-C1/C2/C3/C4, EM-C1/C2 : voir migrations 20260615210605 + sprint final.
 
   // ====== MAJEURS RESTANTS ======
-  // MAJEURS — Workflows
-  { id: "WF-M1", sev: "majeur", domain: "Workflow PV", title: "Échec insert réserves silencieux",
-    file: "src/lib/pv-create.functions.ts:333-335",
-    detail: "console.error mais pas de throw. Le PV est créé signé, le PDF généré sans réserves, l'email envoyé. Document légal incomplet sans trace.",
-    fix: "Throw + rollback ou statut 'failed'." },
-  { id: "WF-M2", sev: "majeur", domain: "Workflow PV", title: "Update `sign_token_hash` sans error check",
-    file: "src/lib/pv-create.functions.ts:397-406",
-    detail: "Si l'UPDATE échoue, le PV est `en_attente` avec un hash invalide → lien de signature mort, impossible à déboguer côté client.",
-    fix: "Destructurer { error } et throw." },
-  { id: "WF-M3", sev: "majeur", domain: "Workflow PV", title: "Insert `reserve_lift_items` sans check",
-    file: "src/lib/reserve-lift.functions.ts:174-181",
-    detail: "Échec d'insertion → rapport 'signe' sans items, PDF incohérent avec l'audit.",
-    fix: "Vérifier { error } et throw." },
-  { id: "WF-M4", sev: "majeur", domain: "Workflow PV", title: "Update statut réserves sans check",
-    file: "src/lib/reserve-lift.functions.ts:186 ; src/lib/client-reserve-lift.functions.ts:262-266",
-    detail: "Si l'UPDATE échoue, le rapport est créé 'levé' mais les réserves restent 'ouverte' en DB. Incohérence métier non loguée.",
-    fix: "Capturer error + audit." },
-  { id: "WF-M5", sev: "majeur", domain: "Workflow PV", title: "`pdf_url` non enregistré sans erreur",
-    file: "src/lib/reserve-lift.server.ts:416-419",
-    detail: "Si l'UPDATE pdf_url échoue, la fonction retourne un path valide mais la DB reste null → UI affiche 'PDF indisponible' alors que le fichier existe.",
-    fix: "Vérifier { error }." },
-  { id: "WF-M6", sev: "majeur", domain: "Workflow PV", title: "OTP marqué utilisé côté code mais pas en DB",
-    file: "src/lib/signature-otp.server.ts:122-127",
-    detail: "(Résiduel) Avec consume_signature_otp RPC en place, la fenêtre est fermée. À supprimer après validation runtime.",
-    fix: "Validé côté DB via consume_signature_otp." },
-  { id: "WF-M7", sev: "majeur", domain: "Workflow PV", title: "Double validation client (TOCTOU)",
-    file: "src/lib/client-reserve-lift.functions.ts:242-252",
-    detail: "Check `client_validated_at == null` puis UPDATE → deux double-clics passent.",
-    fix: "UPDATE conditionnel `.is('client_validated_at', null)` + check rowcount." },
-  { id: "WF-M8", sev: "majeur", domain: "Workflow PV", title: "Échec email signé non reporté",
-    file: "src/lib/pv-create.functions.ts:373-385",
-    detail: "deliverSignedPv() try/catch console.error uniquement. L'appelant reçoit { ok: true } sans savoir que le client n'a pas reçu le PV.",
-    fix: "Ajouter audit log + flag dans la réponse." },
+  // Workflows: WF-M1→M8 résolus en Phase 2 (visibilité erreurs + TOCTOU).
+  // Voir migration 20260615212735 + processing-status.server.ts.
 
   // MAJEURS — Stripe (ST-M1 & ST-M3 corrigés)
   { id: "ST-M2", sev: "majeur", domain: "Stripe", title: "`companyId` absent d'invoice.metadata — fallback partiel",
