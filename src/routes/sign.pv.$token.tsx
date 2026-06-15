@@ -61,7 +61,7 @@ function SignPage() {
     const signatureDataUrl = padRef.current.getCanvas().toDataURL("image/png");
     setSubmitting(true);
     try {
-      const res = await signPv({ data: { token, signatureDataUrl } });
+      const res = await signPv({ data: { token, signatureDataUrl, consent: true } });
       setDone({ pvId: res.pvId, downloadKey: res.downloadKey });
     } catch (e: any) {
       toast.error(e?.message || "Échec de la signature");
