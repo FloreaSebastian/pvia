@@ -9,6 +9,7 @@ import { writeAuditLog } from "./audit.server";
 import { firePushToCompany } from "./push.server";
 import { buildAndStoreReserveLiftPdf } from "./reserve-lift.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
+import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
 import {
   PHOTO_ALLOWED_MIMES,
   PHOTO_MAX_BYTES,
