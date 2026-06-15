@@ -12,7 +12,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { supabase } from "@/integrations/supabase/client";
-import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
+import { sendEnterpriseLoginCode, verifyEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
 import { toast } from "sonner";
 
@@ -47,6 +47,7 @@ function VerifyPage() {
   const navigate = useNavigate();
   const logEvent = useServerFn(logUserAuthEvent);
   const resendLoginCode = useServerFn(sendEnterpriseLoginCode);
+  const verifyLoginCode = useServerFn(verifyEnterpriseLoginCode);
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -73,15 +74,26 @@ function VerifyPage() {
       return;
     }
     setLoading(true);
+    let tokenHash: string;
+    try {
+      const res = await verifyLoginCode({ data: { email, code: value } });
+      tokenHash = res.tokenHash;
+    } catch (err: any) {
+      setLoading(false);
+      await logEvent({ data: { action: "user.login_failed", email, metadata: { method: "otp" } } }).catch(() => {});
+      toast.error(err?.message ?? "Code invalide");
+      setCode("");
+      submittedRef.current = false;
+      return;
+    }
     const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: value,
       type: "magiclink",
+      token_hash: tokenHash,
     });
     setLoading(false);
     if (error) {
-      await logEvent({ data: { action: "user.login_failed", email, metadata: { method: "otp" } } }).catch(() => {});
-      toast.error(error.message.includes("expired") ? "Code expiré ou invalide" : "Code invalide");
+      await logEvent({ data: { action: "user.login_failed", email, metadata: { method: "otp", stage: "session" } } }).catch(() => {});
+      toast.error("Session impossible à créer. Demandez un nouveau code.");
       setCode("");
       submittedRef.current = false;
       return;
