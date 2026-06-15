@@ -13,12 +13,17 @@ export type GoLiveStatus = {
   appErrors: { criticalOpen: number; last24h: number };
   config: {
     stripe: boolean;
+    stripeLiveOk: boolean;
+    stripeLivePresent: boolean;
     resend: boolean;
+    resendFromEmail: boolean;
     vapid: boolean;
     cronSecret: boolean;
     publicAppUrl: boolean;
+    publicAppUrlValue: string | null;
     appEnv: "local" | "preview" | "production";
     appEnvExplicit: boolean;
+    viteAppEnv: string | null;
     expectedStripeEnv: "sandbox" | "live";
   };
   totals: { companies: number; pvSigned: number; pvTotal: number };
@@ -124,12 +129,17 @@ export const getGoLiveStatus = createServerFn({ method: "GET" })
     const stripeLive = checkStripeEnv("live");
     const config = {
       stripe: !!(process.env.STRIPE_LIVE_API_KEY || process.env.STRIPE_SANDBOX_API_KEY),
+      stripeLiveOk: stripeLive.ok,
+      stripeLivePresent: !!process.env.STRIPE_LIVE_API_KEY,
       resend: !!process.env.RESEND_API_KEY,
+      resendFromEmail: !!process.env.RESEND_FROM_EMAIL,
       vapid: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
       cronSecret: !!process.env.CRON_SECRET,
       publicAppUrl: !!process.env.PUBLIC_APP_URL,
+      publicAppUrlValue: process.env.PUBLIC_APP_URL ?? null,
       appEnv,
       appEnvExplicit,
+      viteAppEnv: (import.meta.env.VITE_APP_ENV as string | undefined) ?? null,
       expectedStripeEnv,
     };
 
@@ -154,11 +164,12 @@ export const getGoLiveStatus = createServerFn({ method: "GET" })
       warnings.push(`Stripe SANDBOX incohérent : ${stripeSandbox.errors.join("; ")}`);
     }
     if (!config.resend) blockers.push("Resend non configuré");
+    if (!config.resendFromEmail) warnings.push("RESEND_FROM_EMAIL absent");
     if (!config.cronSecret) warnings.push("CRON_SECRET absent");
     if (!config.vapid) warnings.push("VAPID push non configuré");
     if (!config.publicAppUrl) warnings.push("PUBLIC_APP_URL absent");
-    // ST-M6: explicit APP_ENV gate.
     if (!appEnvExplicit) warnings.push("APP_ENV absent (détection fallback par hostname)");
+    if (!config.viteAppEnv) warnings.push("VITE_APP_ENV absent (build front)");
     if (appEnv === "production" && !process.env.STRIPE_LIVE_API_KEY) {
       blockers.push("APP_ENV=production mais STRIPE_LIVE_API_KEY absent");
     }
