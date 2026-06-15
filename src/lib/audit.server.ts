@@ -90,7 +90,23 @@ export type AuditAction =
   | "reserve_lift.validation_email_sent"
   | "reserve_lift.validation_email_failed"
   | "billing.payment_failed_email_sent"
-  | "billing.payment_failed_email_failed";
+  | "billing.payment_failed_email_failed"
+  | "company.auto_suspended"
+  // Phase 2 — workflow error visibility
+  | "pv.reserve_insert_failed"
+  | "pv.photo_upload_failed"
+  | "pv.photo_row_insert_failed"
+  | "pv.pdf_generation_failed"
+  | "pv.pdf_regenerated"
+  | "pv.signed_email_failed"
+  | "pv.sign_token_persist_failed"
+  | "reserve_lift.item_insert_failed"
+  | "reserve_lift.reserves_update_failed"
+  | "reserve_lift.pdf_generation_failed"
+  | "reserve_lift.pdf_regenerated"
+  | "reserve_lift.validation_email_resent"
+  | "reserve_lift.client_double_validation_blocked"
+  | "reserve_lift.client_validated_email_failed";
 
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
