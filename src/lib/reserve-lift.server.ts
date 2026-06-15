@@ -4,6 +4,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
+import { sha256OfBytes, shortUA, EIDAS_MENTIONS } from "./signature-proof.server";
 
 const ACCENT = rgb(0.06, 0.09, 0.16);
 const MUTED = rgb(0.42, 0.45, 0.52);
