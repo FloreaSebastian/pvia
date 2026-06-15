@@ -363,11 +363,6 @@ function PvDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-  return (
-    <div className="space-y-6">
       {pv.processing_status && pv.processing_status !== "ok" && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
           <div className="flex items-start gap-3">
