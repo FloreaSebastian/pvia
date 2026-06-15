@@ -80,6 +80,19 @@ export const Route = createFileRoute("/api/public/health/deep")({
         checks.push({ name: "cron_secret", ok: !!process.env.CRON_SECRET });
         checks.push({ name: "public_app_url", ok: !!process.env.PUBLIC_APP_URL });
 
+        // ST-M6: explicit application environment.
+        const { getServerAppEnv, getServerStripeEnv } = await import("@/lib/app-env.server");
+        const appEnv = getServerAppEnv();
+        const stripeEnv = getServerStripeEnv();
+        const appEnvExplicit = !!process.env.APP_ENV;
+        checks.push({
+          name: "app_env",
+          ok: appEnvExplicit,
+          detail: appEnvExplicit
+            ? `${appEnv} → stripe:${stripeEnv}`
+            : `APP_ENV not set, inferred=${appEnv} (stripe:${stripeEnv})`,
+        });
+
         const allOk = checks.every((c) => c.ok);
 
         return new Response(
