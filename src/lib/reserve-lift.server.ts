@@ -321,12 +321,88 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
     y -= 16;
   }
 
-  // Mentions
+  // ============ PREUVE DE SIGNATURE ELECTRONIQUE (eIDAS SES) ============
+  ensureSpace(170);
+  page.drawText("PREUVE DE SIGNATURE ELECTRONIQUE", { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
+  y -= 14;
+
+  const proofBoxH = 140;
+  page.drawRectangle({
+    x: MARGIN,
+    y: y - proofBoxH,
+    width: CONTENT_W,
+    height: proofBoxH,
+    borderColor: BORDER,
+    borderWidth: 0.5,
+    color: rgb(0.985, 0.99, 1),
+  });
+
+  const colXa = MARGIN + 12;
+  const colXb = MARGIN + CONTENT_W / 2 + 6;
+  const colW2 = CONTENT_W / 2 - 18;
+  let ya = y - 16;
+  let yb = y - 16;
+  const proofField = (col: "a" | "b", label: string, value: string) => {
+    const x = col === "a" ? colXa : colXb;
+    let cy = col === "a" ? ya : yb;
+    page.drawText(sanitize(label).toUpperCase(), { x, y: cy, size: 6.5, font: bold, color: MUTED });
+    cy -= 10;
+    for (const l of wrapLines(helv, value || "-", 8.5, colW2).slice(0, 2)) {
+      page.drawText(l, { x, y: cy, size: 8.5, font: helv, color: ACCENT });
+      cy -= 11;
+    }
+    cy -= 4;
+    if (col === "a") ya = cy; else yb = cy;
+  };
+
+  proofField("a", "Signataire entreprise", company?.name || "-");
+  proofField("a", "Signature entreprise", formatDate(report.signed_at, true));
+  proofField("a", "Email client verifie", (report as any).client_validated_email || client?.email || "-");
+  proofField("a", "Identite verifiee le", formatDate((report as any).client_validated_at, true));
+
+  proofField("b", "Methode de signature", "Signature electronique simple — validation par lien email");
+  proofField("b", "Adresse IP client", (report as any).client_validated_ip || "-");
+  proofField("b", "Date de validation client", formatDate((report as any).client_validated_at, true));
+  proofField("b", "Signature client (entreprise)", report.client_signature ? "Signature collectee" : "-");
+
+  y -= proofBoxH + 6;
+
+  // Evidence fingerprint (deterministic hash of the proof bundle, not of the PDF bytes)
+  const evidenceString = [
+    report.id,
+    report.numero,
+    report.signed_at ?? "",
+    (report as any).client_validated_email ?? "",
+    (report as any).client_validated_at ?? "",
+    (report as any).client_validated_ip ?? "",
+  ].join("|");
+  const evidenceBytes = new TextEncoder().encode(evidenceString);
+  const evidenceHash = await sha256OfBytes(evidenceBytes);
+  const genAt = new Date().toISOString();
+
   ensureSpace(40);
+  page.drawText("Empreinte numerique du document", { x: MARGIN, y, size: 7, font: bold, color: MUTED });
+  y -= 10;
+  page.drawText(`UUID : ${report.id}`, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
+  y -= 10;
+  page.drawText(`N° : ${sanitize(report.numero)}   ·   Genere le ${formatDate(genAt, true)}`, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
+  y -= 10;
+  page.drawText(`SHA-256 (preuve) : ${evidenceHash}`, { x: MARGIN, y, size: 6.5, font: helv, color: MUTED });
+  y -= 12;
+
+  // Mentions
+  ensureSpace(60);
   page.drawText("MENTIONS LEGALES", { x: MARGIN, y, size: 8, font: bold, color: MUTED });
   y -= 12;
-  const mentions = "Le present proces-verbal atteste la levee des reserves listees ci-dessus, suite a l'intervention de l'entreprise. Document signe electroniquement conformement au reglement eIDAS.";
+  const mentions = "Le present proces-verbal atteste la levee des reserves listees ci-dessus, suite a l'intervention de l'entreprise.";
   for (const l of wrapLines(helv, mentions, 7.5, CONTENT_W)) { page.drawText(l, { x: MARGIN, y, size: 7.5, font: helv, color: MUTED }); y -= 11; }
+  y -= 4;
+  for (const m of EIDAS_MENTIONS) {
+    for (const l of wrapLines(helv, m, 7, CONTENT_W)) {
+      page.drawText(l, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
+      y -= 10;
+    }
+  }
 
   drawFooter();
 
