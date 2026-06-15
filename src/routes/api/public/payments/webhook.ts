@@ -227,6 +227,18 @@ async function notifyPastDue(subscription: any, env: StripeEnv) {
 }
 
 async function handleWebhook(req: Request, env: StripeEnv) {
+  // ST-C4: refuse to process if env credentials are missing/mismatched.
+  const envReport = checkStripeEnv(env);
+  if (!envReport.ok) {
+    await audit({
+      entityType: "stripe_event",
+      entityId: "env_guard",
+      action: "stripe.env_mismatch_blocked",
+      metadata: { env, errors: envReport.errors },
+    });
+    throw new Error(`STRIPE_ENV_MISMATCH:${env}: ${envReport.errors.join("; ")}`);
+  }
+
   const event = await verifyWebhook(req, env);
   const eventId = (event as any).id as string | undefined;
   console.log("[webhook] event:", event.type, eventId);
@@ -242,7 +254,6 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     if (dupErr) {
       const code = (dupErr as { code?: string }).code;
       if (code === "23505") {
-        // Already processed — audit + return success so Stripe stops retrying.
         await audit({
           entityType: "stripe_event",
           entityId: eventId,
@@ -253,7 +264,6 @@ async function handleWebhook(req: Request, env: StripeEnv) {
         });
         return;
       }
-      // Unknown DB error — log but proceed (don't lose the event).
       console.error("[webhook] idempotency insert failed", dupErr);
     }
   }
@@ -263,9 +273,15 @@ async function handleWebhook(req: Request, env: StripeEnv) {
       await handleCheckoutCompleted(event.data.object, env);
       break;
     case "customer.subscription.created":
-    case "customer.subscription.updated":
-      await upsertSubscription(event.data.object, env);
+    case "customer.subscription.updated": {
+      const sub = event.data.object;
+      await upsertSubscription(sub, env);
+      // EM-C2 sister-trigger: notify on past_due transitions.
+      if (sub?.status === "past_due") {
+        await notifyPastDue(sub, env);
+      }
       break;
+    }
     case "customer.subscription.deleted":
       await markCanceled(event.data.object, env);
       break;
@@ -276,6 +292,8 @@ async function handleWebhook(req: Request, env: StripeEnv) {
       console.log("[webhook] unhandled:", event.type);
   }
 }
+// Keep noqa-ref for assertStripeEnvConsistent (re-exported for callers)
+void assertStripeEnvConsistent;
 
 export const Route = createFileRoute("/api/public/payments/webhook")({
   server: {
