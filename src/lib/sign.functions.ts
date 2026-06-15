@@ -11,6 +11,8 @@ import { firePushToCompany } from "./push.server";
 import { enforceRateLimit, getClientIp } from "./rate-limit.server";
 import { decodeAndValidateImage } from "./image-validate.server";
 import { generateSignToken, sha256Hex, SIGN_CONSENT_TEXT_V1 } from "./sign-token.server";
+import { sendOnsiteOtpEmail } from "./email.server";
+import { generateNumericCode, normalizeEmail, getClientUA } from "./client-auth.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
