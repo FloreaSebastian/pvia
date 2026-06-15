@@ -113,6 +113,10 @@ export const getGoLiveStatus = createServerFn({ method: "GET" })
     ]);
 
     const { checkStripeEnv } = await import("./stripe.server");
+    const { getServerAppEnv, getServerStripeEnv } = await import("./app-env.server");
+    const appEnv = getServerAppEnv();
+    const expectedStripeEnv = getServerStripeEnv();
+    const appEnvExplicit = !!process.env.APP_ENV;
     const stripeSandbox = checkStripeEnv("sandbox");
     const stripeLive = checkStripeEnv("live");
     const config = {
@@ -121,6 +125,9 @@ export const getGoLiveStatus = createServerFn({ method: "GET" })
       vapid: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
       cronSecret: !!process.env.CRON_SECRET,
       publicAppUrl: !!process.env.PUBLIC_APP_URL,
+      appEnv,
+      appEnvExplicit,
+      expectedStripeEnv,
     };
 
     const blockers: string[] = [];
