@@ -705,10 +705,6 @@ function PvDetail() {
                       </div>
                     );
                   })}
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               )}
             </div>
