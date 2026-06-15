@@ -240,7 +240,9 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
     }
 
     const nowIso = new Date().toISOString();
-    const { error: upErr } = await supabaseAdmin
+    // WF-M7: atomic guard against double validation (TOCTOU). Only one
+    // request can flip `client_validated_at` from null → now().
+    const { data: claimed, error: upErr } = await supabaseAdmin
       .from("reserve_lift_reports")
       .update({
         client_signature: data.signatureDataUrl,
@@ -249,8 +251,24 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
         client_validated_ip: ip,
         status: "client_validated",
       } as any)
-      .eq("id", report.id);
+      .eq("id", report.id)
+      .is("client_validated_at", null)
+      .select("id");
     if (upErr) throw new Error(upErr.message);
+    if (!claimed || claimed.length === 0) {
+      try {
+        await writeAuditLog({
+          companyId: report.company_id,
+          pvId: pv.id,
+          entityType: "reserve_lift",
+          entityId: report.id,
+          action: "reserve_lift.client_double_validation_blocked",
+          metadata: { email: s.email },
+          actor: "client",
+        });
+      } catch {}
+      throw new Error("Cette levée est déjà validée.");
+    }
 
     // Flip every reserve attached to this lift to "validee"
     const { data: items } = await supabaseAdmin
@@ -259,27 +277,54 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
       .eq("report_id", report.id);
     const reserveIds = (items ?? []).map((i: any) => i.reserve_id);
     if (reserveIds.length) {
-      await supabaseAdmin
+      const { error: rUpErr } = await supabaseAdmin
         .from("pv_reserves")
         .update({ status: "validee", validated_at: nowIso } as any)
         .in("id", reserveIds);
+      if (rUpErr) {
+        const { recordProcessingError } = await import("@/lib/processing-status.server");
+        await recordProcessingError({
+          table: "reserve_lift_reports", id: report.id, companyId: report.company_id, pvId: pv.id,
+          step: "client_update_reserves_status",
+          error: rUpErr,
+          meta: { reserve_ids: reserveIds },
+          audit: { action: "reserve_lift.reserves_update_failed", entityType: "reserve_lift" },
+        });
+      }
     }
 
-    // Regenerate PDF with client signature (non-fatal)
+    // Regenerate PDF with client signature — capture failure into status.
     let pdfPath: string | null = null;
-    try {
-      pdfPath = await buildAndStoreReserveLiftPdf(report.id);
-    } catch (e) {
-      console.error("reserve-lift PDF regen failed:", e);
+    {
+      const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
+      await markPdfGenerationStatus("reserve_lift_reports", report.id, "pending");
+      try {
+        pdfPath = await buildAndStoreReserveLiftPdf(report.id);
+        await markPdfGenerationStatus("reserve_lift_reports", report.id, "ok");
+      } catch (e) {
+        await markPdfGenerationStatus("reserve_lift_reports", report.id, "failed");
+        await recordProcessingError({
+          table: "reserve_lift_reports", id: report.id, companyId: report.company_id, pvId: pv.id,
+          step: "build_lift_pdf_after_validation",
+          error: e,
+          audit: { action: "reserve_lift.pdf_generation_failed", entityType: "reserve_lift" },
+        });
+      }
     }
 
-    // Email + notify
+    // Email + notify — capture failure into status.
     let emailSent = false;
     try {
       await deliverSignedReserveLift({ reportId: report.id });
       emailSent = true;
     } catch (e) {
-      console.error("reserve-lift email failed:", e);
+      const { recordProcessingError } = await import("@/lib/processing-status.server");
+      await recordProcessingError({
+        table: "reserve_lift_reports", id: report.id, companyId: report.company_id, pvId: pv.id,
+        step: "send_client_validated_email",
+        error: e,
+        audit: { action: "reserve_lift.client_validated_email_failed", entityType: "reserve_lift" },
+      });
     }
 
     // Push to company

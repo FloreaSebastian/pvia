@@ -161,7 +161,8 @@ export const createReserveLift = createServerFn({ method: "POST" })
     const reportId = report.id;
     const numero = report.numero;
 
-    // 6. Validate + upload item photos, insert items
+    // 6. Validate + upload item photos, insert items — WF-M3: item insert errors are no longer silent.
+    const { recordProcessingError, markPdfGenerationStatus } = await import("@/lib/processing-status.server");
     for (const item of data.items) {
       const photoPaths: string[] = [];
       for (const p of item.photos) {
@@ -183,7 +184,13 @@ export const createReserveLift = createServerFn({ method: "POST" })
           .from("pv-assets")
           .upload(path, bytes, { contentType: normMime(sniffed), upsert: false });
         if (upErr) {
-          console.error("reserve-lift: photo upload failed", upErr);
+          await recordProcessingError({
+            table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+            step: "upload_item_photo",
+            error: upErr,
+            meta: { path, reserve_id: item.reserveId },
+            audit: { action: "pv.photo_upload_failed", entityType: "reserve_lift_item" },
+          });
           continue;
         }
         photoPaths.push(path);
@@ -191,7 +198,7 @@ export const createReserveLift = createServerFn({ method: "POST" })
       }
 
       const reserve = reserveById.get(item.reserveId)!;
-      await supabaseAdmin.from("reserve_lift_items").insert({
+      const { error: itemErr } = await supabaseAdmin.from("reserve_lift_items").insert({
         report_id: reportId,
         reserve_id: item.reserveId,
         old_status: reserve.status,
@@ -199,30 +206,62 @@ export const createReserveLift = createServerFn({ method: "POST" })
         comment: item.comment || null,
         photo_urls: photoPaths,
       } as any);
+      if (itemErr) {
+        await recordProcessingError({
+          table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+          step: "insert_lift_item",
+          error: itemErr,
+          meta: { reserve_id: item.reserveId },
+          audit: { action: "reserve_lift.item_insert_failed", entityType: "reserve_lift_item" },
+        });
+      }
     }
 
-    // 7. Update each reserve to status=levee
+    // 7. Update each reserve to status=levee — WF-M4.
     if (reserveIds.length) {
-      await supabaseAdmin.from("pv_reserves").update({ status: "levee" }).in("id", reserveIds);
+      const { error: upResErr } = await supabaseAdmin
+        .from("pv_reserves")
+        .update({ status: "levee" })
+        .in("id", reserveIds);
+      if (upResErr) {
+        await recordProcessingError({
+          table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+          step: "update_reserves_status",
+          error: upResErr,
+          meta: { reserve_ids: reserveIds },
+          audit: { action: "reserve_lift.reserves_update_failed", entityType: "reserve_lift" },
+        });
+      }
     }
 
-    // 8. Generate PDF if signed
+    // 8. Generate PDF if signed — WF-M5.
     let pdfPath: string | null = null;
     if (data.status === "signe") {
+      await markPdfGenerationStatus("reserve_lift_reports", reportId, "pending");
       try {
         pdfPath = await buildAndStoreReserveLiftPdf(reportId);
+        await markPdfGenerationStatus("reserve_lift_reports", reportId, "ok");
       } catch (e) {
-        console.error("reserve-lift: PDF failed", e);
-    }
+        await markPdfGenerationStatus("reserve_lift_reports", reportId, "failed");
+        await recordProcessingError({
+          table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+          step: "build_lift_pdf",
+          error: e,
+          audit: { action: "reserve_lift.pdf_generation_failed", entityType: "reserve_lift" },
+        });
+      }
 
-    // EM-C1: when company signs the lift, ask the client to validate.
-    if (data.status === "signe") {
+      // EM-C1: when company signs the lift, ask the client to validate.
       try {
         await sendReserveLiftValidationRequestEmail({ reportId });
       } catch (e) {
-        console.error("reserve-lift: validation email failed", e);
+        await recordProcessingError({
+          table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+          step: "send_validation_email",
+          error: e,
+          audit: { action: "reserve_lift.validation_email_failed", entityType: "reserve_lift" },
+        });
       }
-    }
     }
 
     // 9. Audit

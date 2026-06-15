@@ -60,6 +60,7 @@ import { Route as AuthenticatedParametresAuditRouteImport } from './routes/_auth
 import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
 import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
 import { Route as AuthenticatedAdminProductionAuditRouteImport } from './routes/_authenticated/admin.production-audit'
+import { Route as AuthenticatedAdminProcessingFailuresRouteImport } from './routes/_authenticated/admin.processing-failures'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as AuthenticatedAdminLaunchChecklistRouteImport } from './routes/_authenticated/admin.launch-checklist'
 import { Route as AuthenticatedAdminGoLiveRouteImport } from './routes/_authenticated/admin.go-live'
@@ -355,6 +356,12 @@ const AuthenticatedAdminProductionAuditRoute =
     path: '/admin/production-audit',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminProcessingFailuresRoute =
+  AuthenticatedAdminProcessingFailuresRouteImport.update({
+    id: '/admin/processing-failures',
+    path: '/admin/processing-failures',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminMonitoringRoute =
   AuthenticatedAdminMonitoringRouteImport.update({
     id: '/admin/monitoring',
@@ -544,6 +551,7 @@ export interface FileRoutesByFullPath {
   '/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
   '/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -619,6 +627,7 @@ export interface FileRoutesByTo {
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
@@ -697,6 +706,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/_authenticated/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/_authenticated/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -776,6 +786,7 @@ export interface FileRouteTypes {
     | '/admin/go-live'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
+    | '/admin/processing-failures'
     | '/admin/production-audit'
     | '/admin/support'
     | '/parametres/api'
@@ -851,6 +862,7 @@ export interface FileRouteTypes {
     | '/admin/forbidden'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
+    | '/admin/processing-failures'
     | '/admin/production-audit'
     | '/parametres/api'
     | '/parametres/audit'
@@ -928,6 +940,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/go-live'
     | '/_authenticated/admin/launch-checklist'
     | '/_authenticated/admin/monitoring'
+    | '/_authenticated/admin/processing-failures'
     | '/_authenticated/admin/production-audit'
     | '/_authenticated/admin/support'
     | '/_authenticated/parametres/api'
@@ -1355,6 +1368,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminProductionAuditRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/processing-failures': {
+      id: '/_authenticated/admin/processing-failures'
+      path: '/admin/processing-failures'
+      fullPath: '/admin/processing-failures'
+      preLoaderRoute: typeof AuthenticatedAdminProcessingFailuresRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/monitoring': {
       id: '/_authenticated/admin/monitoring'
       path: '/admin/monitoring'
@@ -1664,6 +1684,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminGoLiveRoute: typeof AuthenticatedAdminGoLiveRouteWithChildren
   AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
+  AuthenticatedAdminProcessingFailuresRoute: typeof AuthenticatedAdminProcessingFailuresRoute
   AuthenticatedAdminProductionAuditRoute: typeof AuthenticatedAdminProductionAuditRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
@@ -1697,6 +1718,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminLaunchChecklistRoute:
     AuthenticatedAdminLaunchChecklistRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
+  AuthenticatedAdminProcessingFailuresRoute:
+    AuthenticatedAdminProcessingFailuresRoute,
   AuthenticatedAdminProductionAuditRoute:
     AuthenticatedAdminProductionAuditRoute,
   AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRouteWithChildren,

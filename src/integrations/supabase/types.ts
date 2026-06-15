@@ -1034,7 +1034,11 @@ export type Database = {
           observations: string | null
           owner_id: string
           pdf_generated_at: string | null
+          pdf_generation_status: string
           pdf_url: string | null
+          photos_failed_count: number
+          processing_errors: Json
+          processing_status: string
           reception_date: string | null
           reception_with_reserves: boolean
           reserve_completion_delay: string | null
@@ -1085,7 +1089,11 @@ export type Database = {
           observations?: string | null
           owner_id: string
           pdf_generated_at?: string | null
+          pdf_generation_status?: string
           pdf_url?: string | null
+          photos_failed_count?: number
+          processing_errors?: Json
+          processing_status?: string
           reception_date?: string | null
           reception_with_reserves?: boolean
           reserve_completion_delay?: string | null
@@ -1136,7 +1144,11 @@ export type Database = {
           observations?: string | null
           owner_id?: string
           pdf_generated_at?: string | null
+          pdf_generation_status?: string
           pdf_url?: string | null
+          photos_failed_count?: number
+          processing_errors?: Json
+          processing_status?: string
           reception_date?: string | null
           reception_with_reserves?: boolean
           reserve_completion_delay?: string | null
@@ -1419,7 +1431,10 @@ export type Database = {
           id: string
           numero: string
           pdf_generated_at: string | null
+          pdf_generation_status: string
           pdf_url: string | null
+          processing_errors: Json
+          processing_status: string
           pv_id: string
           require_client_signature: boolean
           signed_at: string | null
@@ -1439,7 +1454,10 @@ export type Database = {
           id?: string
           numero: string
           pdf_generated_at?: string | null
+          pdf_generation_status?: string
           pdf_url?: string | null
+          processing_errors?: Json
+          processing_status?: string
           pv_id: string
           require_client_signature?: boolean
           signed_at?: string | null
@@ -1459,7 +1477,10 @@ export type Database = {
           id?: string
           numero?: string
           pdf_generated_at?: string | null
+          pdf_generation_status?: string
           pdf_url?: string | null
+          processing_errors?: Json
+          processing_status?: string
           pv_id?: string
           require_client_signature?: boolean
           signed_at?: string | null
