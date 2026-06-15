@@ -137,7 +137,7 @@ function SignPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary/80">
             Procès-verbal de {pv.type === "reception" ? "réception" : pv.type}
           </p>
-          <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight sm:text-4xl">PV {pv.numero}</h1>
+          <h1 className="mt-1.5 font-display text-3xl font-bold tracking-tight sm:text-4xl">N° {pv.numero}</h1>
           {pv.expiresAt && (
             <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" /> Lien valable jusqu'au {new Date(pv.expiresAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
