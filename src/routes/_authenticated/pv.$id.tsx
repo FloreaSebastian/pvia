@@ -119,7 +119,14 @@ function PvDetail() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: pvData, error } = await supabase.from("pv").select("*").eq("id", id).maybeSingle();
+    // Note: exclude sign_token_hash (column-level revoked from authenticated)
+    const { data: pvData, error } = await supabase
+      .from("pv")
+      .select(
+        "id,owner_id,chantier_id,client_id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,pdf_url,created_at,updated_at,company_id,sign_token,sign_token_expires_at,sent_to_client_at,sent_to_email,pdf_generated_at,is_field_draft,latitude,longitude,field_last_saved_at,reception_with_reserves,work_reference_type,work_reference_number,work_reference_date,work_reference_amount,reserve_completion_delay,reserve_due_date,chantier_address,chantier_postal_code,chantier_city,reserve_lift_status,signature_mode,client_identity_verified_at,client_identity_verified_by,client_identity_email,client_identity_phone,client_otp_verified,locked_at,client_signature_ip,client_signature_user_agent,consent_text,consent_at,processing_status,processing_errors,pdf_generation_status,photos_failed_count"
+      )
+      .eq("id", id)
+      .maybeSingle();
     if (error || !pvData) {
       toast.error("PV introuvable");
       navigate({ to: "/pv" });
