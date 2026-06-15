@@ -490,15 +490,19 @@ function PvDetail() {
             <h3 className="font-semibold">Informations</h3>
             <div className="flex items-center gap-2">
               <PvStatusPill status={pv.status} />
-              <Select value={pv.status} onValueChange={changeStatus}>
-                <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="brouillon">Brouillon</SelectItem>
-                  <SelectItem value="en_attente">En attente</SelectItem>
-                  <SelectItem value="signe">Signé</SelectItem>
-                  <SelectItem value="archive">Archivé</SelectItem>
-                </SelectContent>
-              </Select>
+              {!pv.locked_at && (pv.status === "brouillon" || pv.status === "archive") ? (
+                <Select value={pv.status} onValueChange={changeStatus}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="brouillon">Brouillon</SelectItem>
+                    <SelectItem value="archive">Archivé</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">
+                  {pv.locked_at ? "Verrouillé" : "Statut géré par le flux de signature"}
+                </span>
+              )}
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 text-sm">
