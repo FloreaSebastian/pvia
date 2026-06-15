@@ -139,7 +139,7 @@ function VerifyPage() {
 
           <div className="flex justify-center py-2">
             <InputOTP
-              maxLength={8}
+              maxLength={6}
               value={code}
               onChange={setCode}
               autoFocus
@@ -153,8 +153,6 @@ function VerifyPage() {
                 <InputOTPSlot index={3} />
                 <InputOTPSlot index={4} />
                 <InputOTPSlot index={5} />
-                <InputOTPSlot index={6} />
-                <InputOTPSlot index={7} />
               </InputOTPGroup>
             </InputOTP>
           </div>
