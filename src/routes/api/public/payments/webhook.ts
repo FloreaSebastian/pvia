@@ -107,7 +107,7 @@ async function handleCheckoutCompleted(session: any, env: StripeEnv) {
   if (session.mode === "subscription" && session.subscription) {
     const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
     try {
-      const stripe = createStripeClient(env);
+      const stripe = getStripeClient(env);
       const sub = await stripe.subscriptions.retrieve(subId, { expand: ["items.data.price"] });
       await upsertSubscription(sub, env, { auditAction: "stripe.subscription_created" });
     } catch (e) {
