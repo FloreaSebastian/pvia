@@ -73,6 +73,11 @@ function MonitoringPage() {
   const resolveFn = useServerFn(setAppErrorResolved);
   const healthFn = useServerFn(getHealthStatus);
   const csvFn = useServerFn(downloadAppErrorsCsv);
+  const emailQueueFn = useServerFn(getEmailQueueStats);
+  const retryEmailFn = useServerFn(retryEmailSend);
+  const markEmailFn = useServerFn(markEmailResolved);
+  const webhookQueueFn = useServerFn(getWebhookQueueStats);
+  const retryWebhookFn = useServerFn(retryWebhookDelivery);
 
   const retryFn = useServerFn(getRetryQueueStats);
 
@@ -80,6 +85,8 @@ function MonitoringPage() {
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<Stats | null>(null);
   const [health, setHealth] = useState<{ checks: HealthCheck[]; at: string } | null>(null);
+  const [emailQueue, setEmailQueue] = useState<Awaited<ReturnType<typeof emailQueueFn>> | null>(null);
+  const [webhookQueue, setWebhookQueue] = useState<Awaited<ReturnType<typeof webhookQueueFn>> | null>(null);
   const [retry, setRetry] = useState<{
     webhooks: { pending: number; retrying: number; dead: number };
     emails: { pending: number; retrying: number; dead: number };
