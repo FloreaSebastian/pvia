@@ -93,7 +93,7 @@ function VerifyPage() {
     if (user) {
       const { isPlatformAdminEmail } = await import("@/lib/platform-admin");
       if (isPlatformAdminEmail(user.email)) {
-        const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).in("role", ["platform_admin","admin"]).limit(1).maybeSingle();
         isAdmin = !!role;
       }
     }

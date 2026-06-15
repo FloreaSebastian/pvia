@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requirePlatformAdmin } from "./admin-guard.server";
 
 /**
  * Catalogue par défaut de la checklist AIPD / CNIL.
@@ -87,26 +88,37 @@ export const COMPLIANCE_CATALOG: Array<{
     description: "À RÉDIGER PAR LE DPO. Modèle CNIL disponible." },
 ];
 
+/**
+ * Liste les entreprises à auditer (réservé platform admin).
+ * Permet de sélectionner explicitement la cible de l'audit conformité,
+ * au lieu d'utiliser silencieusement `activeCompanyId`.
+ */
+export const listComplianceCompanies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requirePlatformAdmin(context.userId);
+    const { data, error } = await supabaseAdmin
+      .from("companies")
+      .select("id,name,email,created_at")
+      .order("name", { ascending: true })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
 export const getComplianceChecklist = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: { companyId: string }) => z.object({ companyId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
+    // Conformité = outil plateforme : seul un platform_admin peut auditer
+    await requirePlatformAdmin(context.userId);
     const { companyId } = data;
-    // verify admin
-    const { data: m } = await supabaseAdmin
-      .from("company_members")
-      .select("role").eq("company_id", companyId).eq("user_id", context.userId)
-      .eq("status", "active").maybeSingle();
-    if (!m || (m.role !== "owner" && m.role !== "admin")) {
-      throw new Error("Accès refusé");
-    }
 
     const { data: existing } = await supabaseAdmin
       .from("compliance_checklist_items")
       .select("*").eq("company_id", companyId);
     const byKey = new Map((existing ?? []).map((r) => [r.item_key, r]));
 
-    // Merge catalog + DB rows
     return COMPLIANCE_CATALOG.map((c) => {
       const row = byKey.get(c.item_key);
       return {
@@ -130,16 +142,9 @@ export const updateComplianceItem = createServerFn({ method: "POST" })
     notes: z.string().max(4000).optional().nullable(),
   }).parse(i))
   .handler(async ({ data, context }) => {
+    await requirePlatformAdmin(context.userId);
     const cat = COMPLIANCE_CATALOG.find((c) => c.item_key === data.item_key);
     if (!cat) throw new Error("Item inconnu");
-
-    const { data: m } = await supabaseAdmin
-      .from("company_members")
-      .select("role").eq("company_id", data.companyId).eq("user_id", context.userId)
-      .eq("status", "active").maybeSingle();
-    if (!m || (m.role !== "owner" && m.role !== "admin")) {
-      throw new Error("Accès refusé");
-    }
 
     const { error } = await supabaseAdmin
       .from("compliance_checklist_items")
