@@ -24,7 +24,7 @@ async function audit(opts: {
   action: string;
   metadata?: Record<string, unknown>;
 }) {
-  const db = getSupabase() as any;
+  const db = (await getSupabase()) as any;
   await db.from("audit_logs").insert({
     company_id: opts.companyId ?? null,
     user_id: opts.userId ?? null,
@@ -68,7 +68,7 @@ async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { au
     updated_at: new Date().toISOString(),
   };
 
-  const db = getSupabase() as any;
+  const db = (await getSupabase()) as any;
   const { error } = await db
     .from("subscriptions")
     .upsert(row, { onConflict: "stripe_subscription_id" });
@@ -134,7 +134,7 @@ async function markCanceled(subscription: any, env: StripeEnv) {
     // ST-M3: auto-suspend the company so RLS guards (plan-guard) block
     // further writes. Idempotent: only set suspended_at if currently null.
     try {
-      const db = getSupabase() as any;
+      const db = (await getSupabase()) as any;
       const { data: existing } = await db
         .from("companies")
         .select("id,suspended_at")
@@ -177,7 +177,7 @@ async function notifyPaymentFailed(invoice: any, env: StripeEnv) {
   // ST-M2 partial fix: if invoice metadata is missing companyId, fall back
   // to the subscription row in our DB (cheaper than calling Stripe again).
   if (!companyId && subscriptionId) {
-    const db = getSupabase() as any;
+    const db = (await getSupabase()) as any;
     const { data: sub } = await db
       .from("subscriptions")
       .select("company_id")
@@ -212,7 +212,7 @@ async function notifyPaymentFailed(invoice: any, env: StripeEnv) {
   // sees the correct state even before customer.subscription.updated lands.
   if (subscriptionId) {
     try {
-      const db = getSupabase() as any;
+      const db = (await getSupabase()) as any;
       await db
         .from("subscriptions")
         .update({ status: "past_due", updated_at: new Date().toISOString() })
@@ -281,7 +281,7 @@ async function handleWebhook(req: Request, env: StripeEnv) {
 
   // ST-C2/C3: idempotency gate. Insert event_id; on PK conflict, ignore.
   if (eventId) {
-    const db = getSupabase() as any;
+    const db = (await getSupabase()) as any;
     const { error: dupErr } = await db.from("stripe_webhook_events").insert({
       event_id: eventId,
       event_type: event.type,
