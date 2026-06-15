@@ -218,6 +218,8 @@ const SignSchema = z.object({
   token: z.string().min(10).max(128),
   signatureDataUrl: z.string().startsWith("data:image/").max(2_000_000),
   consent: z.literal(true),
+  // OTP obligatoire pour signature à distance (eIDAS — vérification d'identité)
+  otpId: z.string().uuid(),
 });
 
 export const signPvByToken = createServerFn({ method: "POST" })
@@ -240,6 +242,16 @@ export const signPvByToken = createServerFn({ method: "POST" })
     if (pv.sign_token_expires_at && new Date(pv.sign_token_expires_at) < new Date())
       throw new Error("Lien expiré.");
     if (pv.client_signature) throw new Error("PV déjà signé.");
+
+    // OTP must exist, belong to this PV, and be verified (used_at set).
+    const { data: otp } = await supabaseAdmin
+      .from("pv_onsite_otp")
+      .select("id,pv_id,company_id,used_at,email")
+      .eq("id", data.otpId)
+      .maybeSingle();
+    if (!otp) throw new Error("Vérification d'identité requise.");
+    if (otp.pv_id !== pv.id) throw new Error("Code de vérification invalide.");
+    if (!otp.used_at) throw new Error("Code de vérification non validé.");
 
     // Reissue the token as a short-lived download key (24h) so the client can fetch the
     // generated PDF immediately after signing without re-authenticating. The raw key is
