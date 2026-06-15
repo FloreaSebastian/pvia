@@ -157,6 +157,14 @@ export const getGoLiveStatus = createServerFn({ method: "GET" })
     if (!config.cronSecret) warnings.push("CRON_SECRET absent");
     if (!config.vapid) warnings.push("VAPID push non configuré");
     if (!config.publicAppUrl) warnings.push("PUBLIC_APP_URL absent");
+    // ST-M6: explicit APP_ENV gate.
+    if (!appEnvExplicit) warnings.push("APP_ENV absent (détection fallback par hostname)");
+    if (appEnv === "production" && !process.env.STRIPE_LIVE_API_KEY) {
+      blockers.push("APP_ENV=production mais STRIPE_LIVE_API_KEY absent");
+    }
+    if (appEnv !== "production" && process.env.STRIPE_LIVE_API_KEY && expectedStripeEnv === "live") {
+      blockers.push("Incohérence APP_ENV / Stripe live");
+    }
     if (eFailed > 0) warnings.push(`${eFailed} email(s) en échec (non-dead)`);
     if (wFailed > 0) warnings.push(`${wFailed} webhook(s) en échec (non-dead)`);
 
