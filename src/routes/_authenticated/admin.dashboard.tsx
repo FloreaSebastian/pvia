@@ -50,6 +50,7 @@ function Page() {
       <div className="mb-6 flex flex-wrap gap-2">
         <Link to="/admin/compliance" className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"><ShieldCheck className="h-3.5 w-3.5"/> Conformité CNIL</Link>
         <Link to="/admin/emails" className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"><Mail className="h-3.5 w-3.5"/> Catalogue emails</Link>
+        <Link to="/admin/go-live" className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"><ShieldAlert className="h-3.5 w-3.5"/> Go-Live</Link>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
