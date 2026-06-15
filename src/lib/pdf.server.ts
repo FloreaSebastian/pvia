@@ -124,8 +124,9 @@ export async function generatePvPdfBytes(input: {
   reserves: Reserve[];
   photos: { caption: string | null; bytes: Uint8Array }[];
   branding?: CompanyBrandingSettings;
+  proof?: SignatureProofMeta;
 }): Promise<Uint8Array> {
-  const { pv, company, client, chantier, reserves, photos } = input;
+  const { pv, company, client, chantier, reserves, photos, proof } = input;
   const branding = input.branding ?? DEFAULT_BRANDING_SETTINGS;
   const PRIMARY = (() => {
     const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
