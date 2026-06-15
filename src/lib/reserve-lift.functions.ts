@@ -213,7 +213,16 @@ export const createReserveLift = createServerFn({ method: "POST" })
         pdfPath = await buildAndStoreReserveLiftPdf(reportId);
       } catch (e) {
         console.error("reserve-lift: PDF failed", e);
+    }
+
+    // EM-C1: when company signs the lift, ask the client to validate.
+    if (data.status === "signe") {
+      try {
+        await sendReserveLiftValidationRequestEmail({ reportId });
+      } catch (e) {
+        console.error("reserve-lift: validation email failed", e);
       }
+    }
     }
 
     // 9. Audit
