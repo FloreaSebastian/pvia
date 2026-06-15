@@ -73,6 +73,7 @@ import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/ho
 import { Route as ApiPublicHooksDrainWebhooksRouteImport } from './routes/api/public/hooks/drain-webhooks'
 import { Route as ApiPublicHooksDrainEmailsRouteImport } from './routes/api/public/hooks/drain-emails'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
+import { Route as ApiPublicHealthDeepRouteImport } from './routes/api/public/health.deep'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as ApiPublicAuthSendEmailHookRouteImport } from './routes/api/public/auth/send-email-hook'
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
@@ -427,6 +428,11 @@ const ApiPublicHooksCheckExpiringTrialsRoute =
     path: '/api/public/hooks/check-expiring-trials',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHealthDeepRoute = ApiPublicHealthDeepRouteImport.update({
+  id: '/deep',
+  path: '/deep',
+  getParentRoute: () => ApiPublicHealthRoute,
+} as any)
 const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
   id: '/api/public/calendar/$token',
   path: '/api/public/calendar/$token',
@@ -522,7 +528,7 @@ export interface FileRoutesByFullPath {
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
-  '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
@@ -533,6 +539,7 @@ export interface FileRoutesByFullPath {
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
@@ -592,7 +599,7 @@ export interface FileRoutesByTo {
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
-  '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
@@ -603,6 +610,7 @@ export interface FileRoutesByTo {
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
@@ -666,7 +674,7 @@ export interface FileRoutesById {
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
-  '/api/public/health': typeof ApiPublicHealthRoute
+  '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
@@ -677,6 +685,7 @@ export interface FileRoutesById {
   '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
@@ -751,6 +760,7 @@ export interface FileRouteTypes {
     | '/pv/$id/levee-reserves'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
@@ -821,6 +831,7 @@ export interface FileRouteTypes {
     | '/pv/$id/levee-reserves'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
@@ -894,6 +905,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pv/$id/levee-reserves'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
@@ -922,7 +934,7 @@ export interface RootRouteChildren {
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
-  ApiPublicHealthRoute: typeof ApiPublicHealthRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ClientPvIdRoute: typeof ClientPvIdRouteWithChildren
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
@@ -1384,6 +1396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCheckExpiringTrialsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/health/deep': {
+      id: '/api/public/health/deep'
+      path: '/deep'
+      fullPath: '/api/public/health/deep'
+      preLoaderRoute: typeof ApiPublicHealthDeepRouteImport
+      parentRoute: typeof ApiPublicHealthRoute
+    }
     '/api/public/calendar/$token': {
       id: '/api/public/calendar/$token'
       path: '/api/public/calendar/$token'
@@ -1591,6 +1610,18 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface ApiPublicHealthRouteChildren {
+  ApiPublicHealthDeepRoute: typeof ApiPublicHealthDeepRoute
+}
+
+const ApiPublicHealthRouteChildren: ApiPublicHealthRouteChildren = {
+  ApiPublicHealthDeepRoute: ApiPublicHealthDeepRoute,
+}
+
+const ApiPublicHealthRouteWithChildren = ApiPublicHealthRoute._addFileChildren(
+  ApiPublicHealthRouteChildren,
+)
+
 interface ClientPvIdRouteChildren {
   ClientPvIdLeveeReservesLiftIdRoute: typeof ClientPvIdLeveeReservesLiftIdRoute
 }
@@ -1622,7 +1653,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
-  ApiPublicHealthRoute: ApiPublicHealthRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ClientPvIdRoute: ClientPvIdRouteWithChildren,
   SignPvTokenRoute: SignPvTokenRoute,
   ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
