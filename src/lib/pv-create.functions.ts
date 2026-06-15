@@ -385,12 +385,15 @@ export const createPv = createServerFn({ method: "POST" })
     let remoteSignUrl: string | null = null;
     if (data.status === "en_attente" && sigMode === "remote" && data.client_identity_email) {
       try {
-        const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+        const { generateSignToken, sha256Hex } = await import("./sign-token.server");
+        const token = generateSignToken();
+        const tokenHash = await sha256Hex(token);
         const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
         await supabaseAdmin
           .from("pv")
           .update({
-            sign_token: token,
+            sign_token: null,
+            sign_token_hash: tokenHash,
             sign_token_expires_at: expiresAt,
             sent_to_client_at: new Date().toISOString(),
             sent_to_email: data.client_identity_email,
