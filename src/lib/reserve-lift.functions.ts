@@ -377,6 +377,15 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
       }
     }
 
+    // EM-M2: throttle manual resends to one per minute per report.
+    const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");
+    await assertNotRecentlySent({
+      emailType: "reserve_lift_client_validated",
+      pvId: report.pv_id,
+      windowSec: 60,
+      label: "L'email de la levée validée",
+    });
+
     await deliverSignedReserveLift({ reportId: report.id });
 
     await writeAuditLog({
@@ -422,6 +431,15 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
     if (!member || !["owner", "admin", "manager"].includes(member.role)) {
       throw new Error("Accès refusé.");
     }
+
+    // EM-M2: throttle manual resends.
+    const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");
+    await assertNotRecentlySent({
+      emailType: "reserve_lift_request",
+      pvId: report.pv_id,
+      windowSec: 60,
+      label: "La demande de validation",
+    });
 
     const res = await sendReserveLiftValidationRequestEmail({ reportId: report.id });
     if (!res.ok) throw new Error(res.error || "Envoi échoué.");

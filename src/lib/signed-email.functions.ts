@@ -32,6 +32,15 @@ export const sendSignedPvEmail = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!m) throw new Error("Accès refusé.");
 
+    // EM-M2: prevent double-click / accidental rapid resends.
+    const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");
+    await assertNotRecentlySent({
+      emailType: "pv_signed",
+      pvId: pv.id,
+      windowSec: 60,
+      label: "L'email du PV signé",
+    });
+
     const res = await deliverSignedPv({ pvId: pv.id, trigger: "manual" });
     const anySent = res.client?.status === "sent" || res.company?.status === "sent";
     return { ok: anySent, ...res };

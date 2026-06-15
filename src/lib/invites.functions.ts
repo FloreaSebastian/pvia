@@ -137,6 +137,16 @@ export const sendInvite = createServerFn({ method: "POST" })
       acceptUrl,
     });
 
+    // EM-M3: idempotent invite resend (prevents double-click sending 2 emails).
+    const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");
+    await assertNotRecentlySent({
+      emailType: "member_invite",
+      companyId: data.companyId,
+      recipient: data.email,
+      windowSec: 60,
+      label: "L'invitation",
+    });
+
     const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
     const sendRes = await sendEmailWithRetryLog({
       emailType: "member_invite",

@@ -34,48 +34,10 @@ type Finding = {
 };
 
 const FINDINGS: Finding[] = [
-  // CRITIQUES — Workflows
-  { id: "WF-C1", sev: "critique", domain: "Workflow PV", title: "Race condition : double signature distante",
-    file: "src/lib/sign.functions.ts:241-284",
-    detail: "Le check `if (pv.client_signature) throw` et l'UPDATE qui écrit la signature sont deux opérations séparées (TOCTOU). Deux requêtes concurrentes peuvent passer le guard et écrire deux signatures.",
-    fix: "UPDATE conditionnel: `.eq('status','en_attente').is('client_signature', null)` + vérifier rowsAffected === 1." },
-  { id: "WF-C2", sev: "critique", domain: "Workflow PV", title: "OTP signature réutilisable (TOCTOU)",
-    file: "src/lib/signature-otp.server.ts:97-127",
-    detail: "Lecture de `used_at` puis UPDATE non atomique. Deux requêtes simultanées consomment le même OTP. Idem pour `attempts` : 5 requêtes parallèles contournent le plafond brute-force.",
-    fix: "UPDATE atomique: `UPDATE ... SET used_at = now() WHERE id = ? AND used_at IS NULL` + check rowcount." },
-  { id: "WF-C3", sev: "critique", domain: "Workflow PV", title: "Doublon numéro de levée de réserves",
-    file: "src/lib/reserve-lift.functions.ts:56-65",
-    detail: "`generateLiftNumber` fait COUNT(*) puis construit le numéro hors transaction. Deux créations concurrentes génèrent le même `PV-001-LR-01`.",
-    fix: "RPC atomique côté Postgres (comme `generate_next_pv_number`) ou contrainte UNIQUE + retry." },
+  // ====== CRITIQUES — toutes résolues ======
+  // WF-C1/C2/C3, ST-C1/C2/C3/C4, EM-C1/C2 : voir migrations 20260615210605 + sprint final.
 
-  // CRITIQUES — Stripe
-  { id: "ST-C1", sev: "critique", domain: "Stripe", title: "`checkout.session.completed` non géré",
-    file: "src/routes/api/public/payments/webhook.ts:117-131",
-    detail: "Le switch ne gère que customer.subscription.* et invoice.payment_failed. Si Stripe envoie d'abord checkout.session.completed avant subscription.created (latence), aucune ligne `subscriptions` n'est créée.",
-    fix: "Ajouter case 'checkout.session.completed' avec resolve via stripe.subscriptions.retrieve." },
-  { id: "ST-C2", sev: "critique", domain: "Stripe", title: "`markCanceled` sans upsert idempotent",
-    file: "src/routes/api/public/payments/webhook.ts:66-87",
-    detail: "UPDATE seul, sans onConflict. Si l'ordre des webhooks est inversé (deleted avant created), l'update échoue silencieusement, la subscription reste active en base.",
-    fix: "Utiliser upsert avec onConflict: 'stripe_subscription_id'." },
-  { id: "ST-C3", sev: "critique", domain: "Stripe", title: "`markCanceled` n'écrit pas d'audit_log",
-    file: "src/routes/api/public/payments/webhook.ts:66-87",
-    detail: "Aucune trace auditée d'une annulation d'abonnement. Contraste avec upsertSubscription qui audit correctement.",
-    fix: "Ajouter insert audit_logs `subscription.canceled`." },
-  { id: "ST-C4", sev: "critique", domain: "Stripe", title: "Variables d'env webhook sans guard runtime",
-    file: "src/routes/api/public/payments/webhook.ts:5-11",
-    detail: "Le `!` force l'assertion TS mais ne lève pas si la var est undefined → client Supabase invalide, erreurs silencieuses.",
-    fix: "Throw explicite si env var manquante." },
-
-  // CRITIQUES — Emails
-  { id: "EM-C1", sev: "critique", domain: "Emails", title: "Notification client `reserve_lift_request` jamais envoyée",
-    file: "src/lib/email-registry.server.ts:37 (aucun appelant)",
-    detail: "Type d'email déclaré dans le registre mais jamais émis. Le client ne reçoit aucune notification proactive quand une levée est prête à valider.",
-    fix: "Implémenter l'envoi dans createReserveLift après signature entreprise." },
-  { id: "EM-C2", sev: "critique", domain: "Emails", title: "Email `billing_past_due` jamais envoyé",
-    file: "src/lib/email-registry.server.ts:43 (aucun appelant)",
-    detail: "Le webhook Stripe invoice.payment_failed n'envoie aucun email au client. Perte de revenu silencieuse.",
-    fix: "Brancher l'envoi dans notifyPaymentFailed du webhook." },
-
+  // ====== MAJEURS RESTANTS ======
   // MAJEURS — Workflows
   { id: "WF-M1", sev: "majeur", domain: "Workflow PV", title: "Échec insert réserves silencieux",
     file: "src/lib/pv-create.functions.ts:333-335",
@@ -99,8 +61,8 @@ const FINDINGS: Finding[] = [
     fix: "Vérifier { error }." },
   { id: "WF-M6", sev: "majeur", domain: "Workflow PV", title: "OTP marqué utilisé côté code mais pas en DB",
     file: "src/lib/signature-otp.server.ts:122-127",
-    detail: "Si l'UPDATE échoue, la fn retourne `used_at: now()` mais la DB garde null → OTP réutilisable.",
-    fix: "Throw si error ou rowcount !== 1." },
+    detail: "(Résiduel) Avec consume_signature_otp RPC en place, la fenêtre est fermée. À supprimer après validation runtime.",
+    fix: "Validé côté DB via consume_signature_otp." },
   { id: "WF-M7", sev: "majeur", domain: "Workflow PV", title: "Double validation client (TOCTOU)",
     file: "src/lib/client-reserve-lift.functions.ts:242-252",
     detail: "Check `client_validated_at == null` puis UPDATE → deux double-clics passent.",
@@ -110,21 +72,13 @@ const FINDINGS: Finding[] = [
     detail: "deliverSignedPv() try/catch console.error uniquement. L'appelant reçoit { ok: true } sans savoir que le client n'a pas reçu le PV.",
     fix: "Ajouter audit log + flag dans la réponse." },
 
-  // MAJEURS — Stripe
-  { id: "ST-M1", sev: "majeur", domain: "Stripe", title: "`invoice.payment_failed` ne met pas à jour subscriptions.status",
-    file: "src/routes/api/public/payments/webhook.ts:89-111",
-    detail: "Notification + audit OK mais pas d'UPDATE subscriptions.status=past_due. Si subscription.updated arrive après, base temporairement incohérente.",
-    fix: "Mettre à jour subscriptions.status à past_due." },
-  { id: "ST-M2", sev: "majeur", domain: "Stripe", title: "`companyId` absent d'invoice.metadata → silencieux",
-    file: "src/routes/api/public/payments/webhook.ts:89-92",
-    detail: "Les metadata d'invoice ne sont pas auto-héritées de la subscription. Si absent, return silencieux → échec de paiement invisible.",
-    fix: "Récupérer la subscription via invoice.subscription puis lire ses metadata." },
-  { id: "ST-M3", sev: "majeur", domain: "Stripe", title: "Pas de suspension automatique d'entreprise",
-    file: "webhook.ts + src/lib/plan-guard.server.ts:100-114",
-    detail: "Aucun handler ne met à jour companies.suspended_at sur annulation/impayé. Suspension uniquement manuelle via admin support.",
-    fix: "Suspendre automatiquement après N échecs ou status='canceled' depuis >N jours." },
+  // MAJEURS — Stripe (ST-M1 & ST-M3 corrigés)
+  { id: "ST-M2", sev: "majeur", domain: "Stripe", title: "`companyId` absent d'invoice.metadata — fallback partiel",
+    file: "src/routes/api/public/payments/webhook.ts:152-170",
+    detail: "Fallback DB en place. Reste à compléter via stripe.subscriptions.retrieve si la subscription n'est pas encore connue.",
+    fix: "Appeler stripe.subscriptions.retrieve en dernier recours." },
   { id: "ST-M4", sev: "majeur", domain: "Stripe", title: "Pas de notification sur subscription.updated",
-    file: "src/routes/api/public/payments/webhook.ts:118-121",
+    file: "src/routes/api/public/payments/webhook.ts:275-283",
     detail: "Réactivation, fin de trial, upgrade : aucune notification push créée.",
     fix: "Détecter transitions de status et créer notification." },
   { id: "ST-M5", sev: "majeur", domain: "Stripe", title: "Singleton Supabase dans webhook serverless",
@@ -136,31 +90,13 @@ const FINDINGS: Finding[] = [
     detail: "Un domaine custom sur un projet preview (sans '-dev') basculera en mode live → vraies transactions accidentelles.",
     fix: "Détecter via env var explicite côté serveur." },
 
-  // MAJEURS — Emails
+  // MAJEURS — Emails (EM-M2 & EM-M3 corrigés)
   { id: "EM-M1", sev: "majeur", domain: "Emails", title: "Emails avec pièce jointe sans retry ni dead-letter",
     file: "src/lib/email.server.ts:363-465 ; src/lib/reserve-lift-email.server.ts:71-143",
     detail: "PV signé et levée validée : pas de next_retry_at, pas de statut 'dead', aucune alerte admin. Visibilité uniquement via scraping monitoring.",
     fix: "Stocker payload (sans le PDF binaire, le re-générer) + pipeline retry unifié." },
-  { id: "EM-M2", sev: "majeur", domain: "Emails", title: "Renvoi manuel sans idempotence",
-    file: "src/lib/signed-email.functions.ts:35 ; src/lib/reserve-lift.functions.ts:317",
-    detail: "Aucun délai minimum entre 2 envois. Double-clic UI = 2 PDF envoyés.",
-    fix: "Garde rate-limit + check email_logs récent." },
-  { id: "EM-M3", sev: "majeur", domain: "Emails", title: "Invitation membre : double-clic possible",
-    file: "src/lib/invites.functions.ts:102-127",
-    detail: "Upsert membre OK mais sendEmailWithRetryLog sans check de log récent → 2 emails d'invitation possibles.",
-    fix: "Vérifier email_logs récent (< 1 min) avant envoi." },
 
-  // MAJEURS — Multi-tenant
-  { id: "MT-M1", sev: "majeur", domain: "Multi-tenant", title: "Collision policies email_logs (admin platform voit tout)",
-    file: "migration 20260527100544 + 20260521155143",
-    detail: "Deux policies SELECT s'additionnent en OR. has_role('admin') donne accès à TOUS les email_logs inter-company.",
-    fix: "Dropper email_logs_admin_select ou la restreindre à platform_admin + audit." },
-  { id: "MT-M2", sev: "majeur", domain: "Multi-tenant", title: "Anciennes policies storage `_own` non droppées",
-    file: "supabase/migrations/20260521141842 vs 20260527085159",
-    detail: "Les policies pv_assets_*_own (filtre uid au lieu de company_id) ne sont pas explicitement droppées. Si encore actives en prod, accès cross-company via ancien chemin.",
-    fix: "Migration DROP POLICY IF EXISTS pour les 4 policies _own." },
-
-  // MINEURS
+  // ====== MINEURS — ne pas traiter dans ce sprint ======
   { id: "WF-m1", sev: "mineur", domain: "Workflow PV", title: "OTP onsite orphelin bypass `pv_id`",
     file: "src/lib/signature-otp.server.ts:152-157",
     detail: "Check `if (opts.expectedPvId && otp.pv_id && ...)` : si otp.pv_id reste null (update échoué), le check passe.",
