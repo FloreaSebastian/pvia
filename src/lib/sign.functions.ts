@@ -283,7 +283,7 @@ export const signPvByToken = createServerFn({ method: "POST" })
       entityId: pv.id,
       action: "pv.signed_by_client",
       newValues: { signed_at: new Date().toISOString(), status: "signe" },
-      metadata: { numero: pv.numero, via: "public_token" },
+      metadata: { numero: pv.numero, via: "public_token", ip, user_agent: userAgent, consent_text_version: "v1" },
       actor: "client",
     });
 
