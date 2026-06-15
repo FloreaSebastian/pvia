@@ -313,7 +313,7 @@ export const createPv = createServerFn({ method: "POST" })
 
     const pvId = pvIns.id;
 
-    // 8. Insert reserves (bulk)
+    // 8. Insert reserves (bulk) — WF-M1: capture failure, never silent.
     if (data.reserves.length) {
       const { error: resErr } = await supabaseAdmin
         .from("pv_reserves")
@@ -331,12 +331,20 @@ export const createPv = createServerFn({ method: "POST" })
           })) as never,
         );
       if (resErr) {
-        console.error("createPv: insert reserves failed", resErr);
+        const { recordProcessingError } = await import("@/lib/processing-status.server");
+        await recordProcessingError({
+          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          step: "insert_reserves",
+          error: resErr,
+          meta: { count: data.reserves.length },
+          audit: { action: "pv.reserve_insert_failed", entityType: "pv" },
+        });
       }
     }
 
-    // 9. Upload photos via service role + insert pv_photos rows
+    // 9. Upload photos via service role + insert pv_photos rows — WF-M (photo).
     let uploadedPhotos = 0;
+    let failedPhotos = 0;
     for (const p of photoBuffers) {
       const ext = p.mime === "image/jpeg" ? "jpg" : p.mime === "image/png" ? "png" : "webp";
       const path = `${data.companyId}/pv/${pvId}/${p.kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -344,7 +352,15 @@ export const createPv = createServerFn({ method: "POST" })
         .from("pv-assets")
         .upload(path, p.bytes, { contentType: p.mime, upsert: false });
       if (upErr) {
-        console.error("createPv: upload photo failed", upErr);
+        failedPhotos += 1;
+        const { recordProcessingError } = await import("@/lib/processing-status.server");
+        await recordProcessingError({
+          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          step: "upload_photo",
+          error: upErr,
+          meta: { path, kind: p.kind },
+          audit: { action: "pv.photo_upload_failed", entityType: "pv_photo" },
+        });
         continue;
       }
       const { error: phErr } = await supabaseAdmin.from("pv_photos").insert({
@@ -356,10 +372,24 @@ export const createPv = createServerFn({ method: "POST" })
         kind: p.kind,
       });
       if (phErr) {
-        console.error("createPv: insert pv_photos failed", phErr);
+        failedPhotos += 1;
+        const { recordProcessingError } = await import("@/lib/processing-status.server");
+        await recordProcessingError({
+          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          step: "insert_pv_photo_row",
+          error: phErr,
+          meta: { path, kind: p.kind },
+          audit: { action: "pv.photo_row_insert_failed", entityType: "pv_photo" },
+        });
       } else {
         uploadedPhotos += 1;
       }
+    }
+    if (failedPhotos > 0) {
+      try {
+        const { bumpPhotosFailed } = await import("@/lib/processing-status.server");
+        await bumpPhotosFailed(pvId, failedPhotos);
+      } catch {}
     }
 
     // 9b. Link OTP to PV for onsite mode
@@ -368,19 +398,44 @@ export const createPv = createServerFn({ method: "POST" })
       await linkSignatureOtpToPv(otpRecord.id, pvId);
     }
 
-    // 10. Generate signed PDF server-side + auto-email (onsite signed only)
+    // 10. Generate signed PDF server-side + auto-email — WF-M5/WF-M8.
     let pdfPath: string | null = null;
     if (data.status === "signe") {
+      const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
+      await markPdfGenerationStatus("pv", pvId, "pending");
       try {
         pdfPath = await buildAndStorePvPdf(pvId);
+        await markPdfGenerationStatus("pv", pvId, "ok");
       } catch (e) {
-        console.error("createPv: PDF generation failed", e);
+        await markPdfGenerationStatus("pv", pvId, "failed");
+        await recordProcessingError({
+          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          step: "build_signed_pdf",
+          error: e,
+          audit: { action: "pv.pdf_generation_failed", entityType: "pv" },
+        });
       }
       try {
         const { deliverSignedPv } = await import("./email.server");
-        await deliverSignedPv({ pvId, trigger: "auto" });
+        const res = await deliverSignedPv({ pvId, trigger: "auto" });
+        const anyFail =
+          res.client?.status === "failed" || res.company?.status === "failed";
+        if (anyFail) {
+          await recordProcessingError({
+            table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+            step: "send_signed_email",
+            error: res.client?.error || res.company?.error || "unknown",
+            meta: { client: res.client?.status, company: res.company?.status },
+            audit: { action: "pv.signed_email_failed", entityType: "pv" },
+          });
+        }
       } catch (e) {
-        console.error("createPv: signed email delivery failed", e);
+        await recordProcessingError({
+          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          step: "send_signed_email",
+          error: e,
+          audit: { action: "pv.signed_email_failed", entityType: "pv" },
+        });
       }
     }
 
