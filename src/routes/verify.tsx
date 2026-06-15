@@ -29,7 +29,7 @@ export const Route = createFileRoute("/verify")({
       {
         name: "description",
         content:
-          "Saisissez le code à 8 chiffres reçu par email pour vérifier votre compte PVIA et accéder à votre espace sécurisé.",
+          "Saisissez le code à 6 chiffres reçu par email pour vérifier votre compte PVIA et accéder à votre espace sécurisé.",
       },
       { property: "og:title", content: "Vérification du code — PVIA" },
       {
@@ -60,7 +60,7 @@ function VerifyPage() {
   }, [cooldown]);
 
   useEffect(() => {
-    if (code.length === 8 && !submittedRef.current && !loading) {
+    if (code.length === 6 && !submittedRef.current && !loading) {
       submittedRef.current = true;
       void submit(code);
     }
@@ -139,7 +139,7 @@ function VerifyPage() {
 
           <div className="flex justify-center py-2">
             <InputOTP
-              maxLength={8}
+              maxLength={6}
               value={code}
               onChange={setCode}
               autoFocus
@@ -153,8 +153,6 @@ function VerifyPage() {
                 <InputOTPSlot index={3} />
                 <InputOTPSlot index={4} />
                 <InputOTPSlot index={5} />
-                <InputOTPSlot index={6} />
-                <InputOTPSlot index={7} />
               </InputOTPGroup>
             </InputOTP>
           </div>
