@@ -186,6 +186,44 @@ async function notifyPaymentFailed(invoice: any, env: StripeEnv) {
     action: "billing.payment_failed",
     metadata: { amount_due: invoice.amount_due, currency: invoice.currency, environment: env },
   });
+
+  // EM-C2: send "payment failed" email (idempotent per invoice_id).
+  try {
+    await sendPaymentFailedEmail({
+      companyId,
+      invoiceId: invoice.id ?? null,
+      subscriptionId,
+      amountDue: invoice.amount_due ?? null,
+      currency: invoice.currency ?? null,
+      hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+      plan: invoice.lines?.data?.[0]?.price?.lookup_key ?? null,
+      environment: env,
+    });
+  } catch (e) {
+    console.error("[webhook] payment-failed email error", e);
+  }
+}
+
+/** EM-C2 sister-trigger: notify on subscription → past_due (idempotent per invoice). */
+async function notifyPastDue(subscription: any, env: StripeEnv) {
+  const companyId = subscription.metadata?.companyId ?? null;
+  if (!companyId) return;
+  const latestInvoice = typeof subscription.latest_invoice === "string"
+    ? subscription.latest_invoice : subscription.latest_invoice?.id ?? null;
+  try {
+    await sendPaymentFailedEmail({
+      companyId,
+      invoiceId: latestInvoice,
+      subscriptionId: subscription.id,
+      amountDue: null,
+      currency: null,
+      hostedInvoiceUrl: null,
+      plan: subscription.items?.data?.[0]?.price?.lookup_key ?? null,
+      environment: env,
+    });
+  } catch (e) {
+    console.error("[webhook] past_due email error", e);
+  }
 }
 
 async function handleWebhook(req: Request, env: StripeEnv) {
