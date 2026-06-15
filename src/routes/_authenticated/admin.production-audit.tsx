@@ -203,7 +203,7 @@ const sevColor: Record<Sev, string> = {
   mineur: "bg-yellow-50 text-yellow-900 border-yellow-300",
 };
 
-const sevIcon: Record<Sev, JSX.Element> = {
+const sevIcon: Record<Sev, React.ReactNode> = {
   critique: <ShieldX className="h-4 w-4" />,
   majeur: <ShieldAlert className="h-4 w-4" />,
   mineur: <Info className="h-4 w-4" />,
