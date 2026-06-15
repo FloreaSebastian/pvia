@@ -17,6 +17,9 @@ export type GoLiveStatus = {
     vapid: boolean;
     cronSecret: boolean;
     publicAppUrl: boolean;
+    appEnv: "local" | "preview" | "production";
+    appEnvExplicit: boolean;
+    expectedStripeEnv: "sandbox" | "live";
   };
   totals: { companies: number; pvSigned: number; pvTotal: number };
   lastTestedAt: string | null;
