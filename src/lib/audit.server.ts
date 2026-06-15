@@ -6,7 +6,10 @@ export type AuditAction =
   | "pv.update"
   | "pv.updated"
   | "pv.delete"
+  | "pv.delete_blocked_signed"
   | "pv.status_change"
+  | "pv.status_changed"
+  | "pv.signed_locked"
   | "pv.sent_to_client"
   | "pv.signed_by_client"
   | "pv.signed_by_company"
@@ -14,6 +17,11 @@ export type AuditAction =
   | "pv.pdf_downloaded"
   | "pv.email_sent"
   | "pv.email_failed"
+  | "pv.remote_otp_sent"
+  | "pv.remote_otp_verified"
+  | "pv.onsite_otp_sent"
+  | "pv.onsite_otp_verified"
+  | "pv.remote_signature_send_failed"
   | "reserve.create"
   | "reserve.update"
   | "reserve.delete"
@@ -62,12 +70,14 @@ export type AuditAction =
   | "company.branding_updated"
   | "company.logo_updated"
   | "company.legal_info_updated"
+  | "company.create_blocked_limit"
   | "settings.saved"
   | "settings.autosaved"
   | "settings.reset"
   | "settings.search_used"
   | "branding.published"
-  | "branding.rollback";
+  | "branding.rollback"
+  | "admin.role_cleanup";
 
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";

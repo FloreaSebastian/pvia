@@ -136,15 +136,19 @@ export const createPv = createServerFn({ method: "POST" })
           (err as any).code = "OTP_REQUIRED";
           throw err;
         }
-        const { data: otp } = await supabaseAdmin
-          .from("pv_onsite_otp")
-          .select("id,email,pv_id,company_id,used_at")
-          .eq("id", data.client_otp_id)
-          .maybeSingle();
-        if (!otp) throw new Error("OTP introuvable.");
-        if (otp.company_id !== data.companyId) throw new Error("OTP invalide pour cette entreprise.");
-        if (!otp.used_at) throw new Error("OTP non vérifié.");
-        otpRecord = otp as OtpRecord;
+        const { assertSignatureOtpVerified } = await import("./signature-otp.server");
+        const otp = await assertSignatureOtpVerified({
+          otpId: data.client_otp_id,
+          expectedCompanyId: data.companyId,
+          expectedMode: "onsite",
+        });
+        otpRecord = {
+          id: otp.id,
+          email: otp.email,
+          pv_id: otp.pv_id,
+          company_id: otp.company_id,
+          used_at: otp.used_at,
+        };
       }
     }
     if (status === "en_attente") {
@@ -360,10 +364,8 @@ export const createPv = createServerFn({ method: "POST" })
 
     // 9b. Link OTP to PV for onsite mode
     if (otpRecord) {
-      await supabaseAdmin
-        .from("pv_onsite_otp")
-        .update({ pv_id: pvId } as never)
-        .eq("id", otpRecord.id);
+      const { linkSignatureOtpToPv } = await import("./signature-otp.server");
+      await linkSignatureOtpToPv(otpRecord.id, pvId);
     }
 
     // 10. Generate signed PDF server-side + auto-email (onsite signed only)
