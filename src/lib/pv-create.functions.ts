@@ -449,7 +449,8 @@ export const createPv = createServerFn({ method: "POST" })
         const token = generateSignToken();
         const tokenHash = await sha256Hex(token);
         const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
-        await supabaseAdmin
+        // WF-M2: throw if sign token persist fails — otherwise the link is dead.
+        const { error: tokErr } = await supabaseAdmin
           .from("pv")
           .update({
             sign_token: null,
@@ -459,6 +460,16 @@ export const createPv = createServerFn({ method: "POST" })
             sent_to_email: data.client_identity_email,
           } as never)
           .eq("id", pvId);
+        if (tokErr) {
+          await writeAuditLog({
+            companyId: data.companyId, userId, pvId,
+            entityType: "pv", entityId: pvId,
+            action: "pv.sign_token_persist_failed",
+            metadata: { error: tokErr.message },
+            actor: "system",
+          });
+          throw new Error(`Échec persistance du lien de signature : ${tokErr.message}`);
+        }
         const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
         remoteSignUrl = `${appUrl}/sign/pv/${token}`;
         const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
