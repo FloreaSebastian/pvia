@@ -438,7 +438,10 @@ export const signPvAsClient = createServerFn({ method: "POST" })
   .inputValidator((d) => SignClientSchema.parse(d))
   .handler(async ({ data }) => {
     const s = await requireSession();
-    const ip = getClientIp() ?? "unknown";
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const _req = getRequest();
+    const ip = getClientIp(_req) ?? "unknown";
+    const userAgent = (_req.headers.get("user-agent") ?? "").slice(0, 500);
     await enforceRateLimit({
       bucket: "client_sign_submit",
       key: `${s.email}:${data.pvId}`,
@@ -470,7 +473,7 @@ export const signPvAsClient = createServerFn({ method: "POST" })
     const downloadKeyHash = await sha256Hex(downloadKey);
     const downloadExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
     const nowIso = new Date().toISOString();
-    const ua = "".slice(0, 500); // UA already captured below in audit metadata
+    const ua = userAgent;
 
     const { error: updErr } = await supabaseAdmin
       .from("pv")
