@@ -90,19 +90,21 @@ const PublicSchema = z.object({ pvId: z.string().uuid(), publicKey: z.string().m
 
 /**
  * Public PDF download: client must present (pvId + publicKey) returned by `signPvByToken`.
- * The `publicKey` is a fresh one-time-ish token persisted into pv.sign_token at sign time,
- * scoped to PDF download only and valid for 24h.
+ * The `publicKey` is a fresh download token whose SHA-256 hash is persisted in
+ * pv.sign_token_hash. Scoped to PDF download only and valid for 24h.
  */
 export const getSignedPvPdfPublic = createServerFn({ method: "POST" })
   .inputValidator((input) => PublicSchema.parse(input))
   .handler(async ({ data }) => {
+    const { sha256Hex } = await import("./sign-token.server");
+    const keyHash = await sha256Hex(data.publicKey);
     const { data: pv } = await supabaseAdmin
       .from("pv")
-      .select("id,pdf_url,sign_token,sign_token_expires_at")
+      .select("id,pdf_url,sign_token_hash,sign_token_expires_at")
       .eq("id", data.pvId)
       .maybeSingle();
     if (!pv) throw new Error("PV introuvable.");
-    if (!pv.sign_token || pv.sign_token !== data.publicKey) throw new Error("Accès refusé.");
+    if (!pv.sign_token_hash || pv.sign_token_hash !== keyHash) throw new Error("Accès refusé.");
     if (pv.sign_token_expires_at && new Date(pv.sign_token_expires_at) < new Date())
       throw new Error("Lien expiré.");
     if (!pv.pdf_url) throw new Error("PDF en cours de génération.");
