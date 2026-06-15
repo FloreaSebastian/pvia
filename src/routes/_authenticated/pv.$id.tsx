@@ -191,6 +191,7 @@ function PvDetail() {
       toast.error(e?.message || "Échec de l'envoi");
     } finally {
       setResendingLiftId(null);
+    }
   }
 
   async function resendLiftValidationRequest(reportId: string) {
@@ -204,7 +205,6 @@ function PvDetail() {
     } finally {
       setResendingLiftId(null);
     }
-  }
   }
 
 
