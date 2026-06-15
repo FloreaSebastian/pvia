@@ -518,11 +518,16 @@ function NewPv() {
       });
 
       localStorage.removeItem(DRAFT_KEY);
-      const msg =
-        action === "brouillon" ? "Brouillon enregistré"
-        : action === "onsite" ? "PV signé et archivé"
-        : "PV créé — lien de signature envoyé au client";
-      toast.success(msg);
+      if (action === "remote" && res.remoteSignEmailStatus === "failed") {
+        // PV créé mais email non envoyé : ne pas masquer l'erreur.
+        toast.error("PV créé mais email non envoyé. Vous pouvez le renvoyer depuis la fiche PV.", { duration: 8000 });
+      } else {
+        const msg =
+          action === "brouillon" ? "Brouillon enregistré"
+          : action === "onsite" ? "PV signé et archivé"
+          : "PV créé — lien de signature envoyé au client";
+        toast.success(msg);
+      }
       navigate({ to: "/pv/$id", params: { id: res.pvId } });
     } catch (e: any) {
       if (e?.code === "PV_QUOTA" || /quota/i.test(e?.message ?? "")) {
