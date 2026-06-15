@@ -53,15 +53,14 @@ function validateSignature(raw: string | null | undefined): string | null {
   return raw;
 }
 
-async function generateLiftNumber(companyId: string, pvId: string): Promise<string> {
-  const { data: pv } = await supabaseAdmin.from("pv").select("numero").eq("id", pvId).maybeSingle();
-  const base = pv?.numero ?? "PV";
-  const { count } = await supabaseAdmin
-    .from("reserve_lift_reports")
-    .select("id", { count: "exact", head: true })
-    .eq("pv_id", pvId);
-  const seq = String((count ?? 0) + 1).padStart(2, "0");
-  return `${base}-LR-${seq}`;
+async function generateLiftNumber(pvId: string): Promise<string> {
+  // WF-C3: atomic RPC under row lock; collisions still guarded by UNIQUE(pv_id, numero).
+  const { data, error } = await supabaseAdmin.rpc(
+    "generate_next_reserve_lift_number" as never,
+    { p_pv_id: pvId } as never,
+  );
+  if (error) throw new Error(`Numéro: ${error.message}`);
+  return String(data);
 }
 
 export const createReserveLift = createServerFn({ method: "POST" })
@@ -117,29 +116,49 @@ export const createReserveLift = createServerFn({ method: "POST" })
       if (r.company_id !== pv.company_id) throw new Error("Accès refusé.");
     }
 
-    // 4. Generate numero
-    const numero = await generateLiftNumber(pv.company_id, pv.id);
+    // 4. Generate numero + insert report with retry on UNIQUE collision (race-safe)
     const nowIso = new Date().toISOString();
-
-    // 5. Insert report
-    const { data: report, error: insErr } = await supabaseAdmin
-      .from("reserve_lift_reports")
-      .insert({
-        company_id: pv.company_id,
-        pv_id: pv.id,
-        numero,
-        status: data.status,
-        comment: data.comment || null,
-        company_signature: companySig,
-        client_signature: clientSig,
-        require_client_signature: data.requireClientSignature,
-        signed_at: data.status === "signe" ? nowIso : null,
-        created_by: userId,
-      } as any)
-      .select("id,numero")
-      .single();
-    if (insErr || !report) throw new Error(`Création levée: ${insErr?.message ?? "inconnue"}`);
+    let report: { id: string; numero: string } | null = null;
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const numero = await generateLiftNumber(pv.id);
+      const { data: ins, error: insErr } = await supabaseAdmin
+        .from("reserve_lift_reports")
+        .insert({
+          company_id: pv.company_id,
+          pv_id: pv.id,
+          numero,
+          status: data.status,
+          comment: data.comment || null,
+          company_signature: companySig,
+          client_signature: clientSig,
+          require_client_signature: data.requireClientSignature,
+          signed_at: data.status === "signe" ? nowIso : null,
+          created_by: userId,
+        } as any)
+        .select("id,numero")
+        .single();
+      if (!insErr && ins) { report = ins as { id: string; numero: string }; break; }
+      lastErr = insErr;
+      const code = (insErr as { code?: string } | null)?.code;
+      if (code === "23505") {
+        // Collision : another request just took this number. Retry with a fresh one.
+        await writeAuditLog({
+          companyId: pv.company_id,
+          userId,
+          pvId: pv.id,
+          entityType: "reserve_lift",
+          action: "reserve_lift.number_collision",
+          metadata: { attempted_numero: numero, attempt: attempt + 1 },
+          actor: "user",
+        });
+        continue;
+      }
+      break;
+    }
+    if (!report) throw new Error(`Création levée: ${(lastErr as { message?: string } | null)?.message ?? "inconnue"}`);
     const reportId = report.id;
+    const numero = report.numero;
 
     // 6. Validate + upload item photos, insert items
     for (const item of data.items) {

@@ -264,7 +264,10 @@ export const signPvByToken = createServerFn({ method: "POST" })
     const downloadExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
     const nowIso = new Date().toISOString();
 
-    const { error } = await supabaseAdmin
+    // WF-C1: atomic UPDATE — only succeeds if the PV is still en_attente AND unsigned.
+    // Prevents two concurrent requests from both passing the in-memory guard above
+    // and writing two distinct signatures.
+    const { data: updated, error } = await supabaseAdmin
       .from("pv")
       .update({
         client_signature: data.signatureDataUrl,
@@ -273,15 +276,29 @@ export const signPvByToken = createServerFn({ method: "POST" })
         sign_token: null,
         sign_token_hash: downloadKeyHash,
         sign_token_expires_at: downloadExpires,
-        // eIDAS SES evidence — set ONLY during this en_attente → signe
-        // transition; the pv_block_locked_changes trigger forbids them afterwards.
         client_signature_ip: ip || null,
         client_signature_user_agent: userAgent || null,
         consent_text: SIGN_CONSENT_TEXT_V1,
         consent_at: nowIso,
       } as never)
-      .eq("id", pv.id);
+      .eq("id", pv.id)
+      .eq("status", "en_attente")
+      .is("client_signature", null)
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!updated || updated.length === 0) {
+      // Race lost: another request signed first between SELECT and UPDATE.
+      await writeAuditLog({
+        companyId: pv.company_id,
+        pvId: pv.id,
+        entityType: "pv",
+        entityId: pv.id,
+        action: "pv.double_signature_blocked",
+        metadata: { numero: pv.numero, ip, user_agent: userAgent, otp_id: data.otpId },
+        actor: "client",
+      });
+      throw new Error("PV déjà signé.");
+    }
 
     // Persist a notification for the owner
     await supabaseAdmin.from("notifications").insert({

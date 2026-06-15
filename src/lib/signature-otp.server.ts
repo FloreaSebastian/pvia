@@ -88,43 +88,64 @@ export async function getSignatureOtp(otpId: string): Promise<SignatureOtpRow> {
 export async function verifySignatureOtp(opts: {
   otpId: string;
   code: string;
-  /** When set, the OTP must belong to this PV. */
   expectedPvId?: string | null;
-  /** When set, the OTP must belong to this company. */
   expectedCompanyId?: string | null;
-  /** When set, the OTP must have this mode. */
   expectedMode?: SignatureMode;
 }): Promise<SignatureOtpRow> {
-  const otp = await getSignatureOtp(opts.otpId);
-
-  if (opts.expectedCompanyId && otp.company_id !== opts.expectedCompanyId)
+  // Atomic consume via RPC (row lock + verify + mark used in one tx).
+  // Prevents OTP reuse and brute-force attempt-counter bypass under concurrency.
+  const codeHash = await sha256Hex(opts.code);
+  const { data, error } = await supabaseAdmin.rpc("consume_signature_otp" as never, {
+    p_otp_id: opts.otpId,
+    p_code_hash: codeHash,
+  } as never);
+  if (error) throw new Error(`Vérification OTP : ${error.message}`);
+  const res = data as { ok: boolean; reason?: string; company_id?: string; pv_id?: string | null; signature_mode?: SignatureMode; email?: string; used_at?: string };
+  if (!res?.ok) {
+    // Audit reuse / brute-force attempts so they are traceable.
+    if (res?.reason === "already_used" || res?.reason === "too_many_attempts" || res?.reason === "expired") {
+      const { writeAuditLog } = await import("./audit.server");
+      await writeAuditLog({
+        companyId: opts.expectedCompanyId ?? null,
+        pvId: opts.expectedPvId ?? null,
+        entityType: "pv_signature_otp",
+        entityId: opts.otpId,
+        action: "pv.otp_reuse_blocked",
+        metadata: { reason: res.reason, expected_mode: opts.expectedMode ?? null },
+        actor: "client",
+      });
+    }
+    switch (res?.reason) {
+      case "not_found": throw new Error("Code introuvable.");
+      case "already_used": throw new Error("Code déjà utilisé.");
+      case "expired": throw new Error("Code expiré. Renvoyez un nouveau code.");
+      case "too_many_attempts": throw new Error("Trop de tentatives. Renvoyez un nouveau code.");
+      case "bad_code": throw new Error("Code invalide.");
+      default: throw new Error("Vérification d'identité impossible.");
+    }
+  }
+  // Optional post-conditions on company / pv / mode.
+  if (opts.expectedCompanyId && res.company_id !== opts.expectedCompanyId)
     throw new Error("Code invalide pour cette entreprise.");
-  if (opts.expectedPvId && otp.pv_id && otp.pv_id !== opts.expectedPvId)
+  if (opts.expectedPvId && res.pv_id && res.pv_id !== opts.expectedPvId)
     throw new Error("Code invalide pour ce PV.");
-  if (opts.expectedMode && otp.signature_mode !== opts.expectedMode)
+  if (opts.expectedMode && res.signature_mode !== opts.expectedMode)
     throw new Error("Mode de vérification incorrect.");
 
-  if (otp.used_at) throw new Error("Code déjà utilisé.");
-  if (new Date(otp.expires_at) < new Date())
-    throw new Error("Code expiré. Renvoyez un nouveau code.");
-  if ((otp.attempts ?? 0) >= MAX_ATTEMPTS)
-    throw new Error("Trop de tentatives. Renvoyez un nouveau code.");
-
-  const codeHash = await sha256Hex(opts.code);
-  if (codeHash !== otp.code_hash) {
-    await supabaseAdmin
-      .from("pv_signature_otps")
-      .update({ attempts: (otp.attempts ?? 0) + 1 } as never)
-      .eq("id", otp.id);
-    throw new Error("Code invalide.");
-  }
-
-  await supabaseAdmin
-    .from("pv_signature_otps")
-    .update({ used_at: new Date().toISOString() } as never)
-    .eq("id", otp.id);
-
-  return { ...otp, used_at: new Date().toISOString() };
+  return {
+    id: opts.otpId,
+    pv_id: res.pv_id ?? null,
+    company_id: res.company_id!,
+    email: res.email!,
+    code_hash: codeHash,
+    attempts: 0,
+    expires_at: new Date().toISOString(),
+    used_at: res.used_at ?? new Date().toISOString(),
+    ip_address: null,
+    user_agent: null,
+    signature_mode: res.signature_mode!,
+    created_at: new Date().toISOString(),
+  };
 }
 
 /**
