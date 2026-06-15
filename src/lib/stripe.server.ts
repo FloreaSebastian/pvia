@@ -36,6 +36,33 @@ export function createStripeClient(env: StripeEnv): Stripe {
   });
 }
 
+/**
+ * ST-M5 — per-env singletons.
+ *
+ * Avoid re-instantiating the Stripe SDK on every API call. The Stripe client
+ * is stateless across requests, so a per-isolate singleton is safe and saves
+ * the gateway+HMAC setup work. Cached separately per env to prevent
+ * sandbox↔live cross-talk.
+ */
+const _stripeSingletons: Partial<Record<StripeEnv, Stripe>> = {};
+let _stripeInstantiations = 0;
+
+export function getStripeClient(env: StripeEnv): Stripe {
+  const cached = _stripeSingletons[env];
+  if (cached) return cached;
+  _stripeInstantiations++;
+  const c = createStripeClient(env);
+  _stripeSingletons[env] = c;
+  return c;
+}
+
+export function getStripeSingletonStats() {
+  return {
+    instantiations: _stripeInstantiations,
+    envsCached: Object.keys(_stripeSingletons),
+  };
+}
+
 export async function verifyWebhook(req: Request, env: StripeEnv): Promise<{ type: string; data: { object: any } }> {
   const signature = req.headers.get("stripe-signature");
   const body = await req.text();
