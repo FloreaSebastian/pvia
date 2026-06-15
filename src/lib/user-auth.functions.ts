@@ -5,7 +5,16 @@ import { writeAuditLog } from "@/lib/audit.server";
 import { enforceRateLimit, getClientIp } from "@/lib/rate-limit.server";
 
 const EventSchema = z.object({
-  action: z.enum(["user.login_code_sent", "user.login_success", "user.login_failed", "user.logout"]),
+  action: z.enum([
+    "user.login_code_sent",
+    "user.login_success",
+    "user.login_failed",
+    "user.logout",
+    "user.login_password_fallback_success",
+    "user.login_password_fallback_failed",
+    "user.login_sms_code_sent",
+    "user.login_sms_success",
+  ]),
   email: z.string().email().max(254).optional(),
   metadata: z.record(z.string().min(1).max(64), z.unknown()).optional(),
 });
