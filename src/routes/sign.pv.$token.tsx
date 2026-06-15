@@ -279,7 +279,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 function ErrorScreen({ reason, pvNumero }: { reason?: string; pvNumero?: string }) {
   const map: Record<string, { title: string; body: string; icon: any; color: string }> = {
     expired: { title: "Lien expiré", body: "Ce lien de signature a expiré. Contactez l'entreprise pour en recevoir un nouveau.", icon: Clock, color: "text-warning" },
-    signed: { title: `PV ${pvNumero ?? ""} déjà signé`, body: "Ce procès-verbal a déjà été signé électroniquement. Aucune action supplémentaire n'est requise.", icon: CheckCircle2, color: "text-success" },
+    signed: { title: `N° ${pvNumero ?? ""} déjà signé`, body: "Ce procès-verbal a déjà été signé électroniquement. Aucune action supplémentaire n'est requise.", icon: CheckCircle2, color: "text-success" },
     invalid: { title: "Lien invalide", body: "Ce lien n'est pas reconnu. Vérifiez l'URL ou contactez l'entreprise.", icon: AlertCircle, color: "text-destructive" },
   };
   const m = map[reason ?? "invalid"] ?? map.invalid;
