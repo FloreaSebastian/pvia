@@ -223,23 +223,21 @@ function PvDetail() {
 
   async function changeStatus(status: string) {
     if (!pv) return;
-    const prevStatus = pv.status;
-    const patch: { status: string; signed_at?: string | null } = { status };
-    if (status === "signe") patch.signed_at = new Date().toISOString();
-    const { error } = await supabase.from("pv").update(patch).eq("id", pv.id);
-    if (error) return toast.error(error.message);
-    toast.success("Statut mis à jour");
-    if (pv.company_id) {
-      logAction({ data: {
-        companyId: pv.company_id, pvId: pv.id, entityType: "pv", entityId: pv.id,
-        action: "pv.updated",
-        oldValues: { status: prevStatus },
-        newValues: { status },
-      } }).catch(() => {});
+    if (status === pv.status) return;
+    if (status !== "brouillon" && status !== "archive") {
+      toast.error("Seules les transitions brouillon ↔ archive sont autorisées.");
+      return;
     }
-    load();
-    loadLastEvent();
+    try {
+      await changeStatusFn({ data: { pvId: pv.id, status: status as "brouillon" | "archive" } });
+      toast.success("Statut mis à jour");
+      load();
+      loadLastEvent();
+    } catch (e: any) {
+      toast.error(e?.message || "Statut non modifiable");
+    }
   }
+
 
   async function updateReserve(rid: string, status: string) {
     const prev = reserves.find((r) => r.id === rid);
