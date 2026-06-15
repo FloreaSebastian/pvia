@@ -30,7 +30,7 @@ export async function requirePlatformAdmin(userId: string): Promise<void> {
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .in("role", PLATFORM_ADMIN_ROLES as unknown as string[]),
+      .in("role", ["platform_admin", "admin"]),
   ]);
 
   if (roleErr) throw new Error(roleErr.message);
