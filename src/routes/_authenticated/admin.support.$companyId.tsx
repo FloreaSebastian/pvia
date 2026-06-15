@@ -222,7 +222,13 @@ function Page() {
           <div>Webhooks configurés&nbsp;: <Badge variant="outline">{dash.integrations.webhooks.length}</Badge></div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => act(() => resync({ data: { companyId } }), "Resync Stripe demandé")}>Resync Stripe</Button>
+          <Button size="sm" variant="outline" onClick={async () => {
+            try {
+              const r: any = await resync({ data: { companyId } });
+              if (r?.ok) toast.success(`Abonnement réparé · ${r.recovered ?? 0} récupéré(s)`);
+              else toast.warning(`Aucun abonnement trouvé (${r?.reason ?? "n/a"})`);
+            } catch (e: any) { toast.error(e?.message ?? "Échec réparation"); }
+          }}>Réparer abonnement</Button>
           <Button size="sm" variant="outline" onClick={() => act(() => resetOnb({ data: { companyId } }), "Onboarding réinitialisé")}><RotateCcw className="mr-1 h-3 w-3" />Reset onboarding</Button>
           <Button size="sm" variant="outline" onClick={() => act(() => clearNotifs({ data: { companyId } }), "Notifications d'erreur effacées")}><Bell className="mr-1 h-3 w-3" />Vider notifs erreur</Button>
         </div>
