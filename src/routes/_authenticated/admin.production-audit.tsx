@@ -28,7 +28,7 @@ type Finding = {
   domain: "Workflow PV" | "Stripe" | "Emails" | "Multi-tenant";
   title: string;
   file: string;
-  detail: string;
+  detail?: string;
   fix?: string;
 };
 

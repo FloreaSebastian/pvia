@@ -59,6 +59,7 @@ import { Route as AuthenticatedParametresBrandingRouteImport } from './routes/_a
 import { Route as AuthenticatedParametresAuditRouteImport } from './routes/_authenticated/parametres.audit'
 import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
 import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
+import { Route as AuthenticatedAdminProductionAuditRouteImport } from './routes/_authenticated/admin.production-audit'
 import { Route as AuthenticatedAdminMonitoringRouteImport } from './routes/_authenticated/admin.monitoring'
 import { Route as AuthenticatedAdminLaunchChecklistRouteImport } from './routes/_authenticated/admin.launch-checklist'
 import { Route as AuthenticatedAdminGoLiveRouteImport } from './routes/_authenticated/admin.go-live'
@@ -348,6 +349,12 @@ const AuthenticatedAdminSupportRoute =
     path: '/admin/support',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminProductionAuditRoute =
+  AuthenticatedAdminProductionAuditRouteImport.update({
+    id: '/admin/production-audit',
+    path: '/admin/production-audit',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminMonitoringRoute =
   AuthenticatedAdminMonitoringRouteImport.update({
     id: '/admin/monitoring',
@@ -537,6 +544,7 @@ export interface FileRoutesByFullPath {
   '/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
@@ -611,6 +619,7 @@ export interface FileRoutesByTo {
   '/admin/forbidden': typeof AuthenticatedAdminForbiddenRoute
   '/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
@@ -688,6 +697,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/go-live': typeof AuthenticatedAdminGoLiveRouteWithChildren
   '/_authenticated/admin/launch-checklist': typeof AuthenticatedAdminLaunchChecklistRoute
   '/_authenticated/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
+  '/_authenticated/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
   '/_authenticated/parametres/audit': typeof AuthenticatedParametresAuditRoute
@@ -766,6 +776,7 @@ export interface FileRouteTypes {
     | '/admin/go-live'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
+    | '/admin/production-audit'
     | '/admin/support'
     | '/parametres/api'
     | '/parametres/audit'
@@ -840,6 +851,7 @@ export interface FileRouteTypes {
     | '/admin/forbidden'
     | '/admin/launch-checklist'
     | '/admin/monitoring'
+    | '/admin/production-audit'
     | '/parametres/api'
     | '/parametres/audit'
     | '/parametres/branding'
@@ -916,6 +928,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/go-live'
     | '/_authenticated/admin/launch-checklist'
     | '/_authenticated/admin/monitoring'
+    | '/_authenticated/admin/production-audit'
     | '/_authenticated/admin/support'
     | '/_authenticated/parametres/api'
     | '/_authenticated/parametres/audit'
@@ -1335,6 +1348,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSupportRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/production-audit': {
+      id: '/_authenticated/admin/production-audit'
+      path: '/admin/production-audit'
+      fullPath: '/admin/production-audit'
+      preLoaderRoute: typeof AuthenticatedAdminProductionAuditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/monitoring': {
       id: '/_authenticated/admin/monitoring'
       path: '/admin/monitoring'
@@ -1644,6 +1664,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminGoLiveRoute: typeof AuthenticatedAdminGoLiveRouteWithChildren
   AuthenticatedAdminLaunchChecklistRoute: typeof AuthenticatedAdminLaunchChecklistRoute
   AuthenticatedAdminMonitoringRoute: typeof AuthenticatedAdminMonitoringRoute
+  AuthenticatedAdminProductionAuditRoute: typeof AuthenticatedAdminProductionAuditRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
@@ -1676,6 +1697,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminLaunchChecklistRoute:
     AuthenticatedAdminLaunchChecklistRoute,
   AuthenticatedAdminMonitoringRoute: AuthenticatedAdminMonitoringRoute,
+  AuthenticatedAdminProductionAuditRoute:
+    AuthenticatedAdminProductionAuditRoute,
   AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRouteWithChildren,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
