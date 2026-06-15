@@ -26,11 +26,21 @@ function SignPage() {
   const fetchPv = useServerFn(getPvByToken);
   const signPv = useServerFn(signPvByToken);
   const getPdfUrl = useServerFn(getSignedPvPdfPublic);
+  const sendOtp = useServerFn(sendRemoteClientOtp);
+  const verifyOtp = useServerFn(verifyRemoteClientOtp);
   const [state, setState] = useState<{ loading: boolean; data: LoadedData | null }>({ loading: true, data: null });
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ pvId: string; downloadKey: string } | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
+
+  // OTP state
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpId, setOtpId] = useState<string | null>(null);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpEmailMasked, setOtpEmailMasked] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPv({ data: { token } })
@@ -51,7 +61,45 @@ function SignPage() {
 
   const { pv, company, client, chantier, photos, reserves } = data;
 
+  async function handleSendOtp() {
+    setOtpSending(true);
+    try {
+      const res = await sendOtp({ data: { token } });
+      setOtpId(res.otpId);
+      setOtpEmailMasked(res.emailMasked);
+      setOtpVerified(false);
+      setOtpCode("");
+      toast.success(`Code envoyé à ${res.emailMasked}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Impossible d'envoyer le code.");
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpId) return;
+    if (!/^\d{6}$/.test(otpCode)) {
+      toast.error("Le code doit contenir 6 chiffres.");
+      return;
+    }
+    setOtpVerifying(true);
+    try {
+      await verifyOtp({ data: { token, otpId, code: otpCode } });
+      setOtpVerified(true);
+      toast.success("Identité vérifiée.");
+    } catch (e: any) {
+      toast.error(e?.message || "Code invalide.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  }
+
   async function handleSign() {
+    if (!otpVerified || !otpId) {
+      toast.error("Veuillez d'abord vérifier votre identité par code email.");
+      return;
+    }
     if (!padRef.current || padRef.current.isEmpty()) {
       toast.error("Veuillez apposer votre signature.");
       return;
@@ -63,7 +111,7 @@ function SignPage() {
     const signatureDataUrl = padRef.current.getCanvas().toDataURL("image/png");
     setSubmitting(true);
     try {
-      const res = await signPv({ data: { token, signatureDataUrl, consent: true } });
+      const res = await signPv({ data: { token, signatureDataUrl, consent: true, otpId } });
       setDone({ pvId: res.pvId, downloadKey: res.downloadKey });
     } catch (e: any) {
       toast.error(e?.message || "Échec de la signature");
@@ -71,6 +119,7 @@ function SignPage() {
       setSubmitting(false);
     }
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background pb-16">
