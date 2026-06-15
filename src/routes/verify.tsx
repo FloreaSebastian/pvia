@@ -60,7 +60,7 @@ function VerifyPage() {
   }, [cooldown]);
 
   useEffect(() => {
-    if (code.length === 8 && !submittedRef.current && !loading) {
+    if (code.length === 6 && !submittedRef.current && !loading) {
       submittedRef.current = true;
       void submit(code);
     }
