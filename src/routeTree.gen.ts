@@ -45,6 +45,7 @@ import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
@@ -261,6 +262,11 @@ const SignPvTokenRoute = SignPvTokenRouteImport.update({
 const ClientPvIdRoute = ClientPvIdRouteImport.update({
   id: '/client/pv/$id',
   path: '/client/pv/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTerrainIdRoute = AuthenticatedTerrainIdRouteImport.update({
@@ -516,6 +522,7 @@ export interface FileRoutesByFullPath {
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
@@ -585,6 +592,7 @@ export interface FileRoutesByTo {
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
@@ -658,6 +666,7 @@ export interface FileRoutesById {
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
@@ -731,6 +740,7 @@ export interface FileRouteTypes {
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
+    | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/parametres/'
@@ -800,6 +810,7 @@ export interface FileRouteTypes {
     | '/pv/$id'
     | '/pv/new'
     | '/terrain/$id'
+    | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/parametres'
@@ -872,6 +883,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
     | '/_authenticated/terrain/$id'
+    | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/_authenticated/parametres/'
@@ -910,6 +922,7 @@ export interface RootRouteChildren {
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   ClientPvIdRoute: typeof ClientPvIdRouteWithChildren
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
@@ -1173,6 +1186,13 @@ declare module '@tanstack/react-router' {
       path: '/client/pv/$id'
       fullPath: '/client/pv/$id'
       preLoaderRoute: typeof ClientPvIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/terrain/$id': {
@@ -1602,6 +1622,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRoute,
   ClientPvIdRoute: ClientPvIdRouteWithChildren,
   SignPvTokenRoute: SignPvTokenRoute,
   ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
