@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, CalendarDays, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +17,20 @@ import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
+import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
 
-export const Route = createFileRoute("/_authenticated/chantiers")({
+export const Route = createFileRoute("/_authenticated/chantiers/")({
   component: ChantiersPage,
   head: () => ({ meta: [{ title: "Chantiers — PVIA" }] }),
 });
 
-type Chantier = { id: string; name: string; address: string | null; type: string | null; status: string; client_id: string | null; start_date: string | null; end_date: string | null; description: string | null };
+type Chantier = {
+  id: string; name: string; address: string | null;
+  address_line1: string | null; postal_code: string | null; city: string | null;
+  latitude: number | null; longitude: number | null;
+  type: string | null; status: string; client_id: string | null;
+  start_date: string | null; end_date: string | null; description: string | null;
+};
 type Client = { id: string; name: string };
 
 const TYPES = ["BTP", "Rénovation", "Photovoltaïque", "Climatisation", "Plomberie", "Électricité", "Construction"];
@@ -55,8 +62,9 @@ function ChantiersPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Chantier | null>(null);
-  const empty = { name: "", address: "", type: "BTP", status: "en_cours", client_id: "", start_date: "", end_date: "", description: "" };
+  const empty = { name: "", address: "", address_line1: "", postal_code: "", city: "", latitude: null as number | null, longitude: null as number | null, type: "BTP", status: "en_cours", client_id: "", start_date: "", end_date: "", description: "" };
   const [form, setForm] = useState(empty);
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -81,11 +89,24 @@ function ChantiersPage() {
   function openEdit(c: Chantier) {
     setEditing(c);
     setForm({
-      name: c.name, address: c.address ?? "", type: c.type ?? "BTP", status: c.status,
+      name: c.name, address: c.address ?? "",
+      address_line1: c.address_line1 ?? "", postal_code: c.postal_code ?? "",
+      city: c.city ?? "", latitude: c.latitude ?? null, longitude: c.longitude ?? null,
+      type: c.type ?? "BTP", status: c.status,
       client_id: c.client_id ?? "", start_date: c.start_date ?? "", end_date: c.end_date ?? "",
       description: c.description ?? "",
     });
     setOpen(true);
+  }
+  function pickAddress(v: AddressValue) {
+    setForm((f) => ({
+      ...f,
+      address_line1: v.address || f.address_line1,
+      postal_code: v.postalCode || f.postal_code,
+      city: v.city || f.city,
+      latitude: v.latitude, longitude: v.longitude,
+      address: [v.address, [v.postalCode, v.city].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+    }));
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +116,11 @@ function ChantiersPage() {
       const payload = {
         name: form.name,
         address: form.address,
+        address_line1: form.address_line1,
+        postal_code: form.postal_code,
+        city: form.city,
+        latitude: form.latitude,
+        longitude: form.longitude,
         type: form.type,
         status: form.status as "en_cours" | "termine" | "receptionne",
         client_id: form.client_id || null,
@@ -162,54 +188,72 @@ function ChantiersPage() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          canWrite ? (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={openNew} className="shadow-brand">
-                  <Plus className="h-4 w-4" /> Nouveau chantier
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg">
-                <DialogHeader><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
-                <form onSubmit={save} className="space-y-3">
-                  <div><Label>Nom *</Label><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-                  <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/chantiers/calendrier"><CalendarDays className="h-4 w-4" /> Calendrier</Link>
+            </Button>
+            {canWrite ? (
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={openNew} className="shadow-brand">
+                    <Plus className="h-4 w-4" /> Nouveau chantier
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
+                  <form onSubmit={save} className="space-y-3">
+                    <div><Label>Nom *</Label><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Type</Label>
+                        <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Statut</Label>
+                        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>{STATUSES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     <div>
-                      <Label>Type</Label>
-                      <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                      <Label>Client</Label>
+                      <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
+                        <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucun</SelectItem>
+                          {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label>Statut</Label>
-                      <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{STATUSES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <Label htmlFor="ch-address">Adresse</Label>
+                      <AddressAutocomplete
+                        id="ch-address"
+                        value={form.address_line1}
+                        onChange={(v) => setForm({ ...form, address_line1: v })}
+                        onSelect={pickAddress}
+                        placeholder="Tapez l'adresse du chantier…"
+                      />
                     </div>
-                  </div>
-                  <div>
-                    <Label>Client</Label>
-                    <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
-                      <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Aucun</SelectItem>
-                        {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div><Label>Adresse</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Début</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
-                    <div><Label>Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
-                  </div>
-                  <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          ) : null
+                    <div className="grid grid-cols-3 gap-3">
+                      <div><Label>Code postal</Label><Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
+                      <div className="col-span-2"><Label>Ville</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><Label>Début</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+                      <div><Label>Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
+                    </div>
+                    <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+                    <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            ) : null}
+          </div>
         }
       />
 
@@ -324,7 +368,8 @@ function ChantiersPage() {
             return (
               <Card
                 key={c.id}
-                className="group relative flex flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
+                onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}
+                className="group relative flex cursor-pointer flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -362,16 +407,21 @@ function ChantiersPage() {
                   </div>
                 )}
 
-                {canWrite && (
-                  <div className="mt-auto flex justify-end gap-1 opacity-0 transition group-hover:opacity-100">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                )}
+                <div className="mt-auto flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1 text-xs text-primary opacity-70 group-hover:opacity-100">
+                    Ouvrir la fiche <ArrowRight className="h-3 w-3" />
+                  </span>
+                  {canWrite && (
+                    <div className="flex gap-1 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </Card>
             );
           })}
@@ -394,7 +444,7 @@ function ChantiersPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((c) => (
-                <TableRow key={c.id} className="group">
+                <TableRow key={c.id} className="group cursor-pointer" onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.type ? <StatusPill tone="neutral">{c.type}</StatusPill> : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>
@@ -404,7 +454,7 @@ function ChantiersPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{clientName(c.client_id) ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.address || "—"}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     {canWrite && (
                       <div className="inline-flex opacity-60 transition group-hover:opacity-100">
                         <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
