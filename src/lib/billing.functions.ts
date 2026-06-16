@@ -157,7 +157,8 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => GetSchema.parse(i))
   .handler(async ({ data, context }) => {
-    await assertCompanyMember(data.companyId, context.userId);
+    const role = await assertCompanyMember(data.companyId, context.userId);
+    const isAdmin = role === "owner" || role === "admin";
 
     const [planRes, limitsRes, subRes, pvCountRes, memberCountRes, access] = await Promise.all([
       supabaseAdmin.rpc("get_company_plan", { _company_id: data.companyId }),
@@ -178,11 +179,18 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
     const allLimits = (limitsRes.data ?? []) as any[];
     const currentLimits = allLimits.find((l) => l.plan === plan) ?? null;
 
+    // Strip Stripe identifiers for non-admin members.
+    let subscription = subRes.data as any;
+    if (subscription && !isAdmin) {
+      const { stripe_customer_id, stripe_subscription_id, ...safe } = subscription;
+      subscription = safe;
+    }
+
     return {
       plan,
       limits: currentLimits,
       allPlans: allLimits.sort((a, b) => a.monthly_price_eur - b.monthly_price_eur),
-      subscription: subRes.data,
+      subscription,
       access,
       usage: {
         pv_this_period: Number(pvCountRes.data ?? 0),
@@ -190,4 +198,5 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
       },
     };
   });
+
 
