@@ -591,12 +591,58 @@ function NewPv() {
     };
   }, [brandingComplete, form, withReserves, reserves, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpEmail, onsiteOtpVerified]);
 
+  // Résumé court par étape — affiché dans le stepper et la checklist finale.
+  const stepSummaries = useMemo<Record<string, string>>(() => {
+    const cl = clients.find((c) => c.id === form.client_id);
+    const ch = chantiers.find((c) => c.id === form.chantier_id);
+    const clientLine = cl
+      ? `${cl.name}${cl.email ? ` · ${cl.email}` : ""}`
+      : form.new_client_name
+        ? `${form.new_client_name}${form.new_client_email ? ` · ${form.new_client_email}` : ""}`
+        : "";
+    const chantierLine = [ch?.name, form.chantier_address, form.chantier_city].filter(Boolean).join(" · ");
+    const travauxLine = [
+      form.work_reference_number ? `${labelForRefType(form.work_reference_type)} ${form.work_reference_number}` : labelForRefType(form.work_reference_type),
+      form.work_reference_amount ? `${form.work_reference_amount} €` : "",
+      form.description ? form.description.slice(0, 60) + (form.description.length > 60 ? "…" : "") : "",
+    ].filter(Boolean).join(" · ");
+    const decisionLine = withReserves === true ? "Réception avec réserves" : withReserves === false ? "Réception sans réserve" : "";
+    const reservesLine = reserves.length ? `${reserves.length} réserve${reserves.length > 1 ? "s" : ""}` : "";
+    const photosLine = photos.length ? `${photos.length} photo${photos.length > 1 ? "s" : ""}` : "";
+    const sigParts: string[] = [];
+    if (signatureMode) sigParts.push(signatureMode === "remote" ? "À distance" : "Sur place");
+    if (companySignatureDataUrl) sigParts.push("Entreprise ✓");
+    if (signatureMode === "onsite" && clientSignatureDataUrl) sigParts.push("Client ✓");
+    if (signatureMode === "onsite" && onsiteOtpVerified) sigParts.push("OTP ✓");
+    if (signatureMode === "remote" && onsiteOtpEmail) sigParts.push(onsiteOtpEmail);
+    return {
+      [ID_ENTREPRISE]: branding?.name ?? "",
+      [ID_CLIENT]: clientLine,
+      [ID_CHANTIER]: chantierLine,
+      [ID_TRAVAUX]: travauxLine,
+      [ID_DECISION]: decisionLine,
+      [ID_RESERVES]: reservesLine,
+      [ID_PHOTOS]: photosLine,
+      [ID_SIGNATURES]: sigParts.join(" · "),
+      [ID_APERCU]: "",
+    };
+  }, [branding, clients, chantiers, form, withReserves, reserves, photos, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpVerified, onsiteOtpEmail]);
+
+  const otpStatus: "idle" | "sent" | "verified" | "error" = onsiteOtpVerified
+    ? "verified"
+    : onsiteOtpError
+      ? "error"
+      : onsiteOtpSent
+        ? "sent"
+        : "idle";
+
   const stepValid = stepErrors[currentStep.id] === null;
   // Index de la première étape invalide — bloque l'accès aux suivantes.
   const firstInvalidIdx = useMemo(() => {
     const i = STEPS.findIndex((s) => stepErrors[s.id] !== null);
     return i === -1 ? STEPS.length : i;
   }, [stepErrors, STEPS]);
+
 
   useEffect(() => { setMaxStepIdx((m) => Math.max(m, stepIdx)); }, [stepIdx]);
 
