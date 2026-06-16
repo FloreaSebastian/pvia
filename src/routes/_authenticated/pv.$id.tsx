@@ -371,10 +371,24 @@ function PvDetail() {
     }
   }
 
-  if (loading || !pv) {
+  if (loading) {
     return (
       <div className="grid h-64 place-items-center text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!pv) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => navigate({ to: "/pv" })}>
+          <ArrowLeft className="h-4 w-4" /> Retour aux PV
+        </Button>
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="font-semibold">Fiche PV non chargée</div>
+          <p className="mt-1">{loadError ?? "Erreur de lecture inconnue."}</p>
+        </div>
       </div>
     );
   }
@@ -457,7 +471,7 @@ function PvDetail() {
               {resendingSigned ? "Envoi…" : "Renvoyer le PDF signé"}
             </Button>
           )}
-          {!pv.locked_at && (
+          {(!pv.locked_at || pv.pdf_generation_status === "failed" || !pv.pdf_url) && (
             <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
               {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
               {regenerating ? "Génération…" : "Régénérer le PDF"}
