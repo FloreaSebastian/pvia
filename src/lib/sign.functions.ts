@@ -331,10 +331,17 @@ export const signPvByToken = createServerFn({ method: "POST" })
     });
 
 
-    // Generate the final signed PDF, then email it to the client (+ company copy). Both are
-    // non-fatal — the signature itself is already persisted.
+    // Generate the final signed PDF, then email it to the client (+ company copy).
+    // Both are non-fatal for the signature itself but MUST be surfaced via
+    // processing_status / processing_errors so admins can retry.
+    const { recordProcessingError, markPdfGenerationStatus } = await import(
+      "@/lib/processing-status.server"
+    );
+    let pdfOk = false;
     try {
       await buildAndStorePvPdf(pv.id);
+      await markPdfGenerationStatus("pv", pv.id, "ok");
+      pdfOk = true;
       await writeAuditLog({
         companyId: pv.company_id,
         pvId: pv.id,
@@ -344,13 +351,35 @@ export const signPvByToken = createServerFn({ method: "POST" })
         metadata: { trigger: "auto_after_sign" },
         actor: "pdf",
       });
+    } catch (e) {
+      console.error("PDF generation failed after sign:", e);
+      await markPdfGenerationStatus("pv", pv.id, "failed");
+      await recordProcessingError({
+        table: "pv",
+        id: pv.id,
+        companyId: pv.company_id!,
+        pvId: pv.id,
+        step: "pdf_generation_after_remote_sign",
+        error: e,
+        audit: { action: "pv.pdf_generation_failed", entityType: "pv" },
+      });
+    }
+
+    if (pdfOk) {
       try {
         await deliverSignedPv({ pvId: pv.id, trigger: "auto" });
       } catch (e) {
         console.error("Signed PV email delivery failed:", e);
+        await recordProcessingError({
+          table: "pv",
+          id: pv.id,
+          companyId: pv.company_id!,
+          pvId: pv.id,
+          step: "signed_email_delivery_after_remote_sign",
+          error: e,
+          audit: { action: "pv.signed_email_failed", entityType: "pv" },
+        });
       }
-    } catch (e) {
-      console.error("PDF generation failed after sign:", e);
     }
 
     return { ok: true, pvId: pv.id, downloadKey };
