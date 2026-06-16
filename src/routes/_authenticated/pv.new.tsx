@@ -591,12 +591,58 @@ function NewPv() {
     };
   }, [brandingComplete, form, withReserves, reserves, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpEmail, onsiteOtpVerified]);
 
+  // Résumé court par étape — affiché dans le stepper et la checklist finale.
+  const stepSummaries = useMemo<Record<string, string>>(() => {
+    const cl = clients.find((c) => c.id === form.client_id);
+    const ch = chantiers.find((c) => c.id === form.chantier_id);
+    const clientLine = cl
+      ? `${cl.name}${cl.email ? ` · ${cl.email}` : ""}`
+      : form.new_client_name
+        ? `${form.new_client_name}${form.new_client_email ? ` · ${form.new_client_email}` : ""}`
+        : "";
+    const chantierLine = [ch?.name, form.chantier_address, form.chantier_city].filter(Boolean).join(" · ");
+    const travauxLine = [
+      form.work_reference_number ? `${labelForRefType(form.work_reference_type)} ${form.work_reference_number}` : labelForRefType(form.work_reference_type),
+      form.work_reference_amount ? `${form.work_reference_amount} €` : "",
+      form.description ? form.description.slice(0, 60) + (form.description.length > 60 ? "…" : "") : "",
+    ].filter(Boolean).join(" · ");
+    const decisionLine = withReserves === true ? "Réception avec réserves" : withReserves === false ? "Réception sans réserve" : "";
+    const reservesLine = reserves.length ? `${reserves.length} réserve${reserves.length > 1 ? "s" : ""}` : "";
+    const photosLine = photos.length ? `${photos.length} photo${photos.length > 1 ? "s" : ""}` : "";
+    const sigParts: string[] = [];
+    if (signatureMode) sigParts.push(signatureMode === "remote" ? "À distance" : "Sur place");
+    if (companySignatureDataUrl) sigParts.push("Entreprise ✓");
+    if (signatureMode === "onsite" && clientSignatureDataUrl) sigParts.push("Client ✓");
+    if (signatureMode === "onsite" && onsiteOtpVerified) sigParts.push("OTP ✓");
+    if (signatureMode === "remote" && onsiteOtpEmail) sigParts.push(onsiteOtpEmail);
+    return {
+      [ID_ENTREPRISE]: branding?.name ?? "",
+      [ID_CLIENT]: clientLine,
+      [ID_CHANTIER]: chantierLine,
+      [ID_TRAVAUX]: travauxLine,
+      [ID_DECISION]: decisionLine,
+      [ID_RESERVES]: reservesLine,
+      [ID_PHOTOS]: photosLine,
+      [ID_SIGNATURES]: sigParts.join(" · "),
+      [ID_APERCU]: "",
+    };
+  }, [branding, clients, chantiers, form, withReserves, reserves, photos, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpVerified, onsiteOtpEmail]);
+
+  const otpStatus: "idle" | "sent" | "verified" | "error" = onsiteOtpVerified
+    ? "verified"
+    : onsiteOtpError
+      ? "error"
+      : onsiteOtpSent
+        ? "sent"
+        : "idle";
+
   const stepValid = stepErrors[currentStep.id] === null;
   // Index de la première étape invalide — bloque l'accès aux suivantes.
   const firstInvalidIdx = useMemo(() => {
     const i = STEPS.findIndex((s) => stepErrors[s.id] !== null);
     return i === -1 ? STEPS.length : i;
   }, [stepErrors, STEPS]);
+
 
   useEffect(() => { setMaxStepIdx((m) => Math.max(m, stepIdx)); }, [stepIdx]);
 
@@ -651,35 +697,83 @@ function NewPv() {
           <div className="relative h-1.5 overflow-hidden rounded-full bg-border">
             <motion.div className="h-full rounded-full bg-brand-gradient" initial={false} animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }} />
           </div>
-          <div className="mt-5 hidden flex-wrap gap-1.5 md:flex">
+          <div className="mt-5 hidden flex-col gap-1.5 md:flex">
             {STEPS.map((s, i) => {
               const Icon = s.icon;
-              const done = i < stepIdx && !stepErrors[s.id];
+              const err = stepErrors[s.id];
+              const done = i < stepIdx && !err;
               const current = i === stepIdx;
-              // Verrou strict : impossible d'aller à une étape future si une étape antérieure est invalide.
               const locked = i > stepIdx && i > firstInvalidIdx;
+              const summary = stepSummaries[s.id];
+              const state: "done" | "current" | "blocked" | "locked" | "todo" =
+                done ? "done"
+                : current ? "current"
+                : locked ? "locked"
+                : err ? "blocked"
+                : "todo";
+              const stateCls = {
+                done: "border-success/30 bg-success/5 hover:bg-success/10",
+                current: "border-primary bg-primary/10 shadow-brand",
+                blocked: "border-warning/40 bg-warning/5 hover:bg-warning/10",
+                locked: "border-border bg-muted/30 text-muted-foreground/60 cursor-not-allowed",
+                todo: "border-border bg-muted/20 hover:bg-accent",
+              }[state];
+              const iconCls = {
+                done: "bg-success text-success-foreground",
+                current: "bg-primary text-primary-foreground",
+                blocked: "bg-warning text-warning-foreground",
+                locked: "bg-muted text-muted-foreground",
+                todo: "bg-background text-muted-foreground border border-border",
+              }[state];
               return (
                 <button
                   key={s.id}
                   type="button"
                   disabled={locked}
                   onClick={() => goToStepIdx(i)}
-                  className={`group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                    current ? "bg-primary text-primary-foreground shadow-brand"
-                    : done ? "bg-success/10 text-success hover:bg-success/15"
-                    : locked ? "bg-muted/40 text-muted-foreground/50 cursor-not-allowed"
-                    : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
+                  className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${stateCls}`}
                 >
-                  <span className={`grid h-4 w-4 place-items-center rounded-full text-[10px] font-semibold ${
-                    current ? "bg-primary-foreground/20" : done ? "bg-success/20" : "bg-background/60"
-                  }`}>
-                    {done ? <Check className="h-2.5 w-2.5" /> : locked ? <Lock className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
+                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${iconCls}`}>
+                    {done ? <Check className="h-3.5 w-3.5" /> : locked ? <Lock className="h-3 w-3" /> : <Icon className="h-3.5 w-3.5" />}
                   </span>
-                  {s.label}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      <span>{i + 1}. {s.label}</span>
+                      {state === "blocked" && !current && (
+                        <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-medium text-warning">à compléter</span>
+                      )}
+                      {state === "done" && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                      )}
+                    </span>
+                    {summary ? (
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>
+                    ) : current && err ? (
+                      <span className="mt-0.5 block truncate text-xs text-warning">{err}</span>
+                    ) : null}
+                  </span>
                 </button>
               );
             })}
+          </div>
+
+          {/* Mobile stepper compact */}
+          <div className="mt-4 md:hidden">
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-background p-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                {(() => { const Icon = currentStep.icon; return <Icon className="h-4 w-4" />; })()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Étape {stepIdx + 1}/{STEPS.length}</div>
+                <div className="truncate text-sm font-semibold">{currentStep.label}</div>
+                {stepSummaries[currentStep.id] && (
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">{stepSummaries[currentStep.id]}</div>
+                )}
+                {stepErrors[currentStep.id] && (
+                  <div className="mt-0.5 truncate text-xs text-warning">{stepErrors[currentStep.id]}</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1068,11 +1162,7 @@ function NewPv() {
                                   Un code à 6 chiffres est envoyé par email au client pour confirmer son identité.
                                 </p>
                               </div>
-                              {onsiteOtpVerified && (
-                                <Badge variant="secondary" className="gap-1">
-                                  <CheckCircle2 className="h-3 w-3" /> Identité confirmée
-                                </Badge>
-                              )}
+                              <OtpStatusBadge status={otpStatus} />
                             </div>
                             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                               <Field label="Email du client *">
@@ -1166,8 +1256,38 @@ function NewPv() {
 
               {currentStep.id === ID_APERCU && (
                 <>
-                  <SectionHeader icon={Eye} title="Récapitulatif avant validation" desc="Vérifiez les informations avant la signature." />
+                  <SectionHeader icon={Eye} title="Récapitulatif avant validation" desc="Vérifiez chaque ligne. Tout doit être vert avant signature." />
+
+                  {/* Checklist finale */}
+                  <FinalChecklist
+                    items={[
+                      { label: "Entreprise complète", ok: brandingComplete, hint: stepErrors[ID_ENTREPRISE], stepId: ID_ENTREPRISE },
+                      { label: "Client renseigné", ok: !stepErrors[ID_CLIENT], hint: stepErrors[ID_CLIENT], stepId: ID_CLIENT },
+                      { label: "Chantier et date renseignés", ok: !stepErrors[ID_CHANTIER], hint: stepErrors[ID_CHANTIER], stepId: ID_CHANTIER },
+                      { label: "Travaux décrits", ok: !stepErrors[ID_TRAVAUX], hint: stepErrors[ID_TRAVAUX], stepId: ID_TRAVAUX },
+                      { label: "Décision choisie", ok: !stepErrors[ID_DECISION], hint: stepErrors[ID_DECISION], stepId: ID_DECISION },
+                      ...(withReserves
+                        ? [{ label: "Au moins une réserve renseignée", ok: !stepErrors[ID_RESERVES], hint: stepErrors[ID_RESERVES], stepId: ID_RESERVES }]
+                        : []),
+                      { label: "Mode signature choisi", ok: !!signatureMode, hint: signatureMode ? null : "Choisissez le mode de signature.", stepId: ID_SIGNATURES },
+                      { label: "Signature entreprise validée", ok: !!companySignatureDataUrl, hint: companySignatureDataUrl ? null : "Validez la signature entreprise.", stepId: ID_SIGNATURES },
+                      ...(signatureMode === "remote"
+                        ? [{ label: "Email client renseigné", ok: !!onsiteOtpEmail.trim(), hint: onsiteOtpEmail.trim() ? null : "Renseignez l'email du client.", stepId: ID_SIGNATURES }]
+                        : []),
+                      ...(signatureMode === "onsite"
+                        ? [
+                            { label: "Signature client validée", ok: !!clientSignatureDataUrl, hint: clientSignatureDataUrl ? null : "Validez la signature client.", stepId: ID_SIGNATURES },
+                            { label: "Code OTP client validé", ok: onsiteOtpVerified, hint: onsiteOtpVerified ? null : "Confirmez le code client.", stepId: ID_SIGNATURES },
+                          ]
+                        : []),
+                      { label: "PDF généré après signature complète", ok: true, hint: null, info: "Le PDF n'est généré qu'une fois toutes les signatures collectées." },
+                      { label: "Email PDF envoyé automatiquement", ok: true, hint: null, info: "Le PDF est envoyé au client et à l'entreprise dès finalisation." },
+                    ]}
+                    onFix={(id) => { const i = STEPS.findIndex((s) => s.id === id); if (i >= 0) setStepIdx(i); }}
+                  />
+
                   <div className="grid gap-4 sm:grid-cols-2">
+
                     <RecapBlock title="Entreprise" lines={[branding?.name ?? "—", branding?.siret ? `SIRET ${branding.siret}` : ""]} />
                     <RecapBlock title="Client" lines={[clientObj?.name ?? form.new_client_name, clientObj?.email ?? form.new_client_email]} />
                     <RecapBlock title="Chantier" lines={[chantierObj?.name ?? "—", form.chantier_address, [form.chantier_postal_code, form.chantier_city].filter(Boolean).join(" ")]} />
@@ -1500,5 +1620,92 @@ function ModeCard({
         </div>
       </div>
     </button>
+  );
+}
+
+function OtpStatusBadge({ status }: { status: "idle" | "sent" | "verified" | "error" }) {
+  if (status === "verified") {
+    return (
+      <Badge variant="secondary" className="gap-1 border border-success/40 bg-success/10 text-success">
+        <CheckCircle2 className="h-3 w-3" /> Identité confirmée
+      </Badge>
+    );
+  }
+  if (status === "sent") {
+    return (
+      <Badge variant="secondary" className="gap-1 border border-info/40 bg-info/10 text-info">
+        <Send className="h-3 w-3" /> Code envoyé
+      </Badge>
+    );
+  }
+  if (status === "error") {
+    return (
+      <Badge variant="destructive" className="gap-1">
+        <AlertTriangle className="h-3 w-3" /> Erreur d'envoi
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="gap-1 text-muted-foreground">
+      Code non envoyé
+    </Badge>
+  );
+}
+
+type ChecklistItem = {
+  label: string;
+  ok: boolean;
+  hint: string | null;
+  info?: string;
+  stepId?: string;
+};
+
+function FinalChecklist({ items, onFix }: { items: ChecklistItem[]; onFix: (stepId: string) => void }) {
+  const remaining = items.filter((i) => !i.ok && i.stepId).length;
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <CheckCircle2 className="h-4 w-4 text-primary" /> Checklist finale
+        </p>
+        <span className={`text-xs font-medium ${remaining === 0 ? "text-success" : "text-warning"}`}>
+          {remaining === 0 ? "Tout est prêt" : `${remaining} point${remaining > 1 ? "s" : ""} à corriger`}
+        </span>
+      </div>
+      <ul className="space-y-1.5">
+        {items.map((it, i) => (
+          <li
+            key={i}
+            className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
+              it.ok
+                ? "border-success/30 bg-success/5"
+                : "border-warning/40 bg-warning/5"
+            }`}
+          >
+            <span
+              className={`grid h-5 w-5 shrink-0 place-items-center rounded-full ${
+                it.ok ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground"
+              }`}
+            >
+              {it.ok ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{it.label}</div>
+              {!it.ok && it.hint && (
+                <div className="text-xs text-muted-foreground">{it.hint}</div>
+              )}
+              {it.ok && it.info && (
+                <div className="text-xs text-muted-foreground">{it.info}</div>
+              )}
+            </div>
+            {!it.ok && it.stepId && (
+              <Button size="sm" variant="outline" onClick={() => onFix(it.stepId!)}>
+                Corriger
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
