@@ -697,35 +697,83 @@ function NewPv() {
           <div className="relative h-1.5 overflow-hidden rounded-full bg-border">
             <motion.div className="h-full rounded-full bg-brand-gradient" initial={false} animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }} />
           </div>
-          <div className="mt-5 hidden flex-wrap gap-1.5 md:flex">
+          <div className="mt-5 hidden flex-col gap-1.5 md:flex">
             {STEPS.map((s, i) => {
               const Icon = s.icon;
-              const done = i < stepIdx && !stepErrors[s.id];
+              const err = stepErrors[s.id];
+              const done = i < stepIdx && !err;
               const current = i === stepIdx;
-              // Verrou strict : impossible d'aller à une étape future si une étape antérieure est invalide.
               const locked = i > stepIdx && i > firstInvalidIdx;
+              const summary = stepSummaries[s.id];
+              const state: "done" | "current" | "blocked" | "locked" | "todo" =
+                done ? "done"
+                : current ? "current"
+                : locked ? "locked"
+                : err ? "blocked"
+                : "todo";
+              const stateCls = {
+                done: "border-success/30 bg-success/5 hover:bg-success/10",
+                current: "border-primary bg-primary/10 shadow-brand",
+                blocked: "border-warning/40 bg-warning/5 hover:bg-warning/10",
+                locked: "border-border bg-muted/30 text-muted-foreground/60 cursor-not-allowed",
+                todo: "border-border bg-muted/20 hover:bg-accent",
+              }[state];
+              const iconCls = {
+                done: "bg-success text-success-foreground",
+                current: "bg-primary text-primary-foreground",
+                blocked: "bg-warning text-warning-foreground",
+                locked: "bg-muted text-muted-foreground",
+                todo: "bg-background text-muted-foreground border border-border",
+              }[state];
               return (
                 <button
                   key={s.id}
                   type="button"
                   disabled={locked}
                   onClick={() => goToStepIdx(i)}
-                  className={`group inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                    current ? "bg-primary text-primary-foreground shadow-brand"
-                    : done ? "bg-success/10 text-success hover:bg-success/15"
-                    : locked ? "bg-muted/40 text-muted-foreground/50 cursor-not-allowed"
-                    : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
+                  className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${stateCls}`}
                 >
-                  <span className={`grid h-4 w-4 place-items-center rounded-full text-[10px] font-semibold ${
-                    current ? "bg-primary-foreground/20" : done ? "bg-success/20" : "bg-background/60"
-                  }`}>
-                    {done ? <Check className="h-2.5 w-2.5" /> : locked ? <Lock className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
+                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${iconCls}`}>
+                    {done ? <Check className="h-3.5 w-3.5" /> : locked ? <Lock className="h-3 w-3" /> : <Icon className="h-3.5 w-3.5" />}
                   </span>
-                  {s.label}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      <span>{i + 1}. {s.label}</span>
+                      {state === "blocked" && !current && (
+                        <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-medium text-warning">à compléter</span>
+                      )}
+                      {state === "done" && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                      )}
+                    </span>
+                    {summary ? (
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>
+                    ) : current && err ? (
+                      <span className="mt-0.5 block truncate text-xs text-warning">{err}</span>
+                    ) : null}
+                  </span>
                 </button>
               );
             })}
+          </div>
+
+          {/* Mobile stepper compact */}
+          <div className="mt-4 md:hidden">
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-background p-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                {(() => { const Icon = currentStep.icon; return <Icon className="h-4 w-4" />; })()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Étape {stepIdx + 1}/{STEPS.length}</div>
+                <div className="truncate text-sm font-semibold">{currentStep.label}</div>
+                {stepSummaries[currentStep.id] && (
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">{stepSummaries[currentStep.id]}</div>
+                )}
+                {stepErrors[currentStep.id] && (
+                  <div className="mt-0.5 truncate text-xs text-warning">{stepErrors[currentStep.id]}</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
