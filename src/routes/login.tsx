@@ -49,13 +49,22 @@ function LoginPage() {
     const normalized = email.trim().toLowerCase();
     if (!normalized) return;
     setLoading(true);
+    const NEUTRAL = "Si un compte existe, un code de connexion a été envoyé.";
     try {
       await sendLoginCode({ data: { email: normalized } });
       await logEvent({ data: { action: "user.login_code_sent", email: normalized } }).catch(() => {});
-      toast.success("Code envoyé. Vérifiez votre boîte mail.");
+      toast.success(NEUTRAL);
       navigate({ to: "/verify", search: { email: normalized } });
     } catch (err: any) {
-      toast.error(err?.message ?? "Impossible d'envoyer le code.");
+      const msg = String(err?.message ?? "");
+      if (/rate|limit|trop|patient|429|too many/i.test(msg)) {
+        toast.error("Veuillez patienter avant de redemander un code.");
+      } else {
+        // Anti-enumeration: never leak account existence. Show neutral message
+        // and route to /verify regardless of the underlying failure.
+        toast.success(NEUTRAL);
+        navigate({ to: "/verify", search: { email: normalized } });
+      }
     } finally {
       setLoading(false);
     }
