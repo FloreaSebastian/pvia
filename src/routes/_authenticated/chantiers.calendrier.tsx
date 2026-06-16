@@ -56,13 +56,18 @@ function ChantierCalendarPage() {
 
   const [chantiers, setChantiers] = useState<{ id: string; name: string }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [members, setMembers] = useState<{ user_id: string; name: string }[]>([]);
   const [fChantier, setFChantier] = useState<string>("all");
   const [fClient, setFClient] = useState<string>("all");
   const [fType, setFType] = useState<string>("all");
   const [fStatus, setFStatus] = useState<string>("all");
+  const [fAssigned, setFAssigned] = useState<string>("all");
 
   const fetchEvents = useServerFn(listChantierEvents);
   const createEvtFn = useServerFn(createChantierEvent);
+  const fetchMembers = useServerFn(listCompanyMembers);
+  const rescheduleFn = useServerFn(rescheduleChantierEvent);
+  const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
 
   const range = useMemo(() => {
     if (view === "month") return { from: startOfWeek(startOfMonth(cursor)), to: addDays(startOfWeek(endOfMonth(cursor)), 41) };
