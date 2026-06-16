@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { createPv } from "@/lib/pv-create.functions";
+import { extractWorkReferenceDoc } from "@/lib/work-reference.functions";
 import { getCompanyBrandingFn } from "@/lib/branding.functions";
 import { getPvNumberingSettings } from "@/lib/pv-numbering.functions";
 import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
@@ -125,6 +126,10 @@ function NewPv() {
   const getNumberingFn = useServerFn(getPvNumberingSettings);
   const sendOtpFn = useServerFn(sendOnsiteClientOtp);
   const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
+  const extractWorkRefFn = useServerFn(extractWorkReferenceDoc);
+
+  // Clef stable côté brouillon pour rattacher les documents importés avant création du PV.
+  const [draftKey] = useState(() => `draft-${crypto.randomUUID()}`);
 
   const [stepIdx, setStepIdx] = useState(0);
   const [maxStepIdx, setMaxStepIdx] = useState(0);
@@ -532,6 +537,15 @@ function NewPv() {
         },
       });
 
+      // Rattache les documents importés (brouillon) au PV désormais créé.
+      if (res?.pvId && activeCompanyId) {
+        await supabase
+          .from("pv_documents")
+          .update({ pv_id: res.pvId, draft_key: null })
+          .eq("company_id", activeCompanyId)
+          .eq("draft_key", draftKey);
+      }
+
       localStorage.removeItem(DRAFT_KEY);
       if (action === "remote" && res.remoteSignEmailStatus === "failed") {
         // PV créé mais email non envoyé : ne pas masquer l'erreur.
@@ -898,6 +912,39 @@ function NewPv() {
               {currentStep.id === ID_TRAVAUX && (
                 <>
                   <SectionHeader icon={ClipboardList} title="Travaux & référence" desc="Devis, bon de commande ou marché à l'origine des travaux." />
+
+                  <WorkReferenceImport
+                    companyId={activeCompanyId}
+                    draftKey={draftKey}
+                    extractFn={extractWorkRefFn}
+                    onApply={(extracted, mode) => {
+                      setForm((f) => {
+                        const next = { ...f };
+                        const apply = <K extends keyof typeof f>(key: K, val: unknown) => {
+                          if (val == null || val === "") return;
+                          const current = String(f[key] ?? "");
+                          if (mode === "empty" && current.trim()) return;
+                          (next as any)[key] = String(val);
+                        };
+                        if (extracted.document_type && ["devis", "bon_commande", "marche"].includes(extracted.document_type)) {
+                          if (mode !== "empty" || f.work_reference_type === "manuel") {
+                            next.work_reference_type = extracted.document_type as WorkRefType;
+                          }
+                        }
+                        apply("work_reference_number", extracted.document_number);
+                        apply("work_reference_date", extracted.document_date);
+                        if (extracted.amount_ttc != null) apply("work_reference_amount", extracted.amount_ttc);
+                        apply("new_client_name", extracted.client_name);
+                        apply("new_client_email", extracted.client_email);
+                        apply("chantier_address", extracted.chantier_address);
+                        apply("chantier_postal_code", extracted.chantier_postal_code);
+                        apply("chantier_city", extracted.chantier_city);
+                        apply("description", extracted.description);
+                        return next;
+                      });
+                    }}
+                  />
+
                   <Field label="Type de référence">
                     <div className="grid gap-2 sm:grid-cols-4">
                       {([
@@ -1698,3 +1745,224 @@ function FinalChecklist({ items, onFix }: { items: ChecklistItem[]; onFix: (step
     </div>
   );
 }
+
+/* ============================================================
+ * Import devis / bon de commande / marché + extraction IA
+ * ============================================================ */
+type ExtractedRef = {
+  document_type?: string | null;
+  document_number?: string | null;
+  document_date?: string | null;
+  amount_ttc?: number | null;
+  amount_ht?: number | null;
+  vat_amount?: number | null;
+  client_name?: string | null;
+  client_email?: string | null;
+  client_phone?: string | null;
+  chantier_address?: string | null;
+  chantier_postal_code?: string | null;
+  chantier_city?: string | null;
+  description?: string | null;
+  issuer_company?: string | null;
+  confidence?: number | null;
+};
+
+function WorkReferenceImport(props: {
+  companyId: string | null;
+  draftKey: string;
+  extractFn: (args: { data: any }) => Promise<any>;
+  onApply: (extracted: ExtractedRef, mode: "empty" | "all") => void;
+}) {
+  const { companyId, draftKey, extractFn, onApply } = props;
+  const [busy, setBusy] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [extracted, setExtracted] = useState<ExtractedRef | null>(null);
+  const [confidence, setConfidence] = useState<number | null>(null);
+  const [status, setStatus] = useState<"idle" | "uploading" | "ok" | "failed">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleFile = async (file: File) => {
+    if (!companyId) {
+      toast.error("Aucune entreprise active.");
+      return;
+    }
+    const allowed = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Format non supporté. PDF, PNG, JPG ou WebP uniquement.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 10 Mo).");
+      return;
+    }
+    setBusy(true);
+    setStatus("uploading");
+    setFileName(file.name);
+    setErrorMsg(null);
+    setExtracted(null);
+    try {
+      const dataUrl = await fileToBase64(file);
+      const res = await extractFn({
+        data: {
+          companyId,
+          draftKey,
+          fileName: file.name,
+          mimeType: file.type,
+          dataUrl,
+        },
+      });
+      if (res?.extracted) {
+        setExtracted(res.extracted as ExtractedRef);
+        setConfidence(res.document?.extraction_confidence ?? null);
+        setStatus("ok");
+        toast.success("Document analysé. Vérifiez les données détectées.");
+      } else {
+        setStatus("failed");
+        setErrorMsg(res?.error ?? "Extraction impossible.");
+        toast.warning("Document importé mais extraction automatique impossible.");
+      }
+    } catch (e) {
+      setStatus("failed");
+      setErrorMsg((e as Error).message);
+      toast.error(`Échec de l'import : ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rows: Array<{ label: string; value?: string | number | null }> = extracted
+    ? [
+        { label: "Type", value: extracted.document_type },
+        { label: "Numéro", value: extracted.document_number },
+        { label: "Date", value: extracted.document_date },
+        { label: "Montant TTC (€)", value: extracted.amount_ttc },
+        { label: "Montant HT (€)", value: extracted.amount_ht },
+        { label: "Client", value: extracted.client_name },
+        { label: "Email", value: extracted.client_email },
+        { label: "Adresse chantier", value: extracted.chantier_address },
+        {
+          label: "Code postal / ville",
+          value:
+            [extracted.chantier_postal_code, extracted.chantier_city].filter(Boolean).join(" ") || null,
+        },
+        {
+          label: "Description",
+          value: extracted.description ? extracted.description.slice(0, 200) : null,
+        },
+      ]
+    : [];
+
+  return (
+    <Card className="border-dashed bg-muted/30 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Upload className="h-4 w-4 text-primary" />
+            Importer un devis, bon de commande ou marché
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            PDF ou image (PNG/JPG/WebP), 10 Mo max. Les champs vides du formulaire seront pré-remplis automatiquement.
+          </p>
+        </div>
+        <label className="cursor-pointer">
+          <input
+            type="file"
+            accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleFile(f);
+              e.target.value = "";
+            }}
+          />
+          <span className="inline-flex items-center gap-2 rounded-md border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {busy ? "Analyse en cours…" : "Choisir un fichier"}
+          </span>
+        </label>
+      </div>
+
+      {fileName && (
+        <div className="mt-3 text-xs text-muted-foreground">
+          <FileText className="mr-1 inline h-3 w-3" />
+          {fileName}
+          {status === "ok" && confidence != null && (
+            <span className="ml-2 rounded bg-success/10 px-2 py-0.5 text-success">
+              Confiance {Math.round(confidence * 100)}%
+            </span>
+          )}
+        </div>
+      )}
+
+      {status === "failed" && (
+        <Alert variant="default" className="mt-3 border-warning/40 bg-warning/5">
+          <AlertTriangle className="h-4 w-4 text-warning" />
+          <AlertTitle>Extraction automatique impossible</AlertTitle>
+          <AlertDescription>
+            Le fichier a bien été enregistré, mais aucune donnée n'a pu être extraite automatiquement. Complétez les champs manuellement.
+            {errorMsg && <div className="mt-1 text-xs opacity-70">Code : {errorMsg.slice(0, 120)}</div>}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {extracted && status === "ok" && (
+        <div className="mt-3 space-y-3">
+          <div className="rounded-md border bg-background p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Données détectées
+            </div>
+            <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+              {rows
+                .filter((r) => r.value != null && r.value !== "")
+                .map((r) => (
+                  <div key={r.label} className="flex justify-between gap-3 border-b border-dashed py-1 last:border-b-0">
+                    <dt className="text-muted-foreground">{r.label}</dt>
+                    <dd className="text-right font-medium">{String(r.value)}</dd>
+                  </div>
+                ))}
+            </dl>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={() => {
+                onApply(extracted, "empty");
+                toast.success("Champs vides pré-remplis.");
+              }}
+            >
+              <Check className="mr-1 h-4 w-4" />
+              Appliquer aux champs vides
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                onApply(extracted, "all");
+                toast.success("Tous les champs ont été remplacés.");
+              }}
+            >
+              Tout remplacer
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setExtracted(null);
+                setStatus("idle");
+                setFileName(null);
+              }}
+            >
+              Ignorer
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+

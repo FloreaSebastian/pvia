@@ -1443,6 +1443,81 @@ export type Database = {
           },
         ]
       }
+      pv_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          document_type: string
+          draft_key: string | null
+          extracted_data: Json | null
+          extraction_confidence: number | null
+          extraction_error: string | null
+          extraction_status: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          file_url: string
+          id: string
+          pv_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          draft_key?: string | null
+          extracted_data?: Json | null
+          extraction_confidence?: number | null
+          extraction_error?: string | null
+          extraction_status?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          file_url: string
+          id?: string
+          pv_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          draft_key?: string | null
+          extracted_data?: Json | null
+          extraction_confidence?: number | null
+          extraction_error?: string | null
+          extraction_status?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          file_url?: string
+          id?: string
+          pv_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pv_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pv_documents_pv_id_fkey"
+            columns: ["pv_id"]
+            isOneToOne: false
+            referencedRelation: "pv"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pv_photos: {
         Row: {
           caption: string | null
