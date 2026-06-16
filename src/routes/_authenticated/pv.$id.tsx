@@ -121,14 +121,20 @@ function PvDetail() {
     setLoading(true);
     // Note: sign_token and sign_token_hash column-level revoked from authenticated.
     // The signing URL is returned by the server fn that (re)generates the token.
-    const { data: pvData, error } = await supabase
-      .from("pv")
-      .select(
-        "id,owner_id,chantier_id,client_id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,pdf_url,created_at,updated_at,company_id,sign_token_expires_at,sent_to_client_at,sent_to_email,pdf_generated_at,is_field_draft,latitude,longitude,field_last_saved_at,reception_with_reserves,work_reference_type,work_reference_number,work_reference_date,work_reference_amount,reserve_completion_delay,reserve_due_date,chantier_address,chantier_postal_code,chantier_city,reserve_lift_status,signature_mode,client_identity_verified_at,client_identity_verified_by,client_identity_email,client_identity_phone,client_otp_verified,locked_at,client_signature_ip,client_signature_user_agent,consent_text,consent_at,processing_status,processing_errors,pdf_generation_status,photos_failed_count"
-      )
-      .eq("id", id)
-      .maybeSingle();
-    if (error || !pvData) {
+    const cols = "id,owner_id,chantier_id,client_id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,pdf_url,created_at,updated_at,company_id,sign_token_expires_at,sent_to_client_at,sent_to_email,pdf_generated_at,is_field_draft,latitude,longitude,field_last_saved_at,reception_with_reserves,work_reference_type,work_reference_number,work_reference_date,work_reference_amount,reserve_completion_delay,reserve_due_date,chantier_address,chantier_postal_code,chantier_city,reserve_lift_status,signature_mode,client_identity_verified_at,client_identity_verified_by,client_identity_email,client_identity_phone,client_otp_verified,locked_at,client_signature_ip,client_signature_user_agent,consent_text,consent_at,processing_status,processing_errors,pdf_generation_status,photos_failed_count";
+    // Retry up to 4× (≈1.2s) — covers the small replication window right
+    // after createPv, where the row may not yet be visible to the read replica.
+    let pvData: any = null;
+    let lastError: any = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const r = await supabase.from("pv").select(cols).eq("id", id).maybeSingle();
+      if (r.data) { pvData = r.data; lastError = null; break; }
+      lastError = r.error;
+      if (attempt < 3) await new Promise((res) => setTimeout(res, 350));
+    }
+    if (!pvData) {
+      // eslint-disable-next-line no-console
+      console.warn("[pv] introuvable après retries", { pvId: id, error: lastError });
       toast.error("PV introuvable");
       navigate({ to: "/pv" });
       return;
