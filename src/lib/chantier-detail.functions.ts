@@ -1,0 +1,254 @@
+/**
+ * Server functions for the chantier detail page:
+ * - getChantierDetail: summary + timeline + notes + documents
+ * - CRUD for chantier_events, chantier_notes, chantier_documents
+ * - listChantierEvents for the calendar view
+ *
+ * Writes require can_manage_company (owner/admin/manager). Deletes require
+ * is_company_admin (owner/admin only) — enforced by RLS but pre-checked
+ * here for clean error messages.
+ */
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { writeAuditLog } from "./audit.server";
+
+async function assertCanManage(sb: SupabaseClient<Database>, companyId: string, userId: string) {
+  const { data, error } = await sb.rpc("can_manage_company", { _company_id: companyId, _user_id: userId });
+  if (error) throw new Error("Vérification des droits impossible.");
+  if (data !== true) throw new Error("Droits insuffisants.");
+}
+async function assertIsAdmin(sb: SupabaseClient<Database>, companyId: string, userId: string) {
+  const { data, error } = await sb.rpc("is_company_admin", { _company_id: companyId, _user_id: userId });
+  if (error) throw new Error("Vérification des droits impossible.");
+  if (data !== true) throw new Error("Droits insuffisants (admin requis).");
+}
+
+// ---------- getChantierDetail ----------
+export const getChantierDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const [chRes, evRes, ntRes, dcRes, pvRes] = await Promise.all([
+      supabase.from("chantiers").select("*, client:clients(id,name,email,phone,address)").eq("id", data.id).eq("company_id", data.companyId).maybeSingle(),
+      supabase.from("chantier_events").select("*").eq("chantier_id", data.id).order("start_at", { ascending: false, nullsFirst: false }).limit(200),
+      supabase.from("chantier_notes").select("*").eq("chantier_id", data.id).order("created_at", { ascending: false }).limit(100),
+      supabase.from("chantier_documents").select("*").eq("chantier_id", data.id).order("created_at", { ascending: false }).limit(100),
+      supabase.from("pv").select("id,numero,status,type,created_at,signed_at,sent_to_client_at").eq("chantier_id", data.id).order("created_at", { ascending: false }).limit(50),
+    ]);
+    if (!chRes.data) throw new Error("Chantier introuvable.");
+    const events = evRes.data ?? [];
+    const total = events.length;
+    const done = events.filter((e) => e.status === "termine").length;
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+    const now = Date.now();
+    const upcoming = events
+      .filter((e) => e.start_at && new Date(e.start_at).getTime() >= now && e.status !== "annule")
+      .sort((a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime())[0] ?? null;
+    const last = events
+      .filter((e) => e.start_at && new Date(e.start_at).getTime() < now)
+      .sort((a, b) => new Date(b.start_at!).getTime() - new Date(a.start_at!).getTime())[0] ?? null;
+    return {
+      chantier: chRes.data,
+      events,
+      notes: ntRes.data ?? [],
+      documents: dcRes.data ?? [],
+      pvs: pvRes.data ?? [],
+      stats: { total, done, progress, upcoming, last },
+    };
+  });
+
+// ---------- events ----------
+const EventPayload = z.object({
+  title: z.string().trim().min(1, "Titre requis").max(200),
+  description: z.string().trim().max(5000).optional().default(""),
+  event_type: z.string().trim().min(1).max(50),
+  status: z.enum(["prevu", "en_cours", "termine", "annule", "reporte"]).default("prevu"),
+  start_at: z.string().nullable().optional(),
+  end_at: z.string().nullable().optional(),
+  all_day: z.boolean().optional().default(false),
+  assigned_to: z.string().uuid().nullable().optional(),
+  reminder_at: z.string().nullable().optional(),
+  location: z.string().trim().max(300).optional().default(""),
+  color: z.string().trim().max(30).optional().default(""),
+  client_id: z.string().uuid().nullable().optional(),
+});
+
+export const createChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), chantierId: z.string().uuid(), data: EventPayload }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const p = data.data;
+    const { data: row, error } = await supabase.from("chantier_events").insert({
+      company_id: data.companyId, chantier_id: data.chantierId, created_by: userId,
+      title: p.title.trim(), description: p.description.trim() || null,
+      event_type: p.event_type, status: p.status,
+      start_at: p.start_at || null, end_at: p.end_at || null, all_day: p.all_day ?? false,
+      assigned_to: p.assigned_to ?? null, reminder_at: p.reminder_at || null,
+      location: p.location.trim() || null, color: p.color.trim() || null,
+      client_id: p.client_id ?? null,
+    }).select("id").single();
+    if (error || !row) throw new Error(error?.message ?? "Création impossible.");
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_event", entityId: row.id, action: "chantier_event.create", newValues: { ...p, chantier_id: data.chantierId } });
+    return { ok: true, id: row.id as string };
+  });
+
+export const updateChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid(), data: EventPayload }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const p = data.data;
+    const { error } = await supabase.from("chantier_events").update({
+      title: p.title.trim(), description: p.description.trim() || null,
+      event_type: p.event_type, status: p.status,
+      start_at: p.start_at || null, end_at: p.end_at || null, all_day: p.all_day ?? false,
+      assigned_to: p.assigned_to ?? null, reminder_at: p.reminder_at || null,
+      location: p.location.trim() || null, color: p.color.trim() || null,
+      client_id: p.client_id ?? null,
+    }).eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_event", entityId: data.id, action: "chantier_event.update", newValues: p });
+    return { ok: true };
+  });
+
+export const deleteChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertIsAdmin(supabase, data.companyId, userId);
+    const { error } = await supabase.from("chantier_events").delete().eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_event", entityId: data.id, action: "chantier_event.delete" });
+    return { ok: true };
+  });
+
+// ---------- notes ----------
+const NotePayload = z.object({
+  note: z.string().trim().min(1, "Note requise").max(5000),
+  visibility: z.enum(["internal", "client"]).default("internal"),
+  priority: z.enum(["low", "normal", "high"]).default("normal"),
+  reminder_at: z.string().nullable().optional(),
+});
+
+export const createChantierNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), chantierId: z.string().uuid(), data: NotePayload }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const p = data.data;
+    const { data: row, error } = await supabase.from("chantier_notes").insert({
+      company_id: data.companyId, chantier_id: data.chantierId, created_by: userId,
+      note: p.note.trim(), visibility: p.visibility, priority: p.priority,
+      reminder_at: p.reminder_at || null,
+    }).select("id").single();
+    if (error || !row) throw new Error(error?.message ?? "Création impossible.");
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_note", entityId: row.id, action: "chantier_note.create" });
+    return { ok: true, id: row.id as string };
+  });
+
+export const updateChantierNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid(), data: NotePayload }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const p = data.data;
+    const { error } = await supabase.from("chantier_notes").update({
+      note: p.note.trim(), visibility: p.visibility, priority: p.priority,
+      reminder_at: p.reminder_at || null,
+    }).eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_note", entityId: data.id, action: "chantier_note.update" });
+    return { ok: true };
+  });
+
+export const deleteChantierNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertIsAdmin(supabase, data.companyId, userId);
+    const { error } = await supabase.from("chantier_notes").delete().eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_note", entityId: data.id, action: "chantier_note.delete" });
+    return { ok: true };
+  });
+
+// ---------- documents ----------
+const DocPayload = z.object({
+  name: z.string().trim().min(1).max(300),
+  file_url: z.string().trim().min(1).max(2000),
+  storage_path: z.string().trim().max(500).optional().default(""),
+  file_type: z.string().trim().max(100).optional().default(""),
+  category: z.enum(["devis", "bon_commande", "photo", "plan", "pv", "facture", "autre"]).default("autre"),
+});
+
+export const createChantierDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), chantierId: z.string().uuid(), data: DocPayload }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const p = data.data;
+    const { data: row, error } = await supabase.from("chantier_documents").insert({
+      company_id: data.companyId, chantier_id: data.chantierId, created_by: userId,
+      name: p.name.trim(), file_url: p.file_url.trim(),
+      storage_path: p.storage_path.trim() || null, file_type: p.file_type.trim() || null,
+      category: p.category,
+    }).select("id").single();
+    if (error || !row) throw new Error(error?.message ?? "Création impossible.");
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_document", entityId: row.id, action: "chantier_document.create" });
+    return { ok: true, id: row.id as string };
+  });
+
+export const deleteChantierDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertIsAdmin(supabase, data.companyId, userId);
+    const { data: doc } = await supabase.from("chantier_documents").select("storage_path").eq("id", data.id).eq("company_id", data.companyId).maybeSingle();
+    const { error } = await supabase.from("chantier_documents").delete().eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    if (doc?.storage_path) {
+      await supabase.storage.from("pv-assets").remove([doc.storage_path]);
+    }
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_document", entityId: data.id, action: "chantier_document.delete" });
+    return { ok: true };
+  });
+
+// ---------- list events (calendar) ----------
+export const listChantierEvents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    from: z.string().nullable().optional(),
+    to: z.string().nullable().optional(),
+    chantierId: z.string().uuid().nullable().optional(),
+    clientId: z.string().uuid().nullable().optional(),
+    eventType: z.string().nullable().optional(),
+    status: z.string().nullable().optional(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    let q = supabase.from("chantier_events").select("*, chantier:chantiers(id,name), client:clients(id,name)")
+      .eq("company_id", data.companyId).order("start_at", { ascending: true, nullsFirst: false }).limit(500);
+    if (data.from) q = q.gte("start_at", data.from);
+    if (data.to) q = q.lte("start_at", data.to);
+    if (data.chantierId) q = q.eq("chantier_id", data.chantierId);
+    if (data.clientId) q = q.eq("client_id", data.clientId);
+    if (data.eventType) q = q.eq("event_type", data.eventType);
+    if (data.status) q = q.eq("status", data.status);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return { events: rows ?? [] };
+  });
