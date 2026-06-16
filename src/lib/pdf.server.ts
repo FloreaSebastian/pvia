@@ -58,6 +58,17 @@ export type SignatureProofMeta = {
   pdfGeneratedAt: string;
 };
 
+export type ReferenceDocument = {
+  file_name: string;
+  document_type?: string | null;
+  document_number?: string | null;
+  document_date?: string | null;
+  amount_ht?: number | null;
+  vat_amount?: number | null;
+  amount_ttc?: number | null;
+  extraction_status?: "success" | "failed" | "manual" | string | null;
+};
+
 const ACCENT = rgb(0.06, 0.09, 0.16);
 const MUTED = rgb(0.42, 0.45, 0.52);
 const SUBTLE = rgb(0.62, 0.65, 0.72);
@@ -140,8 +151,10 @@ export async function generatePvPdfBytes(input: {
   photos: { caption: string | null; bytes: Uint8Array }[];
   branding?: CompanyBrandingSettings;
   proof?: SignatureProofMeta;
+  referenceDocument?: ReferenceDocument | null;
 }): Promise<Uint8Array> {
   const { pv, company, client, chantier, reserves, photos, proof } = input;
+  const referenceDocument = input.referenceDocument ?? null;
   const branding = input.branding ?? DEFAULT_BRANDING_SETTINGS;
   const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
   const PRIMARY = (() => {
@@ -438,6 +451,64 @@ export async function generatePvPdfBytes(input: {
     para(pv.observations, 9.5);
   }
   y -= 4;
+
+  // ============ DOCUMENT DE REFERENCE ============
+  if (referenceDocument) {
+    const rd = referenceDocument;
+    const typeLabel = ({
+      devis: "Devis",
+      bon_commande: "Bon de commande",
+      marche: "Marche",
+      contrat: "Contrat",
+      autre: "Autre",
+      manuel: "Document",
+    } as Record<string, string>)[rd.document_type ?? "autre"] ?? "Document";
+    const fmtMoney = (n: number | null | undefined) =>
+      n == null || isNaN(Number(n)) ? "-" : `${Number(n).toFixed(2)} EUR`;
+    const statusLabel = ({
+      success: "Extraction automatique",
+      failed: "Saisie manuelle (extraction echouee)",
+      manual: "Saisie manuelle",
+    } as Record<string, string>)[rd.extraction_status ?? "manual"] ?? "Saisie manuelle";
+
+    sectionTitle("Document de reference");
+    const rows: { label: string; value: string }[] = [
+      { label: "Type", value: typeLabel },
+      { label: "Numero", value: sanitize(rd.document_number) || "-" },
+      { label: "Date", value: formatDate(rd.document_date) },
+      { label: "Montant HT", value: fmtMoney(rd.amount_ht) },
+      { label: "Montant TVA", value: fmtMoney(rd.vat_amount) },
+      { label: "Montant TTC", value: fmtMoney(rd.amount_ttc) },
+      { label: "Fichier", value: sanitize(rd.file_name).slice(0, 80) || "-" },
+      { label: "Statut", value: statusLabel },
+    ];
+    const rowH = 16;
+    ensureSpace(rowH * rows.length + 26);
+    page.drawRectangle({
+      x: MARGIN, y: y - rowH * rows.length, width: CONTENT_W, height: rowH * rows.length,
+      borderColor: BORDER, borderWidth: 0.5, color: SOFT,
+    });
+    rows.forEach((r, i) => {
+      const ry = y - i * rowH - 12;
+      page.drawText(sanitize(r.label).toUpperCase(), { x: MARGIN + 10, y: ry, size: 7.5, font: bold, color: MUTED });
+      page.drawText(r.value, { x: MARGIN + 130, y: ry, size: 9, font: helv, color: ACCENT });
+      if (i < rows.length - 1) {
+        page.drawLine({
+          start: { x: MARGIN, y: y - (i + 1) * rowH },
+          end: { x: MARGIN + CONTENT_W, y: y - (i + 1) * rowH },
+          thickness: 0.3, color: BORDER,
+        });
+      }
+    });
+    y -= rowH * rows.length + 6;
+    para(
+      "Ce document est annexe au dossier numerique PVIA et a servi de base a la redaction du present proces-verbal.",
+      8.5, MUTED, italic,
+    );
+    y -= 6;
+  }
+
+
 
   // ============ RESERVES ============
   sectionTitle(`Reserves${reserves.length ? ` (${reserves.length})` : ""}`);
@@ -814,6 +885,29 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     client_identity_verified_at: identityVerifiedAt,
   } as any;
 
+  // Latest reference document attached to this PV (prefer success extraction)
+  const { data: docs } = await supabaseAdmin
+    .from("pv_documents")
+    .select("file_name,document_type,extracted_data,extraction_status,created_at")
+    .eq("pv_id", pvId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  let referenceDocument: ReferenceDocument | null = null;
+  if (docs && docs.length) {
+    const best = docs.find((d) => d.extraction_status === "success") ?? docs[0];
+    const ex = (best.extracted_data ?? {}) as Record<string, any>;
+    referenceDocument = {
+      file_name: best.file_name,
+      document_type: (best.document_type as string | null) ?? (ex.document_type as string | null) ?? null,
+      document_number: (ex.document_number as string | null) ?? null,
+      document_date: (ex.document_date as string | null) ?? null,
+      amount_ht: typeof ex.amount_ht === "number" ? ex.amount_ht : null,
+      vat_amount: typeof ex.vat_amount === "number" ? ex.vat_amount : null,
+      amount_ttc: typeof ex.amount_ttc === "number" ? ex.amount_ttc : null,
+      extraction_status: (best.extraction_status as any) ?? "manual",
+    };
+  }
+
   const generatedAt = new Date().toISOString();
   const companySignatoryName = (ownerRes as any).data?.full_name ?? company?.name ?? null;
 
@@ -826,6 +920,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     photos,
     branding: brandingSettings,
     proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256: null },
+    referenceDocument,
   });
   const pdfSha256 = await sha256OfBytes(passOneBytes);
 
@@ -838,6 +933,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     photos,
     branding: brandingSettings,
     proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256 },
+    referenceDocument,
   });
 
   const path = `${pv.company_id}/pv/${pvId}/PV-${pv.numero}-signed.pdf`;
