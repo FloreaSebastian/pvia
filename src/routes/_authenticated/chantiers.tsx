@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, CalendarDays, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +17,20 @@ import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
+import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
 
 export const Route = createFileRoute("/_authenticated/chantiers")({
   component: ChantiersPage,
   head: () => ({ meta: [{ title: "Chantiers — PVIA" }] }),
 });
 
-type Chantier = { id: string; name: string; address: string | null; type: string | null; status: string; client_id: string | null; start_date: string | null; end_date: string | null; description: string | null };
+type Chantier = {
+  id: string; name: string; address: string | null;
+  address_line1: string | null; postal_code: string | null; city: string | null;
+  latitude: number | null; longitude: number | null;
+  type: string | null; status: string; client_id: string | null;
+  start_date: string | null; end_date: string | null; description: string | null;
+};
 type Client = { id: string; name: string };
 
 const TYPES = ["BTP", "Rénovation", "Photovoltaïque", "Climatisation", "Plomberie", "Électricité", "Construction"];
@@ -55,8 +62,9 @@ function ChantiersPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Chantier | null>(null);
-  const empty = { name: "", address: "", type: "BTP", status: "en_cours", client_id: "", start_date: "", end_date: "", description: "" };
+  const empty = { name: "", address: "", address_line1: "", postal_code: "", city: "", latitude: null as number | null, longitude: null as number | null, type: "BTP", status: "en_cours", client_id: "", start_date: "", end_date: "", description: "" };
   const [form, setForm] = useState(empty);
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -81,11 +89,24 @@ function ChantiersPage() {
   function openEdit(c: Chantier) {
     setEditing(c);
     setForm({
-      name: c.name, address: c.address ?? "", type: c.type ?? "BTP", status: c.status,
+      name: c.name, address: c.address ?? "",
+      address_line1: c.address_line1 ?? "", postal_code: c.postal_code ?? "",
+      city: c.city ?? "", latitude: c.latitude ?? null, longitude: c.longitude ?? null,
+      type: c.type ?? "BTP", status: c.status,
       client_id: c.client_id ?? "", start_date: c.start_date ?? "", end_date: c.end_date ?? "",
       description: c.description ?? "",
     });
     setOpen(true);
+  }
+  function pickAddress(v: AddressValue) {
+    setForm((f) => ({
+      ...f,
+      address_line1: v.address || f.address_line1,
+      postal_code: v.postalCode || f.postal_code,
+      city: v.city || f.city,
+      latitude: v.latitude, longitude: v.longitude,
+      address: [v.address, [v.postalCode, v.city].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+    }));
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +116,11 @@ function ChantiersPage() {
       const payload = {
         name: form.name,
         address: form.address,
+        address_line1: form.address_line1,
+        postal_code: form.postal_code,
+        city: form.city,
+        latitude: form.latitude,
+        longitude: form.longitude,
         type: form.type,
         status: form.status as "en_cours" | "termine" | "receptionne",
         client_id: form.client_id || null,
