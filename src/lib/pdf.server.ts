@@ -151,8 +151,10 @@ export async function generatePvPdfBytes(input: {
   photos: { caption: string | null; bytes: Uint8Array }[];
   branding?: CompanyBrandingSettings;
   proof?: SignatureProofMeta;
+  referenceDocument?: ReferenceDocument | null;
 }): Promise<Uint8Array> {
   const { pv, company, client, chantier, reserves, photos, proof } = input;
+  const referenceDocument = input.referenceDocument ?? null;
   const branding = input.branding ?? DEFAULT_BRANDING_SETTINGS;
   const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
   const PRIMARY = (() => {
