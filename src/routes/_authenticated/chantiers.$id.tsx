@@ -141,6 +141,8 @@ function ChantierDetailPage() {
         start_at: evtForm.start_at ? new Date(evtForm.start_at).toISOString() : null,
         end_at: evtForm.end_at ? new Date(evtForm.end_at).toISOString() : null,
         all_day: evtForm.all_day, location: evtForm.location, color: evtForm.color,
+        assigned_to: evtForm.assigned_to ? evtForm.assigned_to : null,
+        reminder_at: evtForm.reminder_at ? new Date(evtForm.reminder_at).toISOString() : null,
       };
       if (evtEditing) {
         await updateEvtFn({ data: { companyId: activeCompanyId, id: evtEditing, data: payload } });
