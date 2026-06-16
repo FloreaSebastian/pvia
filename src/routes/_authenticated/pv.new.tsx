@@ -1782,55 +1782,126 @@ type ExtractedRef = {
   confidence?: number | null;
 };
 
+type FieldKey =
+  | "document_type"
+  | "document_number"
+  | "document_date"
+  | "amount_ht"
+  | "vat_amount"
+  | "amount_ttc"
+  | "client_name"
+  | "client_email"
+  | "client_phone"
+  | "chantier_address"
+  | "chantier_postal_code"
+  | "chantier_city"
+  | "description";
+
+const FIELD_LABELS: Record<FieldKey, string> = {
+  document_type: "Type document",
+  document_number: "Numéro document",
+  document_date: "Date document",
+  amount_ht: "Montant HT",
+  vat_amount: "TVA",
+  amount_ttc: "Montant TTC",
+  client_name: "Nom client",
+  client_email: "Email client",
+  client_phone: "Téléphone client",
+  chantier_address: "Adresse chantier",
+  chantier_postal_code: "Code postal",
+  chantier_city: "Ville",
+  description: "Description travaux",
+};
+
+const FIELD_ORDER: FieldKey[] = [
+  "document_type", "document_number", "document_date",
+  "amount_ht", "vat_amount", "amount_ttc",
+  "client_name", "client_email", "client_phone",
+  "chantier_address", "chantier_postal_code", "chantier_city",
+  "description",
+];
+
+// Fields the form cannot write back to (display-only, no apply action).
+const READONLY_FIELDS = new Set<FieldKey>(["amount_ht", "vat_amount", "client_phone"]);
+
+function formatDetected(key: FieldKey, raw: unknown): string {
+  if (raw == null || raw === "") return "";
+  if (key === "document_type") {
+    const m: Record<string, string> = {
+      devis: "Devis", bon_commande: "Bon de commande",
+      marche: "Marché / Contrat", autre: "Autre",
+    };
+    return m[String(raw)] ?? String(raw);
+  }
+  if (key === "amount_ht" || key === "vat_amount" || key === "amount_ttc") {
+    const n = Number(raw);
+    return isNaN(n) ? String(raw) : `${n.toFixed(2)} €`;
+  }
+  if (key === "description") {
+    const s = String(raw);
+    return s.length > 140 ? s.slice(0, 140) + "…" : s;
+  }
+  return String(raw);
+}
+
 function WorkReferenceImport(props: {
   companyId: string | null;
   draftKey: string;
   extractFn: (args: { data: any }) => Promise<any>;
-  onApply: (extracted: ExtractedRef, mode: "empty" | "all") => void;
+  currentValues: Record<FieldKey, string>;
+  applyDetected: (updates: Partial<Record<FieldKey, string>>) => void;
 }) {
-  const { companyId, draftKey, extractFn, onApply } = props;
+  const { companyId, draftKey, extractFn, currentValues, applyDetected } = props;
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [extracted, setExtracted] = useState<ExtractedRef | null>(null);
+  const [extracted, setExtracted] = useState<Record<FieldKey, unknown> | null>(null);
+  const [docId, setDocId] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "ok" | "failed">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [appliedSet, setAppliedSet] = useState<Set<FieldKey>>(new Set());
+  const [ignoredSet, setIgnoredSet] = useState<Set<FieldKey>>(new Set());
+
+  // Persist applied/ignored choices server-side (debounced).
+  const persistChoices = async (applied: Set<FieldKey>, ignored: Set<FieldKey>) => {
+    if (!docId) return;
+    try {
+      const { applyWorkReferenceFields } = await import("@/lib/work-reference.functions");
+      await applyWorkReferenceFields({
+        data: {
+          documentId: docId,
+          appliedFields: Array.from(applied),
+          ignoredFields: Array.from(ignored),
+        },
+      });
+    } catch {
+      // non bloquant
+    }
+  };
 
   const handleFile = async (file: File) => {
-    if (!companyId) {
-      toast.error("Aucune entreprise active.");
-      return;
-    }
+    if (!companyId) { toast.error("Aucune entreprise active."); return; }
     const allowed = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
     if (!allowed.includes(file.type)) {
-      toast.error("Format non supporté. PDF, PNG, JPG ou WebP uniquement.");
-      return;
+      toast.error("Format non supporté. PDF, PNG, JPG ou WebP uniquement."); return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      toast.error("Fichier trop volumineux (max 10 Mo).");
-      return;
+      toast.error("Fichier trop volumineux (max 10 Mo)."); return;
     }
-    setBusy(true);
-    setStatus("uploading");
-    setFileName(file.name);
-    setErrorMsg(null);
-    setExtracted(null);
+    setBusy(true); setStatus("uploading"); setFileName(file.name);
+    setErrorMsg(null); setExtracted(null); setDocId(null);
+    setAppliedSet(new Set()); setIgnoredSet(new Set());
     try {
       const dataUrl = await fileToBase64(file);
       const res = await extractFn({
-        data: {
-          companyId,
-          draftKey,
-          fileName: file.name,
-          mimeType: file.type,
-          dataUrl,
-        },
+        data: { companyId, draftKey, fileName: file.name, mimeType: file.type, dataUrl },
       });
+      if (res?.document?.id) setDocId(res.document.id);
       if (res?.extracted) {
-        setExtracted(res.extracted as ExtractedRef);
+        setExtracted(res.extracted as Record<FieldKey, unknown>);
         setConfidence(res.document?.extraction_confidence ?? null);
         setStatus("ok");
-        toast.success("Document analysé. Vérifiez les données détectées.");
+        toast.success("Document analysé. Comparez puis appliquez les valeurs.");
       } else {
         setStatus("failed");
         setErrorMsg(res?.error ?? "Extraction impossible.");
@@ -1845,27 +1916,68 @@ function WorkReferenceImport(props: {
     }
   };
 
-  const rows: Array<{ label: string; value?: string | number | null }> = extracted
-    ? [
-        { label: "Type", value: extracted.document_type },
-        { label: "Numéro", value: extracted.document_number },
-        { label: "Date", value: extracted.document_date },
-        { label: "Montant TTC (€)", value: extracted.amount_ttc },
-        { label: "Montant HT (€)", value: extracted.amount_ht },
-        { label: "Client", value: extracted.client_name },
-        { label: "Email", value: extracted.client_email },
-        { label: "Adresse chantier", value: extracted.chantier_address },
-        {
-          label: "Code postal / ville",
-          value:
-            [extracted.chantier_postal_code, extracted.chantier_city].filter(Boolean).join(" ") || null,
-        },
-        {
-          label: "Description",
-          value: extracted.description ? extracted.description.slice(0, 200) : null,
-        },
-      ]
+  type Row = {
+    key: FieldKey;
+    label: string;
+    current: string;
+    detected: string;
+    detectedRaw: string;
+    readOnly: boolean;
+    tone: "neutral" | "fill" | "diff";
+  };
+  const rows: Row[] = extracted
+    ? FIELD_ORDER.flatMap<Row>((key) => {
+        const raw = (extracted as any)[key];
+        const detected = formatDetected(key, raw);
+        if (!detected) return [];
+        const current = currentValues[key] ?? "";
+        const tone: Row["tone"] =
+          !current.trim() ? "fill"
+          : current.trim() !== String(raw).trim() ? "diff"
+          : "neutral";
+        return [{
+          key, label: FIELD_LABELS[key], current, detected,
+          detectedRaw: String(raw), readOnly: READONLY_FIELDS.has(key), tone,
+        }];
+      })
     : [];
+
+  const replaceOne = (r: Row) => {
+    if (r.readOnly) return;
+    applyDetected({ [r.key]: r.detectedRaw } as Partial<Record<FieldKey, string>>);
+    const a = new Set(appliedSet); a.add(r.key);
+    const i = new Set(ignoredSet); i.delete(r.key);
+    setAppliedSet(a); setIgnoredSet(i);
+    void persistChoices(a, i);
+  };
+  const ignoreOne = (r: Row) => {
+    const i = new Set(ignoredSet); i.add(r.key);
+    const a = new Set(appliedSet); a.delete(r.key);
+    setAppliedSet(a); setIgnoredSet(i);
+    void persistChoices(a, i);
+  };
+
+  const applyAll = (mode: "all" | "empty") => {
+    const updates: Partial<Record<FieldKey, string>> = {};
+    const a = new Set(appliedSet);
+    for (const r of rows) {
+      if (r.readOnly) continue;
+      if (mode === "empty" && r.current.trim()) continue;
+      updates[r.key] = r.detectedRaw;
+      a.add(r.key);
+    }
+    applyDetected(updates);
+    setAppliedSet(a);
+    void persistChoices(a, ignoredSet);
+    toast.success(mode === "empty" ? "Champs vides pré-remplis." : "Tous les champs ont été remplacés.");
+  };
+  const ignoreAll = () => {
+    const i = new Set(ignoredSet);
+    for (const r of rows) if (!r.readOnly) i.add(r.key);
+    setIgnoredSet(i);
+    void persistChoices(appliedSet, i);
+    toast.message("Toutes les suggestions ont été ignorées.");
+  };
 
   return (
     <Card className="border-dashed bg-muted/30 p-4">
@@ -1876,7 +1988,7 @@ function WorkReferenceImport(props: {
             Importer un devis, bon de commande ou marché
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            PDF ou image (PNG/JPG/WebP), 10 Mo max. Les champs vides du formulaire seront pré-remplis automatiquement.
+            PDF ou image (PNG/JPG/WebP), 10 Mo max. Comparez les valeurs détectées et appliquez champ par champ.
           </p>
         </div>
         <label className="cursor-pointer">
@@ -1915,69 +2027,96 @@ function WorkReferenceImport(props: {
           <AlertTriangle className="h-4 w-4 text-warning" />
           <AlertTitle>Extraction automatique impossible</AlertTitle>
           <AlertDescription>
-            Le fichier a bien été enregistré, mais aucune donnée n'a pu être extraite automatiquement. Complétez les champs manuellement.
+            Le fichier a bien été enregistré, mais aucune donnée n'a pu être extraite. Complétez les champs manuellement.
             {errorMsg && <div className="mt-1 text-xs opacity-70">Code : {errorMsg.slice(0, 120)}</div>}
           </AlertDescription>
         </Alert>
       )}
 
-      {extracted && status === "ok" && (
+      {extracted && status === "ok" && rows.length > 0 && (
         <div className="mt-3 space-y-3">
-          <div className="rounded-md border bg-background p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Données détectées
-            </div>
-            <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
-              {rows
-                .filter((r) => r.value != null && r.value !== "")
-                .map((r) => (
-                  <div key={r.label} className="flex justify-between gap-3 border-b border-dashed py-1 last:border-b-0">
-                    <dt className="text-muted-foreground">{r.label}</dt>
-                    <dd className="text-right font-medium">{String(r.value)}</dd>
-                  </div>
-                ))}
-            </dl>
-          </div>
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="default"
-              onClick={() => {
-                onApply(extracted, "empty");
-                toast.success("Champs vides pré-remplis.");
-              }}
-            >
-              <Check className="mr-1 h-4 w-4" />
-              Appliquer aux champs vides
+            <Button type="button" size="sm" variant="default" onClick={() => applyAll("empty")}>
+              <Check className="mr-1 h-4 w-4" /> Appliquer aux champs vides
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                onApply(extracted, "all");
-                toast.success("Tous les champs ont été remplacés.");
-              }}
-            >
+            <Button type="button" size="sm" variant="outline" onClick={() => applyAll("all")}>
               Tout remplacer
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setExtracted(null);
-                setStatus("idle");
-                setFileName(null);
-              }}
-            >
-              Ignorer
+            <Button type="button" size="sm" variant="ghost" onClick={ignoreAll}>
+              Tout ignorer
             </Button>
           </div>
+
+          <div className="overflow-x-auto rounded-md border bg-background">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold">Champ</th>
+                  <th className="px-3 py-2 text-left font-semibold">Valeur actuelle</th>
+                  <th className="px-3 py-2 text-left font-semibold">Valeur détectée</th>
+                  <th className="px-3 py-2 text-right font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const isApplied = appliedSet.has(r.key);
+                  const isIgnored = ignoredSet.has(r.key);
+                  const bg =
+                    isApplied ? "bg-success/5"
+                    : isIgnored ? "bg-muted/30 opacity-60"
+                    : r.tone === "diff" ? "bg-warning/10"
+                    : r.tone === "fill" ? "bg-success/10"
+                    : "";
+                  return (
+                    <tr key={r.key} className={`border-t ${bg}`}>
+                      <td className="px-3 py-2 align-top font-medium">{r.label}</td>
+                      <td className="px-3 py-2 align-top text-muted-foreground">
+                        {r.current.trim() ? r.current : <span className="italic opacity-60">— vide —</span>}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <span className="font-medium">{r.detected}</span>
+                        {r.readOnly && (
+                          <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Non modifiable dans le formulaire
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right align-top">
+                        {r.readOnly ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : isApplied ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-success">
+                            <Check className="h-3 w-3" /> Appliqué
+                          </span>
+                        ) : isIgnored ? (
+                          <Button type="button" size="sm" variant="ghost" onClick={() => replaceOne(r)}>
+                            Remplacer
+                          </Button>
+                        ) : (
+                          <div className="inline-flex gap-1">
+                            <Button type="button" size="sm" variant="default" onClick={() => replaceOne(r)}>
+                              Remplacer
+                            </Button>
+                            <Button type="button" size="sm" variant="ghost" onClick={() => ignoreOne(r)}>
+                              Ignorer
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            Aucune valeur n'est écrasée sans votre confirmation. Lignes en orange : valeur différente du formulaire. Lignes en vert : champ formulaire actuellement vide.
+          </p>
         </div>
       )}
     </Card>
   );
 }
+
 
