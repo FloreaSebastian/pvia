@@ -251,7 +251,7 @@ export const extractWorkReferenceDoc = createServerFn({ method: "POST" })
 
     // Extraction IA
     const extracted = await extractWithGemini({
-      dataUrl: data.dataUrl,
+      dataUrl: normalizedDataUrl,
       mimeType: sniffed,
       fileName: safeName,
     });
