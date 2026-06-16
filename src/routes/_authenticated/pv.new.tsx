@@ -537,6 +537,15 @@ function NewPv() {
         },
       });
 
+      // Rattache les documents importés (brouillon) au PV désormais créé.
+      if (res?.pvId && activeCompanyId) {
+        await supabase
+          .from("pv_documents")
+          .update({ pv_id: res.pvId, draft_key: null })
+          .eq("company_id", activeCompanyId)
+          .eq("draft_key", draftKey);
+      }
+
       localStorage.removeItem(DRAFT_KEY);
       if (action === "remote" && res.remoteSignEmailStatus === "failed") {
         // PV créé mais email non envoyé : ne pas masquer l'erreur.
