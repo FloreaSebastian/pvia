@@ -58,6 +58,8 @@ import { Route as AuthenticatedParametresDonneesRouteImport } from './routes/_au
 import { Route as AuthenticatedParametresBrandingRouteImport } from './routes/_authenticated/parametres.branding'
 import { Route as AuthenticatedParametresAuditRouteImport } from './routes/_authenticated/parametres.audit'
 import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
+import { Route as AuthenticatedChantiersCalendrierRouteImport } from './routes/_authenticated/chantiers.calendrier'
+import { Route as AuthenticatedChantiersIdRouteImport } from './routes/_authenticated/chantiers.$id'
 import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
 import { Route as AuthenticatedAdminProductionAuditRouteImport } from './routes/_authenticated/admin.production-audit'
 import { Route as AuthenticatedAdminProcessingFailuresRouteImport } from './routes/_authenticated/admin.processing-failures'
@@ -345,6 +347,18 @@ const AuthenticatedParametresApiRoute =
     path: '/api',
     getParentRoute: () => AuthenticatedParametresRoute,
   } as any)
+const AuthenticatedChantiersCalendrierRoute =
+  AuthenticatedChantiersCalendrierRouteImport.update({
+    id: '/chantiers/calendrier',
+    path: '/chantiers/calendrier',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedChantiersIdRoute =
+  AuthenticatedChantiersIdRouteImport.update({
+    id: '/chantiers/$id',
+    path: '/chantiers/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminSupportRoute =
   AuthenticatedAdminSupportRouteImport.update({
     id: '/admin/support',
@@ -554,6 +568,8 @@ export interface FileRoutesByFullPath {
   '/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
+  '/chantiers/$id': typeof AuthenticatedChantiersIdRoute
+  '/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
@@ -629,6 +645,8 @@ export interface FileRoutesByTo {
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
+  '/chantiers/$id': typeof AuthenticatedChantiersIdRoute
+  '/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
   '/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/parametres/branding': typeof AuthenticatedParametresBrandingRoute
@@ -709,6 +727,8 @@ export interface FileRoutesById {
   '/_authenticated/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/_authenticated/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
+  '/_authenticated/chantiers/$id': typeof AuthenticatedChantiersIdRoute
+  '/_authenticated/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
   '/_authenticated/parametres/audit': typeof AuthenticatedParametresAuditRoute
   '/_authenticated/parametres/branding': typeof AuthenticatedParametresBrandingRoute
@@ -789,6 +809,8 @@ export interface FileRouteTypes {
     | '/admin/processing-failures'
     | '/admin/production-audit'
     | '/admin/support'
+    | '/chantiers/$id'
+    | '/chantiers/calendrier'
     | '/parametres/api'
     | '/parametres/audit'
     | '/parametres/branding'
@@ -864,6 +886,8 @@ export interface FileRouteTypes {
     | '/admin/monitoring'
     | '/admin/processing-failures'
     | '/admin/production-audit'
+    | '/chantiers/$id'
+    | '/chantiers/calendrier'
     | '/parametres/api'
     | '/parametres/audit'
     | '/parametres/branding'
@@ -943,6 +967,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/processing-failures'
     | '/_authenticated/admin/production-audit'
     | '/_authenticated/admin/support'
+    | '/_authenticated/chantiers/$id'
+    | '/_authenticated/chantiers/calendrier'
     | '/_authenticated/parametres/api'
     | '/_authenticated/parametres/audit'
     | '/_authenticated/parametres/branding'
@@ -1355,6 +1381,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedParametresApiRouteImport
       parentRoute: typeof AuthenticatedParametresRoute
     }
+    '/_authenticated/chantiers/calendrier': {
+      id: '/_authenticated/chantiers/calendrier'
+      path: '/chantiers/calendrier'
+      fullPath: '/chantiers/calendrier'
+      preLoaderRoute: typeof AuthenticatedChantiersCalendrierRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/chantiers/$id': {
+      id: '/_authenticated/chantiers/$id'
+      path: '/chantiers/$id'
+      fullPath: '/chantiers/$id'
+      preLoaderRoute: typeof AuthenticatedChantiersIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/support': {
       id: '/_authenticated/admin/support'
       path: '/admin/support'
@@ -1687,6 +1727,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminProcessingFailuresRoute: typeof AuthenticatedAdminProcessingFailuresRoute
   AuthenticatedAdminProductionAuditRoute: typeof AuthenticatedAdminProductionAuditRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
+  AuthenticatedChantiersIdRoute: typeof AuthenticatedChantiersIdRoute
+  AuthenticatedChantiersCalendrierRoute: typeof AuthenticatedChantiersCalendrierRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedChantiersIndexRoute: typeof AuthenticatedChantiersIndexRoute
@@ -1723,6 +1765,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminProductionAuditRoute:
     AuthenticatedAdminProductionAuditRoute,
   AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRouteWithChildren,
+  AuthenticatedChantiersIdRoute: AuthenticatedChantiersIdRoute,
+  AuthenticatedChantiersCalendrierRoute: AuthenticatedChantiersCalendrierRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedChantiersIndexRoute: AuthenticatedChantiersIndexRoute,
