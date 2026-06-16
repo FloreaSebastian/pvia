@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/chantiers/calendrier")({
   head: () => ({ meta: [{ title: "Calendrier chantier — PVIA" }] }),
 });
 
-type Evt = { id: string; title: string; event_type: string; status: string; start_at: string | null; end_at: string | null; chantier_id: string; client_id: string | null; location: string | null; description: string | null; chantier?: { id: string; name: string } | null; client?: { id: string; name: string } | null };
+type Evt = { id: string; title: string; event_type: string; status: string; start_at: string | null; end_at: string | null; chantier_id: string; client_id: string | null; location: string | null; description: string | null; assigned_to: string | null; reminder_at: string | null; chantier?: { id: string; name: string } | null; client?: { id: string; name: string } | null };
 
 const TYPE_COLORS: Record<string, string> = {
   visite_technique: "bg-blue-500", debut_travaux: "bg-emerald-500", livraison_materiel: "bg-cyan-500",
