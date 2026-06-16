@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { listChantierEvents, createChantierEvent } from "@/lib/chantier-detail.functions";
+import { listChantierEvents, createChantierEvent, listCompanyMembers, rescheduleChantierEvent } from "@/lib/chantier-detail.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
