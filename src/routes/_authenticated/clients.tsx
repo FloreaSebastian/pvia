@@ -15,13 +15,25 @@ import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
 import { cn } from "@/lib/utils";
+import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   component: ClientsPage,
   head: () => ({ meta: [{ title: "Clients — PVIA" }] }),
 });
 
-type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null; notes: string | null };
+type Client = {
+  id: string; name: string; email: string | null; phone: string | null;
+  address: string | null; address_line1: string | null; postal_code: string | null;
+  city: string | null; latitude: number | null; longitude: number | null;
+  notes: string | null;
+};
+type ClientForm = {
+  name: string; email: string; phone: string; notes: string;
+  address: string; address_line1: string; postal_code: string; city: string;
+  latitude: number | null; longitude: number | null;
+};
+const EMPTY_FORM: ClientForm = { name: "", email: "", phone: "", notes: "", address: "", address_line1: "", postal_code: "", city: "", latitude: null, longitude: null };
 
 function initials(name: string) {
   return name
@@ -37,7 +49,7 @@ function ClientsPage() {
   const [items, setItems] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", notes: "" });
+  const [form, setForm] = useState<ClientForm>(EMPTY_FORM);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
@@ -59,13 +71,29 @@ function ClientsPage() {
 
   function openNew() {
     setEditing(null);
-    setForm({ name: "", email: "", phone: "", address: "", notes: "" });
+    setForm(EMPTY_FORM);
     setOpen(true);
   }
   function openEdit(c: Client) {
     setEditing(c);
-    setForm({ name: c.name, email: c.email ?? "", phone: c.phone ?? "", address: c.address ?? "", notes: c.notes ?? "" });
+    setForm({
+      name: c.name, email: c.email ?? "", phone: c.phone ?? "", notes: c.notes ?? "",
+      address: c.address ?? "", address_line1: c.address_line1 ?? "",
+      postal_code: c.postal_code ?? "", city: c.city ?? "",
+      latitude: c.latitude ?? null, longitude: c.longitude ?? null,
+    });
     setOpen(true);
+  }
+  function pickAddress(v: AddressValue) {
+    setForm((f) => ({
+      ...f,
+      address_line1: v.address || f.address_line1,
+      postal_code: v.postalCode || f.postal_code,
+      city: v.city || f.city,
+      latitude: v.latitude,
+      longitude: v.longitude,
+      address: [v.address, [v.postalCode, v.city].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+    }));
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -133,7 +161,20 @@ function ClientsPage() {
                     <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                     <div><Label>Téléphone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
                   </div>
-                  <div><Label>Adresse</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+                  <div>
+                    <Label htmlFor="cl-address">Adresse</Label>
+                    <AddressAutocomplete
+                      id="cl-address"
+                      value={form.address_line1}
+                      onChange={(v) => setForm({ ...form, address_line1: v })}
+                      onSelect={pickAddress}
+                      placeholder="Tapez l'adresse…"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div><Label>Code postal</Label><Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
+                    <div className="col-span-2"><Label>Ville</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                  </div>
                   <div><Label>Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
                   <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
                 </form>
