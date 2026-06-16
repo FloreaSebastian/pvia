@@ -302,3 +302,71 @@ export const extractWorkReferenceDoc = createServerFn({ method: "POST" })
       error: extracted.error ?? null,
     };
   });
+
+/**
+ * Persiste les choix utilisateur (appliqué / ignoré) sur un document
+ * importé, dans pv_documents.extracted_data.applied_fields / ignored_fields,
+ * et journalise l'événement d'audit.
+ */
+const ApplyInputSchema = z.object({
+  documentId: z.string().uuid(),
+  appliedFields: z.array(z.string().min(1).max(64)).max(64),
+  ignoredFields: z.array(z.string().min(1).max(64)).max(64),
+});
+
+export const applyWorkReferenceFields = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => ApplyInputSchema.parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { writeAuditLog } = await import("./audit.server");
+
+    const { data: doc } = await supabaseAdmin
+      .from("pv_documents")
+      .select("id,company_id,pv_id,extracted_data")
+      .eq("id", data.documentId)
+      .maybeSingle();
+    if (!doc) throw new Error("Document introuvable.");
+
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("role")
+      .eq("company_id", doc.company_id)
+      .eq("user_id", context.userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member || !["owner", "admin", "manager"].includes(member.role)) {
+      throw new Error("Accès refusé.");
+    }
+
+    const current = (doc.extracted_data ?? {}) as Record<string, unknown>;
+    const next = {
+      ...current,
+      applied_fields: data.appliedFields,
+      ignored_fields: data.ignoredFields,
+      applied_at: new Date().toISOString(),
+    };
+
+    const { error: upErr } = await supabaseAdmin
+      .from("pv_documents")
+      .update({ extracted_data: next as any })
+      .eq("id", data.documentId);
+    if (upErr) throw new Error(upErr.message);
+
+    await writeAuditLog({
+      companyId: doc.company_id,
+      userId: context.userId,
+      pvId: doc.pv_id,
+      entityType: "pv_document",
+      entityId: doc.id,
+      action: "pv.update",
+      metadata: {
+        sub_action: "pv.work_reference_fields_applied",
+        applied: data.appliedFields,
+        ignored: data.ignoredFields,
+      },
+      actor: "user",
+    });
+
+    return { ok: true };
+  });
