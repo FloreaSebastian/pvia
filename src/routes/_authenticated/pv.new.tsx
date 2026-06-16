@@ -1764,23 +1764,6 @@ function FinalChecklist({ items, onFix }: { items: ChecklistItem[]; onFix: (step
 /* ============================================================
  * Import devis / bon de commande / marché + extraction IA
  * ============================================================ */
-type ExtractedRef = {
-  document_type?: string | null;
-  document_number?: string | null;
-  document_date?: string | null;
-  amount_ttc?: number | null;
-  amount_ht?: number | null;
-  vat_amount?: number | null;
-  client_name?: string | null;
-  client_email?: string | null;
-  client_phone?: string | null;
-  chantier_address?: string | null;
-  chantier_postal_code?: string | null;
-  chantier_city?: string | null;
-  description?: string | null;
-  issuer_company?: string | null;
-  confidence?: number | null;
-};
 
 type FieldKey =
   | "document_type"
