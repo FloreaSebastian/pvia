@@ -36,16 +36,27 @@ function ClientLogin() {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
+    const NEUTRAL = "Si un accès existe pour cet email, un code vient d'être envoyé.";
+    const trimmed = email.trim();
     try {
-      await sendCode({ data: { email: email.trim() } });
-      toast.success("Code envoyé par email", { description: "Vérifiez votre boîte de réception." });
-      navigate({ to: "/client/verify", search: { email: email.trim() } });
+      await sendCode({ data: { email: trimmed } });
+      toast.success(NEUTRAL);
+      navigate({ to: "/client/verify", search: { email: trimmed } });
     } catch (err: any) {
-      toast.error(err?.message ?? "Impossible d'envoyer le code");
+      const msg = String(err?.message ?? "");
+      if (/rate|limit|trop|patient|429|too many/i.test(msg)) {
+        toast.error("Veuillez patienter avant de redemander un code.");
+      } else {
+        // Anti-énumération : on n'expose pas la cause, on garde le message neutre
+        // et on redirige tout de même vers la page de vérification.
+        toast.success(NEUTRAL);
+        navigate({ to: "/client/verify", search: { email: trimmed } });
+      }
     } finally {
       setLoading(false);
     }
   }
+
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
