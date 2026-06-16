@@ -321,6 +321,7 @@ function ChantierCalendarPage() {
                       {e.start_at ? new Date(e.start_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
                       {e.chantier && <> · {e.chantier.name}</>}
                       {e.location && <> · {e.location}</>}
+                      {e.assigned_to && <> · 👤 {membersById.get(e.assigned_to)?.name ?? "—"}</>}
                     </p>
                   </div>
                   <StatusPill tone="neutral">{TYPE_LABELS[e.event_type] ?? e.event_type}</StatusPill>
