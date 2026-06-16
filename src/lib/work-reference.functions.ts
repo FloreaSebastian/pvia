@@ -197,11 +197,24 @@ export const extractWorkReferenceDoc = createServerFn({ method: "POST" })
       throw new Error("Rôle insuffisant pour importer un document.");
     }
 
+    // Normalise : accepte Data URL complet OU base64 brut (avec mimeType fourni)
+    const normalizedDataUrl = data.dataUrl.startsWith("data:")
+      ? data.dataUrl
+      : `data:${data.mimeType};base64,${data.dataUrl}`;
+
     // Décode + valide MIME réel
-    const { bytes, mime: declared } = decodeDataUrl(data.dataUrl);
+    let bytes: Uint8Array;
+    let declared: string;
+    try {
+      const decoded = decodeDataUrl(normalizedDataUrl);
+      bytes = decoded.bytes;
+      declared = decoded.mime;
+    } catch {
+      throw new Error("Le fichier n'a pas pu être lu. Réessayez avec un PDF ou une image valide.");
+    }
     if (bytes.byteLength > MAX_BYTES) throw new Error("Fichier trop volumineux (max 10 Mo).");
     const sniffed = sniffMime(bytes);
-    if (!sniffed) throw new Error("Format de fichier non reconnu.");
+    if (!sniffed) throw new Error("Le fichier n'a pas pu être lu. Réessayez avec un PDF ou une image valide.");
     if (sniffed !== declared || !ALLOWED_MIMES.includes(sniffed as (typeof ALLOWED_MIMES)[number])) {
       throw new Error("Type de fichier non autorisé.");
     }
