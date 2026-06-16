@@ -582,6 +582,26 @@ export async function deliverSignedPv(opts: {
     });
   }
 
+  // Success audit when at least one recipient was reached.
+  const clientStatus = results.client?.status ?? "skipped";
+  const companyStatus = results.company?.status ?? "skipped";
+  if (clientStatus === "sent" || companyStatus === "sent") {
+    await writeAuditLog({
+      companyId: pv.company_id,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "pv.signed_email_sent",
+      metadata: {
+        trigger: opts.trigger,
+        client: clientStatus,
+        company: companyStatus,
+        recipients: allRecipients,
+      },
+      actor: "system",
+    });
+  }
+
   return results;
 }
 
