@@ -452,6 +452,64 @@ export async function generatePvPdfBytes(input: {
   }
   y -= 4;
 
+  // ============ DOCUMENT DE REFERENCE ============
+  if (referenceDocument) {
+    const rd = referenceDocument;
+    const typeLabel = ({
+      devis: "Devis",
+      bon_commande: "Bon de commande",
+      marche: "Marche",
+      contrat: "Contrat",
+      autre: "Autre",
+      manuel: "Document",
+    } as Record<string, string>)[rd.document_type ?? "autre"] ?? "Document";
+    const fmtMoney = (n: number | null | undefined) =>
+      n == null || isNaN(Number(n)) ? "-" : `${Number(n).toFixed(2)} EUR`;
+    const statusLabel = ({
+      success: "Extraction automatique",
+      failed: "Saisie manuelle (extraction echouee)",
+      manual: "Saisie manuelle",
+    } as Record<string, string>)[rd.extraction_status ?? "manual"] ?? "Saisie manuelle";
+
+    sectionTitle("Document de reference");
+    const rows: { label: string; value: string }[] = [
+      { label: "Type", value: typeLabel },
+      { label: "Numero", value: sanitize(rd.document_number) || "-" },
+      { label: "Date", value: formatDate(rd.document_date) },
+      { label: "Montant HT", value: fmtMoney(rd.amount_ht) },
+      { label: "Montant TVA", value: fmtMoney(rd.vat_amount) },
+      { label: "Montant TTC", value: fmtMoney(rd.amount_ttc) },
+      { label: "Fichier", value: sanitize(rd.file_name).slice(0, 80) || "-" },
+      { label: "Statut", value: statusLabel },
+    ];
+    const rowH = 16;
+    ensureSpace(rowH * rows.length + 26);
+    page.drawRectangle({
+      x: MARGIN, y: y - rowH * rows.length, width: CONTENT_W, height: rowH * rows.length,
+      borderColor: BORDER, borderWidth: 0.5, color: SOFT,
+    });
+    rows.forEach((r, i) => {
+      const ry = y - i * rowH - 12;
+      page.drawText(sanitize(r.label).toUpperCase(), { x: MARGIN + 10, y: ry, size: 7.5, font: bold, color: MUTED });
+      page.drawText(r.value, { x: MARGIN + 130, y: ry, size: 9, font: helv, color: ACCENT });
+      if (i < rows.length - 1) {
+        page.drawLine({
+          start: { x: MARGIN, y: y - (i + 1) * rowH },
+          end: { x: MARGIN + CONTENT_W, y: y - (i + 1) * rowH },
+          thickness: 0.3, color: BORDER,
+        });
+      }
+    });
+    y -= rowH * rows.length + 6;
+    para(
+      "Ce document est annexe au dossier numerique PVIA et a servi de base a la redaction du present proces-verbal.",
+      8.5, MUTED, italic,
+    );
+    y -= 6;
+  }
+
+
+
   // ============ RESERVES ============
   sectionTitle(`Reserves${reserves.length ? ` (${reserves.length})` : ""}`);
   if (!reserves.length) {
