@@ -555,6 +555,14 @@ function NewPv() {
     const travauxOk = form.description.trim().length > 0;
     const decisionOk = withReserves !== null;
     const reservesOk = !withReserves || (reserves.length > 0 && reserves.every((r) => (r.description.trim() || r.nature.trim())));
+    // Signatures: mode requis, signature entreprise requise; remote → email client requis;
+    // onsite → signature client + OTP vérifié.
+    let signaturesError: string | null = null;
+    if (!signatureMode) signaturesError = "Choisissez le mode de signature.";
+    else if (!companySignatureDataUrl) signaturesError = "Validez la signature entreprise.";
+    else if (signatureMode === "remote" && !onsiteOtpEmail.trim()) signaturesError = "Email client requis pour la signature à distance.";
+    else if (signatureMode === "onsite" && !clientSignatureDataUrl) signaturesError = "Validez la signature client.";
+    else if (signatureMode === "onsite" && !onsiteOtpVerified) signaturesError = "Confirmez l'identité client avec le code OTP.";
     return {
       [ID_ENTREPRISE]: brandingComplete ? null : "Fiche entreprise incomplète.",
       [ID_CLIENT]: clientOk ? null : "Sélectionnez ou créez un client.",
@@ -563,12 +571,17 @@ function NewPv() {
       [ID_DECISION]: decisionOk ? null : "Choisissez avec ou sans réserves.",
       [ID_RESERVES]: reservesOk ? null : "Au moins une réserve avec description.",
       [ID_PHOTOS]: null,
-      [ID_SIGNATURES]: null,
-      [ID_APERCU]: null,
+      [ID_SIGNATURES]: signaturesError,
+      [ID_APERCU]: signaturesError ? "Complétez les signatures avant d'accéder à l'aperçu." : null,
     };
-  }, [brandingComplete, form, withReserves, reserves]);
+  }, [brandingComplete, form, withReserves, reserves, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpEmail, onsiteOtpVerified]);
 
   const stepValid = stepErrors[currentStep.id] === null;
+  // Index de la première étape invalide — bloque l'accès aux suivantes.
+  const firstInvalidIdx = useMemo(() => {
+    const i = STEPS.findIndex((s) => stepErrors[s.id] !== null);
+    return i === -1 ? STEPS.length : i;
+  }, [stepErrors, STEPS]);
 
   useEffect(() => { setMaxStepIdx((m) => Math.max(m, stepIdx)); }, [stepIdx]);
 
