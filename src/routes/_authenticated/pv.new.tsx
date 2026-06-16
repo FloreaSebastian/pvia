@@ -1875,7 +1875,8 @@ function WorkReferenceImport(props: {
     setErrorMsg(null); setExtracted(null); setDocId(null);
     setAppliedSet(new Set()); setIgnoredSet(new Set());
     try {
-      const dataUrl = await fileToBase64(file);
+      const base64 = await fileToBase64(file);
+      const dataUrl = `data:${file.type || "application/octet-stream"};base64,${base64}`;
       const res = await extractFn({
         data: { companyId, draftKey, fileName: file.name, mimeType: file.type, dataUrl },
       });
