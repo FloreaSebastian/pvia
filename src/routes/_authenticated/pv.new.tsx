@@ -126,6 +126,10 @@ function NewPv() {
   const getNumberingFn = useServerFn(getPvNumberingSettings);
   const sendOtpFn = useServerFn(sendOnsiteClientOtp);
   const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
+  const extractWorkRefFn = useServerFn(extractWorkReferenceDoc);
+
+  // Clef stable côté brouillon pour rattacher les documents importés avant création du PV.
+  const [draftKey] = useState(() => `draft-${crypto.randomUUID()}`);
 
   const [stepIdx, setStepIdx] = useState(0);
   const [maxStepIdx, setMaxStepIdx] = useState(0);
