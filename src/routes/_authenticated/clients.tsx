@@ -69,23 +69,34 @@ function ClientsPage() {
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !activeCompanyId) return;
-    const payload = { ...form, owner_id: user.id, company_id: activeCompanyId };
-    const res = editing
-      ? await supabase.from("clients").update(payload).eq("id", editing.id)
-      : await supabase.from("clients").insert(payload);
-    if (res.error) return toast.error(res.error.message);
-    toast.success(editing ? "Client modifié" : "Client créé");
-    setOpen(false);
-    load();
+    if (!activeCompanyId || saving) return;
+    setSaving(true);
+    try {
+      if (editing) {
+        await updateFn({ data: { companyId: activeCompanyId, id: editing.id, data: form } });
+        toast.success("Client modifié");
+      } else {
+        await createFn({ data: { companyId: activeCompanyId, data: form } });
+        toast.success("Client créé");
+      }
+      setOpen(false);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Échec de l'enregistrement");
+    } finally {
+      setSaving(false);
+    }
   }
   async function remove(id: string) {
+    if (!activeCompanyId) return;
     if (!confirm("Supprimer ce client ?")) return;
-    const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Supprimé");
-    load();
+    try {
+      await deleteFn({ data: { companyId: activeCompanyId, id } });
+      toast.success("Supprimé");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suppression impossible");
+    }
   }
 
   const filtered = useMemo(() => {
