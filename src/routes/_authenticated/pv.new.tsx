@@ -1882,10 +1882,42 @@ function WorkReferenceImport(props: {
       });
       if (res?.document?.id) setDocId(res.document.id);
       if (res?.extracted) {
-        setExtracted(res.extracted as Record<FieldKey, unknown>);
+        const extractedData = res.extracted as Record<FieldKey, unknown>;
+        setExtracted(extractedData);
         setConfidence(res.document?.extraction_confidence ?? null);
         setStatus("ok");
-        toast.success("Document analysé. Comparez puis appliquez les valeurs.");
+
+        // Auto-fill empty fields immediately (no confirmation required).
+        const autoUpdates: Partial<Record<FieldKey, string>> = {};
+        const autoApplied = new Set<FieldKey>();
+        for (const key of FIELD_ORDER) {
+          if (READONLY_FIELDS.has(key)) continue;
+          const raw = (extractedData as any)[key];
+          if (raw == null || raw === "") continue;
+          const current = (currentValues[key] ?? "").trim();
+          if (current) continue; // conflict → keep for comparison UI
+          autoUpdates[key] = String(raw);
+          autoApplied.add(key);
+        }
+        if (Object.keys(autoUpdates).length > 0) {
+          applyDetected(autoUpdates);
+          setAppliedSet(autoApplied);
+          void persistChoices(autoApplied, new Set());
+        }
+
+        const conflicts = FIELD_ORDER.filter((k) => {
+          if (READONLY_FIELDS.has(k)) return false;
+          const raw = (extractedData as any)[k];
+          if (raw == null || raw === "") return false;
+          const current = (currentValues[k] ?? "").trim();
+          return current && current !== String(raw).trim();
+        }).length;
+
+        if (conflicts > 0) {
+          toast.success(`Document analysé. ${conflicts} champ(s) déjà rempli(s) à vérifier.`);
+        } else {
+          toast.success("Document analysé. Champs pré-remplis automatiquement.");
+        }
       } else {
         setStatus("failed");
         setErrorMsg(res?.error ?? "Extraction impossible.");
@@ -1915,13 +1947,15 @@ function WorkReferenceImport(props: {
         const detected = formatDetected(key, raw);
         if (!detected) return [];
         const current = currentValues[key] ?? "";
-        const tone: Row["tone"] =
-          !current.trim() ? "fill"
-          : current.trim() !== String(raw).trim() ? "diff"
-          : "neutral";
+        // Only show rows where there is a real conflict (existing value ≠ detected)
+        // or read-only display rows. Empty fields are auto-filled silently.
+        const isReadOnly = READONLY_FIELDS.has(key);
+        const hasConflict = current.trim() && current.trim() !== String(raw).trim();
+        if (!isReadOnly && !hasConflict) return [];
+        const tone: Row["tone"] = hasConflict ? "diff" : "neutral";
         return [{
           key, label: FIELD_LABELS[key], current, detected,
-          detectedRaw: String(raw), readOnly: READONLY_FIELDS.has(key), tone,
+          detectedRaw: String(raw), readOnly: isReadOnly, tone,
         }];
       })
     : [];
@@ -1972,7 +2006,7 @@ function WorkReferenceImport(props: {
             Importer un devis, bon de commande ou marché
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            PDF ou image (PNG/JPG/WebP), 10 Mo max. Comparez les valeurs détectées et appliquez champ par champ.
+            PDF ou image (PNG/JPG/WebP), 10 Mo max. Les champs vides sont remplis automatiquement ; en cas de valeur existante, un comparatif s'affiche.
           </p>
         </div>
         <label className="cursor-pointer">
@@ -2095,7 +2129,7 @@ function WorkReferenceImport(props: {
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Aucune valeur n'est écrasée sans votre confirmation. Lignes en orange : valeur différente du formulaire. Lignes en vert : champ formulaire actuellement vide.
+            Conflits uniquement : ces champs contiennent déjà une valeur différente du document. Choisissez de remplacer ou d'ignorer. Les champs vides ont été remplis automatiquement.
           </p>
         </div>
       )}
