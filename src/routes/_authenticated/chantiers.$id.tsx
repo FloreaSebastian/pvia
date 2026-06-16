@@ -495,6 +495,19 @@ function ChantierDetailPage() {
               <div><Label>Début</Label><Input type="datetime-local" value={evtForm.start_at} onChange={(e) => setEvtForm({ ...evtForm, start_at: e.target.value })} /></div>
               <div><Label>Fin</Label><Input type="datetime-local" value={evtForm.end_at} onChange={(e) => setEvtForm({ ...evtForm, end_at: e.target.value })} /></div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Assigné à</Label>
+                <Select value={evtForm.assigned_to || "none"} onValueChange={(v) => setEvtForm({ ...evtForm, assigned_to: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Personne" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Personne</SelectItem>
+                    {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Rappel</Label><Input type="datetime-local" value={evtForm.reminder_at} onChange={(e) => setEvtForm({ ...evtForm, reminder_at: e.target.value })} /></div>
+            </div>
             <div><Label>Lieu</Label><Input value={evtForm.location} onChange={(e) => setEvtForm({ ...evtForm, location: e.target.value })} /></div>
             <div><Label>Description</Label><Textarea value={evtForm.description} onChange={(e) => setEvtForm({ ...evtForm, description: e.target.value })} /></div>
             <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
