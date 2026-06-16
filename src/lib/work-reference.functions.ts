@@ -96,7 +96,22 @@ Conventions :
 - Montants en nombres (ex 14720.5), pas de texte. Virgule décimale convertie en point.
 - Si une information n'est pas présente, retourne null.
 - confidence : note globale de fiabilité 0..1.
-- document_type : "devis" | "bon_commande" | "marche" | "autre".`;
+- document_type : "devis" | "bon_commande" | "marche" | "autre".
+
+CHAMP "description" — RÈGLES STRICTES :
+Résumez les travaux en une description courte destinée à un procès-verbal de réception de travaux.
+- 1 à 5 phrases maximum, moins de 500 caractères.
+- Ne recopiez JAMAIS les lignes du devis.
+- Ignorez les prix, quantités, marques, références techniques détaillées, matériels secondaires (câbles, crochets, coffrets, visserie...).
+- Conservez uniquement la nature globale des travaux réalisés (type d'installation, périmètre, prestations clés : fourniture, pose, raccordement, mise en service).
+- Formulation professionnelle, neutre, adaptée à une réception de chantier.
+
+Exemples de formulations attendues :
+- Photovoltaïque : "Installation complète d'une centrale photovoltaïque en autoconsommation comprenant la fourniture, la pose, le raccordement électrique et la mise en service."
+- PAC : "Installation d'une pompe à chaleur air/eau avec raccordements hydrauliques, électriques et mise en service."
+- Climatisation : "Fourniture et pose d'un système de climatisation réversible avec unités intérieures, unité extérieure, raccordements frigorifiques et mise en service."
+- Rénovation : "Travaux de rénovation intérieure comprenant les ouvrages de second œuvre prévus au marché."
+Si la puissance globale (kWc, kW) est clairement indiquée dans le document, vous pouvez la mentionner. Aucune autre quantité.`;
 
   const userContent: Array<Record<string, unknown>> = [
     { type: "text", text: `Fichier : ${opts.fileName}. Extrais les champs demandés.` },
