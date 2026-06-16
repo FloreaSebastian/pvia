@@ -45,8 +45,20 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
     const ip = getClientIp() ?? "unknown";
     const ua = getClientUA();
 
-    // Rate limit (anti-abus, anti-énumération). On absorbe l'erreur pour ne JAMAIS
-    // signaler côté UI qu'un email est connu/rate-limited. On logge côté serveur.
+    // Réponse neutre commune (anti-énumération) — l'UI ne doit jamais savoir
+    // si l'email existe ou pourquoi un envoi a échoué.
+    const NEUTRAL = { ok: true as const, neutral: true as const };
+
+    // Trace systématique de la tentative pour monitoring/admin.
+    await writeAuditLog({
+      companyId: null,
+      entityType: "client_auth",
+      action: "client.login_code_attempt",
+      metadata: { email, ip },
+      actor: "client",
+    });
+
+    // Rate limit. UI toujours neutre.
     try {
       await enforceRateLimit({ bucket: "client_login_send_email", key: email, limit: 3, windowSec: 900 });
       await enforceRateLimit({ bucket: "client_login_send_ip", key: ip, limit: 10, windowSec: 3600 });
@@ -59,16 +71,12 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
           metadata: { email, ip, bucket: "send" },
           actor: "client",
         });
-        // Réponse neutre — pas d'info à l'attaquant.
-        return { ok: true as const };
+        return NEUTRAL;
       }
       throw e;
     }
 
     // Cherche un client matchant (par email) OU un PV envoyé à cet email.
-    // Si rien ne matche, on N'ENVOIE PAS de code — PVIA ne doit pas être un
-    // outil d'envoi d'emails non sollicités. On logge et on renvoie une
-    // réponse neutre pour ne pas permettre l'énumération.
     const [{ data: clientRow }, { data: pvRow }] = await Promise.all([
       supabaseAdmin
         .from("clients")
@@ -92,8 +100,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
         metadata: { email, ip },
         actor: "client",
       });
-      // Réponse neutre identique au cas nominal.
-      return { ok: true as const };
+      return NEUTRAL;
     }
 
     // Invalide les codes précédents non utilisés
@@ -103,7 +110,6 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       .eq("email", email)
       .is("used_at", null);
 
-    // Insert + hash
     const code = generateNumericCode();
     const expiresAt = new Date(Date.now() + CLIENT_CODE_TTL_SEC * 1000).toISOString();
     const { data: inserted, error: insErr } = await supabaseAdmin
@@ -120,35 +126,53 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (insErr || !inserted) {
-      // Ne pas révéler la cause. Réponse neutre.
       console.error("client_auth_codes insert failed:", insErr);
-      return { ok: true as const };
+      await writeAuditLog({
+        companyId: knownCompanyId,
+        entityType: "client_auth",
+        action: "client.login_code_send_failed",
+        metadata: { email, ip, reason: "code_persist_failed", error: insErr?.message ?? null },
+        actor: "client",
+      });
+      return NEUTRAL;
     }
 
     const hash = await sha256Hex(code + ":" + inserted.id);
     await supabaseAdmin.from("client_auth_codes").update({ code_hash: hash }).eq("id", inserted.id);
 
-    // Envoi email — best-effort; on log mais on ne révèle pas l'échec.
+    // Envoi email — échec loggé explicitement (email_logs + audit), mais
+    // réponse UI toujours neutre.
+    let sent = true;
+    let sendError: string | null = null;
     try {
       await sendClientLoginCodeEmail({
         to: email,
         code,
         ip,
         device: describeUA(ua),
+        companyId: knownCompanyId,
       });
-    } catch (e) {
+    } catch (e: any) {
+      sent = false;
+      sendError = e?.message ?? String(e);
       console.error("sendClientLoginCodeEmail failed:", e);
     }
 
     await writeAuditLog({
       companyId: knownCompanyId,
       entityType: "client_auth",
-      action: "client.login_code_sent",
-      metadata: { email, has_client: !!clientRow, has_pv: !!pvRow, ip },
+      action: sent ? "client.login_code_sent" : "client.login_code_send_failed",
+      metadata: {
+        email,
+        has_client: !!clientRow,
+        has_pv: !!pvRow,
+        ip,
+        ...(sendError ? { error: sendError } : {}),
+      },
       actor: "client",
     });
 
-    return { ok: true as const };
+    return NEUTRAL;
   });
 
 // ─── verify ───────────────────────────────────────────────────────────────────
