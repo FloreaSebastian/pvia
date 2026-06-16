@@ -471,13 +471,28 @@ function PvDetail() {
               {resendingSigned ? "Envoi…" : "Renvoyer le PDF signé"}
             </Button>
           )}
-          {(!pv.locked_at || pv.pdf_generation_status === "failed" || !pv.pdf_url) && (
-            <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
-              {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              {regenerating ? "Génération…" : "Régénérer le PDF"}
-            </Button>
-          )}
+          {(() => {
+            const fullySigned =
+              pv.status === "signe" &&
+              !!pv.company_signature &&
+              !!pv.client_signature &&
+              (pv.signature_mode === "remote"
+                ? !!pv.client_identity_verified_at
+                : pv.client_otp_verified === true);
+            const showRegen = fullySigned && (pv.pdf_generation_status === "failed" || !pv.pdf_url);
+            return showRegen ? (
+              <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
+                {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {regenerating ? "Génération…" : "Régénérer le PDF"}
+              </Button>
+            ) : null;
+          })()}
           {pv.pdf_url && <Button variant="outline" onClick={downloadPdf}><Download className="h-4 w-4" /> Télécharger PDF signé</Button>}
+          {!pv.pdf_url && pv.status !== "signe" && (
+            <span className="self-center text-xs text-muted-foreground">
+              PDF disponible uniquement après signature complète du PV.
+            </span>
+          )}
           <Link to="/pv/$id/historique" params={{ id: pv.id }}>
             <Button variant="outline"><ShieldCheck className="h-4 w-4" /> Historique légal</Button>
           </Link>
