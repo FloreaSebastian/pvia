@@ -38,6 +38,13 @@ async function findAuthUserByEmail(email: string) {
   return null;
 }
 
+/**
+ * Anti-enumeration: this endpoint ALWAYS returns the same neutral response
+ * regardless of whether the email exists, is inactive, or belongs to a valid
+ * enterprise member. Failures are recorded in audit logs internally only.
+ */
+const NEUTRAL_RESPONSE = { ok: true as const, neutral: true as const };
+
 export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
   .inputValidator((d) => LoginCodeSchema.parse(d))
   .handler(async ({ data }) => {
@@ -57,7 +64,7 @@ export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
         action: "user.login_failed",
         metadata: { email, reason: "unknown_enterprise_email", ip },
       });
-      throw new Error("Aucun compte entreprise associé à cet email.");
+      return NEUTRAL_RESPONSE;
     }
 
     const { data: membership } = await supabaseAdmin
@@ -76,7 +83,7 @@ export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
         action: "user.login_failed",
         metadata: { email, reason: "not_active_enterprise_member", ip },
       });
-      throw new Error("Ce compte n'est pas actif dans un espace entreprise PVIA.");
+      return NEUTRAL_RESPONSE;
     }
 
     const appUrl = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || "https://pvia.fr";
@@ -95,18 +102,13 @@ export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
         action: "user.login_failed",
         metadata: { email, reason: "magiclink_generation_failed", error: error?.message, ip },
       });
-      throw new Error("Impossible de générer le code de connexion.");
+      return NEUTRAL_RESPONSE;
     }
 
-    // Generate our own 6-digit code (single source of truth) and bind it to
-    // the Supabase magic-link hashed_token. The Supabase-native OTP
-    // (`email_otp`, length depends on project setting) is intentionally
-    // discarded — we only use the hashed_token at verification time.
     const code = generateNumericCode();
     const codeHash = await sha256Hex(code);
     const expiresAt = new Date(Date.now() + CODE_TTL_SEC * 1000).toISOString();
 
-    // Invalidate previous unused codes for this email.
     await supabaseAdmin
       .from("enterprise_auth_codes")
       .update({ used_at: new Date().toISOString() })
@@ -127,16 +129,27 @@ export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
         action: "user.login_failed",
         metadata: { email, reason: "code_persist_failed", error: insErr.message, ip },
       });
-      throw new Error("Impossible d'enregistrer le code de connexion.");
+      return NEUTRAL_RESPONSE;
     }
 
-    await sendEnterpriseLoginCodeEmail({
-      to: email,
-      code,
-      ip,
-      device: describeUA(ua),
-      companyId: membership.company_id,
-    });
+    try {
+      await sendEnterpriseLoginCodeEmail({
+        to: email,
+        code,
+        ip,
+        device: describeUA(ua),
+        companyId: membership.company_id,
+      });
+    } catch (e) {
+      await writeAuditLog({
+        companyId: membership.company_id,
+        userId: user.id,
+        entityType: "auth",
+        action: "user.login_failed",
+        metadata: { email, reason: "email_send_failed", error: (e as Error)?.message, ip },
+      });
+      return NEUTRAL_RESPONSE;
+    }
 
     await writeAuditLog({
       companyId: membership.company_id,
@@ -146,7 +159,7 @@ export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
       metadata: { email, method: "enterprise_otp_6digits", ip },
     });
 
-    return { ok: true as const };
+    return NEUTRAL_RESPONSE;
   });
 
 /**
