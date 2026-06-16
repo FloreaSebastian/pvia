@@ -1622,3 +1622,90 @@ function ModeCard({
     </button>
   );
 }
+
+function OtpStatusBadge({ status }: { status: "idle" | "sent" | "verified" | "error" }) {
+  if (status === "verified") {
+    return (
+      <Badge variant="secondary" className="gap-1 border border-success/40 bg-success/10 text-success">
+        <CheckCircle2 className="h-3 w-3" /> Identité confirmée
+      </Badge>
+    );
+  }
+  if (status === "sent") {
+    return (
+      <Badge variant="secondary" className="gap-1 border border-info/40 bg-info/10 text-info">
+        <Send className="h-3 w-3" /> Code envoyé
+      </Badge>
+    );
+  }
+  if (status === "error") {
+    return (
+      <Badge variant="destructive" className="gap-1">
+        <AlertTriangle className="h-3 w-3" /> Erreur d'envoi
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="gap-1 text-muted-foreground">
+      Code non envoyé
+    </Badge>
+  );
+}
+
+type ChecklistItem = {
+  label: string;
+  ok: boolean;
+  hint: string | null;
+  info?: string;
+  stepId?: string;
+};
+
+function FinalChecklist({ items, onFix }: { items: ChecklistItem[]; onFix: (stepId: string) => void }) {
+  const remaining = items.filter((i) => !i.ok && i.stepId).length;
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <CheckCircle2 className="h-4 w-4 text-primary" /> Checklist finale
+        </p>
+        <span className={`text-xs font-medium ${remaining === 0 ? "text-success" : "text-warning"}`}>
+          {remaining === 0 ? "Tout est prêt" : `${remaining} point${remaining > 1 ? "s" : ""} à corriger`}
+        </span>
+      </div>
+      <ul className="space-y-1.5">
+        {items.map((it, i) => (
+          <li
+            key={i}
+            className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm ${
+              it.ok
+                ? "border-success/30 bg-success/5"
+                : "border-warning/40 bg-warning/5"
+            }`}
+          >
+            <span
+              className={`grid h-5 w-5 shrink-0 place-items-center rounded-full ${
+                it.ok ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground"
+              }`}
+            >
+              {it.ok ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{it.label}</div>
+              {!it.ok && it.hint && (
+                <div className="text-xs text-muted-foreground">{it.hint}</div>
+              )}
+              {it.ok && it.info && (
+                <div className="text-xs text-muted-foreground">{it.info}</div>
+              )}
+            </div>
+            {!it.ok && it.stepId && (
+              <Button size="sm" variant="outline" onClick={() => onFix(it.stepId!)}>
+                Corriger
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
