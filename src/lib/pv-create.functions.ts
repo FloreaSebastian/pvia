@@ -286,6 +286,7 @@ export const createPv = createServerFn({ method: "POST" })
           client_signature: clientSig,
           company_signature: companySig,
           signed_at: data.status === "signe" ? nowIso : null,
+          locked_at: data.status === "signe" ? nowIso : null,
           signature_mode: sigMode,
           client_identity_email: data.client_identity_email ?? otpRecord?.email ?? null,
           client_identity_verified_at: otpRecord ? nowIso : null,
@@ -405,6 +406,16 @@ export const createPv = createServerFn({ method: "POST" })
       try {
         pdfPath = await buildAndStorePvPdf(pvId);
         await markPdfGenerationStatus("pv", pvId, "ok");
+        await writeAuditLog({
+          companyId: data.companyId,
+          userId,
+          pvId,
+          entityType: "pv",
+          entityId: pvId,
+          action: "pv.pdf_generated",
+          metadata: { trigger: "auto_after_onsite_sign", path: pdfPath },
+          actor: "pdf",
+        });
       } catch (e) {
         await markPdfGenerationStatus("pv", pvId, "failed");
         await recordProcessingError({
@@ -414,7 +425,7 @@ export const createPv = createServerFn({ method: "POST" })
           audit: { action: "pv.pdf_generation_failed", entityType: "pv" },
         });
       }
-      try {
+      if (pdfPath) try {
         const { deliverSignedPv } = await import("./email.server");
         const res = await deliverSignedPv({ pvId, trigger: "auto" });
         const anyFail =
@@ -550,6 +561,41 @@ export const createPv = createServerFn({ method: "POST" })
       },
       actor: "user",
     });
+
+    // 11b. Temporary admin debug audit for the signed PV finalization pipeline.
+    if (data.status === "signe") {
+      const [{ data: pvDebug }, { count: emailLogsCount }] = await Promise.all([
+        supabaseAdmin
+          .from("pv")
+          .select("id,company_id,status,pdf_generation_status,processing_status,pdf_url,locked_at")
+          .eq("id", pvId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("email_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("pv_id", pvId),
+      ]);
+      await writeAuditLog({
+        companyId: data.companyId,
+        userId,
+        pvId,
+        entityType: "pv",
+        entityId: pvId,
+        action: "pv.create_debug",
+        metadata: {
+          pvId,
+          companyId: pvDebug?.company_id ?? data.companyId,
+          status: pvDebug?.status ?? data.status,
+          locked_at: pvDebug?.locked_at ?? null,
+          pdf_generation_status: pvDebug?.pdf_generation_status ?? null,
+          processing_status: pvDebug?.processing_status ?? null,
+          pdf_url: pvDebug?.pdf_url ?? null,
+          email_logs_count: emailLogsCount ?? 0,
+          rls_read_error: null,
+        },
+        actor: "system",
+      });
+    }
 
     // 12. Push notification fan-out (best-effort)
     try {
