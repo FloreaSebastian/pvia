@@ -106,8 +106,40 @@ function ChantierCalendarPage() {
       ]);
       setChantiers((c1.data as { id: string; name: string }[]) ?? []);
       setClients((c2.data as { id: string; name: string }[]) ?? []);
+      try {
+        const r = await fetchMembers({ data: { companyId: activeCompanyId } });
+        setMembers(r.members);
+      } catch { /* non-blocking */ }
     })();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [activeCompanyId]);
+
+  // Drag-and-drop: move event to a new day (preserves time-of-day)
+  const [dragId, setDragId] = useState<string | null>(null);
+  async function handleDrop(targetDay: Date, eventId: string) {
+    if (!activeCompanyId) return;
+    const evt = events.find((e) => e.id === eventId);
+    if (!evt || !evt.start_at) return;
+    const orig = new Date(evt.start_at);
+    const next = new Date(targetDay);
+    next.setHours(orig.getHours(), orig.getMinutes(), 0, 0);
+    if (sameDay(orig, next)) return;
+    const ok = confirm(`Déplacer "${evt.title}" au ${next.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })} ?`);
+    if (!ok) return;
+    let nextEnd: string | null = null;
+    if (evt.end_at) {
+      const origEnd = new Date(evt.end_at);
+      const diff = origEnd.getTime() - orig.getTime();
+      nextEnd = new Date(next.getTime() + diff).toISOString();
+    }
+    try {
+      await rescheduleFn({ data: { companyId: activeCompanyId, id: eventId, start_at: next.toISOString(), end_at: nextEnd } });
+      toast.success("Événement déplacé");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Déplacement impossible");
+    }
+  }
 
   // New event dialog
   const [evtOpen, setEvtOpen] = useState(false);
