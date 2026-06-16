@@ -35,8 +35,10 @@ const DeleteInput = z.object({
   id: z.string().uuid(),
 });
 
+type AuthedSupabase = import("@/integrations/supabase/auth-middleware").AuthedSupabaseClient extends infer T ? T : never;
+
 async function assertCanManage(
-  supabase: { rpc: (fn: "can_manage_company", args: { _company_id: string; _user_id: string }) => Promise<{ data: unknown; error: unknown }> },
+  supabase: import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>,
   companyId: string,
   userId: string,
 ) {
