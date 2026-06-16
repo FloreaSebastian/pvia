@@ -1882,10 +1882,42 @@ function WorkReferenceImport(props: {
       });
       if (res?.document?.id) setDocId(res.document.id);
       if (res?.extracted) {
-        setExtracted(res.extracted as Record<FieldKey, unknown>);
+        const extractedData = res.extracted as Record<FieldKey, unknown>;
+        setExtracted(extractedData);
         setConfidence(res.document?.extraction_confidence ?? null);
         setStatus("ok");
-        toast.success("Document analysé. Comparez puis appliquez les valeurs.");
+
+        // Auto-fill empty fields immediately (no confirmation required).
+        const autoUpdates: Partial<Record<FieldKey, string>> = {};
+        const autoApplied = new Set<FieldKey>();
+        for (const key of FIELD_ORDER) {
+          if (READONLY_FIELDS.has(key)) continue;
+          const raw = (extractedData as any)[key];
+          if (raw == null || raw === "") continue;
+          const current = (currentValues[key] ?? "").trim();
+          if (current) continue; // conflict → keep for comparison UI
+          autoUpdates[key] = String(raw);
+          autoApplied.add(key);
+        }
+        if (Object.keys(autoUpdates).length > 0) {
+          applyDetected(autoUpdates);
+          setAppliedSet(autoApplied);
+          void persistChoices(autoApplied, new Set());
+        }
+
+        const conflicts = FIELD_ORDER.filter((k) => {
+          if (READONLY_FIELDS.has(k)) return false;
+          const raw = (extractedData as any)[k];
+          if (raw == null || raw === "") return false;
+          const current = (currentValues[k] ?? "").trim();
+          return current && current !== String(raw).trim();
+        }).length;
+
+        if (conflicts > 0) {
+          toast.success(`Document analysé. ${conflicts} champ(s) déjà rempli(s) à vérifier.`);
+        } else {
+          toast.success("Document analysé. Champs pré-remplis automatiquement.");
+        }
       } else {
         setStatus("failed");
         setErrorMsg(res?.error ?? "Extraction impossible.");
