@@ -885,6 +885,29 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     client_identity_verified_at: identityVerifiedAt,
   } as any;
 
+  // Latest reference document attached to this PV (prefer success extraction)
+  const { data: docs } = await supabaseAdmin
+    .from("pv_documents")
+    .select("file_name,document_type,extracted_data,extraction_status,created_at")
+    .eq("pv_id", pvId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  let referenceDocument: ReferenceDocument | null = null;
+  if (docs && docs.length) {
+    const best = docs.find((d) => d.extraction_status === "success") ?? docs[0];
+    const ex = (best.extracted_data ?? {}) as Record<string, any>;
+    referenceDocument = {
+      file_name: best.file_name,
+      document_type: (best.document_type as string | null) ?? (ex.document_type as string | null) ?? null,
+      document_number: (ex.document_number as string | null) ?? null,
+      document_date: (ex.document_date as string | null) ?? null,
+      amount_ht: typeof ex.amount_ht === "number" ? ex.amount_ht : null,
+      vat_amount: typeof ex.vat_amount === "number" ? ex.vat_amount : null,
+      amount_ttc: typeof ex.amount_ttc === "number" ? ex.amount_ttc : null,
+      extraction_status: (best.extraction_status as any) ?? "manual",
+    };
+  }
+
   const generatedAt = new Date().toISOString();
   const companySignatoryName = (ownerRes as any).data?.full_name ?? company?.name ?? null;
 
@@ -897,6 +920,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     photos,
     branding: brandingSettings,
     proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256: null },
+    referenceDocument,
   });
   const pdfSha256 = await sha256OfBytes(passOneBytes);
 
@@ -909,6 +933,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     photos,
     branding: brandingSettings,
     proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256 },
+    referenceDocument,
   });
 
   const path = `${pv.company_id}/pv/${pvId}/PV-${pv.numero}-signed.pdf`;
