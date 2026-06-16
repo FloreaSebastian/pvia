@@ -228,7 +228,7 @@ function ChantierCalendarPage() {
       </Card>
 
       {/* Filters */}
-      <Card className="grid gap-3 p-3 md:grid-cols-4">
+      <Card className="grid gap-3 p-3 md:grid-cols-5">
         <Select value={fChantier} onValueChange={setFChantier}>
           <SelectTrigger><SelectValue placeholder="Chantier" /></SelectTrigger>
           <SelectContent><SelectItem value="all">Tous les chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
@@ -248,6 +248,13 @@ function ChantierCalendarPage() {
             <SelectItem value="prevu">Prévu</SelectItem><SelectItem value="en_cours">En cours</SelectItem>
             <SelectItem value="termine">Terminé</SelectItem><SelectItem value="annule">Annulé</SelectItem>
             <SelectItem value="reporte">Reporté</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={fAssigned} onValueChange={setFAssigned}>
+          <SelectTrigger><SelectValue placeholder="Assigné" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les membres</SelectItem>
+            {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </Card>
