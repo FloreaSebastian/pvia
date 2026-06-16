@@ -19,7 +19,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
 
-export const Route = createFileRoute("/_authenticated/chantiers")({
+export const Route = createFileRoute("/_authenticated/chantiers/")({
   component: ChantiersPage,
   head: () => ({ meta: [{ title: "Chantiers — PVIA" }] }),
 });

@@ -38,11 +38,11 @@ import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedEntrepriseRouteImport } from './routes/_authenticated/entreprise'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
-import { Route as AuthenticatedChantiersRouteImport } from './routes/_authenticated/chantiers'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedAccountSuspendedRouteImport } from './routes/_authenticated/account-suspended'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
+import { Route as AuthenticatedChantiersIndexRouteImport } from './routes/_authenticated/chantiers.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
@@ -233,11 +233,6 @@ const AuthenticatedClientsRoute = AuthenticatedClientsRouteImport.update({
   path: '/clients',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedChantiersRoute = AuthenticatedChantiersRouteImport.update({
-  id: '/chantiers',
-  path: '/chantiers',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
@@ -259,6 +254,12 @@ const AuthenticatedParametresIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedParametresRoute,
+  } as any)
+const AuthenticatedChantiersIndexRoute =
+  AuthenticatedChantiersIndexRouteImport.update({
+    id: '/chantiers/',
+    path: '/chantiers/',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const SignPvTokenRoute = SignPvTokenRouteImport.update({
   id: '/sign/pv/$token',
@@ -523,7 +524,6 @@ export interface FileRoutesByFullPath {
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
-  '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
@@ -569,6 +569,7 @@ export interface FileRoutesByFullPath {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
@@ -601,7 +602,6 @@ export interface FileRoutesByTo {
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
-  '/chantiers': typeof AuthenticatedChantiersRoute
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
@@ -644,6 +644,7 @@ export interface FileRoutesByTo {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/chantiers': typeof AuthenticatedChantiersIndexRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
@@ -678,7 +679,6 @@ export interface FileRoutesById {
   '/verify': typeof VerifyRoute
   '/_authenticated/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
-  '/_authenticated/chantiers': typeof AuthenticatedChantiersRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/entreprise': typeof AuthenticatedEntrepriseRoute
@@ -724,6 +724,7 @@ export interface FileRoutesById {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/_authenticated/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
@@ -758,7 +759,6 @@ export interface FileRouteTypes {
     | '/verify'
     | '/account-suspended'
     | '/billing'
-    | '/chantiers'
     | '/clients'
     | '/dashboard'
     | '/entreprise'
@@ -804,6 +804,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/chantiers/'
     | '/parametres/'
     | '/pv/'
     | '/admin/companies/$id'
@@ -836,7 +837,6 @@ export interface FileRouteTypes {
     | '/verify'
     | '/account-suspended'
     | '/billing'
-    | '/chantiers'
     | '/clients'
     | '/dashboard'
     | '/entreprise'
@@ -879,6 +879,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/chantiers'
     | '/parametres'
     | '/pv'
     | '/admin/companies/$id'
@@ -912,7 +913,6 @@ export interface FileRouteTypes {
     | '/verify'
     | '/_authenticated/account-suspended'
     | '/_authenticated/billing'
-    | '/_authenticated/chantiers'
     | '/_authenticated/clients'
     | '/_authenticated/dashboard'
     | '/_authenticated/entreprise'
@@ -958,6 +958,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/_authenticated/chantiers/'
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
     | '/_authenticated/admin/companies/$id'
@@ -1214,13 +1215,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/chantiers': {
-      id: '/_authenticated/chantiers'
-      path: '/chantiers'
-      fullPath: '/chantiers'
-      preLoaderRoute: typeof AuthenticatedChantiersRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/billing': {
       id: '/_authenticated/billing'
       path: '/billing'
@@ -1248,6 +1242,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/parametres/'
       preLoaderRoute: typeof AuthenticatedParametresIndexRouteImport
       parentRoute: typeof AuthenticatedParametresRoute
+    }
+    '/_authenticated/chantiers/': {
+      id: '/_authenticated/chantiers/'
+      path: '/chantiers'
+      fullPath: '/chantiers/'
+      preLoaderRoute: typeof AuthenticatedChantiersIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/sign/pv/$token': {
       id: '/sign/pv/$token'
@@ -1663,7 +1664,6 @@ const AuthenticatedPvIdRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAccountSuspendedRoute: typeof AuthenticatedAccountSuspendedRoute
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
-  AuthenticatedChantiersRoute: typeof AuthenticatedChantiersRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEntrepriseRoute: typeof AuthenticatedEntrepriseRoute
@@ -1689,13 +1689,13 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
+  AuthenticatedChantiersIndexRoute: typeof AuthenticatedChantiersIndexRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountSuspendedRoute: AuthenticatedAccountSuspendedRoute,
   AuthenticatedBillingRoute: AuthenticatedBillingRoute,
-  AuthenticatedChantiersRoute: AuthenticatedChantiersRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEntrepriseRoute: AuthenticatedEntrepriseRoute,
@@ -1725,6 +1725,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRouteWithChildren,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
+  AuthenticatedChantiersIndexRoute: AuthenticatedChantiersIndexRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
 }
 
