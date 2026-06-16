@@ -88,13 +88,14 @@ function ChantierCalendarPage() {
         clientId: fClient === "all" ? null : fClient,
         eventType: fType === "all" ? null : fType,
         status: fStatus === "all" ? null : fStatus,
+        assignedTo: fAssigned === "all" ? null : fAssigned,
       } });
       setEvents(r.events as Evt[]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chargement impossible");
     } finally { setLoading(false); }
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId, view, cursor, fChantier, fClient, fType, fStatus]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId, view, cursor, fChantier, fClient, fType, fStatus, fAssigned]);
 
   useEffect(() => {
     if (!activeCompanyId) return;
