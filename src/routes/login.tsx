@@ -1,14 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Loader2, Mail, KeyRound } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AuthShell } from "@/components/auth/AuthShell";
-import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
