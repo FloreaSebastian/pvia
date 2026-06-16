@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { createChantier as createChantierFn, updateChantier as updateChantierFn, deleteChantier as deleteChantierFn } from "@/lib/chantiers.functions";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
