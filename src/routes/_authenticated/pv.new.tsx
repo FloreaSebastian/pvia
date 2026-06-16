@@ -2006,7 +2006,7 @@ function WorkReferenceImport(props: {
             Importer un devis, bon de commande ou marché
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            PDF ou image (PNG/JPG/WebP), 10 Mo max. Comparez les valeurs détectées et appliquez champ par champ.
+            PDF ou image (PNG/JPG/WebP), 10 Mo max. Les champs vides sont remplis automatiquement ; en cas de valeur existante, un comparatif s'affiche.
           </p>
         </div>
         <label className="cursor-pointer">
