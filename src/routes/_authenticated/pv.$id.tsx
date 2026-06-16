@@ -72,6 +72,7 @@ type Pv = {
   signature_mode: "remote" | "onsite" | null;
   locked_at: string | null;
   client_identity_email: string | null;
+  client_identity_verified_at: string | null;
   client_otp_verified: boolean | null;
   sent_to_email: string | null;
   processing_status?: string | null;
