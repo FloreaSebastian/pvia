@@ -104,6 +104,7 @@ function PvDetail() {
   const [clientName, setClientName] = useState<string | null>(null);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
   const [sendEmail, setSendEmail] = useState("");
   const [sendingClient, setSendingClient] = useState(false);
@@ -119,9 +120,10 @@ function PvDetail() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     // Note: sign_token and sign_token_hash column-level revoked from authenticated.
     // The signing URL is returned by the server fn that (re)generates the token.
-    const cols = "id,owner_id,chantier_id,client_id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,pdf_url,created_at,updated_at,company_id,sign_token_expires_at,sent_to_client_at,sent_to_email,pdf_generated_at,is_field_draft,latitude,longitude,field_last_saved_at,reception_with_reserves,work_reference_type,work_reference_number,work_reference_date,work_reference_amount,reserve_completion_delay,reserve_due_date,chantier_address,chantier_postal_code,chantier_city,reserve_lift_status,signature_mode,client_identity_verified_at,client_identity_verified_by,client_identity_email,client_identity_phone,client_otp_verified,locked_at,client_signature_ip,client_signature_user_agent,consent_text,consent_at,processing_status,processing_errors,pdf_generation_status,photos_failed_count";
+    const cols = "id,owner_id,chantier_id,client_id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,pdf_url,created_at,updated_at,company_id,sign_token_expires_at,sent_to_client_at,sent_to_email,pdf_generated_at,is_field_draft,latitude,longitude,field_last_saved_at,reception_with_reserves,work_reference_type,work_reference_number,work_reference_date,work_reference_amount,reserve_completion_delay,reserve_due_date,chantier_address,chantier_postal_code,chantier_city,reserve_lift_status,signature_mode,client_identity_verified_at,client_identity_verified_by,client_identity_email,client_identity_phone,client_otp_verified,locked_at,processing_status,processing_errors,pdf_generation_status,photos_failed_count";
     // Retry up to 4× (≈1.2s) — covers the small replication window right
     // after createPv, where the row may not yet be visible to the read replica.
     let pvData: any = null;
@@ -134,9 +136,11 @@ function PvDetail() {
     }
     if (!pvData) {
       // eslint-disable-next-line no-console
-      console.warn("[pv] introuvable après retries", { pvId: id, error: lastError });
-      toast.error("PV introuvable");
-      navigate({ to: "/pv" });
+      console.error("[pv] lecture impossible après création/retries", { pvId: id, error: lastError });
+      const message = lastError?.message ? `Lecture PV impossible : ${lastError.message}` : "PV non visible après création. Rechargez la fiche.";
+      setLoadError(message);
+      toast.error(message);
+      setLoading(false);
       return;
     }
     setPv(pvData as Pv);
@@ -367,10 +371,24 @@ function PvDetail() {
     }
   }
 
-  if (loading || !pv) {
+  if (loading) {
     return (
       <div className="grid h-64 place-items-center text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!pv) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={() => navigate({ to: "/pv" })}>
+          <ArrowLeft className="h-4 w-4" /> Retour aux PV
+        </Button>
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="font-semibold">Fiche PV non chargée</div>
+          <p className="mt-1">{loadError ?? "Erreur de lecture inconnue."}</p>
+        </div>
       </div>
     );
   }
@@ -453,7 +471,7 @@ function PvDetail() {
               {resendingSigned ? "Envoi…" : "Renvoyer le PDF signé"}
             </Button>
           )}
-          {!pv.locked_at && (
+          {(!pv.locked_at || pv.pdf_generation_status === "failed" || !pv.pdf_url) && (
             <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
               {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
               {regenerating ? "Génération…" : "Régénérer le PDF"}

@@ -29,7 +29,26 @@ export const regeneratePvPdf = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!m) throw new Error("Accès refusé.");
 
-    const path = await buildAndStorePvPdf(pv.id);
+    const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
+    await markPdfGenerationStatus("pv", pv.id, "pending");
+    let path: string;
+    try {
+      path = await buildAndStorePvPdf(pv.id);
+      await markPdfGenerationStatus("pv", pv.id, "ok");
+    } catch (e) {
+      await markPdfGenerationStatus("pv", pv.id, "failed");
+      await recordProcessingError({
+        table: "pv",
+        id: pv.id,
+        companyId: pv.company_id,
+        pvId: pv.id,
+        userId,
+        step: "manual_pdf_regeneration",
+        error: e,
+        audit: { action: "pv.pdf_generation_failed", entityType: "pv" },
+      });
+      throw e;
+    }
     await writeAuditLog({
       companyId: pv.company_id,
       userId,
