@@ -292,6 +292,7 @@ export const createPv = createServerFn({ method: "POST" })
           client_identity_verified_at: otpRecord ? nowIso : null,
           client_identity_verified_by: otpRecord ? "onsite_otp" : null,
           client_otp_verified: !!otpRecord,
+          sent_to_email: data.status === "signe" ? (data.client_identity_email ?? otpRecord?.email ?? null) : null,
           reception_with_reserves: withReserves,
           work_reference_type: data.work_reference_type ?? null,
           work_reference_number: data.work_reference_number?.trim() || null,

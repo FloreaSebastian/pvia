@@ -474,7 +474,7 @@ export async function deliverSignedPv(opts: {
 }): Promise<{ client?: SendSignedPvResult; company?: SendSignedPvResult; pvNumero: string }> {
   const { data: pv } = await supabaseAdmin
     .from("pv")
-    .select("id,numero,company_id,client_id,chantier_id,pdf_url,signed_at,sent_to_email")
+    .select("id,numero,company_id,client_id,chantier_id,pdf_url,signed_at,sent_to_email,client_identity_email")
     .eq("id", opts.pvId)
     .maybeSingle();
   if (!pv) throw new Error("PV introuvable.");
@@ -509,7 +509,7 @@ export async function deliverSignedPv(opts: {
   const subject = `Votre procès-verbal signé – PVIA (${pvNumero})`;
   const copySubject = `[Copie] PV ${pvNumero} signé par ${clientName}`;
 
-  const clientEmail = client?.email || pv.sent_to_email || null;
+  const clientEmail = client?.email || pv.sent_to_email || (pv as any).client_identity_email || null;
   const sendToCompany = (settings as any)?.send_signed_pv_to_company !== false;
   const companyEmail = sendToCompany ? ((settings as any)?.company_signed_email || company?.email || null) : null;
   const ccExtra: string[] = [
