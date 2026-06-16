@@ -325,6 +325,12 @@ function ChantierDetailPage() {
                         <StatusPill tone="neutral">{evtLabel(e.event_type)}</StatusPill>
                         <span>{fmtDateTime(e.start_at)}</span>
                         {e.location && <span>· {e.location}</span>}
+                        {(e as { assigned_to?: string | null }).assigned_to && (
+                          <span className="inline-flex items-center gap-1">· <User className="h-3 w-3" /> {membersById.get((e as { assigned_to: string }).assigned_to)?.name ?? "—"}</span>
+                        )}
+                        {(e as { reminder_at?: string | null }).reminder_at && (
+                          <span className="inline-flex items-center gap-1">· <Clock className="h-3 w-3" /> Rappel {fmtDateTime((e as { reminder_at: string }).reminder_at)}</span>
+                        )}
                       </p>
                       {e.description && <p className="mt-1 text-sm text-muted-foreground">{e.description}</p>}
                     </div>
