@@ -1162,11 +1162,7 @@ function NewPv() {
                                   Un code à 6 chiffres est envoyé par email au client pour confirmer son identité.
                                 </p>
                               </div>
-                              {onsiteOtpVerified && (
-                                <Badge variant="secondary" className="gap-1">
-                                  <CheckCircle2 className="h-3 w-3" /> Identité confirmée
-                                </Badge>
-                              )}
+                              <OtpStatusBadge status={otpStatus} />
                             </div>
                             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                               <Field label="Email du client *">
