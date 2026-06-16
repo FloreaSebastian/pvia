@@ -36,7 +36,7 @@ const DeleteInput = z.object({
 });
 
 async function assertCanManage(
-  supabase: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> },
+  supabase: { rpc: (fn: "can_manage_company", args: { _company_id: string; _user_id: string }) => Promise<{ data: unknown; error: unknown }> },
   companyId: string,
   userId: string,
 ) {
