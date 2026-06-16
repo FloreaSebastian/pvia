@@ -40,7 +40,11 @@ function ClientsPage() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "", notes: "" });
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [saving, setSaving] = useState(false);
   const canWrite = can("manage");
+  const createFn = useServerFn(createClientFn);
+  const updateFn = useServerFn(updateClientFn);
+  const deleteFn = useServerFn(deleteClientFn);
 
   async function load() {
     if (!activeCompanyId) return;
