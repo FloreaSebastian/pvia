@@ -368,7 +368,8 @@ function ChantiersPage() {
             return (
               <Card
                 key={c.id}
-                className="group relative flex flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
+                onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}
+                className="group relative flex cursor-pointer flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -406,16 +407,21 @@ function ChantiersPage() {
                   </div>
                 )}
 
-                {canWrite && (
-                  <div className="mt-auto flex justify-end gap-1 opacity-0 transition group-hover:opacity-100">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                )}
+                <div className="mt-auto flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1 text-xs text-primary opacity-70 group-hover:opacity-100">
+                    Ouvrir la fiche <ArrowRight className="h-3 w-3" />
+                  </span>
+                  {canWrite && (
+                    <div className="flex gap-1 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </Card>
             );
           })}
