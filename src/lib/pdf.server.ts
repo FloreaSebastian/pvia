@@ -725,13 +725,49 @@ export async function generatePvPdfBytes(input: {
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 /** Internal: build the PDF, upload it to `pv-assets`, persist pdf_url + pdf_generated_at. Returns the storage path. */
+/**
+ * PDF finalization guard — refuse to generate a signed PDF unless the PV is
+ * legally complete. A PDF presented as a signed reception PV cannot exist
+ * before company + client signatures and identity verification are in place.
+ * Throws "PV_NOT_FINALIZED: <reason>" so callers can surface a clean error.
+ */
+function assertPvFinalizedForPdf(pv: any): void {
+  if (pv.status !== "signe") throw new Error("PV_NOT_FINALIZED: PV non signé.");
+  if (!pv.company_signature) throw new Error("PV_NOT_FINALIZED: Signature entreprise manquante.");
+  if (!pv.client_signature) throw new Error("PV_NOT_FINALIZED: Signature client manquante.");
+  const mode = pv.signature_mode;
+  if (mode === "onsite" && pv.client_otp_verified !== true) {
+    throw new Error("PV_NOT_FINALIZED: Code OTP client non validé.");
+  }
+  if (mode === "remote" && !pv.client_identity_verified_at) {
+    throw new Error("PV_NOT_FINALIZED: Identité client distante non vérifiée.");
+  }
+}
+
 export async function buildAndStorePvPdf(pvId: string): Promise<string> {
   const { data: pv } = await supabaseAdmin
     .from("pv")
-    .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at,owner_id,signature_mode,client_identity_email,client_identity_verified_at,client_identity_verified_by,client_signature_ip,client_signature_user_agent,consent_text,consent_at,reception_with_reserves,work_reference_type,work_reference_number,work_reference_date,work_reference_amount,reserve_completion_delay,reserve_due_date")
+    .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at,owner_id,signature_mode,client_identity_email,client_identity_verified_at,client_identity_verified_by,client_signature_ip,client_signature_user_agent,consent_text,consent_at,reception_with_reserves,work_reference_type,work_reference_number,work_reference_date,work_reference_amount,reserve_completion_delay,reserve_due_date,client_otp_verified")
     .eq("id", pvId)
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
+
+  try {
+    assertPvFinalizedForPdf(pv);
+  } catch (e: any) {
+    const reason = String(e?.message || "").replace(/^PV_NOT_FINALIZED:\s*/, "");
+    const { writeAuditLog } = await import("./audit.server");
+    await writeAuditLog({
+      companyId: pv.company_id,
+      pvId: pv.id,
+      entityType: "pv",
+      entityId: pv.id,
+      action: "pv.pdf_generation_blocked_not_finalized" as any,
+      metadata: { reason, status: pv.status, signature_mode: pv.signature_mode },
+      actor: "system",
+    }).catch(() => {});
+    throw e;
+  }
 
   const [company, brandingSettings, clientRes, chantierRes, photosRes, reservesRes, ownerRes] = await Promise.all([
     getCompanyBranding(pv.company_id),

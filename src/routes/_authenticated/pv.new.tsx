@@ -186,6 +186,15 @@ function NewPv() {
   const [onsiteOtpSent, setOnsiteOtpSent] = useState(false);
   const [onsiteOtpVerified, setOnsiteOtpVerified] = useState(false);
   const [onsiteOtpLoading, setOnsiteOtpLoading] = useState(false);
+  const [onsiteOtpCooldown, setOnsiteOtpCooldown] = useState(0);
+  const [onsiteOtpError, setOnsiteOtpError] = useState<string | null>(null);
+  const [onsiteOtpShowHelp, setOnsiteOtpShowHelp] = useState(false);
+
+  useEffect(() => {
+    if (onsiteOtpCooldown <= 0) return;
+    const t = setTimeout(() => setOnsiteOtpCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [onsiteOtpCooldown]);
 
   // Stepper dynamique
   const STEPS = useMemo<StepDef[]>(() => {
@@ -378,7 +387,9 @@ function NewPv() {
   async function handleSendOtp() {
     if (!activeCompanyId) return toast.error("Aucune entreprise active.");
     if (!onsiteOtpEmail.trim()) return toast.error("Email client requis.");
+    if (onsiteOtpCooldown > 0) return;
     setOnsiteOtpLoading(true);
+    setOnsiteOtpError(null);
     try {
       const r = await sendOtpFn({
         data: { companyId: activeCompanyId, email: onsiteOtpEmail.trim().toLowerCase() },
@@ -387,9 +398,12 @@ function NewPv() {
       setOnsiteOtpSent(true);
       setOnsiteOtpVerified(false);
       setOnsiteOtpCode("");
-      toast.success("Code envoyé par email au client.");
+      setOnsiteOtpCooldown(30);
+      toast.success("Code envoyé. Pensez à vérifier les spams.");
     } catch (e: any) {
-      toast.error(e?.message || "Envoi du code impossible.");
+      const msg = e?.message || "Envoi du code impossible.";
+      setOnsiteOtpError(msg);
+      toast.error(msg);
     } finally {
       setOnsiteOtpLoading(false);
     }
@@ -402,6 +416,7 @@ function NewPv() {
     try {
       await verifyOtpFn({ data: { otpId: onsiteOtpId, code: onsiteOtpCode } });
       setOnsiteOtpVerified(true);
+      setOnsiteOtpError(null);
       toast.success("Identité client confirmée.");
     } catch (e: any) {
       toast.error(e?.message || "Code invalide.");
@@ -1079,36 +1094,63 @@ function NewPv() {
                                   type="button"
                                   variant="outline"
                                   onClick={handleSendOtp}
-                                  disabled={onsiteOtpLoading || !onsiteOtpEmail.trim() || onsiteOtpVerified}
+                                  disabled={onsiteOtpLoading || !onsiteOtpEmail.trim() || onsiteOtpVerified || onsiteOtpCooldown > 0}
                                 >
                                   {onsiteOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                                  {onsiteOtpSent ? "Renvoyer le code" : "Envoyer le code"}
+                                  {onsiteOtpCooldown > 0
+                                    ? `Renvoyer dans ${onsiteOtpCooldown}s`
+                                    : onsiteOtpSent ? "Renvoyer le code" : "Envoyer le code"}
                                 </Button>
                               </div>
                             </div>
                             {onsiteOtpSent && !onsiteOtpVerified && (
-                              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                                <Field label="Code reçu par le client (6 chiffres) *">
-                                  <Input
-                                    inputMode="numeric"
-                                    maxLength={6}
-                                    value={onsiteOtpCode}
-                                    onChange={(e) => setOnsiteOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                                    placeholder="123456"
-                                    className="font-mono tracking-[0.4em] text-center text-lg"
-                                  />
-                                </Field>
-                                <div className="flex items-end">
-                                  <Button
-                                    type="button"
-                                    onClick={handleVerifyOtp}
-                                    disabled={onsiteOtpLoading || onsiteOtpCode.length !== 6}
-                                  >
-                                    {onsiteOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                                    Valider le code
-                                  </Button>
+                              <>
+                                <div className="rounded-md border border-info/30 bg-info/5 px-3 py-2 text-xs text-muted-foreground">
+                                  Code envoyé. Vérifiez la boîte de réception et les <strong>spams</strong>. Le code est valable 10 minutes.
                                 </div>
-                              </div>
+                                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                                  <Field label="Code reçu par le client (6 chiffres) *">
+                                    <Input
+                                      inputMode="numeric"
+                                      maxLength={6}
+                                      value={onsiteOtpCode}
+                                      onChange={(e) => setOnsiteOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                      placeholder="123456"
+                                      className="font-mono tracking-[0.4em] text-center text-lg"
+                                    />
+                                  </Field>
+                                  <div className="flex items-end">
+                                    <Button
+                                      type="button"
+                                      onClick={handleVerifyOtp}
+                                      disabled={onsiteOtpLoading || onsiteOtpCode.length !== 6}
+                                    >
+                                      {onsiteOtpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                      Valider le code
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <button
+                                    type="button"
+                                    className="text-xs text-primary underline"
+                                    onClick={() => setOnsiteOtpShowHelp((s) => !s)}
+                                  >
+                                    Le client n'a rien reçu ?
+                                  </button>
+                                  {onsiteOtpShowHelp && (
+                                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                                      <li>Vérifier le dossier <strong>spam / courrier indésirable</strong>.</li>
+                                      <li>Vérifier que l'adresse email est correcte.</li>
+                                      <li>Corriger l'email si besoin puis cliquer <strong>Renvoyer le code</strong> ({onsiteOtpCooldown > 0 ? `${onsiteOtpCooldown}s` : "disponible"}).</li>
+                                      <li className="opacity-60">Envoi par SMS — bientôt disponible.</li>
+                                    </ul>
+                                  )}
+                                  {onsiteOtpError && (
+                                    <p className="mt-2 text-xs text-destructive">Dernier envoi : {onsiteOtpError}</p>
+                                  )}
+                                </div>
+                              </>
                             )}
                           </div>
                         </>

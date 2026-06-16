@@ -46,6 +46,17 @@ export const sendOnsiteClientOtp = createServerFn({ method: "POST" })
       windowSec: 600,
     });
 
+    // Invalidate any previous unused OTP for this (company, email, mode) so
+    // the new code is the only valid one. Prevents confusion when the client
+    // mistakenly enters an older code from a duplicate email.
+    await supabaseAdmin
+      .from("pv_signature_otps")
+      .update({ used_at: new Date().toISOString() } as never)
+      .eq("company_id", data.companyId)
+      .eq("email", data.email.toLowerCase())
+      .eq("signature_mode", "onsite")
+      .is("used_at", null);
+
     const { id: otpId, code, expiresAt } = await createSignatureOtp({
       companyId: data.companyId,
       pvId: data.pvId ?? null,

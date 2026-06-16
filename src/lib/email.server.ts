@@ -214,26 +214,24 @@ export async function sendEnterpriseLoginCodeEmail(opts: {
 function renderOnsiteOtpEmail(opts: { code: string; companyName: string }) {
   const { code, companyName } = opts;
   return `<!doctype html><html><body style="margin:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a">
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;background:#f6f7f9"><tr><td align="center">
-    <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-      <tr><td style="padding:28px 36px 8px">
-        <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#1e3a8a;font-weight:700">PVIA · Confirmation de signature</div>
-        <div style="font-size:22px;font-weight:700;margin-top:10px;color:#0f172a">Validez votre signature</div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;background:#ffffff"><tr><td align="center">
+    <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px">
+      <tr><td style="padding:28px 32px 4px">
+        <div style="font-size:13px;color:#1e3a8a;font-weight:600">PVIA · Signature</div>
+        <div style="font-size:20px;font-weight:700;margin-top:8px;color:#0f172a">Code de validation</div>
       </td></tr>
-      <tr><td style="padding:8px 36px 0">
-        <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#334155">
-          <strong>${escapeHtml(companyName)}</strong> vous demande de confirmer la signature d'un procès-verbal de réception de travaux. Communiquez le code ci-dessous au technicien sur place pour valider votre signature.
+      <tr><td style="padding:8px 32px 0">
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#334155">
+          ${escapeHtml(companyName)} vous demande de valider votre signature sur un procès-verbal de réception.
         </p>
-        <div style="margin:24px 0;padding:22px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;text-align:center">
-          <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:42px;letter-spacing:14px;font-weight:800;color:#1e3a8a">${escapeHtml(code)}</div>
-          <div style="margin-top:10px;font-size:12px;color:#64748b">Valide 10 minutes · usage unique</div>
+        <div style="margin:18px 0;padding:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;text-align:center">
+          <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:44px;letter-spacing:14px;font-weight:800;color:#1e3a8a">${escapeHtml(code)}</div>
         </div>
-        <div style="margin:20px 0 0;padding:14px 16px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:8px;font-size:12px;color:#78350f;line-height:1.6">
-          ⚠️ Ne transmettez ce code à personne d'autre que le technicien présent sur place pour signature. Si vous n'êtes pas en train de signer un PV, ignorez cet email.
-        </div>
+        <p style="margin:0 0 6px;font-size:13px;color:#475569">Ce code est valable 10 minutes.</p>
+        <p style="margin:0;font-size:13px;color:#475569">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
       </td></tr>
-      <tr><td style="padding:20px 36px 28px;color:#94a3b8;font-size:11px;text-align:center;line-height:1.6">
-        PVIA — Réception de travaux intelligente
+      <tr><td style="padding:24px 32px 24px;color:#94a3b8;font-size:11px;text-align:center">
+        PVIA — Réception de travaux
       </td></tr>
     </table>
   </td></tr></table></body></html>`;
@@ -245,12 +243,14 @@ export async function sendOnsiteOtpEmail(opts: {
   companyName: string;
   companyId: string;
 }): Promise<void> {
+  const requestedAt = Date.now();
   const resendKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL || `PVIA <noreply@pvia.fr>`;
-  const subject = `Code de confirmation – Signature PV ${opts.companyName}`;
+  const subject = `Code de validation signature PVIA`;
   const html = renderOnsiteOtpEmail({ code: opts.code, companyName: opts.companyName });
 
   async function logAttempt(status: "sent" | "failed", error?: string, resendId?: string) {
+    const sentAt = Date.now();
     try {
       await supabaseAdmin.from("email_logs").insert({
         company_id: opts.companyId,
@@ -260,10 +260,14 @@ export async function sendOnsiteOtpEmail(opts: {
         status,
         error_message: error ?? null,
         resend_id: resendId ?? null,
-        payload: null,
+        payload: {
+          requested_at: new Date(requestedAt).toISOString(),
+          sent_at: status === "sent" ? new Date(sentAt).toISOString() : null,
+          duration_ms: sentAt - requestedAt,
+        } as never,
         max_retries: 0,
         retries_count: 0,
-        sent_at: status === "sent" ? new Date().toISOString() : null,
+        sent_at: status === "sent" ? new Date(sentAt).toISOString() : null,
       } as never);
     } catch {}
   }
