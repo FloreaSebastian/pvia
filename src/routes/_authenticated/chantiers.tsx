@@ -205,7 +205,7 @@ function ChantiersPage() {
                     <div><Label>Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
                   </div>
                   <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
+                  <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
