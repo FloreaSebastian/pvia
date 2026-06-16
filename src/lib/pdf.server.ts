@@ -4,7 +4,12 @@ import { sha256OfBytes, shortUA, EIDAS_MENTIONS } from "./signature-proof.server
 
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
-type Chantier = { name?: string | null; address?: string | null } | undefined;
+type Chantier = {
+  name?: string | null;
+  address?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+} | undefined;
 type Reserve = {
   description: string;
   severity: string;
@@ -48,15 +53,18 @@ type Pv = {
 
 export type SignatureProofMeta = {
   companySignatoryName?: string | null;
+  companySignatoryFunction?: string | null;
   pdfSha256?: string | null;
   pdfGeneratedAt: string;
 };
 
-const ACCENT = rgb(0.06, 0.09, 0.16); // slate-900
+const ACCENT = rgb(0.06, 0.09, 0.16);
 const MUTED = rgb(0.42, 0.45, 0.52);
+const SUBTLE = rgb(0.62, 0.65, 0.72);
 const BORDER = rgb(0.86, 0.88, 0.91);
-const DEFAULT_PRIMARY = rgb(0.12, 0.23, 0.54);
-
+const SOFT = rgb(0.96, 0.97, 0.99);
+const SUCCESS_BG = rgb(0.92, 0.97, 0.93);
+const SUCCESS_FG = rgb(0.10, 0.45, 0.20);
 
 /** Replace characters that WinAnsi can't encode (used by Helvetica). */
 function sanitize(s: string | null | undefined): string {
@@ -79,6 +87,13 @@ function formatDate(s: string | null | undefined, withTime = false): string {
   if (!withTime) return date;
   const time = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   return `${date} a ${time}`;
+}
+
+function formatTime(s: string | null | undefined): string {
+  if (!s) return "-";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function detectImageType(bytes: Uint8Array): "png" | "jpg" | null {
@@ -128,33 +143,60 @@ export async function generatePvPdfBytes(input: {
 }): Promise<Uint8Array> {
   const { pv, company, client, chantier, reserves, photos, proof } = input;
   const branding = input.branding ?? DEFAULT_BRANDING_SETTINGS;
+  const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
   const PRIMARY = (() => {
     const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
     return rgb(r, g, b);
   })();
-  const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+  const PRIMARY_DARK = (() => {
+    const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
+    return rgb(clamp01(r * 0.6), clamp01(g * 0.6), clamp01(b * 0.6));
+  })();
   const HEADER_BG = (() => {
     const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
-    // very light tint
     return rgb(clamp01(r * 0.05 + 0.95), clamp01(g * 0.05 + 0.95), clamp01(b * 0.05 + 0.97));
   })();
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`N° ${pv.numero}`);
+  pdf.setTitle(`PV de reception N° ${pv.numero}`);
   pdf.setCreator("PVIA");
   pdf.setProducer("PVIA");
+  pdf.setSubject("Proces-verbal de reception de travaux");
 
   const helv = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-
+  const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
 
   const PAGE_W = 595.28;
   const PAGE_H = 841.89;
-  const MARGIN = 48;
+  const MARGIN = 44;
   const CONTENT_W = PAGE_W - MARGIN * 2;
 
   let page: PDFPage = pdf.addPage([PAGE_W, PAGE_H]);
   let y = PAGE_H - MARGIN;
   let pageNum = 1;
+  const pages: { page: PDFPage; num: number }[] = [];
+
+  const drawFooter = (p: PDFPage, num: number) => {
+    if (branding.pdf_watermark) {
+      const wm = sanitize(branding.pdf_watermark).slice(0, 40).toUpperCase();
+      p.drawText(wm, {
+        x: PAGE_W / 2 - wm.length * 18,
+        y: PAGE_H / 2,
+        size: 64,
+        font: bold,
+        color: rgb(0.85, 0.85, 0.88),
+        rotate: { type: "degrees", angle: -28 } as any,
+        opacity: 0.10,
+      });
+    }
+    p.drawLine({ start: { x: MARGIN, y: 32 }, end: { x: PAGE_W - MARGIN, y: 32 }, thickness: 0.5, color: BORDER });
+    const footerL = sanitize(branding.pdf_footer || "PVIA - Reception de travaux intelligente");
+    p.drawText(footerL, { x: MARGIN, y: 20, size: 7.5, font: helv, color: MUTED });
+    const mid = `PV N° ${sanitize(pv.numero)}  -  Genere le ${formatDate(proof?.pdfGeneratedAt ?? new Date().toISOString())}`;
+    const midW = helv.widthOfTextAtSize(mid, 7.5);
+    p.drawText(mid, { x: (PAGE_W - midW) / 2, y: 20, size: 7.5, font: helv, color: MUTED });
+    p.drawText(`Page ${num}`, { x: PAGE_W - MARGIN - 36, y: 20, size: 7.5, font: bold, color: ACCENT });
+  };
 
   const drawText = (
     text: string,
@@ -174,41 +216,50 @@ export async function generatePvPdfBytes(input: {
     return yy - cursor;
   };
 
+  const newPage = () => {
+    pages.push({ page, num: pageNum });
+    page = pdf.addPage([PAGE_W, PAGE_H]);
+    pageNum += 1;
+    y = PAGE_H - MARGIN;
+  };
+
   const ensureSpace = (needed: number) => {
-    if (y - needed < MARGIN + 30) {
-      drawFooter();
-      page = pdf.addPage([PAGE_W, PAGE_H]);
-      pageNum += 1;
-      y = PAGE_H - MARGIN;
+    if (y - needed < 50) newPage();
+  };
+
+  const sectionTitle = (title: string) => {
+    ensureSpace(28);
+    page.drawRectangle({ x: MARGIN, y: y - 4, width: 3, height: 12, color: PRIMARY });
+    page.drawText(sanitize(title).toUpperCase(), {
+      x: MARGIN + 10,
+      y: y - 2,
+      size: 9.5,
+      font: bold,
+      color: PRIMARY_DARK,
+    });
+    page.drawLine({
+      start: { x: MARGIN + 10 + bold.widthOfTextAtSize(sanitize(title).toUpperCase(), 9.5) + 8, y: y + 2 },
+      end: { x: PAGE_W - MARGIN, y: y + 2 },
+      thickness: 0.4,
+      color: BORDER,
+    });
+    y -= 18;
+  };
+
+  const para = (text: string, size = 9.5, color: RGB = ACCENT, font: PDFFont = helv) => {
+    const lines = wrapLines(font, text, size, CONTENT_W);
+    ensureSpace(lines.length * (size * 1.35) + 4);
+    for (const l of lines) {
+      page.drawText(l, { x: MARGIN, y, size, font, color });
+      y -= size * 1.35;
     }
   };
 
-  const drawFooter = () => {
-    // Watermark (diagonal, very light) — drawn under footer line, behind content
-    if (branding.pdf_watermark) {
-      const wm = sanitize(branding.pdf_watermark).slice(0, 40).toUpperCase();
-      page.drawText(wm, {
-        x: PAGE_W / 2 - wm.length * 18,
-        y: PAGE_H / 2,
-        size: 64,
-        font: bold,
-        color: rgb(0.85, 0.85, 0.88),
-        rotate: { type: "degrees", angle: -28 } as any,
-        opacity: 0.18,
-      });
-    }
-    page.drawLine({ start: { x: MARGIN, y: MARGIN }, end: { x: PAGE_W - MARGIN, y: MARGIN }, thickness: 0.5, color: BORDER });
-    const footerText = sanitize(branding.pdf_footer || "Document généré par PVIA.");
-    page.drawText(`N° ${sanitize(pv.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
-    page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
-  };
-
-  // ============ HEADER ============
-  page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: HEADER_BG });
+  // ============ HEADER (page 1) ============
+  page.drawRectangle({ x: 0, y: PAGE_H - 130, width: PAGE_W, height: 130, color: HEADER_BG });
   page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
 
-
-  // Optional logo
+  // Logo
   if (company?.logo_url) {
     try {
       const res = await fetch(company.logo_url);
@@ -218,265 +269,380 @@ export async function generatePvPdfBytes(input: {
         const t = detectImageType(u8);
         if (t) {
           const img = t === "png" ? await pdf.embedPng(u8) : await pdf.embedJpg(u8);
-          const h = 48;
+          const h = 54;
           const w = (img.width / img.height) * h;
-          page.drawImage(img, { x: MARGIN, y: PAGE_H - 80, width: Math.min(w, 140), height: h });
+          page.drawImage(img, { x: MARGIN, y: PAGE_H - 90, width: Math.min(w, 160), height: h });
         }
       }
     } catch { /* ignore */ }
   }
 
-  drawText("PROCES-VERBAL", { x: PAGE_W - MARGIN - 200, y: PAGE_H - 40, size: 9, font: bold, color: PRIMARY });
-  drawText(pv.type === "reception" ? "DE RECEPTION DE TRAVAUX" : pv.type.toUpperCase(), { x: PAGE_W - MARGIN - 200, y: PAGE_H - 54, size: 9, font: helv, color: MUTED });
-  drawText(`N° ${pv.numero}`, { x: PAGE_W - MARGIN - 200, y: PAGE_H - 78, size: 18, font: bold, color: ACCENT });
+  // Title block (right)
+  const titleX = PAGE_W - MARGIN - 240;
+  page.drawText("PROCES-VERBAL", { x: titleX, y: PAGE_H - 36, size: 9, font: bold, color: PRIMARY });
+  page.drawText(pv.type === "reception" ? "DE RECEPTION DE TRAVAUX" : sanitize(pv.type).toUpperCase(), {
+    x: titleX, y: PAGE_H - 50, size: 9, font: helv, color: MUTED,
+  });
+  page.drawText(`N° ${sanitize(pv.numero)}`, { x: titleX, y: PAGE_H - 80, size: 20, font: bold, color: ACCENT });
+  page.drawText("Article 1792-6 du Code civil", { x: titleX, y: PAGE_H - 100, size: 7.5, font: italic, color: MUTED });
 
-  y = PAGE_H - 140;
+  // Company contact strip
+  const stripY = PAGE_H - 122;
+  const contactBits = [
+    company?.phone ? `Tel ${company.phone}` : null,
+    company?.email,
+    company?.website,
+  ].filter(Boolean).map(s => sanitize(s as string));
+  if (contactBits.length) {
+    page.drawText(contactBits.join("  -  "), { x: MARGIN, y: stripY, size: 7.5, font: helv, color: MUTED });
+  }
+
+  y = PAGE_H - 150;
 
   // ============ PARTIES ============
   const colW = (CONTENT_W - 16) / 2;
-  const drawParty = (x: number, title: string, lines: string[]) => {
-    page.drawRectangle({ x, y: y - 110, width: colW, height: 110, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
-    drawText(title.toUpperCase(), { x: x + 12, y: y - 18, size: 8, font: bold, color: PRIMARY });
-    let yy = y - 36;
-    for (let i = 0; i < lines.length; i++) {
-      const isFirst = i === 0;
-      const t = sanitize(lines[i]);
+  const drawParty = (x: number, title: string, name: string, lines: string[], legalLines: string[]) => {
+    const boxH = 140;
+    page.drawRectangle({ x, y: y - boxH, width: colW, height: boxH, borderColor: BORDER, borderWidth: 0.6, color: rgb(1, 1, 1) });
+    page.drawRectangle({ x, y: y - 18, width: colW, height: 18, color: PRIMARY });
+    page.drawText(sanitize(title).toUpperCase(), { x: x + 10, y: y - 13, size: 8, font: bold, color: rgb(1, 1, 1) });
+    page.drawText(sanitize(name) || "-", { x: x + 10, y: y - 36, size: 11, font: bold, color: ACCENT });
+    let yy = y - 52;
+    for (const l of lines) {
+      const t = sanitize(l);
       if (!t) continue;
-      page.drawText(t, { x: x + 12, y: yy, size: isFirst ? 11 : 9, font: isFirst ? bold : helv, color: isFirst ? ACCENT : MUTED });
-      yy -= isFirst ? 16 : 12;
+      const wrapped = wrapLines(helv, t, 8.5, colW - 20);
+      for (const w of wrapped) {
+        if (yy < y - boxH + 38) break;
+        page.drawText(w, { x: x + 10, y: yy, size: 8.5, font: helv, color: MUTED });
+        yy -= 11;
+      }
+    }
+    if (legalLines.length) {
+      let ly = y - boxH + 26;
+      page.drawLine({ start: { x: x + 10, y: ly + 10 }, end: { x: x + colW - 10, y: ly + 10 }, thickness: 0.3, color: BORDER });
+      for (const l of legalLines) {
+        const t = sanitize(l);
+        if (!t) continue;
+        page.drawText(t, { x: x + 10, y: ly, size: 7, font: helv, color: SUBTLE });
+        ly -= 9;
+      }
     }
   };
 
-  const companyAddress = (() => {
-    if (company?.address_line1) {
-      return [
-        company.address_line1,
-        company.address_line2,
-        [company.postal_code, company.city].filter(Boolean).join(" ").trim() || null,
-        company.country,
-      ].filter(Boolean).join(", ");
-    }
-    return company?.address ?? "";
-  })();
+  const companyAddrLines: string[] = [];
+  if (company?.address_line1) companyAddrLines.push(company.address_line1);
+  if (company?.address_line2) companyAddrLines.push(company.address_line2);
+  const cityLine = [company?.postal_code, company?.city].filter(Boolean).join(" ").trim();
+  if (cityLine) companyAddrLines.push(cityLine);
+  if (company?.country) companyAddrLines.push(company.country);
+  if (!companyAddrLines.length && company?.address) companyAddrLines.push(company.address);
 
-  const companyLegalLine = [
-    company?.legal_form,
-    company?.siren ? `SIREN ${company.siren}` : null,
-    company?.siret ? `SIRET ${company.siret}` : null,
-    company?.vat_number ? `TVA ${company.vat_number}` : null,
-  ].filter(Boolean).join(" · ");
+  const companyLegal: string[] = [];
+  if (company?.legal_form) companyLegal.push(company.legal_form);
+  if (company?.siren) companyLegal.push(`SIREN ${company.siren}`);
+  if (company?.siret) companyLegal.push(`SIRET ${company.siret}`);
+  if (company?.vat_number) companyLegal.push(`TVA ${company.vat_number}`);
+  companyLegal.push("Garantie decennale - Art. 1792 C. civ.");
 
-  drawParty(MARGIN, "Entreprise", [
-    company?.name ?? "-",
-    companyAddress,
-    company?.email ?? "",
-    company?.phone ?? "",
-    company?.website ?? "",
-    companyLegalLine,
-  ]);
-  drawParty(MARGIN + colW + 16, "Client", [
-    client?.name ?? "-",
+  drawParty(MARGIN, "Entreprise (titulaire)", company?.name ?? "-", companyAddrLines, companyLegal);
+  drawParty(MARGIN + colW + 16, "Maitre d'ouvrage (client)", client?.name ?? "-", [
     client?.address ?? "",
     client?.email ?? "",
     client?.phone ?? "",
-  ]);
-  y -= 130;
+  ], []);
+  y -= 160;
 
-  // ============ INFO BAND ============
-  ensureSpace(60);
-  page.drawRectangle({ x: MARGIN, y: y - 50, width: CONTENT_W, height: 50, color: rgb(0.97, 0.98, 1), borderColor: BORDER, borderWidth: 0.5 });
-  const infoCol = CONTENT_W / 3;
-  const infoCell = (i: number, label: string, value: string) => {
-    const x = MARGIN + i * infoCol + 12;
-    page.drawText(label.toUpperCase(), { x, y: y - 18, size: 7, font: bold, color: MUTED });
-    page.drawText(sanitize(value), { x, y: y - 34, size: 10, font: bold, color: ACCENT });
-  };
-  infoCell(0, "Chantier", chantier?.name ?? "-");
-  infoCell(1, "Date de reception", formatDate(pv.reception_date));
-  infoCell(2, "Statut", pv.status === "signe" ? "Signe" : pv.status);
+  // ============ INFO BAND - références & dates ============
+  ensureSpace(70);
+  page.drawRectangle({ x: MARGIN, y: y - 64, width: CONTENT_W, height: 64, color: SOFT, borderColor: BORDER, borderWidth: 0.5 });
+
+  const refTypeLabel = (() => {
+    switch (pv.work_reference_type) {
+      case "devis": return "Devis n°";
+      case "bon_commande": return "Bon de commande n°";
+      case "marche": return "Marche n°";
+      case "manuel": return "Reference";
+      default: return "Reference";
+    }
+  })();
+  const cells: { label: string; value: string }[] = [
+    { label: "Chantier", value: chantier?.name ?? "-" },
+    { label: refTypeLabel, value: pv.work_reference_number ?? "-" },
+    { label: "Date reception", value: formatDate(pv.reception_date) },
+    { label: "Debut travaux", value: formatDate(chantier?.start_date ?? null) },
+    { label: "Fin travaux", value: formatDate(chantier?.end_date ?? null) },
+    { label: "Statut", value: pv.status === "signe" ? "Signe" : sanitize(pv.status) },
+  ];
+  const cellW = CONTENT_W / 3;
+  cells.forEach((c, i) => {
+    const col = i % 3;
+    const row = Math.floor(i / 3);
+    const cx = MARGIN + col * cellW + 12;
+    const cy = y - 18 - row * 28;
+    page.drawText(sanitize(c.label).toUpperCase(), { x: cx, y: cy, size: 6.5, font: bold, color: MUTED });
+    const v = wrapLines(helv, c.value, 9.5, cellW - 16)[0] ?? "-";
+    page.drawText(v, { x: cx, y: cy - 12, size: 9.5, font: bold, color: ACCENT });
+  });
   if (chantier?.address) {
-    drawText(chantier.address, { x: MARGIN + 12, y: y - 48, size: 8, font: helv, color: MUTED, maxWidth: infoCol - 16 });
+    page.drawText(sanitize(`Adresse chantier : ${chantier.address}`), {
+      x: MARGIN + 12, y: y - 78, size: 7.5, font: italic, color: MUTED,
+    });
+    y -= 84;
+  } else {
+    y -= 74;
   }
-  y -= 70;
 
-  // ============ DECLARATION ============
+  // ============ DECLARATION DE RECEPTION ============
+  sectionTitle("Declaration de reception");
   const withRes = !!pv.reception_with_reserves;
-  const declLines: string[] = [];
+  para(
+    "La reception des travaux est prononcee contradictoirement entre les parties conformement aux dispositions de l'article 1792-6 du Code civil. " +
+    "Le maitre d'ouvrage declare avoir pu constater l'etat des ouvrages realises et accepte la reception des travaux decrits dans le present document.",
+    9.5, ACCENT,
+  );
+  y -= 4;
+
+  // Banner with/without reserves
+  ensureSpace(38);
+  if (withRes) {
+    page.drawRectangle({ x: MARGIN, y: y - 32, width: CONTENT_W, height: 32, color: rgb(1, 0.96, 0.90), borderColor: rgb(0.85, 0.55, 0.10), borderWidth: 0.6 });
+    page.drawText("RECEPTION PRONONCEE AVEC RESERVES", { x: MARGIN + 14, y: y - 14, size: 10, font: bold, color: rgb(0.55, 0.30, 0.05) });
+    page.drawText("Conformement a la liste detaillee ci-apres.", { x: MARGIN + 14, y: y - 26, size: 8.5, font: helv, color: rgb(0.55, 0.30, 0.05) });
+  } else {
+    page.drawRectangle({ x: MARGIN, y: y - 32, width: CONTENT_W, height: 32, color: SUCCESS_BG, borderColor: SUCCESS_FG, borderWidth: 0.6 });
+    page.drawText("RECEPTION PRONONCEE SANS RESERVE", { x: MARGIN + 14, y: y - 14, size: 10, font: bold, color: SUCCESS_FG });
+    page.drawText("A compter de la date de signature du present proces-verbal.", { x: MARGIN + 14, y: y - 26, size: 8.5, font: helv, color: SUCCESS_FG });
+  }
+  y -= 40;
+
   if (pv.work_reference_type && pv.work_reference_number) {
-    const typeLabel = {
-      devis: "devis",
-      bon_commande: "bon de commande",
-      marche: "marché",
-      manuel: "document",
-    }[pv.work_reference_type] ?? "document";
+    const typeLabel = ({ devis: "devis", bon_commande: "bon de commande", marche: "marche", manuel: "document" } as Record<string, string>)[pv.work_reference_type] ?? "document";
     const ref = `Au titre du ${typeLabel} n° ${pv.work_reference_number}` +
       (pv.work_reference_date ? ` en date du ${formatDate(pv.work_reference_date)}` : "") +
       (pv.work_reference_amount != null ? ` d'un montant de ${pv.work_reference_amount} EUR` : "") + ".";
-    declLines.push(ref);
+    para(ref, 9, MUTED, italic);
   }
-  declLines.push(
-    withRes
-      ? "La reception est prononcee AVEC RESERVES, listees ci-dessous."
-      : "La reception est prononcee SANS RESERVE.",
-  );
   if (withRes && pv.reserve_completion_delay) {
-    declLines.push(`Delai global convenu pour la levee : ${pv.reserve_completion_delay}` +
-      (pv.reserve_due_date ? ` (echeance ${formatDate(pv.reserve_due_date)}).` : "."));
+    para(`Delai global convenu pour la levee des reserves : ${pv.reserve_completion_delay}` +
+      (pv.reserve_due_date ? ` (echeance ${formatDate(pv.reserve_due_date)}).` : "."), 9, MUTED, italic);
   }
-  ensureSpace(declLines.length * 14 + 28);
-  drawText("DECLARATION DE RECEPTION", { size: 9, font: bold, color: PRIMARY });
-  y -= 14;
-  for (const l of declLines) {
-    const wrapped = wrapLines(helv, l, 10, CONTENT_W);
-    for (const w of wrapped) { page.drawText(w, { x: MARGIN, y, size: 10, font: helv, color: ACCENT }); y -= 14; }
-  }
-  y -= 6;
+  y -= 4;
 
-
-  // ============ DESCRIPTION ============
-  ensureSpace(40);
-  drawText("DESCRIPTION DES TRAVAUX", { size: 9, font: bold, color: PRIMARY });
-  y -= 14;
-  const descLines = wrapLines(helv, pv.description || "Aucune description fournie.", 10, CONTENT_W);
-  ensureSpace(descLines.length * 14 + 10);
-  for (const l of descLines) { page.drawText(l, { x: MARGIN, y, size: 10, font: helv, color: ACCENT }); y -= 14; }
-  y -= 8;
-
+  // ============ TRAVAUX REALISES ============
+  sectionTitle("Travaux realises");
+  para(pv.description || "Aucune description fournie.", 9.5);
   if (pv.observations) {
-    ensureSpace(40);
-    drawText("OBSERVATIONS", { size: 9, font: bold, color: PRIMARY });
-    y -= 14;
-    const obs = wrapLines(helv, pv.observations, 10, CONTENT_W);
-    ensureSpace(obs.length * 14 + 10);
-    for (const l of obs) { page.drawText(l, { x: MARGIN, y, size: 10, font: helv, color: ACCENT }); y -= 14; }
+    y -= 6;
+    sectionTitle("Observations techniques");
+    para(pv.observations, 9.5);
+  }
+  y -= 4;
+
+  // ============ RESERVES ============
+  sectionTitle(`Reserves${reserves.length ? ` (${reserves.length})` : ""}`);
+  if (!reserves.length) {
+    ensureSpace(34);
+    page.drawRectangle({ x: MARGIN, y: y - 30, width: CONTENT_W, height: 30, color: SUCCESS_BG, borderColor: SUCCESS_FG, borderWidth: 0.5 });
+    page.drawText("Aucune reserve n'a ete formulee lors de la reception.", { x: MARGIN + 14, y: y - 19, size: 10, font: bold, color: SUCCESS_FG });
+    y -= 38;
+  } else {
+    // Table header
+    const cols = [
+      { label: "N°", w: 30 },
+      { label: "Description", w: 200 },
+      { label: "Gravite", w: 70 },
+      { label: "Travaux correctifs", w: 140 },
+      { label: "Echeance", w: CONTENT_W - 30 - 200 - 70 - 140 },
+    ];
+    ensureSpace(24);
+    let cx = MARGIN;
+    page.drawRectangle({ x: MARGIN, y: y - 18, width: CONTENT_W, height: 18, color: PRIMARY });
+    for (const c of cols) {
+      page.drawText(sanitize(c.label).toUpperCase(), { x: cx + 6, y: y - 13, size: 7.5, font: bold, color: rgb(1, 1, 1) });
+      cx += c.w;
+    }
+    y -= 18;
+    reserves.forEach((r, idx) => {
+      const descLines = wrapLines(helv, r.description, 8.5, cols[1].w - 10);
+      const workLines = wrapLines(helv, r.work_to_execute ?? "-", 8.5, cols[3].w - 10);
+      const rowLines = Math.max(descLines.length, workLines.length, 1);
+      const rowH = Math.max(22, rowLines * 11 + 8);
+      ensureSpace(rowH);
+      // alternating bg
+      if (idx % 2 === 0) page.drawRectangle({ x: MARGIN, y: y - rowH, width: CONTENT_W, height: rowH, color: SOFT });
+      // severity left bar
+      const sevColor =
+        r.severity === "majeure" || r.severity === "bloquante" ? rgb(0.80, 0.10, 0.10) :
+        r.severity === "mineure" ? rgb(0.92, 0.62, 0.07) :
+        rgb(0.35, 0.55, 0.80);
+      page.drawRectangle({ x: MARGIN, y: y - rowH, width: 3, height: rowH, color: sevColor });
+      let cx2 = MARGIN;
+      // N°
+      page.drawText(String(idx + 1).padStart(2, "0"), { x: cx2 + 8, y: y - 14, size: 9, font: bold, color: ACCENT });
+      cx2 += cols[0].w;
+      // Description
+      let ly = y - 12;
+      for (const l of descLines) { page.drawText(l, { x: cx2 + 6, y: ly, size: 8.5, font: helv, color: ACCENT }); ly -= 11; }
+      cx2 += cols[1].w;
+      // Gravite badge
+      page.drawText(sanitize(r.severity).toUpperCase(), { x: cx2 + 6, y: y - 14, size: 7.5, font: bold, color: sevColor });
+      page.drawText(sanitize(r.status), { x: cx2 + 6, y: y - 24, size: 7, font: helv, color: MUTED });
+      cx2 += cols[2].w;
+      // Travaux
+      let ly2 = y - 12;
+      for (const l of workLines) { page.drawText(l, { x: cx2 + 6, y: ly2, size: 8.5, font: helv, color: ACCENT }); ly2 -= 11; }
+      cx2 += cols[3].w;
+      // Echeance
+      page.drawText(formatDate(r.due_date), { x: cx2 + 6, y: y - 14, size: 8.5, font: helv, color: ACCENT });
+      // bottom border
+      page.drawLine({ start: { x: MARGIN, y: y - rowH }, end: { x: MARGIN + CONTENT_W, y: y - rowH }, thickness: 0.3, color: BORDER });
+      y -= rowH;
+    });
     y -= 8;
   }
 
-  // ============ RESERVES ============
-  if (reserves.length) {
-    ensureSpace(40);
-    drawText(`RESERVES (${reserves.length})`, { size: 9, font: bold, color: PRIMARY });
-    y -= 16;
-    for (const r of reserves) {
-      const descLines = wrapLines(helv, r.description, 9, CONTENT_W - 24);
-      const workLines = r.work_to_execute ? wrapLines(helv, `Travaux a executer : ${r.work_to_execute}`, 8, CONTENT_W - 24) : [];
-      const natureLine = r.nature ? 1 : 0;
-      const metaLine = (r.due_date ? 1 : 0);
-      const totalLines = descLines.length + workLines.length + natureLine + metaLine;
-      const h = Math.max(40, totalLines * 11 + 26);
-      ensureSpace(h + 6);
-      page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, borderColor: BORDER, borderWidth: 0.5, color: rgb(0.99, 0.99, 1) });
-      const sevColor = r.severity === "majeure" || r.severity === "bloquante"
-        ? rgb(0.86, 0.15, 0.15)
-        : rgb(0.92, 0.62, 0.07);
-      page.drawRectangle({ x: MARGIN, y: y - h, width: 3, height: h, color: sevColor });
-      const header = `${sanitize(r.severity).toUpperCase()} - ${sanitize(r.status).toUpperCase()}`
-        + (r.nature ? `  |  ${sanitize(r.nature).toUpperCase()}` : "")
-        + (r.due_date ? `  |  ECHEANCE ${sanitize(formatDate(r.due_date))}` : "");
-      page.drawText(header, { x: MARGIN + 12, y: y - 14, size: 7, font: bold, color: sevColor });
-      let yy = y - 28;
-      for (const l of descLines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 9, font: helv, color: ACCENT }); yy -= 11; }
-      for (const l of workLines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 8, font: helv, color: MUTED }); yy -= 11; }
-      y -= h + 6;
-    }
-    y -= 6;
+  // ============ GARANTIES APPLICABLES ============
+  sectionTitle("Garanties applicables");
+  const garanties: { titre: string; duree: string; desc: string }[] = [
+    { titre: "Garantie de parfait achevement", duree: "1 an", desc: "Article 1792-6 du Code civil - reparation de tous les desordres signales par le maitre d'ouvrage." },
+    { titre: "Garantie de bon fonctionnement", duree: "2 ans", desc: "Article 1792-3 du Code civil - elements d'equipement dissociables de l'ouvrage." },
+    { titre: "Garantie decennale", duree: "10 ans", desc: "Articles 1792 et 2270 du Code civil - dommages compromettant la solidite de l'ouvrage ou le rendant impropre a sa destination." },
+  ];
+  for (const g of garanties) {
+    ensureSpace(36);
+    page.drawRectangle({ x: MARGIN, y: y - 32, width: CONTENT_W, height: 32, color: rgb(1, 1, 1), borderColor: BORDER, borderWidth: 0.5 });
+    page.drawRectangle({ x: MARGIN, y: y - 32, width: 3, height: 32, color: PRIMARY });
+    page.drawText(sanitize(g.titre), { x: MARGIN + 12, y: y - 13, size: 9.5, font: bold, color: ACCENT });
+    page.drawText(sanitize(g.duree), { x: PAGE_W - MARGIN - 56, y: y - 13, size: 9.5, font: bold, color: PRIMARY });
+    const dl = wrapLines(helv, g.desc, 7.5, CONTENT_W - 24);
+    page.drawText(dl[0] ?? "", { x: MARGIN + 12, y: y - 24, size: 7.5, font: helv, color: MUTED });
+    y -= 36;
   }
+  para("Les garanties legales prennent effet a compter de la date de reception des travaux mentionnee ci-dessus.", 8.5, MUTED, italic);
+  y -= 4;
+
+  // ============ EFFETS DE LA RECEPTION ============
+  sectionTitle("Effets de la reception");
+  para(
+    "La reception des travaux emporte transfert de la garde de l'ouvrage au maitre d'ouvrage a compter de la date de signature du present proces-verbal, " +
+    "sous reserve des eventuelles reserves mentionnees ci-dessus. Elle constitue le point de depart des garanties legales applicables.",
+    9.5,
+  );
+  y -= 8;
 
   // ============ PHOTOS ============
   if (photos.length) {
-    ensureSpace(40);
-    drawText(`PHOTOS DU CHANTIER (${photos.length})`, { size: 9, font: bold, color: PRIMARY });
-    y -= 16;
-    const cols = 2;
+    sectionTitle(`Photos du chantier (${photos.length})`);
+    const colsN = 2;
     const gap = 12;
-    const cellW = (CONTENT_W - gap * (cols - 1)) / cols;
-    const cellH = 150;
+    const cW = (CONTENT_W - gap * (colsN - 1)) / colsN;
+    const cH = 150;
     let col = 0;
     for (const p of photos) {
       const t = detectImageType(p.bytes);
       if (!t) continue;
-      if (col === 0) ensureSpace(cellH + 28);
-      const x = MARGIN + col * (cellW + gap);
+      if (col === 0) ensureSpace(cH + 28);
+      const x = MARGIN + col * (cW + gap);
       try {
         const img = t === "png" ? await pdf.embedPng(p.bytes) : await pdf.embedJpg(p.bytes);
         const ratio = img.width / img.height;
-        let w = cellW, h = cellW / ratio;
-        if (h > cellH) { h = cellH; w = cellH * ratio; }
-        const offX = x + (cellW - w) / 2;
-        const offY = y - cellH + (cellH - h) / 2;
-        page.drawRectangle({ x, y: y - cellH, width: cellW, height: cellH, borderColor: BORDER, borderWidth: 0.5 });
+        let w = cW, h = cW / ratio;
+        if (h > cH) { h = cH; w = cH * ratio; }
+        const offX = x + (cW - w) / 2;
+        const offY = y - cH + (cH - h) / 2;
+        page.drawRectangle({ x, y: y - cH, width: cW, height: cH, borderColor: BORDER, borderWidth: 0.5 });
         page.drawImage(img, { x: offX, y: offY, width: w, height: h });
         if (p.caption) {
-          page.drawText(sanitize(p.caption).slice(0, 70), { x, y: y - cellH - 12, size: 8, font: helv, color: MUTED });
+          page.drawText(sanitize(p.caption).slice(0, 70), { x, y: y - cH - 12, size: 7.5, font: helv, color: MUTED });
         }
-      } catch { /* skip broken image */ }
+      } catch { /* skip */ }
       col++;
-      if (col >= cols) { col = 0; y -= cellH + 24; }
+      if (col >= colsN) { col = 0; y -= cH + 24; }
     }
-    if (col !== 0) y -= cellH + 24;
+    if (col !== 0) y -= cH + 24;
     y -= 4;
   }
 
   // ============ SIGNATURES ============
-  ensureSpace(180);
-  drawText("SIGNATURES", { size: 9, font: bold, color: PRIMARY });
-  y -= 14;
+  sectionTitle("Signatures");
   const sigW = (CONTENT_W - 16) / 2;
-  const sigH = 110;
-  const drawSig = async (x: number, label: string, data: string | null) => {
-    page.drawRectangle({ x, y: y - sigH, width: sigW, height: sigH, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
-    page.drawText(label.toUpperCase(), { x: x + 12, y: y - 16, size: 8, font: bold, color: PRIMARY });
+  const sigH = 140;
+  ensureSpace(sigH + 16);
+  const drawSig = async (x: number, label: string, data: string | null, meta: { name: string; fnLine?: string; dateLine: string; timeLine: string }) => {
+    page.drawRectangle({ x, y: y - sigH, width: sigW, height: sigH, borderColor: BORDER, borderWidth: 0.6, color: rgb(1, 1, 1) });
+    page.drawRectangle({ x, y: y - 18, width: sigW, height: 18, color: PRIMARY });
+    page.drawText(sanitize(label).toUpperCase(), { x: x + 10, y: y - 13, size: 8, font: bold, color: rgb(1, 1, 1) });
+    // signature area
+    const padTop = 24, padBot = 56;
     if (data) {
       const parsed = dataUrlToBytes(data);
       if (parsed) {
         try {
           const img = parsed.type === "png" ? await pdf.embedPng(parsed.bytes) : await pdf.embedJpg(parsed.bytes);
-          const maxW = sigW - 24, maxH = sigH - 40;
+          const maxW = sigW - 24, maxH = sigH - padTop - padBot;
           const ratio = img.width / img.height;
           let w = maxW, h = maxW / ratio;
           if (h > maxH) { h = maxH; w = maxH * ratio; }
-          page.drawImage(img, { x: x + (sigW - w) / 2, y: y - sigH + 24, width: w, height: h });
+          page.drawImage(img, { x: x + (sigW - w) / 2, y: y - sigH + padBot, width: w, height: h });
         } catch { /* skip */ }
       }
     } else {
-      page.drawText("Non signe", { x: x + 12, y: y - sigH / 2, size: 9, font: helv, color: MUTED });
+      page.drawText("Non signe", { x: x + 12, y: y - sigH / 2, size: 9, font: italic, color: MUTED });
     }
-    if (label.toLowerCase().includes("client") && pv.signed_at) {
-      page.drawText(`Signe le ${formatDate(pv.signed_at, true)}`, { x: x + 12, y: y - sigH + 8, size: 7, font: helv, color: MUTED });
+    // separator
+    page.drawLine({
+      start: { x: x + 10, y: y - sigH + 50 },
+      end: { x: x + sigW - 10, y: y - sigH + 50 },
+      thickness: 0.3, color: BORDER,
+    });
+    // meta block
+    page.drawText("Nom :", { x: x + 10, y: y - sigH + 38, size: 7, font: bold, color: MUTED });
+    page.drawText(sanitize(meta.name) || "-", { x: x + 40, y: y - sigH + 38, size: 8.5, font: bold, color: ACCENT });
+    if (meta.fnLine) {
+      page.drawText("Fonction :", { x: x + 10, y: y - sigH + 26, size: 7, font: bold, color: MUTED });
+      page.drawText(sanitize(meta.fnLine), { x: x + 52, y: y - sigH + 26, size: 8, font: helv, color: ACCENT });
     }
+    page.drawText("Date :", { x: x + 10, y: y - sigH + 14, size: 7, font: bold, color: MUTED });
+    page.drawText(meta.dateLine, { x: x + 40, y: y - sigH + 14, size: 8, font: helv, color: ACCENT });
+    page.drawText("Heure :", { x: x + sigW / 2 + 6, y: y - sigH + 14, size: 7, font: bold, color: MUTED });
+    page.drawText(meta.timeLine, { x: x + sigW / 2 + 42, y: y - sigH + 14, size: 8, font: helv, color: ACCENT });
   };
-  await drawSig(MARGIN, "Entreprise", pv.company_signature);
-  await drawSig(MARGIN + sigW + 16, "Client", pv.client_signature);
-  y -= sigH + 16;
-
+  await drawSig(MARGIN, "Pour l'entreprise", pv.company_signature, {
+    name: proof?.companySignatoryName || company?.name || "-",
+    fnLine: proof?.companySignatoryFunction || "Representant legal",
+    dateLine: formatDate(pv.signed_at),
+    timeLine: formatTime(pv.signed_at),
+  });
+  await drawSig(MARGIN + sigW + 16, "Pour le maitre d'ouvrage", pv.client_signature, {
+    name: client?.name || "-",
+    fnLine: undefined,
+    dateLine: formatDate(pv.signed_at),
+    timeLine: formatTime(pv.signed_at),
+  });
+  y -= sigH + 14;
 
   // ============ PREUVE DE SIGNATURE ELECTRONIQUE (eIDAS SES) ============
   if (pv.status === "signe" || pv.signed_at || pv.client_identity_email) {
-    ensureSpace(220);
-    drawText("PREUVE DE SIGNATURE ELECTRONIQUE", { size: 9, font: bold, color: PRIMARY });
-    y -= 14;
+    newPage();
+    sectionTitle("Preuve de signature electronique (eIDAS SES)");
+    para("Conformement au reglement (UE) n° 910/2014 (eIDAS), la signature electronique simple (SES) appliquee au present document est accompagnee des elements de preuve detailles ci-dessous.", 8.5, MUTED, italic);
+    y -= 4;
 
-    const proofBoxH = 170;
-    page.drawRectangle({
-      x: MARGIN,
-      y: y - proofBoxH,
-      width: CONTENT_W,
-      height: proofBoxH,
-      borderColor: BORDER,
-      borderWidth: 0.5,
-      color: rgb(0.985, 0.99, 1),
-    });
+    const proofBoxH = 220;
+    ensureSpace(proofBoxH + 10);
+    page.drawRectangle({ x: MARGIN, y: y - proofBoxH, width: CONTENT_W, height: proofBoxH, borderColor: BORDER, borderWidth: 0.6, color: SOFT });
 
-    const colXa = MARGIN + 12;
-    const colXb = MARGIN + CONTENT_W / 2 + 6;
-    const colW2 = CONTENT_W / 2 - 18;
-    let ya = y - 16;
-    let yb = y - 16;
+    const colXa = MARGIN + 14;
+    const colXb = MARGIN + CONTENT_W / 2 + 8;
+    const colW2 = CONTENT_W / 2 - 22;
+    let ya = y - 18;
+    let yb = y - 18;
 
     const proofField = (col: "a" | "b", label: string, value: string) => {
       const x = col === "a" ? colXa : colXb;
       let cy = col === "a" ? ya : yb;
-      page.drawText(label.toUpperCase(), { x, y: cy, size: 6.5, font: bold, color: MUTED });
+      page.drawText(sanitize(label).toUpperCase(), { x, y: cy, size: 6.5, font: bold, color: MUTED });
       cy -= 10;
       const lines = wrapLines(helv, value || "-", 8.5, colW2);
       for (const l of lines.slice(0, 2)) {
@@ -488,58 +654,71 @@ export async function generatePvPdfBytes(input: {
     };
 
     const mode = pv.signature_mode === "remote"
-      ? "Signature electronique a distance avec verification OTP par email"
+      ? "Signature electronique a distance - OTP par email"
       : pv.signature_mode === "onsite"
-        ? "Signature electronique sur place avec verification OTP par email"
+        ? "Signature electronique sur place - OTP par email"
         : "Signature electronique simple";
 
-    // Column A — parties
+    const localTs = pv.signed_at ? formatDate(pv.signed_at, true) : "-";
+    const utcTs = pv.signed_at ? new Date(pv.signed_at).toISOString() : "-";
+
+    // Column A — identifiants & parties
+    proofField("a", "Identifiant PV", pv.id ?? "-");
+    proofField("a", "Numero PV", pv.numero);
     proofField("a", "Signataire entreprise", proof?.companySignatoryName || company?.name || "-");
     proofField("a", "Signature entreprise", formatDate(pv.signed_at, true));
     proofField("a", "Email client verifie", pv.client_identity_email || client?.email || "-");
     proofField("a", "Identite verifiee le", formatDate(pv.client_identity_verified_at, true));
-    proofField("a", "Signature client", formatDate(pv.signed_at, true));
 
     // Column B — traceability
     proofField("b", "Methode de signature", mode);
+    proofField("b", "Horodatage UTC", utcTs);
+    proofField("b", "Horodatage local (Europe/Paris)", localTs);
     proofField("b", "Adresse IP client", pv.client_signature_ip || "-");
     proofField("b", "Navigateur client", shortUA(pv.client_signature_user_agent));
     proofField("b", "Consentement", pv.consent_at ? `Accepte le ${formatDate(pv.consent_at, true)}` : "-");
-    proofField("b", "Version consentement", pv.consent_text ? sanitize(pv.consent_text).slice(0, 8) : "-");
 
-    y -= proofBoxH + 6;
+    y -= proofBoxH + 8;
 
-    // Doc fingerprint footer (inside proof zone)
-    ensureSpace(40);
-    drawText("Empreinte numerique du document", { size: 7, font: bold, color: MUTED });
-    y -= 10;
-    drawText(`UUID : ${pv.id ?? "-"}`, { size: 7, font: helv, color: MUTED });
-    y -= 10;
-    drawText(`N° : ${pv.numero}   ·   Genere le ${formatDate(proof?.pdfGeneratedAt ?? new Date().toISOString(), true)}`, { size: 7, font: helv, color: MUTED });
-    y -= 10;
-    drawText(`SHA-256 : ${proof?.pdfSha256 ?? "(calcule a la generation)"}`, { size: 6.5, font: helv, color: MUTED, maxWidth: CONTENT_W });
+    // Hash block
+    ensureSpace(60);
+    page.drawRectangle({ x: MARGIN, y: y - 52, width: CONTENT_W, height: 52, color: rgb(0.98, 0.98, 1), borderColor: BORDER, borderWidth: 0.5 });
+    page.drawText("EMPREINTE NUMERIQUE DU DOCUMENT (SHA-256)", { x: MARGIN + 12, y: y - 14, size: 7, font: bold, color: MUTED });
+    const hash = proof?.pdfSha256 ?? "(calcule a la generation)";
+    page.drawText(hash, { x: MARGIN + 12, y: y - 28, size: 7.5, font: bold, color: ACCENT, maxWidth: CONTENT_W - 24 } as any);
+    page.drawText(`Genere le ${formatDate(proof?.pdfGeneratedAt ?? new Date().toISOString(), true)}`, {
+      x: MARGIN + 12, y: y - 42, size: 7, font: helv, color: MUTED,
+    });
+    y -= 60;
+
+    // Legal mentions
+    ensureSpace(80);
+    drawText("MENTIONS LEGALES", { size: 8, font: bold, color: MUTED });
     y -= 12;
-  }
-
-  // ============ MENTIONS ============
-  ensureSpace(80);
-  drawText("MENTIONS LEGALES", { size: 8, font: bold, color: MUTED });
-  y -= 12;
-  const mentions =
-    "Le present proces-verbal de reception fait foi de la livraison des travaux decrits ci-dessus. " +
-    "Sauf reserves expressement formulees ci-dessus, le client reconnait avoir constate la bonne execution des travaux. " +
-    "Les reserves listees devront etre levees dans les delais convenus.";
-  const ml = wrapLines(helv, mentions, 7.5, CONTENT_W);
-  for (const l of ml) { page.drawText(l, { x: MARGIN, y, size: 7.5, font: helv, color: MUTED }); y -= 11; }
-  y -= 4;
-  for (const m of EIDAS_MENTIONS) {
-    for (const l of wrapLines(helv, m, 7, CONTENT_W)) {
-      page.drawText(l, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
-      y -= 10;
+    for (const m of EIDAS_MENTIONS) {
+      for (const l of wrapLines(helv, m, 7, CONTENT_W)) {
+        ensureSpace(10);
+        page.drawText(l, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
+        y -= 10;
+      }
+      y -= 2;
     }
+  } else {
+    // Legal mentions for unsigned PV
+    y -= 8;
+    sectionTitle("Mentions legales");
+    para(
+      "Le present proces-verbal de reception fait foi de la livraison des travaux decrits ci-dessus. " +
+      "Sauf reserves expressement formulees, le client reconnait avoir constate la bonne execution des travaux. " +
+      "Les reserves listees devront etre levees dans les delais convenus.",
+      8, MUTED, italic,
+    );
   }
 
-  drawFooter();
+  // Finalize: draw footer on every page
+  pages.push({ page, num: pageNum });
+  for (const p of pages) drawFooter(p.page, p.num);
+
   return await pdf.save();
 }
 
@@ -549,7 +728,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export async function buildAndStorePvPdf(pvId: string): Promise<string> {
   const { data: pv } = await supabaseAdmin
     .from("pv")
-    .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at,owner_id,signature_mode,client_identity_email,client_identity_verified_at,client_identity_verified_by,client_signature_ip,client_signature_user_agent,consent_text,consent_at")
+    .select("id,numero,type,status,reception_date,description,observations,client_signature,company_signature,signed_at,company_id,client_id,chantier_id,created_at,owner_id,signature_mode,client_identity_email,client_identity_verified_at,client_identity_verified_by,client_signature_ip,client_signature_user_agent,consent_text,consent_at,reception_with_reserves,work_reference_type,work_reference_number,work_reference_date,work_reference_amount,reserve_completion_delay,reserve_due_date")
     .eq("id", pvId)
     .maybeSingle();
   if (!pv?.company_id) throw new Error("PV introuvable.");
@@ -561,7 +740,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
     pv.chantier_id
-      ? supabaseAdmin.from("chantiers").select("name,address").eq("id", pv.chantier_id).maybeSingle()
+      ? supabaseAdmin.from("chantiers").select("name,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("pv_photos").select("id,url,caption").eq("pv_id", pvId).order("created_at"),
     supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").eq("pv_id", pvId).order("created_at"),
@@ -576,7 +755,6 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     if (f) photos.push({ caption: p.caption, bytes: new Uint8Array(await f.arrayBuffer()) });
   }
 
-  // If client_identity_email is empty, try to lift it from the latest verified signature OTP.
   let clientEmailEvidence = (pv as any).client_identity_email as string | null;
   let identityVerifiedAt = (pv as any).client_identity_verified_at as string | null;
   if (!clientEmailEvidence) {
@@ -603,7 +781,6 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
   const generatedAt = new Date().toISOString();
   const companySignatoryName = (ownerRes as any).data?.full_name ?? company?.name ?? null;
 
-  // Pass 1: build PDF without hash to compute its SHA-256.
   const passOneBytes = await generatePvPdfBytes({
     pv: enrichedPv,
     company: company ?? undefined,
@@ -616,7 +793,6 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
   });
   const pdfSha256 = await sha256OfBytes(passOneBytes);
 
-  // Pass 2: embed the hash into the proof block.
   const pdfBytes = await generatePvPdfBytes({
     pv: enrichedPv,
     company: company ?? undefined,
