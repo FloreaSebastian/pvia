@@ -89,29 +89,44 @@ function ChantiersPage() {
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !activeCompanyId) return;
-    const payload = {
-      ...form,
-      owner_id: user.id,
-      company_id: activeCompanyId,
-      client_id: form.client_id || null,
-      start_date: form.start_date || null,
-      end_date: form.end_date || null,
-    };
-    const res = editing
-      ? await supabase.from("chantiers").update(payload).eq("id", editing.id)
-      : await supabase.from("chantiers").insert(payload);
-    if (res.error) return toast.error(res.error.message);
-    toast.success(editing ? "Chantier modifié" : "Chantier créé");
-    setOpen(false);
-    load();
+    if (!activeCompanyId || saving) return;
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name,
+        address: form.address,
+        type: form.type,
+        status: form.status as "en_cours" | "termine" | "receptionne",
+        client_id: form.client_id || null,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        description: form.description,
+      };
+      if (editing) {
+        await updateFn({ data: { companyId: activeCompanyId, id: editing.id, data: payload } });
+        toast.success("Chantier modifié");
+      } else {
+        await createFn({ data: { companyId: activeCompanyId, data: payload } });
+        toast.success("Chantier créé");
+      }
+      setOpen(false);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Échec de l'enregistrement");
+    } finally {
+      setSaving(false);
+    }
   }
   async function remove(id: string) {
+    if (!activeCompanyId) return;
     if (!confirm("Supprimer ce chantier ?")) return;
-    const { error } = await supabase.from("chantiers").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    load();
+    try {
+      await deleteFn({ data: { companyId: activeCompanyId, id } });
+      toast.success("Supprimé");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suppression impossible");
+    }
   }
 
   const clientName = useMemo(() => {
