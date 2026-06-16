@@ -641,7 +641,8 @@ function NewPv() {
               const Icon = s.icon;
               const done = i < stepIdx && !stepErrors[s.id];
               const current = i === stepIdx;
-              const locked = i > stepIdx && i > maxStepIdx;
+              // Verrou strict : impossible d'aller à une étape future si une étape antérieure est invalide.
+              const locked = i > stepIdx && i > firstInvalidIdx;
               return (
                 <button
                   key={s.id}
