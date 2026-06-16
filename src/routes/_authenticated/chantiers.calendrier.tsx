@@ -273,20 +273,32 @@ function ChantierCalendarPage() {
               const dayEvts = eventsOn(day);
               const isToday = sameDay(day, new Date());
               return (
-                <button key={i} onClick={() => canWrite && openNew(day)}
-                  className={cn("min-h-[90px] border-b border-r border-border p-1.5 text-left text-xs transition hover:bg-muted/30",
+                <div key={i}
+                  onClick={() => canWrite && openNew(day)}
+                  onDragOver={(e) => { if (canWrite && dragId) e.preventDefault(); }}
+                  onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); void handleDrop(day, id); } }}
+                  className={cn("min-h-[90px] cursor-pointer border-b border-r border-border p-1.5 text-left text-xs transition hover:bg-muted/30",
                     !inMonth && "bg-muted/10 text-muted-foreground", isToday && "ring-2 ring-inset ring-primary/40")}>
                   <div className={cn("mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold", isToday && "bg-primary text-primary-foreground")}>{day.getDate()}</div>
                   <div className="space-y-0.5">
-                    {dayEvts.slice(0, 3).map((e) => (
-                      <div key={e.id} onClick={(ev) => { ev.stopPropagation(); navigate({ to: "/chantiers/$id", params: { id: e.chantier_id } }); }}
-                        className={cn("truncate rounded px-1 py-0.5 text-[10px] text-white", TYPE_COLORS[e.event_type] ?? "bg-slate-500")} title={e.title}>
-                        {e.title}
-                      </div>
-                    ))}
+                    {dayEvts.slice(0, 3).map((e) => {
+                      const isSystem = e.event_type.startsWith("system_");
+                      const draggable = canWrite && !isSystem && !!e.start_at;
+                      return (
+                        <div key={e.id}
+                          draggable={draggable}
+                          onDragStart={() => { if (draggable) setDragId(e.id); }}
+                          onDragEnd={() => setDragId(null)}
+                          onClick={(ev) => { ev.stopPropagation(); navigate({ to: "/chantiers/$id", params: { id: e.chantier_id } }); }}
+                          className={cn("truncate rounded px-1 py-0.5 text-[10px] text-white", TYPE_COLORS[e.event_type] ?? "bg-slate-500", draggable && "cursor-grab active:cursor-grabbing")}
+                          title={`${e.title}${e.assigned_to ? ` — ${membersById.get(e.assigned_to)?.name ?? ""}` : ""}`}>
+                          {e.title}
+                        </div>
+                      );
+                    })}
                     {dayEvts.length > 3 && <div className="text-[10px] text-muted-foreground">+{dayEvts.length - 3}</div>}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
