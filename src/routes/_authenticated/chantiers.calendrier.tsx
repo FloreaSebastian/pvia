@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { listChantierEvents, createChantierEvent } from "@/lib/chantier-detail.functions";
+import { listChantierEvents, createChantierEvent, listCompanyMembers, rescheduleChantierEvent } from "@/lib/chantier-detail.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/chantiers/calendrier")({
   head: () => ({ meta: [{ title: "Calendrier chantier — PVIA" }] }),
 });
 
-type Evt = { id: string; title: string; event_type: string; status: string; start_at: string | null; end_at: string | null; chantier_id: string; client_id: string | null; location: string | null; description: string | null; chantier?: { id: string; name: string } | null; client?: { id: string; name: string } | null };
+type Evt = { id: string; title: string; event_type: string; status: string; start_at: string | null; end_at: string | null; chantier_id: string; client_id: string | null; location: string | null; description: string | null; assigned_to: string | null; reminder_at: string | null; chantier?: { id: string; name: string } | null; client?: { id: string; name: string } | null };
 
 const TYPE_COLORS: Record<string, string> = {
   visite_technique: "bg-blue-500", debut_travaux: "bg-emerald-500", livraison_materiel: "bg-cyan-500",
@@ -56,13 +56,18 @@ function ChantierCalendarPage() {
 
   const [chantiers, setChantiers] = useState<{ id: string; name: string }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [members, setMembers] = useState<{ user_id: string; name: string }[]>([]);
   const [fChantier, setFChantier] = useState<string>("all");
   const [fClient, setFClient] = useState<string>("all");
   const [fType, setFType] = useState<string>("all");
   const [fStatus, setFStatus] = useState<string>("all");
+  const [fAssigned, setFAssigned] = useState<string>("all");
 
   const fetchEvents = useServerFn(listChantierEvents);
   const createEvtFn = useServerFn(createChantierEvent);
+  const fetchMembers = useServerFn(listCompanyMembers);
+  const rescheduleFn = useServerFn(rescheduleChantierEvent);
+  const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
 
   const range = useMemo(() => {
     if (view === "month") return { from: startOfWeek(startOfMonth(cursor)), to: addDays(startOfWeek(endOfMonth(cursor)), 41) };
@@ -83,13 +88,14 @@ function ChantierCalendarPage() {
         clientId: fClient === "all" ? null : fClient,
         eventType: fType === "all" ? null : fType,
         status: fStatus === "all" ? null : fStatus,
+        assignedTo: fAssigned === "all" ? null : fAssigned,
       } });
       setEvents(r.events as Evt[]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chargement impossible");
     } finally { setLoading(false); }
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId, view, cursor, fChantier, fClient, fType, fStatus]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId, view, cursor, fChantier, fClient, fType, fStatus, fAssigned]);
 
   useEffect(() => {
     if (!activeCompanyId) return;
@@ -100,8 +106,40 @@ function ChantierCalendarPage() {
       ]);
       setChantiers((c1.data as { id: string; name: string }[]) ?? []);
       setClients((c2.data as { id: string; name: string }[]) ?? []);
+      try {
+        const r = await fetchMembers({ data: { companyId: activeCompanyId } });
+        setMembers(r.members);
+      } catch { /* non-blocking */ }
     })();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [activeCompanyId]);
+
+  // Drag-and-drop: move event to a new day (preserves time-of-day)
+  const [dragId, setDragId] = useState<string | null>(null);
+  async function handleDrop(targetDay: Date, eventId: string) {
+    if (!activeCompanyId) return;
+    const evt = events.find((e) => e.id === eventId);
+    if (!evt || !evt.start_at) return;
+    const orig = new Date(evt.start_at);
+    const next = new Date(targetDay);
+    next.setHours(orig.getHours(), orig.getMinutes(), 0, 0);
+    if (sameDay(orig, next)) return;
+    const ok = confirm(`Déplacer "${evt.title}" au ${next.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })} ?`);
+    if (!ok) return;
+    let nextEnd: string | null = null;
+    if (evt.end_at) {
+      const origEnd = new Date(evt.end_at);
+      const diff = origEnd.getTime() - orig.getTime();
+      nextEnd = new Date(next.getTime() + diff).toISOString();
+    }
+    try {
+      await rescheduleFn({ data: { companyId: activeCompanyId, id: eventId, start_at: next.toISOString(), end_at: nextEnd } });
+      toast.success("Événement déplacé");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Déplacement impossible");
+    }
+  }
 
   // New event dialog
   const [evtOpen, setEvtOpen] = useState(false);
@@ -190,7 +228,7 @@ function ChantierCalendarPage() {
       </Card>
 
       {/* Filters */}
-      <Card className="grid gap-3 p-3 md:grid-cols-4">
+      <Card className="grid gap-3 p-3 md:grid-cols-5">
         <Select value={fChantier} onValueChange={setFChantier}>
           <SelectTrigger><SelectValue placeholder="Chantier" /></SelectTrigger>
           <SelectContent><SelectItem value="all">Tous les chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
@@ -212,6 +250,13 @@ function ChantierCalendarPage() {
             <SelectItem value="reporte">Reporté</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={fAssigned} onValueChange={setFAssigned}>
+          <SelectTrigger><SelectValue placeholder="Assigné" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les membres</SelectItem>
+            {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </Card>
 
       {/* Views */}
@@ -228,20 +273,32 @@ function ChantierCalendarPage() {
               const dayEvts = eventsOn(day);
               const isToday = sameDay(day, new Date());
               return (
-                <button key={i} onClick={() => canWrite && openNew(day)}
-                  className={cn("min-h-[90px] border-b border-r border-border p-1.5 text-left text-xs transition hover:bg-muted/30",
+                <div key={i}
+                  onClick={() => canWrite && openNew(day)}
+                  onDragOver={(e) => { if (canWrite && dragId) e.preventDefault(); }}
+                  onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); void handleDrop(day, id); } }}
+                  className={cn("min-h-[90px] cursor-pointer border-b border-r border-border p-1.5 text-left text-xs transition hover:bg-muted/30",
                     !inMonth && "bg-muted/10 text-muted-foreground", isToday && "ring-2 ring-inset ring-primary/40")}>
                   <div className={cn("mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold", isToday && "bg-primary text-primary-foreground")}>{day.getDate()}</div>
                   <div className="space-y-0.5">
-                    {dayEvts.slice(0, 3).map((e) => (
-                      <div key={e.id} onClick={(ev) => { ev.stopPropagation(); navigate({ to: "/chantiers/$id", params: { id: e.chantier_id } }); }}
-                        className={cn("truncate rounded px-1 py-0.5 text-[10px] text-white", TYPE_COLORS[e.event_type] ?? "bg-slate-500")} title={e.title}>
-                        {e.title}
-                      </div>
-                    ))}
+                    {dayEvts.slice(0, 3).map((e) => {
+                      const isSystem = e.event_type.startsWith("system_");
+                      const draggable = canWrite && !isSystem && !!e.start_at;
+                      return (
+                        <div key={e.id}
+                          draggable={draggable}
+                          onDragStart={() => { if (draggable) setDragId(e.id); }}
+                          onDragEnd={() => setDragId(null)}
+                          onClick={(ev) => { ev.stopPropagation(); navigate({ to: "/chantiers/$id", params: { id: e.chantier_id } }); }}
+                          className={cn("truncate rounded px-1 py-0.5 text-[10px] text-white", TYPE_COLORS[e.event_type] ?? "bg-slate-500", draggable && "cursor-grab active:cursor-grabbing")}
+                          title={`${e.title}${e.assigned_to ? ` — ${membersById.get(e.assigned_to)?.name ?? ""}` : ""}`}>
+                          {e.title}
+                        </div>
+                      );
+                    })}
                     {dayEvts.length > 3 && <div className="text-[10px] text-muted-foreground">+{dayEvts.length - 3}</div>}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -264,6 +321,7 @@ function ChantierCalendarPage() {
                       {e.start_at ? new Date(e.start_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
                       {e.chantier && <> · {e.chantier.name}</>}
                       {e.location && <> · {e.location}</>}
+                      {e.assigned_to && <> · 👤 {membersById.get(e.assigned_to)?.name ?? "—"}</>}
                     </p>
                   </div>
                   <StatusPill tone="neutral">{TYPE_LABELS[e.event_type] ?? e.event_type}</StatusPill>

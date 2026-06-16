@@ -253,6 +253,7 @@ export type Database = {
           id: string
           location: string | null
           reminder_at: string | null
+          reminder_sent_at: string | null
           start_at: string | null
           status: string
           title: string
@@ -274,6 +275,7 @@ export type Database = {
           id?: string
           location?: string | null
           reminder_at?: string | null
+          reminder_sent_at?: string | null
           start_at?: string | null
           status?: string
           title: string
@@ -295,6 +297,7 @@ export type Database = {
           id?: string
           location?: string | null
           reminder_at?: string | null
+          reminder_sent_at?: string | null
           start_at?: string | null
           status?: string
           title?: string

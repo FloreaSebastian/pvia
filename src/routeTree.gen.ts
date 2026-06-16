@@ -75,6 +75,7 @@ import { Route as AuthenticatedAdminBillingRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminSupportIndexRouteImport } from './routes/_authenticated/admin.support.index'
 import { Route as AuthenticatedAdminGoLiveIndexRouteImport } from './routes/_authenticated/admin.go-live.index'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
+import { Route as ApiPublicHooksSendChantierRemindersRouteImport } from './routes/api/public/hooks/send-chantier-reminders'
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksDrainWebhooksRouteImport } from './routes/api/public/hooks/drain-webhooks'
 import { Route as ApiPublicHooksDrainEmailsRouteImport } from './routes/api/public/hooks/drain-emails'
@@ -449,6 +450,12 @@ const ApiPublicPaymentsWebhookRoute =
     path: '/api/public/payments/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksSendChantierRemindersRoute =
+  ApiPublicHooksSendChantierRemindersRouteImport.update({
+    id: '/api/public/hooks/send-chantier-reminders',
+    path: '/api/public/hooks/send-chantier-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksHealthRoute = ApiPublicHooksHealthRouteImport.update({
   id: '/api/public/hooks/health',
   path: '/api/public/hooks/health',
@@ -600,6 +607,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
+  '/api/public/hooks/send-chantier-reminders': typeof ApiPublicHooksSendChantierRemindersRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/admin/go-live/': typeof AuthenticatedAdminGoLiveIndexRoute
   '/admin/support/': typeof AuthenticatedAdminSupportIndexRoute
@@ -677,6 +685,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
+  '/api/public/hooks/send-chantier-reminders': typeof ApiPublicHooksSendChantierRemindersRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/admin/go-live': typeof AuthenticatedAdminGoLiveIndexRoute
   '/admin/support': typeof AuthenticatedAdminSupportIndexRoute
@@ -759,6 +768,7 @@ export interface FileRoutesById {
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
+  '/api/public/hooks/send-chantier-reminders': typeof ApiPublicHooksSendChantierRemindersRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/_authenticated/admin/go-live/': typeof AuthenticatedAdminGoLiveIndexRoute
   '/_authenticated/admin/support/': typeof AuthenticatedAdminSupportIndexRoute
@@ -841,6 +851,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
+    | '/api/public/hooks/send-chantier-reminders'
     | '/api/public/payments/webhook'
     | '/admin/go-live/'
     | '/admin/support/'
@@ -918,6 +929,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
+    | '/api/public/hooks/send-chantier-reminders'
     | '/api/public/payments/webhook'
     | '/admin/go-live'
     | '/admin/support'
@@ -999,6 +1011,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
+    | '/api/public/hooks/send-chantier-reminders'
     | '/api/public/payments/webhook'
     | '/_authenticated/admin/go-live/'
     | '/_authenticated/admin/support/'
@@ -1033,6 +1046,7 @@ export interface RootRouteChildren {
   ApiPublicHooksDrainEmailsRoute: typeof ApiPublicHooksDrainEmailsRoute
   ApiPublicHooksDrainWebhooksRoute: typeof ApiPublicHooksDrainWebhooksRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
+  ApiPublicHooksSendChantierRemindersRoute: typeof ApiPublicHooksSendChantierRemindersRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
 }
 
@@ -1500,6 +1514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/send-chantier-reminders': {
+      id: '/api/public/hooks/send-chantier-reminders'
+      path: '/api/public/hooks/send-chantier-reminders'
+      fullPath: '/api/public/hooks/send-chantier-reminders'
+      preLoaderRoute: typeof ApiPublicHooksSendChantierRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/health': {
       id: '/api/public/hooks/health'
       path: '/api/public/hooks/health'
@@ -1830,6 +1851,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksDrainEmailsRoute: ApiPublicHooksDrainEmailsRoute,
   ApiPublicHooksDrainWebhooksRoute: ApiPublicHooksDrainWebhooksRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
+  ApiPublicHooksSendChantierRemindersRoute:
+    ApiPublicHooksSendChantierRemindersRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
 }
 export const routeTree = rootRouteImport

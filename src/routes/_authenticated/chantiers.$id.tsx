@@ -19,6 +19,7 @@ import {
   getChantierDetail, createChantierEvent, updateChantierEvent, deleteChantierEvent,
   createChantierNote, deleteChantierNote,
   createChantierDocument, deleteChantierDocument,
+  listCompanyMembers,
 } from "@/lib/chantier-detail.functions";
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
@@ -87,6 +88,10 @@ function ChantierDetailPage() {
   const deleteNoteFn = useServerFn(deleteChantierNote);
   const createDocFn = useServerFn(createChantierDocument);
   const deleteDocFn = useServerFn(deleteChantierDocument);
+  const fetchMembers = useServerFn(listCompanyMembers);
+
+  const [members, setMembers] = useState<{ user_id: string; name: string; role: string }[]>([]);
+  const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
 
   async function reload() {
     if (!activeCompanyId) return;
@@ -101,11 +106,18 @@ function ChantierDetailPage() {
     }
   }
   useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id, activeCompanyId]);
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    fetchMembers({ data: { companyId: activeCompanyId } })
+      .then((r) => setMembers(r.members))
+      .catch(() => { /* non-blocking */ });
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [activeCompanyId]);
 
   // event dialog
   const [evtOpen, setEvtOpen] = useState(false);
   const [evtEditing, setEvtEditing] = useState<string | null>(null);
-  const emptyEvt = { title: "", description: "", event_type: "intervention", status: "prevu", start_at: "", end_at: "", all_day: false, location: "", color: "" };
+  const emptyEvt = { title: "", description: "", event_type: "intervention", status: "prevu", start_at: "", end_at: "", all_day: false, location: "", color: "", assigned_to: "", reminder_at: "" };
   const [evtForm, setEvtForm] = useState(emptyEvt);
   function openNewEvt() { setEvtEditing(null); setEvtForm(emptyEvt); setEvtOpen(true); }
   function openEditEvt(e: Detail["events"][number]) {
@@ -114,6 +126,8 @@ function ChantierDetailPage() {
       title: e.title, description: e.description ?? "", event_type: e.event_type,
       status: e.status, start_at: e.start_at?.slice(0, 16) ?? "", end_at: e.end_at?.slice(0, 16) ?? "",
       all_day: e.all_day ?? false, location: e.location ?? "", color: e.color ?? "",
+      assigned_to: (e as { assigned_to?: string | null }).assigned_to ?? "",
+      reminder_at: (e as { reminder_at?: string | null }).reminder_at?.slice(0, 16) ?? "",
     });
     setEvtOpen(true);
   }
@@ -127,6 +141,8 @@ function ChantierDetailPage() {
         start_at: evtForm.start_at ? new Date(evtForm.start_at).toISOString() : null,
         end_at: evtForm.end_at ? new Date(evtForm.end_at).toISOString() : null,
         all_day: evtForm.all_day, location: evtForm.location, color: evtForm.color,
+        assigned_to: evtForm.assigned_to ? evtForm.assigned_to : null,
+        reminder_at: evtForm.reminder_at ? new Date(evtForm.reminder_at).toISOString() : null,
       };
       if (evtEditing) {
         await updateEvtFn({ data: { companyId: activeCompanyId, id: evtEditing, data: payload } });
@@ -309,6 +325,12 @@ function ChantierDetailPage() {
                         <StatusPill tone="neutral">{evtLabel(e.event_type)}</StatusPill>
                         <span>{fmtDateTime(e.start_at)}</span>
                         {e.location && <span>· {e.location}</span>}
+                        {(e as { assigned_to?: string | null }).assigned_to && (
+                          <span className="inline-flex items-center gap-1">· <User className="h-3 w-3" /> {membersById.get((e as { assigned_to: string }).assigned_to)?.name ?? "—"}</span>
+                        )}
+                        {(e as { reminder_at?: string | null }).reminder_at && (
+                          <span className="inline-flex items-center gap-1">· <Clock className="h-3 w-3" /> Rappel {fmtDateTime((e as { reminder_at: string }).reminder_at)}</span>
+                        )}
                       </p>
                       {e.description && <p className="mt-1 text-sm text-muted-foreground">{e.description}</p>}
                     </div>
@@ -472,6 +494,19 @@ function ChantierDetailPage() {
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Début</Label><Input type="datetime-local" value={evtForm.start_at} onChange={(e) => setEvtForm({ ...evtForm, start_at: e.target.value })} /></div>
               <div><Label>Fin</Label><Input type="datetime-local" value={evtForm.end_at} onChange={(e) => setEvtForm({ ...evtForm, end_at: e.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Assigné à</Label>
+                <Select value={evtForm.assigned_to || "none"} onValueChange={(v) => setEvtForm({ ...evtForm, assigned_to: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Personne" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Personne</SelectItem>
+                    {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Rappel</Label><Input type="datetime-local" value={evtForm.reminder_at} onChange={(e) => setEvtForm({ ...evtForm, reminder_at: e.target.value })} /></div>
             </div>
             <div><Label>Lieu</Label><Input value={evtForm.location} onChange={(e) => setEvtForm({ ...evtForm, location: e.target.value })} /></div>
             <div><Label>Description</Label><Textarea value={evtForm.description} onChange={(e) => setEvtForm({ ...evtForm, description: e.target.value })} /></div>
