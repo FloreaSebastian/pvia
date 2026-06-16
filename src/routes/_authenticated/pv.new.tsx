@@ -387,7 +387,9 @@ function NewPv() {
   async function handleSendOtp() {
     if (!activeCompanyId) return toast.error("Aucune entreprise active.");
     if (!onsiteOtpEmail.trim()) return toast.error("Email client requis.");
+    if (onsiteOtpCooldown > 0) return;
     setOnsiteOtpLoading(true);
+    setOnsiteOtpError(null);
     try {
       const r = await sendOtpFn({
         data: { companyId: activeCompanyId, email: onsiteOtpEmail.trim().toLowerCase() },
@@ -396,9 +398,12 @@ function NewPv() {
       setOnsiteOtpSent(true);
       setOnsiteOtpVerified(false);
       setOnsiteOtpCode("");
-      toast.success("Code envoyé par email au client.");
+      setOnsiteOtpCooldown(30);
+      toast.success("Code envoyé. Pensez à vérifier les spams.");
     } catch (e: any) {
-      toast.error(e?.message || "Envoi du code impossible.");
+      const msg = e?.message || "Envoi du code impossible.";
+      setOnsiteOtpError(msg);
+      toast.error(msg);
     } finally {
       setOnsiteOtpLoading(false);
     }
@@ -411,6 +416,7 @@ function NewPv() {
     try {
       await verifyOtpFn({ data: { otpId: onsiteOtpId, code: onsiteOtpCode } });
       setOnsiteOtpVerified(true);
+      setOnsiteOtpError(null);
       toast.success("Identité client confirmée.");
     } catch (e: any) {
       toast.error(e?.message || "Code invalide.");
