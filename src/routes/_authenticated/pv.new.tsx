@@ -687,97 +687,86 @@ function NewPv() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        <div className="border-b border-border bg-gradient-to-b from-muted/40 to-muted/10 p-4 sm:p-5">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="border-b border-border bg-gradient-to-b from-muted/40 to-muted/10 px-4 py-3 sm:px-5">
+          <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Étape {stepIdx + 1} sur {STEPS.length}
+              Étape {stepIdx + 1}/{STEPS.length} · <span className="text-foreground">{currentStep.label}</span>
             </span>
             <span className="text-xs font-semibold tabular-nums text-primary">{Math.round(progress)}%</span>
           </div>
-          <div className="relative h-1.5 overflow-hidden rounded-full bg-border">
+          <div className="relative h-1 overflow-hidden rounded-full bg-border">
             <motion.div className="h-full rounded-full bg-brand-gradient" initial={false} animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }} />
           </div>
-          <div className="mt-5 hidden flex-col gap-1.5 md:flex">
-            {STEPS.map((s, i) => {
-              const Icon = s.icon;
-              const err = stepErrors[s.id];
-              const done = i < stepIdx && !err;
-              const current = i === stepIdx;
-              const locked = i > stepIdx && i > firstInvalidIdx;
-              const summary = stepSummaries[s.id];
-              const state: "done" | "current" | "blocked" | "locked" | "todo" =
-                done ? "done"
-                : current ? "current"
-                : locked ? "locked"
-                : err ? "blocked"
-                : "todo";
-              const stateCls = {
-                done: "border-success/30 bg-success/5 hover:bg-success/10",
-                current: "border-primary bg-primary/10 shadow-brand",
-                blocked: "border-warning/40 bg-warning/5 hover:bg-warning/10",
-                locked: "border-border bg-muted/30 text-muted-foreground/60 cursor-not-allowed",
-                todo: "border-border bg-muted/20 hover:bg-accent",
-              }[state];
-              const iconCls = {
-                done: "bg-success text-success-foreground",
-                current: "bg-primary text-primary-foreground",
-                blocked: "bg-warning text-warning-foreground",
-                locked: "bg-muted text-muted-foreground",
-                todo: "bg-background text-muted-foreground border border-border",
-              }[state];
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  disabled={locked}
-                  onClick={() => goToStepIdx(i)}
-                  className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${stateCls}`}
-                >
-                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${iconCls}`}>
-                    {done ? <Check className="h-3.5 w-3.5" /> : locked ? <Lock className="h-3 w-3" /> : <Icon className="h-3.5 w-3.5" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2 text-sm font-semibold">
-                      <span>{i + 1}. {s.label}</span>
-                      {state === "blocked" && !current && (
-                        <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-medium text-warning">à compléter</span>
-                      )}
-                      {state === "done" && (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                      )}
-                    </span>
-                    {summary ? (
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>
-                    ) : current && err ? (
-                      <span className="mt-0.5 block truncate text-xs text-warning">{err}</span>
-                    ) : null}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+
+          {/* Compact horizontal stepper — desktop */}
+          <TooltipProvider delayDuration={150}>
+            <div className="mt-3 hidden items-center gap-1 md:flex">
+              {STEPS.map((s, i) => {
+                const Icon = s.icon;
+                const err = stepErrors[s.id];
+                const done = i < stepIdx && !err;
+                const current = i === stepIdx;
+                const locked = i > stepIdx && i > firstInvalidIdx;
+                const summary = stepSummaries[s.id];
+                const state: "done" | "current" | "blocked" | "locked" | "todo" =
+                  done ? "done" : current ? "current" : locked ? "locked" : err ? "blocked" : "todo";
+                const dotCls = {
+                  done: "bg-success text-success-foreground border-success",
+                  current: "bg-primary text-primary-foreground border-primary ring-2 ring-primary/30",
+                  blocked: "bg-warning text-warning-foreground border-warning",
+                  locked: "bg-muted text-muted-foreground/60 border-border",
+                  todo: "bg-background text-muted-foreground border-border",
+                }[state];
+                return (
+                  <div key={s.id} className="flex min-w-0 flex-1 items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={locked}
+                          onClick={() => goToStepIdx(i)}
+                          className={`group flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors ${locked ? "cursor-not-allowed opacity-60" : "hover:bg-accent/60"}`}
+                        >
+                          <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[10px] font-bold ${dotCls}`}>
+                            {done ? <Check className="h-3 w-3" /> : locked ? <Lock className="h-2.5 w-2.5" /> : <Icon className="h-3 w-3" />}
+                          </span>
+                          <span className={`hidden truncate text-xs font-medium lg:inline ${current ? "text-foreground" : "text-muted-foreground"}`}>
+                            {s.label}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <div className="text-xs font-semibold">{i + 1}. {s.label}</div>
+                        {summary && <div className="mt-0.5 text-xs text-muted-foreground">{summary}</div>}
+                        {err && <div className="mt-0.5 text-xs text-warning">{err}</div>}
+                        {locked && <div className="mt-0.5 text-xs text-muted-foreground">Complétez l'étape précédente d'abord.</div>}
+                      </TooltipContent>
+                    </Tooltip>
+                    {i < STEPS.length - 1 && <span className={`h-px w-2 shrink-0 ${done ? "bg-success" : "bg-border"}`} />}
+                  </div>
+                );
+              })}
+            </div>
+          </TooltipProvider>
 
           {/* Mobile stepper compact */}
-          <div className="mt-4 md:hidden">
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-background p-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                {(() => { const Icon = currentStep.icon; return <Icon className="h-4 w-4" />; })()}
+          <div className="mt-2 md:hidden">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                {(() => { const Icon = currentStep.icon; return <Icon className="h-3 w-3" />; })()}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Étape {stepIdx + 1}/{STEPS.length}</div>
-                <div className="truncate text-sm font-semibold">{currentStep.label}</div>
-                {stepSummaries[currentStep.id] && (
-                  <div className="mt-0.5 truncate text-xs text-muted-foreground">{stepSummaries[currentStep.id]}</div>
-                )}
+                <div className="truncate font-semibold">Étape {stepIdx + 1}/{STEPS.length} — {currentStep.label}</div>
                 {stepErrors[currentStep.id] && (
-                  <div className="mt-0.5 truncate text-xs text-warning">{stepErrors[currentStep.id]}</div>
+                  <div className="truncate text-warning">{stepErrors[currentStep.id]}</div>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 sm:p-8">
+        <div className="p-4 sm:p-6">
+
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep.id}
