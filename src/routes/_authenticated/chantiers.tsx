@@ -60,7 +60,11 @@ function ChantiersPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [saving, setSaving] = useState(false);
   const canWrite = can("manage");
+  const createFn = useServerFn(createChantierFn);
+  const updateFn = useServerFn(updateChantierFn);
+  const deleteFn = useServerFn(deleteChantierFn);
 
   async function load() {
     if (!activeCompanyId) return;
