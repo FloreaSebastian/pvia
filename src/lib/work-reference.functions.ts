@@ -31,8 +31,8 @@ const InputSchema = z.object({
   pvId: z.string().uuid().optional().nullable(),
   fileName: z.string().min(1).max(255),
   mimeType: z.enum(ALLOWED_MIMES),
-  /** Data URL: data:<mime>;base64,<b64> */
-  dataUrl: z.string().startsWith("data:").max(15_000_000),
+  /** Data URL complet (data:<mime>;base64,...) OU base64 brut (normalisé côté serveur via mimeType). */
+  dataUrl: z.string().min(8).max(20_000_000),
 });
 
 type ExtractedFields = {
