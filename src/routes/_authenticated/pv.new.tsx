@@ -1335,25 +1335,41 @@ function SignatureBox({
   onClear: () => void;
   onEnd: () => void;
 }) {
+  // Mode édition local : tant qu'une signature est sauvegardée, on n'affiche
+  // QUE l'aperçu (jamais canvas + image en même temps). Cliquer sur
+  // "Modifier la signature" réaffiche le canvas pour redessiner.
+  const [editing, setEditing] = useState(false);
+  const showCanvas = !saved || editing;
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
         <Label className="text-xs font-medium">{label}</Label>
-        {saved && <Badge variant="secondary" className="gap-1 text-[11px]"><CheckCircle2 className="h-3 w-3" /> {savedLabel}</Badge>}
+        {saved && !editing && (
+          <Badge variant="secondary" className="gap-1 text-[11px]">
+            <CheckCircle2 className="h-3 w-3" /> {savedLabel}
+          </Badge>
+        )}
       </div>
-      <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
-        <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
-      </div>
-      {savedDataUrl && (
-        <div className="mt-2 rounded-lg border border-border bg-background p-2">
-          <img src={savedDataUrl} alt={savedLabel} className="h-16 w-full object-contain" />
+      {showCanvas ? (
+        <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
+          <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
+        </div>
+      ) : (
+        <div className="mt-1 rounded-xl border border-border bg-background p-3">
+          <img src={savedDataUrl ?? ""} alt={savedLabel} className="mx-auto h-28 w-full object-contain" />
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
-        <Button type="button" size="sm" onClick={onValidate}>
-          <Check className="h-3.5 w-3.5" /> {validateLabel}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+        {showCanvas ? (
+          <Button type="button" size="sm" onClick={() => { onValidate(); setEditing(false); }}>
+            <Check className="h-3.5 w-3.5" /> {validateLabel}
+          </Button>
+        ) : (
+          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+            <PenLine className="h-3.5 w-3.5" /> Modifier la signature
+          </Button>
+        )}
+        <Button type="button" variant="ghost" size="sm" onClick={() => { onClear(); setEditing(false); }}>
           <Trash2 className="h-3.5 w-3.5" /> {clearLabel}
         </Button>
       </div>
