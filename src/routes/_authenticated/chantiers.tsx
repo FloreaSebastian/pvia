@@ -444,7 +444,7 @@ function ChantiersPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((c) => (
-                <TableRow key={c.id} className="group">
+                <TableRow key={c.id} className="group cursor-pointer" onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.type ? <StatusPill tone="neutral">{c.type}</StatusPill> : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>
@@ -454,7 +454,7 @@ function ChantiersPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{clientName(c.client_id) ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.address || "—"}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     {canWrite && (
                       <div className="inline-flex opacity-60 transition group-hover:opacity-100">
                         <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
