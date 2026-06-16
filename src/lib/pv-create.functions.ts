@@ -177,10 +177,9 @@ export const createPv = createServerFn({ method: "POST" })
       normalizedReserves = [];
       normalizedPhotos = [];
     } else {
-      // At least one valid reserve required.
-      const hasValid = normalizedReserves.some(
-        (r) => r.description.trim().length > 0 && (r.work_to_execute ?? "").trim().length >= 0,
-      );
+      // At least one reserve with a non-empty description is required.
+      // work_to_execute reste optionnel (validé par le schéma Zod en amont).
+      const hasValid = normalizedReserves.some((r) => r.description.trim().length > 0);
       if (!hasValid) {
         throw new Error("Au moins une réserve avec description est requise.");
       }
