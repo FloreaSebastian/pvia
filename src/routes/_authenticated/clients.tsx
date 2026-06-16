@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { createClient as createClientFn, updateClient as updateClientFn, deleteClient as deleteClientFn } from "@/lib/clients.functions";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
