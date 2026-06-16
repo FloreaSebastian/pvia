@@ -135,7 +135,7 @@ function ClientsPage() {
                   </div>
                   <div><Label>Adresse</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
                   <div><Label>Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
+                  <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
