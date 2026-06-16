@@ -237,6 +237,7 @@ export const listChantierEvents = createServerFn({ method: "POST" })
     clientId: z.string().uuid().nullable().optional(),
     eventType: z.string().nullable().optional(),
     status: z.string().nullable().optional(),
+    assignedTo: z.string().uuid().nullable().optional(),
   }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -248,7 +249,67 @@ export const listChantierEvents = createServerFn({ method: "POST" })
     if (data.clientId) q = q.eq("client_id", data.clientId);
     if (data.eventType) q = q.eq("event_type", data.eventType);
     if (data.status) q = q.eq("status", data.status);
+    if (data.assignedTo) q = q.eq("assigned_to", data.assignedTo);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
     return { events: rows ?? [] };
+  });
+
+// ---------- list company members (for assigned_to picker) ----------
+export const listCompanyMembers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: mems, error } = await supabase
+      .from("company_members")
+      .select("user_id, role")
+      .eq("company_id", data.companyId)
+      .eq("status", "active");
+    if (error) throw new Error(error.message);
+    const ids = (mems ?? []).map((m) => m.user_id).filter((x): x is string => !!x);
+    if (ids.length === 0) return { members: [] as { user_id: string; name: string; role: string }[] };
+    const { data: profs } = await supabase
+      .from("profiles").select("id, full_name, first_name, last_name").in("id", ids);
+    const byId = new Map((profs ?? []).map((p) => [p.id, p]));
+    const members = (mems ?? [])
+      .filter((m) => m.user_id)
+      .map((m) => {
+        const p = byId.get(m.user_id as string);
+        const name = (p?.full_name?.trim())
+          || [p?.first_name, p?.last_name].filter(Boolean).join(" ").trim()
+          || "Membre";
+        return { user_id: m.user_id as string, name, role: m.role as string };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { members };
+  });
+
+// ---------- reschedule (drag-and-drop) ----------
+export const rescheduleChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    id: z.string().uuid(),
+    start_at: z.string(),
+    end_at: z.string().nullable().optional(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { data: prev } = await supabase.from("chantier_events")
+      .select("start_at, end_at").eq("id", data.id).eq("company_id", data.companyId).maybeSingle();
+    if (!prev) throw new Error("Événement introuvable.");
+    const { error } = await supabase.from("chantier_events")
+      .update({ start_at: data.start_at, end_at: data.end_at ?? null, reminder_sent_at: null })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId,
+      entityType: "chantier_event", entityId: data.id,
+      action: "chantier_event.rescheduled",
+      oldValues: { start_at: prev.start_at, end_at: prev.end_at },
+      newValues: { start_at: data.start_at, end_at: data.end_at ?? null },
+    });
+    return { ok: true };
   });
