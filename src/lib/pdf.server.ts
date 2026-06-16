@@ -58,6 +58,17 @@ export type SignatureProofMeta = {
   pdfGeneratedAt: string;
 };
 
+export type ReferenceDocument = {
+  file_name: string;
+  document_type?: string | null;
+  document_number?: string | null;
+  document_date?: string | null;
+  amount_ht?: number | null;
+  vat_amount?: number | null;
+  amount_ttc?: number | null;
+  extraction_status?: "success" | "failed" | "manual" | string | null;
+};
+
 const ACCENT = rgb(0.06, 0.09, 0.16);
 const MUTED = rgb(0.42, 0.45, 0.52);
 const SUBTLE = rgb(0.62, 0.65, 0.72);
