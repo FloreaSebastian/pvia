@@ -2129,7 +2129,7 @@ function WorkReferenceImport(props: {
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Aucune valeur n'est écrasée sans votre confirmation. Lignes en orange : valeur différente du formulaire. Lignes en vert : champ formulaire actuellement vide.
+            Conflits uniquement : ces champs contiennent déjà une valeur différente du document. Choisissez de remplacer ou d'ignorer. Les champs vides ont été remplis automatiquement.
           </p>
         </div>
       )}
