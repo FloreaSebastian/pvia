@@ -186,6 +186,15 @@ function NewPv() {
   const [onsiteOtpSent, setOnsiteOtpSent] = useState(false);
   const [onsiteOtpVerified, setOnsiteOtpVerified] = useState(false);
   const [onsiteOtpLoading, setOnsiteOtpLoading] = useState(false);
+  const [onsiteOtpCooldown, setOnsiteOtpCooldown] = useState(0);
+  const [onsiteOtpError, setOnsiteOtpError] = useState<string | null>(null);
+  const [onsiteOtpShowHelp, setOnsiteOtpShowHelp] = useState(false);
+
+  useEffect(() => {
+    if (onsiteOtpCooldown <= 0) return;
+    const t = setTimeout(() => setOnsiteOtpCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [onsiteOtpCooldown]);
 
   // Stepper dynamique
   const STEPS = useMemo<StepDef[]>(() => {
