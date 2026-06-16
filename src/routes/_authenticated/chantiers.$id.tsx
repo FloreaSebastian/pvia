@@ -88,6 +88,10 @@ function ChantierDetailPage() {
   const deleteNoteFn = useServerFn(deleteChantierNote);
   const createDocFn = useServerFn(createChantierDocument);
   const deleteDocFn = useServerFn(deleteChantierDocument);
+  const fetchMembers = useServerFn(listCompanyMembers);
+
+  const [members, setMembers] = useState<{ user_id: string; name: string; role: string }[]>([]);
+  const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
 
   async function reload() {
     if (!activeCompanyId) return;
@@ -102,11 +106,18 @@ function ChantierDetailPage() {
     }
   }
   useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id, activeCompanyId]);
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    fetchMembers({ data: { companyId: activeCompanyId } })
+      .then((r) => setMembers(r.members))
+      .catch(() => { /* non-blocking */ });
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [activeCompanyId]);
 
   // event dialog
   const [evtOpen, setEvtOpen] = useState(false);
   const [evtEditing, setEvtEditing] = useState<string | null>(null);
-  const emptyEvt = { title: "", description: "", event_type: "intervention", status: "prevu", start_at: "", end_at: "", all_day: false, location: "", color: "" };
+  const emptyEvt = { title: "", description: "", event_type: "intervention", status: "prevu", start_at: "", end_at: "", all_day: false, location: "", color: "", assigned_to: "", reminder_at: "" };
   const [evtForm, setEvtForm] = useState(emptyEvt);
   function openNewEvt() { setEvtEditing(null); setEvtForm(emptyEvt); setEvtOpen(true); }
   function openEditEvt(e: Detail["events"][number]) {
@@ -115,6 +126,8 @@ function ChantierDetailPage() {
       title: e.title, description: e.description ?? "", event_type: e.event_type,
       status: e.status, start_at: e.start_at?.slice(0, 16) ?? "", end_at: e.end_at?.slice(0, 16) ?? "",
       all_day: e.all_day ?? false, location: e.location ?? "", color: e.color ?? "",
+      assigned_to: (e as { assigned_to?: string | null }).assigned_to ?? "",
+      reminder_at: (e as { reminder_at?: string | null }).reminder_at?.slice(0, 16) ?? "",
     });
     setEvtOpen(true);
   }
