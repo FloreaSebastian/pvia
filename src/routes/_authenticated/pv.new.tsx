@@ -903,6 +903,39 @@ function NewPv() {
               {currentStep.id === ID_TRAVAUX && (
                 <>
                   <SectionHeader icon={ClipboardList} title="Travaux & référence" desc="Devis, bon de commande ou marché à l'origine des travaux." />
+
+                  <WorkReferenceImport
+                    companyId={activeCompanyId}
+                    draftKey={draftKey}
+                    extractFn={extractWorkRefFn}
+                    onApply={(extracted, mode) => {
+                      setForm((f) => {
+                        const next = { ...f };
+                        const apply = <K extends keyof typeof f>(key: K, val: unknown) => {
+                          if (val == null || val === "") return;
+                          const current = String(f[key] ?? "");
+                          if (mode === "empty" && current.trim()) return;
+                          (next as any)[key] = String(val);
+                        };
+                        if (extracted.document_type && ["devis", "bon_commande", "marche"].includes(extracted.document_type)) {
+                          if (mode !== "empty" || f.work_reference_type === "manuel") {
+                            next.work_reference_type = extracted.document_type as WorkRefType;
+                          }
+                        }
+                        apply("work_reference_number", extracted.document_number);
+                        apply("work_reference_date", extracted.document_date);
+                        if (extracted.amount_ttc != null) apply("work_reference_amount", extracted.amount_ttc);
+                        apply("new_client_name", extracted.client_name);
+                        apply("new_client_email", extracted.client_email);
+                        apply("chantier_address", extracted.chantier_address);
+                        apply("chantier_postal_code", extracted.chantier_postal_code);
+                        apply("chantier_city", extracted.chantier_city);
+                        apply("description", extracted.description);
+                        return next;
+                      });
+                    }}
+                  />
+
                   <Field label="Type de référence">
                     <div className="grid gap-2 sm:grid-cols-4">
                       {([
