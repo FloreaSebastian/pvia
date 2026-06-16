@@ -132,10 +132,11 @@ export async function generatePvPdfBytes(input: {
     const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
     return rgb(r, g, b);
   })();
+  const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
   const HEADER_BG = (() => {
     const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
     // very light tint
-    return rgb(r * 0.05 + 0.95, g * 0.05 + 0.95, b * 0.05 + 0.97);
+    return rgb(clamp01(r * 0.05 + 0.95), clamp01(g * 0.05 + 0.95), clamp01(b * 0.05 + 0.97));
   })();
   const pdf = await PDFDocument.create();
   pdf.setTitle(`N° ${pv.numero}`);
