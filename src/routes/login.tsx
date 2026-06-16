@@ -39,7 +39,6 @@ function LoginPage() {
   const logEvent = useServerFn(logUserAuthEvent);
   const sendLoginCode = useServerFn(sendEnterpriseLoginCode);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function onSendCode(e: React.FormEvent) {
@@ -58,8 +57,6 @@ function LoginPage() {
       if (/rate|limit|trop|patient|429|too many/i.test(msg)) {
         toast.error("Veuillez patienter avant de redemander un code.");
       } else {
-        // Anti-enumeration: never leak account existence. Show neutral message
-        // and route to /verify regardless of the underlying failure.
         toast.success(NEUTRAL);
         navigate({ to: "/verify", search: { email: normalized } });
       }
@@ -67,31 +64,6 @@ function LoginPage() {
       setLoading(false);
     }
   }
-
-  async function onPassword(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      await logEvent({ data: { action: "user.login_failed", email, metadata: { method: "password" } } }).catch(() => {});
-      toast.error(error.message);
-      return;
-    }
-    await logEvent({ data: { action: "user.login_success", email, metadata: { method: "password" } } }).catch(() => {});
-    toast.success("Connexion réussie");
-    const { data: { user } } = await supabase.auth.getUser();
-    let isAdmin = false;
-    if (user) {
-      const { isPlatformAdminEmail } = await import("@/lib/platform-admin");
-      if (isPlatformAdminEmail(user.email)) {
-        const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "platform_admin").maybeSingle();
-        isAdmin = !!role;
-      }
-    }
-    navigate({ to: isAdmin ? "/admin/dashboard" : "/dashboard" });
-  }
-
 
   return (
     <AuthShell
@@ -107,56 +79,30 @@ function LoginPage() {
         <div className="mb-6 flex lg:hidden"><BrandLogo /></div>
         <h1 className="font-display text-3xl font-bold tracking-tight">Connexion</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Accédez à votre espace professionnel
+          Recevez un code de connexion sécurisé par email.
         </p>
 
-        <Tabs defaultValue="otp" className="mt-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="otp" className="gap-2"><Mail className="h-4 w-4" />Code email</TabsTrigger>
-            <TabsTrigger value="password" className="gap-2"><KeyRound className="h-4 w-4" />Mot de passe</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="otp" className="mt-4">
-            <form onSubmit={onSendCode} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email-otp">Email professionnel</Label>
-                <Input
-                  id="email-otp"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="vous@entreprise.fr"
-                />
-              </div>
-              <Button type="submit" className="h-11 w-full shadow-brand" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Recevoir mon code
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Un code à 6 chiffres valide 10 minutes vous sera envoyé.
-              </p>
-            </form>
-          </TabsContent>
-
-          <TabsContent value="password" className="mt-4">
-            <form onSubmit={onPassword} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@entreprise.fr" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Mot de passe</Label>
-                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-              </div>
-              <Button type="submit" className="h-11 w-full shadow-brand" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Se connecter
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+        <form onSubmit={onSendCode} className="mt-6 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="email-otp">Email professionnel</Label>
+            <Input
+              id="email-otp"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vous@entreprise.fr"
+            />
+          </div>
+          <Button type="submit" className="h-11 w-full shadow-brand" disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Recevoir mon code
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Un code à 6 chiffres valide 10 minutes vous sera envoyé.
+          </p>
+        </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Pas encore de compte ?{" "}
