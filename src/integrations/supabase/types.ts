@@ -182,9 +182,206 @@ export type Database = {
         }
         Relationships: []
       }
+      chantier_documents: {
+        Row: {
+          category: string
+          chantier_id: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          file_type: string | null
+          file_url: string
+          id: string
+          name: string
+          storage_path: string | null
+        }
+        Insert: {
+          category?: string
+          chantier_id: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          name: string
+          storage_path?: string | null
+        }
+        Update: {
+          category?: string
+          chantier_id?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          name?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chantier_documents_chantier_id_fkey"
+            columns: ["chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chantier_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chantier_events: {
+        Row: {
+          all_day: boolean
+          assigned_to: string | null
+          attachment_url: string | null
+          chantier_id: string
+          client_id: string | null
+          color: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_at: string | null
+          event_type: string
+          id: string
+          location: string | null
+          reminder_at: string | null
+          start_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          assigned_to?: string | null
+          attachment_url?: string | null
+          chantier_id: string
+          client_id?: string | null
+          color?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_at?: string | null
+          event_type?: string
+          id?: string
+          location?: string | null
+          reminder_at?: string | null
+          start_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          assigned_to?: string | null
+          attachment_url?: string | null
+          chantier_id?: string
+          client_id?: string | null
+          color?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_at?: string | null
+          event_type?: string
+          id?: string
+          location?: string | null
+          reminder_at?: string | null
+          start_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chantier_events_chantier_id_fkey"
+            columns: ["chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chantier_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chantier_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chantier_notes: {
+        Row: {
+          chantier_id: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string
+          priority: string
+          reminder_at: string | null
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          chantier_id: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note: string
+          priority?: string
+          reminder_at?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          chantier_id?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string
+          priority?: string
+          reminder_at?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chantier_notes_chantier_id_fkey"
+            columns: ["chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chantier_notes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chantiers: {
         Row: {
           address: string | null
+          address_line1: string | null
           city: string | null
           client_id: string | null
           company_id: string | null
@@ -204,6 +401,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          address_line1?: string | null
           city?: string | null
           client_id?: string | null
           company_id?: string | null
@@ -223,6 +421,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          address_line1?: string | null
           city?: string | null
           client_id?: string | null
           company_id?: string | null
@@ -338,38 +537,53 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          address_line1: string | null
+          city: string | null
           company_id: string | null
           created_at: string
           email: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
           notes: string | null
           owner_id: string
           phone: string | null
+          postal_code: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          address_line1?: string | null
+          city?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
           notes?: string | null
           owner_id: string
           phone?: string | null
+          postal_code?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          address_line1?: string | null
+          city?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           notes?: string | null
           owner_id?: string
           phone?: string | null
+          postal_code?: string | null
           updated_at?: string
         }
         Relationships: [
