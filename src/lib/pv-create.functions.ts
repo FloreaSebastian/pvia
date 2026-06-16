@@ -425,27 +425,29 @@ export const createPv = createServerFn({ method: "POST" })
           audit: { action: "pv.pdf_generation_failed", entityType: "pv" },
         });
       }
-      if (pdfPath) try {
-        const { deliverSignedPv } = await import("./email.server");
-        const res = await deliverSignedPv({ pvId, trigger: "auto" });
-        const anyFail =
-          res.client?.status === "failed" || res.company?.status === "failed";
-        if (anyFail) {
+      if (pdfPath) {
+        try {
+          const { deliverSignedPv } = await import("./email.server");
+          const res = await deliverSignedPv({ pvId, trigger: "auto" });
+          const anyFail =
+            res.client?.status === "failed" || res.company?.status === "failed";
+          if (anyFail) {
+            await recordProcessingError({
+              table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+              step: "send_signed_email",
+              error: res.client?.error || res.company?.error || "unknown",
+              meta: { client: res.client?.status, company: res.company?.status },
+              audit: { action: "pv.signed_email_failed", entityType: "pv" },
+            });
+          }
+        } catch (e) {
           await recordProcessingError({
             table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
             step: "send_signed_email",
-            error: res.client?.error || res.company?.error || "unknown",
-            meta: { client: res.client?.status, company: res.company?.status },
+            error: e,
             audit: { action: "pv.signed_email_failed", entityType: "pv" },
           });
         }
-      } catch (e) {
-        await recordProcessingError({
-          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
-          step: "send_signed_email",
-          error: e,
-          audit: { action: "pv.signed_email_failed", entityType: "pv" },
-        });
       }
     }
 
