@@ -1256,8 +1256,38 @@ function NewPv() {
 
               {currentStep.id === ID_APERCU && (
                 <>
-                  <SectionHeader icon={Eye} title="Récapitulatif avant validation" desc="Vérifiez les informations avant la signature." />
+                  <SectionHeader icon={Eye} title="Récapitulatif avant validation" desc="Vérifiez chaque ligne. Tout doit être vert avant signature." />
+
+                  {/* Checklist finale */}
+                  <FinalChecklist
+                    items={[
+                      { label: "Entreprise complète", ok: brandingComplete, hint: stepErrors[ID_ENTREPRISE], stepId: ID_ENTREPRISE },
+                      { label: "Client renseigné", ok: !stepErrors[ID_CLIENT], hint: stepErrors[ID_CLIENT], stepId: ID_CLIENT },
+                      { label: "Chantier et date renseignés", ok: !stepErrors[ID_CHANTIER], hint: stepErrors[ID_CHANTIER], stepId: ID_CHANTIER },
+                      { label: "Travaux décrits", ok: !stepErrors[ID_TRAVAUX], hint: stepErrors[ID_TRAVAUX], stepId: ID_TRAVAUX },
+                      { label: "Décision choisie", ok: !stepErrors[ID_DECISION], hint: stepErrors[ID_DECISION], stepId: ID_DECISION },
+                      ...(withReserves
+                        ? [{ label: "Au moins une réserve renseignée", ok: !stepErrors[ID_RESERVES], hint: stepErrors[ID_RESERVES], stepId: ID_RESERVES }]
+                        : []),
+                      { label: "Mode signature choisi", ok: !!signatureMode, hint: signatureMode ? null : "Choisissez le mode de signature.", stepId: ID_SIGNATURES },
+                      { label: "Signature entreprise validée", ok: !!companySignatureDataUrl, hint: companySignatureDataUrl ? null : "Validez la signature entreprise.", stepId: ID_SIGNATURES },
+                      ...(signatureMode === "remote"
+                        ? [{ label: "Email client renseigné", ok: !!onsiteOtpEmail.trim(), hint: onsiteOtpEmail.trim() ? null : "Renseignez l'email du client.", stepId: ID_SIGNATURES }]
+                        : []),
+                      ...(signatureMode === "onsite"
+                        ? [
+                            { label: "Signature client validée", ok: !!clientSignatureDataUrl, hint: clientSignatureDataUrl ? null : "Validez la signature client.", stepId: ID_SIGNATURES },
+                            { label: "Code OTP client validé", ok: onsiteOtpVerified, hint: onsiteOtpVerified ? null : "Confirmez le code client.", stepId: ID_SIGNATURES },
+                          ]
+                        : []),
+                      { label: "PDF généré après signature complète", ok: true, hint: null, info: "Le PDF n'est généré qu'une fois toutes les signatures collectées." },
+                      { label: "Email PDF envoyé automatiquement", ok: true, hint: null, info: "Le PDF est envoyé au client et à l'entreprise dès finalisation." },
+                    ]}
+                    onFix={(id) => { const i = STEPS.findIndex((s) => s.id === id); if (i >= 0) setStepIdx(i); }}
+                  />
+
                   <div className="grid gap-4 sm:grid-cols-2">
+
                     <RecapBlock title="Entreprise" lines={[branding?.name ?? "—", branding?.siret ? `SIRET ${branding.siret}` : ""]} />
                     <RecapBlock title="Client" lines={[clientObj?.name ?? form.new_client_name, clientObj?.email ?? form.new_client_email]} />
                     <RecapBlock title="Chantier" lines={[chantierObj?.name ?? "—", form.chantier_address, [form.chantier_postal_code, form.chantier_city].filter(Boolean).join(" ")]} />
