@@ -1947,13 +1947,15 @@ function WorkReferenceImport(props: {
         const detected = formatDetected(key, raw);
         if (!detected) return [];
         const current = currentValues[key] ?? "";
-        const tone: Row["tone"] =
-          !current.trim() ? "fill"
-          : current.trim() !== String(raw).trim() ? "diff"
-          : "neutral";
+        // Only show rows where there is a real conflict (existing value ≠ detected)
+        // or read-only display rows. Empty fields are auto-filled silently.
+        const isReadOnly = READONLY_FIELDS.has(key);
+        const hasConflict = current.trim() && current.trim() !== String(raw).trim();
+        if (!isReadOnly && !hasConflict) return [];
+        const tone: Row["tone"] = hasConflict ? "diff" : "neutral";
         return [{
           key, label: FIELD_LABELS[key], current, detected,
-          detectedRaw: String(raw), readOnly: READONLY_FIELDS.has(key), tone,
+          detectedRaw: String(raw), readOnly: isReadOnly, tone,
         }];
       })
     : [];
