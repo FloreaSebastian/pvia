@@ -917,33 +917,48 @@ function NewPv() {
                     companyId={activeCompanyId}
                     draftKey={draftKey}
                     extractFn={extractWorkRefFn}
-                    onApply={(extracted, mode) => {
+                    currentValues={{
+                      document_type: form.work_reference_type === "manuel" ? "" : form.work_reference_type,
+                      document_number: form.work_reference_number,
+                      document_date: form.work_reference_date,
+                      amount_ttc: form.work_reference_amount,
+                      amount_ht: "",
+                      vat_amount: "",
+                      client_name: form.new_client_name,
+                      client_email: form.new_client_email,
+                      client_phone: "",
+                      chantier_address: form.chantier_address,
+                      chantier_postal_code: form.chantier_postal_code,
+                      chantier_city: form.chantier_city,
+                      description: form.description,
+                    }}
+                    applyDetected={(updates) => {
                       setForm((f) => {
                         const next = { ...f };
-                        const apply = <K extends keyof typeof f>(key: K, val: unknown) => {
-                          if (val == null || val === "") return;
-                          const current = String(f[key] ?? "");
-                          if (mode === "empty" && current.trim()) return;
-                          (next as any)[key] = String(val);
-                        };
-                        if (extracted.document_type && ["devis", "bon_commande", "marche"].includes(extracted.document_type)) {
-                          if (mode !== "empty" || f.work_reference_type === "manuel") {
-                            next.work_reference_type = extracted.document_type as WorkRefType;
+                        for (const [k, v] of Object.entries(updates)) {
+                          if (v == null) continue;
+                          switch (k) {
+                            case "document_type":
+                              if (["devis", "bon_commande", "marche"].includes(v))
+                                next.work_reference_type = v as WorkRefType;
+                              break;
+                            case "document_number": next.work_reference_number = String(v); break;
+                            case "document_date": next.work_reference_date = String(v); break;
+                            case "amount_ttc": next.work_reference_amount = String(v); break;
+                            case "client_name": next.new_client_name = String(v); break;
+                            case "client_email": next.new_client_email = String(v); break;
+                            case "chantier_address": next.chantier_address = String(v); break;
+                            case "chantier_postal_code": next.chantier_postal_code = String(v); break;
+                            case "chantier_city": next.chantier_city = String(v); break;
+                            case "description": next.description = String(v); break;
+                            // amount_ht, vat_amount, client_phone: pas de champ formulaire mappé
                           }
                         }
-                        apply("work_reference_number", extracted.document_number);
-                        apply("work_reference_date", extracted.document_date);
-                        if (extracted.amount_ttc != null) apply("work_reference_amount", extracted.amount_ttc);
-                        apply("new_client_name", extracted.client_name);
-                        apply("new_client_email", extracted.client_email);
-                        apply("chantier_address", extracted.chantier_address);
-                        apply("chantier_postal_code", extracted.chantier_postal_code);
-                        apply("chantier_city", extracted.chantier_city);
-                        apply("description", extracted.description);
                         return next;
                       });
                     }}
                   />
+
 
                   <Field label="Type de référence">
                     <div className="grid gap-2 sm:grid-cols-4">
