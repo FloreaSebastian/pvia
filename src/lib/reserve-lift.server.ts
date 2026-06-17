@@ -168,12 +168,30 @@ export async function buildAndStoreReserveLiftPdf(
   let y = PAGE_H - MARGIN;
   let pageNum = 1;
 
+  const drawWatermark = (p: PDFPage) => {
+    if (!isInternal) return;
+    // Diagonal "DOCUMENT INTERNE" watermark, very low opacity, centered.
+    const text = "DOCUMENT INTERNE";
+    const size = 64;
+    const w = bold.widthOfTextAtSize(text, size);
+    p.drawText(text, {
+      x: (PAGE_W - w * Math.cos(Math.PI / 6)) / 2,
+      y: PAGE_H / 2 - 40,
+      size,
+      font: bold,
+      color: rgb(0.85, 0.15, 0.15),
+      opacity: 0.08,
+      rotate: { type: "degrees", angle: 30 } as any,
+    });
+  };
+
   const ensureSpace = (needed: number) => {
     if (y - needed < MARGIN + 30) {
       drawFooter();
       page = pdf.addPage([PAGE_W, PAGE_H]);
       pageNum += 1;
       y = PAGE_H - MARGIN;
+      drawWatermark(page);
     }
   };
   const drawFooter = () => {
@@ -182,6 +200,8 @@ export async function buildAndStoreReserveLiftPdf(
     page.drawText(`Levée ${sanitize(report.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
     page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
   };
+
+  drawWatermark(page);
 
   // HEADER
   page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: HEADER_BG });
