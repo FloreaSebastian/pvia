@@ -32,12 +32,19 @@ export const getChantierDetail = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const [chRes, evRes, ntRes, dcRes, pvRes] = await Promise.all([
+    const [chRes, evRes, ntRes, dcRes, pvRes, alRes] = await Promise.all([
       supabase.from("chantiers").select("*, client:clients(id,name,email,phone,address)").eq("id", data.id).eq("company_id", data.companyId).maybeSingle(),
       supabase.from("chantier_events").select("*").eq("chantier_id", data.id).order("start_at", { ascending: false, nullsFirst: false }).limit(200),
       supabase.from("chantier_notes").select("*").eq("chantier_id", data.id).order("created_at", { ascending: false }).limit(100),
       supabase.from("chantier_documents").select("*").eq("chantier_id", data.id).order("created_at", { ascending: false }).limit(100),
       supabase.from("pv").select("id,numero,status,type,created_at,signed_at,sent_to_client_at").eq("chantier_id", data.id).order("created_at", { ascending: false }).limit(50),
+      supabase.from("audit_logs")
+        .select("id,action,old_values,new_values,created_at")
+        .eq("company_id", data.companyId)
+        .eq("entity_type", "chantier")
+        .eq("entity_id", data.id)
+        .order("created_at", { ascending: false })
+        .limit(100),
     ]);
     if (!chRes.data) throw new Error("Chantier introuvable.");
     const events = evRes.data ?? [];
@@ -51,12 +58,26 @@ export const getChantierDetail = createServerFn({ method: "POST" })
     const last = events
       .filter((e) => e.start_at && new Date(e.start_at).getTime() < now)
       .sort((a, b) => new Date(b.start_at!).getTime() - new Date(a.start_at!).getTime())[0] ?? null;
+
+    // Reserves attached to any PV of this chantier
+    const pvIds = (pvRes.data ?? []).map((p) => p.id);
+    const rvRes = pvIds.length
+      ? await supabase
+          .from("pv_reserves")
+          .select("id,pv_id,description,severity,status,created_at,lifted_at,validated_at")
+          .in("pv_id", pvIds)
+          .order("created_at", { ascending: false })
+          .limit(200)
+      : { data: [] as Array<{ id: string; pv_id: string; description: string; severity: string; status: string; created_at: string; lifted_at: string | null; validated_at: string | null }> };
+
     return {
       chantier: chRes.data,
       events,
       notes: ntRes.data ?? [],
       documents: dcRes.data ?? [],
       pvs: pvRes.data ?? [],
+      reserves: rvRes.data ?? [],
+      auditLogs: alRes.data ?? [],
       stats: { total, done, progress, upcoming, last },
     };
   });
