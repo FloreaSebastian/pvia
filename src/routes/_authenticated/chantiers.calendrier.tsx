@@ -580,7 +580,6 @@ function ChantierCalendarPage() {
       else if (k === "m") { setView("month"); e.preventDefault(); }
       else if (k === "s") { setView("week"); e.preventDefault(); }
       else if (k === "j") { setView("day"); e.preventDefault(); }
-      else if (k === "l") { setView("list"); e.preventDefault(); }
       else if (k === "e") { setView("team"); e.preventDefault(); }
       else if (k === "n" && canWrite) { openNew(new Date()); e.preventDefault(); }
     }
