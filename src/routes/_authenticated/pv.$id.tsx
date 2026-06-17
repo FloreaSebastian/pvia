@@ -256,7 +256,28 @@ function PvDetail() {
       toast.error(e?.message || "Échec de l'envoi");
     } finally {
       setResendingLiftId(null);
+  }
+
+  async function exportLiftExpertise(reportId: string) {
+    setExportingLiftId(reportId);
+    try {
+      const r = await exportExpertiseFn({ data: { reportId } });
+      const bin = atob(r.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = r.fileName; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast.success(`Export expertise prêt (${r.photosTotal} photos${r.photosMissing ? `, ${r.photosMissing} manquantes` : ""}).`);
+    } catch (e: any) {
+      toast.error(e?.message || "Export indisponible");
+    } finally {
+      setExportingLiftId(null);
     }
+  }
+
   }
 
 
