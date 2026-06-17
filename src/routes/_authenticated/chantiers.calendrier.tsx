@@ -72,11 +72,26 @@ const TYPE_LABELS: Record<string, string> = {
   rappel: "Rappel administratif", debut_travaux: "Début travaux",
   retard: "Retard", remarque: "Remarque",
 };
-function colorOf(e: Evt): { bg: string; fg: string; key: ColorKey } {
-  const k: ColorKey = (e.color && COLORS.some((c) => c.key === e.color))
-    ? (e.color as ColorKey)
-    : (TYPE_TO_COLOR[e.event_type] ?? "blue");
-  const c = COLORS.find((c) => c.key === k)!;
+type ColorMode = "type" | "chantier";
+function hexToFg(hex: string): string {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return "#ffffff";
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  // YIQ luminance
+  return (r * 299 + g * 587 + b * 114) / 1000 >= 140 ? "#1f2937" : "#ffffff";
+}
+function colorOf(e: Evt, mode: ColorMode = "type"): { bg: string; fg: string; key: ColorKey } {
+  // Manual color on the event always wins.
+  if (e.color && COLORS.some((c) => c.key === e.color)) {
+    const c = COLORS.find((cc) => cc.key === e.color)!;
+    return { bg: c.bg, fg: c.fg, key: e.color as ColorKey };
+  }
+  // Chantier mode: use chantier's hex if available.
+  if (mode === "chantier" && e.chantier?.color && /^#[0-9a-f]{6}$/i.test(e.chantier.color)) {
+    return { bg: e.chantier.color, fg: hexToFg(e.chantier.color), key: "blue" };
+  }
+  const k: ColorKey = TYPE_TO_COLOR[e.event_type] ?? "blue";
+  const c = COLORS.find((cc) => cc.key === k)!;
   return { bg: c.bg, fg: c.fg, key: k };
 }
 
