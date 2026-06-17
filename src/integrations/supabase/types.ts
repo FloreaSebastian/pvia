@@ -1606,9 +1606,11 @@ export type Database = {
           assigned_to: string | null
           company_id: string | null
           created_at: string
+          deadline_reminder_count: number
           description: string
           due_date: string | null
           id: string
+          last_deadline_reminder_at: string | null
           lifted_at: string | null
           nature: string | null
           owner_id: string
@@ -1623,9 +1625,11 @@ export type Database = {
           assigned_to?: string | null
           company_id?: string | null
           created_at?: string
+          deadline_reminder_count?: number
           description: string
           due_date?: string | null
           id?: string
+          last_deadline_reminder_at?: string | null
           lifted_at?: string | null
           nature?: string | null
           owner_id: string
@@ -1640,9 +1644,11 @@ export type Database = {
           assigned_to?: string | null
           company_id?: string | null
           created_at?: string
+          deadline_reminder_count?: number
           description?: string
           due_date?: string | null
           id?: string
+          last_deadline_reminder_at?: string | null
           lifted_at?: string | null
           nature?: string | null
           owner_id?: string
@@ -1785,6 +1791,10 @@ export type Database = {
       }
       reserve_lift_reports: {
         Row: {
+          client_rejected_at: string | null
+          client_rejected_email: string | null
+          client_rejected_ip: string | null
+          client_rejected_reason: string | null
           client_signature: string | null
           client_validated_at: string | null
           client_validated_email: string | null
@@ -1808,6 +1818,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          client_rejected_at?: string | null
+          client_rejected_email?: string | null
+          client_rejected_ip?: string | null
+          client_rejected_reason?: string | null
           client_signature?: string | null
           client_validated_at?: string | null
           client_validated_email?: string | null
@@ -1831,6 +1845,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          client_rejected_at?: string | null
+          client_rejected_email?: string | null
+          client_rejected_ip?: string | null
+          client_rejected_reason?: string | null
           client_signature?: string | null
           client_validated_at?: string | null
           client_validated_email?: string | null
