@@ -73,7 +73,12 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
 
   const initial = (userEmail ?? "U").slice(0, 1).toUpperCase();
 
-  const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + "/");
+  const isActive = (to: string) => {
+    const p = location.pathname;
+    if (to === "/chantiers") return p === "/chantiers" || (p.startsWith("/chantiers/") && !p.startsWith("/chantiers/calendrier"));
+    return p === to || p.startsWith(to + "/");
+  };
+
 
   return (
     <div className="min-h-screen bg-muted/30">
