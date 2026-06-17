@@ -230,7 +230,7 @@ function ChantierDetailPage() {
   }
 
   const timeline = useMemo(() => d?.events ?? [], [d]);
-  const historyEvents = useMemo(() => timeline.filter((e) => e.event_type.startsWith("system_")), [timeline]);
+  
   const userEvents = useMemo(() => timeline.filter((e) => !e.event_type.startsWith("system_")), [timeline]);
 
   // Unified chronological timeline (P2.6): chantier creation + all events + PVs
