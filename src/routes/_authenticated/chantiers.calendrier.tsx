@@ -992,10 +992,11 @@ function fmtMin(min: number) {
 type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number; col: number; cols: number };
 
 function TimeGridView({
-  days, events, canWrite, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
+  days, events, canWrite, conflictIds, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
   memberName, chantierName, clientName,
 }: {
   days: Date[]; events: Evt[]; canWrite: boolean;
+  conflictIds: Set<string>;
   onCreateRange: (s: Date, e: Date) => void;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
