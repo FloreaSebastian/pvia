@@ -358,16 +358,26 @@ export const duplicateChantierEvent = createServerFn({ method: "POST" })
     const { data: src, error: errSrc } = await supabase.from("chantier_events")
       .select("*").eq("id", data.id).eq("company_id", data.companyId).maybeSingle();
     if (errSrc || !src) throw new Error("Événement source introuvable.");
-    const { id: _id, created_at: _c, updated_at: _u, reminder_sent_at: _r, resized_at: _rs, ...rest } = src as Record<string, unknown>;
-    void _id; void _c; void _u; void _r; void _rs;
     const { data: row, error } = await supabase.from("chantier_events").insert({
-      ...rest,
-      title: String(src.title ?? "") + " (copie)",
+      company_id: src.company_id,
+      chantier_id: src.chantier_id,
+      client_id: src.client_id,
       created_by: userId,
+      title: (src.title ?? "") + " (copie)",
+      description: src.description,
+      event_type: src.event_type,
+      status: src.status,
+      start_at: src.start_at,
+      end_at: src.end_at,
+      all_day: src.all_day,
+      assigned_to: src.assigned_to,
+      reminder_at: src.reminder_at,
+      location: src.location,
+      color: src.color,
+      color_source: src.color_source,
       duplicated_from_event_id: src.id,
-      reminder_sent_at: null,
-      resized_at: null,
     }).select("id").single();
+
     if (error || !row) throw new Error(error?.message ?? "Duplication impossible.");
     await writeAuditLog({
       companyId: data.companyId, userId,
