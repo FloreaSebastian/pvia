@@ -21,7 +21,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listChantierEvents, createChantierEvent, updateChantierEvent, deleteChantierEvent,
   listCompanyMembers, rescheduleChantierEvent, resizeChantierEvent, duplicateChantierEvent,
-  reassignChantierEvent, detectChantierEventConflicts,
+  reassignChantierEvent, detectChantierEventConflicts, logChantierEventConflictOverride,
 } from "@/lib/chantier-detail.functions";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
@@ -177,7 +177,8 @@ function ChantierCalendarPage() {
   const rescheduleFn = useServerFn(rescheduleChantierEvent);
   const resizeFn = useServerFn(resizeChantierEvent);
   const duplicateFn = useServerFn(duplicateChantierEvent);
-  const detectConflictsFn = useServerFn(detectChantierEventConflicts);
+ const detectConflictsFn = useServerFn(detectChantierEventConflicts);
+ const logConflictOverrideFn = useServerFn(logChantierEventConflictOverride);
   const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
 
   const range = useMemo(() => {
@@ -426,8 +427,16 @@ function ChantierCalendarPage() {
             proceed: async () => {
               setConfirmConflicts(null);
               await persistEvt(payload);
-              // best-effort audit hook (no dedicated endpoint, log to console for traceability)
-              console.info("[audit] chantier_event.conflict_override", { evtId: evtForm.id, member: evtForm.assigned_to, conflicts: r.conflicts.map((c) => c.id) });
+              try {
+                await logConflictOverrideFn({ data: {
+                  companyId: activeCompanyId,
+                  eventId: evtForm.id ?? null,
+                  conflictingEventIds: r.conflicts.map((c) => c.id),
+                  startAt: payload.start_at!,
+                  endAt: payload.end_at!,
+                  assignedTo: evtForm.assigned_to ?? null,
+                } });
+              } catch { /* non-blocking audit */ }
             },
           });
           return;
