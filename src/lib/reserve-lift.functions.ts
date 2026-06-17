@@ -52,6 +52,17 @@ const InputSchema = z.object({
   clientSignature: z.string().max(800_000).nullable().optional(),
 });
 
+/** Distance between two GPS points in meters (haversine). */
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+
 function validateSignature(raw: string | null | undefined): string | null {
   if (!raw) return null;
   if (raw.length > SIG_MAX_BYTES * 2) throw new Error("Signature trop volumineuse.");
