@@ -112,11 +112,14 @@ function LeveeReserves() {
   const [itemPhotosAfter, setItemPhotosAfter] = useState<Record<string, PhotoEntry[]>>({});
   const [globalComment, setGlobalComment] = useState("");
   const [requireClient, setRequireClient] = useState(false);
+  const [technicianName, setTechnicianName] = useState("");
+  const [includeTechnicianSig, setIncludeTechnicianSig] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const companySigRef = useRef<SignaturePad>(null);
   const clientSigRef = useRef<SignaturePad>(null);
+  const technicianSigRef = useRef<SignaturePad>(null);
 
   useEffect(() => {
     (async () => {
