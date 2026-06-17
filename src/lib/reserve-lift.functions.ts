@@ -27,12 +27,19 @@ const PhotoSchema = z.object({
   base64: z.string().min(1).max(6_000_000),
   mimeType: z.string().min(1).max(100),
   fileName: z.string().min(1).max(200),
+  photoType: z.enum(["before", "after"]).optional().default("after"),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  accuracy: z.number().min(0).max(1_000_000).nullable().optional(),
+  takenAt: z.string().datetime().nullable().optional(),
+  deviceInfo: z.string().max(500).nullable().optional(),
+  exifMetadata: z.record(z.string(), z.any()).nullable().optional(),
 });
 
 const ItemSchema = z.object({
   reserveId: z.string().uuid(),
   comment: z.string().max(2000).optional().default(""),
-  photos: z.array(PhotoSchema).max(PHOTO_MAX_COUNT).optional().default([]),
+  photos: z.array(PhotoSchema).max(PHOTO_MAX_COUNT * 2).optional().default([]),
 });
 
 const InputSchema = z.object({
@@ -166,6 +173,16 @@ export const createReserveLift = createServerFn({ method: "POST" })
     const { recordProcessingError, markPdfGenerationStatus } = await import("@/lib/processing-status.server");
     for (const item of data.items) {
       const photoPaths: string[] = [];
+      const photoRows: Array<{
+        path: string;
+        photoType: "before" | "after";
+        latitude: number | null;
+        longitude: number | null;
+        accuracy: number | null;
+        takenAt: string | null;
+        deviceInfo: string | null;
+        exifMetadata: Record<string, any> | null;
+      }> = [];
       for (const p of item.photos) {
         const declared = p.mimeType.toLowerCase();
         if (!PHOTO_ALLOWED_MIMES.has(declared)) {
@@ -180,7 +197,7 @@ export const createReserveLift = createServerFn({ method: "POST" })
           throw new Error(`Photo "${p.fileName}" : type incorrect.`);
         }
         const ext = sniffed === "image/jpeg" ? "jpg" : sniffed === "image/png" ? "png" : "webp";
-        const path = `${pv.company_id}/lifts/${reportId}/${item.reserveId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const path = `${pv.company_id}/lifts/${reportId}/${item.reserveId}-${p.photoType ?? "after"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const { error: upErr } = await supabaseAdmin.storage
           .from("pv-assets")
           .upload(path, bytes, { contentType: normMime(sniffed), upsert: false });
@@ -195,19 +212,29 @@ export const createReserveLift = createServerFn({ method: "POST" })
           continue;
         }
         photoPaths.push(path);
+        photoRows.push({
+          path,
+          photoType: (p.photoType ?? "after") as "before" | "after",
+          latitude: p.latitude ?? null,
+          longitude: p.longitude ?? null,
+          accuracy: p.accuracy ?? null,
+          takenAt: p.takenAt ?? null,
+          deviceInfo: p.deviceInfo ?? null,
+          exifMetadata: p.exifMetadata ?? null,
+        });
         void safeFilename(p.fileName);
       }
 
       const reserve = reserveById.get(item.reserveId)!;
-      const { error: itemErr } = await supabaseAdmin.from("reserve_lift_items").insert({
+      const { data: insertedItem, error: itemErr } = await supabaseAdmin.from("reserve_lift_items").insert({
         report_id: reportId,
         reserve_id: item.reserveId,
         old_status: reserve.status,
         new_status: "levee",
         comment: item.comment || null,
         photo_urls: photoPaths,
-      } as any);
-      if (itemErr) {
+      } as any).select("id").single();
+      if (itemErr || !insertedItem) {
         await recordProcessingError({
           table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
           step: "insert_lift_item",
@@ -215,8 +242,59 @@ export const createReserveLift = createServerFn({ method: "POST" })
           meta: { reserve_id: item.reserveId },
           audit: { action: "reserve_lift.item_insert_failed", entityType: "reserve_lift_item" },
         });
+        continue;
+      }
+
+      // Persist per-photo metadata in the dedicated table.
+      if (photoRows.length) {
+        const rowsToInsert = photoRows.map((row) => ({
+          company_id: pv.company_id,
+          pv_id: pv.id,
+          reserve_id: item.reserveId,
+          reserve_lift_item_id: insertedItem.id,
+          photo_url: row.path,
+          storage_path: row.path,
+          photo_type: row.photoType,
+          latitude: row.latitude,
+          longitude: row.longitude,
+          accuracy: row.accuracy,
+          taken_at: row.takenAt,
+          uploaded_by: userId,
+          device_info: row.deviceInfo,
+          exif_metadata: row.exifMetadata,
+        }));
+        const { error: phErr } = await supabaseAdmin.from("reserve_lift_item_photos" as any).insert(rowsToInsert as any);
+        if (phErr) {
+          await recordProcessingError({
+            table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+            step: "insert_lift_item_photos",
+            error: phErr,
+            meta: { reserve_id: item.reserveId, photo_count: photoRows.length },
+            audit: { action: "reserve_lift_photo.insert_failed", entityType: "reserve_lift_photo" },
+          });
+        } else {
+          // Audit per photo (geo recorded vs missing)
+          for (const row of photoRows) {
+            const geoRecorded = row.latitude !== null && row.longitude !== null;
+            await writeAuditLog({
+              companyId: pv.company_id,
+              userId,
+              pvId: pv.id,
+              entityType: "reserve_lift_photo",
+              entityId: item.reserveId,
+              action: geoRecorded ? "reserve_lift_photo.geo_recorded" : "reserve_lift_photo.geo_missing",
+              metadata: {
+                photo_type: row.photoType,
+                accuracy: row.accuracy,
+                report_id: reportId,
+              },
+              actor: "user",
+            });
+          }
+        }
       }
     }
+
 
     // 7. Update each reserve to status=levee — WF-M4.
     if (reserveIds.length) {
@@ -485,3 +563,135 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
     if (!res.ok) throw new Error(res.error || "Envoi échoué.");
     return { ok: true as const, recipient: res.recipient };
   });
+
+/**
+ * List photos (before/after) for a given reserve, with signed URLs.
+ * Company-scoped via RLS; signed URLs valid 1h.
+ * Falls back to legacy `reserve_lift_items.photo_urls` for items predating the dedicated table.
+ */
+export const listReserveLiftPhotos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ reserveId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: reserve } = await supabaseAdmin
+      .from("pv_reserves")
+      .select("id,company_id")
+      .eq("id", data.reserveId)
+      .maybeSingle();
+    if (!reserve?.company_id) throw new Error("Réserve introuvable.");
+
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("id")
+      .eq("company_id", reserve.company_id)
+      .eq("user_id", context.userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member) throw new Error("Accès refusé.");
+
+    const { data: rows } = await supabaseAdmin
+      .from("reserve_lift_item_photos" as any)
+      .select("id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,uploaded_at,uploaded_by,device_info")
+      .eq("reserve_id", data.reserveId)
+      .order("uploaded_at", { ascending: true });
+
+    const items: Array<{
+      id: string;
+      photoType: "before" | "after" | "legacy";
+      url: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      accuracy: number | null;
+      takenAt: string | null;
+      uploadedAt: string | null;
+      uploadedBy: string | null;
+      deviceInfo: string | null;
+    }> = [];
+
+    for (const r of (rows ?? []) as any[]) {
+      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.storage_path, 3600);
+      items.push({
+        id: r.id,
+        photoType: r.photo_type,
+        url: signed?.signedUrl ?? null,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        accuracy: r.accuracy,
+        takenAt: r.taken_at,
+        uploadedAt: r.uploaded_at,
+        uploadedBy: r.uploaded_by,
+        deviceInfo: r.device_info,
+      });
+    }
+
+    // Fallback : legacy photo_urls on items not yet migrated.
+    if (items.length === 0) {
+      const { data: legacyItems } = await supabaseAdmin
+        .from("reserve_lift_items")
+        .select("id,photo_urls")
+        .eq("reserve_id", data.reserveId);
+      for (const it of (legacyItems ?? []) as any[]) {
+        for (const p of (it.photo_urls ?? []) as string[]) {
+          const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(p, 3600);
+          items.push({
+            id: `${it.id}-${p}`,
+            photoType: "legacy",
+            url: signed?.signedUrl ?? null,
+            latitude: null, longitude: null, accuracy: null,
+            takenAt: null, uploadedAt: null, uploadedBy: null, deviceInfo: null,
+          });
+        }
+      }
+    }
+
+    return { photos: items };
+  });
+
+/**
+ * Delete a single reserve-lift photo. Managers/owners only.
+ * Cannot delete from a locked (signed) PV — trigger guards this.
+ */
+export const deleteReserveLiftPhoto = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ photoId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+    const { data: photo } = await supabaseAdmin
+      .from("reserve_lift_item_photos" as any)
+      .select("id,company_id,pv_id,reserve_id,storage_path,photo_type")
+      .eq("id", data.photoId)
+      .maybeSingle();
+    if (!photo) throw new Error("Photo introuvable.");
+
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("role")
+      .eq("company_id", (photo as any).company_id)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
+      throw new Error("Accès refusé.");
+    }
+
+    await supabaseAdmin.storage.from("pv-assets").remove([(photo as any).storage_path]).catch(() => {});
+    const { error: delErr } = await supabaseAdmin
+      .from("reserve_lift_item_photos" as any)
+      .delete()
+      .eq("id", data.photoId);
+    if (delErr) throw new Error(delErr.message);
+
+    await writeAuditLog({
+      companyId: (photo as any).company_id,
+      userId,
+      pvId: (photo as any).pv_id,
+      entityType: "reserve_lift_photo",
+      entityId: data.photoId,
+      action: "reserve_lift_photo.deleted",
+      metadata: { photo_type: (photo as any).photo_type, reserve_id: (photo as any).reserve_id },
+      actor: "user",
+    });
+
+    return { ok: true as const };
+  });
+

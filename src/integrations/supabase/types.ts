@@ -1748,6 +1748,95 @@ export type Database = {
         }
         Relationships: []
       }
+      reserve_lift_item_photos: {
+        Row: {
+          accuracy: number | null
+          company_id: string
+          created_at: string
+          device_info: string | null
+          exif_metadata: Json | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          photo_type: string
+          photo_url: string
+          pv_id: string
+          reserve_id: string
+          reserve_lift_item_id: string
+          storage_path: string
+          taken_at: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          accuracy?: number | null
+          company_id: string
+          created_at?: string
+          device_info?: string | null
+          exif_metadata?: Json | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          photo_type: string
+          photo_url: string
+          pv_id: string
+          reserve_id: string
+          reserve_lift_item_id: string
+          storage_path: string
+          taken_at?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          accuracy?: number | null
+          company_id?: string
+          created_at?: string
+          device_info?: string | null
+          exif_metadata?: Json | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          photo_type?: string
+          photo_url?: string
+          pv_id?: string
+          reserve_id?: string
+          reserve_lift_item_id?: string
+          storage_path?: string
+          taken_at?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reserve_lift_item_photos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reserve_lift_item_photos_pv_id_fkey"
+            columns: ["pv_id"]
+            isOneToOne: false
+            referencedRelation: "pv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reserve_lift_item_photos_reserve_id_fkey"
+            columns: ["reserve_id"]
+            isOneToOne: false
+            referencedRelation: "pv_reserves"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reserve_lift_item_photos_reserve_lift_item_id_fkey"
+            columns: ["reserve_lift_item_id"]
+            isOneToOne: false
+            referencedRelation: "reserve_lift_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reserve_lift_items: {
         Row: {
           comment: string | null
