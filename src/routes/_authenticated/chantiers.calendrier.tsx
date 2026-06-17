@@ -427,8 +427,16 @@ function ChantierCalendarPage() {
             proceed: async () => {
               setConfirmConflicts(null);
               await persistEvt(payload);
-              // best-effort audit hook (no dedicated endpoint, log to console for traceability)
-              console.info("[audit] chantier_event.conflict_override", { evtId: evtForm.id, member: evtForm.assigned_to, conflicts: r.conflicts.map((c) => c.id) });
+              try {
+                await logConflictOverrideFn({ data: {
+                  companyId: activeCompanyId,
+                  eventId: evtForm.id ?? null,
+                  conflictingEventIds: r.conflicts.map((c) => c.id),
+                  startAt: payload.start_at!,
+                  endAt: payload.end_at!,
+                  assignedTo: evtForm.assigned_to ?? null,
+                } });
+              } catch { /* non-blocking audit */ }
             },
           });
           return;
