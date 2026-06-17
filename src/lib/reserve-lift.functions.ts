@@ -156,6 +156,8 @@ export const createReserveLift = createServerFn({ method: "POST" })
           comment: data.comment || null,
           company_signature: companySig,
           client_signature: clientSig,
+          technician_signature: technicianSig,
+          technician_name: data.technicianName?.trim() || null,
           require_client_signature: data.requireClientSignature,
           signed_at: data.status === "signe" ? nowIso : null,
           created_by: userId,
