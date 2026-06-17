@@ -1783,13 +1783,14 @@ function TeamView({
 }
 
 function TeamDayView({
-  day, cols, events, canWrite, conflictIds, workloadMap,
+  day, cols, events, canWrite, conflictIds, workloadMap, hourPx,
   onClickEvent, onDblClickEvent, onCreateForMember, onReassign,
   chantierName, clientName, memberName,
 }: {
   day: Date; cols: Member[]; events: Evt[]; canWrite: boolean;
   conflictIds: Set<string>;
   workloadMap: Map<string, { min: number; count: number }>;
+  hourPx: number;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onCreateForMember: (memberId: string, start: Date) => void;
