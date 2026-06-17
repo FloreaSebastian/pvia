@@ -72,10 +72,10 @@ export const retryReserveLiftPdfGeneration = createServerFn({ method: "POST" })
     await assertMember(report.company_id, context.userId);
 
     const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
-    const { buildAndStoreReserveLiftPdf } = await import("@/lib/reserve-lift.server");
+    const { buildAndStoreReserveLiftPdfs } = await import("@/lib/reserve-lift.server");
     await markPdfGenerationStatus("reserve_lift_reports", report.id, "pending");
     try {
-      const path = await buildAndStoreReserveLiftPdf(report.id);
+      const { clientPath: path } = await buildAndStoreReserveLiftPdfs(report.id);
       await markPdfGenerationStatus("reserve_lift_reports", report.id, "ok");
       await writeAuditLog({
         companyId: report.company_id, userId: context.userId, pvId: report.pv_id,
