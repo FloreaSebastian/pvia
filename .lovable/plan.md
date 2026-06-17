@@ -1,73 +1,50 @@
-# Refonte module Réserves
+# Réserves dans PV — refonte intégrée
 
-Travail volumineux : DB, server functions, UI cartes/tableau, dashboard, export, notifications. Découpé en 3 lots livrables séquentiellement pour limiter la casse.
+Travail très volumineux. Je propose un plan découpé en 3 lots avec un scope réaliste pour cette passe (Lot 1 + Lot 2). Lot 3 (PDF + workflow complet validation client) sera livré ensuite.
 
-## Lot A — Base de données & sécurité (migration)
+## Lot 1 — Harmonisation & UI PV (livré cette passe)
 
-Ajouter à `pv_reserves` :
-- `assigned_to uuid` (référence `auth.users`)
-- `due_date date`
-- `priority text` (low / normal / high)
-- Étendre les statuts autorisés : `ouverte`, `en_cours`, `levee`, `en_attente_validation`, `validee`, `rejetee` (sans casser l'existant — `levee` et `validee` restent valides)
-- Index sur `(company_id, status)`, `(assigned_to)`, `(due_date)`
+**Statuts** : créer `src/lib/reserve-status.ts` (constantes + libellés + tons + helpers) et l'utiliser partout (`/reserves`, `/pv/:id`, `/pv/:id/levee-reserves`).
 
-Trigger notification :
-- À l'assignation → notif au responsable
-- À la création si assignée → notif
-- Au passage `levee` → notif owner PV
-- Au passage `validee` → notif owner PV
+**Section réserves dans `/pv/:id`** :
+- Masquer si aucune réserve
+- Carte enrichie par réserve : statut / gravité / priorité / responsable / échéance + badge retard / description / travaux / photos miniatures
+- Boutons : Lever (lien existant) / Assigner (modale partagée) / Détails (popover ou drawer)
 
-RLS : conserver, vérifier que `assigned_to` peut lire/modifier sa réserve.
+**Modal détail réserve** : nouveau composant `ReserveDetailDialog` qui affiche tous les champs, l'historique (lecture de `audit_logs` filtrés sur `entity_type=reserve` + `entity_id`), et les actions disponibles selon le rôle (assigner, en cours, lever, rejeter, en attente validation, valider).
 
-## Lot B — Server functions & sécurité rôles
+## Lot 2 — Server functions étendues + calendrier (livré cette passe)
 
-`src/lib/reserves.functions.ts` étendu :
-- `updateReserveStatus` — règles par rôle :
-  - `technicien` : peut passer `ouverte → en_cours → levee`
-  - `conducteur_travaux` / `responsable_exploitation` / `directeur` : tous statuts
-  - `assistant_admin` : lecture + suivi, pas de transition technique
-  - `lecture_seule` : aucune mutation
-- `assignReserve({ id, assignedTo, dueDate, priority })` — conducteur+
-- `bulkUpdateReserves` — actions groupées (status, assignation, échéance)
-- `exportReservesCsv` — retourne CSV string filtré
-- `deleteReserve` — directeur/responsable_exploitation uniquement, refus si PV signé (déjà en place, à conserver)
-- Audit : chaque action loggée
+**Server functions** (`src/lib/reserves.functions.ts`) :
+- Étendre `updateReserveStatus` :
+  - Technicien : peut passer `ouverte → en_cours → levee` UNIQUEMENT pour les réserves qui lui sont assignées
+  - Rejet (`rejetee`) requiert un motif (champ optionnel `reason`)
+- Nouvelle `rejectReserve({ id, reason })` — conducteur+
+- À l'assignation avec échéance → créer/mettre à jour un événement `chantier_events` (type `controle_qualite`, lié au responsable)
+- Au passage `validee` → marquer l'événement lié `termine`
+- Au passage `rejetee` → créer événement SAV
 
-## Lot C — UI `/reserves`
+**Notifications** : trigger SQL pour `reserve_lifted`, `reserve_validated`, `reserve_rejected` (assignment déjà fait au lot précédent).
 
-Refonte de `src/routes/_authenticated/reserves.tsx` :
+**Échéance proche/dépassée** : non livré ici (nécessite un cron job ; on a déjà le calcul côté UI).
 
-**Header dashboard** : 5 cartes cliquables (ouvertes / bloquantes / en retard / à valider / validées)
+## Lot 3 (HORS scope cette passe — à livrer ensuite)
 
-**Toolbar** :
-- Barre de recherche (description, nature, travaux, n° PV)
-- Filtres avancés : statut, gravité, échéance dépassée, PV, chantier, client
-- Filtres rapides (chips) : Ouvertes / Bloquantes / En retard / À lever / Validées
-- Switch vue cartes / tableau
-- Bouton Export CSV
+- Refonte PDF PV : ajouter colonnes statut/gravité/priorité/responsable/échéance/travaux
+- Refonte PDF levée : statut avant/après, photos avant/après, motif rejet
+- Flow validation client complet côté client.* (rejet avec motif, signature, etc.)
+- Cron job pour notifications "échéance proche/dépassée"
+- Templates email réserves (créés/levées/rejetées)
 
-**Vue cartes** enrichie :
-- Gravité + statut (badges colorés)
-- Description tronquée 2 lignes + "Voir plus"
-- PV / chantier / client
-- Échéance + badge retard
-- Responsable assigné
-- Actions : Lever, Voir PV, Assigner, Modifier échéance
+**Raison** : les PDF (`pdf.functions.ts` + templates) et le flow client (`client.pv.$id...tsx`, `client-reserve-lift.functions.ts`) sont chacun ~300-500 lignes à toucher et ont leur propre logique de rendu. Les inclure ferait exploser la passe et augmenterait fortement le risque de régression.
 
-**Vue tableau** : PV / Client / Chantier / Gravité / Statut / Échéance / Responsable / Actions
+## Livrables cette passe
 
-**Sélection multiple** + actions groupées (marquer levées, assigner, modifier échéance, export sélection)
+1. `src/lib/reserve-status.ts` (nouveau)
+2. `src/lib/reserves.functions.ts` (étendu : `rejectReserve`, technicien-assigné, event calendrier)
+3. `src/components/pv/ReserveDetailDialog.tsx` (nouveau)
+4. `src/routes/_authenticated/pv.$id.tsx` (section réserves enrichie)
+5. `src/routes/_authenticated/reserves.tsx` (utilise les helpers harmonisés)
+6. Migration SQL : trigger notifs `reserve_lifted` / `reserve_validated` / `reserve_rejected`, et création auto d'événement calendrier à l'assignation avec échéance
 
-**Modale d'assignation** : sélecteur membre actif de la company, datepicker, priorité
-
-## Hors scope (mentionné mais pas livré ici)
-
-- Modification des sections réserves dans `/pv/:id` (pas urgent, formulaire actuel fonctionne ; je ne touche qu'à `/reserves`)
-- Refonte du flow `levee-reserves` (existant, fonctionnel)
-- Notifications push (l'infra notifications DB existe déjà ; les triggers couvrent l'essentiel)
-
-## Livraison
-
-Je propose de livrer **les 3 lots en une seule passe** car ils sont fortement couplés (UI dépend des nouveaux champs et server functions). Risque : passe longue, mais cohérente.
-
-**Confirme-moi : on part en une passe, ou je découpe (Lot A seul d'abord, puis B+C) ?**
+Confirme : on part sur Lot 1 + Lot 2 cette passe, Lot 3 (PDF + flow client + cron) la passe suivante ?
