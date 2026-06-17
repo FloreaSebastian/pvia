@@ -1917,6 +1917,8 @@ export type Database = {
           require_client_signature: boolean
           signed_at: string | null
           status: string
+          technician_name: string | null
+          technician_signature: string | null
           updated_at: string
         }
         Insert: {
@@ -1948,6 +1950,8 @@ export type Database = {
           require_client_signature?: boolean
           signed_at?: string | null
           status?: string
+          technician_name?: string | null
+          technician_signature?: string | null
           updated_at?: string
         }
         Update: {
@@ -1979,6 +1983,8 @@ export type Database = {
           require_client_signature?: boolean
           signed_at?: string | null
           status?: string
+          technician_name?: string | null
+          technician_signature?: string | null
           updated_at?: string
         }
         Relationships: []
