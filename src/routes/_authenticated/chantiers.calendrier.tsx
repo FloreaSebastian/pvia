@@ -360,6 +360,23 @@ function ChantierCalendarPage() {
     setEvtOpen(true);
   }
 
+  async function persistEvt(payload: Record<string, unknown>) {
+    if (!activeCompanyId || !evtForm.chantier_id) return;
+    try {
+      if (evtForm.id) {
+        await updateEvtFn({ data: { companyId: activeCompanyId, id: evtForm.id, data: payload } });
+        toast.success("Événement mis à jour");
+      } else {
+        await createEvtFn({ data: { companyId: activeCompanyId, chantierId: evtForm.chantier_id, data: payload } });
+        toast.success("Événement créé");
+      }
+      setEvtOpen(false);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Échec");
+    }
+  }
+
   async function saveEvt(ev: React.FormEvent) {
     ev.preventDefault();
     if (!activeCompanyId || !evtForm.chantier_id) { toast.error("Choisissez un chantier."); return; }
@@ -376,20 +393,33 @@ function ChantierCalendarPage() {
       color: evtForm.color || "",
       color_source: evtForm.color_source,
     };
-    try {
-      if (evtForm.id) {
-        await updateEvtFn({ data: { companyId: activeCompanyId, id: evtForm.id, data: payload } });
-        toast.success("Événement mis à jour");
-      } else {
-        await createEvtFn({ data: { companyId: activeCompanyId, chantierId: evtForm.chantier_id, data: payload } });
-        toast.success("Événement créé");
-      }
-      setEvtOpen(false);
-      await load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Échec");
+    // Pre-save conflict detection (when assigned + dated + not cancelled)
+    if (evtForm.assigned_to && payload.start_at && payload.end_at && evtForm.status !== "annule") {
+      try {
+        const r = await detectConflictsFn({ data: {
+          companyId: activeCompanyId,
+          assigned_to: evtForm.assigned_to,
+          start_at: payload.start_at,
+          end_at: payload.end_at,
+          excludeId: evtForm.id ?? null,
+        } });
+        if (r.conflicts.length > 0) {
+          setConfirmConflicts({
+            list: r.conflicts as ConflictRow[],
+            proceed: async () => {
+              setConfirmConflicts(null);
+              await persistEvt(payload);
+              // best-effort audit hook (no dedicated endpoint, log to console for traceability)
+              console.info("[audit] chantier_event.conflict_override", { evtId: evtForm.id, member: evtForm.assigned_to, conflicts: r.conflicts.map((c) => c.id) });
+            },
+          });
+          return;
+        }
+      } catch { /* non-blocking */ }
     }
+    await persistEvt(payload);
   }
+
 
   async function removeEvt() {
     if (!activeCompanyId || !evtForm.id) return;
