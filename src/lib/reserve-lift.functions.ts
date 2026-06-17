@@ -2,6 +2,7 @@
  * Reserve-lift (levée de réserves) server functions.
  */
 import { createServerFn } from "@tanstack/react-start";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -85,7 +86,7 @@ export const createReserveLift = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!member || !["owner", "admin", "manager"].includes(member.role)) {
+    if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
       throw new Error("Accès refusé : seul un manager peut créer une levée de réserves.");
     }
 
@@ -403,7 +404,7 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!member || !["owner", "admin", "manager"].includes(member.role)) {
+    if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
       throw new Error("Accès refusé.");
     }
 
@@ -467,7 +468,7 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!member || !["owner", "admin", "manager"].includes(member.role)) {
+    if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
       throw new Error("Accès refusé.");
     }
 

@@ -1,8 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  isAdminRole,
+  isManageRole,
+  isOwnerRole,
+  type CompanyRoleValue,
+} from "@/lib/roles";
 
-export type CompanyRole = "owner" | "admin" | "manager" | "user";
+export type CompanyRole = CompanyRoleValue;
 export type Membership = {
   id: string;
   company_id: string;
@@ -71,9 +77,9 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   function can(action: "manage" | "admin" | "owner") {
     if (!activeRole) return false;
-    if (action === "owner") return activeRole === "owner";
-    if (action === "admin") return activeRole === "owner" || activeRole === "admin";
-    if (action === "manage") return activeRole !== "user";
+    if (action === "owner") return isOwnerRole(activeRole);
+    if (action === "admin") return isAdminRole(activeRole);
+    if (action === "manage") return isManageRole(activeRole);
     return false;
   }
 

@@ -12,6 +12,7 @@
  *  - Allowed manual transitions: brouillon ↔ archive.
  */
 import { createServerFn } from "@tanstack/react-start";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -45,7 +46,7 @@ export const updatePvStatus = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
     if (!m) throw new Error("Accès refusé.");
-    if (!["owner", "admin", "manager"].includes(m.role as string)) {
+    if (!(SIGN_ROLES as readonly string[]).includes(m.role as string as string)) {
       const err = new Error("Rôle insuffisant pour changer le statut.");
       (err as any).code = "ROLE_REQUIRED";
       throw err;

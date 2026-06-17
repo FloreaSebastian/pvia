@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { Check, Loader2, ExternalLink, CreditCard, AlertTriangle, Sparkles, Clock, AlertOctagon } from "lucide-react";
@@ -27,7 +28,7 @@ function BillingPage() {
   const portalFn = useServerFn(createPortalSession);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const canManage = activeRole === "owner" || activeRole === "admin";
+  const canManage = isAdminRole(activeRole);
   const env = getStripeEnvironment();
 
   async function handleUpgrade(targetPlan: "starter" | "pro" | "enterprise") {

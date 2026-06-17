@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -12,7 +13,7 @@ async function assertMember(companyId: string, userId: string) {
     .eq("user_id", userId)
     .eq("status", "active")
     .maybeSingle();
-  if (!m || !["owner", "admin", "manager"].includes((m as any).role)) {
+  if (!m || !(SIGN_ROLES as readonly string[]).includes((m as any).role)) {
     throw new Error("Accès refusé.");
   }
 }

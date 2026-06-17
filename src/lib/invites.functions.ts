@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -10,7 +11,13 @@ import { enforceRateLimit, getClientIp } from "./rate-limit.server";
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
   email: z.string().email().max(255),
-  role: z.enum(["admin", "manager", "user"]),
+  role: z.enum([
+    "responsable_exploitation",
+    "conducteur_travaux",
+    "technicien",
+    "assistant_admin",
+    "lecture_seule",
+  ]),
 });
 
 function renderEmail(opts: {
@@ -66,7 +73,7 @@ export const sendInvite = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
 
-    if (!membership || !["owner", "admin"].includes(membership.role)) {
+    if (!membership || !isAdminRole(membership.role)) {
       throw new Error("Vous n'avez pas les droits pour inviter des membres.");
     }
 

@@ -9,6 +9,7 @@
  * Recipients (in order): company owner email, company.email fallback.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { writeAuditLog } from "./audit.server";
 
 function escapeHtml(s: string) {
@@ -101,7 +102,7 @@ export async function sendPaymentFailedEmail(opts: {
     .from("company_members")
     .select("user_id")
     .eq("company_id", opts.companyId)
-    .eq("role", "owner")
+    .in("role", [...OWNER_ROLES])
     .eq("status", "active");
   let ownerEmails: string[] = [];
   if (owners && owners.length > 0) {

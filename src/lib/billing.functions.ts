@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -17,10 +18,10 @@ async function assertCompanyAdmin(companyId: string, userId: string) {
     .eq("user_id", userId)
     .eq("status", "active")
     .maybeSingle();
-  if (!data || !["owner", "admin"].includes(data.role)) {
+  if (!data || !isAdminRole(data.role)) {
     throw new Error("Seuls owner/admin peuvent gérer la facturation.");
   }
-  return data.role as "owner" | "admin";
+  return data.role as "directeur" | "responsable_exploitation";
 }
 
 async function assertCompanyMember(companyId: string, userId: string) {
@@ -158,7 +159,7 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
   .inputValidator((i) => GetSchema.parse(i))
   .handler(async ({ data, context }) => {
     const role = await assertCompanyMember(data.companyId, context.userId);
-    const isAdmin = role === "owner" || role === "admin";
+    const isAdmin = isAdminRole(role);
 
     const [planRes, limitsRes, subRes, pvCountRes, memberCountRes, access] = await Promise.all([
       supabaseAdmin.rpc("get_company_plan", { _company_id: data.companyId }),

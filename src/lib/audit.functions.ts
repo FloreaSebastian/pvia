@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -36,7 +37,7 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
   .inputValidator((i) => ListSchema.parse(i))
   .handler(async ({ data, context }) => {
     const { role } = await assertPvAccess(data.pvId, context.userId);
-    const canSeeDetails = role === "owner" || role === "admin";
+    const canSeeDetails = isAdminRole(role);
     const limit = data.limit ?? 50;
     const offset = data.offset ?? 0;
 
@@ -160,7 +161,7 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
   .inputValidator((i) => ExportSchema.parse(i))
   .handler(async ({ data, context }) => {
     const { pv, role } = await assertPvAccess(data.pvId, context.userId);
-    const canSeeDetails = role === "owner" || role === "admin";
+    const canSeeDetails = isAdminRole(role);
     if (!canSeeDetails) {
       throw new Error("Seuls owner et admin peuvent exporter l'historique complet.");
     }
@@ -334,7 +335,7 @@ export const listCompanyAuditLogs = createServerFn({ method: "POST" })
   .inputValidator((i) => ListCompanySchema.parse(i))
   .handler(async ({ data, context }) => {
     const { role } = await assertCompanyAccess(data.companyId, context.userId);
-    const canSeeDetails = role === "owner" || role === "admin";
+    const canSeeDetails = isAdminRole(role);
     const limit = data.limit ?? 50;
     const offset = data.offset ?? 0;
 
@@ -406,7 +407,7 @@ export const exportCompanyAuditPdf = createServerFn({ method: "POST" })
   .inputValidator((i) => ExportCompanySchema.parse(i))
   .handler(async ({ data, context }) => {
     const { role } = await assertCompanyAccess(data.companyId, context.userId);
-    if (role !== "owner" && role !== "admin") {
+    if (!isAdminRole(role)) {
       throw new Error("Seuls owner et admin peuvent exporter l'historique entreprise.");
     }
     const { assertSubscriptionUsable } = await import("./plan-guard.server");

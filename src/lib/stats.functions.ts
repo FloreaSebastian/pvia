@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -299,7 +300,7 @@ function escapeCsv(v: string | number | null | undefined): string {
 
 async function loadExportContext(input: StatsInput, userId: string) {
   const role = await assertMember(input.companyId, userId);
-  if (role !== "owner" && role !== "admin" && role !== "manager") {
+  if (!(SIGN_ROLES as readonly string[]).includes(role as string)) {
     throw new Error("Seuls owner, admin et manager peuvent exporter les statistiques.");
   }
   // Plan gate: advanced stats export is Pro/Enterprise

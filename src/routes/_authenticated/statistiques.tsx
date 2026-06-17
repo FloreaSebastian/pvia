@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -99,7 +100,7 @@ function StatistiquesPage() {
   const exportCsv = useServerFn(exportCompanyStatsCsv);
   const exportPdf = useServerFn(exportCompanyStatsPdf);
 
-  const canExport = activeRole === "owner" || activeRole === "admin" || activeRole === "manager";
+  const canExport = (SIGN_ROLES as readonly string[]).includes(activeRole as string);
 
   const [days, setDays] = useState<string>("30");
   const [from, setFrom] = useState<Date | undefined>();

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { type StripeEnv, verifyWebhook, priceToPlan, getStripeClient, assertStripeEnvConsistent, checkStripeEnv } from "@/lib/stripe.server";
 import { sendPaymentFailedEmail } from "@/lib/billing-email.server";
 
@@ -141,7 +142,7 @@ async function notifySubscriptionStatusChange(args: {
       .select("user_id")
       .eq("company_id", args.companyId)
       .eq("status", "active")
-      .in("role", ["owner", "admin"]);
+      .in("role", [...ADMIN_ROLES]);
     const rows = (members ?? [])
       .filter((m: any) => m.user_id)
       .map((m: any) => ({
