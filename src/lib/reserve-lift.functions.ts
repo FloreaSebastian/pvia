@@ -280,6 +280,9 @@ export const createReserveLift = createServerFn({ method: "POST" })
           uploaded_by: userId,
           device_info: row.deviceInfo,
           exif_metadata: row.exifMetadata,
+          file_hash: row.fileHash,
+          file_size: row.fileSize,
+          file_name: row.fileName,
         }));
         const { error: phErr } = await supabaseAdmin.from("reserve_lift_item_photos" as any).insert(rowsToInsert as any);
         if (phErr) {
