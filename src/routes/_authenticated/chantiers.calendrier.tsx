@@ -629,8 +629,48 @@ function ChantierCalendarPage() {
               ))}
             </div>
           )}
+
+          {/* Days selector (week / team-week) */}
+          {(view === "week" || (view === "team" && teamMode === "week")) && (
+            <div className="ml-2 inline-flex overflow-hidden rounded-md border border-border" title="Jours affichés dans la semaine">
+              {([5,6,7] as const).map((d) => (
+                <button key={d} onClick={() => setWeekDays(d)}
+                  className={cn("px-2 py-1.5 text-[11px] font-medium transition",
+                    weekDays === d ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted")}>
+                  {d}j
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Zoom (time grid views) */}
+          {(view === "week" || view === "day" || view === "custom" || view === "team") && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="ghost" className="ml-2 gap-1" title="Zoom">
+                  <ZoomIn className="h-3.5 w-3.5" /> {zoom === "compact" ? "Compact" : zoom === "confort" ? "Confort" : "Normal"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-44 p-1">
+                {(["compact","normal","confort"] as const).map((z) => (
+                  <button key={z} onClick={() => setZoom(z)}
+                    className={cn("flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted",
+                      zoom === z && "bg-primary/10 text-primary")}>
+                    <span className="capitalize">{z}</span>
+                    <span className="text-[11px] text-muted-foreground">{ZOOM_LEVELS[z]}px/h</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Fullscreen */}
+          <Button size="icon" variant="ghost" onClick={() => setFullscreen((v) => !v)} title={fullscreen ? "Quitter plein écran (Échap)" : "Plein écran"}>
+            {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
         </div>
       </Card>
+
 
       {view === "custom" && (
         <Card className="flex flex-wrap items-end gap-3 p-3">
