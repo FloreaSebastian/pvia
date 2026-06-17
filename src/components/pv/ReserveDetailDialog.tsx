@@ -72,14 +72,12 @@ export function ReserveDetailDialog({
   useEffect(() => {
     if (!open || !reserve) return;
     (async () => {
-      const { data } = await supabase
-        .from("audit_logs")
-        .select("id,action,created_at,metadata")
-        .eq("entity_type", "reserve")
-        .eq("entity_id", reserve.id)
-        .order("created_at", { ascending: false })
-        .limit(30);
-      setHistory((data ?? []) as AuditRow[]);
+      try {
+        const h = await historyFn({ data: { reserveId: reserve.id } });
+        setHistory(h.entries);
+      } catch {
+        setHistory([]);
+      }
       try {
         const res = await listPhotosFn({ data: { reserveId: reserve.id } });
         setPhotos(res.photos);
@@ -88,6 +86,7 @@ export function ReserveDetailDialog({
       }
     })();
   }, [open, reserve?.id]);
+
 
   if (!reserve) return null;
   const overdue = isReserveOverdue(reserve.due_date, reserve.status);
