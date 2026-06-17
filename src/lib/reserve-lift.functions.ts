@@ -365,7 +365,8 @@ export const createReserveLift = createServerFn({ method: "POST" })
     if (data.status === "signe") {
       await markPdfGenerationStatus("reserve_lift_reports", reportId, "pending");
       try {
-        pdfPath = await buildAndStoreReserveLiftPdf(reportId);
+        const built = await buildAndStoreReserveLiftPdfs(reportId);
+        pdfPath = built.clientPath;
         await markPdfGenerationStatus("reserve_lift_reports", reportId, "ok");
       } catch (e) {
         await markPdfGenerationStatus("reserve_lift_reports", reportId, "failed");
