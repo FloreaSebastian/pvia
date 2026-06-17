@@ -445,6 +445,16 @@ function ChantiersPage() {
                   </div>
                 )}
 
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>Avancement</span>
+                    <span className="tabular-nums">{c.progress_percent ?? 0}%</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, Math.min(100, c.progress_percent ?? 0))}%`, backgroundColor: c.color || "hsl(var(--primary))" }} />
+                  </div>
+                </div>
+
                 <div className="mt-auto flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1 text-xs text-primary opacity-70 group-hover:opacity-100">
                     Ouvrir la fiche <ArrowRight className="h-3 w-3" />
