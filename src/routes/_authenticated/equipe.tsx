@@ -35,6 +35,7 @@ import { useCompany, type CompanyRole } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { sendInvite } from "@/lib/invites.functions";
 import { logUserAction } from "@/lib/audit.functions";
+import { ROLE_META, ROLE_ORDER, isOwnerRole, type CompanyRoleValue } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/equipe")({
   component: TeamPage,
@@ -51,12 +52,20 @@ type Member = {
   profile?: { full_name: string | null } | null;
 };
 
-const ROLES: { value: CompanyRole; label: string; description: string }[] = [
-  { value: "owner", label: "Owner", description: "Accès total" },
-  { value: "admin", label: "Admin", description: "Tout sauf suppression entreprise" },
-  { value: "manager", label: "Manager", description: "Gère PV, clients, chantiers" },
-  { value: "user", label: "User", description: "Lecture + création PV" },
-];
+// Rôles disponibles à l'invitation / modification (le rôle Directeur ne se distribue pas).
+const ASSIGNABLE_ROLES: CompanyRoleValue[] = ROLE_ORDER.filter(
+  (r) => r !== "directeur",
+);
+
+function RoleBadge({ role }: { role: CompanyRoleValue }) {
+  const meta = ROLE_META[role];
+  return (
+    <Badge className={`gap-1 ${meta.badgeClass}`}>
+      <span aria-hidden>{meta.emoji}</span>
+      <span>{meta.short}</span>
+    </Badge>
+  );
+}
 
 function TeamPage() {
   const { activeCompanyId, can, activeRole } = useCompany();
@@ -64,7 +73,7 @@ function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<CompanyRole>("user");
+  const [inviteRole, setInviteRole] = useState<CompanyRoleValue>("technicien");
   const [sending, setSending] = useState(false);
   const sendInviteFn = useServerFn(sendInvite);
   const logAction = useServerFn(logUserAction);
@@ -81,8 +90,7 @@ function TeamPage() {
       .select("id,user_id,role,status,invited_email,created_at")
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: true });
-    const raw = (data as Member[]) ?? [];
-    // Fetch profiles separately
+    const raw = ((data as unknown) as Member[]) ?? [];
     const ids = raw.map((m) => m.user_id).filter((x): x is string => !!x);
     let profileMap: Record<string, string | null> = {};
     if (ids.length) {
@@ -112,16 +120,21 @@ function TeamPage() {
     if (!activeCompanyId) return;
     const email = inviteEmail.trim().toLowerCase();
     if (!email) return;
-    if (inviteRole === "owner") return toast.error("Impossible d'inviter un owner.");
+    if (isOwnerRole(inviteRole))
+      return toast.error("Impossible d'inviter un Directeur d'entreprise.");
     setSending(true);
     try {
       await sendInviteFn({
-        data: { companyId: activeCompanyId, email, role: inviteRole as "admin" | "manager" | "user" },
+        data: {
+          companyId: activeCompanyId,
+          email,
+          role: inviteRole as Exclude<CompanyRoleValue, "directeur">,
+        },
       });
       toast.success(`Invitation envoyée à ${email}`);
       setInviteOpen(false);
       setInviteEmail("");
-      setInviteRole("user");
+      setInviteRole("technicien");
       load();
     } catch (err: any) {
       toast.error(err?.message ?? "Échec de l'envoi de l'invitation");
@@ -130,67 +143,92 @@ function TeamPage() {
     }
   }
 
-
-  async function changeRole(id: string, role: CompanyRole) {
+  async function changeRole(id: string, role: CompanyRoleValue) {
     const prev = members.find((m) => m.id === id);
-    const { error } = await supabase.from("company_members").update({ role }).eq("id", id);
+    const { error } = await supabase
+      .from("company_members")
+      .update({ role })
+      .eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Rôle modifié");
     if (activeCompanyId && prev) {
-      logAction({ data: {
-        companyId: activeCompanyId, entityType: "member", entityId: id,
-        action: "member.role_changed",
-        oldValues: { role: prev.role },
-        newValues: { role },
-        metadata: { member: memberLabel(prev) },
-      } }).catch(() => {});
+      logAction({
+        data: {
+          companyId: activeCompanyId,
+          entityType: "member",
+          entityId: id,
+          action: "member.role_changed",
+          oldValues: { role: prev.role },
+          newValues: { role },
+          metadata: { member: memberLabel(prev) },
+        },
+      }).catch(() => {});
     }
     load();
   }
 
   async function toggleStatus(m: Member) {
     const next = m.status === "suspended" ? "active" : "suspended";
-    const { error } = await supabase.from("company_members").update({ status: next }).eq("id", m.id);
+    const { error } = await supabase
+      .from("company_members")
+      .update({ status: next })
+      .eq("id", m.id);
     if (error) return toast.error(error.message);
     toast.success(next === "suspended" ? "Membre suspendu" : "Membre réactivé");
     if (activeCompanyId) {
-      logAction({ data: {
-        companyId: activeCompanyId, entityType: "member", entityId: m.id,
-        action: next === "suspended" ? "member.suspended" : "member.reactivated",
-        oldValues: { status: m.status }, newValues: { status: next },
-        metadata: { member: memberLabel(m), role: m.role },
-      } }).catch(() => {});
+      logAction({
+        data: {
+          companyId: activeCompanyId,
+          entityType: "member",
+          entityId: m.id,
+          action: next === "suspended" ? "member.suspended" : "member.reactivated",
+          oldValues: { status: m.status },
+          newValues: { status: next },
+          metadata: { member: memberLabel(m), role: m.role },
+        },
+      }).catch(() => {});
     }
     load();
   }
 
   async function remove(m: Member) {
-    if (m.role === "owner") return toast.error("Impossible de retirer l'owner.");
+    if (isOwnerRole(m.role))
+      return toast.error("Impossible de retirer le Directeur d'entreprise.");
     if (!confirm("Retirer ce membre de l'entreprise ?")) return;
-    const { error } = await supabase.from("company_members").delete().eq("id", m.id);
+    const { error } = await supabase
+      .from("company_members")
+      .delete()
+      .eq("id", m.id);
     if (error) return toast.error(error.message);
     toast.success("Membre retiré");
     if (activeCompanyId) {
-      logAction({ data: {
-        companyId: activeCompanyId, entityType: "member", entityId: m.id,
-        action: "member.removed",
-        oldValues: { role: m.role, status: m.status, email: m.invited_email },
-        metadata: { member: memberLabel(m) },
-      } }).catch(() => {});
+      logAction({
+        data: {
+          companyId: activeCompanyId,
+          entityType: "member",
+          entityId: m.id,
+          action: "member.removed",
+          oldValues: { role: m.role, status: m.status, email: m.invited_email },
+          metadata: { member: memberLabel(m) },
+        },
+      }).catch(() => {});
     }
     load();
   }
 
   const isAdmin = can("admin");
+  const isDirecteur = isOwnerRole(activeRole);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-primary">Multi-utilisateurs</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-primary">
+            Multi-utilisateurs
+          </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Équipe</h1>
           <p className="text-sm text-muted-foreground">
-            Gérez les membres de votre entreprise, leurs rôles et leurs accès.
+            Gérez les membres, les rôles BTP et les accès de votre entreprise.
           </p>
         </div>
         {isAdmin && (
@@ -220,23 +258,39 @@ function TeamPage() {
                 </div>
                 <div>
                   <Label>Rôle</Label>
-                  <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as CompanyRole)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select
+                    value={inviteRole}
+                    onValueChange={(v) => setInviteRole(v as CompanyRoleValue)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {ROLES.filter((r) => r.value !== "owner" || activeRole === "owner").map((r) => (
-                        <SelectItem key={r.value} value={r.value}>
-                          <div>
-                            <div className="font-medium">{r.label}</div>
-                            <div className="text-[11px] text-muted-foreground">{r.description}</div>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {ASSIGNABLE_ROLES.map((r) => {
+                        const m = ROLE_META[r];
+                        return (
+                          <SelectItem key={r} value={r}>
+                            <div>
+                              <div className="font-medium">
+                                {m.emoji} {m.label}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground">
+                                {m.description}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={sending} className="shadow-brand">
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                    {sending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mail className="h-4 w-4" />
+                    )}
                     {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
                   </Button>
                 </DialogFooter>
@@ -265,7 +319,10 @@ function TeamPage() {
             <TableBody>
               {members.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={5}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
                     Aucun membre pour l'instant.
                   </TableCell>
                 </TableRow>
@@ -278,6 +335,10 @@ function TeamPage() {
                   .slice(0, 2)
                   .map((s) => s[0]?.toUpperCase() ?? "")
                   .join("");
+                const isDirectorMember = isOwnerRole(m.role);
+                // Un Directeur ne peut être modifié que par un autre Directeur,
+                // et son rôle n'est jamais éditable depuis ce tableau.
+                const canEditMember = isAdmin && !isDirectorMember;
                 return (
                   <TableRow key={m.id} className="group">
                     <TableCell>
@@ -288,37 +349,57 @@ function TeamPage() {
                         <div className="min-w-0">
                           <div className="truncate font-medium">{label}</div>
                           {m.invited_email && !m.user_id && (
-                            <div className="truncate text-xs text-muted-foreground">{m.invited_email}</div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {m.invited_email}
+                            </div>
                           )}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {isAdmin && m.role !== "owner" ? (
-                        <Select value={m.role} onValueChange={(v) => changeRole(m.id, v as CompanyRole)}>
-                          <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
+                      {canEditMember ? (
+                        <Select
+                          value={m.role}
+                          onValueChange={(v) =>
+                            changeRole(m.id, v as CompanyRoleValue)
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-44">
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
-                            {ROLES.filter((r) => r.value !== "owner").map((r) => (
-                              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                            ))}
+                            {ASSIGNABLE_ROLES.map((r) => {
+                              const meta = ROLE_META[r];
+                              return (
+                                <SelectItem key={r} value={r}>
+                                  {meta.emoji} {meta.short}
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Badge variant="secondary" className="gap-1">
-                          <Shield className="h-3 w-3" /> {m.role}
-                        </Badge>
+                        <RoleBadge role={m.role as CompanyRoleValue} />
                       )}
                     </TableCell>
                     <TableCell>
-                      {m.status === "active" && <Badge className="bg-success text-success-foreground hover:bg-success/90">Actif</Badge>}
-                      {m.status === "invited" && <Badge variant="outline">Invitation</Badge>}
-                      {m.status === "suspended" && <Badge variant="destructive">Suspendu</Badge>}
+                      {m.status === "active" && (
+                        <Badge className="bg-success text-success-foreground hover:bg-success/90">
+                          Actif
+                        </Badge>
+                      )}
+                      {m.status === "invited" && (
+                        <Badge variant="outline">Invitation</Badge>
+                      )}
+                      {m.status === "suspended" && (
+                        <Badge variant="destructive">Suspendu</Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {new Date(m.created_at).toLocaleDateString("fr-FR")}
                     </TableCell>
                     <TableCell className="text-right">
-                      {isAdmin && m.role !== "owner" && (
+                      {canEditMember && (
                         <div className="inline-flex opacity-60 transition group-hover:opacity-100">
                           <Button
                             size="icon"
@@ -332,9 +413,15 @@ function TeamPage() {
                               <UserX className="h-4 w-4 text-warning" />
                             )}
                           </Button>
-                          <Button size="icon" variant="ghost" onClick={() => remove(m)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {isDirecteur && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => remove(m)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       )}
                     </TableCell>
@@ -351,11 +438,20 @@ function TeamPage() {
           <Shield className="mt-0.5 h-5 w-5 text-primary" />
           <div className="text-sm">
             <p className="font-semibold">Rôles & permissions</p>
-            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-              <li>• <b className="text-foreground">Owner</b> — accès total, transfert et suppression d'entreprise.</li>
-              <li>• <b className="text-foreground">Admin</b> — gère membres, entreprise, données.</li>
-              <li>• <b className="text-foreground">Manager</b> — crée et modifie PV, clients, chantiers.</li>
-              <li>• <b className="text-foreground">User</b> — lecture + création de PV uniquement.</li>
+            <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+              {ROLE_ORDER.map((r) => {
+                const meta = ROLE_META[r];
+                return (
+                  <li key={r} className="flex items-start gap-2">
+                    <span aria-hidden className="mt-px">
+                      {meta.emoji}
+                    </span>
+                    <span>
+                      <b className="text-foreground">{meta.label}</b> — {meta.description}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
