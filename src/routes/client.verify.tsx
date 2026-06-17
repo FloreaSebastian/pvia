@@ -65,7 +65,7 @@ function ClientVerify() {
     }
     setLoading(true);
     try {
-      await verify({ data: { email, code: value } });
+      await verify({ data: { email, code: value, remember: getRememberMePreference() } });
       toast.success("Connexion réussie", { description: "Bienvenue dans votre espace." });
       navigate({ to: "/client/dashboard" });
     } catch (err: any) {
