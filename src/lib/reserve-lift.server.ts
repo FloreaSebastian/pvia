@@ -619,6 +619,10 @@ export async function buildAndStoreReserveLiftPdf(
     (report as any).client_validated_email ?? "",
     (report as any).client_validated_at ?? "",
     (report as any).client_validated_ip ?? "",
+    (report as any).client_signed_at ?? "",
+    (report as any).client_signature_ip ?? "",
+    (report as any).client_signature_user_agent ?? "",
+    (report as any).client_signature_consent_at ?? "",
   ].join("|");
   const evidenceBytes = new TextEncoder().encode(evidenceString);
   const evidenceHash = await sha256OfBytes(evidenceBytes);
