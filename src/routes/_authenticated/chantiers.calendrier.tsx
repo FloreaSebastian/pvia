@@ -385,6 +385,45 @@ function ChantierCalendarPage() {
           <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant"><ChevronRight className="h-4 w-4" /></Button>
           <div className="min-w-[180px] text-base font-semibold capitalize">{periodLabel}</div>
         </div>
+        <div className="flex flex-1 items-center gap-2 lg:max-w-md">
+          <Popover open={search.trim().length >= 2 && searchResults.length > 0} onOpenChange={(o) => { if (!o) setSearch(""); }}>
+            <PopoverTrigger asChild>
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher un chantier, client ou événement…"
+                  className="h-9 pl-8"
+                />
+              </div>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[min(420px,90vw)] p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <ul className="max-h-80 overflow-y-auto">
+                {searchResults.map((e) => {
+                  const c = colorOf(e);
+                  return (
+                    <li key={e.id}>
+                      <button type="button" onClick={() => jumpToEvent(e)}
+                        className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
+                        <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{e.title}</span>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {e.start_at ? new Date(e.start_at).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" }) : "—"}
+                            {e.start_at && !e.all_day && ` · ${fmtTime(new Date(e.start_at))}`}
+                            {e.chantier_id && ` · ${chantierName(e.chantier_id)}`}
+                            {e.client_id && ` · ${clientName(e.client_id)}`}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </PopoverContent>
+          </Popover>
+        </div>
         <div className="flex flex-wrap items-center gap-1">
           {(["month","week","day","list","custom"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)}
