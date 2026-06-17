@@ -89,6 +89,21 @@ function ChantierDetailPage() {
   const createDocFn = useServerFn(createChantierDocument);
   const deleteDocFn = useServerFn(deleteChantierDocument);
   const fetchMembers = useServerFn(listCompanyMembers);
+  const autoPlanFn = useServerFn(createChantierAutoPlanning);
+  const [autoPlanLoading, setAutoPlanLoading] = useState(false);
+
+  async function runAutoPlanning() {
+    if (!activeCompanyId) return;
+    if (!confirm("Créer un planning automatique (6 événements) ? Vous pourrez ensuite modifier chaque étape.")) return;
+    setAutoPlanLoading(true);
+    try {
+      const r = await autoPlanFn({ data: { companyId: activeCompanyId, chantierId: id } });
+      toast.success(`${r.count} événements créés`);
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Création impossible");
+    } finally { setAutoPlanLoading(false); }
+  }
 
   const [members, setMembers] = useState<{ user_id: string; name: string; role: string }[]>([]);
   const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
