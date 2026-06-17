@@ -21,6 +21,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listChantierEvents, createChantierEvent, updateChantierEvent, deleteChantierEvent,
   listCompanyMembers, rescheduleChantierEvent, resizeChantierEvent, duplicateChantierEvent,
+  reassignChantierEvent,
 } from "@/lib/chantier-detail.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
