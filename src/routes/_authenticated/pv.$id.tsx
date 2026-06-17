@@ -677,24 +677,29 @@ function PvDetail() {
         </Card>
       </div>
 
-      {photos.length > 0 && (
-        <Card className="p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <Camera className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold">Photos chantier ({photos.length})</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {photos.map((p) => (
-              <a key={p.id} href={p.signedUrl} target="_blank" rel="noreferrer" className="group block">
-                <div className="aspect-square overflow-hidden rounded-lg border border-border bg-muted">
-                  {p.signedUrl && <img src={p.signedUrl} alt={p.caption ?? ""} className="h-full w-full object-cover transition-transform group-hover:scale-105" />}
-                </div>
-                {p.caption && <p className="mt-1 truncate text-xs text-muted-foreground">{p.caption}</p>}
-              </a>
-            ))}
-          </div>
-        </Card>
-      )}
+      {(() => {
+        const globalPhotos = photos.filter((p) => !p.reserve_id);
+        if (globalPhotos.length === 0) return null;
+        return (
+          <Card className="p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Camera className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold">Photos chantier ({globalPhotos.length})</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {globalPhotos.map((p) => (
+                <a key={p.id} href={p.signedUrl} target="_blank" rel="noreferrer" className="group block">
+                  <div className="aspect-square overflow-hidden rounded-lg border border-border bg-muted">
+                    {p.signedUrl && <img src={p.signedUrl} alt={p.caption ?? ""} className="h-full w-full object-cover transition-transform group-hover:scale-105" />}
+                  </div>
+                  {p.caption && <p className="mt-1 truncate text-xs text-muted-foreground">{p.caption}</p>}
+                </a>
+              ))}
+            </div>
+          </Card>
+        );
+      })()}
+
 
       {(() => {
         const total = reserves.length;
