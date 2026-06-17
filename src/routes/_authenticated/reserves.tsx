@@ -3,9 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AlertCircle, ExternalLink, Trash2, Filter, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -79,114 +77,87 @@ function ReservesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Réserves de chantier"
-        description="Suivez et levez toutes les réserves liées à vos PV."
+        description={items.length > 0 ? `${counts.ouverte} ouverte(s) · ${counts.levee} levée(s) · ${counts.validee} validée(s)` : undefined}
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes ({counts.all})</SelectItem>
-                <SelectItem value="ouverte">Ouvertes ({counts.ouverte})</SelectItem>
-                <SelectItem value="levee">Levées ({counts.levee})</SelectItem>
-                <SelectItem value="validee">Validées ({counts.validee})</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          items.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={filter} onValueChange={setFilter}>
+                <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes ({counts.all})</SelectItem>
+                  <SelectItem value="ouverte">Ouvertes ({counts.ouverte})</SelectItem>
+                  <SelectItem value="levee">Levées ({counts.levee})</SelectItem>
+                  <SelectItem value="validee">Validées ({counts.validee})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        {[
-          { label: "Total", value: counts.all, tone: "neutral" as const },
-          { label: "Ouvertes", value: counts.ouverte, tone: "destructive" as const },
-          { label: "Levées", value: counts.levee, tone: "warning" as const },
-          { label: "Validées", value: counts.validee, tone: "success" as const },
-        ].map((s) => (
-          <Card key={s.label} className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
-              <StatusPill tone={s.tone} size="sm" dot>{s.value}</StatusPill>
-            </div>
-            <p className="mt-1 font-display text-2xl font-bold">{s.value}</p>
+      {filtered.length === 0 ? (
+        items.length === 0 ? (
+          <Card className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
+            <AlertCircle className="h-7 w-7 opacity-40" />
+            <p>Aucune réserve enregistrée pour l'instant.</p>
+            <p className="text-xs">Les réserves créées depuis vos PV apparaîtront ici.</p>
           </Card>
-        ))}
-      </div>
-
-      <Card className="p-0 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>PV</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Sévérité</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="py-16 text-center text-sm text-muted-foreground">
-                  <AlertCircle className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  Aucune réserve.
-                </TableCell>
-              </TableRow>
-            )}
-            {filtered.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell>
-                  <Link to="/pv/$id" params={{ id: r.pv_id }} className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
-                    {r.pv?.numero} <ExternalLink className="h-3 w-3" />
+        ) : (
+          <p className="px-1 text-xs text-muted-foreground">Aucun résultat pour ce filtre.</p>
+        )
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((r) => {
+            const statusLabel = r.status === "ouverte" ? "Ouverte" : r.status === "levee" ? "Levée" : "Validée";
+            const statusTone = r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning";
+            return (
+              <Card key={r.id} className="flex flex-col gap-2 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Link to="/pv/$id" params={{ id: r.pv_id }} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                    PV {r.pv?.numero} <ExternalLink className="h-3 w-3" />
                   </Link>
-                </TableCell>
-                <TableCell className="max-w-md">
-                  {r.nature && <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{r.nature}</div>}
-                  <div className="truncate">{r.description}</div>
-                  {r.work_to_execute && <div className="mt-0.5 truncate text-xs text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</div>}
-                  {r.due_date && <div className="mt-0.5 text-xs text-warning">Échéance : {new Date(r.due_date).toLocaleDateString("fr-FR")}</div>}
-                </TableCell>
-                <TableCell><StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill></TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
-                      <SelectTrigger className="h-8 w-44 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ouverte">Ouverte</SelectItem>
-                        <SelectItem value="levee">Levée par l'entreprise</SelectItem>
-                        <SelectItem value="validee">Validée par le client</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {r.lifted_at && <div className="text-[10px] text-muted-foreground">Levée : {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</div>}
-                    {r.validated_at && <div className="text-[10px] text-success">Validée client : {new Date(r.validated_at).toLocaleDateString("fr-FR")}</div>}
+                  <div className="flex items-center gap-1">
+                    <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"} size="sm">{r.severity}</StatusPill>
+                    <StatusPill tone={statusTone as any} size="sm" dot>{statusLabel}</StatusPill>
                   </div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString("fr-FR")}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {r.status === "ouverte" && (
-                      <Link to="/pv/$id/levee-reserves" params={{ id: r.pv_id }} search={{ reserveId: r.id }}>
-                        <Button size="sm" variant="outline" className="h-8">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Lever
-                        </Button>
-                      </Link>
-                    )}
-                    <Button size="icon" variant="ghost" onClick={() => remove(r.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+                </div>
+                {r.nature && <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{r.nature}</div>}
+                <p className="line-clamp-2 text-sm leading-snug">{r.description}</p>
+                {r.work_to_execute && (
+                  <p className="line-clamp-1 text-xs text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>
+                )}
+                {r.due_date && <p className="text-xs text-warning">Échéance : {new Date(r.due_date).toLocaleDateString("fr-FR")}</p>}
+                <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+                  <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
+                    <SelectTrigger className="h-8 flex-1 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ouverte">Ouverte</SelectItem>
+                      <SelectItem value="levee">Levée</SelectItem>
+                      <SelectItem value="validee">Validée client</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {r.status === "ouverte" && (
+                    <Link to="/pv/$id/levee-reserves" params={{ id: r.pv_id }} search={{ reserveId: r.id }}>
+                      <Button size="sm" variant="outline" className="h-8">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                      </Button>
+                    </Link>
+                  )}
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(r.id)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
