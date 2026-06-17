@@ -230,8 +230,39 @@ function ChantierDetailPage() {
   }
 
   const timeline = useMemo(() => d?.events ?? [], [d]);
-  const historyEvents = useMemo(() => timeline.filter((e) => e.event_type.startsWith("system_")), [timeline]);
+  
   const userEvents = useMemo(() => timeline.filter((e) => !e.event_type.startsWith("system_")), [timeline]);
+
+  // Unified chronological timeline (P2.6): chantier creation + all events + PVs
+  type TLItem = {
+    id: string; date: string; title: string; kind: "create" | "event" | "system" | "pv";
+    subtitle?: string; status?: string; tone?: "success" | "info" | "warning" | "neutral" | "danger";
+  };
+  const unifiedTimeline = useMemo<TLItem[]>(() => {
+    if (!d) return [];
+    const out: TLItem[] = [];
+    if (d.chantier.created_at) {
+      out.push({ id: `c-${d.chantier.id}`, date: d.chantier.created_at, title: "Chantier créé", kind: "create", subtitle: d.chantier.name, tone: "info" });
+    }
+    for (const e of timeline) {
+      const isSys = e.event_type.startsWith("system_");
+      out.push({
+        id: `e-${e.id}`,
+        date: e.start_at ?? e.created_at ?? new Date().toISOString(),
+        title: e.title,
+        kind: isSys ? "system" : "event",
+        subtitle: isSys ? undefined : evtLabel(e.event_type),
+        status: e.status,
+        tone: e.status === "termine" ? "success" : e.status === "annule" ? "danger" : isSys ? "neutral" : "info",
+      });
+    }
+    for (const p of d.pvs) {
+      out.push({ id: `pv-c-${p.id}`, date: p.created_at, title: `PV créé ${p.numero ?? ""}`.trim(), kind: "pv", subtitle: p.type, tone: "neutral" });
+      if (p.signed_at) out.push({ id: `pv-s-${p.id}`, date: p.signed_at, title: `PV signé ${p.numero ?? ""}`.trim(), kind: "pv", subtitle: p.type, tone: "success" });
+      if (p.sent_to_client_at) out.push({ id: `pv-x-${p.id}`, date: p.sent_to_client_at, title: `PV envoyé au client ${p.numero ?? ""}`.trim(), kind: "pv", tone: "info" });
+    }
+    return out.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [d, timeline]);
 
   if (loading && !d) return <div className="p-8 text-sm text-muted-foreground">Chargement…</div>;
   if (!d) return <div className="p-8 text-sm text-muted-foreground">Chantier introuvable.</div>;
@@ -480,21 +511,32 @@ function ChantierDetailPage() {
             )}
           </Card>
 
-          {/* Historique (system events + PVs) */}
+          {/* Activité — timeline unifiée (P2.6) */}
           <Card className="p-5">
-            <h2 className="mb-3 inline-flex items-center gap-2 text-base font-semibold"><Building2 className="h-4 w-4" /> Historique</h2>
-            {historyEvents.length + d.pvs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun événement automatique.</p>
+            <h2 className="mb-3 inline-flex items-center gap-2 text-base font-semibold"><Building2 className="h-4 w-4" /> Activité</h2>
+            {unifiedTimeline.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune activité.</p>
             ) : (
-              <ul className="space-y-2 text-xs">
-                {historyEvents.map((e) => (
-                  <li key={e.id} className="flex items-center gap-2 text-muted-foreground">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    <span className="flex-1 truncate">{e.title}</span>
-                    <span className="tabular-nums">{fmtDateTime(e.created_at)}</span>
+              <ol className="space-y-3">
+                {unifiedTimeline.slice(0, 50).map((it) => (
+                  <li key={it.id} className="flex items-start gap-2 text-xs">
+                    <span className={
+                      "mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full " +
+                      (it.tone === "success" ? "bg-success" :
+                       it.tone === "warning" ? "bg-warning" :
+                       it.tone === "danger" ? "bg-destructive" :
+                       it.tone === "info" ? "bg-primary" : "bg-muted-foreground")
+                    } />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-foreground">{it.title}</p>
+                      <p className="text-muted-foreground">
+                        {fmtDateTime(it.date)}
+                        {it.subtitle && <span> · {it.subtitle}</span>}
+                      </p>
+                    </div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             )}
           </Card>
         </div>

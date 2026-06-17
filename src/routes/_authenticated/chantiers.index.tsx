@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, ArrowRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, ArrowRight, Activity, CheckCircle2, Flag, AlertTriangle, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,14 +83,18 @@ function ChantiersPage() {
   const updateFn = useServerFn(updateChantierFn);
   const deleteFn = useServerFn(deleteChantierFn);
 
+  const [openReservesCount, setOpenReservesCount] = useState(0);
+
   async function load() {
     if (!activeCompanyId) return;
-    const [a, b] = await Promise.all([
+    const [a, b, r] = await Promise.all([
       supabase.from("chantiers").select("*").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
       supabase.from("clients").select("id,name").eq("company_id", activeCompanyId).order("name"),
+      supabase.from("pv_reserves").select("id", { count: "exact", head: true }).eq("company_id", activeCompanyId).eq("status", "ouverte"),
     ]);
     setItems((a.data as Chantier[]) ?? []);
     setClients((b.data as Client[]) ?? []);
+    setOpenReservesCount(r.count ?? 0);
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId]);
 
@@ -177,6 +181,20 @@ function ChantiersPage() {
     const base = { all: items.length, en_cours: 0, termine: 0, receptionne: 0 } as Record<string, number>;
     for (const c of items) base[c.status] = (base[c.status] ?? 0) + 1;
     return base;
+  }, [items]);
+
+  // P2.7 — dashboard chantier
+  const dashboard = useMemo(() => {
+    const now = Date.now();
+    let actifs = 0, receptionne = 0, termine = 0, enRetard = 0;
+    for (const c of items) {
+      if (c.status === "en_cours" || c.status === "en_attente") actifs++;
+      if (c.status === "receptionne") receptionne++;
+      if (c.status === "termine") termine++;
+      if (c.end_date && new Date(c.end_date).getTime() < now
+          && !["termine","receptionne","archive"].includes(c.status)) enRetard++;
+    }
+    return { actifs, receptionne, termine, enRetard };
   }, [items]);
 
   const filtered = useMemo(() => {
@@ -293,6 +311,35 @@ function ChantiersPage() {
           </div>
         }
       />
+
+      {/* Dashboard chantier (P2.7) */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {[
+          { key: "actifs", label: "Actifs", value: dashboard.actifs, icon: Activity, tone: "text-warning", filter: "en_cours" as const },
+          { key: "receptionne", label: "Réceptionnés", value: dashboard.receptionne, icon: CheckCircle2, tone: "text-success", filter: "receptionne" as const },
+          { key: "termine", label: "Terminés", value: dashboard.termine, icon: Flag, tone: "text-primary", filter: "termine" as const },
+          { key: "retard", label: "En retard", value: dashboard.enRetard, icon: AlertTriangle, tone: "text-destructive", filter: null },
+          { key: "reserves", label: "Réserves ouvertes", value: openReservesCount, icon: AlertCircle, tone: "text-warning", to: "/pv" as const },
+        ].map((s) => {
+          const Icon = s.icon;
+          const onClick = () => {
+            if ("to" in s && s.to) { navigate({ to: s.to }); return; }
+            if (s.filter) setStatusFilter(s.filter);
+          };
+          return (
+            <button key={s.key} type="button" onClick={onClick}
+              className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:shadow-brand hover:border-primary/40">
+              <span className={cn("grid h-10 w-10 place-items-center rounded-lg bg-muted", s.tone)}>
+                <Icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-2xl font-semibold leading-none tabular-nums">{s.value}</p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">{s.label}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Filter chips */}
       <div className="flex flex-wrap items-center gap-2">
