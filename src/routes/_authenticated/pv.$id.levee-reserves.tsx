@@ -82,6 +82,21 @@ async function readExif(file: File): Promise<Record<string, unknown> | null> {
   }
 }
 
+/** Convert exif into a JSON-safe object (Date → ISO string). Limits depth & keys. */
+function sanitizeExifForUpload(exif: Record<string, unknown> | null): Record<string, any> | null {
+  if (!exif) return null;
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(exif)) {
+    if (v == null) continue;
+    if (v instanceof Date) out[k] = v.toISOString();
+    else if (typeof v === "number" || typeof v === "string" || typeof v === "boolean") out[k] = v;
+    else if (typeof v === "object") {
+      try { out[k] = JSON.parse(JSON.stringify(v)); } catch { /* skip */ }
+    }
+  }
+  return out;
+}
+
 function LeveeReserves() {
   const { id: pvId } = Route.useParams();
   const search = Route.useSearch();
