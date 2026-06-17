@@ -13,6 +13,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { sendClientLoginCode, verifyClientLoginCode } from "@/lib/client-auth.functions";
+import { getRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
