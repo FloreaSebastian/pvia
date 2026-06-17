@@ -237,12 +237,11 @@ function LeveeReserves() {
           pvId,
           status,
           comment: globalComment,
-          requireClientSignature: requireClient,
+          requireClientSignature: false,
           items,
           companySignature: status === "signe" && !companySigRef.current?.isEmpty()
             ? companySigRef.current!.toDataURL("image/png") : null,
-          clientSignature: status === "signe" && !clientSigRef.current?.isEmpty()
-            ? clientSigRef.current!.toDataURL("image/png") : null,
+          clientSignature: null,
           technicianSignature: status === "signe" && includeTechnicianSig && !technicianSigRef.current?.isEmpty()
             ? technicianSigRef.current!.toDataURL("image/png") : null,
           technicianName: technicianName.trim() || null,
