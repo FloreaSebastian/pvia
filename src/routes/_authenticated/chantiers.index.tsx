@@ -406,8 +406,9 @@ function ChantiersPage() {
               <Card
                 key={c.id}
                 onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}
-                className="group relative flex cursor-pointer flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
+                className="group relative flex cursor-pointer flex-col gap-3 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
               >
+                {c.color && <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ backgroundColor: c.color }} />}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
