@@ -319,3 +319,62 @@ export const rescheduleChantierEvent = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+// ---------- resize (drag handle) ----------
+export const resizeChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    id: z.string().uuid(),
+    end_at: z.string(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { data: prev } = await supabase.from("chantier_events")
+      .select("end_at").eq("id", data.id).eq("company_id", data.companyId).maybeSingle();
+    if (!prev) throw new Error("Événement introuvable.");
+    const { error } = await supabase.from("chantier_events")
+      .update({ end_at: data.end_at, resized_at: new Date().toISOString(), reminder_sent_at: null })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId,
+      entityType: "chantier_event", entityId: data.id,
+      action: "chantier_event.resized",
+      oldValues: { end_at: prev.end_at },
+      newValues: { end_at: data.end_at },
+    });
+    return { ok: true };
+  });
+
+// ---------- duplicate ----------
+export const duplicateChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { data: src, error: errSrc } = await supabase.from("chantier_events")
+      .select("*").eq("id", data.id).eq("company_id", data.companyId).maybeSingle();
+    if (errSrc || !src) throw new Error("Événement source introuvable.");
+    const { id: _id, created_at: _c, updated_at: _u, reminder_sent_at: _r, resized_at: _rs, ...rest } = src as Record<string, unknown>;
+    void _id; void _c; void _u; void _r; void _rs;
+    const { data: row, error } = await supabase.from("chantier_events").insert({
+      ...rest,
+      title: String(src.title ?? "") + " (copie)",
+      created_by: userId,
+      duplicated_from_event_id: src.id,
+      reminder_sent_at: null,
+      resized_at: null,
+    }).select("id").single();
+    if (error || !row) throw new Error(error?.message ?? "Duplication impossible.");
+    await writeAuditLog({
+      companyId: data.companyId, userId,
+      entityType: "chantier_event", entityId: row.id as string,
+      action: "chantier_event.duplicated",
+      newValues: { source_id: src.id },
+    });
+    return { ok: true, id: row.id as string };
+  });
+
