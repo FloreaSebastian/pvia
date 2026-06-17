@@ -1510,7 +1510,8 @@ function TimeGridView({
                       className={cn(
                         "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
                         !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
-                        ann && "line-through opacity-60",
+                        ann && "line-through opacity-50",
+                        evt.status === "termine" && "opacity-80",
                         isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
                         conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
                       )}
@@ -1521,11 +1522,21 @@ function TimeGridView({
                         height: (liveHeight / 60) * hourPx - 2,
                         zIndex: isDragged ? 40 : 10,
                       }}>
-                      <div className="truncate">{evt.title}</div>
+                      <div className="flex items-center gap-1 truncate">
+                        {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                        {statusIcon(evt.status)}
+                        <span className="truncate">{evt.title}</span>
+                        {evt.assigned_to && liveHeight >= 50 && (
+                          <span className="ml-auto shrink-0 rounded-sm bg-white/25 px-1 text-[9px] font-bold">{initials(memberName(evt.assigned_to))}</span>
+                        )}
+                      </div>
                       {liveHeight >= 30 && (
                         <div className="truncate text-[10px] opacity-90">
                           {fmtMin(liveTop)} – {fmtMin(liveTop + liveHeight)}
                         </div>
+                      )}
+                      {liveHeight >= 64 && evt.chantier_id && (
+                        <div className="truncate text-[10px] opacity-80">{chantierName(evt.chantier_id)}</div>
                       )}
                       {/* resize handle */}
                       {!isSystem && canWrite && (
@@ -1535,6 +1546,7 @@ function TimeGridView({
                         />
                       )}
                     </div>
+
                   </HoverCardTrigger>
                   {!drag && (
                     <HoverCardContent side="right" align="start" className="w-72">
