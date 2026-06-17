@@ -580,14 +580,36 @@ export async function buildAndStoreReserveLiftPdf(
   proofField("a", "Email client verifie", (report as any).client_validated_email || client?.email || "-");
   proofField("a", "Identite verifiee le", formatDate((report as any).client_validated_at, true));
 
-  proofField("b", "Methode de signature", "Signature electronique simple — validation par lien email");
+  proofField("b", "Methode de signature", "Signature electronique simple — signature tactile + consentement explicite (eIDAS SES)");
   if (isInternal) {
-    proofField("b", "Adresse IP client", (report as any).client_validated_ip || "-");
+    proofField("b", "Adresse IP client", (report as any).client_signature_ip || (report as any).client_validated_ip || "-");
+    proofField("b", "User-Agent client", ((report as any).client_signature_user_agent || "-").slice(0, 80));
   }
   proofField("b", "Date de validation client", formatDate((report as any).client_validated_at, true));
+  proofField("b", "Date de signature client", formatDate((report as any).client_signed_at, true));
   proofField("b", "Signature client (entreprise)", report.client_signature ? "Signature collectee" : "-");
 
   y -= proofBoxH + 6;
+
+  // Internal-only: full consent text snapshot (eIDAS evidence).
+  if (isInternal && (report as any).client_signature_consent_text) {
+    const ct = sanitize(String((report as any).client_signature_consent_text));
+    const ctLines = wrapLines(helv, ct, 7.5, CONTENT_W - 12);
+    ensureSpace(ctLines.length * 10 + 24);
+    page.drawText("CONSENTEMENT CLIENT (TEXTE INTEGRAL)", { x: MARGIN, y, size: 7.5, font: bold, color: PRIMARY });
+    y -= 11;
+    page.drawText(
+      `Accepte le ${formatDate((report as any).client_signature_consent_at, true)}`,
+      { x: MARGIN, y, size: 7, font: helv, color: MUTED },
+    );
+    y -= 10;
+    for (const l of ctLines) {
+      page.drawText(l, { x: MARGIN, y, size: 7.5, font: helv, color: ACCENT });
+      y -= 10;
+    }
+    y -= 4;
+  }
+
 
   // Evidence fingerprint (deterministic hash of the proof bundle, not of the PDF bytes)
   const evidenceString = [
