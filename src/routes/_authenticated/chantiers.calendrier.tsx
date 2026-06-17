@@ -1073,7 +1073,39 @@ function ChantierCalendarPage() {
           onSaved={() => { setQuickEvt(null); void load(); }}
         />
       )}
+
+      {/* Conflict confirmation modal (pre-save) */}
+      <AlertDialog open={!!confirmConflicts} onOpenChange={(o) => { if (!o) setConfirmConflicts(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" /> Conflit de planning détecté
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Cet événement chevauche {confirmConflicts?.list.length ?? 0} autre{(confirmConflicts?.list.length ?? 0) > 1 ? "s" : ""} déjà assigné{(confirmConflicts?.list.length ?? 0) > 1 ? "s" : ""} à ce membre :
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="max-h-56 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-sm">
+            {confirmConflicts?.list.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-2 py-1">
+                <span className="truncate">{c.title}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {c.start_at ? new Date(c.start_at).toLocaleString("fr-FR", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" }) : "—"}
+                  {c.end_at ? ` – ${new Date(c.end_at).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" })}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { void confirmConflicts?.proceed(); }} className="bg-red-600 hover:bg-red-600/90">
+              Continuer quand même
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
 
