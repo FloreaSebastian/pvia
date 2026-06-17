@@ -87,7 +87,7 @@ export const getReserveHistory = createServerFn({ method: "POST" })
     // 2. Audit logs scoped to this reserve, plus lift events touching it, plus photo events.
     const { data: directAudits } = await supabaseAdmin
       .from("audit_logs")
-      .select("id,action,created_at,metadata,user_id,actor")
+      .select("id,action,created_at,metadata,user_id")
       .in("entity_type", ["reserve", "reserve_lift_photo"])
       .eq("entity_id", data.reserveId)
       .order("created_at", { ascending: false })
@@ -99,7 +99,7 @@ export const getReserveHistory = createServerFn({ method: "POST" })
         source: "audit",
         action: a.action,
         label: labelFor(a.action),
-        actor: a.actor ?? null,
+        actor: a.user_id ?? null,
         details: a.metadata?.report_id ? `Rapport ${String(a.metadata.report_id).slice(0, 8)}…` : null,
       });
     }
