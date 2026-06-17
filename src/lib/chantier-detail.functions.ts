@@ -530,6 +530,9 @@ export const getTeamWorkload = createServerFn({ method: "POST" })
   });
 
 // ---------- auto planning (P2.4) ----------
+// Marqueur stable pour détecter les événements créés par le planning auto
+// (évite d'ajouter une colonne dédiée à chantier_events).
+const AUTO_PLAN_MARKER = "[auto-planning]";
 const AUTO_PLAN_STEPS: { offsetDays: number; title: string; event_type: string; description: string }[] = [
   { offsetDays: 0,  title: "Visite technique",   event_type: "visite_technique",   description: "Visite technique initiale" },
   { offsetDays: 3,  title: "Validation devis",   event_type: "rappel",             description: "Validation du devis avec le client" },
@@ -545,6 +548,7 @@ export const createChantierAutoPlanning = createServerFn({ method: "POST" })
     companyId: z.string().uuid(),
     chantierId: z.string().uuid(),
     startDate: z.string().nullable().optional(),
+    replace: z.boolean().optional().default(false),
   }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -556,6 +560,39 @@ export const createChantierAutoPlanning = createServerFn({ method: "POST" })
       .eq("company_id", data.companyId)
       .maybeSingle();
     if (chErr || !ch) throw new Error("Chantier introuvable.");
+
+    // Anti-doublon : détecter un planning auto existant via marqueur dans la description
+    const { data: existing } = await supabase
+      .from("chantier_events")
+      .select("id")
+      .eq("company_id", data.companyId)
+      .eq("chantier_id", data.chantierId)
+      .like("description", `${AUTO_PLAN_MARKER}%`);
+    const existingCount = existing?.length ?? 0;
+
+    if (existingCount > 0 && !data.replace) {
+      await writeAuditLog({
+        companyId: data.companyId, userId,
+        entityType: "chantier", entityId: data.chantierId,
+        action: "chantier.auto_planning_blocked_duplicate",
+        metadata: { existing_count: existingCount },
+      });
+      throw new Error("AUTO_PLANNING_EXISTS");
+    }
+
+    if (existingCount > 0 && data.replace) {
+      const ids = (existing ?? []).map((e) => e.id);
+      const { error: delErr } = await supabase
+        .from("chantier_events").delete().in("id", ids).eq("company_id", data.companyId);
+      if (delErr) throw new Error(delErr.message);
+      await writeAuditLog({
+        companyId: data.companyId, userId,
+        entityType: "chantier", entityId: data.chantierId,
+        action: "chantier.auto_planning_replaced",
+        metadata: { deleted_count: ids.length },
+      });
+    }
+
     const baseStr = data.startDate || ch.start_date || new Date().toISOString();
     const base = new Date(baseStr);
     if (Number.isNaN(base.getTime())) throw new Error("Date de référence invalide.");
@@ -572,7 +609,7 @@ export const createChantierAutoPlanning = createServerFn({ method: "POST" })
         client_id: ch.client_id,
         created_by: userId,
         title: s.title,
-        description: s.description,
+        description: `${AUTO_PLAN_MARKER} ${s.description}`,
         event_type: s.event_type,
         status: "prevu" as const,
         start_at: start.toISOString(),
@@ -587,9 +624,10 @@ export const createChantierAutoPlanning = createServerFn({ method: "POST" })
       companyId: data.companyId, userId,
       entityType: "chantier", entityId: data.chantierId,
       action: "chantier.auto_planning_created",
-      metadata: { count: inserted?.length ?? 0, base: base.toISOString() },
+      metadata: { count: inserted?.length ?? 0, base: base.toISOString(), replaced: existingCount > 0 },
     });
-    return { ok: true, count: inserted?.length ?? 0 };
+    return { ok: true, count: inserted?.length ?? 0, replaced: existingCount > 0 };
   });
+
 
 
