@@ -454,6 +454,47 @@ export const detectChantierEventConflicts = createServerFn({ method: "POST" })
     return { conflicts };
   });
 
+// ---------- conflict override audit ----------
+export const logChantierEventConflictOverride = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    eventId: z.string().uuid().nullable().optional(),
+    conflictingEventIds: z.array(z.string().uuid()).default([]),
+    startAt: z.string(),
+    endAt: z.string(),
+    assignedTo: z.string().uuid().nullable().optional(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    if (data.eventId) {
+      const { data: evt } = await supabase
+        .from("chantier_events")
+        .select("id")
+        .eq("id", data.eventId)
+        .eq("company_id", data.companyId)
+        .maybeSingle();
+      if (!evt) throw new Error("Événement introuvable.");
+    }
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId,
+      entityType: "chantier_event",
+      entityId: data.eventId ?? null,
+      action: "chantier_event.conflict_override",
+      metadata: {
+        event_id: data.eventId ?? null,
+        conflicts_count: data.conflictingEventIds.length,
+        conflicting_event_ids: data.conflictingEventIds,
+        start_at: data.startAt,
+        end_at: data.endAt,
+        assigned_to: data.assignedTo ?? null,
+      },
+    });
+    return { ok: true };
+  });
+
 // ---------- team workload ----------
 export const getTeamWorkload = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
