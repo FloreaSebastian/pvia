@@ -359,13 +359,13 @@ function ClientLiftValidation({
             Je confirme que les réserves indiquées ont été levées et accepte la signature électronique de ce procès-verbal de levée. Cette signature a la même valeur juridique qu'une signature manuscrite.
           </span>
         </label>
-        <Button onClick={handleValidate} disabled={submitting || rejecting} size="lg" className="mt-4 w-full">
+        <Button onClick={handleValidate} disabled={submitting || rejecting || !consent} size="lg" className="mt-4 w-full">
           {submitting ? (
             <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
           ) : (
             <CheckCircle2 className="mr-1.5 h-4 w-4" />
           )}
-          {submitting ? "Validation en cours…" : "Valider la levée de réserves"}
+          {submitting ? "Validation en cours…" : "Valider et signer la levée"}
         </Button>
       </Card>
 
