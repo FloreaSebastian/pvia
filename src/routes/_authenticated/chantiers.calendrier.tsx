@@ -115,11 +115,16 @@ function ChantierCalendarPage() {
   const [fStatus, setFStatus] = useState("all");
   const [fAssigned, setFAssigned] = useState("all");
   const [fColor, setFColor] = useState("all");
+  const [fOnlyUnassigned, setFOnlyUnassigned] = useState(false);
+  const [fHideDone, setFHideDone] = useState(false);
+  const [fHideCancelled, setFHideCancelled] = useState(false);
+  const [teamMode, setTeamMode] = useState<TeamMode>("day");
 
   const fetchEvents = useServerFn(listChantierEvents);
   const createEvtFn = useServerFn(createChantierEvent);
   const updateEvtFn = useServerFn(updateChantierEvent);
   const deleteEvtFn = useServerFn(deleteChantierEvent);
+  const reassignFn = useServerFn(reassignChantierEvent);
   const fetchMembers = useServerFn(listCompanyMembers);
   const rescheduleFn = useServerFn(rescheduleChantierEvent);
   const resizeFn = useServerFn(resizeChantierEvent);
