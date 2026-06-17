@@ -183,6 +183,20 @@ function ChantiersPage() {
     return base;
   }, [items]);
 
+  // P2.7 — dashboard chantier
+  const dashboard = useMemo(() => {
+    const now = Date.now();
+    let actifs = 0, receptionne = 0, termine = 0, enRetard = 0;
+    for (const c of items) {
+      if (c.status === "en_cours" || c.status === "en_attente") actifs++;
+      if (c.status === "receptionne") receptionne++;
+      if (c.status === "termine") termine++;
+      if (c.end_date && new Date(c.end_date).getTime() < now
+          && !["termine","receptionne","archive"].includes(c.status)) enRetard++;
+    }
+    return { actifs, receptionne, termine, enRetard };
+  }, [items]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((c) => {
