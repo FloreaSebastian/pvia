@@ -1263,6 +1263,7 @@ function TimeGridView({
                         !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
                         ann && "line-through opacity-60",
                         isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                        conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
                       )}
                       style={{
                         background: c.bg, color: c.fg,
