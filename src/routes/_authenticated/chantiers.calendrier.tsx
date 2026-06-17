@@ -726,14 +726,55 @@ function ChantierCalendarPage() {
 }
 
 // ============= MONTH VIEW =============
+function EventHoverContent({ evt, memberName, chantierName, clientName }: {
+  evt: Evt;
+  memberName: (id: string | null | undefined) => string | null;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
+}) {
+  const c = colorOf(evt);
+  const start = evt.start_at ? new Date(evt.start_at) : null;
+  const end = evt.end_at ? new Date(evt.end_at) : null;
+  const assigned = memberName(evt.assigned_to);
+  return (
+    <div className="space-y-2 text-sm">
+      <div className="flex items-start gap-2">
+        <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold leading-tight">{evt.title}</p>
+          <p className="text-[11px] text-muted-foreground">{TYPE_LABELS[evt.event_type] ?? evt.event_type}</p>
+        </div>
+        <Badge variant="outline" className="capitalize">{evt.status.replace("_", " ")}</Badge>
+      </div>
+      {start && (
+        <p className="text-xs text-muted-foreground">
+          {start.toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
+          {!evt.all_day && ` · ${fmtTime(start)}${end ? ` – ${fmtTime(end)}` : ""}`}
+          {evt.all_day && " · journée entière"}
+        </p>
+      )}
+      {evt.chantier_id && <p className="text-xs"><span className="text-muted-foreground">Chantier :</span> {chantierName(evt.chantier_id)}</p>}
+      {evt.client_id && <p className="text-xs"><span className="text-muted-foreground">Client :</span> {clientName(evt.client_id)}</p>}
+      {assigned && <p className="text-xs"><span className="text-muted-foreground">Assigné :</span> {assigned}</p>}
+      {evt.location && <p className="text-xs"><span className="text-muted-foreground">Lieu :</span> {evt.location}</p>}
+      {evt.description && <p className="line-clamp-3 border-t border-border pt-1.5 text-xs text-muted-foreground">{evt.description}</p>}
+    </div>
+  );
+}
+
 function MonthView({
-  days, cursor, canWrite, onClickDay, onClickEvent, onMoveDay, eventsOn,
+  days, cursor, canWrite, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
+  memberName, chantierName, clientName,
 }: {
   days: Date[]; cursor: Date; canWrite: boolean;
-  onClickDay: (d: Date) => void;
+  onDblClickDay: (d: Date) => void;
   onClickEvent: (e: Evt) => void;
+  onDblClickEvent: (e: Evt) => void;
   onMoveDay: (d: Date, id: string) => void;
   eventsOn: (d: Date) => Evt[];
+  memberName: (id: string | null | undefined) => string | null;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -751,7 +792,7 @@ function MonthView({
           const isDropTarget = dragId && dragOverIdx === i;
           return (
             <div key={i}
-              onClick={() => canWrite && onClickDay(day)}
+              onDoubleClick={() => canWrite && onDblClickDay(day)}
               onDragOver={(e) => { if (canWrite && dragId) { e.preventDefault(); if (dragOverIdx !== i) setDragOverIdx(i); } }}
               onDragLeave={() => { if (dragOverIdx === i) setDragOverIdx(null); }}
               onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); setDragOverIdx(null); onMoveDay(day, id); } }}
@@ -768,17 +809,24 @@ function MonthView({
                   const ann = e.status === "annule";
                   const isDragged = dragId === e.id;
                   return (
-                    <div key={e.id}
-                      draggable={draggable}
-                      onDragStart={() => { if (draggable) setDragId(e.id); }}
-                      onDragEnd={() => { setDragId(null); setDragOverIdx(null); }}
-                      onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
-                      className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40")}
-                      style={{ background: c.bg, color: c.fg }}
-                      title={`${e.title}${e.start_at ? " · " + fmtTime(new Date(e.start_at)) : ""}`}>
-                      {e.start_at && !e.all_day && <span className="mr-1 opacity-90">{fmtTime(new Date(e.start_at))}</span>}
-                      {e.title}
-                    </div>
+                    <HoverCard key={e.id} openDelay={350} closeDelay={80}>
+                      <HoverCardTrigger asChild>
+                        <div
+                          draggable={draggable}
+                          onDragStart={() => { if (draggable) setDragId(e.id); }}
+                          onDragEnd={() => { setDragId(null); setDragOverIdx(null); }}
+                          onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
+                          onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
+                          className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40")}
+                          style={{ background: c.bg, color: c.fg }}>
+                          {e.start_at && !e.all_day && <span className="mr-1 opacity-90">{fmtTime(new Date(e.start_at))}</span>}
+                          {e.title}
+                        </div>
+                      </HoverCardTrigger>
+                      <HoverCardContent side="right" align="start" className="w-72">
+                        <EventHoverContent evt={e} memberName={memberName} chantierName={chantierName} clientName={clientName} />
+                      </HoverCardContent>
+                    </HoverCard>
                   );
                 })}
                 {dayEvts.length > 3 && <div className="px-1 text-[10px] text-muted-foreground">+ {dayEvts.length - 3} autres</div>}
