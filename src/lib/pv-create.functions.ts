@@ -179,15 +179,24 @@ export const createPv = createServerFn({ method: "POST" })
       normalizedPhotos = [];
     } else {
       // At least one reserve with a non-empty description is required.
-      // work_to_execute reste optionnel (validé par le schéma Zod en amont).
       const hasValid = normalizedReserves.some((r) => r.description.trim().length > 0);
       if (!hasValid) {
         throw new Error("Au moins une réserve avec description est requise.");
+      }
+      // Each reserve MUST carry at least one photo (legal proof).
+      for (let i = 0; i < normalizedReserves.length; i++) {
+        const r = normalizedReserves[i];
+        if (!r.photos || r.photos.length === 0) {
+          const err = new Error(`Réserve ${i + 1} : au moins une photo est obligatoire.`);
+          (err as any).code = "RESERVE_PHOTO_REQUIRED";
+          throw err;
+        }
       }
     }
     // Rebind for the rest of the handler.
     (data as { reserves: typeof normalizedReserves }).reserves = normalizedReserves;
     (data as { photos: typeof normalizedPhotos }).photos = normalizedPhotos;
+
 
     // 3. Validate signature payloads (PNG data URL)
     const sigOrNull = (raw: string | null | undefined): string | null => {
