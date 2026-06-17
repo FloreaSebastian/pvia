@@ -105,6 +105,10 @@ function ClientLiftDetail() {
             <Badge className="gap-1 bg-success/15 text-success hover:bg-success/15">
               <CheckCircle2 className="h-3.5 w-3.5" /> Validée le {new Date(report.client_validated_at!).toLocaleDateString("fr-FR")}
             </Badge>
+          ) : isRejected ? (
+            <Badge variant="destructive" className="gap-1">
+              <XCircle className="h-3.5 w-3.5" /> Rejetée le {new Date((report as any).client_rejected_at!).toLocaleDateString("fr-FR")}
+            </Badge>
           ) : (
             <Badge variant="outline">En attente de validation</Badge>
           )}
