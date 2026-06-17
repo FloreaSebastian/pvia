@@ -52,8 +52,11 @@ type CoreKpis = {
   avgDelayHours: number;
   reservesTotal: number;
   reservesOuverte: number;
+  reservesEnCours: number;
   reservesLevee: number;
+  reservesEnAttenteValidation: number;
   reservesValidee: number;
+  reservesRejetee: number;
   emailsSent: number;
   emailsFailed: number;
   photosTotal: number;
@@ -106,7 +109,9 @@ async function computeCoreKpis(
   let reserves = rrows ?? [];
   if (pvType && pvIds.length === 0) reserves = [];
   else if (pvType) reserves = reserves.filter((r) => pvIds.includes(r.pv_id as string));
-  const reservesByStatus = { ouverte: 0, levee: 0, validee: 0 } as Record<string, number>;
+  const reservesByStatus = {
+    ouverte: 0, en_cours: 0, levee: 0, en_attente_validation: 0, validee: 0, rejetee: 0,
+  } as Record<string, number>;
   for (const r of reserves) {
     const s = (r.status as string) ?? "ouverte";
     reservesByStatus[s] = (reservesByStatus[s] ?? 0) + 1;
@@ -148,8 +153,11 @@ async function computeCoreKpis(
       avgDelayHours: Math.round(avgDelayHours * 10) / 10,
       reservesTotal: reserves.length,
       reservesOuverte: reservesByStatus.ouverte,
+      reservesEnCours: reservesByStatus.en_cours,
       reservesLevee: reservesByStatus.levee,
+      reservesEnAttenteValidation: reservesByStatus.en_attente_validation,
       reservesValidee: reservesByStatus.validee,
+      reservesRejetee: reservesByStatus.rejetee,
       emailsSent,
       emailsFailed,
       photosTotal: photoRows.length,
@@ -272,9 +280,12 @@ export const getCompanyStats = createServerFn({ method: "POST" })
       previous,
       monthly,
       reservesByStatus: [
-        { name: "Ouvertes", value: current.kpis.reservesOuverte, key: "ouverte" },
-        { name: "Levées", value: current.kpis.reservesLevee, key: "levee" },
-        { name: "Validées", value: current.kpis.reservesValidee, key: "validee" },
+        { name: "Ouvertes", value: current.kpis.reservesOuverte, key: "ouverte", color: "#dc2626" },
+        { name: "En cours", value: current.kpis.reservesEnCours, key: "en_cours", color: "#f59e0b" },
+        { name: "Levées", value: current.kpis.reservesLevee, key: "levee", color: "#f59e0b" },
+        { name: "En attente validation", value: current.kpis.reservesEnAttenteValidation, key: "en_attente_validation", color: "#fbbf24" },
+        { name: "Validées client", value: current.kpis.reservesValidee, key: "validee", color: "#16a34a" },
+        { name: "Rejetées", value: current.kpis.reservesRejetee, key: "rejetee", color: "#6b7280" },
       ],
       reservesBySeverity: [
         { name: "Mineure", value: reservesBySeverity.mineure },
@@ -338,8 +349,11 @@ export const exportCompanyStatsCsv = createServerFn({ method: "POST" })
     rows.push(["Délai moyen signature (h)", k.avgDelayHours]);
     rows.push(["Réserves totales", k.reservesTotal]);
     rows.push(["Réserves ouvertes", k.reservesOuverte]);
+    rows.push(["Réserves en cours", k.reservesEnCours]);
     rows.push(["Réserves levées", k.reservesLevee]);
-    rows.push(["Réserves validées", k.reservesValidee]);
+    rows.push(["Réserves en attente validation", k.reservesEnAttenteValidation]);
+    rows.push(["Réserves validées client", k.reservesValidee]);
+    rows.push(["Réserves rejetées", k.reservesRejetee]);
     rows.push(["Emails envoyés", k.emailsSent]);
     rows.push(["Emails échoués", k.emailsFailed]);
     rows.push(["Photos ajoutées", k.photosTotal]);
@@ -431,8 +445,11 @@ export const exportCompanyStatsPdf = createServerFn({ method: "POST" })
       ["Délai moyen signature (h)", k.avgDelayHours, prev?.avgDelayHours],
       ["Réserves totales", k.reservesTotal, prev?.reservesTotal],
       ["Réserves ouvertes", k.reservesOuverte, prev?.reservesOuverte],
+      ["Réserves en cours", k.reservesEnCours, prev?.reservesEnCours],
       ["Réserves levées", k.reservesLevee, prev?.reservesLevee],
-      ["Réserves validées", k.reservesValidee, prev?.reservesValidee],
+      ["Réserves en attente validation", k.reservesEnAttenteValidation, prev?.reservesEnAttenteValidation],
+      ["Réserves validées client", k.reservesValidee, prev?.reservesValidee],
+      ["Réserves rejetées", k.reservesRejetee, prev?.reservesRejetee],
       ["Emails envoyés", k.emailsSent, prev?.emailsSent],
       ["Emails échoués", k.emailsFailed, prev?.emailsFailed],
       ["Photos ajoutées", k.photosTotal, prev?.photosTotal],

@@ -217,11 +217,50 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
     y -= 6;
   }
 
-  // Reserves lifted
+
+  // Reserves traitées — header + per-reserve cards with inline photos
   const items = (itemsRes.data ?? []) as any[];
   ensureSpace(40);
   page.drawText(`RESERVES TRAITEES (${items.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 16;
+
+  // Helper: render a photo grid into the current page at the current y
+  const renderPhotoGrid = async (paths: string[], label: string) => {
+    if (!paths.length) return;
+    const cols = 2;
+    const gap = 10;
+    const cellW = (CONTENT_W - 24 - gap * (cols - 1)) / cols;
+    const cellH = 110;
+
+    ensureSpace(16);
+    page.drawText(sanitize(label).toUpperCase(), { x: MARGIN + 12, y: y - 10, size: 7, font: bold, color: MUTED });
+    y -= 14;
+
+    let col = 0;
+    for (const p of paths.slice(0, 8)) {
+      const { data: f } = await supabaseAdmin.storage.from("pv-assets").download(p);
+      if (!f) continue;
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const t = detectImageType(bytes);
+      if (!t) continue;
+      if (col === 0) ensureSpace(cellH + 6);
+      const x = MARGIN + 12 + col * (cellW + gap);
+      try {
+        const img = t === "png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+        const ratio = img.width / img.height;
+        let w = cellW, h = cellW / ratio;
+        if (h > cellH) { h = cellH; w = cellH * ratio; }
+        const offX = x + (cellW - w) / 2;
+        const offY = y - cellH + (cellH - h) / 2;
+        page.drawRectangle({ x, y: y - cellH, width: cellW, height: cellH, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
+        page.drawImage(img, { x: offX, y: offY, width: w, height: h });
+      } catch { /* skip */ }
+      col++;
+      if (col >= cols) { col = 0; y -= cellH + 8; }
+    }
+    if (col !== 0) y -= cellH + 8;
+  };
+
   for (const item of items) {
     const reserve = reserveMap.get(item.reserve_id);
     const desc = reserve?.description ?? "(réserve supprimée)";
@@ -230,19 +269,53 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
     const sevLabel = reserve?.severity ? (RESERVE_SEVERITY_LABEL[reserve.severity] ?? reserve.severity) : "";
     const isRejected = item.new_status === "rejetee";
     const accentColor = isRejected ? rgb(0.80, 0.10, 0.10) : rgb(0.13, 0.6, 0.3);
+    const cardBg = isRejected ? rgb(1, 0.98, 0.98) : rgb(0.99, 1, 0.99);
 
-    const lines = wrapLines(helv, desc, 9, CONTENT_W - 24);
-    const cLines = item.comment ? wrapLines(helv, `Commentaire : ${item.comment}`, 8.5, CONTENT_W - 24) : [];
-    const headerLine = `${sevLabel ? sevLabel.toUpperCase() + " - " : ""}${oldLabel} → ${newLabel}`;
-    const h = Math.max(48, lines.length * 12 + cLines.length * 11 + 32);
-    ensureSpace(h + 6);
-    page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, borderColor: BORDER, borderWidth: 0.5, color: isRejected ? rgb(1, 0.98, 0.98) : rgb(0.99, 1, 0.99) });
-    page.drawRectangle({ x: MARGIN, y: y - h, width: 3, height: h, color: accentColor });
-    page.drawText(sanitize(headerLine), { x: MARGIN + 12, y: y - 14, size: 7.5, font: bold, color: accentColor });
-    let yy = y - 28;
-    for (const l of lines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 9, font: helv, color: ACCENT }); yy -= 12; }
-    for (const l of cLines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 8.5, font: helv, color: MUTED }); yy -= 11; }
-    y -= h + 6;
+    // --- Header strip per reserve (status transition badge) ---
+    ensureSpace(28);
+    page.drawRectangle({ x: MARGIN, y: y - 22, width: CONTENT_W, height: 22, color: cardBg, borderColor: BORDER, borderWidth: 0.5 });
+    page.drawRectangle({ x: MARGIN, y: y - 22, width: 3, height: 22, color: accentColor });
+    page.drawText(
+      sanitize(`${sevLabel ? sevLabel.toUpperCase() + " - " : ""}${oldLabel} → ${newLabel}`),
+      { x: MARGIN + 12, y: y - 14, size: 8, font: bold, color: accentColor },
+    );
+    y -= 26;
+
+    // --- Description + comment + (optional) rejection reason ---
+    const descLines = wrapLines(helv, desc, 9, CONTENT_W - 24);
+    ensureSpace(descLines.length * 12 + 6);
+    for (const l of descLines) {
+      page.drawText(l, { x: MARGIN + 12, y: y - 10, size: 9, font: helv, color: ACCENT });
+      y -= 12;
+    }
+
+    if (item.comment) {
+      const label = isRejected ? "Motif du rejet" : "Commentaire d'intervention";
+      const cLines = wrapLines(helv, item.comment, 8.5, CONTENT_W - 36);
+      ensureSpace(cLines.length * 11 + 14);
+      page.drawText(`${label} :`, { x: MARGIN + 12, y: y - 10, size: 8, font: bold, color: isRejected ? rgb(0.80, 0.10, 0.10) : MUTED });
+      y -= 12;
+      for (const l of cLines) {
+        page.drawText(l, { x: MARGIN + 24, y: y - 10, size: 8.5, font: helv, color: ACCENT });
+        y -= 11;
+      }
+    }
+
+    // --- Photos (intervention) — rendered per reserve ---
+    const photoPaths: string[] = item.photo_urls ?? [];
+    if (photoPaths.length) {
+      y -= 4;
+      const label = isRejected ? "Photos justificatives" : "Photos après intervention";
+      await renderPhotoGrid(photoPaths, `${label} (${photoPaths.length})`);
+    } else if (!isRejected) {
+      ensureSpace(14);
+      page.drawText("Aucune photo jointe pour cette intervention.", { x: MARGIN + 12, y: y - 10, size: 8, font: helv, color: MUTED });
+      y -= 14;
+    }
+
+    y -= 10;
+    page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.3, color: BORDER });
+    y -= 8;
   }
   if (!items.length) {
     ensureSpace(28);
@@ -251,41 +324,6 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   }
   y -= 6;
 
-
-  // Photos
-  const allPhotoPaths: string[] = ((itemsRes.data ?? []) as any[]).flatMap((i) => i.photo_urls ?? []);
-  if (allPhotoPaths.length) {
-    ensureSpace(40);
-    page.drawText(`PHOTOS JUSTIFICATIVES (${allPhotoPaths.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
-    y -= 16;
-    const cols = 2;
-    const gap = 12;
-    const cellW = (CONTENT_W - gap * (cols - 1)) / cols;
-    const cellH = 150;
-    let col = 0;
-    for (const p of allPhotoPaths.slice(0, 12)) {
-      const { data: f } = await supabaseAdmin.storage.from("pv-assets").download(p);
-      if (!f) continue;
-      const bytes = new Uint8Array(await f.arrayBuffer());
-      const t = detectImageType(bytes);
-      if (!t) continue;
-      if (col === 0) ensureSpace(cellH + 28);
-      const x = MARGIN + col * (cellW + gap);
-      try {
-        const img = t === "png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
-        const ratio = img.width / img.height;
-        let w = cellW, h = cellW / ratio;
-        if (h > cellH) { h = cellH; w = cellH * ratio; }
-        const offX = x + (cellW - w) / 2;
-        const offY = y - cellH + (cellH - h) / 2;
-        page.drawRectangle({ x, y: y - cellH, width: cellW, height: cellH, borderColor: BORDER, borderWidth: 0.5 });
-        page.drawImage(img, { x: offX, y: offY, width: w, height: h });
-      } catch { /* skip */ }
-      col++;
-      if (col >= cols) { col = 0; y -= cellH + 24; }
-    }
-    if (col !== 0) y -= cellH + 24;
-  }
 
   // Comment
   if (report.comment) {
