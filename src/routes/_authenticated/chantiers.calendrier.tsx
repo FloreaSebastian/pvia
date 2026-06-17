@@ -1716,7 +1716,7 @@ function fmtHrs(min: number) {
 }
 
 function TeamView({
-  mode, cursor, members, events, canWrite, conflictIds,
+  mode, cursor, members, events, canWrite, conflictIds, weekDays, hourPx,
   onClickEvent, onDblClickEvent, onCreateForMember, onReassign,
   chantierName, clientName, memberName,
 }: {
@@ -1726,6 +1726,8 @@ function TeamView({
   events: Evt[];
   canWrite: boolean;
   conflictIds: Set<string>;
+  weekDays: WeekDays;
+  hourPx: number;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onCreateForMember: (memberId: string, start: Date) => void;
@@ -1734,16 +1736,14 @@ function TeamView({
   clientName: (id: string | null | undefined) => string;
   memberName: (id: string | null | undefined) => string | null;
 }) {
-  // Columns: members + Non assigné
   const cols = useMemo<Member[]>(
     () => [...members, { user_id: UNASSIGNED, name: "Non assigné" }],
     [members],
   );
 
-  // Workload computation (per member, scope = current view)
   const workloadMap = useMemo(() => {
     const map = new Map<string, { min: number; count: number }>();
-    const days = mode === "day" ? [cursor] : Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i));
+    const days = mode === "day" ? [cursor] : Array.from({ length: weekDays }, (_, i) => addDays(startOfWeek(cursor), i));
     for (const e of events) {
       if (!e.start_at || e.status === "annule" || e.event_type.startsWith("system_")) continue;
       const s = new Date(e.start_at);
@@ -1756,7 +1756,7 @@ function TeamView({
       map.set(key, prev);
     }
     return map;
-  }, [events, mode, cursor]);
+  }, [events, mode, cursor, weekDays]);
 
   if (cols.length === 0) {
     return <Card className="p-8 text-center text-sm text-muted-foreground">Aucun membre dans l'équipe.</Card>;
@@ -1765,7 +1765,7 @@ function TeamView({
   if (mode === "week") return (
     <TeamWeekView
       cursor={cursor} cols={cols} events={events} canWrite={canWrite}
-      conflictIds={conflictIds} workloadMap={workloadMap}
+      conflictIds={conflictIds} workloadMap={workloadMap} weekDays={weekDays}
       onClickEvent={onClickEvent} onDblClickEvent={onDblClickEvent}
       onReassign={onReassign} chantierName={chantierName} clientName={clientName} memberName={memberName}
     />
@@ -1773,7 +1773,7 @@ function TeamView({
 
   return (
     <TeamDayView
-      day={cursor} cols={cols} events={events} canWrite={canWrite}
+      day={cursor} cols={cols} events={events} canWrite={canWrite} hourPx={hourPx}
       conflictIds={conflictIds} workloadMap={workloadMap}
       onClickEvent={onClickEvent} onDblClickEvent={onDblClickEvent}
       onCreateForMember={onCreateForMember}
