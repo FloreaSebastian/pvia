@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil, AlertTriangle, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +21,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listChantierEvents, createChantierEvent, updateChantierEvent, deleteChantierEvent,
   listCompanyMembers, rescheduleChantierEvent, resizeChantierEvent, duplicateChantierEvent,
+  reassignChantierEvent,
 } from "@/lib/chantier-detail.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -88,7 +89,10 @@ function fmtMonth(d: Date) { return d.toLocaleDateString("fr-FR", { month: "long
 function fmtTime(d: Date) { return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); }
 function toLocalInput(d: Date) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
 
-type ViewKind = "month" | "week" | "day" | "list" | "custom";
+type ViewKind = "month" | "week" | "day" | "list" | "custom" | "team";
+type TeamMode = "day" | "week";
+
+const UNASSIGNED = "__unassigned__";
 
 function ChantierCalendarPage() {
   const { activeCompanyId, can } = useCompany();
@@ -111,11 +115,16 @@ function ChantierCalendarPage() {
   const [fStatus, setFStatus] = useState("all");
   const [fAssigned, setFAssigned] = useState("all");
   const [fColor, setFColor] = useState("all");
+  const [fOnlyUnassigned, setFOnlyUnassigned] = useState(false);
+  const [fHideDone, setFHideDone] = useState(false);
+  const [fHideCancelled, setFHideCancelled] = useState(false);
+  const [teamMode, setTeamMode] = useState<TeamMode>("day");
 
   const fetchEvents = useServerFn(listChantierEvents);
   const createEvtFn = useServerFn(createChantierEvent);
   const updateEvtFn = useServerFn(updateChantierEvent);
   const deleteEvtFn = useServerFn(deleteChantierEvent);
+  const reassignFn = useServerFn(reassignChantierEvent);
   const fetchMembers = useServerFn(listCompanyMembers);
   const rescheduleFn = useServerFn(rescheduleChantierEvent);
   const resizeFn = useServerFn(resizeChantierEvent);
@@ -126,13 +135,17 @@ function ChantierCalendarPage() {
     if (view === "month") return { from: startOfWeek(startOfMonth(cursor)), to: addDays(startOfWeek(endOfMonth(cursor)), 41) };
     if (view === "week") return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), 6) };
     if (view === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
+    if (view === "team") {
+      if (teamMode === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
+      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), 6) };
+    }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00");
       const b = new Date(customEnd + "T00:00:00");
       return { from: a, to: b >= a ? b : a };
     }
     return { from: startOfMonth(cursor), to: endOfMonth(cursor) };
-  }, [cursor, view, customStart, customEnd]);
+  }, [cursor, view, customStart, customEnd, teamMode]);
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
@@ -150,11 +163,14 @@ function ChantierCalendarPage() {
       } });
       let list = r.events as Evt[];
       if (fColor !== "all") list = list.filter((e) => colorOf(e).key === fColor);
+      if (fOnlyUnassigned) list = list.filter((e) => !e.assigned_to);
+      if (fHideDone) list = list.filter((e) => e.status !== "termine");
+      if (fHideCancelled) list = list.filter((e) => e.status !== "annule");
       setEvents(list);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chargement impossible");
     } finally { setLoading(false); }
-  }, [activeCompanyId, fetchEvents, range.from, range.to, fChantier, fClient, fType, fStatus, fAssigned, fColor]);
+  }, [activeCompanyId, fetchEvents, range.from, range.to, fChantier, fClient, fType, fStatus, fAssigned, fColor, fOnlyUnassigned, fHideDone, fHideCancelled]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -176,6 +192,46 @@ function ChantierCalendarPage() {
 
   function resetFilters() {
     setFChantier("all"); setFClient("all"); setFType("all"); setFStatus("all"); setFAssigned("all"); setFColor("all");
+    setFOnlyUnassigned(false); setFHideDone(false); setFHideCancelled(false);
+  }
+
+  // ----- Conflict detection (per assigned member, in current event list) -----
+  const conflicts = useMemo(() => {
+    const out = new Set<string>();
+    const byMember = new Map<string, Evt[]>();
+    for (const e of events) {
+      if (!e.assigned_to || !e.start_at || e.status === "annule") continue;
+      if (e.event_type.startsWith("system_")) continue;
+      const arr = byMember.get(e.assigned_to) ?? [];
+      arr.push(e);
+      byMember.set(e.assigned_to, arr);
+    }
+    for (const arr of byMember.values()) {
+      const sorted = arr.slice().sort((a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime());
+      for (let i = 0; i < sorted.length; i++) {
+        const a = sorted[i];
+        const aS = new Date(a.start_at!).getTime();
+        const aE = a.end_at ? new Date(a.end_at).getTime() : aS + 60 * 60000;
+        for (let j = i + 1; j < sorted.length; j++) {
+          const b = sorted[j];
+          const bS = new Date(b.start_at!).getTime();
+          if (bS >= aE) break;
+          const bE = b.end_at ? new Date(b.end_at).getTime() : bS + 60 * 60000;
+          if (bS < aE && aS < bE) { out.add(a.id); out.add(b.id); }
+        }
+      }
+    }
+    return out;
+  }, [events]);
+
+  // ----- Reassign (team drag) -----
+  async function commitReassign(id: string, assignedTo: string | null) {
+    if (!activeCompanyId) return;
+    try {
+      await reassignFn({ data: { companyId: activeCompanyId, id, assigned_to: assignedTo } });
+      toast.success(assignedTo ? "Événement réassigné" : "Événement désassigné");
+      await load();
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Réassignation impossible"); await load(); }
   }
 
   // ----- Event dialog -----
@@ -341,6 +397,7 @@ function ChantierCalendarPage() {
     if (view === "month") setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + dir, 1));
     else if (view === "week") setCursor(addDays(cursor, 7 * dir));
     else if (view === "day") setCursor(addDays(cursor, dir));
+    else if (view === "team") setCursor(addDays(cursor, teamMode === "day" ? dir : 7 * dir));
     else if (view === "custom") {
       const days = Math.max(1, Math.round((new Date(customEnd).getTime() - new Date(customStart).getTime()) / 86400000) + 1);
       setCustomStart(toLocalInput(addDays(new Date(customStart + "T00:00:00"), days * dir)).slice(0,10));
@@ -355,12 +412,18 @@ function ChantierCalendarPage() {
       return `${s.toLocaleDateString("fr-FR", { day:"2-digit", month:"short" })} – ${e.toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" })}`;
     }
     if (view === "day") return cursor.toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    if (view === "team") {
+      if (teamMode === "day") return "Équipe — " + cursor.toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" });
+      const s = startOfWeek(cursor); const e = addDays(s, 6);
+      return `Équipe — ${s.toLocaleDateString("fr-FR", { day:"2-digit", month:"short" })} – ${e.toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" })}`;
+    }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00"); const b = new Date(customEnd + "T00:00:00");
       return `${a.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${b.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
     }
     return "Liste";
-  }, [view, cursor, customStart, customEnd]);
+  }, [view, cursor, customStart, customEnd, teamMode]);
+
 
   return (
     <div className="space-y-3">
@@ -425,13 +488,25 @@ function ChantierCalendarPage() {
           </Popover>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          {(["month","week","day","list","custom"] as const).map((v) => (
+          {(["month","week","day","team","list","custom"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)}
-              className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition",
+              className={cn("inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition",
                 view === v ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
-              {v === "month" ? "Mois" : v === "week" ? "Semaine" : v === "day" ? "Jour" : v === "list" ? "Liste" : "Personnalisé"}
+              {v === "team" && <Users className="h-3.5 w-3.5" />}
+              {v === "month" ? "Mois" : v === "week" ? "Semaine" : v === "day" ? "Jour" : v === "team" ? "Équipe" : v === "list" ? "Liste" : "Personnalisé"}
             </button>
           ))}
+          {view === "team" && (
+            <div className="ml-2 inline-flex overflow-hidden rounded-md border border-border">
+              {(["day","week"] as const).map((m) => (
+                <button key={m} onClick={() => setTeamMode(m)}
+                  className={cn("px-2.5 py-1.5 text-[11px] font-medium transition",
+                    teamMode === m ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted")}>
+                  {m === "day" ? "Jour" : "Semaine"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
 
@@ -494,6 +569,25 @@ function ChantierCalendarPage() {
           </Select>
           <Button size="icon" variant="ghost" onClick={resetFilters} aria-label="Réinitialiser"><X className="h-4 w-4" /></Button>
         </div>
+        <div className="col-span-full flex flex-wrap items-center gap-2 border-t border-border/60 pt-2 text-xs">
+          <button type="button" onClick={() => setFOnlyUnassigned((v) => !v)}
+            className={cn("rounded-full border px-2.5 py-1 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+            Non assignés uniquement
+          </button>
+          <button type="button" onClick={() => setFHideDone((v) => !v)}
+            className={cn("rounded-full border px-2.5 py-1 transition", fHideDone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+            Masquer terminés
+          </button>
+          <button type="button" onClick={() => setFHideCancelled((v) => !v)}
+            className={cn("rounded-full border px-2.5 py-1 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+            Masquer annulés
+          </button>
+          {conflicts.size > 0 && (
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 font-medium text-red-600">
+              <AlertTriangle className="h-3 w-3" /> {conflicts.size} conflit{conflicts.size > 1 ? "s" : ""} de planning
+            </span>
+          )}
+        </div>
       </Card>
 
       {/* Views */}
@@ -504,6 +598,7 @@ function ChantierCalendarPage() {
           days={monthGrid}
           cursor={cursor}
           canWrite={canWrite}
+          conflictIds={conflicts}
           onDblClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
           onClickEvent={(e) => openQuick(e)}
           onDblClickEvent={(e) => openEdit(e)}
@@ -524,6 +619,29 @@ function ChantierCalendarPage() {
         />
       )}
 
+      {!loading && view === "team" && (
+        <TeamView
+          mode={teamMode}
+          cursor={cursor}
+          members={members}
+          events={events}
+          canWrite={canWrite}
+          conflictIds={conflicts}
+          onClickEvent={(e) => openQuick(e)}
+          onDblClickEvent={(e) => openEdit(e)}
+          onCreateForMember={(memberId, start) => {
+            if (!canWrite) return;
+            openNew(start, new Date(start.getTime() + 60 * 60000));
+            // pre-set assignee after openNew sets form
+            setTimeout(() => setEvtForm((f) => ({ ...f, assigned_to: memberId === UNASSIGNED ? "" : memberId })), 0);
+          }}
+          onReassign={(id, memberId) => void commitReassign(id, memberId === UNASSIGNED ? null : memberId)}
+          chantierName={chantierName}
+          clientName={clientName}
+          memberName={memberName}
+        />
+      )}
+
       {!loading && (view === "week" || view === "day" || view === "custom") && (
         <TimeGridView
           days={(() => {
@@ -535,6 +653,7 @@ function ChantierCalendarPage() {
           })()}
           events={events}
           canWrite={canWrite}
+          conflictIds={conflicts}
           onCreateRange={(s, e) => openNew(s, e)}
           onClickEvent={(e) => openQuick(e)}
           onDblClickEvent={(e) => openEdit(e)}
@@ -780,10 +899,11 @@ function EventHoverContent({ evt, memberName, chantierName, clientName }: {
 }
 
 function MonthView({
-  days, cursor, canWrite, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
+  days, cursor, canWrite, conflictIds, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
   memberName, chantierName, clientName,
 }: {
   days: Date[]; cursor: Date; canWrite: boolean;
+  conflictIds: Set<string>;
   onDblClickDay: (d: Date) => void;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
@@ -834,7 +954,7 @@ function MonthView({
                           onDragEnd={() => { setDragId(null); setDragOverIdx(null); }}
                           onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
                           onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
-                          className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40")}
+                          className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40", conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
                           style={{ background: c.bg, color: c.fg }}>
                           {e.start_at && !e.all_day && <span className="mr-1 opacity-90">{fmtTime(new Date(e.start_at))}</span>}
                           {e.title}
@@ -872,10 +992,11 @@ function fmtMin(min: number) {
 type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number; col: number; cols: number };
 
 function TimeGridView({
-  days, events, canWrite, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
+  days, events, canWrite, conflictIds, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
   memberName, chantierName, clientName,
 }: {
   days: Date[]; events: Evt[]; canWrite: boolean;
+  conflictIds: Set<string>;
   onCreateRange: (s: Date, e: Date) => void;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
@@ -1142,6 +1263,7 @@ function TimeGridView({
                         !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
                         ann && "line-through opacity-60",
                         isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                        conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
                       )}
                       style={{
                         background: c.bg, color: c.fg,
@@ -1362,3 +1484,373 @@ function QuickEditSheet({
     </Sheet>
   );
 }
+
+// ============= TEAM VIEW =============
+type Member = { user_id: string; name: string };
+
+function workloadBadge(min: number) {
+  if (min >= 9 * 60) return { label: "surchargé", cls: "bg-red-500/10 text-red-600 border-red-500/30" };
+  if (min >= 7 * 60) return { label: "chargé", cls: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
+  return { label: "normal", cls: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" };
+}
+function fmtHrs(min: number) {
+  const h = Math.floor(min / 60); const m = min % 60;
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
+}
+
+function TeamView({
+  mode, cursor, members, events, canWrite, conflictIds,
+  onClickEvent, onDblClickEvent, onCreateForMember, onReassign,
+  chantierName, clientName, memberName,
+}: {
+  mode: TeamMode;
+  cursor: Date;
+  members: Member[];
+  events: Evt[];
+  canWrite: boolean;
+  conflictIds: Set<string>;
+  onClickEvent: (e: Evt) => void;
+  onDblClickEvent: (e: Evt) => void;
+  onCreateForMember: (memberId: string, start: Date) => void;
+  onReassign: (id: string, memberId: string) => void;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
+  memberName: (id: string | null | undefined) => string | null;
+}) {
+  // Columns: members + Non assigné
+  const cols = useMemo<Member[]>(
+    () => [...members, { user_id: UNASSIGNED, name: "Non assigné" }],
+    [members],
+  );
+
+  // Workload computation (per member, scope = current view)
+  const workloadMap = useMemo(() => {
+    const map = new Map<string, { min: number; count: number }>();
+    const days = mode === "day" ? [cursor] : Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i));
+    for (const e of events) {
+      if (!e.start_at || e.status === "annule" || e.event_type.startsWith("system_")) continue;
+      const s = new Date(e.start_at);
+      if (!days.some((d) => sameDay(d, s))) continue;
+      const key = e.assigned_to ?? UNASSIGNED;
+      const en = e.end_at ? new Date(e.end_at) : new Date(s.getTime() + 60 * 60000);
+      const min = Math.max(0, Math.round((en.getTime() - s.getTime()) / 60000));
+      const prev = map.get(key) ?? { min: 0, count: 0 };
+      prev.min += min; prev.count += 1;
+      map.set(key, prev);
+    }
+    return map;
+  }, [events, mode, cursor]);
+
+  if (cols.length === 0) {
+    return <Card className="p-8 text-center text-sm text-muted-foreground">Aucun membre dans l'équipe.</Card>;
+  }
+
+  if (mode === "week") return (
+    <TeamWeekView
+      cursor={cursor} cols={cols} events={events} canWrite={canWrite}
+      conflictIds={conflictIds} workloadMap={workloadMap}
+      onClickEvent={onClickEvent} onDblClickEvent={onDblClickEvent}
+      onReassign={onReassign} chantierName={chantierName} clientName={clientName} memberName={memberName}
+    />
+  );
+
+  return (
+    <TeamDayView
+      day={cursor} cols={cols} events={events} canWrite={canWrite}
+      conflictIds={conflictIds} workloadMap={workloadMap}
+      onClickEvent={onClickEvent} onDblClickEvent={onDblClickEvent}
+      onCreateForMember={onCreateForMember}
+      onReassign={onReassign} chantierName={chantierName} clientName={clientName} memberName={memberName}
+    />
+  );
+}
+
+function TeamDayView({
+  day, cols, events, canWrite, conflictIds, workloadMap,
+  onClickEvent, onDblClickEvent, onCreateForMember, onReassign,
+  chantierName, clientName, memberName,
+}: {
+  day: Date; cols: Member[]; events: Evt[]; canWrite: boolean;
+  conflictIds: Set<string>;
+  workloadMap: Map<string, { min: number; count: number }>;
+  onClickEvent: (e: Evt) => void;
+  onDblClickEvent: (e: Evt) => void;
+  onCreateForMember: (memberId: string, start: Date) => void;
+  onReassign: (id: string, memberId: string) => void;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
+  memberName: (id: string | null | undefined) => string | null;
+}) {
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  type Drag = { id: string; colIdx: number; startMin: number; durationMin: number; offsetMin: number } | null;
+  const [drag, setDrag] = useState<Drag>(null);
+  const dragRef = useRef<Drag>(null);
+  useEffect(() => { dragRef.current = drag; }, [drag]);
+
+  function pointerToCell(clientX: number, clientY: number) {
+    const grid = gridRef.current; if (!grid) return null;
+    const rect = grid.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const colIdx = Math.max(0, Math.min(cols.length - 1, Math.floor((x / rect.width) * cols.length)));
+    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * HOUR_PX)) * TOTAL_HOURS * 60 / 15) * 15));
+    return { colIdx, minutes };
+  }
+  function minutesToDate(d: Date, minutes: number) {
+    const out = new Date(d.getFullYear(), d.getMonth(), d.getDate(), START_HOUR, 0, 0);
+    out.setMinutes(minutes); return out;
+  }
+
+  function onMouseDownEvt(e: React.MouseEvent, evt: Evt, colIdx: number, startMin: number, durationMin: number) {
+    if (!canWrite || evt.event_type.startsWith("system_")) return;
+    e.stopPropagation(); e.preventDefault();
+    const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
+    setDrag({ id: evt.id, colIdx, startMin, durationMin, offsetMin: p.minutes - startMin });
+  }
+
+  useEffect(() => {
+    function mm(e: MouseEvent) {
+      const d = dragRef.current; if (!d) return;
+      const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
+      setDrag({ ...d, colIdx: p.colIdx });
+    }
+    function up() {
+      const d = dragRef.current; if (!d) return;
+      setDrag(null);
+      const memberId = cols[d.colIdx]?.user_id; if (memberId === undefined) return;
+      onReassign(d.id, memberId);
+    }
+    window.addEventListener("mousemove", mm);
+    window.addEventListener("mouseup", up);
+    return () => { window.removeEventListener("mousemove", mm); window.removeEventListener("mouseup", up); };
+  }, [cols, onReassign]);
+
+  const colWidthPct = 100 / cols.length;
+
+  // Build positioned events per column
+  const positioned = useMemo(() => {
+    const result: { evt: Evt; colIdx: number; topMin: number; heightMin: number }[] = [];
+    for (const e of events) {
+      if (!e.start_at) continue;
+      const s = new Date(e.start_at);
+      if (!sameDay(s, day)) continue;
+      const en = e.end_at ? new Date(e.end_at) : new Date(s.getTime() + 60 * 60000);
+      const startMin = (s.getHours() - START_HOUR) * 60 + s.getMinutes();
+      const endMin = (en.getHours() - START_HOUR) * 60 + en.getMinutes();
+      const key = e.assigned_to ?? UNASSIGNED;
+      const colIdx = cols.findIndex((c) => c.user_id === key);
+      if (colIdx < 0) continue;
+      result.push({ evt: e, colIdx, topMin: Math.max(0, startMin), heightMin: Math.max(20, endMin - startMin) });
+    }
+    return result;
+  }, [events, day, cols]);
+
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 backdrop-blur" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0,1fr))` }}>
+        <div />
+        {cols.map((c) => {
+          const wl = workloadMap.get(c.user_id) ?? { min: 0, count: 0 };
+          const isUnassigned = c.user_id === UNASSIGNED;
+          const b = workloadBadge(wl.min);
+          return (
+            <div key={c.user_id} className="border-l border-border px-2 py-2 text-center">
+              <div className={cn("truncate text-xs font-semibold", isUnassigned && "text-muted-foreground")}>{c.name}</div>
+              <div className="mt-1 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+                <span>{fmtHrs(wl.min)} · {wl.count} évt</span>
+                {!isUnassigned && wl.min > 0 && (
+                  <span className={cn("rounded-full border px-1.5 py-px font-medium", b.cls)}>{b.label}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "72vh" }}>
+        <div className="grid" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0,1fr))` }}>
+          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * HOUR_PX }}>
+            {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
+              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * HOUR_PX }}>
+                {String(START_HOUR + h).padStart(2, "0")}:00
+              </div>
+            ))}
+          </div>
+          <div ref={gridRef}
+            onDoubleClick={(e) => {
+              if (!canWrite) return;
+              if ((e.target as HTMLElement).closest("[data-evt]")) return;
+              const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
+              const s = minutesToDate(day, p.minutes);
+              onCreateForMember(cols[p.colIdx].user_id, s);
+            }}
+            className={cn("relative col-span-full -ml-px", drag && "cursor-grabbing select-none")}
+            style={{ gridColumn: `2 / span ${cols.length}`, height: TOTAL_HOURS * HOUR_PX, gridTemplateColumns: `repeat(${cols.length}, minmax(0,1fr))`, display: "grid" }}>
+            {cols.map((c, i) => (
+              <div key={c.user_id} className={cn("relative border-l border-border", c.user_id === UNASSIGNED && "bg-muted/20", drag?.colIdx === i && "bg-primary/[0.06]")}>
+                {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
+                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * HOUR_PX }} />
+                ))}
+              </div>
+            ))}
+            {positioned.map((p, idx) => {
+              const { evt, topMin, heightMin } = p;
+              const c = colorOf(evt);
+              const ann = evt.status === "annule";
+              const isSystem = evt.event_type.startsWith("system_");
+              const isDragged = drag?.id === evt.id;
+              const liveColIdx = isDragged && drag ? drag.colIdx : p.colIdx;
+              const isUnassignedCol = cols[liveColIdx]?.user_id === UNASSIGNED;
+              return (
+                <HoverCard key={evt.id + idx} openDelay={400} closeDelay={80}>
+                  <HoverCardTrigger asChild>
+                    <div data-evt
+                      onMouseDown={(e) => onMouseDownEvt(e, evt, p.colIdx, topMin, heightMin)}
+                      onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
+                      onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
+                      className={cn(
+                        "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
+                        !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
+                        ann && "line-through opacity-60",
+                        isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                        conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
+                        isUnassignedCol && !isDragged && "opacity-80",
+                      )}
+                      style={{
+                        background: c.bg, color: c.fg,
+                        left: `calc(${liveColIdx * colWidthPct}% + 2px)`,
+                        width: `calc(${colWidthPct}% - 4px)`,
+                        top: (topMin / 60) * HOUR_PX,
+                        height: (heightMin / 60) * HOUR_PX - 2,
+                        zIndex: isDragged ? 40 : 10,
+                      }}>
+                      <div className="truncate flex items-center gap-1">
+                        {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                        {evt.title}
+                      </div>
+                      {heightMin >= 30 && (
+                        <div className="truncate text-[10px] opacity-90">
+                          {fmtMin(topMin)} – {fmtMin(topMin + heightMin)}
+                        </div>
+                      )}
+                    </div>
+                  </HoverCardTrigger>
+                  {!drag && (
+                    <HoverCardContent side="right" align="start" className="w-72">
+                      <EventHoverContent evt={evt} memberName={memberName} chantierName={chantierName} clientName={clientName} />
+                    </HoverCardContent>
+                  )}
+                </HoverCard>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function TeamWeekView({
+  cursor, cols, events, canWrite, conflictIds, workloadMap,
+  onClickEvent, onDblClickEvent, onReassign,
+  chantierName, clientName, memberName,
+}: {
+  cursor: Date; cols: Member[]; events: Evt[]; canWrite: boolean;
+  conflictIds: Set<string>;
+  workloadMap: Map<string, { min: number; count: number }>;
+  onClickEvent: (e: Evt) => void;
+  onDblClickEvent: (e: Evt) => void;
+  onReassign: (id: string, memberId: string) => void;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
+  memberName: (id: string | null | undefined) => string | null;
+}) {
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i)), [cursor]);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overMember, setOverMember] = useState<string | null>(null);
+
+  function evtsFor(memberId: string, day: Date) {
+    return events.filter((e) => e.start_at && sameDay(new Date(e.start_at), day) && (e.assigned_to ?? UNASSIGNED) === memberId);
+  }
+
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="grid border-b border-border bg-background/95 text-xs" style={{ gridTemplateColumns: `180px repeat(7, minmax(0,1fr))` }}>
+        <div className="border-r border-border p-2 font-semibold uppercase tracking-wide text-muted-foreground">Membre</div>
+        {days.map((d, i) => {
+          const isToday = sameDay(d, new Date());
+          return (
+            <div key={i} className="border-l border-border px-2 py-2 text-center">
+              <div className="uppercase tracking-wide text-[10px] text-muted-foreground">{d.toLocaleDateString("fr-FR", { weekday: "short" })}</div>
+              <div className={cn("mx-auto mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", isToday && "bg-primary text-primary-foreground")}>{d.getDate()}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="divide-y divide-border">
+        {cols.map((c) => {
+          const wl = workloadMap.get(c.user_id) ?? { min: 0, count: 0 };
+          const isUnassigned = c.user_id === UNASSIGNED;
+          const b = workloadBadge(wl.min);
+          const isOver = overMember === c.user_id && dragId;
+          return (
+            <div key={c.user_id} className={cn("grid", isOver && "bg-primary/[0.06]")} style={{ gridTemplateColumns: `180px repeat(7, minmax(0,1fr))` }}
+              onDragOver={(e) => { if (canWrite && dragId) { e.preventDefault(); if (overMember !== c.user_id) setOverMember(c.user_id); } }}
+              onDragLeave={() => { if (overMember === c.user_id) setOverMember(null); }}
+              onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); setOverMember(null); onReassign(id, c.user_id); } }}>
+              <div className="border-r border-border p-2">
+                <div className={cn("truncate text-sm font-medium", isUnassigned && "text-muted-foreground")}>{c.name}</div>
+                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span>{fmtHrs(wl.min)} · {wl.count} évt</span>
+                  {!isUnassigned && wl.min > 0 && (
+                    <span className={cn("rounded-full border px-1.5 py-px font-medium", b.cls)}>{b.label}</span>
+                  )}
+                </div>
+              </div>
+              {days.map((d, i) => {
+                const dayEvts = evtsFor(c.user_id, d);
+                return (
+                  <div key={i} className="min-h-[72px] border-l border-border p-1.5 text-xs">
+                    <div className="space-y-1">
+                      {dayEvts.map((e) => {
+                        const col = colorOf(e);
+                        const isSystem = e.event_type.startsWith("system_");
+                        const draggable = canWrite && !isSystem;
+                        const ann = e.status === "annule";
+                        return (
+                          <HoverCard key={e.id} openDelay={350} closeDelay={80}>
+                            <HoverCardTrigger asChild>
+                              <div
+                                draggable={draggable}
+                                onDragStart={() => { if (draggable) setDragId(e.id); }}
+                                onDragEnd={() => { setDragId(null); setOverMember(null); }}
+                                onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
+                                onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
+                                className={cn("flex items-center gap-1 truncate rounded px-1.5 py-1 text-[11px] font-medium",
+                                  ann && "line-through opacity-60",
+                                  draggable && "cursor-grab active:cursor-grabbing",
+                                  conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
+                                style={{ background: col.bg, color: col.fg }}>
+                                {conflictIds.has(e.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                                {e.start_at && !e.all_day && <span className="opacity-90">{fmtTime(new Date(e.start_at))}</span>}
+                                <span className="truncate">{e.title}</span>
+                              </div>
+                            </HoverCardTrigger>
+                            <HoverCardContent side="right" align="start" className="w-72">
+                              <EventHoverContent evt={e} memberName={memberName} chantierName={chantierName} clientName={clientName} />
+                            </HoverCardContent>
+                          </HoverCard>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
