@@ -173,6 +173,16 @@ export const createReserveLift = createServerFn({ method: "POST" })
     const { recordProcessingError, markPdfGenerationStatus } = await import("@/lib/processing-status.server");
     for (const item of data.items) {
       const photoPaths: string[] = [];
+      const photoRows: Array<{
+        path: string;
+        photoType: "before" | "after";
+        latitude: number | null;
+        longitude: number | null;
+        accuracy: number | null;
+        takenAt: string | null;
+        deviceInfo: string | null;
+        exifMetadata: Record<string, any> | null;
+      }> = [];
       for (const p of item.photos) {
         const declared = p.mimeType.toLowerCase();
         if (!PHOTO_ALLOWED_MIMES.has(declared)) {
@@ -187,7 +197,7 @@ export const createReserveLift = createServerFn({ method: "POST" })
           throw new Error(`Photo "${p.fileName}" : type incorrect.`);
         }
         const ext = sniffed === "image/jpeg" ? "jpg" : sniffed === "image/png" ? "png" : "webp";
-        const path = `${pv.company_id}/lifts/${reportId}/${item.reserveId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const path = `${pv.company_id}/lifts/${reportId}/${item.reserveId}-${p.photoType ?? "after"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const { error: upErr } = await supabaseAdmin.storage
           .from("pv-assets")
           .upload(path, bytes, { contentType: normMime(sniffed), upsert: false });
@@ -202,19 +212,29 @@ export const createReserveLift = createServerFn({ method: "POST" })
           continue;
         }
         photoPaths.push(path);
+        photoRows.push({
+          path,
+          photoType: (p.photoType ?? "after") as "before" | "after",
+          latitude: p.latitude ?? null,
+          longitude: p.longitude ?? null,
+          accuracy: p.accuracy ?? null,
+          takenAt: p.takenAt ?? null,
+          deviceInfo: p.deviceInfo ?? null,
+          exifMetadata: p.exifMetadata ?? null,
+        });
         void safeFilename(p.fileName);
       }
 
       const reserve = reserveById.get(item.reserveId)!;
-      const { error: itemErr } = await supabaseAdmin.from("reserve_lift_items").insert({
+      const { data: insertedItem, error: itemErr } = await supabaseAdmin.from("reserve_lift_items").insert({
         report_id: reportId,
         reserve_id: item.reserveId,
         old_status: reserve.status,
         new_status: "levee",
         comment: item.comment || null,
         photo_urls: photoPaths,
-      } as any);
-      if (itemErr) {
+      } as any).select("id").single();
+      if (itemErr || !insertedItem) {
         await recordProcessingError({
           table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
           step: "insert_lift_item",
@@ -222,8 +242,59 @@ export const createReserveLift = createServerFn({ method: "POST" })
           meta: { reserve_id: item.reserveId },
           audit: { action: "reserve_lift.item_insert_failed", entityType: "reserve_lift_item" },
         });
+        continue;
+      }
+
+      // Persist per-photo metadata in the dedicated table.
+      if (photoRows.length) {
+        const rowsToInsert = photoRows.map((row) => ({
+          company_id: pv.company_id,
+          pv_id: pv.id,
+          reserve_id: item.reserveId,
+          reserve_lift_item_id: insertedItem.id,
+          photo_url: row.path,
+          storage_path: row.path,
+          photo_type: row.photoType,
+          latitude: row.latitude,
+          longitude: row.longitude,
+          accuracy: row.accuracy,
+          taken_at: row.takenAt,
+          uploaded_by: userId,
+          device_info: row.deviceInfo,
+          exif_metadata: row.exifMetadata,
+        }));
+        const { error: phErr } = await supabaseAdmin.from("reserve_lift_item_photos" as any).insert(rowsToInsert as any);
+        if (phErr) {
+          await recordProcessingError({
+            table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+            step: "insert_lift_item_photos",
+            error: phErr,
+            meta: { reserve_id: item.reserveId, photo_count: photoRows.length },
+            audit: { action: "reserve_lift_photo.insert_failed", entityType: "reserve_lift_photo" },
+          });
+        } else {
+          // Audit per photo (geo recorded vs missing)
+          for (const row of photoRows) {
+            const geoRecorded = row.latitude !== null && row.longitude !== null;
+            await writeAuditLog({
+              companyId: pv.company_id,
+              userId,
+              pvId: pv.id,
+              entityType: "reserve_lift_photo",
+              entityId: item.reserveId,
+              action: geoRecorded ? "reserve_lift_photo.geo_recorded" : "reserve_lift_photo.geo_missing",
+              metadata: {
+                photo_type: row.photoType,
+                accuracy: row.accuracy,
+                report_id: reportId,
+              },
+              actor: "user",
+            });
+          }
+        }
       }
     }
+
 
     // 7. Update each reserve to status=levee — WF-M4.
     if (reserveIds.length) {
