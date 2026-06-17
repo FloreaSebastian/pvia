@@ -207,6 +207,10 @@ export async function buildAndStoreReserveLiftPdf(
   page.drawText("PROCES-VERBAL", { x: PAGE_W - MARGIN - 220, y: PAGE_H - 40, size: 9, font: bold, color: PRIMARY });
   page.drawText("DE LEVEE DE RESERVES", { x: PAGE_W - MARGIN - 220, y: PAGE_H - 54, size: 9, font: helv, color: MUTED });
   page.drawText(`N° ${sanitize(report.numero)}`, { x: PAGE_W - MARGIN - 220, y: PAGE_H - 78, size: 18, font: bold, color: ACCENT });
+  if (isInternal) {
+    page.drawRectangle({ x: PAGE_W - MARGIN - 220, y: PAGE_H - 100, width: 130, height: 14, color: rgb(0.95, 0.92, 0.80), borderColor: rgb(0.70, 0.55, 0.10), borderWidth: 0.5 });
+    page.drawText("USAGE INTERNE — CONFIDENTIEL", { x: PAGE_W - MARGIN - 216, y: PAGE_H - 96, size: 7, font: bold, color: rgb(0.55, 0.40, 0.05) });
+  }
 
   y = PAGE_H - 140;
 
