@@ -511,21 +511,32 @@ function ChantierDetailPage() {
             )}
           </Card>
 
-          {/* Historique (system events + PVs) */}
+          {/* Activité — timeline unifiée (P2.6) */}
           <Card className="p-5">
-            <h2 className="mb-3 inline-flex items-center gap-2 text-base font-semibold"><Building2 className="h-4 w-4" /> Historique</h2>
-            {historyEvents.length + d.pvs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun événement automatique.</p>
+            <h2 className="mb-3 inline-flex items-center gap-2 text-base font-semibold"><Building2 className="h-4 w-4" /> Activité</h2>
+            {unifiedTimeline.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune activité.</p>
             ) : (
-              <ul className="space-y-2 text-xs">
-                {historyEvents.map((e) => (
-                  <li key={e.id} className="flex items-center gap-2 text-muted-foreground">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                    <span className="flex-1 truncate">{e.title}</span>
-                    <span className="tabular-nums">{fmtDateTime(e.created_at)}</span>
+              <ol className="space-y-3">
+                {unifiedTimeline.slice(0, 50).map((it) => (
+                  <li key={it.id} className="flex items-start gap-2 text-xs">
+                    <span className={
+                      "mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full " +
+                      (it.tone === "success" ? "bg-success" :
+                       it.tone === "warning" ? "bg-warning" :
+                       it.tone === "danger" ? "bg-destructive" :
+                       it.tone === "info" ? "bg-primary" : "bg-muted-foreground")
+                    } />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-foreground">{it.title}</p>
+                      <p className="text-muted-foreground">
+                        {fmtDateTime(it.date)}
+                        {it.subtitle && <span> · {it.subtitle}</span>}
+                      </p>
+                    </div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             )}
           </Card>
         </div>
