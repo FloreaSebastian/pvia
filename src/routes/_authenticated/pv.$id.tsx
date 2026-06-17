@@ -122,6 +122,10 @@ function PvDetail() {
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
+  const [reserveDetail, setReserveDetail] = useState<ReserveDetail | null>(null);
+  const updateReserveFn = useServerFn(updateReserveStatus);
+  const deleteReserveServerFn = useServerFn(deleteReserveFn);
+
   const [chantierName, setChantierName] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
