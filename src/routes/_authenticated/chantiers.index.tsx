@@ -327,8 +327,8 @@ function ChantiersPage() {
           { key: "actifs", label: "Actifs", value: dashboard.actifs, icon: Activity, tone: "text-warning", filter: "en_cours" as const },
           { key: "receptionne", label: "Réceptionnés", value: dashboard.receptionne, icon: CheckCircle2, tone: "text-success", filter: "receptionne" as const },
           { key: "termine", label: "Terminés", value: dashboard.termine, icon: Flag, tone: "text-primary", filter: "termine" as const },
-          { key: "retard", label: "En retard", value: dashboard.enRetard, icon: AlertTriangle, tone: "text-destructive", filter: null },
-          { key: "reserves", label: "Réserves ouvertes", value: openReservesCount, icon: AlertCircle, tone: "text-warning", to: "/pv" as const },
+          { key: "retard", label: "En retard", value: dashboard.enRetard, icon: AlertTriangle, tone: "text-destructive", filter: "retard" as const },
+          { key: "reserves", label: "Réserves ouvertes", value: openReservesCount, icon: AlertCircle, tone: "text-warning", to: "/reserves" as const, search: { status: "ouverte" as const } },
         ].map((s) => {
           const Icon = s.icon;
           const onClick = () => {
