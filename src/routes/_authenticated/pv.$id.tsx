@@ -81,7 +81,23 @@ type Pv = {
   photos_failed_count?: number | null;
 };
 type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
-type Reserve = { id: string; description: string; severity: string; status: string; lifted_at?: string | null; validated_at?: string | null };
+type Reserve = {
+  id: string;
+  description: string;
+  severity: string;
+  status: string;
+  priority?: string | null;
+  nature?: string | null;
+  work_to_execute?: string | null;
+  due_date?: string | null;
+  assigned_to?: string | null;
+  lifted_at?: string | null;
+  validated_at?: string | null;
+  created_at: string;
+  pv_id: string;
+  company_id: string | null;
+};
+
 
 function PvDetail() {
   const { id } = Route.useParams();
