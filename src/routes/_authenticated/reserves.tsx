@@ -352,7 +352,7 @@ function ReservesPage() {
             className="h-9 pl-8"
           />
         </div>
-        <Select value={filter} onValueChange={(v) => { setFilter(v); navigate({ search: (p) => ({ ...p, status: v as any }) }); }}>
+        <Select value={filter} onValueChange={(v) => { setFilter(v); navigate({ search: (p: any) => ({ ...p, status: v as any }) }); }}>
           <SelectTrigger className="h-9 w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous statuts</SelectItem>
