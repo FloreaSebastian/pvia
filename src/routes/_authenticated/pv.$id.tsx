@@ -786,9 +786,14 @@ function PvDetail() {
                         <span className="text-[11px] text-muted-foreground">{new Date(l.signed_at || l.created_at).toLocaleDateString("fr-FR")}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {l.pdf_url && (
-                          <Button size="sm" variant={validated ? "default" : "outline"} className="h-8" onClick={() => downloadLiftPdf(l.id)}>
-                            <Download className="h-3.5 w-3.5" /> PDF
+                        {(l.pdf_client_url || l.pdf_url) && (
+                          <Button size="sm" variant={validated ? "default" : "outline"} className="h-8" onClick={() => downloadLiftPdf(l.id, "client")}>
+                            <Download className="h-3.5 w-3.5" /> PDF client
+                          </Button>
+                        )}
+                        {l.pdf_internal_url && (
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement">
+                            <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
                         {validated && (
