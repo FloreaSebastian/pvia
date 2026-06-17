@@ -288,12 +288,15 @@ function NewPv() {
   useEffect(() => {
     const t = setTimeout(() => {
       try {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves, withReserves }));
+        // Strip File objects from photos before persisting (non-serializable).
+        const persistedReserves = reserves.map((r) => ({ ...r, photos: [] }));
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves: persistedReserves, withReserves }));
         setLastSaved(new Date());
       } catch { /* noop */ }
     }, 600);
     return () => clearTimeout(t);
   }, [form, reserves, withReserves]);
+
 
   // Prefill chantier when selected
   useEffect(() => {
