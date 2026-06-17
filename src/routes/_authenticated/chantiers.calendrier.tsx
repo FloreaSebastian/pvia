@@ -977,7 +977,7 @@ function MonthView({
 }
 
 // ============= TIME GRID (week/day/custom) =============
-const HOUR_PX = 56;
+const hourPx = 56;
 const START_HOUR = 7;
 const END_HOUR = 21;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
@@ -1032,7 +1032,7 @@ function TimeGridView({
   // scroll to ~current time on mount / day change
   useEffect(() => {
     const sc = scrollRef.current; if (!sc) return;
-    const target = Math.max(0, (nowMin / 60) * HOUR_PX - 120);
+    const target = Math.max(0, (nowMin / 60) * hourPx - 120);
     sc.scrollTop = target;
     // only once per day-set change
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1044,7 +1044,7 @@ function TimeGridView({
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     const dayIdx = Math.max(0, Math.min(days.length - 1, Math.floor((x / rect.width) * days.length)));
-    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * HOUR_PX)) * TOTAL_HOURS * 60 / 15) * 15));
+    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * hourPx)) * TOTAL_HOURS * 60 / 15) * 15));
     return { dayIdx, minutes };
   }
   function minutesToDate(day: Date, minutes: number) {
@@ -1183,9 +1183,9 @@ function TimeGridView({
       <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "72vh" }}>
         <div className="grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0,1fr))` }}>
           {/* Hours col (sticky left) */}
-          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * HOUR_PX }}>
+          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * hourPx }}>
             {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
-              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * HOUR_PX }}>
+              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * hourPx }}>
                 {String(START_HOUR + h).padStart(2, "0")}:00
               </div>
             ))}
@@ -1200,16 +1200,16 @@ function TimeGridView({
               onCreateRange(s, new Date(s.getTime() + 60 * 60000));
             }}
             className={cn("relative col-span-full -ml-px", drag?.kind === "move" && "cursor-grabbing select-none", drag?.kind === "resize" && "cursor-ns-resize select-none")}
-            style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * HOUR_PX, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
+            style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * hourPx, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
             {days.map((d, i) => (
               <div key={i} className={cn("relative border-l border-border", i === todayIdx && "bg-primary/[0.04]")}>
                 {/* Hour lines */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * HOUR_PX }} />
+                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * hourPx }} />
                 ))}
                 {/* Half-hour subtle */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={"h" + h} className="absolute left-0 right-0 border-t border-dashed border-border/20" style={{ top: h * HOUR_PX + HOUR_PX / 2 }} />
+                  <div key={"h" + h} className="absolute left-0 right-0 border-t border-dashed border-border/20" style={{ top: h * hourPx + hourPx / 2 }} />
                 ))}
               </div>
             ))}
@@ -1217,7 +1217,7 @@ function TimeGridView({
             {/* Current time indicator */}
             {todayIdx >= 0 && nowMin >= 0 && nowMin <= TOTAL_HOURS * 60 && (
               <div className="pointer-events-none absolute z-20" style={{
-                top: (nowMin / 60) * HOUR_PX - 1,
+                top: (nowMin / 60) * hourPx - 1,
                 left: `${todayIdx * colWidthPct}%`,
                 width: `${colWidthPct}%`,
               }}>
@@ -1268,8 +1268,8 @@ function TimeGridView({
                       style={{
                         background: c.bg, color: c.fg,
                         left, width,
-                        top: (liveTop / 60) * HOUR_PX,
-                        height: (liveHeight / 60) * HOUR_PX - 2,
+                        top: (liveTop / 60) * hourPx,
+                        height: (liveHeight / 60) * hourPx - 2,
                         zIndex: isDragged ? 40 : 10,
                       }}>
                       <div className="truncate">{evt.title}</div>
@@ -1302,8 +1302,8 @@ function TimeGridView({
                 style={{
                   left: `calc(${drag.dayIdx * colWidthPct}% + 2px)`,
                   width: `calc(${colWidthPct}% - 4px)`,
-                  top: (Math.min(drag.startMin, drag.endMin) / 60) * HOUR_PX,
-                  height: (Math.abs(drag.endMin - drag.startMin) / 60) * HOUR_PX,
+                  top: (Math.min(drag.startMin, drag.endMin) / 60) * hourPx,
+                  height: (Math.abs(drag.endMin - drag.startMin) / 60) * hourPx,
                 }} />
             )}
 
@@ -1311,11 +1311,11 @@ function TimeGridView({
             {dragTooltip && (
               <>
                 <div className="pointer-events-none absolute left-0 right-0 z-30 border-t-2 border-dashed border-primary/70"
-                  style={{ top: (dragTooltip.s / 60) * HOUR_PX }} />
+                  style={{ top: (dragTooltip.s / 60) * hourPx }} />
                 <div className="pointer-events-none absolute z-40 rounded-md bg-foreground px-2 py-1 text-[11px] font-semibold text-background shadow-lg"
                   style={{
                     left: `calc(${dragTooltip.day ? days.indexOf(dragTooltip.day) * colWidthPct : 0}% + 4px)`,
-                    top: (dragTooltip.s / 60) * HOUR_PX - 26,
+                    top: (dragTooltip.s / 60) * hourPx - 26,
                   }}>
                   {fmtMin(dragTooltip.s)} – {fmtMin(dragTooltip.e)}
                 </div>
@@ -1594,7 +1594,7 @@ function TeamDayView({
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     const colIdx = Math.max(0, Math.min(cols.length - 1, Math.floor((x / rect.width) * cols.length)));
-    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * HOUR_PX)) * TOTAL_HOURS * 60 / 15) * 15));
+    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * hourPx)) * TOTAL_HOURS * 60 / 15) * 15));
     return { colIdx, minutes };
   }
   function minutesToDate(d: Date, minutes: number) {
@@ -1669,9 +1669,9 @@ function TeamDayView({
       </div>
       <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "72vh" }}>
         <div className="grid" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0,1fr))` }}>
-          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * HOUR_PX }}>
+          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * hourPx }}>
             {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
-              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * HOUR_PX }}>
+              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * hourPx }}>
                 {String(START_HOUR + h).padStart(2, "0")}:00
               </div>
             ))}
@@ -1685,11 +1685,11 @@ function TeamDayView({
               onCreateForMember(cols[p.colIdx].user_id, s);
             }}
             className={cn("relative col-span-full -ml-px", drag && "cursor-grabbing select-none")}
-            style={{ gridColumn: `2 / span ${cols.length}`, height: TOTAL_HOURS * HOUR_PX, gridTemplateColumns: `repeat(${cols.length}, minmax(0,1fr))`, display: "grid" }}>
+            style={{ gridColumn: `2 / span ${cols.length}`, height: TOTAL_HOURS * hourPx, gridTemplateColumns: `repeat(${cols.length}, minmax(0,1fr))`, display: "grid" }}>
             {cols.map((c, i) => (
               <div key={c.user_id} className={cn("relative border-l border-border", c.user_id === UNASSIGNED && "bg-muted/20", drag?.colIdx === i && "bg-primary/[0.06]")}>
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * HOUR_PX }} />
+                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * hourPx }} />
                 ))}
               </div>
             ))}
@@ -1720,8 +1720,8 @@ function TeamDayView({
                         background: c.bg, color: c.fg,
                         left: `calc(${liveColIdx * colWidthPct}% + 2px)`,
                         width: `calc(${colWidthPct}% - 4px)`,
-                        top: (topMin / 60) * HOUR_PX,
-                        height: (heightMin / 60) * HOUR_PX - 2,
+                        top: (topMin / 60) * hourPx,
+                        height: (heightMin / 60) * hourPx - 2,
                         zIndex: isDragged ? 40 : 10,
                       }}>
                       <div className="truncate flex items-center gap-1">
