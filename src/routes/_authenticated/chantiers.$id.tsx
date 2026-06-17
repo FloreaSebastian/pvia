@@ -261,6 +261,7 @@ function ChantierDetailPage() {
       <Card className="grid gap-6 p-6 md:grid-cols-3">
         <div className="space-y-3 md:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
+            {chColor && <span aria-hidden className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: chColor }} title="Couleur du chantier" />}
             <StatusPill tone={statusTone} dot>{statusLabel}</StatusPill>
             {ch.type && <StatusPill tone="neutral">{ch.type}</StatusPill>}
           </div>
