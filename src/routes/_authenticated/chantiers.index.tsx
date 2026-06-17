@@ -45,10 +45,12 @@ const STATUSES = [
   { value: "archive", label: "Archivé" },
 ] as const;
 type StatusValue = (typeof STATUSES)[number]["value"];
+type FilterValue = "all" | StatusValue | "retard";
 
-const FILTERS: Array<{ value: "all" | StatusValue; label: string }> = [
+const FILTERS: Array<{ value: FilterValue; label: string }> = [
   { value: "all", label: "Tous" },
-  ...STATUSES.map((s) => ({ value: s.value, label: s.label })),
+  ...STATUSES.map((s) => ({ value: s.value as FilterValue, label: s.label })),
+  { value: "retard", label: "En retard" },
 ];
 
 const CHANTIER_PALETTE = ["#3b82f6","#10b981","#f97316","#ef4444","#8b5cf6","#eab308","#0ea5e9","#14b8a6","#ec4899","#6b7280"];
