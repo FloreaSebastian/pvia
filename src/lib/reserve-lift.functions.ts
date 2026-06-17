@@ -227,6 +227,7 @@ export const createReserveLift = createServerFn({ method: "POST" })
           continue;
         }
         photoPaths.push(path);
+        const fileHash = await sha256OfBytes(bytes);
         photoRows.push({
           path,
           photoType: (p.photoType ?? "after") as "before" | "after",
@@ -236,8 +237,10 @@ export const createReserveLift = createServerFn({ method: "POST" })
           takenAt: p.takenAt ?? null,
           deviceInfo: p.deviceInfo ?? null,
           exifMetadata: p.exifMetadata ?? null,
+          fileHash,
+          fileSize: bytes.length,
+          fileName: safeFilename(p.fileName),
         });
-        void safeFilename(p.fileName);
       }
 
       const reserve = reserveById.get(item.reserveId)!;
