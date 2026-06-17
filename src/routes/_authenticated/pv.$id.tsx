@@ -429,34 +429,21 @@ function PvDetail() {
             <ChevronRight className="h-3 w-3" />
             <span>N° {pv.numero}</span>
           </div>
-          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">N° {pv.numero}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight">N° {pv.numero}</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Créé le {new Date(pv.created_at).toLocaleDateString("fr-FR")}
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
-            {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <StatusPill tone="success" icon={<ShieldCheck />}>Traçabilité complète</StatusPill>
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {pv.locked_at && (
-              <StatusPill tone="success" icon={<ShieldCheck />}>PV signé — verrouillé</StatusPill>
+              <StatusPill tone="success" icon={<ShieldCheck />} size="sm">Verrouillé</StatusPill>
             )}
             {pv.signature_mode === "remote" && pv.status === "en_attente" && (
-              <StatusPill tone="warning" icon={<Mail />}>Signature à distance — en attente client</StatusPill>
-            )}
-            {pv.signature_mode === "onsite" && pv.status === "signe" && (
-              <StatusPill tone="success" icon={<CheckCircle2 />}>Signature sur place validée</StatusPill>
+              <StatusPill tone="warning" icon={<Mail />} size="sm">En attente signature client</StatusPill>
             )}
             {pv.pdf_url && (
-              <StatusPill tone="success" icon={<CheckCircle2 />}>PDF signé disponible</StatusPill>
+              <StatusPill tone="success" icon={<CheckCircle2 />} size="sm">PDF signé</StatusPill>
             )}
-            {(() => {
-              const lastClientSent = emailLogs.find((l) => l.status === "sent" && (l.email_type === "signed_to_client" || l.email_type === "signed_resend"));
-              return lastClientSent ? (
-                <StatusPill tone="info" icon={<Mail />}>
-                  Email envoyé au client le {new Date(lastClientSent.sent_at || lastClientSent.created_at).toLocaleString("fr-FR")}
-                </StatusPill>
-              ) : null;
-            })()}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -555,26 +542,6 @@ function PvDetail() {
         </DialogContent>
       </Dialog>
 
-      {lastEvent && (
-        <Card className="p-4 flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-primary">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
-            <div className="space-y-0.5">
-              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Dernier événement</div>
-              <div className="font-medium text-sm">{lastEvent.action}</div>
-              <div className="text-xs text-muted-foreground">
-                {new Date(lastEvent.created_at).toLocaleString("fr-FR")}
-                {lastEvent.user_name && <> · par <span className="font-medium text-foreground">{lastEvent.user_name}</span></>}
-                {!lastEvent.user_name && <> · système</>}
-                {auditTotal > 0 && <> · {auditTotal} événement{auditTotal > 1 ? "s" : ""} au total</>}
-              </div>
-            </div>
-          </div>
-          <Link to="/pv/$id/historique" params={{ id: pv.id }}>
-            <Button size="sm" variant="outline"><ShieldCheck className="h-4 w-4" /> Voir l'historique complet</Button>
-          </Link>
-        </Card>
-      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2 space-y-5">
@@ -633,31 +600,35 @@ function PvDetail() {
               </Info>
             )}
           </div>
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Description des travaux</p>
-            <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{pv.description || "—"}</p>
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Observations</p>
-            <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{pv.observations || "—"}</p>
-          </div>
+          <DescriptionBlock label="Description des travaux" text={pv.description} />
+          {pv.observations && (
+            <DescriptionBlock label="Observations" text={pv.observations} />
+          )}
         </Card>
 
-        <Card className="p-6 space-y-4">
-          <h3 className="font-semibold">Signatures</h3>
-          <SignatureBlock label="Client" data={pv.client_signature} />
-          <SignatureBlock label="Entreprise" data={pv.company_signature} />
+        <Card className="p-4 space-y-3">
+          <h3 className="font-semibold text-sm">Signatures</h3>
+          <CompactSignature
+            label="Client"
+            data={pv.client_signature}
+            name={clientName ?? pv.client_identity_email ?? null}
+            date={pv.signed_at}
+          />
+          <CompactSignature
+            label="Entreprise"
+            data={pv.company_signature}
+            name={null}
+            date={pv.signed_at}
+          />
         </Card>
       </div>
 
-      <Card className="p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Camera className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold">Photos chantier ({photos.length})</h3>
-        </div>
-        {photos.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Aucune photo.</p>
-        ) : (
+      {photos.length > 0 && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Camera className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Photos chantier ({photos.length})</h3>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {photos.map((p) => (
               <a key={p.id} href={p.signedUrl} target="_blank" rel="noreferrer" className="group block">
@@ -668,8 +639,8 @@ function PvDetail() {
               </a>
             ))}
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
 
       {(() => {
         const total = reserves.length;
@@ -687,6 +658,7 @@ function PvDetail() {
           : liftStatus === "partial" ? "warning"
           : liftStatus === "pending" ? "destructive"
           : "neutral";
+        if (total === 0 && lifts.length === 0) return null;
         return (
           <Card className="p-6 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -790,6 +762,7 @@ function PvDetail() {
         );
       })()}
 
+      {reserves.length > 0 && (
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -802,45 +775,42 @@ function PvDetail() {
             </Link>
           )}
         </div>
-        {reserves.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Aucune réserve.</p>
-        ) : (
-          <div className="space-y-2">
-            {reserves.map((r) => {
-              const statusLabel = r.status === "ouverte" ? "Ouverte" : r.status === "levee" ? "Levée par l'entreprise" : r.status === "validee" ? "Validée par le client" : r.status;
-              const statusTone = r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning";
-              return (
-                <div key={r.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill>
-                      <StatusPill tone={statusTone as any} dot>{statusLabel}</StatusPill>
-                    </div>
-                    <p className="mt-2 text-sm">{r.description}</p>
-                    {(r.lifted_at || r.validated_at) && (
-                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        {r.lifted_at && <span>Levée le {new Date(r.lifted_at).toLocaleString("fr-FR")}</span>}
-                        {r.validated_at && <span>Validée client le {new Date(r.validated_at).toLocaleString("fr-FR")}</span>}
-                      </div>
-                    )}
+        <div className="space-y-2">
+          {reserves.map((r) => {
+            const statusLabel = r.status === "ouverte" ? "Ouverte" : r.status === "levee" ? "Levée par l'entreprise" : r.status === "validee" ? "Validée par le client" : r.status;
+            const statusTone = r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning";
+            return (
+              <div key={r.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill>
+                    <StatusPill tone={statusTone as any} dot>{statusLabel}</StatusPill>
                   </div>
-                  <Select value={r.status} onValueChange={(v) => updateReserve(r.id, v)}>
-                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ouverte">Ouverte</SelectItem>
-                      <SelectItem value="levee">Levée</SelectItem>
-                      <SelectItem value="validee">Validée</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button size="icon" variant="ghost" onClick={() => deleteReserve(r.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <p className="mt-2 text-sm">{r.description}</p>
+                  {(r.lifted_at || r.validated_at) && (
+                    <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                      {r.lifted_at && <span>Levée le {new Date(r.lifted_at).toLocaleString("fr-FR")}</span>}
+                      {r.validated_at && <span>Validée client le {new Date(r.validated_at).toLocaleString("fr-FR")}</span>}
+                    </div>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <Select value={r.status} onValueChange={(v) => updateReserve(r.id, v)}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ouverte">Ouverte</SelectItem>
+                    <SelectItem value="levee">Levée</SelectItem>
+                    <SelectItem value="validee">Validée</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="icon" variant="ghost" onClick={() => deleteReserve(r.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            );
+          })}
+        </div>
       </Card>
+      )}
 
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between gap-2">
@@ -904,17 +874,48 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function SignatureBlock({ label, data }: { label: string; data: string | null }) {
+function CompactSignature({ label, data, name, date }: { label: string; data: string | null; name: string | null; date: string | null }) {
   return (
-    <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <div className="grid h-24 place-items-center rounded-md border border-dashed border-border bg-muted/30">
+    <div className="flex items-center gap-3 rounded-md border border-border bg-muted/20 p-2">
+      <div className="grid h-10 w-20 shrink-0 place-items-center overflow-hidden rounded bg-background">
         {data ? (
           <img src={data} alt={`Signature ${label}`} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-xs text-muted-foreground">Non signé</span>
+          <span className="text-[10px] text-muted-foreground">Non signé</span>
         )}
       </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+        <div className="truncate text-sm font-medium">{name ?? "—"}</div>
+        {data && date && (
+          <div className="text-[11px] text-muted-foreground">
+            {new Date(date).toLocaleDateString("fr-FR")} · {new Date(date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DescriptionBlock({ label, text }: { label: string; text: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const value = text?.trim() || "";
+  const isLong = value.length > 220 || value.split("\n").length > 3;
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm ${!expanded && isLong ? "line-clamp-3" : ""}`}>
+        {value || "—"}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-xs font-medium text-primary hover:underline"
+        >
+          {expanded ? "Voir moins" : "Voir plus"}
+        </button>
+      )}
     </div>
   );
 }
