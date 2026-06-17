@@ -90,11 +90,29 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   const branding = brandingSettings ?? DEFAULT_BRANDING_SETTINGS;
   const company = brandingRow;
 
+  const itemIds = (itemsRes.data ?? []).map((i: any) => i.id);
   const reserveIds = (itemsRes.data ?? []).map((i: any) => i.reserve_id);
+
   const { data: reservesData } = reserveIds.length
     ? await supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").in("id", reserveIds)
     : { data: [] as any[] };
   const reserveMap = new Map<string, any>((reservesData ?? []).map((r: any) => [r.id, r]));
+
+  // Photos with metadata (before/after + GPS) for these items
+  const { data: photoMeta } = itemIds.length
+    ? await supabaseAdmin
+        .from("reserve_lift_item_photos" as any)
+        .select("reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at")
+        .in("reserve_lift_item_id", itemIds)
+    : { data: [] as any[] };
+  const photosByItem = new Map<string, { before: any[]; after: any[] }>();
+  for (const row of (photoMeta ?? []) as any[]) {
+    const bucket = photosByItem.get(row.reserve_lift_item_id) ?? { before: [], after: [] };
+    if (row.photo_type === "before") bucket.before.push(row);
+    else bucket.after.push(row);
+    photosByItem.set(row.reserve_lift_item_id, bucket);
+  }
+
 
   const [clientRes, chantierRes] = await Promise.all([
     pv?.client_id
