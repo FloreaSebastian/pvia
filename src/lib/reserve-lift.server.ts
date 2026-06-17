@@ -904,35 +904,58 @@ export async function buildAndStoreReserveLiftPdf(
   // Traceability block.
   // Internal: full forensic block with UUIDs of report / PV / company + local & UTC timestamps.
   // Client : minimal fingerprint only (UUID rapport + hash preuve).
-  ensureSpace(isInternal ? 80 : 40);
+  // Count photos for the integrity manifest.
+  const photoCount = ((photoMeta ?? []) as any[]).length
+    + ((itemsRes.data ?? []) as any[]).reduce((n, it: any) => n + ((it.photo_urls ?? []) as any[]).length, 0);
+
+  ensureSpace(isInternal ? 110 : 60);
   page.drawText(isInternal ? "TRACABILITE NUMERIQUE" : "Empreinte numerique du document", {
     x: MARGIN, y, size: 8, font: bold, color: PRIMARY,
   });
   y -= 12;
   const traceLines: string[] = [];
-  traceLines.push(`UUID rapport     : ${report.id}`);
+  traceLines.push(`UUID rapport      : ${report.id}`);
   if (isInternal) {
-    traceLines.push(`UUID PV          : ${report.pv_id}`);
-    traceLines.push(`UUID entreprise  : ${report.company_id}`);
-    traceLines.push(`Genere (UTC)     : ${genAt}`);
+    traceLines.push(`UUID PV           : ${report.pv_id}`);
+    traceLines.push(`UUID entreprise   : ${report.company_id}`);
+    traceLines.push(`Genere (UTC)      : ${genAt}`);
     try {
-      traceLines.push(`Genere (local)   : ${new Date(genAt).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })} (Europe/Paris)`);
+      traceLines.push(`Genere (local)    : ${new Date(genAt).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })} (Europe/Paris)`);
     } catch { /* */ }
+    traceLines.push(`Email signataire  : ${(report as any).client_validated_email ?? (report as any).client_signature_email ?? "—"}`);
+    traceLines.push(`IP signataire     : ${(report as any).client_signature_ip ?? (report as any).client_validated_ip ?? "—"}`);
+    traceLines.push(`User-Agent        : ${((report as any).client_signature_user_agent ?? "—").slice(0, 90)}`);
+    traceLines.push(`Consentement      : ${(report as any).client_signature_consent_at ? `accepte le ${formatDate((report as any).client_signature_consent_at, true)}` : "—"}`);
+    traceLines.push(`Nombre de reserves: ${items.length}`);
+    traceLines.push(`Nombre de photos  : ${photoCount}`);
   } else {
     traceLines.push(`N° : ${sanitize(report.numero)}   ·   Genere le ${formatDate(genAt, true)}`);
+    traceLines.push(`Reserves : ${items.length}   ·   Photos : ${photoCount}`);
   }
-  traceLines.push(`SHA-256 (preuve) : ${evidenceHash}`);
+  traceLines.push(`SHA-256 (preuve)  : ${evidenceHash}`);
   for (const t of traceLines) {
     page.drawText(t, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
     y -= 10;
   }
-  y -= 4;
+  y -= 6;
+
+  // eIDAS bloc en évidence
+  ensureSpace(46);
+  page.drawRectangle({ x: MARGIN, y: y - 40, width: CONTENT_W, height: 40, color: rgb(0.97, 0.98, 1), borderColor: PRIMARY, borderWidth: 0.6 });
+  page.drawText("CONFORMITE eIDAS", { x: MARGIN + 12, y: y - 14, size: 7.5, font: bold, color: PRIMARY });
+  const eidasNotice = "Cette validation constitue une signature electronique simple conformement au reglement eIDAS (UE n°910/2014).";
+  let ey0 = y - 26;
+  for (const l of wrapLines(helv, eidasNotice, 8, CONTENT_W - 24)) {
+    page.drawText(l, { x: MARGIN + 12, y: ey0, size: 8, font: helv, color: ACCENT });
+    ey0 -= 10;
+  }
+  y -= 46;
 
   // Mentions
   ensureSpace(60);
   page.drawText("MENTIONS LEGALES", { x: MARGIN, y, size: 8, font: bold, color: MUTED });
   y -= 12;
-  const mentions = "Le present proces-verbal atteste la levee des reserves listees ci-dessus, suite a l'intervention de l'entreprise.";
+  const mentions = "Le present proces-verbal atteste la levee des reserves listees ci-dessus, suite a l'intervention de l'entreprise, et constitue un complement au proces-verbal de reception initial (art. 1792-6 du Code civil).";
   for (const l of wrapLines(helv, mentions, 7.5, CONTENT_W)) { page.drawText(l, { x: MARGIN, y, size: 7.5, font: helv, color: MUTED }); y -= 11; }
   y -= 4;
   for (const m of EIDAS_MENTIONS) {
