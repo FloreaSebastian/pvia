@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { useServerFn } from "@tanstack/react-start";
 import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
+import { setRememberMePreference, getRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
