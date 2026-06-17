@@ -233,6 +233,37 @@ function ChantierDetailPage() {
   const historyEvents = useMemo(() => timeline.filter((e) => e.event_type.startsWith("system_")), [timeline]);
   const userEvents = useMemo(() => timeline.filter((e) => !e.event_type.startsWith("system_")), [timeline]);
 
+  // Unified chronological timeline (P2.6): chantier creation + all events + PVs
+  type TLItem = {
+    id: string; date: string; title: string; kind: "create" | "event" | "system" | "pv";
+    subtitle?: string; status?: string; tone?: "success" | "info" | "warning" | "neutral" | "danger";
+  };
+  const unifiedTimeline = useMemo<TLItem[]>(() => {
+    if (!d) return [];
+    const out: TLItem[] = [];
+    if (d.chantier.created_at) {
+      out.push({ id: `c-${d.chantier.id}`, date: d.chantier.created_at, title: "Chantier créé", kind: "create", subtitle: d.chantier.name, tone: "info" });
+    }
+    for (const e of timeline) {
+      const isSys = e.event_type.startsWith("system_");
+      out.push({
+        id: `e-${e.id}`,
+        date: e.start_at ?? e.created_at ?? new Date().toISOString(),
+        title: e.title,
+        kind: isSys ? "system" : "event",
+        subtitle: isSys ? undefined : evtLabel(e.event_type),
+        status: e.status,
+        tone: e.status === "termine" ? "success" : e.status === "annule" ? "danger" : isSys ? "neutral" : "info",
+      });
+    }
+    for (const p of d.pvs) {
+      out.push({ id: `pv-c-${p.id}`, date: p.created_at, title: `PV créé ${p.numero ?? ""}`.trim(), kind: "pv", subtitle: p.type, tone: "neutral" });
+      if (p.signed_at) out.push({ id: `pv-s-${p.id}`, date: p.signed_at, title: `PV signé ${p.numero ?? ""}`.trim(), kind: "pv", subtitle: p.type, tone: "success" });
+      if (p.sent_to_client_at) out.push({ id: `pv-x-${p.id}`, date: p.sent_to_client_at, title: `PV envoyé au client ${p.numero ?? ""}`.trim(), kind: "pv", tone: "info" });
+    }
+    return out.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [d, timeline]);
+
   if (loading && !d) return <div className="p-8 text-sm text-muted-foreground">Chargement…</div>;
   if (!d) return <div className="p-8 text-sm text-muted-foreground">Chantier introuvable.</div>;
 
