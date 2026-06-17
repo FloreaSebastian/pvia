@@ -302,27 +302,30 @@ function PvDetail() {
 
 
   async function updateReserve(rid: string, status: string) {
-    const prev = reserves.find((r) => r.id === rid);
-    const { error } = await supabase.from("pv_reserves").update({ status }).eq("id", rid);
-    if (error) return toast.error(error.message);
-    setReserves((rs) => rs.map((r) => (r.id === rid ? { ...r, status } : r)));
-    toast.success("Réserve mise à jour");
-    if (pv?.company_id) {
-      const action = status === "levee" ? "reserve.lifted" : status === "validee" ? "reserve.validated" : "reserve.update";
-      logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "reserve", entityId: rid, action, oldValues: { status: prev?.status }, newValues: { status } } }).catch(() => {});
+    if (!pv?.company_id) return;
+    try {
+      await updateReserveFn({
+        data: { companyId: pv.company_id, id: rid, status: status as any },
+      });
+      setReserves((rs) => rs.map((r) => (r.id === rid ? { ...r, status } : r)));
+      toast.success("Réserve mise à jour");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
     }
   }
 
   async function deleteReserve(rid: string) {
+    if (!pv?.company_id) return;
     if (!confirm("Supprimer cette réserve ?")) return;
-    const prev = reserves.find((r) => r.id === rid);
-    const { error } = await supabase.from("pv_reserves").delete().eq("id", rid);
-    if (error) return toast.error(error.message);
-    setReserves((rs) => rs.filter((r) => r.id !== rid));
-    if (pv?.company_id) {
-      logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "reserve", entityId: rid, action: "reserve.delete", oldValues: prev ? { description: prev.description, severity: prev.severity, status: prev.status } : null } }).catch(() => {});
+    try {
+      await deleteReserveServerFn({ data: { companyId: pv.company_id, id: rid } });
+      setReserves((rs) => rs.filter((r) => r.id !== rid));
+      toast.success("Réserve supprimée");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suppression impossible");
     }
   }
+
 
   async function downloadPdf() {
     if (!pv) return;
