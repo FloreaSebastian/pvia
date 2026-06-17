@@ -443,8 +443,6 @@ function ChantierCalendarPage() {
           onClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
           onClickEvent={(e) => openEdit(e)}
 
-          onClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
-          onClickEvent={(e) => openEdit(e)}
           onMoveDay={(targetDay, id) => {
             const evt = events.find((x) => x.id === id);
             if (!evt?.start_at) return;
