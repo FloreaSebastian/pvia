@@ -55,6 +55,7 @@ export function ReserveDetailDialog({
   const { activeRole } = useCompany();
   const updateFn = useServerFn(updateReserveStatus);
   const listPhotosFn = useServerFn(listReserveLiftPhotos);
+  const historyFn = useServerFn(getReserveHistory);
   const [history, setHistory] = useState<AuditRow[]>([]);
   const [photos, setPhotos] = useState<Array<{
     id: string; photoType: "before" | "after" | "legacy"; url: string | null;
