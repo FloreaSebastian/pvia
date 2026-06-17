@@ -640,7 +640,16 @@ function NewPv() {
     const chantierOk = form.chantier_address.trim().length > 0 && !!form.reception_date;
     const travauxOk = form.description.trim().length > 0;
     const decisionOk = withReserves !== null;
-    const reservesOk = !withReserves || (reserves.length > 0 && reserves.every((r) => (r.description.trim() || r.nature.trim())));
+    const reservesAllHaveContent = reserves.every((r) => (r.description.trim() || r.nature.trim()));
+    const reservesAllHavePhotos = reserves.every((r) => r.photos.length > 0);
+    let reservesError: string | null = null;
+    if (withReserves) {
+      if (reserves.length === 0) reservesError = "Ajoutez au moins une réserve.";
+      else if (!reservesAllHaveContent) reservesError = "Chaque réserve doit avoir une description ou une nature.";
+      else if (!reservesAllHavePhotos) reservesError = "Chaque réserve doit contenir au moins une photo.";
+    }
+    const reservesOk = reservesError === null;
+
     // Signatures: mode requis, signature entreprise requise; remote → email client requis;
     // onsite → signature client + OTP vérifié.
     let signaturesError: string | null = null;
