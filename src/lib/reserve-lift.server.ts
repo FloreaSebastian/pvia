@@ -539,7 +539,9 @@ export async function buildAndStoreReserveLiftPdf(
   proofField("a", "Identite verifiee le", formatDate((report as any).client_validated_at, true));
 
   proofField("b", "Methode de signature", "Signature electronique simple — validation par lien email");
-  proofField("b", "Adresse IP client", (report as any).client_validated_ip || "-");
+  if (isInternal) {
+    proofField("b", "Adresse IP client", (report as any).client_validated_ip || "-");
+  }
   proofField("b", "Date de validation client", formatDate((report as any).client_validated_at, true));
   proofField("b", "Signature client (entreprise)", report.client_signature ? "Signature collectee" : "-");
 
