@@ -587,17 +587,70 @@ export async function buildAndStoreReserveLiftPdf(
   drawFooter();
 
   const bytes = await pdf.save();
-  const path = `${report.company_id}/lifts/${reportId}/LR-${report.numero}.pdf`;
+  const suffix = isInternal ? "internal" : "client";
+  const path = `${report.company_id}/lifts/${reportId}/LR-${report.numero}-${suffix}.pdf`;
   const { error: upErr } = await supabaseAdmin.storage
     .from("pv-assets")
     .upload(path, bytes, { contentType: "application/pdf", upsert: true });
   if (upErr) throw new Error(`Échec upload PDF: ${upErr.message}`);
 
+  const nowIso = new Date().toISOString();
+  const patch: Record<string, unknown> = isInternal
+    ? { pdf_internal_url: path, pdf_internal_generated_at: nowIso }
+    : {
+        pdf_client_url: path,
+        pdf_client_generated_at: nowIso,
+        // Keep legacy columns aligned with the client-safe variant so old code paths
+        // (email delivery, exports) never accidentally expose internal metadata.
+        pdf_url: path,
+        pdf_generated_at: nowIso,
+      };
   const { error: pdfUpdErr } = await supabaseAdmin
     .from("reserve_lift_reports")
-    .update({ pdf_url: path, pdf_generated_at: new Date().toISOString() } as any)
+    .update(patch as any)
     .eq("id", reportId);
   if (pdfUpdErr) throw new Error(`Échec persistance pdf_url: ${pdfUpdErr.message}`);
 
   return path;
+}
+
+/**
+ * Build both variants (internal + client) in sequence, returning their storage paths.
+ * Use this as the default entry point so the two PDFs stay in sync.
+ */
+export async function buildAndStoreReserveLiftPdfs(
+  reportId: string,
+): Promise<{ internalPath: string; clientPath: string }> {
+  const internalPath = await buildAndStoreReserveLiftPdf(reportId, "internal");
+  const clientPath = await buildAndStoreReserveLiftPdf(reportId, "client");
+
+  // Audit both generations (best-effort — never block the lift on audit failures).
+  try {
+    const { writeAuditLog } = await import("./audit.server");
+    const { data: r } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .select("company_id,pv_id,numero")
+      .eq("id", reportId)
+      .maybeSingle();
+    if (r?.company_id) {
+      await writeAuditLog({
+        companyId: r.company_id, pvId: r.pv_id,
+        entityType: "reserve_lift", entityId: reportId,
+        action: "pdf.internal_generated",
+        metadata: { numero: r.numero, path: internalPath },
+        actor: "system",
+      });
+      await writeAuditLog({
+        companyId: r.company_id, pvId: r.pv_id,
+        entityType: "reserve_lift", entityId: reportId,
+        action: "pdf.client_generated",
+        metadata: { numero: r.numero, path: clientPath },
+        actor: "system",
+      });
+    }
+  } catch (e) {
+    console.error("[reserve-lift] audit pdf generation failed", e);
+  }
+
+  return { internalPath, clientPath };
 }
