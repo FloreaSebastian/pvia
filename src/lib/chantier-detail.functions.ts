@@ -529,3 +529,67 @@ export const getTeamWorkload = createServerFn({ method: "POST" })
     return { workload: Array.from(map.values()) };
   });
 
+// ---------- auto planning (P2.4) ----------
+const AUTO_PLAN_STEPS: { offsetDays: number; title: string; event_type: string; description: string }[] = [
+  { offsetDays: 0,  title: "Visite technique",   event_type: "visite_technique",   description: "Visite technique initiale" },
+  { offsetDays: 3,  title: "Validation devis",   event_type: "rappel",             description: "Validation du devis avec le client" },
+  { offsetDays: 7,  title: "Commande matériel",  event_type: "livraison_materiel", description: "Commande du matériel nécessaire" },
+  { offsetDays: 14, title: "Début travaux",      event_type: "debut_travaux",      description: "Démarrage des travaux sur site" },
+  { offsetDays: 28, title: "Contrôle",           event_type: "controle_qualite",   description: "Contrôle qualité intermédiaire" },
+  { offsetDays: 35, title: "Réception",          event_type: "reception",          description: "Réception du chantier" },
+];
+
+export const createChantierAutoPlanning = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    chantierId: z.string().uuid(),
+    startDate: z.string().nullable().optional(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { data: ch, error: chErr } = await supabase
+      .from("chantiers")
+      .select("id, company_id, client_id, start_date")
+      .eq("id", data.chantierId)
+      .eq("company_id", data.companyId)
+      .maybeSingle();
+    if (chErr || !ch) throw new Error("Chantier introuvable.");
+    const baseStr = data.startDate || ch.start_date || new Date().toISOString();
+    const base = new Date(baseStr);
+    if (Number.isNaN(base.getTime())) throw new Error("Date de référence invalide.");
+    base.setHours(9, 0, 0, 0);
+
+    const rows = AUTO_PLAN_STEPS.map((s) => {
+      const start = new Date(base);
+      start.setDate(start.getDate() + s.offsetDays);
+      const end = new Date(start);
+      end.setHours(end.getHours() + 2);
+      return {
+        company_id: data.companyId,
+        chantier_id: data.chantierId,
+        client_id: ch.client_id,
+        created_by: userId,
+        title: s.title,
+        description: s.description,
+        event_type: s.event_type,
+        status: "prevu" as const,
+        start_at: start.toISOString(),
+        end_at: end.toISOString(),
+        all_day: false,
+      };
+    });
+    const { data: inserted, error } = await supabase
+      .from("chantier_events").insert(rows).select("id");
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId,
+      entityType: "chantier", entityId: data.chantierId,
+      action: "chantier.auto_planning_created",
+      metadata: { count: inserted?.length ?? 0, base: base.toISOString() },
+    });
+    return { ok: true, count: inserted?.length ?? 0 };
+  });
+
+

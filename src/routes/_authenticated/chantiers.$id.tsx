@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   getChantierDetail, createChantierEvent, updateChantierEvent, deleteChantierEvent,
   createChantierNote, deleteChantierNote,
   createChantierDocument, deleteChantierDocument,
-  listCompanyMembers,
+  listCompanyMembers, createChantierAutoPlanning,
 } from "@/lib/chantier-detail.functions";
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
@@ -89,6 +89,21 @@ function ChantierDetailPage() {
   const createDocFn = useServerFn(createChantierDocument);
   const deleteDocFn = useServerFn(deleteChantierDocument);
   const fetchMembers = useServerFn(listCompanyMembers);
+  const autoPlanFn = useServerFn(createChantierAutoPlanning);
+  const [autoPlanLoading, setAutoPlanLoading] = useState(false);
+
+  async function runAutoPlanning() {
+    if (!activeCompanyId) return;
+    if (!confirm("Créer un planning automatique (6 événements) ? Vous pourrez ensuite modifier chaque étape.")) return;
+    setAutoPlanLoading(true);
+    try {
+      const r = await autoPlanFn({ data: { companyId: activeCompanyId, chantierId: id } });
+      toast.success(`${r.count} événements créés`);
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Création impossible");
+    } finally { setAutoPlanLoading(false); }
+  }
 
   const [members, setMembers] = useState<{ user_id: string; name: string; role: string }[]>([]);
   const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
@@ -248,6 +263,11 @@ function ChantierDetailPage() {
             <Button asChild variant="outline" size="sm">
               <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /> Calendrier</Link>
             </Button>
+            {canWrite && (
+              <Button variant="outline" size="sm" onClick={runAutoPlanning} disabled={autoPlanLoading}>
+                <Sparkles className="h-4 w-4" /> {autoPlanLoading ? "Création…" : "Planning auto"}
+              </Button>
+            )}
             {canWrite && (
               <Button onClick={openNewEvt} className="shadow-brand">
                 <Plus className="h-4 w-4" /> Nouvel événement
