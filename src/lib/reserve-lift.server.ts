@@ -1,7 +1,7 @@
 /**
  * Helpers + PDF generation for reserve-lift reports.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
 import { sha256OfBytes, EIDAS_MENTIONS } from "./signature-proof.server";
@@ -115,11 +115,11 @@ export async function buildAndStoreReserveLiftPdf(
     : { data: [] as any[] };
   const reserveMap = new Map<string, any>((reservesData ?? []).map((r: any) => [r.id, r]));
 
-  // Photos with metadata (before/after + GPS) for these items
+  // Photos with metadata (before/after + GPS + integrity hash) for these items
   const { data: photoMeta } = itemIds.length
     ? await supabaseAdmin
         .from("reserve_lift_item_photos" as any)
-        .select("reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,exif_metadata")
+        .select("id,reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,exif_metadata,file_hash,file_name,file_size,uploaded_at,uploaded_by")
         .in("reserve_lift_item_id", itemIds)
     : { data: [] as any[] };
   const photosByItem = new Map<string, { before: any[]; after: any[] }>();
@@ -168,12 +168,30 @@ export async function buildAndStoreReserveLiftPdf(
   let y = PAGE_H - MARGIN;
   let pageNum = 1;
 
+  const drawWatermark = (p: PDFPage) => {
+    if (!isInternal) return;
+    // Diagonal "DOCUMENT INTERNE" watermark, very low opacity, centered.
+    const text = "DOCUMENT INTERNE";
+    const size = 64;
+    const w = bold.widthOfTextAtSize(text, size);
+    p.drawText(text, {
+      x: (PAGE_W - w * Math.cos(Math.PI / 6)) / 2,
+      y: PAGE_H / 2 - 40,
+      size,
+      font: bold,
+      color: rgb(0.85, 0.15, 0.15),
+      opacity: 0.08,
+      rotate: degrees(30),
+    });
+  };
+
   const ensureSpace = (needed: number) => {
     if (y - needed < MARGIN + 30) {
       drawFooter();
       page = pdf.addPage([PAGE_W, PAGE_H]);
       pageNum += 1;
       y = PAGE_H - MARGIN;
+      drawWatermark(page);
     }
   };
   const drawFooter = () => {
@@ -182,6 +200,8 @@ export async function buildAndStoreReserveLiftPdf(
     page.drawText(`Levée ${sanitize(report.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
     page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
   };
+
+  drawWatermark(page);
 
   // HEADER
   page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: HEADER_BG });
@@ -261,7 +281,7 @@ export async function buildAndStoreReserveLiftPdf(
 
   // Helper: render a photo grid (with per-photo geoloc caption) at the current y.
   const renderPhotoGrid = async (
-    photos: Array<{ storage_path: string; latitude?: number | null; longitude?: number | null; accuracy?: number | null; taken_at?: string | null; exif_metadata?: any }>,
+    photos: Array<{ storage_path: string; latitude?: number | null; longitude?: number | null; accuracy?: number | null; taken_at?: string | null; exif_metadata?: any; file_name?: string | null; file_hash?: string | null }>,
     label: string,
   ) => {
     if (!photos.length) return;
@@ -311,6 +331,12 @@ export async function buildAndStoreReserveLiftPdf(
         }
         if (cam) meta.push(cam);
         if (meta.length) captionLines.push(meta.join("  ·  "));
+        // Chain of custody (internal only): filename + truncated SHA-256.
+        if (p.file_name || p.file_hash) {
+          const fn = p.file_name ? sanitize(String(p.file_name)) : "—";
+          const fh = p.file_hash ? `${String(p.file_hash).slice(0, 16)}…` : "—";
+          captionLines.push(`Fichier: ${fn}  ·  SHA-256: ${fh}`);
+        }
       } else {
         // Client-safe caption: only a binary geoloc badge + capture date. No coords, no EXIF, no camera.
         captionLines.push(hasGeo ? "Photo geolocalisee" : "Photo non geolocalisee");
@@ -560,15 +586,32 @@ export async function buildAndStoreReserveLiftPdf(
   const evidenceHash = await sha256OfBytes(evidenceBytes);
   const genAt = new Date().toISOString();
 
-  ensureSpace(40);
-  page.drawText("Empreinte numerique du document", { x: MARGIN, y, size: 7, font: bold, color: MUTED });
-  y -= 10;
-  page.drawText(`UUID : ${report.id}`, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
-  y -= 10;
-  page.drawText(`N° : ${sanitize(report.numero)}   ·   Genere le ${formatDate(genAt, true)}`, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
-  y -= 10;
-  page.drawText(`SHA-256 (preuve) : ${evidenceHash}`, { x: MARGIN, y, size: 6.5, font: helv, color: MUTED });
+  // Traceability block.
+  // Internal: full forensic block with UUIDs of report / PV / company + local & UTC timestamps.
+  // Client : minimal fingerprint only (UUID rapport + hash preuve).
+  ensureSpace(isInternal ? 80 : 40);
+  page.drawText(isInternal ? "TRACABILITE NUMERIQUE" : "Empreinte numerique du document", {
+    x: MARGIN, y, size: 8, font: bold, color: PRIMARY,
+  });
   y -= 12;
+  const traceLines: string[] = [];
+  traceLines.push(`UUID rapport     : ${report.id}`);
+  if (isInternal) {
+    traceLines.push(`UUID PV          : ${report.pv_id}`);
+    traceLines.push(`UUID entreprise  : ${report.company_id}`);
+    traceLines.push(`Genere (UTC)     : ${genAt}`);
+    try {
+      traceLines.push(`Genere (local)   : ${new Date(genAt).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })} (Europe/Paris)`);
+    } catch { /* */ }
+  } else {
+    traceLines.push(`N° : ${sanitize(report.numero)}   ·   Genere le ${formatDate(genAt, true)}`);
+  }
+  traceLines.push(`SHA-256 (preuve) : ${evidenceHash}`);
+  for (const t of traceLines) {
+    page.drawText(t, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
+    y -= 10;
+  }
+  y -= 4;
 
   // Mentions
   ensureSpace(60);

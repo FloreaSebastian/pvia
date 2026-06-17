@@ -1755,6 +1755,9 @@ export type Database = {
           created_at: string
           device_info: string | null
           exif_metadata: Json | null
+          file_hash: string | null
+          file_name: string | null
+          file_size: number | null
           id: string
           latitude: number | null
           longitude: number | null
@@ -1774,6 +1777,9 @@ export type Database = {
           created_at?: string
           device_info?: string | null
           exif_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_size?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -1793,6 +1799,9 @@ export type Database = {
           created_at?: string
           device_info?: string | null
           exif_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_size?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null

@@ -9,6 +9,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { firePushToCompany } from "./push.server";
 import { buildAndStoreReserveLiftPdfs } from "./reserve-lift.server";
+import { sha256OfBytes } from "./signature-proof.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
 import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
 import {
@@ -193,6 +194,9 @@ export const createReserveLift = createServerFn({ method: "POST" })
         takenAt: string | null;
         deviceInfo: string | null;
         exifMetadata: Record<string, any> | null;
+        fileHash: string;
+        fileSize: number;
+        fileName: string;
       }> = [];
       for (const p of item.photos) {
         const declared = p.mimeType.toLowerCase();
@@ -223,6 +227,7 @@ export const createReserveLift = createServerFn({ method: "POST" })
           continue;
         }
         photoPaths.push(path);
+        const fileHash = await sha256OfBytes(bytes);
         photoRows.push({
           path,
           photoType: (p.photoType ?? "after") as "before" | "after",
@@ -232,8 +237,10 @@ export const createReserveLift = createServerFn({ method: "POST" })
           takenAt: p.takenAt ?? null,
           deviceInfo: p.deviceInfo ?? null,
           exifMetadata: p.exifMetadata ?? null,
+          fileHash,
+          fileSize: bytes.length,
+          fileName: safeFilename(p.fileName),
         });
-        void safeFilename(p.fileName);
       }
 
       const reserve = reserveById.get(item.reserveId)!;
@@ -273,6 +280,9 @@ export const createReserveLift = createServerFn({ method: "POST" })
           uploaded_by: userId,
           device_info: row.deviceInfo,
           exif_metadata: row.exifMetadata,
+          file_hash: row.fileHash,
+          file_size: row.fileSize,
+          file_name: row.fileName,
         }));
         const { error: phErr } = await supabaseAdmin.from("reserve_lift_item_photos" as any).insert(rowsToInsert as any);
         if (phErr) {
@@ -781,4 +791,93 @@ export const deleteReserveLiftPhoto = createServerFn({ method: "POST" })
 
     return { ok: true as const };
   });
+
+/**
+ * Verify the on-disk file still matches the SHA-256 stored at upload time.
+ * Result per photo: "valid" | "modified" | "missing" | "no_hash".
+ * Company members only. Audited.
+ */
+export const verifyReserveLiftPhotoIntegrity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({
+      reportId: z.string().uuid().optional(),
+      photoId: z.string().uuid().optional(),
+    }).refine((v) => v.reportId || v.photoId, "reportId ou photoId requis").parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+
+    let q = supabaseAdmin
+      .from("reserve_lift_item_photos" as any)
+      .select("id,company_id,pv_id,reserve_id,reserve_lift_item_id,storage_path,file_hash,file_name,photo_type");
+    if (data.photoId) {
+      q = q.eq("id", data.photoId);
+    } else if (data.reportId) {
+      const { data: items } = await supabaseAdmin
+        .from("reserve_lift_items")
+        .select("id")
+        .eq("report_id", data.reportId);
+      const ids = (items ?? []).map((i: any) => i.id);
+      if (!ids.length) return { results: [] as Array<{ photoId: string; status: string }> };
+      q = q.in("reserve_lift_item_id", ids);
+    }
+    const { data: rows } = await q;
+    if (!rows?.length) return { results: [] as Array<{ photoId: string; status: string }> };
+
+    // Auth: scope to caller's company.
+    const companyId = (rows[0] as any).company_id;
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member) throw new Error("Accès refusé.");
+
+    const results: Array<{
+      photoId: string; fileName: string | null; photoType: string;
+      status: "valid" | "modified" | "missing" | "no_hash";
+      storedHash: string | null; currentHash: string | null;
+    }> = [];
+
+    for (const r of rows as any[]) {
+      if (r.company_id !== companyId) continue;
+      if (!r.file_hash) {
+        results.push({ photoId: r.id, fileName: r.file_name, photoType: r.photo_type, status: "no_hash", storedHash: null, currentHash: null });
+        continue;
+      }
+      const { data: f, error: dErr } = await supabaseAdmin.storage.from("pv-assets").download(r.storage_path);
+      if (dErr || !f) {
+        results.push({ photoId: r.id, fileName: r.file_name, photoType: r.photo_type, status: "missing", storedHash: r.file_hash, currentHash: null });
+        await writeAuditLog({
+          companyId, userId, pvId: r.pv_id,
+          entityType: "reserve_lift_photo", entityId: r.id,
+          action: "reserve_lift_photo.integrity_failed",
+          metadata: { reason: "missing", storage_path: r.storage_path },
+          actor: "user",
+        });
+        continue;
+      }
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const currentHash = await sha256OfBytes(bytes);
+      const ok = currentHash === r.file_hash;
+      results.push({
+        photoId: r.id, fileName: r.file_name, photoType: r.photo_type,
+        status: ok ? "valid" : "modified",
+        storedHash: r.file_hash, currentHash,
+      });
+      await writeAuditLog({
+        companyId, userId, pvId: r.pv_id,
+        entityType: "reserve_lift_photo", entityId: r.id,
+        action: ok ? "reserve_lift_photo.integrity_checked" : "reserve_lift_photo.integrity_failed",
+        metadata: { stored_hash: r.file_hash, current_hash: currentHash, reason: ok ? null : "hash_mismatch" },
+        actor: "user",
+      });
+    }
+
+    return { results };
+  });
+
 
