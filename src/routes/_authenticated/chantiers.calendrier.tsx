@@ -192,6 +192,46 @@ function ChantierCalendarPage() {
 
   function resetFilters() {
     setFChantier("all"); setFClient("all"); setFType("all"); setFStatus("all"); setFAssigned("all"); setFColor("all");
+    setFOnlyUnassigned(false); setFHideDone(false); setFHideCancelled(false);
+  }
+
+  // ----- Conflict detection (per assigned member, in current event list) -----
+  const conflicts = useMemo(() => {
+    const out = new Set<string>();
+    const byMember = new Map<string, Evt[]>();
+    for (const e of events) {
+      if (!e.assigned_to || !e.start_at || e.status === "annule") continue;
+      if (e.event_type.startsWith("system_")) continue;
+      const arr = byMember.get(e.assigned_to) ?? [];
+      arr.push(e);
+      byMember.set(e.assigned_to, arr);
+    }
+    for (const arr of byMember.values()) {
+      const sorted = arr.slice().sort((a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime());
+      for (let i = 0; i < sorted.length; i++) {
+        const a = sorted[i];
+        const aS = new Date(a.start_at!).getTime();
+        const aE = a.end_at ? new Date(a.end_at).getTime() : aS + 60 * 60000;
+        for (let j = i + 1; j < sorted.length; j++) {
+          const b = sorted[j];
+          const bS = new Date(b.start_at!).getTime();
+          if (bS >= aE) break;
+          const bE = b.end_at ? new Date(b.end_at).getTime() : bS + 60 * 60000;
+          if (bS < aE && aS < bE) { out.add(a.id); out.add(b.id); }
+        }
+      }
+    }
+    return out;
+  }, [events]);
+
+  // ----- Reassign (team drag) -----
+  async function commitReassign(id: string, assignedTo: string | null) {
+    if (!activeCompanyId) return;
+    try {
+      await reassignFn({ data: { companyId: activeCompanyId, id, assigned_to: assignedTo } });
+      toast.success(assignedTo ? "Événement réassigné" : "Événement désassigné");
+      await load();
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Réassignation impossible"); await load(); }
   }
 
   // ----- Event dialog -----
