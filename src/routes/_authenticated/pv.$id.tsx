@@ -821,6 +821,10 @@ function PvDetail() {
                             <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail">
+                          {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
+                          Export expertise
+                        </Button>
                         {validated && (
                           <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
