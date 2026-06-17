@@ -212,8 +212,10 @@ export function ReserveDetailDialog({
                       {subset.map((p) => {
                         const hasGeo = p.latitude !== null && p.longitude !== null;
                         return (
-                          <a key={p.id} href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden rounded border border-border">
-                            {p.url ? <img src={p.url} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square w-full bg-muted" />}
+                          <div key={p.id} className="relative overflow-hidden rounded border border-border">
+                            <a href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
+                              {p.url ? <img src={p.url} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square w-full bg-muted" />}
+                            </a>
                             <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
                               {hasGeo ? (
                                 <>
@@ -232,7 +234,16 @@ export function ReserveDetailDialog({
                                 {new Date(p.uploadedAt).toLocaleDateString("fr-FR")}
                               </div>
                             )}
-                          </a>
+                            {hasGeo && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); setMapPhoto(p); }}
+                                className="absolute bottom-1 right-1 rounded bg-primary px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground hover:opacity-90"
+                              >
+                                Voir sur carte
+                              </button>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
