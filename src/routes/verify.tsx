@@ -91,6 +91,7 @@ function VerifyPage() {
   }, [code, loading, otpBlocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function finalizeLogin() {
+    applyRememberMePreference(getRememberMePreference());
     const { data: { user } } = await supabase.auth.getUser();
     let isAdmin = false;
     if (user) {
