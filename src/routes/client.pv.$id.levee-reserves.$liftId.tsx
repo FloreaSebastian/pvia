@@ -236,15 +236,20 @@ function ClientLiftDetail() {
 }
 
 function ClientLiftValidation({
-  onSubmit,
+  onValidate,
+  onReject,
 }: {
-  onSubmit: (signatureDataUrl: string) => Promise<void>;
+  onValidate: (signatureDataUrl: string) => Promise<void>;
+  onReject: (reason: string) => Promise<void>;
 }) {
   const padRef = useRef<SignaturePad | null>(null);
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [showReject, setShowReject] = useState(false);
+  const [reason, setReason] = useState("");
 
-  async function handle() {
+  async function handleValidate() {
     if (!padRef.current || padRef.current.isEmpty()) {
       toast.error("Veuillez apposer votre signature.");
       return;
@@ -256,7 +261,7 @@ function ClientLiftValidation({
     const dataUrl = padRef.current.getCanvas().toDataURL("image/png");
     setSubmitting(true);
     try {
-      await onSubmit(dataUrl);
+      await onValidate(dataUrl);
     } catch (e: any) {
       toast.error(e?.message ?? "Échec de la validation");
     } finally {
@@ -264,41 +269,120 @@ function ClientLiftValidation({
     }
   }
 
+  async function handleReject() {
+    const r = reason.trim();
+    if (r.length < 5) {
+      toast.error("Motif obligatoire (5 caractères minimum).");
+      return;
+    }
+    setRejecting(true);
+    try {
+      await onReject(r);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Échec du rejet");
+    } finally {
+      setRejecting(false);
+    }
+  }
+
   return (
-    <Card className="p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <PenLine className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold">Votre validation</h3>
-        <Badge variant="outline" className="ml-auto gap-1 text-[10px]">
-          <ShieldCheck className="h-3 w-3" /> Sécurisé
-        </Badge>
-      </div>
-      <div className="rounded-lg border-2 border-dashed border-border bg-background">
-        <SignaturePad
-          ref={padRef}
-          canvasProps={{ className: "w-full h-48 touch-none rounded-lg" }}
-          penColor="rgb(20, 35, 80)"
-        />
-      </div>
-      <div className="mt-2 flex justify-end">
-        <Button variant="ghost" size="sm" onClick={() => padRef.current?.clear()} type="button">
-          <Eraser className="mr-1 h-3.5 w-3.5" /> Effacer
+    <>
+      <Card className="p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <PenLine className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold">Votre validation</h3>
+          <Badge variant="outline" className="ml-auto gap-1 text-[10px]">
+            <ShieldCheck className="h-3 w-3" /> Sécurisé
+          </Badge>
+        </div>
+        <div className="rounded-lg border-2 border-dashed border-border bg-background">
+          <SignaturePad
+            ref={padRef}
+            canvasProps={{ className: "w-full h-48 touch-none rounded-lg" }}
+            penColor="rgb(20, 35, 80)"
+          />
+        </div>
+        <div className="mt-2 flex justify-end">
+          <Button variant="ghost" size="sm" onClick={() => padRef.current?.clear()} type="button">
+            <Eraser className="mr-1 h-3.5 w-3.5" /> Effacer
+          </Button>
+        </div>
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-muted/40">
+          <Checkbox checked={consent} onCheckedChange={(v) => setConsent(!!v)} className="mt-0.5" />
+          <span className="text-sm leading-relaxed">
+            Je confirme que les réserves indiquées ont été levées et accepte la signature électronique de ce procès-verbal de levée. Cette signature a la même valeur juridique qu'une signature manuscrite.
+          </span>
+        </label>
+        <Button onClick={handleValidate} disabled={submitting || rejecting} size="lg" className="mt-4 w-full">
+          {submitting ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+          )}
+          {submitting ? "Validation en cours…" : "Valider la levée de réserves"}
         </Button>
-      </div>
-      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-muted/40">
-        <Checkbox checked={consent} onCheckedChange={(v) => setConsent(!!v)} className="mt-0.5" />
-        <span className="text-sm leading-relaxed">
-          Je confirme que les réserves indiquées ont été levées et accepte la signature électronique de ce procès-verbal de levée. Cette signature a la même valeur juridique qu'une signature manuscrite.
-        </span>
-      </label>
-      <Button onClick={handle} disabled={submitting} size="lg" className="mt-4 w-full">
-        {submitting ? (
-          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+      </Card>
+
+      <Card className="mt-4 border-destructive/30 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <XCircle className="h-4 w-4 text-destructive" />
+          <h3 className="text-sm font-semibold">Refuser la levée</h3>
+        </div>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Si les travaux ne sont pas conformes, vous pouvez rejeter cette levée. L'entreprise sera notifiée et devra reprendre l'intervention. Un motif est obligatoire.
+        </p>
+        {!showReject ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+            onClick={() => setShowReject(true)}
+            disabled={submitting || rejecting}
+          >
+            <XCircle className="mr-1.5 h-4 w-4" /> Rejeter la levée
+          </Button>
         ) : (
-          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+          <>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Décrivez précisément les motifs du rejet (travaux non conformes, finition manquante, etc.)"
+              rows={4}
+              maxLength={2000}
+              disabled={rejecting}
+            />
+            <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+              <span>5 caractères minimum</span>
+              <span>{reason.length} / 2000</span>
+            </div>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => { setShowReject(false); setReason(""); }}
+                disabled={rejecting}
+                className="sm:flex-1"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleReject}
+                disabled={rejecting || submitting || reason.trim().length < 5}
+                className="sm:flex-1"
+              >
+                {rejecting ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="mr-1.5 h-4 w-4" />
+                )}
+                {rejecting ? "Rejet en cours…" : "Confirmer le rejet"}
+              </Button>
+            </div>
+          </>
         )}
-        {submitting ? "Validation en cours…" : "Valider la levée de réserves"}
-      </Button>
-    </Card>
+      </Card>
+    </>
   );
 }
