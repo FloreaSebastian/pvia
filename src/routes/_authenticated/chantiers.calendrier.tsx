@@ -836,6 +836,8 @@ function ChantierCalendarPage() {
         <TeamView
           mode={teamMode}
           cursor={cursor}
+          weekDays={weekDays}
+          hourPx={hourPx}
           members={members}
           events={events}
           canWrite={canWrite}
@@ -845,7 +847,6 @@ function ChantierCalendarPage() {
           onCreateForMember={(memberId, start) => {
             if (!canWrite) return;
             openNew(start, new Date(start.getTime() + 60 * 60000));
-            // pre-set assignee after openNew sets form
             setTimeout(() => setEvtForm((f) => ({ ...f, assigned_to: memberId === UNASSIGNED ? "" : memberId })), 0);
           }}
           onReassign={(id, memberId) => void commitReassign(id, memberId === UNASSIGNED ? null : memberId)}
@@ -860,11 +861,12 @@ function ChantierCalendarPage() {
           days={(() => {
             const out: Date[] = [];
             const start = view === "week" ? startOfWeek(cursor) : (view === "day" ? cursor : range.from);
-            const total = view === "week" ? 7 : (view === "day" ? 1 : Math.min(31, Math.max(1, Math.round((range.to.getTime() - range.from.getTime())/86400000)+1)));
+            const total = view === "week" ? weekDays : (view === "day" ? 1 : Math.min(31, Math.max(1, Math.round((range.to.getTime() - range.from.getTime())/86400000)+1)));
             for (let i = 0; i < total; i++) out.push(addDays(new Date(start.getFullYear(), start.getMonth(), start.getDate()), i));
             return out;
           })()}
           events={events}
+          hourPx={hourPx}
           canWrite={canWrite}
           conflictIds={conflicts}
           onCreateRange={(s, e) => openNew(s, e)}
@@ -884,6 +886,7 @@ function ChantierCalendarPage() {
           onResize={(id, newEnd) => { void commitResize(id, newEnd); }}
         />
       )}
+
 
       {!loading && view === "list" && (
         <Card className="p-2">
