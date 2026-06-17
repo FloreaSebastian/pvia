@@ -245,8 +245,9 @@ function ChantierCalendarPage() {
   }
 
   // ----- Conflict detection (per assigned member, in current event list) -----
-  const conflicts = useMemo(() => {
-    const out = new Set<string>();
+  const { ids: conflicts, pairs: conflictPairs } = useMemo(() => {
+    const ids = new Set<string>();
+    const pairs: { member: string | null; a: Evt; b: Evt }[] = [];
     const byMember = new Map<string, Evt[]>();
     for (const e of events) {
       if (!e.assigned_to || !e.start_at || e.status === "annule") continue;
@@ -255,7 +256,7 @@ function ChantierCalendarPage() {
       arr.push(e);
       byMember.set(e.assigned_to, arr);
     }
-    for (const arr of byMember.values()) {
+    for (const [member, arr] of byMember.entries()) {
       const sorted = arr.slice().sort((a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime());
       for (let i = 0; i < sorted.length; i++) {
         const a = sorted[i];
@@ -266,12 +267,28 @@ function ChantierCalendarPage() {
           const bS = new Date(b.start_at!).getTime();
           if (bS >= aE) break;
           const bE = b.end_at ? new Date(b.end_at).getTime() : bS + 60 * 60000;
-          if (bS < aE && aS < bE) { out.add(a.id); out.add(b.id); }
+          if (bS < aE && aS < bE) { ids.add(a.id); ids.add(b.id); pairs.push({ member, a, b }); }
         }
       }
     }
-    return out;
+    return { ids, pairs };
   }, [events]);
+
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (fChantier !== "all") n++;
+    if (fClient !== "all") n++;
+    if (fType !== "all") n++;
+    if (fStatus !== "all") n++;
+    if (fAssigned !== "all") n++;
+    if (fColor !== "all") n++;
+    if (fOnlyUnassigned) n++;
+    if (fHideDone) n++;
+    if (fHideCancelled) n++;
+    return n;
+  }, [fChantier, fClient, fType, fStatus, fAssigned, fColor, fOnlyUnassigned, fHideDone, fHideCancelled]);
+
 
   // ----- Reassign (team drag) -----
   async function commitReassign(id: string, assignedTo: string | null) {
