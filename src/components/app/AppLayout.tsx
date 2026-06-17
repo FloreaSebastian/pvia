@@ -232,3 +232,84 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
     </div>
   );
 }
+
+function CompanyMenu({
+  userEmail,
+  initial,
+  onPick,
+  onSignOut,
+}: {
+  userEmail?: string | null;
+  initial: string;
+  onPick: () => void;
+  onSignOut: () => void;
+}) {
+  const { memberships, activeCompanyId } = useCompany();
+  const { isPlatformAdmin } = useIsPlatformAdmin();
+  const active = memberships.find((m) => m.company_id === activeCompanyId);
+  const companyName = active?.company.name ?? "Entreprise";
+  const logoUrl = active?.company.logo_url ?? null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex w-full items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2 py-2 text-left transition hover:bg-sidebar-accent">
+          {logoUrl ? (
+            <img src={logoUrl} alt="" className="h-9 w-9 rounded-md object-cover" />
+          ) : (
+            <div className="grid h-9 w-9 place-items-center rounded-md bg-brand-gradient text-sm font-semibold text-primary-foreground">
+              {initial}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-foreground">{companyName}</p>
+            <p className="truncate text-[10px] text-muted-foreground">{userEmail ?? "Utilisateur"}</p>
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" side="top" className="w-64">
+        <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Entreprise
+        </DropdownMenuLabel>
+        {companyMenu.map((i) => {
+          const Icon = i.icon;
+          return (
+            <DropdownMenuItem key={i.to} asChild>
+              <Link to={i.to} onClick={onPick} className="cursor-pointer">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+                <span>{i.label}</span>
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+
+        {isPlatformAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Administration PVIA
+            </DropdownMenuLabel>
+            {adminMenu.map((i) => {
+              const Icon = i.icon;
+              return (
+                <DropdownMenuItem key={i.to} asChild>
+                  <Link to={i.to} onClick={onPick} className="cursor-pointer">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span>{i.label}</span>
+                  </Link>
+                </DropdownMenuItem>
+              );
+            })}
+          </>
+        )}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+          <LogOut className="h-4 w-4" />
+          <span>Déconnexion</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
