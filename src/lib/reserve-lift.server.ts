@@ -415,7 +415,7 @@ export async function buildAndStoreReserveLiftPdf(
   y -= 6;
 
   // Legal note on geolocation
-  if (items.length) {
+  if (items.length && isInternal) {
     const legalText =
       "Les métadonnées de géolocalisation sont enregistrées à titre de preuve d'intervention. Leur absence n'invalide ni la réserve ni sa levée.";
     const legalLines = wrapLines(helv, legalText, 7.5, CONTENT_W - 16);
