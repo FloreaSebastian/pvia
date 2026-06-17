@@ -27,12 +27,19 @@ const PhotoSchema = z.object({
   base64: z.string().min(1).max(6_000_000),
   mimeType: z.string().min(1).max(100),
   fileName: z.string().min(1).max(200),
+  photoType: z.enum(["before", "after"]).optional().default("after"),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  accuracy: z.number().min(0).max(1_000_000).nullable().optional(),
+  takenAt: z.string().datetime().nullable().optional(),
+  deviceInfo: z.string().max(500).nullable().optional(),
+  exifMetadata: z.record(z.string(), z.any()).nullable().optional(),
 });
 
 const ItemSchema = z.object({
   reserveId: z.string().uuid(),
   comment: z.string().max(2000).optional().default(""),
-  photos: z.array(PhotoSchema).max(PHOTO_MAX_COUNT).optional().default([]),
+  photos: z.array(PhotoSchema).max(PHOTO_MAX_COUNT * 2).optional().default([]),
 });
 
 const InputSchema = z.object({
