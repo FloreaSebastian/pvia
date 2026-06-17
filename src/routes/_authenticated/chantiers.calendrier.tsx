@@ -521,8 +521,34 @@ function ChantierCalendarPage() {
   }, [view, cursor, customStart, customEnd, teamMode]);
 
 
+  // Keyboard shortcuts (T M S J L E N) — ignored when typing in inputs
+  useEffect(() => {
+    function isEditable(t: EventTarget | null) {
+      if (!(t instanceof HTMLElement)) return false;
+      const tag = t.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable;
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isEditable(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (k === "escape" && fullscreen) { setFullscreen(false); return; }
+      if (k === "t") { setCursor(new Date()); e.preventDefault(); }
+      else if (k === "m") { setView("month"); e.preventDefault(); }
+      else if (k === "s") { setView("week"); e.preventDefault(); }
+      else if (k === "j") { setView("day"); e.preventDefault(); }
+      else if (k === "l") { setView("list"); e.preventDefault(); }
+      else if (k === "e") { setView("team"); e.preventDefault(); }
+      else if (k === "n" && canWrite) { openNew(new Date()); e.preventDefault(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canWrite, fullscreen]);
+
   return (
-    <div className="space-y-3">
+    <div className={cn("space-y-3", fullscreen && "fixed inset-0 z-50 overflow-auto bg-background p-3")}>
+
       <PageHeader
         title="Calendrier"
         description="Vue chantier façon Google Agenda."
