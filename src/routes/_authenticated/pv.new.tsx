@@ -582,17 +582,25 @@ function NewPv() {
           chantier_address: form.chantier_address,
           chantier_postal_code: form.chantier_postal_code,
           chantier_city: form.chantier_city,
-          reserves: withReserves ? reserves.map((r) => ({
+          reserves: withReserves ? await Promise.all(reserves.map(async (r) => ({
             description: r.description || r.nature,
-            severity: r.severity === "bloquante" ? "majeure" : r.severity,
+            severity: r.severity === "bloquante" ? "majeure" as const : r.severity,
             status: "ouverte" as const,
             nature: r.nature,
             work_to_execute: r.work_to_execute,
             due_date: r.due_date || null,
-          })) : [],
+            photos: await Promise.all(r.photos.map(async (p) => ({
+              base64: await fileToBase64(p.file),
+              mimeType: p.file.type || "image/jpeg",
+              fileName: p.file.name,
+              kind: "reserve" as const,
+              caption: "",
+            }))),
+          }))) : [],
           photos: encodedPhotos,
         },
       });
+
 
       // Rattache les documents importés (brouillon) au PV désormais créé.
       if (res?.pvId && activeCompanyId) {
