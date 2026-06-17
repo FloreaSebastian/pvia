@@ -61,6 +61,7 @@ export function ReserveDetailDialog({
   }>>([]);
   const [rejectReason, setRejectReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mapPhoto, setMapPhoto] = useState<{ latitude: number | null; longitude: number | null; url: string | null } | null>(null);
 
   const canManage = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux", "technicien"].includes(activeRole);
   const canValidate = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux"].includes(activeRole);
