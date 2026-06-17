@@ -659,10 +659,11 @@ function MonthView({
   eventsOn: (d: Date) => Evt[];
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="grid grid-cols-7 border-b border-border bg-muted/40 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="sticky top-0 z-20 grid grid-cols-7 border-b border-border bg-background/95 text-[11px] font-medium uppercase tracking-wide text-muted-foreground backdrop-blur">
         {["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].map((d) => <div key={d} className="p-2 text-center">{d}</div>)}
       </div>
       <div className="grid grid-cols-7">
@@ -670,13 +671,16 @@ function MonthView({
           const inMonth = day.getMonth() === cursor.getMonth();
           const dayEvts = eventsOn(day);
           const isToday = sameDay(day, new Date());
+          const isDropTarget = dragId && dragOverIdx === i;
           return (
             <div key={i}
               onClick={() => canWrite && onClickDay(day)}
-              onDragOver={(e) => { if (canWrite && dragId) e.preventDefault(); }}
-              onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); onMoveDay(day, id); } }}
-              className={cn("min-h-[96px] cursor-pointer border-b border-r border-border p-1.5 text-left text-xs transition hover:bg-muted/30",
-                !inMonth && "bg-muted/10 text-muted-foreground")}>
+              onDragOver={(e) => { if (canWrite && dragId) { e.preventDefault(); if (dragOverIdx !== i) setDragOverIdx(i); } }}
+              onDragLeave={() => { if (dragOverIdx === i) setDragOverIdx(null); }}
+              onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); setDragOverIdx(null); onMoveDay(day, id); } }}
+              className={cn("min-h-[104px] cursor-pointer border-b border-r border-border p-1.5 text-left text-xs transition hover:bg-muted/30",
+                !inMonth && "bg-muted/10 text-muted-foreground",
+                isDropTarget && "bg-primary/15 ring-2 ring-inset ring-primary/60")}>
               <div className={cn("mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold",
                 isToday && "bg-primary text-primary-foreground")}>{day.getDate()}</div>
               <div className="space-y-0.5">
@@ -685,13 +689,14 @@ function MonthView({
                   const isSystem = e.event_type.startsWith("system_");
                   const draggable = canWrite && !isSystem && !!e.start_at;
                   const ann = e.status === "annule";
+                  const isDragged = dragId === e.id;
                   return (
                     <div key={e.id}
                       draggable={draggable}
                       onDragStart={() => { if (draggable) setDragId(e.id); }}
-                      onDragEnd={() => setDragId(null)}
+                      onDragEnd={() => { setDragId(null); setDragOverIdx(null); }}
                       onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
-                      className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing")}
+                      className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40")}
                       style={{ background: c.bg, color: c.fg }}
                       title={`${e.title}${e.start_at ? " · " + fmtTime(new Date(e.start_at)) : ""}`}>
                       {e.start_at && !e.all_day && <span className="mr-1 opacity-90">{fmtTime(new Date(e.start_at))}</span>}
