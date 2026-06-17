@@ -124,7 +124,6 @@ export const exportReserveLiftExpertise = createServerFn({ method: "POST" })
         uploaded_by: p.uploaded_by,
         device_info: p.device_info,
         exif_metadata: p.exif_metadata,
-        suspicious_metadata: (p as any).suspicious_metadata ?? null,
       });
     }
 
