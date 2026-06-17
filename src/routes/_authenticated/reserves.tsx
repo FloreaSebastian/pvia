@@ -285,7 +285,7 @@ function ReservesPage() {
   function toggleQuick(k: string) {
     const next = quick === k ? "all" : k;
     setQuick(next);
-    navigate({ search: (p) => ({ ...p, quick: next as any }) });
+    navigate({ search: (p: any) => ({ ...p, quick: next as any }) });
   }
 
   function toggleSelect(id: string) {
