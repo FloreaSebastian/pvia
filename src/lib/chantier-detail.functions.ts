@@ -388,3 +388,103 @@ export const duplicateChantierEvent = createServerFn({ method: "POST" })
     return { ok: true, id: row.id as string };
   });
 
+// ---------- reassign (drag-and-drop team view) ----------
+export const reassignChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    id: z.string().uuid(),
+    assigned_to: z.string().uuid().nullable(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    // Verify assignee is an active member of the company (when provided)
+    if (data.assigned_to) {
+      const { data: mem } = await supabase
+        .from("company_members")
+        .select("user_id")
+        .eq("company_id", data.companyId)
+        .eq("user_id", data.assigned_to)
+        .eq("status", "active")
+        .maybeSingle();
+      if (!mem) throw new Error("Membre invalide ou inactif.");
+    }
+    const { data: prev } = await supabase.from("chantier_events")
+      .select("assigned_to").eq("id", data.id).eq("company_id", data.companyId).maybeSingle();
+    if (!prev) throw new Error("Événement introuvable.");
+    if (prev.assigned_to === data.assigned_to) return { ok: true, unchanged: true };
+    const { error } = await supabase.from("chantier_events")
+      .update({ assigned_to: data.assigned_to, reminder_sent_at: null })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId,
+      entityType: "chantier_event", entityId: data.id,
+      action: "chantier_event.reassigned",
+      oldValues: { assigned_to: prev.assigned_to },
+      newValues: { assigned_to: data.assigned_to },
+    });
+    return { ok: true };
+  });
+
+// ---------- detect conflicts ----------
+export const detectChantierEventConflicts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    assigned_to: z.string().uuid(),
+    start_at: z.string(),
+    end_at: z.string(),
+    excludeId: z.string().uuid().nullable().optional(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    let q = supabase.from("chantier_events")
+      .select("id, title, start_at, end_at, event_type, status, assigned_to")
+      .eq("company_id", data.companyId)
+      .eq("assigned_to", data.assigned_to)
+      .neq("status", "annule")
+      .lt("start_at", data.end_at)
+      .gt("end_at", data.start_at);
+    if (data.excludeId) q = q.neq("id", data.excludeId);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const conflicts = (rows ?? []).filter((r) => !String(r.event_type ?? "").startsWith("system_"));
+    return { conflicts };
+  });
+
+// ---------- team workload ----------
+export const getTeamWorkload = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    from: z.string(),
+    to: z.string(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: rows, error } = await supabase
+      .from("chantier_events")
+      .select("assigned_to, start_at, end_at, status, event_type")
+      .eq("company_id", data.companyId)
+      .gte("start_at", data.from)
+      .lt("start_at", data.to)
+      .not("assigned_to", "is", null);
+    if (error) throw new Error(error.message);
+    const map = new Map<string, { user_id: string; total_minutes: number; events: number }>();
+    for (const r of rows ?? []) {
+      if (!r.assigned_to || !r.start_at) continue;
+      if (r.status === "annule") continue;
+      if (String(r.event_type ?? "").startsWith("system_")) continue;
+      const s = new Date(r.start_at).getTime();
+      const e = r.end_at ? new Date(r.end_at).getTime() : s + 60 * 60000;
+      const min = Math.max(0, Math.round((e - s) / 60000));
+      const prev = map.get(r.assigned_to) ?? { user_id: r.assigned_to, total_minutes: 0, events: 0 };
+      prev.total_minutes += min;
+      prev.events += 1;
+      map.set(r.assigned_to, prev);
+    }
+    return { workload: Array.from(map.values()) };
+  });
+
