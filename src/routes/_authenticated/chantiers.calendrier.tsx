@@ -1995,8 +1995,10 @@ function TeamDayView({
                       }}>
                       <div className="truncate flex items-center gap-1">
                         {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
-                        {evt.title}
+                        {statusIcon(evt.status)}
+                        <span className="truncate">{evt.title}</span>
                       </div>
+
                       {heightMin >= 30 && (
                         <div className="truncate text-[10px] opacity-90">
                           {fmtMin(topMin)} – {fmtMin(topMin + heightMin)}
