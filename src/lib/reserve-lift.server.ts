@@ -224,57 +224,181 @@ export async function buildAndStoreReserveLiftPdf(
     } catch { /* ignore */ }
   }
 
-  page.drawText("PROCES-VERBAL", { x: PAGE_W - MARGIN - 220, y: PAGE_H - 40, size: 9, font: bold, color: PRIMARY });
-  page.drawText("DE LEVEE DE RESERVES", { x: PAGE_W - MARGIN - 220, y: PAGE_H - 54, size: 9, font: helv, color: MUTED });
-  page.drawText(`N° ${sanitize(report.numero)}`, { x: PAGE_W - MARGIN - 220, y: PAGE_H - 78, size: 18, font: bold, color: ACCENT });
+  page.drawText("PROCES-VERBAL", { x: PAGE_W - MARGIN - 220, y: PAGE_H - 36, size: 9, font: bold, color: PRIMARY });
+  page.drawText("DE LEVEE DE RESERVES", { x: PAGE_W - MARGIN - 220, y: PAGE_H - 50, size: 9, font: helv, color: MUTED });
+  page.drawText(`N° ${sanitize(report.numero)}`, { x: PAGE_W - MARGIN - 220, y: PAGE_H - 74, size: 18, font: bold, color: ACCENT });
+
+  // Statut badge
+  const isValidated = !!(report as any).client_validated_at;
+  const isRejected = !!(report as any).client_rejected_at;
+  const statusLabel = isValidated ? "VALIDEE PAR LE CLIENT" : isRejected ? "REJETEE PAR LE CLIENT" : "EN ATTENTE DE VALIDATION";
+  const statusColor = isValidated ? rgb(0.13, 0.6, 0.3) : isRejected ? rgb(0.80, 0.10, 0.10) : rgb(0.70, 0.55, 0.10);
+  const statusBg = isValidated ? rgb(0.92, 0.99, 0.94) : isRejected ? rgb(1, 0.94, 0.94) : rgb(0.99, 0.96, 0.86);
+  const sLabelW = bold.widthOfTextAtSize(statusLabel, 7.5);
+  page.drawRectangle({ x: PAGE_W - MARGIN - sLabelW - 16, y: PAGE_H - 96, width: sLabelW + 12, height: 14, color: statusBg, borderColor: statusColor, borderWidth: 0.6 });
+  page.drawText(statusLabel, { x: PAGE_W - MARGIN - sLabelW - 10, y: PAGE_H - 92, size: 7.5, font: bold, color: statusColor });
+
   if (isInternal) {
-    page.drawRectangle({ x: PAGE_W - MARGIN - 220, y: PAGE_H - 100, width: 130, height: 14, color: rgb(0.95, 0.92, 0.80), borderColor: rgb(0.70, 0.55, 0.10), borderWidth: 0.5 });
-    page.drawText("USAGE INTERNE — CONFIDENTIEL", { x: PAGE_W - MARGIN - 216, y: PAGE_H - 96, size: 7, font: bold, color: rgb(0.55, 0.40, 0.05) });
+    page.drawRectangle({ x: MARGIN, y: PAGE_H - 100, width: 130, height: 14, color: rgb(0.95, 0.92, 0.80), borderColor: rgb(0.70, 0.55, 0.10), borderWidth: 0.5 });
+    page.drawText("USAGE INTERNE - CONFIDENTIEL", { x: MARGIN + 4, y: PAGE_H - 96, size: 7, font: bold, color: rgb(0.55, 0.40, 0.05) });
   }
 
-  y = PAGE_H - 140;
+  // Sous-titre
+  page.drawText(
+    sanitize("Levee des reserves emises lors de la reception des travaux"),
+    { x: MARGIN, y: PAGE_H - 124, size: 9.5, font: helv, color: MUTED },
+  );
 
-  // PV reference band
-  ensureSpace(60);
-  page.drawRectangle({ x: MARGIN, y: y - 56, width: CONTENT_W, height: 56, color: rgb(0.97, 0.98, 1), borderColor: BORDER, borderWidth: 0.5 });
-  page.drawText("PV INITIAL", { x: MARGIN + 12, y: y - 16, size: 7, font: bold, color: MUTED });
-  page.drawText(sanitize(pv?.numero ?? "—"), { x: MARGIN + 12, y: y - 32, size: 12, font: bold, color: ACCENT });
-  page.drawText(`Réceptionné le ${formatDate(pv?.reception_date)}`, { x: MARGIN + 12, y: y - 46, size: 9, font: helv, color: MUTED });
-  page.drawText("LEVEE LE", { x: MARGIN + CONTENT_W / 2 + 12, y: y - 16, size: 7, font: bold, color: MUTED });
-  page.drawText(formatDate(report.signed_at ?? report.created_at, true), { x: MARGIN + CONTENT_W / 2 + 12, y: y - 32, size: 12, font: bold, color: ACCENT });
-  y -= 76;
+  y = PAGE_H - 148;
 
-  // Parties
+  // ============ BLOC JURIDIQUE — Lien avec le PV initial ============
+  ensureSpace(86);
+  page.drawRectangle({ x: MARGIN, y: y - 82, width: CONTENT_W, height: 82, color: rgb(0.97, 0.98, 1), borderColor: PRIMARY, borderWidth: 0.6 });
+  page.drawRectangle({ x: MARGIN, y: y - 82, width: 3, height: 82, color: PRIMARY });
+  page.drawText("REFERENCE LEGALE", { x: MARGIN + 12, y: y - 14, size: 7, font: bold, color: PRIMARY });
+  const legalRef = sanitize(
+    `Le present proces-verbal de levee de reserves est etabli en complement du proces-verbal de reception n° ${pv?.numero ?? "—"} en date du ${formatDate(pv?.reception_date)}, conformement aux dispositions de l'article 1792-6 du Code civil.`
+  );
+  let ly0 = y - 30;
+  for (const l of wrapLines(helv, legalRef, 8.5, CONTENT_W - 24)) {
+    page.drawText(l, { x: MARGIN + 12, y: ly0, size: 8.5, font: helv, color: ACCENT });
+    ly0 -= 11;
+  }
+  // 3 dates en bas du bloc
+  const dateRowY = y - 72;
+  const dateCol = (CONTENT_W - 24) / 3;
+  const drawDateCell = (i: number, label: string, value: string) => {
+    const x = MARGIN + 12 + i * dateCol;
+    page.drawText(label.toUpperCase(), { x, y: dateRowY + 4, size: 6.5, font: bold, color: MUTED });
+    page.drawText(sanitize(value), { x, y: dateRowY - 6, size: 9, font: bold, color: ACCENT });
+  };
+  drawDateCell(0, "PV initial", pv?.numero ?? "—");
+  drawDateCell(1, "Receptionne le", formatDate(pv?.reception_date));
+  drawDateCell(2, "Levee le", formatDate(report.signed_at ?? report.created_at));
+  y -= 96;
+
+  // ============ PARTIES ============
   const colW = (CONTENT_W - 16) / 2;
-  const drawParty = (x: number, title: string, lines: string[]) => {
-    page.drawRectangle({ x, y: y - 100, width: colW, height: 100, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
-    page.drawText(title.toUpperCase(), { x: x + 12, y: y - 18, size: 8, font: bold, color: PRIMARY });
-    let yy = y - 36;
-    for (let i = 0; i < lines.length; i++) {
-      const t = sanitize(lines[i]);
-      if (!t) continue;
-      const isFirst = i === 0;
-      page.drawText(t, { x: x + 12, y: yy, size: isFirst ? 11 : 9, font: isFirst ? bold : helv, color: isFirst ? ACCENT : MUTED });
-      yy -= isFirst ? 16 : 12;
+  ensureSpace(160);
+  const partyH = 150;
+  // Entreprise
+  page.drawRectangle({ x: MARGIN, y: y - partyH, width: colW, height: partyH, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
+  page.drawRectangle({ x: MARGIN, y: y - 1, width: colW, height: 1, color: PRIMARY });
+  page.drawText("ENTREPRISE", { x: MARGIN + 12, y: y - 16, size: 8, font: bold, color: PRIMARY });
+  page.drawText(sanitize(company?.name ?? "—"), { x: MARGIN + 12, y: y - 32, size: 11, font: bold, color: ACCENT });
+  let ey = y - 46;
+  const drawLine = (txt: string) => {
+    if (!txt) return;
+    for (const l of wrapLines(helv, txt, 8, colW - 24)) {
+      page.drawText(l, { x: MARGIN + 12, y: ey, size: 8, font: helv, color: MUTED });
+      ey -= 10;
     }
   };
-  ensureSpace(120);
-  drawParty(MARGIN, "Entreprise", [company?.name ?? "-", company?.address_line1 ?? company?.address ?? "", company?.email ?? "", company?.phone ?? ""]);
-  drawParty(MARGIN + colW + 16, "Client", [client?.name ?? "-", client?.address ?? "", client?.email ?? "", client?.phone ?? ""]);
-  y -= 120;
+  if (company?.legal_form) drawLine(`Forme : ${company.legal_form}`);
+  if (company?.siren) drawLine(`SIREN : ${company.siren}`);
+  if (company?.siret) drawLine(`SIRET : ${company.siret}`);
+  if (company?.vat_number) drawLine(`TVA : ${company.vat_number}`);
+  const addr = [company?.address_line1, company?.address_line2, [company?.postal_code, company?.city].filter(Boolean).join(" "), company?.country].filter(Boolean).join(", ");
+  if (addr) drawLine(addr); else if (company?.address) drawLine(company.address);
+  if (company?.email) drawLine(company.email);
+  if (company?.phone) drawLine(company.phone);
+  drawLine("Assurance decennale : voir conditions generales");
+
+  // Client
+  const cx = MARGIN + colW + 16;
+  page.drawRectangle({ x: cx, y: y - partyH, width: colW, height: partyH, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
+  page.drawRectangle({ x: cx, y: y - 1, width: colW, height: 1, color: PRIMARY });
+  page.drawText("MAITRE D'OUVRAGE (CLIENT)", { x: cx + 12, y: y - 16, size: 8, font: bold, color: PRIMARY });
+  page.drawText(sanitize(client?.name ?? "—"), { x: cx + 12, y: y - 32, size: 11, font: bold, color: ACCENT });
+  let cy0 = y - 46;
+  const drawCLine = (txt: string) => {
+    if (!txt) return;
+    for (const l of wrapLines(helv, txt, 8, colW - 24)) {
+      page.drawText(l, { x: cx + 12, y: cy0, size: 8, font: helv, color: MUTED });
+      cy0 -= 10;
+    }
+  };
+  if (client?.address) drawCLine(client.address);
+  if (client?.email) drawCLine(client.email);
+  if (client?.phone) drawCLine(client.phone);
+  y -= partyH + 12;
 
   if (chantier?.name) {
-    ensureSpace(40);
-    page.drawText("CHANTIER", { x: MARGIN, y, size: 8, font: bold, color: PRIMARY });
-    y -= 14;
-    page.drawText(sanitize(chantier.name), { x: MARGIN, y, size: 11, font: bold, color: ACCENT });
-    y -= 14;
+    ensureSpace(46);
+    page.drawRectangle({ x: MARGIN, y: y - 36, width: CONTENT_W, height: 36, color: rgb(0.99, 0.99, 1), borderColor: BORDER, borderWidth: 0.4 });
+    page.drawText("CHANTIER", { x: MARGIN + 12, y: y - 12, size: 7, font: bold, color: MUTED });
+    page.drawText(sanitize(chantier.name), { x: MARGIN + 12, y: y - 24, size: 10, font: bold, color: ACCENT });
     if (chantier.address) {
-      page.drawText(sanitize(chantier.address), { x: MARGIN, y, size: 9, font: helv, color: MUTED });
-      y -= 14;
+      page.drawText(sanitize(chantier.address), { x: MARGIN + 200, y: y - 24, size: 8.5, font: helv, color: MUTED });
     }
+    y -= 46;
+  }
+
+  // ============ SYNTHESE DES RESERVES ============
+  const itemsForSyn = (itemsRes.data ?? []) as any[];
+  const synValidated = itemsForSyn.filter((i: any) => i.new_status === "validee").length;
+  const synRejected = itemsForSyn.filter((i: any) => i.new_status === "rejetee").length;
+  const synPending = itemsForSyn.length - synValidated - synRejected;
+
+  ensureSpace(60);
+  page.drawText("SYNTHESE DES RESERVES", { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
+  y -= 14;
+  const cardW = (CONTENT_W - 24) / 4;
+  const drawCounter = (i: number, label: string, value: number, color: RGB) => {
+    const x = MARGIN + i * (cardW + 8);
+    page.drawRectangle({ x, y: y - 40, width: cardW, height: 40, color: rgb(1, 1, 1), borderColor: BORDER, borderWidth: 0.5 });
+    page.drawRectangle({ x, y: y - 40, width: 3, height: 40, color });
+    page.drawText(label.toUpperCase(), { x: x + 10, y: y - 14, size: 7, font: bold, color: MUTED });
+    page.drawText(String(value), { x: x + 10, y: y - 32, size: 16, font: bold, color: ACCENT });
+  };
+  drawCounter(0, "Total", itemsForSyn.length, PRIMARY);
+  drawCounter(1, "Validees", synValidated, rgb(0.13, 0.6, 0.3));
+  drawCounter(2, "Rejetees", synRejected, rgb(0.80, 0.10, 0.10));
+  drawCounter(3, "En attente", synPending, rgb(0.70, 0.55, 0.10));
+  y -= 50;
+
+  // Tableau synthèse
+  if (itemsForSyn.length) {
+    ensureSpace(30);
+    const cols = [
+      { label: "N°", w: 24 },
+      { label: "NATURE", w: 110 },
+      { label: "GRAVITE", w: 60 },
+      { label: "STATUT INITIAL", w: 90 },
+      { label: "STATUT FINAL", w: 90 },
+      { label: "DATE LEVEE", w: CONTENT_W - 24 - 110 - 60 - 90 - 90 },
+    ];
+    page.drawRectangle({ x: MARGIN, y: y - 16, width: CONTENT_W, height: 16, color: HEADER_BG, borderColor: BORDER, borderWidth: 0.4 });
+    let cx2 = MARGIN + 4;
+    for (const c of cols) {
+      page.drawText(c.label, { x: cx2, y: y - 11, size: 7, font: bold, color: PRIMARY });
+      cx2 += c.w;
+    }
+    y -= 16;
+    const dateLevee = formatDate(report.signed_at ?? report.created_at);
+    itemsForSyn.forEach((it: any, idx: number) => {
+      ensureSpace(16);
+      const r = reserveMap.get(it.reserve_id);
+      page.drawRectangle({ x: MARGIN, y: y - 16, width: CONTENT_W, height: 16, color: idx % 2 ? rgb(0.98, 0.98, 0.99) : rgb(1, 1, 1), borderColor: BORDER, borderWidth: 0.3 });
+      let cx3 = MARGIN + 4;
+      const row = [
+        String(idx + 1),
+        sanitize(r?.nature || r?.description || "—").slice(0, 32),
+        sanitize(r?.severity ? (RESERVE_SEVERITY_LABEL[r.severity] ?? r.severity) : "—"),
+        sanitize(RESERVE_STATUS_LABEL[it.old_status as ReserveStatusValue] ?? it.old_status ?? "—"),
+        sanitize(RESERVE_STATUS_LABEL[it.new_status as ReserveStatusValue] ?? it.new_status ?? "—"),
+        dateLevee,
+      ];
+      const colorFinal = it.new_status === "rejetee" ? rgb(0.80, 0.10, 0.10) : it.new_status === "validee" ? rgb(0.13, 0.6, 0.3) : ACCENT;
+      row.forEach((txt, i) => {
+        page.drawText(txt, { x: cx3, y: y - 11, size: 7.5, font: i === 4 ? bold : helv, color: i === 4 ? colorFinal : ACCENT });
+        cx3 += cols[i].w;
+      });
+      y -= 16;
+    });
     y -= 6;
   }
+
 
 
 
