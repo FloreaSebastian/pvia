@@ -135,13 +135,17 @@ function ChantierCalendarPage() {
     if (view === "month") return { from: startOfWeek(startOfMonth(cursor)), to: addDays(startOfWeek(endOfMonth(cursor)), 41) };
     if (view === "week") return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), 6) };
     if (view === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
+    if (view === "team") {
+      if (teamMode === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
+      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), 6) };
+    }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00");
       const b = new Date(customEnd + "T00:00:00");
       return { from: a, to: b >= a ? b : a };
     }
     return { from: startOfMonth(cursor), to: endOfMonth(cursor) };
-  }, [cursor, view, customStart, customEnd]);
+  }, [cursor, view, customStart, customEnd, teamMode]);
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
@@ -159,11 +163,14 @@ function ChantierCalendarPage() {
       } });
       let list = r.events as Evt[];
       if (fColor !== "all") list = list.filter((e) => colorOf(e).key === fColor);
+      if (fOnlyUnassigned) list = list.filter((e) => !e.assigned_to);
+      if (fHideDone) list = list.filter((e) => e.status !== "termine");
+      if (fHideCancelled) list = list.filter((e) => e.status !== "annule");
       setEvents(list);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chargement impossible");
     } finally { setLoading(false); }
-  }, [activeCompanyId, fetchEvents, range.from, range.to, fChantier, fClient, fType, fStatus, fAssigned, fColor]);
+  }, [activeCompanyId, fetchEvents, range.from, range.to, fChantier, fClient, fType, fStatus, fAssigned, fColor, fOnlyUnassigned, fHideDone, fHideCancelled]);
 
   useEffect(() => { void load(); }, [load]);
 
