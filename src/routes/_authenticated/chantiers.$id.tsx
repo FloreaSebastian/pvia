@@ -286,10 +286,13 @@ function ChantierDetailPage() {
         <div className="space-y-4">
           <div>
             <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Avancement</span><span className="tabular-nums">{stats.progress}%</span>
+              <span>Avancement chantier</span><span className="tabular-nums">{chProgress}%</span>
             </div>
-            <Progress value={stats.progress} />
-            <p className="mt-1 text-xs text-muted-foreground">{stats.done} / {stats.total} événements terminés</p>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, Math.min(100, chProgress))}%`, backgroundColor: chColor || "hsl(var(--primary))" }} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Événements terminés : {stats.done} / {stats.total} ({stats.progress}%)</p>
+            <div className="mt-2"><Progress value={stats.progress} /></div>
           </div>
           {stats.upcoming && (
             <div className="rounded-lg border border-border bg-card p-3 text-xs">
