@@ -52,7 +52,13 @@ export function ReserveDetailDialog({
 }) {
   const { activeRole } = useCompany();
   const updateFn = useServerFn(updateReserveStatus);
+  const listPhotosFn = useServerFn(listReserveLiftPhotos);
   const [history, setHistory] = useState<AuditRow[]>([]);
+  const [photos, setPhotos] = useState<Array<{
+    id: string; photoType: "before" | "after" | "legacy"; url: string | null;
+    latitude: number | null; longitude: number | null; accuracy: number | null;
+    takenAt: string | null; uploadedAt: string | null;
+  }>>([]);
   const [rejectReason, setRejectReason] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -70,6 +76,12 @@ export function ReserveDetailDialog({
         .order("created_at", { ascending: false })
         .limit(30);
       setHistory((data ?? []) as AuditRow[]);
+      try {
+        const res = await listPhotosFn({ data: { reserveId: reserve.id } });
+        setPhotos(res.photos);
+      } catch {
+        setPhotos([]);
+      }
     })();
   }, [open, reserve?.id]);
 
