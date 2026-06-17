@@ -368,6 +368,22 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   }
   y -= 6;
 
+  // Legal note on geolocation
+  if (items.length) {
+    const legalText =
+      "Les métadonnées de géolocalisation sont enregistrées à titre de preuve d'intervention. Leur absence n'invalide ni la réserve ni sa levée.";
+    const legalLines = wrapLines(helv, legalText, 7.5, CONTENT_W - 16);
+    ensureSpace(legalLines.length * 10 + 10);
+    page.drawRectangle({ x: MARGIN, y: y - (legalLines.length * 10 + 8), width: CONTENT_W, height: legalLines.length * 10 + 8, color: rgb(0.98, 0.98, 1), borderColor: BORDER, borderWidth: 0.4 });
+    let ly = y - 8;
+    for (const l of legalLines) {
+      page.drawText(l, { x: MARGIN + 8, y: ly, size: 7.5, font: helv, color: MUTED });
+      ly -= 10;
+    }
+    y = ly - 8;
+  }
+
+
 
   // Comment
   if (report.comment) {
