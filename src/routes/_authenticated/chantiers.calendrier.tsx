@@ -1994,7 +1994,7 @@ function TeamWeekView({
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="grid border-b border-border bg-background/95 text-xs" style={{ gridTemplateColumns: `180px repeat(7, minmax(0,1fr))` }}>
+      <div className="grid border-b border-border bg-background/95 text-xs" style={{ gridTemplateColumns: `180px repeat(${days.length}, minmax(0,1fr))` }}>
         <div className="border-r border-border p-2 font-semibold uppercase tracking-wide text-muted-foreground">Membre</div>
         {days.map((d, i) => {
           const isToday = sameDay(d, new Date());
@@ -2013,7 +2013,7 @@ function TeamWeekView({
           const b = workloadBadge(wl.min);
           const isOver = overMember === c.user_id && dragId;
           return (
-            <div key={c.user_id} className={cn("grid", isOver && "bg-primary/[0.06]")} style={{ gridTemplateColumns: `180px repeat(7, minmax(0,1fr))` }}
+            <div key={c.user_id} className={cn("grid", isOver && "bg-primary/[0.06]")} style={{ gridTemplateColumns: `180px repeat(${days.length}, minmax(0,1fr))` }}
               onDragOver={(e) => { if (canWrite && dragId) { e.preventDefault(); if (overMember !== c.user_id) setOverMember(c.user_id); } }}
               onDragLeave={() => { if (overMember === c.user_id) setOverMember(null); }}
               onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); setOverMember(null); onReassign(id, c.user_id); } }}>
