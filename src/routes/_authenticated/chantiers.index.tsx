@@ -101,9 +101,11 @@ function ChantiersPage() {
       name: c.name, address: c.address ?? "",
       address_line1: c.address_line1 ?? "", postal_code: c.postal_code ?? "",
       city: c.city ?? "", latitude: c.latitude ?? null, longitude: c.longitude ?? null,
-      type: c.type ?? "BTP", status: c.status,
+      type: c.type ?? "BTP", status: (c.status as StatusValue) ?? "planifie",
       client_id: c.client_id ?? "", start_date: c.start_date ?? "", end_date: c.end_date ?? "",
       description: c.description ?? "",
+      color: c.color ?? "",
+      progress_percent: c.progress_percent ?? 0,
     });
     setOpen(true);
   }
