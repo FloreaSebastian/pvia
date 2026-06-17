@@ -1593,6 +1593,7 @@ export type Database = {
       }
       pv_reserves: {
         Row: {
+          assigned_to: string | null
           company_id: string | null
           created_at: string
           description: string
@@ -1601,6 +1602,7 @@ export type Database = {
           lifted_at: string | null
           nature: string | null
           owner_id: string
+          priority: string
           pv_id: string
           severity: string
           status: string
@@ -1608,6 +1610,7 @@ export type Database = {
           work_to_execute: string | null
         }
         Insert: {
+          assigned_to?: string | null
           company_id?: string | null
           created_at?: string
           description: string
@@ -1616,6 +1619,7 @@ export type Database = {
           lifted_at?: string | null
           nature?: string | null
           owner_id: string
+          priority?: string
           pv_id: string
           severity?: string
           status?: string
@@ -1623,6 +1627,7 @@ export type Database = {
           work_to_execute?: string | null
         }
         Update: {
+          assigned_to?: string | null
           company_id?: string | null
           created_at?: string
           description?: string
@@ -1631,6 +1636,7 @@ export type Database = {
           lifted_at?: string | null
           nature?: string | null
           owner_id?: string
+          priority?: string
           pv_id?: string
           severity?: string
           status?: string
