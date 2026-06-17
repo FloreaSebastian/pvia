@@ -99,6 +99,13 @@ function LoginPage() {
               placeholder="vous@entreprise.fr"
             />
           </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox
+              checked={remember}
+              onCheckedChange={(v) => setRemember(v === true)}
+            />
+            <span>Se souvenir de moi pendant 30 jours</span>
+          </label>
           <Button type="submit" className="h-11 w-full shadow-brand" disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Recevoir mon code
