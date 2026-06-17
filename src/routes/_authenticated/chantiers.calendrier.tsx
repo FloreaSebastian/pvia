@@ -1193,7 +1193,7 @@ function MonthView({
 }
 
 // ============= TIME GRID (week/day/custom) =============
-const hourPx = 56;
+const DEFAULT_HOUR_PX = 56;
 const START_HOUR = 7;
 const END_HOUR = 21;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
@@ -1209,7 +1209,7 @@ type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number;
 
 function TimeGridView({
   days, events, canWrite, conflictIds, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
-  memberName, chantierName, clientName,
+  memberName, chantierName, clientName, hourPx = DEFAULT_HOUR_PX,
 }: {
   days: Date[]; events: Evt[]; canWrite: boolean;
   conflictIds: Set<string>;
@@ -1221,6 +1221,7 @@ function TimeGridView({
   memberName: (id: string | null | undefined) => string | null;
   chantierName: (id: string | null | undefined) => string;
   clientName: (id: string | null | undefined) => string;
+  hourPx?: number;
 }) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
