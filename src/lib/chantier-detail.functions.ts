@@ -74,8 +74,10 @@ const EventPayload = z.object({
   reminder_at: z.string().nullable().optional(),
   location: z.string().trim().max(300).optional().default(""),
   color: z.string().trim().max(30).optional().default(""),
+  color_source: z.enum(["auto", "manual"]).optional().default("auto"),
   client_id: z.string().uuid().nullable().optional(),
 });
+
 
 export const createChantierEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
