@@ -118,7 +118,23 @@ export const getClientReserveLiftDetail = createServerFn({ method: "POST" })
       .select("id,reserve_id,old_status,new_status,comment,photo_urls")
       .eq("report_id", report.id);
 
+    const itemIds = (items ?? []).map((i: any) => i.id);
     const reserveIds = (items ?? []).map((i: any) => i.reserve_id);
+
+    const { data: photoRows } = itemIds.length
+      ? await supabaseAdmin
+          .from("reserve_lift_item_photos" as any)
+          .select("id,reserve_lift_item_id,storage_path,photo_type,latitude,longitude,taken_at,uploaded_at")
+          .in("reserve_lift_item_id", itemIds)
+      : { data: [] as any[] };
+
+    const photosByItem = new Map<string, any[]>();
+    for (const p of (photoRows ?? []) as any[]) {
+      const arr = photosByItem.get(p.reserve_lift_item_id) ?? [];
+      arr.push(p);
+      photosByItem.set(p.reserve_lift_item_id, arr);
+    }
+
     const { data: reserves } = reserveIds.length
       ? await supabaseAdmin
           .from("pv_reserves")
@@ -127,23 +143,52 @@ export const getClientReserveLiftDetail = createServerFn({ method: "POST" })
       : { data: [] as any[] };
     const reserveMap = new Map((reserves ?? []).map((r: any) => [r.id, r]));
 
-    // sign photo URLs
+    // Build per-photo safe payload (no lat/lng/accuracy exposed to client).
     const enriched = await Promise.all(
       (items ?? []).map(async (it: any) => {
-        const photos = await Promise.all(
-          (it.photo_urls ?? []).map(async (p: string) => {
-            const { data: u } = await supabaseAdmin.storage
-              .from("pv-assets")
-              .createSignedUrl(p, 3600);
-            return u?.signedUrl ?? null;
-          }),
-        );
+        const rows = photosByItem.get(it.id) ?? [];
+        let photos: Array<{
+          id: string; url: string | null; photoType: "before" | "after" | "legacy";
+          isGeolocated: boolean; takenAt: string | null;
+        }> = [];
+
+        if (rows.length) {
+          photos = await Promise.all(
+            rows.map(async (r: any) => {
+              const { data: u } = await supabaseAdmin.storage
+                .from("pv-assets").createSignedUrl(r.storage_path, 3600);
+              return {
+                id: r.id,
+                url: u?.signedUrl ?? null,
+                photoType: (r.photo_type ?? "legacy") as "before" | "after" | "legacy",
+                isGeolocated: r.latitude !== null && r.longitude !== null,
+                takenAt: r.taken_at ?? r.uploaded_at ?? null,
+              };
+            }),
+          );
+        } else {
+          // Legacy fallback (should be rare after migration)
+          photos = await Promise.all(
+            ((it.photo_urls ?? []) as string[]).map(async (p, idx) => {
+              const { data: u } = await supabaseAdmin.storage
+                .from("pv-assets").createSignedUrl(p, 3600);
+              return {
+                id: `${it.id}-${idx}`,
+                url: u?.signedUrl ?? null,
+                photoType: "legacy" as const,
+                isGeolocated: false,
+                takenAt: null,
+              };
+            }),
+          );
+        }
+
         return {
           id: it.id,
           reserve_id: it.reserve_id,
           comment: it.comment,
           reserve: reserveMap.get(it.reserve_id) ?? null,
-          photos: photos.filter(Boolean) as string[],
+          photos: photos.filter((p) => p.url !== null),
         };
       }),
     );

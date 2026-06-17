@@ -102,7 +102,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   const { data: photoMeta } = itemIds.length
     ? await supabaseAdmin
         .from("reserve_lift_item_photos" as any)
-        .select("reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at")
+        .select("reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,exif_metadata")
         .in("reserve_lift_item_id", itemIds)
     : { data: [] as any[] };
   const photosByItem = new Map<string, { before: any[]; after: any[] }>();
@@ -240,7 +240,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
 
   // Helper: render a photo grid (with per-photo geoloc caption) at the current y.
   const renderPhotoGrid = async (
-    photos: Array<{ storage_path: string; latitude?: number | null; longitude?: number | null; accuracy?: number | null }>,
+    photos: Array<{ storage_path: string; latitude?: number | null; longitude?: number | null; accuracy?: number | null; taken_at?: string | null; exif_metadata?: any }>,
     label: string,
   ) => {
     if (!photos.length) return;
@@ -248,7 +248,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
     const gap = 10;
     const cellW = (CONTENT_W - 24 - gap * (cols - 1)) / cols;
     const cellH = 110;
-    const captionH = 12;
+    const captionH = 26;
 
     ensureSpace(16);
     page.drawText(sanitize(label).toUpperCase(), { x: MARGIN + 12, y: y - 10, size: 7, font: bold, color: MUTED });
@@ -274,10 +274,26 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
         page.drawImage(img, { x: offX, y: offY, width: w, height: h });
       } catch { /* skip */ }
       const hasGeo = p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined;
-      const caption = hasGeo
-        ? `Photo géolocalisée${p.accuracy ? ` ±${Math.round(p.accuracy)}m` : ""}`
-        : "Photo non géolocalisée";
-      page.drawText(sanitize(caption), { x, y: y - cellH - 9, size: 7, font: helv, color: hasGeo ? rgb(0.13, 0.5, 0.3) : MUTED });
+      const captionLines: string[] = [];
+      if (hasGeo) {
+        captionLines.push(`Photo geolocalisee  GPS ${(p.latitude as number).toFixed(5)}, ${(p.longitude as number).toFixed(5)}${p.accuracy ? ` (±${Math.round(p.accuracy)}m)` : ""}`);
+      } else {
+        captionLines.push("Photo non geolocalisee");
+      }
+      const exif = (p.exif_metadata ?? {}) as any;
+      const cam = [exif?.Make, exif?.Model].filter(Boolean).join(" ");
+      const takenIso = p.taken_at ?? exif?.DateTimeOriginal ?? null;
+      const meta: string[] = [];
+      if (takenIso) {
+        try { meta.push(`Prise: ${new Date(takenIso).toLocaleString("fr-FR")}`); } catch { /* */ }
+      }
+      if (cam) meta.push(cam);
+      if (meta.length) captionLines.push(meta.join("  ·  "));
+      let cy = y - cellH - 9;
+      for (const line of captionLines) {
+        page.drawText(sanitize(line), { x, y: cy, size: 7, font: helv, color: hasGeo ? rgb(0.13, 0.5, 0.3) : MUTED });
+        cy -= 9;
+      }
       col++;
       if (col >= cols) { col = 0; y -= cellH + captionH + 8; }
     }

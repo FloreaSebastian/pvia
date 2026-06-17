@@ -61,6 +61,7 @@ export function ReserveDetailDialog({
   }>>([]);
   const [rejectReason, setRejectReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mapPhoto, setMapPhoto] = useState<{ latitude: number | null; longitude: number | null; url: string | null } | null>(null);
 
   const canManage = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux", "technicien"].includes(activeRole);
   const canValidate = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux"].includes(activeRole);
@@ -116,6 +117,7 @@ export function ReserveDetailDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -212,8 +214,10 @@ export function ReserveDetailDialog({
                       {subset.map((p) => {
                         const hasGeo = p.latitude !== null && p.longitude !== null;
                         return (
-                          <a key={p.id} href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden rounded border border-border">
-                            {p.url ? <img src={p.url} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square w-full bg-muted" />}
+                          <div key={p.id} className="relative overflow-hidden rounded border border-border">
+                            <a href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
+                              {p.url ? <img src={p.url} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square w-full bg-muted" />}
+                            </a>
                             <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
                               {hasGeo ? (
                                 <>
@@ -232,7 +236,16 @@ export function ReserveDetailDialog({
                                 {new Date(p.uploadedAt).toLocaleDateString("fr-FR")}
                               </div>
                             )}
-                          </a>
+                            {hasGeo && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); setMapPhoto(p); }}
+                                className="absolute bottom-1 right-1 rounded bg-primary px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground hover:opacity-90"
+                              >
+                                Voir sur carte
+                              </button>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -274,6 +287,39 @@ export function ReserveDetailDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {mapPhoto && mapPhoto.latitude !== null && mapPhoto.longitude !== null && (
+      <Dialog open={!!mapPhoto} onOpenChange={(o) => !o && setMapPhoto(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Position de la photo</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="overflow-hidden rounded border border-border">
+              <iframe
+                title="Carte"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapPhoto.longitude - 0.005}%2C${mapPhoto.latitude - 0.003}%2C${mapPhoto.longitude + 0.005}%2C${mapPhoto.latitude + 0.003}&layer=mapnik&marker=${mapPhoto.latitude}%2C${mapPhoto.longitude}`}
+                className="h-72 w-full"
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Coordonnées : {mapPhoto.latitude.toFixed(6)}, {mapPhoto.longitude.toFixed(6)}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline">
+                <a href={`https://www.google.com/maps?q=${mapPhoto.latitude},${mapPhoto.longitude}`} target="_blank" rel="noopener noreferrer">Google Maps</a>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <a href={`https://www.openstreetmap.org/?mlat=${mapPhoto.latitude}&mlon=${mapPhoto.longitude}#map=18/${mapPhoto.latitude}/${mapPhoto.longitude}`} target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
+              </Button>
+              <Button asChild size="sm">
+                <a href={`https://www.google.com/maps/dir/?api=1&destination=${mapPhoto.latitude},${mapPhoto.longitude}`} target="_blank" rel="noopener noreferrer">Itinéraire</a>
+              </Button>
+            </div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setMapPhoto(null)}>Fermer</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+  </>
   );
 }
 

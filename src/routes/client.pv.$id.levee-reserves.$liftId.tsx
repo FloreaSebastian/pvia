@@ -149,12 +149,39 @@ function ClientLiftDetail() {
                 </p>
               )}
               {it.photos.length > 0 && (
-                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {it.photos.map((p: string, idx: number) => (
-                    <a key={idx} href={p} target="_blank" rel="noreferrer" className="overflow-hidden rounded-md border">
-                      <img src={p} alt="Justificatif" className="aspect-square w-full object-cover" loading="lazy" />
-                    </a>
-                  ))}
+                <div className="mt-3 space-y-3">
+                  {(["before", "after", "legacy"] as const).map((kind) => {
+                    const subset = it.photos.filter((p: any) => p.photoType === kind);
+                    if (subset.length === 0) return null;
+                    const title =
+                      kind === "before" ? "Avant intervention"
+                      : kind === "after" ? "Après intervention"
+                      : "Photos";
+                    return (
+                      <div key={kind}>
+                        <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          {title} ({subset.length})
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                          {subset.map((p: any) => (
+                            <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="relative block overflow-hidden rounded-md border">
+                              <img src={p.url} alt="Justificatif" className="aspect-square w-full object-cover" loading="lazy" />
+                              {p.isGeolocated && (
+                                <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
+                                  📍 Photo géolocalisée
+                                </span>
+                              )}
+                              {p.takenAt && (
+                                <span className="absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
+                                  {new Date(p.takenAt).toLocaleDateString("fr-FR")}
+                                </span>
+                              )}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </li>

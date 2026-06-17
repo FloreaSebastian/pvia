@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import SignaturePad from "react-signature-canvas";
+import exifr from "exifr";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,8 @@ type PhotoEntry = {
   accuracy: number | null;
   takenAt: string;
   deviceInfo: string;
+  exifMetadata: Record<string, unknown> | null;
+  gpsSource: "browser" | "exif" | "none";
 };
 
 /** Try to get GPS coords. Resolves with null fields if permission denied / unsupported. */
@@ -58,6 +61,40 @@ function tryGetGps(): Promise<{ latitude: number | null; longitude: number | nul
       { enableHighAccuracy: true, timeout: 7000, maximumAge: 30_000 },
     );
   });
+}
+
+/** Read EXIF tags (GPS, dates, camera) from a file. Never throws. */
+async function readExif(file: File): Promise<Record<string, unknown> | null> {
+  try {
+    const exif = await exifr.parse(file, {
+      gps: true,
+      tiff: true,
+      exif: true,
+      pick: [
+        "latitude", "longitude", "GPSAltitude", "GPSHPositioningError",
+        "DateTimeOriginal", "CreateDate", "ModifyDate",
+        "Make", "Model", "Software", "Orientation", "LensModel",
+      ],
+    });
+    return (exif as Record<string, unknown>) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Convert exif into a JSON-safe object (Date → ISO string). Limits depth & keys. */
+function sanitizeExifForUpload(exif: Record<string, unknown> | null): Record<string, any> | null {
+  if (!exif) return null;
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(exif)) {
+    if (v == null) continue;
+    if (v instanceof Date) out[k] = v.toISOString();
+    else if (typeof v === "number" || typeof v === "string" || typeof v === "boolean") out[k] = v;
+    else if (typeof v === "object") {
+      try { out[k] = JSON.parse(JSON.stringify(v)); } catch { /* skip */ }
+    }
+  }
+  return out;
 }
 
 function LeveeReserves() {
@@ -102,21 +139,54 @@ function LeveeReserves() {
     files: FileList | null,
   ) {
     if (!files || files.length === 0) return;
-    const gps = await tryGetGps();
-    if (gps.latitude === null) {
-      toast.message("Photo non géolocalisée (GPS refusé ou indisponible).");
-    }
+    const browserGps = await tryGetGps();
     const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 400) : "";
-    const takenAt = new Date().toISOString();
-    const entries: PhotoEntry[] = Array.from(files).map((file) => ({
-      file,
-      previewUrl: URL.createObjectURL(file),
-      latitude: gps.latitude,
-      longitude: gps.longitude,
-      accuracy: gps.accuracy,
-      takenAt,
-      deviceInfo,
-    }));
+    let warnedNoGps = false;
+    const entries: PhotoEntry[] = await Promise.all(
+      Array.from(files).map(async (file) => {
+        const exif = await readExif(file);
+        // GPS priority: browser → EXIF → none
+        let latitude = browserGps.latitude;
+        let longitude = browserGps.longitude;
+        let accuracy = browserGps.accuracy;
+        let gpsSource: PhotoEntry["gpsSource"] = browserGps.latitude !== null ? "browser" : "none";
+        if (latitude === null && exif) {
+          const exLat = typeof exif.latitude === "number" ? (exif.latitude as number) : null;
+          const exLng = typeof exif.longitude === "number" ? (exif.longitude as number) : null;
+          if (exLat !== null && exLng !== null) {
+            latitude = exLat;
+            longitude = exLng;
+            const hpe = (exif as any).GPSHPositioningError;
+            accuracy = typeof hpe === "number" ? hpe : null;
+            gpsSource = "exif";
+          }
+        }
+        if (latitude === null && !warnedNoGps) {
+          toast.message("Photo non géolocalisée (GPS refusé et EXIF absent).");
+          warnedNoGps = true;
+        }
+        // taken_at: EXIF DateTimeOriginal > now
+        let takenAt = new Date().toISOString();
+        const exifDate = exif?.DateTimeOriginal ?? exif?.CreateDate;
+        if (exifDate instanceof Date && !isNaN(exifDate.getTime())) {
+          takenAt = exifDate.toISOString();
+        } else if (typeof exifDate === "string") {
+          const d = new Date(exifDate);
+          if (!isNaN(d.getTime())) takenAt = d.toISOString();
+        }
+        return {
+          file,
+          previewUrl: URL.createObjectURL(file),
+          latitude,
+          longitude,
+          accuracy,
+          takenAt,
+          deviceInfo,
+          exifMetadata: exif ? { ...exif, gps_source: gpsSource, browser_gps: browserGps } : { gps_source: gpsSource, browser_gps: browserGps },
+          gpsSource,
+        };
+      }),
+    );
     const setter = kind === "before" ? setItemPhotosBefore : setItemPhotosAfter;
     setter((prev) => ({ ...prev, [rid]: [...(prev[rid] ?? []), ...entries] }));
   }
@@ -155,6 +225,7 @@ function LeveeReserves() {
                 accuracy: e.accuracy,
                 takenAt: e.takenAt,
                 deviceInfo: e.deviceInfo,
+                exifMetadata: sanitizeExifForUpload(e.exifMetadata),
               })),
           );
           return { reserveId: rid, comment: itemComment[rid] || "", photos: allPhotos };

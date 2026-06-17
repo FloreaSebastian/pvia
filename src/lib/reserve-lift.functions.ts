@@ -52,6 +52,17 @@ const InputSchema = z.object({
   clientSignature: z.string().max(800_000).nullable().optional(),
 });
 
+/** Distance between two GPS points in meters (haversine). */
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+
 function validateSignature(raw: string | null | undefined): string | null {
   if (!raw) return null;
   if (raw.length > SIG_MAX_BYTES * 2) throw new Error("Signature trop volumineuse.");
@@ -273,23 +284,59 @@ export const createReserveLift = createServerFn({ method: "POST" })
             audit: { action: "reserve_lift_photo.insert_failed", entityType: "reserve_lift_photo" },
           });
         } else {
-          // Audit per photo (geo recorded vs missing)
+          // Audit per photo (exif detection + geo + anti-fraud signals)
           for (const row of photoRows) {
             const geoRecorded = row.latitude !== null && row.longitude !== null;
+            const exif = (row.exifMetadata ?? {}) as Record<string, any>;
+            const exifDetected = exif && Object.keys(exif).some((k) => k !== "gps_source" && k !== "browser_gps");
+            const browserGps = exif?.browser_gps as { latitude: number | null; longitude: number | null } | undefined;
+            const exifLat = typeof exif?.latitude === "number" ? exif.latitude : null;
+            const exifLng = typeof exif?.longitude === "number" ? exif.longitude : null;
+
+            // Suspicious checks
+            const suspicious: string[] = [];
+            if (browserGps?.latitude != null && exifLat != null && exifLng != null && browserGps.longitude != null) {
+              const dist = haversineMeters(browserGps.latitude, browserGps.longitude, exifLat, exifLng);
+              if (dist > 100) suspicious.push(`gps_mismatch_${Math.round(dist)}m`);
+            }
+            if (row.takenAt) {
+              const t = new Date(row.takenAt).getTime();
+              const now = Date.now();
+              if (!isNaN(t) && (t > now + 5 * 60_000 || t < now - 365 * 24 * 3600_000)) {
+                suspicious.push("exif_date_inconsistent");
+              }
+            }
+
             await writeAuditLog({
               companyId: pv.company_id,
               userId,
               pvId: pv.id,
               entityType: "reserve_lift_photo",
               entityId: item.reserveId,
-              action: geoRecorded ? "reserve_lift_photo.geo_recorded" : "reserve_lift_photo.geo_missing",
+              action: exifDetected ? "reserve_lift_photo.exif_detected" : "reserve_lift_photo.exif_missing",
               metadata: {
                 photo_type: row.photoType,
+                gps_source: exif?.gps_source ?? "none",
                 accuracy: row.accuracy,
+                geo_recorded: geoRecorded,
+                camera_make: exif?.Make ?? null,
+                camera_model: exif?.Model ?? null,
                 report_id: reportId,
               },
               actor: "user",
             });
+            if (suspicious.length) {
+              await writeAuditLog({
+                companyId: pv.company_id,
+                userId,
+                pvId: pv.id,
+                entityType: "reserve_lift_photo",
+                entityId: item.reserveId,
+                action: "reserve_lift_photo.suspicious_metadata",
+                metadata: { signals: suspicious, report_id: reportId, photo_type: row.photoType },
+                actor: "user",
+              });
+            }
           }
         }
       }
