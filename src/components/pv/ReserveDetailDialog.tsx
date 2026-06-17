@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { updateReserveStatus } from "@/lib/reserves.functions";
+import { listReserveLiftPhotos } from "@/lib/reserve-lift.functions";
+import { MapPin, MapPinOff } from "lucide-react";
 import {
   RESERVE_STATUSES, reserveStatusLabel, reserveStatusTone,
   RESERVE_PRIORITY_LABEL, isReserveOverdue, type ReserveStatusValue,
