@@ -5,7 +5,7 @@ import { PDFDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage, t
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
 import { sha256OfBytes, EIDAS_MENTIONS } from "./signature-proof.server";
-import { RESERVE_STATUS_LABEL, RESERVE_SEVERITY_LABEL, type ReserveStatusValue } from "./reserve-status";
+import { RESERVE_STATUS_LABEL, RESERVE_SEVERITY_LABEL, RESERVE_PRIORITY_LABEL, type ReserveStatusValue } from "./reserve-status";
 
 const ACCENT = rgb(0.06, 0.09, 0.16);
 const MUTED = rgb(0.42, 0.45, 0.52);
