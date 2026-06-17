@@ -1562,6 +1562,7 @@ export type Database = {
           kind: string
           owner_id: string
           pv_id: string
+          reserve_id: string | null
           url: string
         }
         Insert: {
@@ -1572,6 +1573,7 @@ export type Database = {
           kind?: string
           owner_id: string
           pv_id: string
+          reserve_id?: string | null
           url: string
         }
         Update: {
@@ -1582,6 +1584,7 @@ export type Database = {
           kind?: string
           owner_id?: string
           pv_id?: string
+          reserve_id?: string | null
           url?: string
         }
         Relationships: [
@@ -1597,6 +1600,13 @@ export type Database = {
             columns: ["pv_id"]
             isOneToOne: false
             referencedRelation: "pv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pv_photos_reserve_id_fkey"
+            columns: ["reserve_id"]
+            isOneToOne: false
+            referencedRelation: "pv_reserves"
             referencedColumns: ["id"]
           },
         ]
