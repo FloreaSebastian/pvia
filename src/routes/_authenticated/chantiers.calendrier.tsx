@@ -243,18 +243,31 @@ function ChantierCalendarPage() {
   useEffect(() => {
     if (!activeCompanyId) return;
     void (async () => {
-      const [c1, c2] = await Promise.all([
-        supabase.from("chantiers").select("id,name").eq("company_id", activeCompanyId).order("name"),
+      const [c1, c2, c3] = await Promise.all([
+        supabase.from("chantiers").select("id,name,color").eq("company_id", activeCompanyId).order("name"),
         supabase.from("clients").select("id,name").eq("company_id", activeCompanyId).order("name"),
+        supabase.from("company_settings").select("calendar_color_mode").eq("company_id", activeCompanyId).maybeSingle(),
       ]);
-      setChantiers((c1.data as { id: string; name: string }[]) ?? []);
+      setChantiers((c1.data as { id: string; name: string; color?: string | null }[]) ?? []);
       setClients((c2.data as { id: string; name: string }[]) ?? []);
+      const mode = (c3.data as { calendar_color_mode?: string } | null)?.calendar_color_mode;
+      if (mode === "type" || mode === "chantier") setColorMode(mode);
       try {
         const r = await fetchMembers({ data: { companyId: activeCompanyId } });
         setMembers(r.members);
       } catch { /* non-blocking */ }
     })();
   }, [activeCompanyId, fetchMembers]);
+
+  async function persistColorMode(next: ColorMode) {
+    if (!activeCompanyId) return;
+    setColorMode(next);
+    const { error } = await supabase
+      .from("company_settings")
+      .upsert({ company_id: activeCompanyId, calendar_color_mode: next }, { onConflict: "company_id" });
+    if (error) toast.error("Réglage non enregistré (droits admin requis ?)");
+    else toast.success(next === "chantier" ? "Couleurs par chantier" : "Couleurs par type");
+  }
 
   function resetFilters() {
     setFChantier("all"); setFClient("all"); setFType("all"); setFStatus("all"); setFAssigned("all"); setFColor("all");
