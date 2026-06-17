@@ -133,11 +133,13 @@ function ChantiersPage() {
         latitude: form.latitude,
         longitude: form.longitude,
         type: form.type,
-        status: form.status as "en_cours" | "termine" | "receptionne",
+        status: form.status as StatusValue,
         client_id: form.client_id || null,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         description: form.description,
+        color: form.color || null,
+        progress_percent: form.progress_percent,
       };
       if (editing) {
         await updateFn({ data: { companyId: activeCompanyId, id: editing.id, data: payload } });
