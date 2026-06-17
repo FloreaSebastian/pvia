@@ -138,13 +138,16 @@ export const assignReserve = createServerFn({ method: "POST" })
       throw new Error("Droits insuffisants (conducteur requis).");
     }
 
-    const patch: Record<string, unknown> = { assigned_to: data.assignedTo };
+    const patch: Database["public"]["Tables"]["pv_reserves"]["Update"] = {
+      assigned_to: data.assignedTo,
+    };
     if (data.dueDate !== undefined) patch.due_date = data.dueDate;
     if (data.priority) patch.priority = data.priority;
 
     const { error } = await supabase
       .from("pv_reserves")
       .update(patch)
+
       .eq("id", data.id)
       .eq("company_id", data.companyId);
     if (error) throw new Error(error.message);
