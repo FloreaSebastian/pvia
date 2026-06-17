@@ -569,6 +569,25 @@ function ChantierCalendarPage() {
           </Select>
           <Button size="icon" variant="ghost" onClick={resetFilters} aria-label="Réinitialiser"><X className="h-4 w-4" /></Button>
         </div>
+        <div className="col-span-full flex flex-wrap items-center gap-2 border-t border-border/60 pt-2 text-xs">
+          <button type="button" onClick={() => setFOnlyUnassigned((v) => !v)}
+            className={cn("rounded-full border px-2.5 py-1 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+            Non assignés uniquement
+          </button>
+          <button type="button" onClick={() => setFHideDone((v) => !v)}
+            className={cn("rounded-full border px-2.5 py-1 transition", fHideDone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+            Masquer terminés
+          </button>
+          <button type="button" onClick={() => setFHideCancelled((v) => !v)}
+            className={cn("rounded-full border px-2.5 py-1 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+            Masquer annulés
+          </button>
+          {conflicts.size > 0 && (
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 font-medium text-red-600">
+              <AlertTriangle className="h-3 w-3" /> {conflicts.size} conflit{conflicts.size > 1 ? "s" : ""} de planning
+            </span>
+          )}
+        </div>
       </Card>
 
       {/* Views */}
