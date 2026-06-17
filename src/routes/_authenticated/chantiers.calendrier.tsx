@@ -652,12 +652,12 @@ function ChantierCalendarPage() {
           </Popover>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          {(["month","week","day","team","list","custom"] as const).map((v) => (
+          {(["month","week","day","team","custom"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)}
               className={cn("inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition",
                 view === v ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
               {v === "team" && <Users className="h-3.5 w-3.5" />}
-              {v === "month" ? "Mois" : v === "week" ? "Semaine" : v === "day" ? "Jour" : v === "team" ? "Équipe" : v === "list" ? "Liste" : "Personnalisé"}
+              {v === "month" ? "Mois" : v === "week" ? "Semaine" : v === "day" ? "Jour" : v === "team" ? "Équipe" : "Personnalisé"}
             </button>
           ))}
           {view === "team" && (
