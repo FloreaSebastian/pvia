@@ -21,7 +21,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listChantierEvents, createChantierEvent, updateChantierEvent, deleteChantierEvent,
   listCompanyMembers, rescheduleChantierEvent, resizeChantierEvent, duplicateChantierEvent,
-  reassignChantierEvent, detectChantierEventConflicts,
+  reassignChantierEvent, detectChantierEventConflicts, logChantierEventConflictOverride,
 } from "@/lib/chantier-detail.functions";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
