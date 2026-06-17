@@ -171,61 +171,16 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
             );
           })}
 
-          <p className="px-3 pb-1.5 pt-5 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Configuration
-          </p>
-          {secondaryNav.map((i, idx) => {
-            const active = isActive(i.to);
-            const Icon = i.icon;
-            return (
-              <Link
-                key={idx}
-                to={i.to}
-                onClick={() => setOpen(false)}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                  active
-                    ? "bg-sidebar-accent text-foreground"
-                    : "text-foreground/70 hover:bg-sidebar-accent hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{i.label}</span>
-              </Link>
-            );
-          })}
         </nav>
 
-        {/* Footer / Upgrade card + profile */}
+        {/* Footer: company menu */}
         <div className="border-t border-sidebar-border p-3">
-          <div className="mb-3 overflow-hidden rounded-xl border border-primary/20 bg-brand-gradient p-3 text-primary-foreground shadow-brand">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider">
-              <Sparkles className="h-3.5 w-3.5" /> Essai Pro
-            </div>
-            <p className="mt-1 text-[11px] leading-snug text-primary-foreground/85">
-              14 jours offerts — toutes les fonctionnalités premium.
-            </p>
-            <Link to="/billing" onClick={() => setOpen(false)} className="mt-2 inline-flex items-center text-[11px] font-semibold text-primary-foreground underline-offset-2 hover:underline">
-              Activer l'abonnement →
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-lg p-1.5 transition hover:bg-sidebar-accent">
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-gradient text-sm font-semibold text-primary-foreground shadow-elevation-sm">
-              {initial}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-foreground">{userEmail ?? "Utilisateur"}</p>
-              <p className="text-[10px] text-muted-foreground">Administrateur</p>
-            </div>
-            <button
-              onClick={signOut}
-              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-destructive"
-              aria-label="Déconnexion"
-              title="Déconnexion"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+          <CompanyMenu
+            userEmail={userEmail}
+            initial={initial}
+            onPick={() => setOpen(false)}
+            onSignOut={signOut}
+          />
         </div>
       </aside>
 
