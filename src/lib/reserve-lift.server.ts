@@ -281,7 +281,7 @@ export async function buildAndStoreReserveLiftPdf(
 
   // Helper: render a photo grid (with per-photo geoloc caption) at the current y.
   const renderPhotoGrid = async (
-    photos: Array<{ storage_path: string; latitude?: number | null; longitude?: number | null; accuracy?: number | null; taken_at?: string | null; exif_metadata?: any }>,
+    photos: Array<{ storage_path: string; latitude?: number | null; longitude?: number | null; accuracy?: number | null; taken_at?: string | null; exif_metadata?: any; file_name?: string | null; file_hash?: string | null }>,
     label: string,
   ) => {
     if (!photos.length) return;
