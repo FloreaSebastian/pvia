@@ -92,16 +92,25 @@ function ChantierDetailPage() {
   const autoPlanFn = useServerFn(createChantierAutoPlanning);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
 
-  async function runAutoPlanning() {
+  async function runAutoPlanning(replace = false) {
     if (!activeCompanyId) return;
-    if (!confirm("Créer un planning automatique (6 événements) ? Vous pourrez ensuite modifier chaque étape.")) return;
+    if (!replace && !confirm("Créer un planning automatique (6 événements) ? Vous pourrez ensuite modifier chaque étape.")) return;
     setAutoPlanLoading(true);
     try {
-      const r = await autoPlanFn({ data: { companyId: activeCompanyId, chantierId: id } });
-      toast.success(`${r.count} événements créés`);
+      const r = await autoPlanFn({ data: { companyId: activeCompanyId, chantierId: id, replace } });
+      toast.success(`${r.count} événements créés${r.replaced ? " (planning précédent remplacé)" : ""}`);
       await reload();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Création impossible");
+      const msg = err instanceof Error ? err.message : "Création impossible";
+      if (msg === "AUTO_PLANNING_EXISTS") {
+        if (confirm("Un planning automatique existe déjà pour ce chantier.\n\nRemplacer le planning existant ?")) {
+          await runAutoPlanning(true);
+          return;
+        }
+        toast.info("Création annulée — planning existant conservé.");
+      } else {
+        toast.error(msg);
+      }
     } finally { setAutoPlanLoading(false); }
   }
 
