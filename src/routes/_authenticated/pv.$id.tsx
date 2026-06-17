@@ -429,34 +429,21 @@ function PvDetail() {
             <ChevronRight className="h-3 w-3" />
             <span>N° {pv.numero}</span>
           </div>
-          <h1 className="mt-1 font-display text-3xl font-bold tracking-tight">N° {pv.numero}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight">N° {pv.numero}</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Créé le {new Date(pv.created_at).toLocaleDateString("fr-FR")}
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
-            {pv.pdf_generated_at && ` · PDF généré le ${new Date(pv.pdf_generated_at).toLocaleString("fr-FR")}`}
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <StatusPill tone="success" icon={<ShieldCheck />}>Traçabilité complète</StatusPill>
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {pv.locked_at && (
-              <StatusPill tone="success" icon={<ShieldCheck />}>PV signé — verrouillé</StatusPill>
+              <StatusPill tone="success" icon={<ShieldCheck />} size="sm">Verrouillé</StatusPill>
             )}
             {pv.signature_mode === "remote" && pv.status === "en_attente" && (
-              <StatusPill tone="warning" icon={<Mail />}>Signature à distance — en attente client</StatusPill>
-            )}
-            {pv.signature_mode === "onsite" && pv.status === "signe" && (
-              <StatusPill tone="success" icon={<CheckCircle2 />}>Signature sur place validée</StatusPill>
+              <StatusPill tone="warning" icon={<Mail />} size="sm">En attente signature client</StatusPill>
             )}
             {pv.pdf_url && (
-              <StatusPill tone="success" icon={<CheckCircle2 />}>PDF signé disponible</StatusPill>
+              <StatusPill tone="success" icon={<CheckCircle2 />} size="sm">PDF signé</StatusPill>
             )}
-            {(() => {
-              const lastClientSent = emailLogs.find((l) => l.status === "sent" && (l.email_type === "signed_to_client" || l.email_type === "signed_resend"));
-              return lastClientSent ? (
-                <StatusPill tone="info" icon={<Mail />}>
-                  Email envoyé au client le {new Date(lastClientSent.sent_at || lastClientSent.created_at).toLocaleString("fr-FR")}
-                </StatusPill>
-              ) : null;
-            })()}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
