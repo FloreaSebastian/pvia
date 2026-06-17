@@ -84,7 +84,6 @@ function ClientLiftDetail() {
   const { pv, report, items, company, chantier } = q.data;
   const isValidated = !!report.client_validated_at;
   const isRejected = !!(report as any).client_rejected_at;
-  const isFinalized = isValidated || isRejected;
 
   return (
     <ClientShell email={session.email}>
