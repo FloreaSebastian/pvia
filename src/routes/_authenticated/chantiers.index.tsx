@@ -224,7 +224,7 @@ function ChantiersPage() {
                       </div>
                       <div>
                         <Label>Statut</Label>
-                        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StatusValue })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>{STATUSES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                         </Select>
