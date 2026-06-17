@@ -242,26 +242,30 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   page.drawText(`RESERVES TRAITEES (${items.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 16;
 
-  // Helper: render a photo grid into the current page at the current y
-  const renderPhotoGrid = async (paths: string[], label: string) => {
-    if (!paths.length) return;
+  // Helper: render a photo grid (with per-photo geoloc caption) at the current y.
+  const renderPhotoGrid = async (
+    photos: Array<{ storage_path: string; latitude?: number | null; longitude?: number | null; accuracy?: number | null }>,
+    label: string,
+  ) => {
+    if (!photos.length) return;
     const cols = 2;
     const gap = 10;
     const cellW = (CONTENT_W - 24 - gap * (cols - 1)) / cols;
     const cellH = 110;
+    const captionH = 12;
 
     ensureSpace(16);
     page.drawText(sanitize(label).toUpperCase(), { x: MARGIN + 12, y: y - 10, size: 7, font: bold, color: MUTED });
     y -= 14;
 
     let col = 0;
-    for (const p of paths.slice(0, 8)) {
-      const { data: f } = await supabaseAdmin.storage.from("pv-assets").download(p);
+    for (const p of photos.slice(0, 8)) {
+      const { data: f } = await supabaseAdmin.storage.from("pv-assets").download(p.storage_path);
       if (!f) continue;
       const bytes = new Uint8Array(await f.arrayBuffer());
       const t = detectImageType(bytes);
       if (!t) continue;
-      if (col === 0) ensureSpace(cellH + 6);
+      if (col === 0) ensureSpace(cellH + captionH + 6);
       const x = MARGIN + 12 + col * (cellW + gap);
       try {
         const img = t === "png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
@@ -273,11 +277,22 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
         page.drawRectangle({ x, y: y - cellH, width: cellW, height: cellH, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
         page.drawImage(img, { x: offX, y: offY, width: w, height: h });
       } catch { /* skip */ }
+      const hasGeo = p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined;
+      const caption = hasGeo
+        ? `Photo géolocalisée${p.accuracy ? ` ±${Math.round(p.accuracy)}m` : ""}`
+        : "Photo non géolocalisée";
+      page.drawText(sanitize(caption), { x, y: y - cellH - 9, size: 7, font: helv, color: hasGeo ? rgb(0.13, 0.5, 0.3) : MUTED });
       col++;
-      if (col >= cols) { col = 0; y -= cellH + 8; }
+      if (col >= cols) { col = 0; y -= cellH + captionH + 8; }
     }
-    if (col !== 0) y -= cellH + 8;
+    if (col !== 0) y -= cellH + captionH + 8;
   };
+
+  // Reserves traitées
+  const items = (itemsRes.data ?? []) as any[];
+  ensureSpace(40);
+  page.drawText(`RESERVES TRAITEES (${items.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
+  y -= 16;
 
   for (const item of items) {
     const reserve = reserveMap.get(item.reserve_id);
@@ -289,7 +304,6 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
     const accentColor = isRejected ? rgb(0.80, 0.10, 0.10) : rgb(0.13, 0.6, 0.3);
     const cardBg = isRejected ? rgb(1, 0.98, 0.98) : rgb(0.99, 1, 0.99);
 
-    // --- Header strip per reserve (status transition badge) ---
     ensureSpace(28);
     page.drawRectangle({ x: MARGIN, y: y - 22, width: CONTENT_W, height: 22, color: cardBg, borderColor: BORDER, borderWidth: 0.5 });
     page.drawRectangle({ x: MARGIN, y: y - 22, width: 3, height: 22, color: accentColor });
@@ -299,7 +313,6 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
     );
     y -= 26;
 
-    // --- Description + comment + (optional) rejection reason ---
     const descLines = wrapLines(helv, desc, 9, CONTENT_W - 24);
     ensureSpace(descLines.length * 12 + 6);
     for (const l of descLines) {
@@ -319,16 +332,33 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
       }
     }
 
-    // --- Photos (intervention) — rendered per reserve ---
-    const photoPaths: string[] = item.photo_urls ?? [];
-    if (photoPaths.length) {
+    const bucket = photosByItem.get(item.id);
+    const beforePhotos = bucket?.before ?? [];
+    const afterPhotos = bucket?.after ?? [];
+
+    if (beforePhotos.length) {
       y -= 4;
-      const label = isRejected ? "Photos justificatives" : "Photos après intervention";
-      await renderPhotoGrid(photoPaths, `${label} (${photoPaths.length})`);
-    } else if (!isRejected) {
-      ensureSpace(14);
-      page.drawText("Aucune photo jointe pour cette intervention.", { x: MARGIN + 12, y: y - 10, size: 8, font: helv, color: MUTED });
-      y -= 14;
+      await renderPhotoGrid(beforePhotos, `Photos avant intervention (${beforePhotos.length})`);
+    }
+    if (afterPhotos.length) {
+      y -= 4;
+      await renderPhotoGrid(afterPhotos, `Photos après intervention (${afterPhotos.length})`);
+    }
+
+    if (!beforePhotos.length && !afterPhotos.length) {
+      const legacyPaths: string[] = item.photo_urls ?? [];
+      if (legacyPaths.length) {
+        y -= 4;
+        const label = isRejected ? "Photos justificatives" : "Photos d'intervention";
+        await renderPhotoGrid(
+          legacyPaths.map((p) => ({ storage_path: p, latitude: null, longitude: null, accuracy: null })),
+          `${label} (${legacyPaths.length})`,
+        );
+      } else if (!isRejected) {
+        ensureSpace(14);
+        page.drawText("Aucune photo jointe pour cette intervention.", { x: MARGIN + 12, y: y - 10, size: 8, font: helv, color: MUTED });
+        y -= 14;
+      }
     }
 
     y -= 10;
