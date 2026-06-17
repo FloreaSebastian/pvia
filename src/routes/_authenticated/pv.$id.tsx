@@ -649,168 +649,132 @@ function PvDetail() {
         const validated = reserves.filter((r) => r.status === "validee").length;
         const liftStatus = pv.reserve_lift_status ?? (total === 0 ? "none" : open === total ? "pending" : open === 0 ? "completed" : "partial");
         const globalLabel =
-          liftStatus === "none" ? "Aucune réserve"
-          : liftStatus === "pending" ? "Levée à prévoir"
+          liftStatus === "pending" ? "Levée à prévoir"
           : liftStatus === "partial" ? "Levée partielle"
-          : "Toutes réserves levées";
+          : liftStatus === "completed" ? "Toutes réserves levées"
+          : "Réserves";
         const globalTone =
           liftStatus === "completed" ? "success"
           : liftStatus === "partial" ? "warning"
           : liftStatus === "pending" ? "destructive"
           : "neutral";
         if (total === 0 && lifts.length === 0) return null;
+        const tiles = [
+          { label: "Ouvertes", value: open, tone: "destructive" as const },
+          { label: "Levées", value: lifted, tone: "warning" as const },
+          { label: "Validées", value: validated, tone: "success" as const },
+        ].filter((t) => t.value > 0);
         return (
-          <Card className="p-6 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                <h3 className="font-semibold">Suivi des réserves</h3>
-                <StatusPill tone={globalTone as any} dot>{globalLabel}</StatusPill>
+          <Card className="p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
+                <h3 className="truncate text-sm font-semibold">Suivi des réserves</h3>
+                <StatusPill tone={globalTone as any} size="sm" dot>{globalLabel}</StatusPill>
+                {total > 0 && <span className="text-xs text-muted-foreground">· {total} au total</span>}
               </div>
               <div className="flex flex-wrap gap-2">
                 {(liftStatus === "pending" || liftStatus === "partial") && (
                   <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }}>
-                    <Button size="sm"><CheckCircle2 className="h-4 w-4" /> Préparer la levée de réserves</Button>
+                    <Button size="sm"><CheckCircle2 className="h-4 w-4" /> Préparer la levée</Button>
                   </Link>
                 )}
-                {liftStatus === "completed" && lifts[0] && (
-                  <Button size="sm" variant="outline" onClick={() => lifts[0].pdf_url && downloadLiftPdf(lifts[0].id)} disabled={!lifts[0].pdf_url}>
-                    <Download className="h-4 w-4" /> Voir le PV de levée
+                {liftStatus === "completed" && lifts[0]?.pdf_url && (
+                  <Button size="sm" variant="outline" onClick={() => downloadLiftPdf(lifts[0].id)}>
+                    <Download className="h-4 w-4" /> PV de levée
                   </Button>
                 )}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-4">
-              {[
-                { label: "Total", value: total, tone: "neutral" as const },
-                { label: "Ouvertes", value: open, tone: "destructive" as const },
-                { label: "Levées", value: lifted, tone: "warning" as const },
-                { label: "Validées", value: validated, tone: "success" as const },
-              ].map((s) => (
-                <div key={s.label} className="rounded-lg border border-border p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
+            {tiles.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {tiles.map((s) => (
+                  <div key={s.label} className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
                     <StatusPill tone={s.tone} size="sm" dot>{s.value}</StatusPill>
+                    <span className="text-xs text-muted-foreground">{s.label}</span>
                   </div>
-                  <p className="mt-1 font-display text-2xl font-bold">{s.value}</p>
-                </div>
-              ))}
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">PV de levée émis ({lifts.length})</p>
-              {lifts.length === 0 ? (
-                <p className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">Aucun PV de levée pour le moment.</p>
-              ) : (
-                <div className="space-y-2">
-                  {lifts.map((l) => {
-                    const validated = !!l.client_validated_at;
-                    const liftStatusLabel = validated ? "Validée par client" : l.status === "signe" ? "En attente validation client" : "Brouillon";
-                    const liftTone = validated ? "success" : l.status === "signe" ? "warning" : "neutral";
-                    const lastValidationEmail = validated
-                      ? emailLogs.find((log) => log.email_type === "reserve_lift_validated" && log.status === "sent")
-                      : null;
-                    return (
-                      <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">N° {l.numero}</span>
-                          <StatusPill tone={liftTone as any} dot>{liftStatusLabel}</StatusPill>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(l.signed_at || l.created_at).toLocaleString("fr-FR")}
-                          </span>
-                          {validated && (
-                            <span className="text-xs text-muted-foreground">
-                              · Validée le {new Date(l.client_validated_at!).toLocaleString("fr-FR")}
-                              {l.client_validated_email ? ` par ${l.client_validated_email}` : ""}
-                            </span>
-                          )}
-                          {lastValidationEmail && (
-                            <StatusPill tone="info" icon={<Mail />} size="sm">
-                              Email de validation envoyé {lastValidationEmail.sent_at ? `le ${new Date(lastValidationEmail.sent_at).toLocaleString("fr-FR")}` : ""}
-                              {lastValidationEmail.recipient_email ? ` à ${lastValidationEmail.recipient_email}` : ""}
-                            </StatusPill>
-                          )}
+                ))}
+              </div>
+            )}
+            {reserves.length > 0 && (
+              <div className="space-y-1.5">
+                {reserves.map((r) => {
+                  const statusLabel = r.status === "ouverte" ? "Ouverte" : r.status === "levee" ? "Levée" : r.status === "validee" ? "Validée client" : r.status;
+                  const statusTone = r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning";
+                  return (
+                    <div key={r.id} className="flex flex-col gap-2 rounded-md border border-border p-2.5 sm:flex-row sm:items-start">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"} size="sm">{r.severity}</StatusPill>
+                          <StatusPill tone={statusTone as any} size="sm" dot>{statusLabel}</StatusPill>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {l.pdf_url ? (
-                            <Button size="sm" variant={validated ? "default" : "outline"} onClick={() => downloadLiftPdf(l.id)}>
-                              <Download className="h-3.5 w-3.5" />
-                              {validated ? " Télécharger le PV de levée validé" : " Télécharger le PV de levée signé entreprise"}
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">PDF non généré</span>
-                          )}
-                          {validated && (
-                            <Button size="sm" variant="outline" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
-                              {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
-                              Renvoyer le PDF validé
-                            </Button>
-                          )}
-                          {!validated && l.status === "signe" && (
-                            <Button size="sm" variant="outline" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
-                              {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
-                              Renvoyer demande de validation
-                            </Button>
-                          )}
-                        </div>
+                        <p className="line-clamp-2 text-sm leading-snug">{r.description}</p>
+                        {(r.lifted_at || r.validated_at) && (
+                          <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+                            {r.lifted_at && <span>Levée {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</span>}
+                            {r.validated_at && <span className="text-success">Validée {new Date(r.validated_at).toLocaleDateString("fr-FR")}</span>}
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      <div className="flex items-center gap-1 sm:shrink-0">
+                        <Select value={r.status} onValueChange={(v) => updateReserve(r.id, v)}>
+                          <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ouverte">Ouverte</SelectItem>
+                            <SelectItem value="levee">Levée</SelectItem>
+                            <SelectItem value="validee">Validée</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {lifts.length > 0 && (
+              <div className="space-y-1.5 border-t border-border pt-3">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">PV de levée ({lifts.length})</p>
+                {lifts.map((l) => {
+                  const validated = !!l.client_validated_at;
+                  const liftStatusLabel = validated ? "Validée client" : l.status === "signe" ? "Attente validation client" : "Brouillon";
+                  const liftTone = validated ? "success" : l.status === "signe" ? "warning" : "neutral";
+                  return (
+                    <div key={l.id} className="flex flex-col gap-2 rounded-md border border-border p-2.5 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="font-medium">N° {l.numero}</span>
+                        <StatusPill tone={liftTone as any} size="sm" dot>{liftStatusLabel}</StatusPill>
+                        <span className="text-[11px] text-muted-foreground">{new Date(l.signed_at || l.created_at).toLocaleDateString("fr-FR")}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {l.pdf_url && (
+                          <Button size="sm" variant={validated ? "default" : "outline"} className="h-8" onClick={() => downloadLiftPdf(l.id)}>
+                            <Download className="h-3.5 w-3.5" /> PDF
+                          </Button>
+                        )}
+                        {validated && (
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
+                            {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+                            Renvoyer
+                          </Button>
+                        )}
+                        {!validated && l.status === "signe" && (
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
+                            {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                            Relancer
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
         );
       })()}
-
-      {reserves.length > 0 && (
-      <Card className="p-6">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold">Réserves ({reserves.length})</h3>
-          </div>
-          {reserves.some((r) => r.status === "ouverte") && (
-            <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }}>
-              <Button size="sm"><CheckCircle2 className="h-4 w-4" /> Créer une levée de réserves</Button>
-            </Link>
-          )}
-        </div>
-        <div className="space-y-2">
-          {reserves.map((r) => {
-            const statusLabel = r.status === "ouverte" ? "Ouverte" : r.status === "levee" ? "Levée par l'entreprise" : r.status === "validee" ? "Validée par le client" : r.status;
-            const statusTone = r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning";
-            return (
-              <div key={r.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"}>{r.severity}</StatusPill>
-                    <StatusPill tone={statusTone as any} dot>{statusLabel}</StatusPill>
-                  </div>
-                  <p className="mt-2 text-sm">{r.description}</p>
-                  {(r.lifted_at || r.validated_at) && (
-                    <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                      {r.lifted_at && <span>Levée le {new Date(r.lifted_at).toLocaleString("fr-FR")}</span>}
-                      {r.validated_at && <span>Validée client le {new Date(r.validated_at).toLocaleString("fr-FR")}</span>}
-                    </div>
-                  )}
-                </div>
-                <Select value={r.status} onValueChange={(v) => updateReserve(r.id, v)}>
-                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ouverte">Ouverte</SelectItem>
-                    <SelectItem value="levee">Levée</SelectItem>
-                    <SelectItem value="validee">Validée</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button size="icon" variant="ghost" onClick={() => deleteReserve(r.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-      )}
 
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between gap-2">
