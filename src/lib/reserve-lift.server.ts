@@ -69,7 +69,24 @@ function wrapLines(font: PDFFont, text: string, size: number, maxWidth: number):
   return lines;
 }
 
-export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<string> {
+export type ReserveLiftPdfVariant = "internal" | "client";
+
+/**
+ * Build and persist a reserve-lift PDF.
+ *
+ * Two variants are supported and stored under distinct paths so the
+ * client never sees internal forensic metadata:
+ *  - `internal`: GPS coordinates, accuracy, EXIF, camera, client IP, anti-fraud notes.
+ *  - `client`:   photos + dates only; geolocation reduced to a boolean badge.
+ *
+ * Backward compatible: when `variant === "client"` we also refresh
+ * the legacy `pdf_url` / `pdf_generated_at` columns.
+ */
+export async function buildAndStoreReserveLiftPdf(
+  reportId: string,
+  variant: ReserveLiftPdfVariant = "client",
+): Promise<string> {
+  const isInternal = variant === "internal";
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
     .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
