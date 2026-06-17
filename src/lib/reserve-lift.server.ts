@@ -115,11 +115,11 @@ export async function buildAndStoreReserveLiftPdf(
     : { data: [] as any[] };
   const reserveMap = new Map<string, any>((reservesData ?? []).map((r: any) => [r.id, r]));
 
-  // Photos with metadata (before/after + GPS) for these items
+  // Photos with metadata (before/after + GPS + integrity hash) for these items
   const { data: photoMeta } = itemIds.length
     ? await supabaseAdmin
         .from("reserve_lift_item_photos" as any)
-        .select("reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,exif_metadata")
+        .select("id,reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,exif_metadata,file_hash,file_name,file_size,uploaded_at,uploaded_by")
         .in("reserve_lift_item_id", itemIds)
     : { data: [] as any[] };
   const photosByItem = new Map<string, { before: any[]; after: any[] }>();
