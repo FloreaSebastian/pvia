@@ -28,23 +28,24 @@ import {
   safeFilename,
 } from "./pv-create.server";
 
+const PhotoSchema = z.object({
+  base64: z.string().min(1).max(6_000_000),     // ~4.5 MB raw after decode
+  mimeType: z.string().min(1).max(100),
+  fileName: z.string().min(1).max(200),
+  kind: z.enum(["avant", "apres", "autre", "reserve"]).default("autre"),
+  caption: z.string().max(500).optional().default(""),
+});
+
 const ReserveSchema = z.object({
   description: z.string().trim().min(1).max(2000),
-  // "bloquante" doit être accepté côté serveur (l'UI le proposait déjà).
   severity: z.enum(["mineure", "majeure", "bloquante"]),
   status: z.enum(["ouverte", "en_cours", "levee", "en_attente_validation", "validee", "rejetee"]),
   nature: z.string().trim().max(200).optional().default(""),
   work_to_execute: z.string().trim().max(2000).optional().default(""),
   due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  photos: z.array(PhotoSchema).max(20).optional().default([]),
 });
 
-const PhotoSchema = z.object({
-  base64: z.string().min(1).max(6_000_000),     // ~4.5 MB raw after decode
-  mimeType: z.string().min(1).max(100),
-  fileName: z.string().min(1).max(200),
-  kind: z.enum(["avant", "apres", "autre"]).default("autre"),
-  caption: z.string().max(500).optional().default(""),
-});
 
 const InputSchema = z.object({
   companyId: z.string().uuid(),
