@@ -1205,3 +1205,160 @@ function TimeGridView({
     </Card>
   );
 }
+
+// ============= QUICK EDIT SHEET =============
+function QuickEditSheet({
+  evt, members, companyId, canWrite, updateEvtFn, deleteEvtFn,
+  chantierName, clientName, onClose, onOpenFull, onSaved,
+}: {
+  evt: Evt;
+  members: { user_id: string; name: string }[];
+  companyId: string;
+  canWrite: boolean;
+  updateEvtFn: (a: { data: { companyId: string; id: string; data: Record<string, unknown> } }) => Promise<unknown>;
+  deleteEvtFn: (a: { data: { companyId: string; id: string } }) => Promise<unknown>;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
+  onClose: () => void;
+  onOpenFull: (e: Evt) => void;
+  onSaved: () => void;
+}) {
+  const [start, setStart] = useState(evt.start_at ? toLocalInput(new Date(evt.start_at)) : "");
+  const [end, setEnd] = useState(evt.end_at ? toLocalInput(new Date(evt.end_at)) : "");
+  const [status, setStatus] = useState(evt.status);
+  const [color, setColor] = useState<ColorKey | "">(((evt.color && COLORS.some((c) => c.key === evt.color)) ? evt.color : "") as ColorKey | "");
+  const [assigned, setAssigned] = useState(evt.assigned_to ?? "");
+  const [saving, setSaving] = useState(false);
+  const isSystem = evt.event_type.startsWith("system_");
+  const readOnly = !canWrite || isSystem;
+
+  async function save() {
+    if (readOnly) return;
+    setSaving(true);
+    try {
+      await updateEvtFn({ data: { companyId, id: evt.id, data: {
+        title: evt.title,
+        description: evt.description ?? "",
+        event_type: evt.event_type,
+        status: status as "prevu",
+        start_at: start ? new Date(start).toISOString() : null,
+        end_at: end ? new Date(end).toISOString() : null,
+        all_day: evt.all_day ?? false,
+        assigned_to: assigned || null,
+        client_id: evt.client_id ?? null,
+        reminder_at: evt.reminder_at ?? null,
+        location: evt.location ?? "",
+        color: color || "",
+        color_source: color ? "manual" : "auto",
+      } } });
+      toast.success("Événement mis à jour");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Échec");
+    } finally { setSaving(false); }
+  }
+
+  async function remove() {
+    if (readOnly) return;
+    if (!confirm("Supprimer cet événement ?")) return;
+    try {
+      await deleteEvtFn({ data: { companyId, id: evt.id } });
+      toast.success("Supprimé");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suppression impossible");
+    }
+  }
+
+  return (
+    <Sheet open onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: colorOf(evt).bg }} />
+            <span className="truncate">{evt.title}</span>
+          </SheetTitle>
+          <p className="text-xs text-muted-foreground">
+            {TYPE_LABELS[evt.event_type] ?? evt.event_type}
+            {evt.chantier_id && ` · ${chantierName(evt.chantier_id)}`}
+            {evt.client_id && ` · ${clientName(evt.client_id)}`}
+          </p>
+        </SheetHeader>
+
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Début</Label>
+              <Input type={evt.all_day ? "date" : "datetime-local"} value={evt.all_day ? start.slice(0, 10) : start}
+                onChange={(e) => setStart(e.target.value)} disabled={readOnly} />
+            </div>
+            <div>
+              <Label className="text-xs">Fin</Label>
+              <Input type={evt.all_day ? "date" : "datetime-local"} value={evt.all_day ? end.slice(0, 10) : end}
+                onChange={(e) => setEnd(e.target.value)} disabled={readOnly} />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Statut</Label>
+            <Select value={status} onValueChange={setStatus} disabled={readOnly}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="prevu">Prévu</SelectItem>
+                <SelectItem value="en_cours">En cours</SelectItem>
+                <SelectItem value="termine">Terminé</SelectItem>
+                <SelectItem value="annule">Annulé</SelectItem>
+                <SelectItem value="reporte">Reporté</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Assigné à</Label>
+            <Select value={assigned || "none"} onValueChange={(v) => setAssigned(v === "none" ? "" : v)} disabled={readOnly}>
+              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Couleur</Label>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <button type="button" disabled={readOnly} onClick={() => setColor("")}
+                className={cn("h-7 rounded-md border px-2 text-xs", !color ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                Auto
+              </button>
+              {COLORS.map((c) => (
+                <button key={c.key} type="button" disabled={readOnly}
+                  onClick={() => setColor(c.key)}
+                  className={cn("h-7 w-7 rounded-full border-2 transition", color === c.key ? "border-foreground scale-110" : "border-transparent")}
+                  style={{ background: c.bg }} title={c.label} aria-label={c.label} />
+              ))}
+            </div>
+          </div>
+
+          <Button type="button" variant="outline" size="sm" onClick={() => onOpenFull(evt)} className="w-full">
+            <Pencil className="h-4 w-4" /> Tout modifier (formulaire complet)
+          </Button>
+        </div>
+
+        <SheetFooter className="mt-6 flex-row justify-between gap-2 sm:flex-row sm:justify-between">
+          {!readOnly && (
+            <Button type="button" variant="ghost" size="sm" onClick={remove} className="text-destructive">
+              <Trash2 className="h-4 w-4" /> Supprimer
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
+            <Button type="button" onClick={save} disabled={readOnly || saving} className="shadow-brand">
+              {saving ? "…" : "Enregistrer"}
+            </Button>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}
