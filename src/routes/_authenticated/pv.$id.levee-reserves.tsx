@@ -125,7 +125,7 @@ function LeveeReserves() {
     (async () => {
       const [pvRes, resRes] = await Promise.all([
         supabase.from("pv").select("numero").eq("id", pvId).maybeSingle(),
-        supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).in("status", ["ouverte", "en_cours", "levee"]).order("created_at"),
+        supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).in("status", ["ouverte", "en_cours", "rejetee"]).order("created_at"),
       ]);
       setPvNumero(pvRes.data?.numero ?? "");
       const rs = (resRes.data ?? []) as Reserve[];
