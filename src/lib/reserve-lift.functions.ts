@@ -51,6 +51,8 @@ const InputSchema = z.object({
   items: z.array(ItemSchema).min(1).max(50),
   companySignature: z.string().max(800_000).nullable().optional(),
   clientSignature: z.string().max(800_000).nullable().optional(),
+  technicianSignature: z.string().max(800_000).nullable().optional(),
+  technicianName: z.string().max(200).nullable().optional(),
 });
 
 /** Distance between two GPS points in meters (haversine). */
