@@ -176,7 +176,7 @@ function PvDetail() {
     setPv(pvData as Pv);
 
     const [photosRes, reservesRes] = await Promise.all([
-      supabase.from("pv_photos").select("id,url,caption").eq("pv_id", id),
+      supabase.from("pv_photos").select("id,url,caption,reserve_id,kind").eq("pv_id", id),
       supabase.from("pv_reserves").select("id,description,severity,status,priority,nature,work_to_execute,due_date,assigned_to,lifted_at,validated_at,created_at,pv_id,company_id").eq("pv_id", id).order("created_at"),
     ]);
     const ph = (photosRes.data ?? []) as Photo[];
