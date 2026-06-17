@@ -152,7 +152,7 @@ function ChantierCalendarPage() {
   const [events, setEvents] = useState<Evt[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [chantiers, setChantiers] = useState<{ id: string; name: string }[]>([]);
+  const [chantiers, setChantiers] = useState<{ id: string; name: string; color?: string | null }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [members, setMembers] = useState<{ user_id: string; name: string }[]>([]);
   const [fChantier, setFChantier] = useState("all");
