@@ -189,9 +189,7 @@ function ChantiersPage() {
         className="border-0 bg-transparent px-0 py-0"
         actions={
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/chantiers/calendrier"><CalendarDays className="h-4 w-4" /> Calendrier</Link>
-            </Button>
+
             {canWrite ? (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
