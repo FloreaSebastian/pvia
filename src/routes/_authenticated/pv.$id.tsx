@@ -256,6 +256,7 @@ function PvDetail() {
       toast.error(e?.message || "Échec de l'envoi");
     } finally {
       setResendingLiftId(null);
+    }
   }
 
   async function exportLiftExpertise(reportId: string) {
@@ -278,7 +279,7 @@ function PvDetail() {
     }
   }
 
-  }
+
 
 
   const loadLastEvent = useCallback(async () => {
