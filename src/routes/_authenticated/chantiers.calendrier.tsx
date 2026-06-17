@@ -691,7 +691,61 @@ function ChantierCalendarPage() {
         </Card>
       )}
 
+      {/* Filters toggle + conflicts chip */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant={filtersOpen || activeFilterCount > 0 ? "secondary" : "outline"}
+          onClick={() => setFiltersOpen((v) => !v)} className="gap-1.5">
+          <Filter className="h-3.5 w-3.5" />
+          Filtres
+          {activeFilterCount > 0 && <Badge variant="default" className="ml-1 h-5 min-w-5 justify-center px-1.5">{activeFilterCount}</Badge>}
+        </Button>
+        {activeFilterCount > 0 && (
+          <Button size="sm" variant="ghost" onClick={resetFilters} className="text-xs text-muted-foreground">
+            <X className="h-3 w-3" /> Réinitialiser
+          </Button>
+        )}
+        {conflicts.size > 0 && (
+          <Popover open={conflictsPanelOpen} onOpenChange={setConflictsPanelOpen}>
+            <PopoverTrigger asChild>
+              <button type="button"
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-500/15">
+                <AlertTriangle className="h-3 w-3" /> {conflicts.size} conflit{conflicts.size > 1 ? "s" : ""} de planning
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[min(440px,92vw)] p-0">
+              <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Conflits détectés
+              </div>
+              <ul className="max-h-80 divide-y divide-border overflow-y-auto">
+                {conflictPairs.map((p, i) => (
+                  <li key={i} className="px-3 py-2 text-xs">
+                    <div className="mb-1 font-medium text-foreground">{memberName(p.member) ?? "—"}</div>
+                    {[p.a, p.b].map((ev) => (
+                      <div key={ev.id} className="flex items-center justify-between gap-2 py-0.5">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorOf(ev).bg }} />
+                          <span className="truncate">{ev.title}</span>
+                          <span className="shrink-0 text-muted-foreground">
+                            · {ev.start_at ? fmtTime(new Date(ev.start_at)) : "—"}
+                            {ev.end_at ? `–${fmtTime(new Date(ev.end_at))}` : ""}
+                          </span>
+                        </span>
+                        <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs"
+                          onClick={() => { setConflictsPanelOpen(false); openEdit(ev); }}>
+                          <Eye className="h-3 w-3" /> Voir
+                        </Button>
+                      </div>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+
       {/* Filters */}
+      {filtersOpen && (
       <Card className="grid gap-2 p-2 md:grid-cols-6">
         <Select value={fChantier} onValueChange={setFChantier}>
           <SelectTrigger className="h-9"><SelectValue placeholder="Chantier" /></SelectTrigger>
@@ -744,13 +798,10 @@ function ChantierCalendarPage() {
             className={cn("rounded-full border px-2.5 py-1 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
             Masquer annulés
           </button>
-          {conflicts.size > 0 && (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 font-medium text-red-600">
-              <AlertTriangle className="h-3 w-3" /> {conflicts.size} conflit{conflicts.size > 1 ? "s" : ""} de planning
-            </span>
-          )}
         </div>
       </Card>
+      )}
+
 
       {/* Views */}
       {loading && <div className="p-8 text-center text-sm text-muted-foreground">Chargement…</div>}
