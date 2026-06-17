@@ -152,7 +152,7 @@ export async function buildAndStoreReserveLiftPdf(
   })();
 
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`Levée de réserves ${report.numero}`);
+  pdf.setTitle(`Levée de réserves ${report.numero}${isInternal ? " (interne)" : ""}`);
   pdf.setCreator("PVIA");
   pdf.setProducer("PVIA");
 
