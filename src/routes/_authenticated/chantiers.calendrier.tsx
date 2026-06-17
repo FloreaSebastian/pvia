@@ -721,6 +721,23 @@ function ChantierCalendarPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Quick edit side panel */}
+      {quickEvt && activeCompanyId && (
+        <QuickEditSheet
+          evt={quickEvt}
+          members={members}
+          companyId={activeCompanyId}
+          canWrite={canWrite}
+          updateEvtFn={updateEvtFn}
+          deleteEvtFn={deleteEvtFn}
+          chantierName={chantierName}
+          clientName={clientName}
+          onClose={() => setQuickEvt(null)}
+          onOpenFull={(e) => { setQuickEvt(null); openEdit(e); }}
+          onSaved={() => { setQuickEvt(null); void load(); }}
+        />
+      )}
     </div>
   );
 }
