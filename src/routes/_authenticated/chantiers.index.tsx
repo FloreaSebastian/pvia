@@ -258,6 +258,32 @@ function ChantiersPage() {
                       <div><Label>Début</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
                       <div><Label>Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Couleur du chantier</Label>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button type="button" onClick={() => setForm({ ...form, color: "" })}
+                            className={cn("h-7 w-7 rounded-full border-2 text-[10px] text-muted-foreground", !form.color ? "border-primary bg-muted" : "border-border hover:border-primary/50")}
+                            aria-label="Aucune couleur"
+                          >—</button>
+                          {CHANTIER_PALETTE.map((hex) => (
+                            <button key={hex} type="button"
+                              onClick={() => setForm({ ...form, color: hex })}
+                              className={cn("h-7 w-7 rounded-full border-2 transition", form.color?.toLowerCase() === hex ? "border-foreground ring-2 ring-offset-1 ring-primary/40" : "border-border hover:scale-110")}
+                              style={{ backgroundColor: hex }}
+                              aria-label={hex}
+                            />
+                          ))}
+                          <input type="color" value={form.color || "#3b82f6"} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-7 w-9 cursor-pointer rounded border border-border bg-transparent p-0" aria-label="Couleur personnalisée" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Avancement ({form.progress_percent}%)</Label>
+                        <input type="range" min={0} max={100} step={5} value={form.progress_percent}
+                          onChange={(e) => setForm({ ...form, progress_percent: Number(e.target.value) })}
+                          className="mt-2 w-full accent-primary" />
+                      </div>
+                    </div>
                     <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
                     <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
                   </form>
