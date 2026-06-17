@@ -1628,162 +1628,223 @@ function TimeGridView({
   );
 }
 
-// ============= QUICK EDIT SHEET =============
-function QuickEditSheet({
-  evt, members, companyId, canWrite, updateEvtFn, deleteEvtFn,
-  chantierName, clientName, onClose, onOpenFull, onSaved,
+// ============= EVENT ACTION POPOVER =============
+function EventActionPopover({
+  evt, companyId, canWrite, isAdmin, memberName, chantierName, clientName,
+  updateEvtFn, deleteEvtFn, duplicateFn, onClose, onEdit, onSaved,
 }: {
   evt: Evt;
-  members: { user_id: string; name: string }[];
   companyId: string;
   canWrite: boolean;
-  updateEvtFn: (a: { data: { companyId: string; id: string; data: Record<string, unknown> } }) => Promise<unknown>;
-  deleteEvtFn: (a: { data: { companyId: string; id: string } }) => Promise<unknown>;
+  isAdmin: boolean;
+  memberName: (id: string | null | undefined) => string | null;
   chantierName: (id: string | null | undefined) => string;
   clientName: (id: string | null | undefined) => string;
+  updateEvtFn: (a: { data: { companyId: string; id: string; data: Record<string, unknown> } }) => Promise<unknown>;
+  deleteEvtFn: (a: { data: { companyId: string; id: string } }) => Promise<unknown>;
+  duplicateFn: (a: { data: { companyId: string; id: string } }) => Promise<unknown>;
   onClose: () => void;
-  onOpenFull: (e: Evt) => void;
+  onEdit: (e: Evt) => void;
   onSaved: () => void;
 }) {
-  const [start, setStart] = useState(evt.start_at ? toLocalInput(new Date(evt.start_at)) : "");
-  const [end, setEnd] = useState(evt.end_at ? toLocalInput(new Date(evt.end_at)) : "");
-  const [status, setStatus] = useState(evt.status);
-  const [color, setColor] = useState<ColorKey | "">(((evt.color && COLORS.some((c) => c.key === evt.color)) ? evt.color : "") as ColorKey | "");
-  const [assigned, setAssigned] = useState(evt.assigned_to ?? "");
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const isSystem = evt.event_type.startsWith("system_");
   const readOnly = !canWrite || isSystem;
+  const c = colorOf(evt);
+  const start = evt.start_at ? new Date(evt.start_at) : null;
+  const end = evt.end_at ? new Date(evt.end_at) : null;
 
-  async function save() {
+  const STATUS_LABEL: Record<string, string> = {
+    prevu: "Prévu", en_cours: "En cours", termine: "Terminé",
+    annule: "Annulé", reporte: "Reporté",
+  };
+
+  async function patchStatus(next: "termine" | "annule") {
     if (readOnly) return;
-    setSaving(true);
+    setBusy(true);
     try {
       await updateEvtFn({ data: { companyId, id: evt.id, data: {
-        title: evt.title,
-        description: evt.description ?? "",
-        event_type: evt.event_type,
-        status: status as "prevu",
-        start_at: start ? new Date(start).toISOString() : null,
-        end_at: end ? new Date(end).toISOString() : null,
-        all_day: evt.all_day ?? false,
-        assigned_to: assigned || null,
-        client_id: evt.client_id ?? null,
-        reminder_at: evt.reminder_at ?? null,
-        location: evt.location ?? "",
-        color: color || "",
-        color_source: color ? "manual" : "auto",
+        title: evt.title, description: evt.description ?? "",
+        event_type: evt.event_type, status: next as "prevu",
+        start_at: evt.start_at, end_at: evt.end_at,
+        all_day: evt.all_day ?? false, assigned_to: evt.assigned_to ?? null,
+        client_id: evt.client_id ?? null, reminder_at: evt.reminder_at ?? null,
+        location: evt.location ?? "", color: evt.color ?? "",
+        color_source: (evt.color_source as "auto" | "manual") ?? "auto",
       } } });
-      toast.success("Événement mis à jour");
+      toast.success(next === "termine" ? "Marqué terminé" : "Événement annulé");
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Échec");
-    } finally { setSaving(false); }
+    } finally { setBusy(false); }
+  }
+
+  async function duplicate() {
+    if (readOnly) return;
+    setBusy(true);
+    try {
+      await duplicateFn({ data: { companyId, id: evt.id } });
+      toast.success("Événement dupliqué");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Duplication impossible");
+    } finally { setBusy(false); }
   }
 
   async function remove() {
-    if (readOnly) return;
+    if (readOnly || !isAdmin) return;
     if (!confirm("Supprimer cet événement ?")) return;
+    setBusy(true);
     try {
       await deleteEvtFn({ data: { companyId, id: evt.id } });
       toast.success("Supprimé");
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Suppression impossible");
-    }
+    } finally { setBusy(false); }
   }
 
+  const dateLine = start
+    ? start.toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })
+    : "—";
+  const timeLine = evt.all_day
+    ? "Toute la journée"
+    : start
+      ? `${fmtTime(start)}${end ? ` – ${fmtTime(end)}` : ""}`
+      : "—";
+
   return (
-    <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: colorOf(evt).bg }} />
-            <span className="truncate">{evt.title}</span>
-          </SheetTitle>
-          <p className="text-xs text-muted-foreground">
-            {TYPE_LABELS[evt.event_type] ?? evt.event_type}
-            {evt.chantier_id && ` · ${chantierName(evt.chantier_id)}`}
-            {evt.client_id && ` · ${clientName(evt.client_id)}`}
-          </p>
-        </SheetHeader>
-
-        <div className="mt-4 space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Début</Label>
-              <Input type={evt.all_day ? "date" : "datetime-local"} value={evt.all_day ? start.slice(0, 10) : start}
-                onChange={(e) => setStart(e.target.value)} disabled={readOnly} />
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        className="overflow-hidden p-0 sm:max-w-[440px] gap-0 rounded-2xl shadow-2xl"
+        onDoubleClick={() => onEdit(evt)}
+      >
+        <div className="flex">
+          {/* Color band */}
+          <div className="w-1.5 shrink-0" style={{ background: c.bg }} aria-hidden />
+          <div className="flex-1 min-w-0">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <DialogTitle className="text-lg leading-tight font-semibold truncate">
+                    {evt.title}
+                  </DialogTitle>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] font-medium border"
+                      style={{ background: c.bg + "1a", color: c.bg, borderColor: c.bg + "33" }}
+                    >
+                      {TYPE_LABELS[evt.event_type] ?? evt.event_type}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {STATUS_LABEL[evt.status] ?? evt.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <Label className="text-xs">Fin</Label>
-              <Input type={evt.all_day ? "date" : "datetime-local"} value={evt.all_day ? end.slice(0, 10) : end}
-                onChange={(e) => setEnd(e.target.value)} disabled={readOnly} />
+
+            {/* Details */}
+            <div className="px-5 pb-4 space-y-2 text-sm">
+              <div className="flex items-start gap-2.5 text-foreground">
+                <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="capitalize">{dateLine}</p>
+                  <p className="text-xs text-muted-foreground">{timeLine}</p>
+                </div>
+              </div>
+
+              {evt.chantier_id && (
+                <div className="flex items-center gap-2.5">
+                  <span className="h-4 w-4 shrink-0 rounded-sm" style={{ background: evt.chantier?.color || c.bg }} aria-hidden />
+                  <Link
+                    to="/chantiers/$id"
+                    params={{ id: evt.chantier_id }}
+                    onClick={onClose}
+                    className="truncate text-foreground hover:underline"
+                  >
+                    {chantierName(evt.chantier_id)}
+                  </Link>
+                </div>
+              )}
+
+              {evt.client_id && (
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Users className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{clientName(evt.client_id)}</span>
+                </div>
+              )}
+
+              {evt.assigned_to && memberName(evt.assigned_to) && (
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
+                    {initials(memberName(evt.assigned_to))}
+                  </span>
+                  <span className="truncate">{memberName(evt.assigned_to)}</span>
+                </div>
+              )}
+
+              {evt.location && (
+                <div className="flex items-start gap-2.5 text-muted-foreground">
+                  <Eye className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span className="truncate">{evt.location}</span>
+                </div>
+              )}
+
+              {evt.description && (
+                <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground line-clamp-3">
+                  {evt.description}
+                </p>
+              )}
+
+              {evt.reminder_at && (
+                <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                  <span>Rappel : {new Date(evt.reminder_at).toLocaleString("fr-FR", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" })}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="border-t border-border bg-muted/30 px-3 py-2 flex flex-wrap items-center justify-between gap-1">
+              <div className="flex flex-wrap items-center gap-1">
+                {!readOnly && (
+                  <>
+                    <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={() => onEdit(evt)} title="Modifier">
+                      <Pencil className="h-3.5 w-3.5" /> Modifier
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={duplicate} disabled={busy} title="Dupliquer">
+                      <Copy className="h-3.5 w-3.5" /> Dupliquer
+                    </Button>
+                    {evt.status !== "termine" && (
+                      <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-emerald-600 hover:text-emerald-700" onClick={() => patchStatus("termine")} disabled={busy} title="Marquer terminé">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Terminé
+                      </Button>
+                    )}
+                    {evt.status !== "annule" && (
+                      <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-amber-600 hover:text-amber-700" onClick={() => patchStatus("annule")} disabled={busy} title="Annuler">
+                        <X className="h-3.5 w-3.5" /> Annuler
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-destructive hover:text-destructive" onClick={remove} disabled={busy} title="Supprimer">
+                        <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+              <Button size="sm" variant="outline" className="h-8" onClick={onClose}>Fermer</Button>
             </div>
           </div>
-
-          <div>
-            <Label className="text-xs">Statut</Label>
-            <Select value={status} onValueChange={setStatus} disabled={readOnly}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="prevu">Prévu</SelectItem>
-                <SelectItem value="en_cours">En cours</SelectItem>
-                <SelectItem value="termine">Terminé</SelectItem>
-                <SelectItem value="annule">Annulé</SelectItem>
-                <SelectItem value="reporte">Reporté</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-xs">Assigné à</Label>
-            <Select value={assigned || "none"} onValueChange={(v) => setAssigned(v === "none" ? "" : v)} disabled={readOnly}>
-              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">—</SelectItem>
-                {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-xs">Couleur</Label>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <button type="button" disabled={readOnly} onClick={() => setColor("")}
-                className={cn("h-7 rounded-md border px-2 text-xs", !color ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
-                Auto
-              </button>
-              {COLORS.map((c) => (
-                <button key={c.key} type="button" disabled={readOnly}
-                  onClick={() => setColor(c.key)}
-                  className={cn("h-7 w-7 rounded-full border-2 transition", color === c.key ? "border-foreground scale-110" : "border-transparent")}
-                  style={{ background: c.bg }} title={c.label} aria-label={c.label} />
-              ))}
-            </div>
-          </div>
-
-          <Button type="button" variant="outline" size="sm" onClick={() => onOpenFull(evt)} className="w-full">
-            <Pencil className="h-4 w-4" /> Tout modifier (formulaire complet)
-          </Button>
         </div>
-
-        <SheetFooter className="mt-6 flex-row justify-between gap-2 sm:flex-row sm:justify-between">
-          {!readOnly && (
-            <Button type="button" variant="ghost" size="sm" onClick={remove} className="text-destructive">
-              <Trash2 className="h-4 w-4" /> Supprimer
-            </Button>
-          )}
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
-            <Button type="button" onClick={save} disabled={readOnly || saving} className="shadow-brand">
-              {saving ? "…" : "Enregistrer"}
-            </Button>
-          </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
+
 
 // ============= TEAM VIEW =============
 type Member = { user_id: string; name: string };
