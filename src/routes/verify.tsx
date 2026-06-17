@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { sendEnterpriseLoginCode, verifyEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
 import { assertPasswordFallbackAllowed, getAuthFallbackConfig } from "@/lib/auth-fallback.functions";
+import { getRememberMePreference, applyRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
