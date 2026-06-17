@@ -304,7 +304,7 @@ function ChantierDetailPage() {
               <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /> Calendrier</Link>
             </Button>
             {canWrite && (
-              <Button variant="outline" size="sm" onClick={runAutoPlanning} disabled={autoPlanLoading}>
+              <Button variant="outline" size="sm" onClick={() => runAutoPlanning(false)} disabled={autoPlanLoading}>
                 <Sparkles className="h-4 w-4" /> {autoPlanLoading ? "Création…" : "Planning auto"}
               </Button>
             )}
