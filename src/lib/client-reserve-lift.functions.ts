@@ -344,7 +344,8 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
       const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
       await markPdfGenerationStatus("reserve_lift_reports", report.id, "pending");
       try {
-        pdfPath = await buildAndStoreReserveLiftPdf(report.id);
+        const built = await buildAndStoreReserveLiftPdfs(report.id);
+        pdfPath = built.clientPath;
         await markPdfGenerationStatus("reserve_lift_reports", report.id, "ok");
       } catch (e) {
         await markPdfGenerationStatus("reserve_lift_reports", report.id, "failed");
