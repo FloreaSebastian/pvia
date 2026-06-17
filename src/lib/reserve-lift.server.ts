@@ -72,7 +72,7 @@ function wrapLines(font: PDFFont, text: string, size: number, maxWidth: number):
 export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<string> {
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
-    .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email")
+    .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
     .eq("id", reportId)
     .maybeSingle();
   if (!report?.company_id) throw new Error("Rapport introuvable.");
@@ -92,7 +92,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
 
   const reserveIds = (itemsRes.data ?? []).map((i: any) => i.reserve_id);
   const { data: reservesData } = reserveIds.length
-    ? await supabaseAdmin.from("pv_reserves").select("id,description,severity,status").in("id", reserveIds)
+    ? await supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").in("id", reserveIds)
     : { data: [] as any[] };
   const reserveMap = new Map<string, any>((reservesData ?? []).map((r: any) => [r.id, r]));
 
