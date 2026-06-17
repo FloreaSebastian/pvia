@@ -10,7 +10,7 @@ import { writeAuditLog } from "@/lib/audit.server";
 import { enforceRateLimit } from "@/lib/rate-limit.server";
 import { decodeAndValidateImage } from "@/lib/image-validate.server";
 import { firePushToCompany } from "@/lib/push.server";
-import { buildAndStoreReserveLiftPdf } from "@/lib/reserve-lift.server";
+import { buildAndStoreReserveLiftPdfs } from "@/lib/reserve-lift.server";
 import { dispatchWebhookEvent } from "@/lib/webhooks.server";
 import { deliverSignedReserveLift } from "@/lib/reserve-lift-email.server";
 import {
