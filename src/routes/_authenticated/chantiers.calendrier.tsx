@@ -653,6 +653,7 @@ function ChantierCalendarPage() {
           })()}
           events={events}
           canWrite={canWrite}
+          conflictIds={conflicts}
           onCreateRange={(s, e) => openNew(s, e)}
           onClickEvent={(e) => openQuick(e)}
           onDblClickEvent={(e) => openEdit(e)}
