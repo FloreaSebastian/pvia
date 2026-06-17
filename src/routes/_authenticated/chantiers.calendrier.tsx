@@ -202,6 +202,33 @@ function ChantierCalendarPage() {
   });
   const [evtOpen, setEvtOpen] = useState(false);
   const [evtForm, setEvtForm] = useState<FormState>(blankForm());
+  const [quickEvt, setQuickEvt] = useState<Evt | null>(null);
+  const [search, setSearch] = useState("");
+  const chantierName = useCallback((id: string | null | undefined) => id ? (chantiers.find((c) => c.id === id)?.name ?? "—") : "—", [chantiers]);
+  const clientName = useCallback((id: string | null | undefined) => id ? (clients.find((c) => c.id === id)?.name ?? "—") : "—", [clients]);
+  const memberName = useCallback((id: string | null | undefined) => id ? (membersById.get(id)?.name ?? "—") : null, [membersById]);
+
+  const searchResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return events
+      .filter((e) => {
+        const hay = `${e.title} ${chantierName(e.chantier_id)} ${clientName(e.client_id)}`.toLowerCase();
+        return hay.includes(q);
+      })
+      .slice(0, 10);
+  }, [events, search, chantierName, clientName]);
+
+  function openQuick(e: Evt) {
+    if (e.event_type.startsWith("system_")) return;
+    setQuickEvt(e);
+  }
+  function jumpToEvent(e: Evt) {
+    if (e.start_at) setCursor(new Date(e.start_at));
+    setView("day");
+    setSearch("");
+    setQuickEvt(e);
+  }
 
   function openNew(start?: Date, end?: Date) {
     if (!canWrite) return;
