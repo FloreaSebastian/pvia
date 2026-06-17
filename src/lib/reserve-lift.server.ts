@@ -336,6 +336,25 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
     y -= 16;
   }
 
+  if ((report as any).client_rejected_at) {
+    const reason = sanitize((report as any).client_rejected_reason || "Aucun motif fourni.");
+    const reasonLines = wrapLines(helv, reason, 9, CONTENT_W - 60);
+    const h = 30 + reasonLines.length * 12;
+    ensureSpace(h + 8);
+    page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, color: rgb(1, 0.95, 0.95), borderColor: rgb(0.80, 0.10, 0.10), borderWidth: 0.6 });
+    page.drawText(
+      sanitize(`REJETÉE par le client (${(report as any).client_rejected_email ?? "—"}) le ${formatDate((report as any).client_rejected_at, true)}`),
+      { x: MARGIN + 12, y: y - 14, size: 8.5, font: bold, color: rgb(0.80, 0.10, 0.10) },
+    );
+    let ry = y - 28;
+    page.drawText("Motif :", { x: MARGIN + 12, y: ry, size: 8, font: bold, color: rgb(0.80, 0.10, 0.10) });
+    for (const l of reasonLines) {
+      page.drawText(l, { x: MARGIN + 48, y: ry, size: 9, font: helv, color: ACCENT });
+      ry -= 12;
+    }
+    y -= h + 8;
+  }
+
   // ============ PREUVE DE SIGNATURE ELECTRONIQUE (eIDAS SES) ============
   ensureSpace(170);
   page.drawText("PREUVE DE SIGNATURE ELECTRONIQUE", { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
