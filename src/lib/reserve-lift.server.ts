@@ -1,7 +1,7 @@
 /**
  * Helpers + PDF generation for reserve-lift reports.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
 import { sha256OfBytes, EIDAS_MENTIONS } from "./signature-proof.server";
