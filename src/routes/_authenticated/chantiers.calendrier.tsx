@@ -106,7 +106,7 @@ function fmtMonth(d: Date) { return d.toLocaleDateString("fr-FR", { month: "long
 function fmtTime(d: Date) { return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); }
 function toLocalInput(d: Date) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
 
-type ViewKind = "month" | "week" | "day" | "list" | "custom" | "team";
+type ViewKind = "month" | "week" | "day" | "custom" | "team";
 type TeamMode = "day" | "week";
 
 const UNASSIGNED = "__unassigned__";
