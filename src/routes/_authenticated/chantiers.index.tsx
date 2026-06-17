@@ -45,10 +45,12 @@ const STATUSES = [
   { value: "archive", label: "Archivé" },
 ] as const;
 type StatusValue = (typeof STATUSES)[number]["value"];
+type FilterValue = "all" | StatusValue | "retard";
 
-const FILTERS: Array<{ value: "all" | StatusValue; label: string }> = [
+const FILTERS: Array<{ value: FilterValue; label: string }> = [
   { value: "all", label: "Tous" },
-  ...STATUSES.map((s) => ({ value: s.value, label: s.label })),
+  ...STATUSES.map((s) => ({ value: s.value as FilterValue, label: s.label })),
+  { value: "retard", label: "En retard" },
 ];
 
 const CHANTIER_PALETTE = ["#3b82f6","#10b981","#f97316","#ef4444","#8b5cf6","#eab308","#0ea5e9","#14b8a6","#ec4899","#6b7280"];
@@ -177,12 +179,6 @@ function ChantiersPage() {
     return (id: string | null) => (id ? m.get(id) ?? null : null);
   }, [clients]);
 
-  const counts = useMemo(() => {
-    const base = { all: items.length, en_cours: 0, termine: 0, receptionne: 0 } as Record<string, number>;
-    for (const c of items) base[c.status] = (base[c.status] ?? 0) + 1;
-    return base;
-  }, [items]);
-
   // P2.7 — dashboard chantier
   const dashboard = useMemo(() => {
     const now = Date.now();
@@ -197,10 +193,23 @@ function ChantiersPage() {
     return { actifs, receptionne, termine, enRetard };
   }, [items]);
 
+  const counts = useMemo(() => {
+    const base: Record<string, number> = { all: items.length, retard: dashboard.enRetard };
+    for (const c of items) base[c.status] = (base[c.status] ?? 0) + 1;
+    return base;
+  }, [items, dashboard.enRetard]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const now = Date.now();
     return items.filter((c) => {
-      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (statusFilter === "retard") {
+        if (!c.end_date) return false;
+        if (new Date(c.end_date).getTime() >= now) return false;
+        if (["termine", "receptionne", "archive"].includes(c.status)) return false;
+      } else if (statusFilter !== "all" && c.status !== statusFilter) {
+        return false;
+      }
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
@@ -318,12 +327,16 @@ function ChantiersPage() {
           { key: "actifs", label: "Actifs", value: dashboard.actifs, icon: Activity, tone: "text-warning", filter: "en_cours" as const },
           { key: "receptionne", label: "Réceptionnés", value: dashboard.receptionne, icon: CheckCircle2, tone: "text-success", filter: "receptionne" as const },
           { key: "termine", label: "Terminés", value: dashboard.termine, icon: Flag, tone: "text-primary", filter: "termine" as const },
-          { key: "retard", label: "En retard", value: dashboard.enRetard, icon: AlertTriangle, tone: "text-destructive", filter: null },
-          { key: "reserves", label: "Réserves ouvertes", value: openReservesCount, icon: AlertCircle, tone: "text-warning", to: "/pv" as const },
+          { key: "retard", label: "En retard", value: dashboard.enRetard, icon: AlertTriangle, tone: "text-destructive", filter: "retard" as const },
+          { key: "reserves", label: "Réserves ouvertes", value: openReservesCount, icon: AlertCircle, tone: "text-warning", to: "/reserves" as const, search: { status: "ouverte" as const } },
         ].map((s) => {
           const Icon = s.icon;
           const onClick = () => {
-            if ("to" in s && s.to) { navigate({ to: s.to }); return; }
+            if ("to" in s && s.to) {
+              const search = "search" in s ? s.search : undefined;
+              navigate({ to: s.to, search });
+              return;
+            }
             if (s.filter) setStatusFilter(s.filter);
           };
           return (
