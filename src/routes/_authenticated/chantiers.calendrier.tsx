@@ -177,15 +177,16 @@ function ChantierCalendarPage() {
   const rescheduleFn = useServerFn(rescheduleChantierEvent);
   const resizeFn = useServerFn(resizeChantierEvent);
   const duplicateFn = useServerFn(duplicateChantierEvent);
+  const detectConflictsFn = useServerFn(detectChantierEventConflicts);
   const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
 
   const range = useMemo(() => {
     if (view === "month") return { from: startOfWeek(startOfMonth(cursor)), to: addDays(startOfWeek(endOfMonth(cursor)), 41) };
-    if (view === "week") return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), 6) };
+    if (view === "week") return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
     if (view === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
     if (view === "team") {
       if (teamMode === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
-      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), 6) };
+      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
     }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00");
@@ -193,7 +194,7 @@ function ChantierCalendarPage() {
       return { from: a, to: b >= a ? b : a };
     }
     return { from: startOfMonth(cursor), to: endOfMonth(cursor) };
-  }, [cursor, view, customStart, customEnd, teamMode]);
+  }, [cursor, view, customStart, customEnd, teamMode, weekDays]);
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
