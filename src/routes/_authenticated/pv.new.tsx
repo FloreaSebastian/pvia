@@ -326,9 +326,46 @@ function NewPv() {
       toast.error("Indiquez au moins la nature ou la description de la réserve.");
       return;
     }
-    setReserves((r) => [...r, { ...newReserve }]);
-    setNewReserve({ nature: "", description: "", work_to_execute: "", severity: "mineure", due_date: "" });
+    if (newReserve.photos.length === 0) {
+      toast.error("Ajoutez au moins une photo pour cette réserve.");
+      return;
+    }
+    setReserves((r) => [...r, { ...newReserve, photos: [...newReserve.photos] }]);
+    setNewReserve({ nature: "", description: "", work_to_execute: "", severity: "mineure", due_date: "", photos: [] });
   }
+
+  function addReservePhotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const next: ReservePhoto[] = Array.from(files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setNewReserve((r) => ({ ...r, photos: [...r.photos, ...next] }));
+  }
+
+  function removeNewReservePhoto(idx: number) {
+    setNewReserve((r) => ({ ...r, photos: r.photos.filter((_, i) => i !== idx) }));
+  }
+
+  function removeReservePhoto(reserveIdx: number, photoIdx: number) {
+    setReserves((rs) =>
+      rs.map((r, i) =>
+        i === reserveIdx ? { ...r, photos: r.photos.filter((_, j) => j !== photoIdx) } : r,
+      ),
+    );
+  }
+
+  function addPhotosToExistingReserve(reserveIdx: number, files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const next: ReservePhoto[] = Array.from(files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setReserves((rs) =>
+      rs.map((r, i) => (i === reserveIdx ? { ...r, photos: [...r.photos, ...next] } : r)),
+    );
+  }
+
 
   function pickDecision(value: boolean) {
     // Si on bascule de "avec réserves" vers "sans réserve" et qu'il y a déjà des données → confirmation
