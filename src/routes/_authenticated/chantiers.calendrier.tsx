@@ -412,12 +412,18 @@ function ChantierCalendarPage() {
       return `${s.toLocaleDateString("fr-FR", { day:"2-digit", month:"short" })} – ${e.toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" })}`;
     }
     if (view === "day") return cursor.toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    if (view === "team") {
+      if (teamMode === "day") return "Équipe — " + cursor.toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" });
+      const s = startOfWeek(cursor); const e = addDays(s, 6);
+      return `Équipe — ${s.toLocaleDateString("fr-FR", { day:"2-digit", month:"short" })} – ${e.toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" })}`;
+    }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00"); const b = new Date(customEnd + "T00:00:00");
       return `${a.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${b.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
     }
     return "Liste";
-  }, [view, cursor, customStart, customEnd]);
+  }, [view, cursor, customStart, customEnd, teamMode]);
+
 
   return (
     <div className="space-y-3">
