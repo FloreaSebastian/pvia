@@ -9,8 +9,15 @@ import { toast } from "sonner";
 import { StatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
 import { useCompany } from "@/hooks/use-company";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
+
+const reservesSearchSchema = z.object({
+  status: fallback(z.enum(["all", "ouverte", "levee", "validee"]), "all").default("all"),
+});
 
 export const Route = createFileRoute("/_authenticated/reserves")({
+  validateSearch: zodValidator(reservesSearchSchema),
   component: ReservesPage,
   head: () => ({ meta: [{ title: "Réserves — PVIA" }] }),
 });
