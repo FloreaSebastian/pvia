@@ -75,6 +75,7 @@ export const Route = createFileRoute("/_authenticated/pv/new")({
 });
 
 type Photo = { file: File; preview: string; caption: string; kind: "avant" | "apres" | "autre" };
+type ReservePhoto = { file: File; preview: string };
 type Severity = "mineure" | "majeure" | "bloquante";
 type Reserve = {
   nature: string;
@@ -82,7 +83,9 @@ type Reserve = {
   work_to_execute: string;
   severity: Severity;
   due_date: string;
+  photos: ReservePhoto[];
 };
+
 
 type WorkRefType = "devis" | "bon_commande" | "marche" | "manuel";
 
@@ -176,7 +179,9 @@ function NewPv() {
     work_to_execute: "",
     severity: "mineure",
     due_date: "",
+    photos: [],
   });
+
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
@@ -227,10 +232,22 @@ function NewPv() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.form) setForm((f) => ({ ...f, ...parsed.form }));
-        if (parsed.reserves) setReserves(parsed.reserves);
+        // Note: les photos (File objects) ne sont pas persistées en localStorage,
+        // on ne restaure que les champs texte des réserves avec photos = [].
+        if (Array.isArray(parsed.reserves)) {
+          setReserves(parsed.reserves.map((r: any) => ({
+            nature: r.nature ?? "",
+            description: r.description ?? "",
+            work_to_execute: r.work_to_execute ?? "",
+            severity: r.severity ?? "mineure",
+            due_date: r.due_date ?? "",
+            photos: [],
+          })));
+        }
         if (typeof parsed.withReserves === "boolean") setWithReserves(parsed.withReserves);
       }
     } catch { /* ignore */ }
+
   }, []);
 
   // Branding
@@ -271,12 +288,15 @@ function NewPv() {
   useEffect(() => {
     const t = setTimeout(() => {
       try {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves, withReserves }));
+        // Strip File objects from photos before persisting (non-serializable).
+        const persistedReserves = reserves.map((r) => ({ ...r, photos: [] }));
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves: persistedReserves, withReserves }));
         setLastSaved(new Date());
       } catch { /* noop */ }
     }, 600);
     return () => clearTimeout(t);
   }, [form, reserves, withReserves]);
+
 
   // Prefill chantier when selected
   useEffect(() => {
@@ -321,9 +341,46 @@ function NewPv() {
       toast.error("Indiquez au moins la nature ou la description de la réserve.");
       return;
     }
-    setReserves((r) => [...r, { ...newReserve }]);
-    setNewReserve({ nature: "", description: "", work_to_execute: "", severity: "mineure", due_date: "" });
+    if (newReserve.photos.length === 0) {
+      toast.error("Ajoutez au moins une photo pour cette réserve.");
+      return;
+    }
+    setReserves((r) => [...r, { ...newReserve, photos: [...newReserve.photos] }]);
+    setNewReserve({ nature: "", description: "", work_to_execute: "", severity: "mineure", due_date: "", photos: [] });
   }
+
+  function addReservePhotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const next: ReservePhoto[] = Array.from(files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setNewReserve((r) => ({ ...r, photos: [...r.photos, ...next] }));
+  }
+
+  function removeNewReservePhoto(idx: number) {
+    setNewReserve((r) => ({ ...r, photos: r.photos.filter((_, i) => i !== idx) }));
+  }
+
+  function removeReservePhoto(reserveIdx: number, photoIdx: number) {
+    setReserves((rs) =>
+      rs.map((r, i) =>
+        i === reserveIdx ? { ...r, photos: r.photos.filter((_, j) => j !== photoIdx) } : r,
+      ),
+    );
+  }
+
+  function addPhotosToExistingReserve(reserveIdx: number, files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const next: ReservePhoto[] = Array.from(files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setReserves((rs) =>
+      rs.map((r, i) => (i === reserveIdx ? { ...r, photos: [...r.photos, ...next] } : r)),
+    );
+  }
+
 
   function pickDecision(value: boolean) {
     // Si on bascule de "avec réserves" vers "sans réserve" et qu'il y a déjà des données → confirmation
@@ -525,17 +582,25 @@ function NewPv() {
           chantier_address: form.chantier_address,
           chantier_postal_code: form.chantier_postal_code,
           chantier_city: form.chantier_city,
-          reserves: withReserves ? reserves.map((r) => ({
+          reserves: withReserves ? await Promise.all(reserves.map(async (r) => ({
             description: r.description || r.nature,
-            severity: r.severity === "bloquante" ? "majeure" : r.severity,
+            severity: r.severity === "bloquante" ? "majeure" as const : r.severity,
             status: "ouverte" as const,
             nature: r.nature,
             work_to_execute: r.work_to_execute,
             due_date: r.due_date || null,
-          })) : [],
+            photos: await Promise.all(r.photos.map(async (p) => ({
+              base64: await fileToBase64(p.file),
+              mimeType: p.file.type || "image/jpeg",
+              fileName: p.file.name,
+              kind: "reserve" as const,
+              caption: "",
+            }))),
+          }))) : [],
           photos: encodedPhotos,
         },
       });
+
 
       // Rattache les documents importés (brouillon) au PV désormais créé.
       if (res?.pvId && activeCompanyId) {
@@ -569,6 +634,11 @@ function NewPv() {
       } else if (e?.code === "COMPANY_INCOMPLETE" || /COMPANY_INCOMPLETE|entreprise incomplète/i.test(e?.message ?? "")) {
         toast.error("Fiche entreprise incomplète.");
         setStepIdx(0);
+      } else if (e?.code === "RESERVE_PHOTO_REQUIRED" || /RESERVE_PHOTO_REQUIRED|au moins une photo/i.test(e?.message ?? "")) {
+        toast.error(e?.message || "Chaque réserve doit contenir au moins une photo.");
+        const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
+        if (idx >= 0) setStepIdx(idx);
+
       } else {
         toast.error(e?.message || "Échec de la création.");
       }
@@ -583,7 +653,16 @@ function NewPv() {
     const chantierOk = form.chantier_address.trim().length > 0 && !!form.reception_date;
     const travauxOk = form.description.trim().length > 0;
     const decisionOk = withReserves !== null;
-    const reservesOk = !withReserves || (reserves.length > 0 && reserves.every((r) => (r.description.trim() || r.nature.trim())));
+    const reservesAllHaveContent = reserves.every((r) => (r.description.trim() || r.nature.trim()));
+    const reservesAllHavePhotos = reserves.every((r) => r.photos.length > 0);
+    let reservesError: string | null = null;
+    if (withReserves) {
+      if (reserves.length === 0) reservesError = "Ajoutez au moins une réserve.";
+      else if (!reservesAllHaveContent) reservesError = "Chaque réserve doit avoir une description ou une nature.";
+      else if (!reservesAllHavePhotos) reservesError = "Chaque réserve doit contenir au moins une photo.";
+    }
+    const reservesOk = reservesError === null;
+
     // Signatures: mode requis, signature entreprise requise; remote → email client requis;
     // onsite → signature client + OTP vérifié.
     let signaturesError: string | null = null;
@@ -598,7 +677,7 @@ function NewPv() {
       [ID_CHANTIER]: chantierOk ? null : "Adresse chantier et date obligatoires.",
       [ID_TRAVAUX]: travauxOk ? null : "Description des travaux obligatoire.",
       [ID_DECISION]: decisionOk ? null : "Choisissez avec ou sans réserves.",
-      [ID_RESERVES]: reservesOk ? null : "Au moins une réserve avec description.",
+      [ID_RESERVES]: reservesError,
       [ID_PHOTOS]: null,
       [ID_SIGNATURES]: signaturesError,
       [ID_APERCU]: signaturesError ? "Complétez les signatures avant d'accéder à l'aperçu." : null,
@@ -1067,29 +1146,101 @@ function NewPv() {
                         <Input type="date" value={newReserve.due_date} onChange={(e) => setNewReserve({ ...newReserve, due_date: e.target.value })} />
                       </Field>
                       <div className="flex items-end">
-                        <Button type="button" onClick={addReserve}><Plus className="h-4 w-4" /> Ajouter la réserve</Button>
+                        <Button type="button" onClick={addReserve} disabled={newReserve.photos.length === 0}>
+                          <Plus className="h-4 w-4" /> Ajouter la réserve
+                        </Button>
                       </div>
+                    </div>
+
+                    {/* Photos de la réserve (obligatoires) */}
+                    <div className="rounded-lg border border-dashed border-border bg-background/60 p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Camera className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">Photos de la réserve</span>
+                          <Badge variant="destructive" className="text-[10px]">Obligatoire</Badge>
+                        </div>
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-accent">
+                          <Upload className="h-3.5 w-3.5" /> Ajouter photos
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => { addReservePhotos(e.target.files); e.target.value = ""; }}
+                          />
+                        </label>
+                      </div>
+                      {newReserve.photos.length === 0 ? (
+                        <p className="text-xs text-warning">Ajoutez au moins une photo pour cette réserve.</p>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                          {newReserve.photos.map((p, i) => (
+                            <div key={i} className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted">
+                              <img src={p.preview} alt="" className="h-full w-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => removeNewReservePhoto(i)}
+                                className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-md bg-background/90 shadow"
+                                aria-label="Supprimer la photo"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {reserves.length > 0 ? (
                     <ul className="space-y-2">
                       {reserves.map((r, i) => (
-                        <li key={i} className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm shadow-sm">
-                          <div className="flex flex-1 items-start gap-3">
-                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-muted text-xs font-semibold">{i + 1}</span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium">{r.nature || "Réserve"}</p>
-                                <Badge variant={r.severity === "mineure" ? "secondary" : "destructive"}>{r.severity}</Badge>
-                                {r.due_date && <Badge variant="outline" className="gap-1"><CalendarDays className="h-3 w-3" /> {r.due_date}</Badge>}
+                        <li key={i} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 text-sm shadow-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-1 items-start gap-3">
+                              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-muted text-xs font-semibold">{i + 1}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-medium">{r.nature || "Réserve"}</p>
+                                  <Badge variant={r.severity === "mineure" ? "secondary" : "destructive"}>{r.severity}</Badge>
+                                  {r.due_date && <Badge variant="outline" className="gap-1"><CalendarDays className="h-3 w-3" /> {r.due_date}</Badge>}
+                                  <Badge variant="outline" className="gap-1"><Camera className="h-3 w-3" /> {r.photos.length}</Badge>
+                                </div>
+                                {r.description && <p className="mt-1 text-muted-foreground">{r.description}</p>}
+                                {r.work_to_execute && <p className="mt-1 text-xs"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>}
                               </div>
-                              {r.description && <p className="mt-1 text-muted-foreground">{r.description}</p>}
-                              {r.work_to_execute && <p className="mt-1 text-xs"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>}
                             </div>
+                            <Button size="icon" variant="ghost" onClick={() => setReserves(reserves.filter((_, j) => j !== i))}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button size="icon" variant="ghost" onClick={() => setReserves(reserves.filter((_, j) => j !== i))}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex flex-wrap items-center gap-2 pl-10">
+                            {r.photos.map((p, pi) => (
+                              <div key={pi} className="relative h-16 w-16 overflow-hidden rounded-md border border-border bg-muted">
+                                <img src={p.preview} alt="" className="h-full w-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => removeReservePhoto(i, pi)}
+                                  className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded bg-background/90 shadow"
+                                  aria-label="Supprimer"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
+                            ))}
+                            <label className="inline-flex h-16 w-16 cursor-pointer items-center justify-center rounded-md border border-dashed border-border bg-background hover:bg-accent">
+                              <Plus className="h-4 w-4 text-muted-foreground" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                className="hidden"
+                                onChange={(e) => { addPhotosToExistingReserve(i, e.target.files); e.target.value = ""; }}
+                              />
+                            </label>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -1100,6 +1251,7 @@ function NewPv() {
                   )}
                 </>
               )}
+
 
               {currentStep.id === ID_PHOTOS && (
                 <>

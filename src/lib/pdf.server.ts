@@ -153,7 +153,7 @@ export async function generatePvPdfBytes(input: {
   client: Client;
   chantier: Chantier;
   reserves: Reserve[];
-  photos: { caption: string | null; bytes: Uint8Array }[];
+  photos: { caption: string | null; bytes: Uint8Array; reserve_id?: string | null }[];
   branding?: CompanyBrandingSettings;
   proof?: SignatureProofMeta;
   referenceDocument?: ReferenceDocument | null;
@@ -528,7 +528,9 @@ export async function generatePvPdfBytes(input: {
     );
     y -= 38;
   } else {
-    reserves.forEach((r, idx) => {
+    for (let idx = 0; idx < reserves.length; idx++) {
+      const r = reserves[idx];
+
       const sevColor =
         r.severity === "majeure" || r.severity === "bloquante" ? rgb(0.80, 0.10, 0.10) :
         r.severity === "mineure" ? rgb(0.92, 0.62, 0.07) :
@@ -594,8 +596,39 @@ export async function generatePvPdfBytes(input: {
       }
 
       y -= rowH + 4;
-    });
+
+      // Photos de la réserve, juste sous la carte.
+      const reservePhotos = photos.filter((ph) => ph.reserve_id === (r as any).id);
+      if (reservePhotos.length) {
+        const thumbW = 88, thumbH = 66, gapTh = 6;
+        const perRow = Math.max(1, Math.floor((CONTENT_W - 12) / (thumbW + gapTh)));
+        let rendered = 0;
+        for (const rp of reservePhotos.slice(0, 8)) {
+          const t = detectImageType(rp.bytes);
+          if (!t) continue;
+          if (rendered % perRow === 0) ensureSpace(thumbH + 8);
+          const col = rendered % perRow;
+          const px = MARGIN + 12 + col * (thumbW + gapTh);
+          try {
+            const img = t === "png" ? await pdf.embedPng(rp.bytes) : await pdf.embedJpg(rp.bytes);
+            const ratio = img.width / img.height;
+            let w = thumbW, h = thumbW / ratio;
+            if (h > thumbH) { h = thumbH; w = thumbH * ratio; }
+            const offX = px + (thumbW - w) / 2;
+            const offY = y - thumbH + (thumbH - h) / 2;
+            page.drawRectangle({ x: px, y: y - thumbH, width: thumbW, height: thumbH, borderColor: BORDER, borderWidth: 0.4 });
+            page.drawImage(img, { x: offX, y: offY, width: w, height: h });
+          } catch { /* skip */ }
+          rendered += 1;
+          if (rendered % perRow === 0) y -= thumbH + 8;
+        }
+        if (rendered % perRow !== 0) y -= thumbH + 8;
+        y -= 2;
+      }
+    }
+
   }
+
 
 
   // ============ GARANTIES APPLICABLES ============
@@ -627,15 +660,16 @@ export async function generatePvPdfBytes(input: {
   );
   y -= 8;
 
-  // ============ PHOTOS ============
-  if (photos.length) {
-    sectionTitle(`Photos du chantier (${photos.length})`);
+  // ============ PHOTOS (globales — hors réserves, déjà affichées par carte) ============
+  const globalPhotos = photos.filter((p) => !p.reserve_id);
+  if (globalPhotos.length) {
+    sectionTitle(`Photos du chantier (${globalPhotos.length})`);
     const colsN = 2;
     const gap = 12;
     const cW = (CONTENT_W - gap * (colsN - 1)) / colsN;
     const cH = 150;
     let col = 0;
-    for (const p of photos) {
+    for (const p of globalPhotos) {
       const t = detectImageType(p.bytes);
       if (!t) continue;
       if (col === 0) ensureSpace(cH + 28);
@@ -659,6 +693,7 @@ export async function generatePvPdfBytes(input: {
     if (col !== 0) y -= cH + 24;
     y -= 4;
   }
+
 
   // ============ SIGNATURES ============
   sectionTitle("Signatures");
@@ -874,7 +909,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     pv.chantier_id
       ? supabaseAdmin.from("chantiers").select("name,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    supabaseAdmin.from("pv_photos").select("id,url,caption").eq("pv_id", pvId).order("created_at"),
+    supabaseAdmin.from("pv_photos").select("id,url,caption,reserve_id").eq("pv_id", pvId).order("created_at"),
     supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date,priority,assigned_to,lifted_at,validated_at").eq("pv_id", pvId).order("created_at"),
     pv.owner_id
       ? supabaseAdmin.from("profiles").select("full_name").eq("id", pv.owner_id).maybeSingle()
@@ -895,11 +930,18 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     assigned_name: r.assigned_to ? (assigneeMap.get(r.assigned_to) || null) : null,
   }));
 
-  const photos: { caption: string | null; bytes: Uint8Array }[] = [];
-  for (const p of (photosRes.data ?? []).slice(0, 12)) {
+  const photos: { caption: string | null; bytes: Uint8Array; reserve_id?: string | null }[] = [];
+  // Bumped limit (12 → 60) to make room for per-reserve photos. Each reserve PV
+  // can carry several photos; the global chantier section is still rendered.
+  for (const p of (photosRes.data ?? []).slice(0, 60)) {
     const { data: f } = await supabaseAdmin.storage.from("pv-assets").download(p.url);
-    if (f) photos.push({ caption: p.caption, bytes: new Uint8Array(await f.arrayBuffer()) });
+    if (f) photos.push({
+      caption: p.caption,
+      bytes: new Uint8Array(await f.arrayBuffer()),
+      reserve_id: (p as any).reserve_id ?? null,
+    });
   }
+
 
 
   let clientEmailEvidence = (pv as any).client_identity_email as string | null;
