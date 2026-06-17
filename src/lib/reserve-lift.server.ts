@@ -695,55 +695,87 @@ export async function buildAndStoreReserveLiftPdf(
     y -= 8;
   }
 
-  // Signatures
-  // Internal PDF with a technician signature collected on site → render 3 columns
-  // (Technicien / Entreprise / Client). Otherwise keep the 2-column layout.
+  // Signatures (3 colonnes : Technicien / Entreprise / Client)
   const techSig = (report as any).technician_signature as string | null;
   const techName = (report as any).technician_name as string | null;
   const showTech = isInternal && (!!techSig || !!techName);
-  ensureSpace(180);
+  ensureSpace(200);
   page.drawText("SIGNATURES", { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 14;
   const sigCount = showTech ? 3 : 2;
   const sigGap = 12;
   const sigW = (CONTENT_W - sigGap * (sigCount - 1)) / sigCount;
-  const sigH = 110;
-  const drawSig = async (x: number, label: string, data: string | null, subtitle?: string | null) => {
+  const sigH = 130;
+  const drawSig = async (
+    x: number,
+    label: string,
+    data: string | null,
+    opts: { who?: string | null; role?: string | null; date?: string | null },
+  ) => {
     page.drawRectangle({ x, y: y - sigH, width: sigW, height: sigH, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
+    page.drawRectangle({ x, y: y - 1, width: sigW, height: 1, color: PRIMARY });
     page.drawText(label.toUpperCase(), { x: x + 10, y: y - 14, size: 7.5, font: bold, color: PRIMARY });
-    if (subtitle) {
-      page.drawText(sanitize(subtitle).slice(0, 32), { x: x + 10, y: y - 24, size: 7, font: helv, color: MUTED });
-    }
     if (data) {
       const parsed = dataUrlToBytes(data);
       if (parsed) {
         try {
           const img = parsed.type === "png" ? await pdf.embedPng(parsed.bytes) : await pdf.embedJpg(parsed.bytes);
-          const maxW = sigW - 20, maxH = sigH - (subtitle ? 50 : 40);
+          const maxW = sigW - 20, maxH = sigH - 70;
           const ratio = img.width / img.height;
           let w = maxW, h = maxW / ratio;
           if (h > maxH) { h = maxH; w = maxH * ratio; }
-          page.drawImage(img, { x: x + (sigW - w) / 2, y: y - sigH + 18, width: w, height: h });
+          page.drawImage(img, { x: x + (sigW - w) / 2, y: y - sigH + 56, width: w, height: h });
         } catch { /* skip */ }
       }
     } else {
-      page.drawText("Non signe", { x: x + 10, y: y - sigH / 2, size: 8.5, font: helv, color: MUTED });
+      page.drawText("Non signe", { x: x + 10, y: y - sigH / 2 + 10, size: 8.5, font: helv, color: MUTED });
+    }
+    // Footer : nom / fonction / date+heure
+    let fy = y - sigH + 42;
+    page.drawLine({ start: { x: x + 8, y: fy + 6 }, end: { x: x + sigW - 8, y: fy + 6 }, thickness: 0.3, color: BORDER });
+    page.drawText(sanitize(opts.who ?? "—").slice(0, 32), { x: x + 10, y: fy - 4, size: 8, font: bold, color: ACCENT });
+    fy -= 12;
+    if (opts.role) {
+      page.drawText(sanitize(opts.role).slice(0, 36), { x: x + 10, y: fy - 4, size: 7, font: helv, color: MUTED });
+      fy -= 10;
+    }
+    if (opts.date) {
+      page.drawText(sanitize(opts.date), { x: x + 10, y: fy - 4, size: 7, font: helv, color: MUTED });
     }
   };
+
   if (showTech) {
-    await drawSig(MARGIN, "Technicien", techSig, techName);
-    await drawSig(MARGIN + sigW + sigGap, "Entreprise", report.company_signature);
-    await drawSig(MARGIN + (sigW + sigGap) * 2, "Client", report.client_signature);
+    await drawSig(MARGIN, "Technicien intervenant", techSig, {
+      who: techName, role: "Technicien", date: formatDate(report.signed_at, true),
+    });
+    await drawSig(MARGIN + sigW + sigGap, "Entreprise", report.company_signature, {
+      who: company?.name, role: "Representant entreprise", date: formatDate(report.signed_at, true),
+    });
+    await drawSig(MARGIN + (sigW + sigGap) * 2, "Client (maitre d'ouvrage)", report.client_signature, {
+      who: client?.name,
+      role: (report as any).client_validated_email || client?.email || null,
+      date: (report as any).client_validated_at
+        ? formatDate((report as any).client_validated_at, true)
+        : ((report as any).client_signed_at ? formatDate((report as any).client_signed_at, true) : "Non signe"),
+    });
   } else {
-    await drawSig(MARGIN, "Entreprise", report.company_signature);
-    await drawSig(MARGIN + sigW + sigGap, "Client", report.client_signature);
+    await drawSig(MARGIN, "Entreprise", report.company_signature, {
+      who: company?.name, role: "Representant entreprise", date: formatDate(report.signed_at, true),
+    });
+    await drawSig(MARGIN + sigW + sigGap, "Client (maitre d'ouvrage)", report.client_signature, {
+      who: client?.name,
+      role: (report as any).client_validated_email || client?.email || null,
+      date: (report as any).client_validated_at
+        ? formatDate((report as any).client_validated_at, true)
+        : ((report as any).client_signed_at ? formatDate((report as any).client_signed_at, true) : "Non signe"),
+    });
   }
   y -= sigH + 16;
 
   if ((report as any).client_validated_at) {
     ensureSpace(28);
     page.drawText(
-      sanitize(`Validée par le client (${(report as any).client_validated_email ?? "—"}) le ${formatDate((report as any).client_validated_at, true)}`),
+      sanitize(`Validee par le client (${(report as any).client_validated_email ?? "—"}) le ${formatDate((report as any).client_validated_at, true)}`),
       { x: MARGIN, y, size: 8.5, font: bold, color: rgb(0.13, 0.6, 0.3) },
     );
     y -= 16;
@@ -756,7 +788,7 @@ export async function buildAndStoreReserveLiftPdf(
     ensureSpace(h + 8);
     page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, color: rgb(1, 0.95, 0.95), borderColor: rgb(0.80, 0.10, 0.10), borderWidth: 0.6 });
     page.drawText(
-      sanitize(`REJETÉE par le client (${(report as any).client_rejected_email ?? "—"}) le ${formatDate((report as any).client_rejected_at, true)}`),
+      sanitize(`REJETEE par le client (${(report as any).client_rejected_email ?? "—"}) le ${formatDate((report as any).client_rejected_at, true)}`),
       { x: MARGIN + 12, y: y - 14, size: 8.5, font: bold, color: rgb(0.80, 0.10, 0.10) },
     );
     let ry = y - 28;
@@ -768,10 +800,24 @@ export async function buildAndStoreReserveLiftPdf(
     y -= h + 8;
   }
 
-  // ============ PREUVE DE SIGNATURE ELECTRONIQUE (eIDAS SES) ============
+  // ============ PAGE DEDIÉE : TRACABILITE ET PREUVES DE SIGNATURE ============
+  // Force a new page so this section reads as a dedicated forensic appendix.
+  drawFooter();
+  page = pdf.addPage([PAGE_W, PAGE_H]);
+  pageNum += 1;
+  y = PAGE_H - MARGIN;
+  drawWatermark(page);
+
+  page.drawRectangle({ x: 0, y: PAGE_H - 50, width: PAGE_W, height: 50, color: HEADER_BG });
+  page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
+  page.drawText("TRACABILITE ET PREUVES DE SIGNATURE", { x: MARGIN, y: PAGE_H - 30, size: 12, font: bold, color: ACCENT });
+  page.drawText(sanitize(`Levee n° ${report.numero} - PV ${pv?.numero ?? "—"}`), { x: MARGIN, y: PAGE_H - 44, size: 8, font: helv, color: MUTED });
+  y = PAGE_H - 70;
+
   ensureSpace(170);
   page.drawText("PREUVE DE SIGNATURE ELECTRONIQUE", { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 14;
+
 
   const proofBoxH = 140;
   page.drawRectangle({
