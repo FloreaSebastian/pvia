@@ -236,11 +236,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   }
 
 
-  // Reserves traitées — header + per-reserve cards with inline photos
-  const items = (itemsRes.data ?? []) as any[];
-  ensureSpace(40);
-  page.drawText(`RESERVES TRAITEES (${items.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
-  y -= 16;
+
 
   // Helper: render a photo grid (with per-photo geoloc caption) at the current y.
   const renderPhotoGrid = async (
