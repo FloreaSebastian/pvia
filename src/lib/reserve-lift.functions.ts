@@ -194,6 +194,9 @@ export const createReserveLift = createServerFn({ method: "POST" })
         takenAt: string | null;
         deviceInfo: string | null;
         exifMetadata: Record<string, any> | null;
+        fileHash: string;
+        fileSize: number;
+        fileName: string;
       }> = [];
       for (const p of item.photos) {
         const declared = p.mimeType.toLowerCase();
