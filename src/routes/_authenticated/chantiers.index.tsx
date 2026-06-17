@@ -312,6 +312,35 @@ function ChantiersPage() {
         }
       />
 
+      {/* Dashboard chantier (P2.7) */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {[
+          { key: "actifs", label: "Actifs", value: dashboard.actifs, icon: Activity, tone: "text-warning", filter: "en_cours" as const },
+          { key: "receptionne", label: "Réceptionnés", value: dashboard.receptionne, icon: CheckCircle2, tone: "text-success", filter: "receptionne" as const },
+          { key: "termine", label: "Terminés", value: dashboard.termine, icon: Flag, tone: "text-primary", filter: "termine" as const },
+          { key: "retard", label: "En retard", value: dashboard.enRetard, icon: AlertTriangle, tone: "text-destructive", filter: null },
+          { key: "reserves", label: "Réserves ouvertes", value: openReservesCount, icon: AlertCircle, tone: "text-warning", to: "/pv" as const },
+        ].map((s) => {
+          const Icon = s.icon;
+          const onClick = () => {
+            if ("to" in s && s.to) { navigate({ to: s.to }); return; }
+            if (s.filter) setStatusFilter(s.filter);
+          };
+          return (
+            <button key={s.key} type="button" onClick={onClick}
+              className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:shadow-brand hover:border-primary/40">
+              <span className={cn("grid h-10 w-10 place-items-center rounded-lg bg-muted", s.tone)}>
+                <Icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-2xl font-semibold leading-none tabular-nums">{s.value}</p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">{s.label}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filter chips */}
       <div className="flex flex-wrap items-center gap-2">
         {FILTERS.map((f) => {
