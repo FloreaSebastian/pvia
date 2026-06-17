@@ -93,6 +93,7 @@ export const createChantierEvent = createServerFn({ method: "POST" })
       start_at: p.start_at || null, end_at: p.end_at || null, all_day: p.all_day ?? false,
       assigned_to: p.assigned_to ?? null, reminder_at: p.reminder_at || null,
       location: p.location.trim() || null, color: p.color.trim() || null,
+      color_source: p.color_source ?? "auto",
       client_id: p.client_id ?? null,
     }).select("id").single();
     if (error || !row) throw new Error(error?.message ?? "Création impossible.");
@@ -113,8 +114,11 @@ export const updateChantierEvent = createServerFn({ method: "POST" })
       start_at: p.start_at || null, end_at: p.end_at || null, all_day: p.all_day ?? false,
       assigned_to: p.assigned_to ?? null, reminder_at: p.reminder_at || null,
       location: p.location.trim() || null, color: p.color.trim() || null,
+      color_source: p.color_source ?? "auto",
       client_id: p.client_id ?? null,
+      reminder_sent_at: null,
     }).eq("id", data.id).eq("company_id", data.companyId);
+
     if (error) throw new Error(error.message);
     await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_event", entityId: data.id, action: "chantier_event.update", newValues: p });
     return { ok: true };
