@@ -246,6 +246,9 @@ function LeveeReserves() {
             ? companySigRef.current!.toDataURL("image/png") : null,
           clientSignature: status === "signe" && !clientSigRef.current?.isEmpty()
             ? clientSigRef.current!.toDataURL("image/png") : null,
+          technicianSignature: status === "signe" && includeTechnicianSig && !technicianSigRef.current?.isEmpty()
+            ? technicianSigRef.current!.toDataURL("image/png") : null,
+          technicianName: technicianName.trim() || null,
         },
       });
       toast.success(`Levée ${res.numero} ${status === "signe" ? "signée" : "enregistrée"}.`);
