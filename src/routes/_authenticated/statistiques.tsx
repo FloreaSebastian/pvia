@@ -100,7 +100,7 @@ function StatistiquesPage() {
   const exportCsv = useServerFn(exportCompanyStatsCsv);
   const exportPdf = useServerFn(exportCompanyStatsPdf);
 
-  const canExport = activeRole === "owner" || activeRole === "admin" || activeRole === "manager";
+  const canExport = (SIGN_ROLES as readonly string[]).includes(activeRole as string);
 
   const [days, setDays] = useState<string>("30");
   const [from, setFrom] = useState<Date | undefined>();

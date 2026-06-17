@@ -142,7 +142,7 @@ async function notifySubscriptionStatusChange(args: {
       .select("user_id")
       .eq("company_id", args.companyId)
       .eq("status", "active")
-      .in("role", ["owner", "admin"]);
+      .in("role", [...ADMIN_ROLES]);
     const rows = (members ?? [])
       .filter((m: any) => m.user_id)
       .map((m: any) => ({

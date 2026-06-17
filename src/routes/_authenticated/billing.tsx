@@ -28,7 +28,7 @@ function BillingPage() {
   const portalFn = useServerFn(createPortalSession);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const canManage = activeRole === "owner" || activeRole === "admin";
+  const canManage = isAdminRole(activeRole);
   const env = getStripeEnvironment();
 
   async function handleUpgrade(targetPlan: "starter" | "pro" | "enterprise") {

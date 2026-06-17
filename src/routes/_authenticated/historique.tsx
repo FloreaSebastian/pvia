@@ -96,7 +96,7 @@ function HistoriqueEntreprisePage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
-  const canExport = activeRole === "owner" || activeRole === "admin";
+  const canExport = isAdminRole(activeRole);
 
   const reload = async () => {
     if (!activeCompanyId) return;

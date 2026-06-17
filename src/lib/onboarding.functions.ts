@@ -44,9 +44,9 @@ export const getOnboardingStatus = createServerFn({ method: "POST" })
       .order("created_at", { ascending: true });
 
     const primary =
-      memberships?.find((m) => m.role === "owner" || m.role === "admin") ?? memberships?.[0] ?? null;
+      memberships?.find((m) => isAdminRole(m.role)) ?? memberships?.[0] ?? null;
     const activeCompanyId = primary?.company_id ?? null;
-    const isAdmin = primary?.role === "owner" || primary?.role === "admin";
+    const isAdmin = isAdminRole(primary?.role);
 
     let companyComplete = false;
     let companyName: string | null = null;
@@ -165,7 +165,7 @@ export const completeCompany = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!m || (m.role !== "owner" && m.role !== "admin")) {
+    if (!m || (!isAdminRole(m.role))) {
       throw new Error("Seuls les administrateurs peuvent compléter l'entreprise.");
     }
 

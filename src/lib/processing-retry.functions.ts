@@ -13,7 +13,7 @@ async function assertMember(companyId: string, userId: string) {
     .eq("user_id", userId)
     .eq("status", "active")
     .maybeSingle();
-  if (!m || !["owner", "admin", "manager"].includes((m as any).role)) {
+  if (!m || !(SIGN_ROLES as readonly string[]).includes((m as any as string).role)) {
     throw new Error("Accès refusé.");
   }
 }

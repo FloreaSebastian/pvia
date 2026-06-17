@@ -48,7 +48,7 @@ async function run() {
         .select("user_id")
         .eq("company_id", ev.company_id)
         .eq("status", "active")
-        .in("role", ["owner", "admin"]);
+        .in("role", [...ADMIN_ROLES]);
       recipients = ((admins ?? []) as { user_id: string | null }[])
         .map((m) => m.user_id)
         .filter((x): x is string => !!x);

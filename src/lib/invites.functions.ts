@@ -67,7 +67,7 @@ export const sendInvite = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
 
-    if (!membership || !["owner", "admin"].includes(membership.role)) {
+    if (!membership || !isAdminRole(membership.role)) {
       throw new Error("Vous n'avez pas les droits pour inviter des membres.");
     }
 

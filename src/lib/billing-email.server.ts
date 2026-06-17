@@ -102,7 +102,7 @@ export async function sendPaymentFailedEmail(opts: {
     .from("company_members")
     .select("user_id")
     .eq("company_id", opts.companyId)
-    .eq("role", "owner")
+    .in("role", [...OWNER_ROLES])
     .eq("status", "active");
   let ownerEmails: string[] = [];
   if (owners && owners.length > 0) {

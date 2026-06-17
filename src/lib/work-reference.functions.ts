@@ -209,7 +209,7 @@ export const extractWorkReferenceDoc = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
     if (!member) throw new Error("Accès refusé.");
-    if (!["owner", "admin", "manager"].includes(member.role)) {
+    if (!(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
       throw new Error("Rôle insuffisant pour importer un document.");
     }
 
@@ -364,7 +364,7 @@ export const applyWorkReferenceFields = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!member || !["owner", "admin", "manager"].includes(member.role)) {
+    if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
       throw new Error("Accès refusé.");
     }
 

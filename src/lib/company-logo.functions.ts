@@ -58,7 +58,7 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!m || (m.role !== "owner" && m.role !== "admin")) {
+    if (!m || (!isAdminRole(m.role))) {
       throw new Error("Seuls les administrateurs peuvent modifier le logo.");
     }
     const { assertSubscriptionUsable } = await import("./plan-guard.server");

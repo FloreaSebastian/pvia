@@ -300,7 +300,7 @@ function escapeCsv(v: string | number | null | undefined): string {
 
 async function loadExportContext(input: StatsInput, userId: string) {
   const role = await assertMember(input.companyId, userId);
-  if (role !== "owner" && role !== "admin" && role !== "manager") {
+  if (!(SIGN_ROLES as readonly string[]).includes(role as string)) {
     throw new Error("Seuls owner, admin et manager peuvent exporter les statistiques.");
   }
   // Plan gate: advanced stats export is Pro/Enterprise
