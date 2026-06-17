@@ -259,6 +259,9 @@ export const getClientReserveLiftPdfUrl = createServerFn({ method: "POST" })
 
 /* ─── client validation ─────────────────────────────────────────────────── */
 
+const CLIENT_SIGNATURE_CONSENT_TEXT_V1 =
+  "Je confirme que les réserves indiquées comme levées ont bien été traitées et j'accepte de signer électroniquement cette validation. Cette signature a la même valeur juridique qu'une signature manuscrite (eIDAS — signature électronique simple).";
+
 const ValidateSchema = z.object({
   pvId: z.string().uuid(),
   liftId: z.string().uuid(),
@@ -286,12 +289,14 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
     // Load report and verify ownership chain
     const { data: report } = await supabaseAdmin
       .from("reserve_lift_reports")
-      .select("id,status,company_signature,client_validated_at,company_id,numero,pv_id")
+      .select("id,status,company_signature,client_validated_at,client_rejected_at,client_signature,company_id,numero,pv_id")
       .eq("id", data.liftId)
       .eq("pv_id", pv.id)
       .maybeSingle();
     if (!report) throw new Error("Levée introuvable.");
     if (report.client_validated_at) throw new Error("Cette levée est déjà validée.");
+    if ((report as any).client_rejected_at) throw new Error("Cette levée a déjà été rejetée.");
+    if ((report as any).client_signature) throw new Error("Cette levée est déjà signée.");
     if (!report.company_signature) {
       throw new Error("L'entreprise doit signer la levée avant validation.");
     }
@@ -301,11 +306,17 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
 
     const nowIso = new Date().toISOString();
     // WF-M7: atomic guard against double validation (TOCTOU). Only one
-    // request can flip `client_validated_at` from null → now().
+    // request can flip `client_validated_at`/`client_signature` from null → now().
     const { data: claimed, error: upErr } = await supabaseAdmin
       .from("reserve_lift_reports")
       .update({
         client_signature: data.signatureDataUrl,
+        client_signed_at: nowIso,
+        client_signature_ip: ip,
+        client_signature_user_agent: ua,
+        client_signature_email: s.email,
+        client_signature_consent_text: CLIENT_SIGNATURE_CONSENT_TEXT_V1,
+        client_signature_consent_at: nowIso,
         client_validated_at: nowIso,
         client_validated_email: s.email,
         client_validated_ip: ip,
@@ -313,6 +324,8 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
       } as any)
       .eq("id", report.id)
       .is("client_validated_at", null)
+      .is("client_rejected_at", null)
+      .is("client_signature", null)
       .select("id");
     if (upErr) throw new Error(upErr.message);
     if (!claimed || claimed.length === 0) {
@@ -329,6 +342,26 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
       } catch {}
       throw new Error("Cette levée est déjà validée.");
     }
+
+    // Dedicated signature audit (separate from validation audit below).
+    try {
+      await writeAuditLog({
+        companyId: report.company_id,
+        pvId: pv.id,
+        entityType: "reserve_lift",
+        entityId: report.id,
+        action: "reserve_lift.client_signed",
+        metadata: {
+          actor_email: s.email,
+          ip,
+          ua,
+          numero: report.numero,
+          consent_text_version: "v1",
+          signed_at: nowIso,
+        },
+        actor: "client",
+      });
+    } catch {}
 
     // Flip every reserve attached to this lift to "validee"
     const { data: items } = await supabaseAdmin
