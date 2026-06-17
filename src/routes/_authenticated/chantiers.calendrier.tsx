@@ -270,6 +270,10 @@ function ChantierCalendarPage() {
     else toast.success(next === "chantier" ? "Couleurs par chantier" : "Couleurs par type");
   }
 
+  // Sync the active color mode into the module-level variable so subcomponents
+  // (TimeGridView, MonthView, TeamView…) that call `colorOf` pick it up.
+  useEffect(() => { CURRENT_COLOR_MODE = colorMode; }, [colorMode]);
+
   function resetFilters() {
     setFChantier("all"); setFClient("all"); setFType("all"); setFStatus("all"); setFAssigned("all"); setFColor("all");
     setFOnlyUnassigned(false); setFHideDone(false); setFHideCancelled(false);
