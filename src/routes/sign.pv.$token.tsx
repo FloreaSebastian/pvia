@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusPill } from "@/components/ui/status-pill";
+import { reserveStatusLabel, reserveStatusTone, RESERVE_SEVERITY_LABEL } from "@/lib/reserve-status";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, Camera, Eraser, ShieldCheck, Clock, Download, Mail, KeyRound } from "lucide-react";
