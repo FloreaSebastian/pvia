@@ -244,16 +244,19 @@ export type Database = {
           chantier_id: string
           client_id: string | null
           color: string | null
+          color_source: string
           company_id: string
           created_at: string
           created_by: string | null
           description: string | null
+          duplicated_from_event_id: string | null
           end_at: string | null
           event_type: string
           id: string
           location: string | null
           reminder_at: string | null
           reminder_sent_at: string | null
+          resized_at: string | null
           start_at: string | null
           status: string
           title: string
@@ -266,16 +269,19 @@ export type Database = {
           chantier_id: string
           client_id?: string | null
           color?: string | null
+          color_source?: string
           company_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
+          duplicated_from_event_id?: string | null
           end_at?: string | null
           event_type?: string
           id?: string
           location?: string | null
           reminder_at?: string | null
           reminder_sent_at?: string | null
+          resized_at?: string | null
           start_at?: string | null
           status?: string
           title: string
@@ -288,16 +294,19 @@ export type Database = {
           chantier_id?: string
           client_id?: string | null
           color?: string | null
+          color_source?: string
           company_id?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
+          duplicated_from_event_id?: string | null
           end_at?: string | null
           event_type?: string
           id?: string
           location?: string | null
           reminder_at?: string | null
           reminder_sent_at?: string | null
+          resized_at?: string | null
           start_at?: string | null
           status?: string
           title?: string
@@ -323,6 +332,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chantier_events_duplicated_from_event_id_fkey"
+            columns: ["duplicated_from_event_id"]
+            isOneToOne: false
+            referencedRelation: "chantier_events"
             referencedColumns: ["id"]
           },
         ]
