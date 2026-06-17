@@ -332,7 +332,11 @@ function ChantiersPage() {
         ].map((s) => {
           const Icon = s.icon;
           const onClick = () => {
-            if ("to" in s && s.to) { navigate({ to: s.to }); return; }
+            if ("to" in s && s.to) {
+              const search = "search" in s ? s.search : undefined;
+              navigate({ to: s.to, search });
+              return;
+            }
             if (s.filter) setStatusFilter(s.filter);
           };
           return (
