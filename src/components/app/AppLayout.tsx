@@ -10,7 +10,6 @@ import {
   X,
   Search,
   HelpCircle,
-  Sparkles,
   AlertCircle,
   Building2,
   UsersRound,
@@ -19,6 +18,13 @@ import {
   CreditCard,
   Calendar,
   Settings,
+  ChevronDown,
+  Activity,
+  Rocket,
+  ClipboardCheck,
+  Mail,
+  Shield,
+  History,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +39,15 @@ import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
 import { useSuspension } from "@/hooks/use-suspension";
+import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -41,16 +56,26 @@ const mainNav = [
   { to: "/chantiers", label: "Chantiers", icon: HardHat },
   { to: "/chantiers/calendrier", label: "Calendrier chantier", icon: Calendar },
   { to: "/reserves", label: "Réserves", icon: AlertCircle },
-  { to: "/historique", label: "Historique", icon: ShieldCheck },
   { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
-  { to: "/parametres", label: "Paramètres", icon: Settings },
 ] as const;
 
-const secondaryNav = [
+const companyMenu = [
+  { to: "/parametres", label: "Paramètres", icon: Settings },
   { to: "/entreprise", label: "Entreprise", icon: Building2 },
   { to: "/equipe", label: "Équipe", icon: UsersRound },
   { to: "/billing", label: "Facturation", icon: CreditCard },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
+] as const;
+
+const adminMenu = [
+  { to: "/admin/dashboard", label: "Cockpit admin", icon: ShieldCheck },
+  { to: "/historique", label: "Historique entreprise", icon: History },
+  { to: "/parametres/audit", label: "Audit", icon: Shield },
+  { to: "/admin/monitoring", label: "Monitoring", icon: Activity },
+  { to: "/admin/go-live", label: "Go Live", icon: Rocket },
+  { to: "/admin/production-audit", label: "Production Audit", icon: ClipboardCheck },
+  { to: "/admin/compliance", label: "Compliance", icon: ShieldCheck },
+  { to: "/admin/emails", label: "Emails", icon: Mail },
 ] as const;
 
 
