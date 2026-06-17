@@ -177,7 +177,8 @@ function ChantierCalendarPage() {
   const rescheduleFn = useServerFn(rescheduleChantierEvent);
   const resizeFn = useServerFn(resizeChantierEvent);
   const duplicateFn = useServerFn(duplicateChantierEvent);
-  const detectConflictsFn = useServerFn(detectChantierEventConflicts);
+ const detectConflictsFn = useServerFn(detectChantierEventConflicts);
+ const logConflictOverrideFn = useServerFn(logChantierEventConflictOverride);
   const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
 
   const range = useMemo(() => {
