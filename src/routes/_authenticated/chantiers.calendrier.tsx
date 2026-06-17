@@ -90,7 +90,7 @@ function ChantierCalendarPage() {
   const { activeCompanyId, can } = useCompany();
   const canWrite = can("manage");
   const isAdmin = can("admin");
-  const navigate = useNavigate();
+  
   const [view, setView] = useState<ViewKind>("month");
   const [cursor, setCursor] = useState(new Date());
   const [customStart, setCustomStart] = useState(() => toLocalInput(new Date()).slice(0,10));
