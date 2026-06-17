@@ -75,6 +75,7 @@ export const Route = createFileRoute("/_authenticated/pv/new")({
 });
 
 type Photo = { file: File; preview: string; caption: string; kind: "avant" | "apres" | "autre" };
+type ReservePhoto = { file: File; preview: string };
 type Severity = "mineure" | "majeure" | "bloquante";
 type Reserve = {
   nature: string;
@@ -82,7 +83,9 @@ type Reserve = {
   work_to_execute: string;
   severity: Severity;
   due_date: string;
+  photos: ReservePhoto[];
 };
+
 
 type WorkRefType = "devis" | "bon_commande" | "marche" | "manuel";
 
