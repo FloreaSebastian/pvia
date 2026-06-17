@@ -49,6 +49,7 @@ function LoginPage() {
     const normalized = email.trim().toLowerCase();
     if (!normalized) return;
     setLoading(true);
+    setRememberMePreference(remember);
     const NEUTRAL = "Si un compte existe, un code de connexion a été envoyé.";
     try {
       await sendLoginCode({ data: { email: normalized } });
