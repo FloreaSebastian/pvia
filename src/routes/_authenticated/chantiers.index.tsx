@@ -201,8 +201,15 @@ function ChantiersPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const now = Date.now();
     return items.filter((c) => {
-      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (statusFilter === "retard") {
+        if (!c.end_date) return false;
+        if (new Date(c.end_date).getTime() >= now) return false;
+        if (["termine", "receptionne", "archive"].includes(c.status)) return false;
+      } else if (statusFilter !== "all" && c.status !== statusFilter) {
+        return false;
+      }
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
