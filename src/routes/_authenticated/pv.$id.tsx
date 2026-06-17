@@ -727,32 +727,40 @@ function PvDetail() {
             {reserves.length > 0 && (
               <div className="space-y-1.5">
                 {reserves.map((r) => {
-                  const statusLabel = r.status === "ouverte" ? "Ouverte" : r.status === "levee" ? "Levée" : r.status === "validee" ? "Validée client" : r.status;
-                  const statusTone = r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning";
+                  const overdue = isReserveOverdue(r.due_date, r.status);
                   return (
-                    <div key={r.id} className="flex flex-col gap-2 rounded-md border border-border p-2.5 sm:flex-row sm:items-start">
+                    <div key={r.id} className={`flex flex-col gap-2 rounded-md border p-2.5 sm:flex-row sm:items-start ${overdue ? "border-red-500/50" : "border-border"}`}>
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"} size="sm">{r.severity}</StatusPill>
-                          <StatusPill tone={statusTone as any} size="sm" dot>{statusLabel}</StatusPill>
+                          <StatusPill tone={reserveStatusTone(r.status) as any} size="sm" dot>{reserveStatusLabel(r.status)}</StatusPill>
+                          {r.priority && r.priority !== "normal" && (
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">P. {r.priority}</span>
+                          )}
+                          {overdue && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">En retard</span>}
                         </div>
                         <p className="line-clamp-2 text-sm leading-snug">{r.description}</p>
-                        {(r.lifted_at || r.validated_at) && (
-                          <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
-                            {r.lifted_at && <span>Levée {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</span>}
-                            {r.validated_at && <span className="text-success">Validée {new Date(r.validated_at).toLocaleDateString("fr-FR")}</span>}
-                          </div>
+                        {r.work_to_execute && (
+                          <p className="line-clamp-1 text-[11px] text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>
                         )}
+                        <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+                          {r.due_date && <span className={overdue ? "font-semibold text-red-600" : ""}>📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}</span>}
+                          {r.assigned_to && <span>👷 Assigné</span>}
+                          {r.lifted_at && <span>Levée {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</span>}
+                          {r.validated_at && <span className="text-success">Validée {new Date(r.validated_at).toLocaleDateString("fr-FR")}</span>}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 sm:shrink-0">
-                        <Select value={r.status} onValueChange={(v) => updateReserve(r.id, v)}>
-                          <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ouverte">Ouverte</SelectItem>
-                            <SelectItem value="levee">Levée</SelectItem>
-                            <SelectItem value="validee">Validée</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
+                          Détails
+                        </Button>
+                        {r.status === "ouverte" && (
+                          <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }} search={{ reserveId: r.id }}>
+                            <Button size="sm" variant="outline" className="h-8">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                            </Button>
+                          </Link>
+                        )}
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -762,6 +770,7 @@ function PvDetail() {
                 })}
               </div>
             )}
+
             {lifts.length > 0 && (
               <div className="space-y-1.5 border-t border-border pt-3">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">PV de levée ({lifts.length})</p>
