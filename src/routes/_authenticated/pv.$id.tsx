@@ -657,6 +657,7 @@ function PvDetail() {
           liftStatus === "completed" ? "success"
           : liftStatus === "partial" ? "warning"
           : liftStatus === "pending" ? "destructive"
+          : "neutral";
         if (total === 0 && lifts.length === 0) return null;
         return (
           <Card className="p-6 space-y-5">
