@@ -33,6 +33,8 @@ import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
 import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions";
 import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
 import { listReserveLifts, getReserveLiftPdfUrl, resendValidatedReserveLiftEmail, resendReserveLiftValidationEmail } from "@/lib/reserve-lift.functions";
+import { exportReserveLiftExpertise } from "@/lib/reserve-lift-expertise.functions";
+import { FileArchive } from "lucide-react";
 import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 import { updateReserveStatus, deleteReserve as deleteReserveFn } from "@/lib/reserves.functions";
 import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
@@ -119,6 +121,8 @@ function PvDetail() {
   const resendLiftFn = useServerFn(resendValidatedReserveLiftEmail);
   const resendLiftValidationFn = useServerFn(resendReserveLiftValidationEmail);
   const [resendingLiftId, setResendingLiftId] = useState<string | null>(null);
+  const [exportingLiftId, setExportingLiftId] = useState<string | null>(null);
+  const exportExpertiseFn = useServerFn(exportReserveLiftExpertise);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -254,6 +258,28 @@ function PvDetail() {
       setResendingLiftId(null);
     }
   }
+
+  async function exportLiftExpertise(reportId: string) {
+    setExportingLiftId(reportId);
+    try {
+      const r = await exportExpertiseFn({ data: { reportId } });
+      const bin = atob(r.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = r.fileName; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast.success(`Export expertise prêt (${r.photosTotal} photos${r.photosMissing ? `, ${r.photosMissing} manquantes` : ""}).`);
+    } catch (e: any) {
+      toast.error(e?.message || "Export indisponible");
+    } finally {
+      setExportingLiftId(null);
+    }
+  }
+
+
 
 
   const loadLastEvent = useCallback(async () => {
@@ -796,6 +822,10 @@ function PvDetail() {
                             <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail">
+                          {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
+                          Export expertise
+                        </Button>
                         {validated && (
                           <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
