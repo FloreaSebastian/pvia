@@ -219,8 +219,8 @@ function SignPage() {
               {reserves.map((r: any) => (
                 <div key={r.id} className="rounded-lg border border-border/60 p-3">
                   <div className="flex items-center gap-2">
-                    <StatusPill tone={r.severity === "majeure" ? "destructive" : "warning"} size="sm" dot>{r.severity}</StatusPill>
-                    <StatusPill tone={r.status === "levee" || r.status === "validee" ? "success" : "neutral"} size="sm">{r.status}</StatusPill>
+                    <StatusPill tone={r.severity === "majeure" || r.severity === "bloquante" ? "destructive" : "warning"} size="sm" dot>{RESERVE_SEVERITY_LABEL[r.severity] ?? r.severity}</StatusPill>
+                    <StatusPill tone={reserveStatusTone(r.status)} size="sm">{reserveStatusLabel(r.status)}</StatusPill>
                   </div>
                   <p className="mt-2 text-sm">{r.description}</p>
                 </div>
