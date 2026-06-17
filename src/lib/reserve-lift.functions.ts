@@ -8,7 +8,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { firePushToCompany } from "./push.server";
-import { buildAndStoreReserveLiftPdf, buildAndStoreReserveLiftPdfs } from "./reserve-lift.server";
+import { buildAndStoreReserveLiftPdfs } from "./reserve-lift.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
 import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
 import {
