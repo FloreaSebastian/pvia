@@ -480,94 +480,197 @@ export async function buildAndStoreReserveLiftPdf(
     if (col !== 0) y -= cellH + captionH + 8;
   };
 
-  // Reserves traitées
+  // ============ DETAIL DE CHAQUE RESERVE ============
   const items = (itemsRes.data ?? []) as any[];
   ensureSpace(40);
-  page.drawText(`RESERVES TRAITEES (${items.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
+  page.drawText(`DETAIL DES RESERVES (${items.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 16;
 
-  for (const item of items) {
+  for (let idx = 0; idx < items.length; idx++) {
+    const item = items[idx];
     const reserve = reserveMap.get(item.reserve_id);
-    const desc = reserve?.description ?? "(réserve supprimée)";
+    const desc = reserve?.description ?? "(reserve supprimee)";
     const oldLabel = RESERVE_STATUS_LABEL[item.old_status as ReserveStatusValue] ?? item.old_status ?? "—";
     const newLabel = RESERVE_STATUS_LABEL[item.new_status as ReserveStatusValue] ?? item.new_status ?? "—";
-    const sevLabel = reserve?.severity ? (RESERVE_SEVERITY_LABEL[reserve.severity] ?? reserve.severity) : "";
-    const isRejected = item.new_status === "rejetee";
-    const accentColor = isRejected ? rgb(0.80, 0.10, 0.10) : rgb(0.13, 0.6, 0.3);
-    const cardBg = isRejected ? rgb(1, 0.98, 0.98) : rgb(0.99, 1, 0.99);
+    const sevLabel = reserve?.severity ? (RESERVE_SEVERITY_LABEL[reserve.severity] ?? reserve.severity) : "—";
+    const prioLabel = reserve?.priority ? (RESERVE_PRIORITY_LABEL[reserve.priority] ?? reserve.priority) : "—";
+    const itemRejected = item.new_status === "rejetee";
+    const accentColor = itemRejected ? rgb(0.80, 0.10, 0.10) : rgb(0.13, 0.6, 0.3);
+    const cardBg = itemRejected ? rgb(1, 0.98, 0.98) : rgb(0.99, 1, 0.99);
 
-    ensureSpace(28);
-    page.drawRectangle({ x: MARGIN, y: y - 22, width: CONTENT_W, height: 22, color: cardBg, borderColor: BORDER, borderWidth: 0.5 });
-    page.drawRectangle({ x: MARGIN, y: y - 22, width: 3, height: 22, color: accentColor });
-    page.drawText(
-      sanitize(`${sevLabel ? sevLabel.toUpperCase() + " - " : ""}${oldLabel} → ${newLabel}`),
-      { x: MARGIN + 12, y: y - 14, size: 8, font: bold, color: accentColor },
-    );
+    // Header bloc "Reserve n°X"
+    ensureSpace(30);
+    page.drawRectangle({ x: MARGIN, y: y - 26, width: CONTENT_W, height: 26, color: cardBg, borderColor: BORDER, borderWidth: 0.5 });
+    page.drawRectangle({ x: MARGIN, y: y - 26, width: 4, height: 26, color: accentColor });
+    page.drawText(sanitize(`RESERVE N°${idx + 1}`), { x: MARGIN + 14, y: y - 11, size: 9, font: bold, color: ACCENT });
+    const trans = sanitize(`${oldLabel} -> ${newLabel}`);
+    const transW = bold.widthOfTextAtSize(trans, 8);
+    page.drawText(trans, { x: MARGIN + CONTENT_W - transW - 12, y: y - 11, size: 8, font: bold, color: accentColor });
+    page.drawText(sanitize(reserve?.nature ? `${reserve.nature}` : "Sans nature"), { x: MARGIN + 14, y: y - 21, size: 8, font: helv, color: MUTED });
+    y -= 30;
+
+    // Métadonnées en grille (2 lignes x 4)
+    ensureSpace(52);
+    const metaCol = CONTENT_W / 4;
+    const drawMeta = (i: number, label: string, value: string) => {
+      const x = MARGIN + i * metaCol;
+      page.drawText(label.toUpperCase(), { x, y: y - 8, size: 6.5, font: bold, color: MUTED });
+      page.drawText(sanitize(value).slice(0, 26), { x, y: y - 19, size: 8.5, font: bold, color: ACCENT });
+    };
+    drawMeta(0, "Gravite", sevLabel);
+    drawMeta(1, "Priorite", prioLabel);
+    drawMeta(2, "Responsable", reserve?.assigned_to || "—");
+    drawMeta(3, "Echeance", reserve?.due_date ? formatDate(reserve.due_date) : "—");
+    y -= 24;
+    drawMeta(0, "Creee le", reserve?.created_at ? formatDate(reserve.created_at) : "—");
+    drawMeta(1, "Levee le", reserve?.lifted_at ? formatDate(reserve.lifted_at) : formatDate(report.signed_at));
+    drawMeta(2, "Validee le", reserve?.validated_at ? formatDate(reserve.validated_at) : ((report as any).client_validated_at ? formatDate((report as any).client_validated_at) : "—"));
+    drawMeta(3, "Statut final", newLabel);
     y -= 26;
 
-    const descLines = wrapLines(helv, desc, 9, CONTENT_W - 24);
-    ensureSpace(descLines.length * 12 + 6);
+    // Description
+    ensureSpace(20);
+    page.drawText("DESCRIPTION DE LA RESERVE", { x: MARGIN, y, size: 7, font: bold, color: MUTED });
+    y -= 12;
+    const descLines = wrapLines(helv, desc, 9, CONTENT_W);
+    ensureSpace(descLines.length * 12 + 4);
     for (const l of descLines) {
-      page.drawText(l, { x: MARGIN + 12, y: y - 10, size: 9, font: helv, color: ACCENT });
+      page.drawText(l, { x: MARGIN, y: y - 10, size: 9, font: helv, color: ACCENT });
       y -= 12;
     }
+    y -= 4;
 
-    if (item.comment) {
-      const label = isRejected ? "Motif du rejet" : "Commentaire d'intervention";
-      const cLines = wrapLines(helv, item.comment, 8.5, CONTENT_W - 36);
-      ensureSpace(cLines.length * 11 + 14);
-      page.drawText(`${label} :`, { x: MARGIN + 12, y: y - 10, size: 8, font: bold, color: isRejected ? rgb(0.80, 0.10, 0.10) : MUTED });
+    // Travaux demandés (work_to_execute)
+    if (reserve?.work_to_execute) {
+      const wLines = wrapLines(helv, reserve.work_to_execute, 8.5, CONTENT_W);
+      ensureSpace(wLines.length * 11 + 16);
+      page.drawText("TRAVAUX DEMANDES", { x: MARGIN, y, size: 7, font: bold, color: MUTED });
       y -= 12;
-      for (const l of cLines) {
-        page.drawText(l, { x: MARGIN + 24, y: y - 10, size: 8.5, font: helv, color: ACCENT });
+      for (const l of wLines) {
+        page.drawText(l, { x: MARGIN, y: y - 10, size: 8.5, font: helv, color: ACCENT });
         y -= 11;
       }
+      y -= 4;
     }
 
+    // Travaux réalisés / Motif rejet
+    if (item.comment) {
+      const label = itemRejected ? "MOTIF DU REJET" : "TRAVAUX REALISES";
+      const cLines = wrapLines(helv, item.comment, 9, CONTENT_W);
+      ensureSpace(cLines.length * 12 + 16);
+      page.drawText(label, { x: MARGIN, y, size: 7, font: bold, color: itemRejected ? rgb(0.80, 0.10, 0.10) : PRIMARY });
+      y -= 12;
+      for (const l of cLines) {
+        page.drawText(l, { x: MARGIN, y: y - 10, size: 9, font: helv, color: ACCENT });
+        y -= 12;
+      }
+      y -= 4;
+    } else if (!itemRejected) {
+      ensureSpace(20);
+      page.drawText("TRAVAUX REALISES", { x: MARGIN, y, size: 7, font: bold, color: PRIMARY });
+      y -= 12;
+      page.drawText("Intervention realisee conformement aux travaux demandes.", { x: MARGIN, y: y - 10, size: 9, font: helv, color: MUTED });
+      y -= 16;
+    }
+
+    // Photos avant / après
     const bucket = photosByItem.get(item.id);
     const beforePhotos = bucket?.before ?? [];
     const afterPhotos = bucket?.after ?? [];
 
     if (beforePhotos.length) {
-      y -= 4;
+      y -= 2;
       await renderPhotoGrid(beforePhotos, `Photos avant intervention (${beforePhotos.length})`);
     }
     if (afterPhotos.length) {
-      y -= 4;
-      await renderPhotoGrid(afterPhotos, `Photos après intervention (${afterPhotos.length})`);
+      y -= 2;
+      await renderPhotoGrid(afterPhotos, `Photos apres intervention (${afterPhotos.length})`);
     }
 
     if (!beforePhotos.length && !afterPhotos.length) {
       const legacyPaths: string[] = item.photo_urls ?? [];
       if (legacyPaths.length) {
-        y -= 4;
-        const label = isRejected ? "Photos justificatives" : "Photos d'intervention";
+        y -= 2;
+        const label = itemRejected ? "Photos justificatives" : "Photos d'intervention";
         await renderPhotoGrid(
           legacyPaths.map((p) => ({ storage_path: p, latitude: null, longitude: null, accuracy: null })),
           `${label} (${legacyPaths.length})`,
         );
-      } else if (!isRejected) {
-        ensureSpace(14);
-        page.drawText("Aucune photo jointe pour cette intervention.", { x: MARGIN + 12, y: y - 10, size: 8, font: helv, color: MUTED });
-        y -= 14;
       }
     }
 
-    y -= 10;
+    // Historique de la réserve
+    ensureSpace(40);
+    page.drawText("HISTORIQUE", { x: MARGIN, y, size: 7, font: bold, color: PRIMARY });
+    y -= 12;
+    const histSteps: Array<{ label: string; date: string; done: boolean }> = [
+      { label: "Creation", date: reserve?.created_at ? formatDate(reserve.created_at, true) : "—", done: !!reserve?.created_at },
+      { label: "Intervention", date: formatDate(report.signed_at ?? report.created_at, true), done: true },
+      { label: "Levee proposee", date: formatDate(report.signed_at ?? report.created_at, true), done: true },
+      {
+        label: itemRejected ? "Rejet client" : ((report as any).client_validated_at ? "Validation client" : "En attente client"),
+        date: itemRejected
+          ? formatDate((report as any).client_rejected_at, true)
+          : ((report as any).client_validated_at ? formatDate((report as any).client_validated_at, true) : "—"),
+        done: itemRejected || !!(report as any).client_validated_at,
+      },
+    ];
+    const stepW = CONTENT_W / histSteps.length;
+    histSteps.forEach((s, i) => {
+      const x = MARGIN + i * stepW;
+      const dotColor = s.done ? (itemRejected && i === 3 ? rgb(0.80, 0.10, 0.10) : rgb(0.13, 0.6, 0.3)) : MUTED;
+      page.drawCircle({ x: x + 6, y: y - 6, size: 3, color: dotColor });
+      if (i < histSteps.length - 1) {
+        page.drawLine({ start: { x: x + 12, y: y - 6 }, end: { x: x + stepW - 4, y: y - 6 }, thickness: 0.5, color: BORDER });
+      }
+      page.drawText(sanitize(s.label), { x: x + 14, y: y - 4, size: 7.5, font: bold, color: ACCENT });
+      page.drawText(sanitize(s.date), { x: x + 14, y: y - 14, size: 6.5, font: helv, color: MUTED });
+    });
+    y -= 24;
+
+    y -= 6;
     page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 0.3, color: BORDER });
-    y -= 8;
+    y -= 10;
   }
   if (!items.length) {
     ensureSpace(28);
-    page.drawText("Aucune réserve associée à ce rapport.", { x: MARGIN, y: y - 12, size: 9, font: helv, color: MUTED });
+    page.drawText("Aucune reserve associee a ce rapport.", { x: MARGIN, y: y - 12, size: 9, font: helv, color: MUTED });
     y -= 22;
   }
   y -= 6;
 
-  // Legal note on geolocation
+  // ============ CONSTAT DE LEVEE (bloc juridique) ============
+  ensureSpace(90);
+  const constatIntro =
+    "Apres realisation des travaux correctifs decrits dans le present document, les reserves mentionnees ci-dessus sont presentees au maitre d'ouvrage pour validation.";
+  let constatConclusion = "";
+  if (isValidated) {
+    constatConclusion = "Le maitre d'ouvrage reconnait que les reserves decrites ont ete traitees de maniere satisfaisante et prononce leur levee definitive.";
+  } else if (isRejected) {
+    constatConclusion = "Le maitre d'ouvrage considere que les reserves demeurent non conformes pour les motifs exposes ci-dessus.";
+  } else {
+    constatConclusion = "Le present proces-verbal est transmis au maitre d'ouvrage. Sa validation est requise pour prononcer la levee definitive des reserves.";
+  }
+  const constatLines = [
+    ...wrapLines(helv, constatIntro, 9, CONTENT_W - 24),
+    ...wrapLines(helv, " ", 9, CONTENT_W - 24),
+    ...wrapLines(helv, constatConclusion, 9, CONTENT_W - 24),
+  ];
+  const constatH = constatLines.length * 12 + 28;
+  ensureSpace(constatH + 4);
+  page.drawRectangle({ x: MARGIN, y: y - constatH, width: CONTENT_W, height: constatH, color: rgb(0.97, 0.98, 1), borderColor: PRIMARY, borderWidth: 0.6 });
+  page.drawText("CONSTAT DE LEVEE", { x: MARGIN + 12, y: y - 14, size: 8, font: bold, color: PRIMARY });
+  let kc = y - 30;
+  for (const l of constatLines) {
+    page.drawText(l, { x: MARGIN + 12, y: kc, size: 9, font: helv, color: ACCENT });
+    kc -= 12;
+  }
+  y -= constatH + 10;
+
+  // Legal note on geolocation (interne)
   if (items.length && isInternal) {
     const legalText =
-      "Les métadonnées de géolocalisation sont enregistrées à titre de preuve d'intervention. Leur absence n'invalide ni la réserve ni sa levée.";
+      "Les metadonnees de geolocalisation sont enregistrees a titre de preuve d'intervention. Leur absence n'invalide ni la reserve ni sa levee.";
     const legalLines = wrapLines(helv, legalText, 7.5, CONTENT_W - 16);
     ensureSpace(legalLines.length * 10 + 10);
     page.drawRectangle({ x: MARGIN, y: y - (legalLines.length * 10 + 8), width: CONTENT_W, height: legalLines.length * 10 + 8, color: rgb(0.98, 0.98, 1), borderColor: BORDER, borderWidth: 0.4 });
