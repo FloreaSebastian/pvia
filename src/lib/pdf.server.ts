@@ -875,17 +875,32 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
       ? supabaseAdmin.from("chantiers").select("name,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("pv_photos").select("id,url,caption").eq("pv_id", pvId).order("created_at"),
-    supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").eq("pv_id", pvId).order("created_at"),
+    supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date,priority,assigned_to,lifted_at,validated_at").eq("pv_id", pvId).order("created_at"),
     pv.owner_id
       ? supabaseAdmin.from("profiles").select("full_name").eq("id", pv.owner_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+
+  // Resolve assignee names for reserves
+  const assignedIds = Array.from(new Set((reservesRes.data ?? [])
+    .map((r: any) => r.assigned_to as string | null)
+    .filter((v): v is string => !!v)));
+  const assigneeMap = new Map<string, string>();
+  if (assignedIds.length) {
+    const { data: profs } = await supabaseAdmin.from("profiles").select("id,full_name").in("id", assignedIds);
+    for (const p of (profs ?? [])) assigneeMap.set(p.id as string, (p.full_name as string) ?? "");
+  }
+  const enrichedReserves = (reservesRes.data ?? []).map((r: any) => ({
+    ...r,
+    assigned_name: r.assigned_to ? (assigneeMap.get(r.assigned_to) || null) : null,
+  }));
 
   const photos: { caption: string | null; bytes: Uint8Array }[] = [];
   for (const p of (photosRes.data ?? []).slice(0, 12)) {
     const { data: f } = await supabaseAdmin.storage.from("pv-assets").download(p.url);
     if (f) photos.push({ caption: p.caption, bytes: new Uint8Array(await f.arrayBuffer()) });
   }
+
 
   let clientEmailEvidence = (pv as any).client_identity_email as string | null;
   let identityVerifiedAt = (pv as any).client_identity_verified_at as string | null;
