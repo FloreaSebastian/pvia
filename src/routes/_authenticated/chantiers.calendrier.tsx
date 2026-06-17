@@ -504,9 +504,12 @@ function ChantierCalendarPage() {
           days={monthGrid}
           cursor={cursor}
           canWrite={canWrite}
-          onClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
-          onClickEvent={(e) => openEdit(e)}
-
+          onDblClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
+          onClickEvent={(e) => openQuick(e)}
+          onDblClickEvent={(e) => openEdit(e)}
+          memberName={memberName}
+          chantierName={chantierName}
+          clientName={clientName}
           onMoveDay={(targetDay, id) => {
             const evt = events.find((x) => x.id === id);
             if (!evt?.start_at) return;
@@ -533,7 +536,11 @@ function ChantierCalendarPage() {
           events={events}
           canWrite={canWrite}
           onCreateRange={(s, e) => openNew(s, e)}
-          onClickEvent={(e) => openEdit(e)}
+          onClickEvent={(e) => openQuick(e)}
+          onDblClickEvent={(e) => openEdit(e)}
+          memberName={memberName}
+          chantierName={chantierName}
+          clientName={clientName}
           onMove={(id, newStart) => {
             const evt = events.find((x) => x.id === id);
             if (!evt?.start_at) return;
