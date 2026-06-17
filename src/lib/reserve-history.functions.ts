@@ -113,7 +113,7 @@ export const getReserveHistory = createServerFn({ method: "POST" })
     if (reportIds.length) {
       const { data: liftAudits } = await supabaseAdmin
         .from("audit_logs")
-        .select("id,action,created_at,metadata,actor")
+        .select("id,action,created_at,metadata,user_id")
         .eq("entity_type", "reserve_lift")
         .in("entity_id", reportIds)
         .order("created_at", { ascending: false })
@@ -124,7 +124,7 @@ export const getReserveHistory = createServerFn({ method: "POST" })
           source: "lift",
           action: a.action,
           label: labelFor(a.action),
-          actor: a.actor ?? null,
+          actor: a.user_id ?? null,
           details: a.metadata?.numero ? `Levée ${a.metadata.numero}` : null,
         });
       }
