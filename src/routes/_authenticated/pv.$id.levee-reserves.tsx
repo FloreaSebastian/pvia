@@ -111,21 +111,19 @@ function LeveeReserves() {
   const [itemPhotosBefore, setItemPhotosBefore] = useState<Record<string, PhotoEntry[]>>({});
   const [itemPhotosAfter, setItemPhotosAfter] = useState<Record<string, PhotoEntry[]>>({});
   const [globalComment, setGlobalComment] = useState("");
-  const [requireClient, setRequireClient] = useState(false);
   const [technicianName, setTechnicianName] = useState("");
   const [includeTechnicianSig, setIncludeTechnicianSig] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const companySigRef = useRef<SignaturePad>(null);
-  const clientSigRef = useRef<SignaturePad>(null);
   const technicianSigRef = useRef<SignaturePad>(null);
 
   useEffect(() => {
     (async () => {
       const [pvRes, resRes] = await Promise.all([
         supabase.from("pv").select("numero").eq("id", pvId).maybeSingle(),
-        supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).in("status", ["ouverte", "en_cours", "levee"]).order("created_at"),
+        supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).in("status", ["ouverte", "en_cours", "rejetee"]).order("created_at"),
       ]);
       setPvNumero(pvRes.data?.numero ?? "");
       const rs = (resRes.data ?? []) as Reserve[];
@@ -209,7 +207,6 @@ function LeveeReserves() {
     const ids = Object.keys(selected).filter((id) => selected[id]);
     if (ids.length === 0) return toast.error("Sélectionnez au moins une réserve.");
     if (status === "signe" && companySigRef.current?.isEmpty()) return toast.error("Signature entreprise obligatoire.");
-    if (status === "signe" && requireClient && clientSigRef.current?.isEmpty()) return toast.error("Signature client obligatoire.");
 
     setSaving(true);
     try {
@@ -240,12 +237,11 @@ function LeveeReserves() {
           pvId,
           status,
           comment: globalComment,
-          requireClientSignature: requireClient,
+          requireClientSignature: false,
           items,
           companySignature: status === "signe" && !companySigRef.current?.isEmpty()
             ? companySigRef.current!.toDataURL("image/png") : null,
-          clientSignature: status === "signe" && !clientSigRef.current?.isEmpty()
-            ? clientSigRef.current!.toDataURL("image/png") : null,
+          clientSignature: null,
           technicianSignature: status === "signe" && includeTechnicianSig && !technicianSigRef.current?.isEmpty()
             ? technicianSigRef.current!.toDataURL("image/png") : null,
           technicianName: technicianName.trim() || null,
@@ -382,27 +378,15 @@ function LeveeReserves() {
           </Card>
 
           <Card className="space-y-3 p-4">
-            <div className="flex items-center gap-2">
-              <Switch checked={requireClient} onCheckedChange={setRequireClient} />
-              <Label className="!mt-0 text-sm">Exiger la signature client</Label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label className="mb-1.5 block text-xs">Signature entreprise *</Label>
-                <div className="rounded-md border border-border bg-background">
-                  <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full h-28" }} />
-                </div>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => companySigRef.current?.clear()}>Effacer</Button>
+            <div>
+              <Label className="mb-1.5 block text-xs">Signature entreprise *</Label>
+              <div className="rounded-md border border-border bg-background">
+                <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full h-28" }} />
               </div>
-              {requireClient && (
-                <div>
-                  <Label className="mb-1.5 block text-xs">Signature client *</Label>
-                  <div className="rounded-md border border-border bg-background">
-                    <SignaturePad ref={clientSigRef} canvasProps={{ className: "w-full h-28" }} />
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => clientSigRef.current?.clear()}>Effacer</Button>
-                </div>
-              )}
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => companySigRef.current?.clear()}>Effacer</Button>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                La signature client sera collectée à distance, depuis l'espace client, lors de la validation de la levée.
+              </p>
             </div>
 
             <div className="space-y-2 rounded-md border border-dashed border-border p-3">
