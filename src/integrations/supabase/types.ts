@@ -257,6 +257,7 @@ export type Database = {
           reminder_at: string | null
           reminder_sent_at: string | null
           resized_at: string | null
+          source_reserve_id: string | null
           start_at: string | null
           status: string
           title: string
@@ -282,6 +283,7 @@ export type Database = {
           reminder_at?: string | null
           reminder_sent_at?: string | null
           resized_at?: string | null
+          source_reserve_id?: string | null
           start_at?: string | null
           status?: string
           title: string
@@ -307,6 +309,7 @@ export type Database = {
           reminder_at?: string | null
           reminder_sent_at?: string | null
           resized_at?: string | null
+          source_reserve_id?: string | null
           start_at?: string | null
           status?: string
           title?: string
@@ -339,6 +342,13 @@ export type Database = {
             columns: ["duplicated_from_event_id"]
             isOneToOne: false
             referencedRelation: "chantier_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chantier_events_source_reserve_id_fkey"
+            columns: ["source_reserve_id"]
+            isOneToOne: false
+            referencedRelation: "pv_reserves"
             referencedColumns: ["id"]
           },
         ]

@@ -34,6 +34,11 @@ import { sendSignedPvEmail, listPvEmailLogs } from "@/lib/signed-email.functions
 import { logUserAction, listPvAuditLogs } from "@/lib/audit.functions";
 import { listReserveLifts, getReserveLiftPdfUrl, resendValidatedReserveLiftEmail, resendReserveLiftValidationEmail } from "@/lib/reserve-lift.functions";
 import { SignatureTimeline } from "@/components/app/SignatureTimeline";
+import { updateReserveStatus, deleteReserve as deleteReserveFn } from "@/lib/reserves.functions";
+import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
+import { reserveStatusLabel, reserveStatusTone, isReserveOverdue } from "@/lib/reserve-status";
+
+
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
@@ -81,7 +86,23 @@ type Pv = {
   photos_failed_count?: number | null;
 };
 type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
-type Reserve = { id: string; description: string; severity: string; status: string; lifted_at?: string | null; validated_at?: string | null };
+type Reserve = {
+  id: string;
+  description: string;
+  severity: string;
+  status: string;
+  priority?: string | null;
+  nature?: string | null;
+  work_to_execute?: string | null;
+  due_date?: string | null;
+  assigned_to?: string | null;
+  lifted_at?: string | null;
+  validated_at?: string | null;
+  created_at: string;
+  pv_id: string;
+  company_id: string | null;
+};
+
 
 function PvDetail() {
   const { id } = Route.useParams();
@@ -101,6 +122,10 @@ function PvDetail() {
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
+  const [reserveDetail, setReserveDetail] = useState<ReserveDetail | null>(null);
+  const updateReserveFn = useServerFn(updateReserveStatus);
+  const deleteReserveServerFn = useServerFn(deleteReserveFn);
+
   const [chantierName, setChantierName] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
@@ -148,7 +173,7 @@ function PvDetail() {
 
     const [photosRes, reservesRes] = await Promise.all([
       supabase.from("pv_photos").select("id,url,caption").eq("pv_id", id),
-      supabase.from("pv_reserves").select("id,description,severity,status,lifted_at,validated_at").eq("pv_id", id).order("created_at"),
+      supabase.from("pv_reserves").select("id,description,severity,status,priority,nature,work_to_execute,due_date,assigned_to,lifted_at,validated_at,created_at,pv_id,company_id").eq("pv_id", id).order("created_at"),
     ]);
     const ph = (photosRes.data ?? []) as Photo[];
     // Sign URLs for photos
@@ -277,27 +302,30 @@ function PvDetail() {
 
 
   async function updateReserve(rid: string, status: string) {
-    const prev = reserves.find((r) => r.id === rid);
-    const { error } = await supabase.from("pv_reserves").update({ status }).eq("id", rid);
-    if (error) return toast.error(error.message);
-    setReserves((rs) => rs.map((r) => (r.id === rid ? { ...r, status } : r)));
-    toast.success("Réserve mise à jour");
-    if (pv?.company_id) {
-      const action = status === "levee" ? "reserve.lifted" : status === "validee" ? "reserve.validated" : "reserve.update";
-      logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "reserve", entityId: rid, action, oldValues: { status: prev?.status }, newValues: { status } } }).catch(() => {});
+    if (!pv?.company_id) return;
+    try {
+      await updateReserveFn({
+        data: { companyId: pv.company_id, id: rid, status: status as any },
+      });
+      setReserves((rs) => rs.map((r) => (r.id === rid ? { ...r, status } : r)));
+      toast.success("Réserve mise à jour");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
     }
   }
 
   async function deleteReserve(rid: string) {
+    if (!pv?.company_id) return;
     if (!confirm("Supprimer cette réserve ?")) return;
-    const prev = reserves.find((r) => r.id === rid);
-    const { error } = await supabase.from("pv_reserves").delete().eq("id", rid);
-    if (error) return toast.error(error.message);
-    setReserves((rs) => rs.filter((r) => r.id !== rid));
-    if (pv?.company_id) {
-      logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "reserve", entityId: rid, action: "reserve.delete", oldValues: prev ? { description: prev.description, severity: prev.severity, status: prev.status } : null } }).catch(() => {});
+    try {
+      await deleteReserveServerFn({ data: { companyId: pv.company_id, id: rid } });
+      setReserves((rs) => rs.filter((r) => r.id !== rid));
+      toast.success("Réserve supprimée");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suppression impossible");
     }
   }
+
 
   async function downloadPdf() {
     if (!pv) return;
@@ -699,32 +727,40 @@ function PvDetail() {
             {reserves.length > 0 && (
               <div className="space-y-1.5">
                 {reserves.map((r) => {
-                  const statusLabel = r.status === "ouverte" ? "Ouverte" : r.status === "levee" ? "Levée" : r.status === "validee" ? "Validée client" : r.status;
-                  const statusTone = r.status === "ouverte" ? "destructive" : r.status === "validee" ? "success" : "warning";
+                  const overdue = isReserveOverdue(r.due_date, r.status);
                   return (
-                    <div key={r.id} className="flex flex-col gap-2 rounded-md border border-border p-2.5 sm:flex-row sm:items-start">
+                    <div key={r.id} className={`flex flex-col gap-2 rounded-md border p-2.5 sm:flex-row sm:items-start ${overdue ? "border-red-500/50" : "border-border"}`}>
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"} size="sm">{r.severity}</StatusPill>
-                          <StatusPill tone={statusTone as any} size="sm" dot>{statusLabel}</StatusPill>
+                          <StatusPill tone={reserveStatusTone(r.status) as any} size="sm" dot>{reserveStatusLabel(r.status)}</StatusPill>
+                          {r.priority && r.priority !== "normal" && (
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">P. {r.priority}</span>
+                          )}
+                          {overdue && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">En retard</span>}
                         </div>
                         <p className="line-clamp-2 text-sm leading-snug">{r.description}</p>
-                        {(r.lifted_at || r.validated_at) && (
-                          <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
-                            {r.lifted_at && <span>Levée {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</span>}
-                            {r.validated_at && <span className="text-success">Validée {new Date(r.validated_at).toLocaleDateString("fr-FR")}</span>}
-                          </div>
+                        {r.work_to_execute && (
+                          <p className="line-clamp-1 text-[11px] text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>
                         )}
+                        <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+                          {r.due_date && <span className={overdue ? "font-semibold text-red-600" : ""}>📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}</span>}
+                          {r.assigned_to && <span>👷 Assigné</span>}
+                          {r.lifted_at && <span>Levée {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</span>}
+                          {r.validated_at && <span className="text-success">Validée {new Date(r.validated_at).toLocaleDateString("fr-FR")}</span>}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 sm:shrink-0">
-                        <Select value={r.status} onValueChange={(v) => updateReserve(r.id, v)}>
-                          <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ouverte">Ouverte</SelectItem>
-                            <SelectItem value="levee">Levée</SelectItem>
-                            <SelectItem value="validee">Validée</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
+                          Détails
+                        </Button>
+                        {r.status === "ouverte" && (
+                          <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }} search={{ reserveId: r.id }}>
+                            <Button size="sm" variant="outline" className="h-8">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                            </Button>
+                          </Link>
+                        )}
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -734,6 +770,7 @@ function PvDetail() {
                 })}
               </div>
             )}
+
             {lifts.length > 0 && (
               <div className="space-y-1.5 border-t border-border pt-3">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">PV de levée ({lifts.length})</p>
@@ -814,9 +851,16 @@ function PvDetail() {
           </div>
         )}
       </Card>
+      <ReserveDetailDialog
+        open={!!reserveDetail}
+        onOpenChange={(o) => !o && setReserveDetail(null)}
+        reserve={reserveDetail}
+        onChanged={() => load()}
+      />
     </div>
   );
 }
+
 
 function labelForType(t: string) {
   switch (t) {

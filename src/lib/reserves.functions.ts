@@ -73,6 +73,7 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
         companyId: z.string().uuid(),
         id: z.string().uuid(),
         status: ReserveStatus,
+        reason: z.string().max(2000).optional(),
       })
       .parse(i),
   )
@@ -82,18 +83,28 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
     if (role === "lecture_seule" || role === "assistant_admin") {
       throw new Error("Droits insuffisants pour modifier le statut.");
     }
-    if (role === "technicien" && !TECH_ALLOWED_STATUS.includes(data.status as never)) {
-      throw new Error("Un technicien ne peut passer qu'aux statuts Ouverte / En cours / Levée.");
-    }
 
     const { data: prev, error: readErr } = await supabase
       .from("pv_reserves")
-      .select("id,pv_id,status,company_id")
+      .select("id,pv_id,status,company_id,assigned_to")
       .eq("id", data.id)
       .eq("company_id", data.companyId)
       .maybeSingle();
     if (readErr) throw new Error(readErr.message);
     if (!prev) throw new Error("Réserve introuvable.");
+
+    if (role === "technicien") {
+      if (!TECH_ALLOWED_STATUS.includes(data.status as never)) {
+        throw new Error("Un technicien ne peut passer qu'aux statuts Ouverte / En cours / Levée.");
+      }
+      if (prev.assigned_to !== userId) {
+        throw new Error("Cette réserve ne vous est pas assignée.");
+      }
+    }
+
+    if (data.status === "rejetee" && !data.reason?.trim()) {
+      throw new Error("Un motif est requis pour rejeter une réserve.");
+    }
 
     const { error } = await supabase
       .from("pv_reserves")
@@ -110,9 +121,10 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
       action: "reserve.status_updated",
       oldValues: { status: prev.status },
       newValues: { status: data.status },
-      metadata: { pv_id: prev.pv_id, role },
+      metadata: { pv_id: prev.pv_id, role, reason: data.reason ?? null },
     });
     return { ok: true };
+
   });
 
 // ---------------------------------------------------------------------------
