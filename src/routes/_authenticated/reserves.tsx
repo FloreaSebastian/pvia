@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { StatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
 import { useCompany } from "@/hooks/use-company";
+import { useServerFn } from "@tanstack/react-start";
+import { updateReserveStatus, deleteReserve } from "@/lib/reserves.functions";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 
@@ -42,6 +44,8 @@ function ReservesPage() {
   const search = Route.useSearch();
   const [items, setItems] = useState<Row[]>([]);
   const [filter, setFilter] = useState<string>(search.status);
+  const updateStatusFn = useServerFn(updateReserveStatus);
+  const deleteFn = useServerFn(deleteReserve);
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
@@ -63,17 +67,27 @@ function ReservesPage() {
   useEffect(() => { load(); }, [load]);
 
   async function setStatus(id: string, status: string) {
-    const { error } = await supabase.from("pv_reserves").update({ status }).eq("id", id);
-    if (error) return toast.error(error.message);
-    setItems((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
-    toast.success("Réserve mise à jour");
+    if (!activeCompanyId) return;
+    const parsed = status as "ouverte" | "levee" | "validee";
+    try {
+      await updateStatusFn({ data: { companyId: activeCompanyId, id, status: parsed } });
+      setItems((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
+      toast.success("Réserve mise à jour");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Mise à jour impossible");
+    }
   }
 
   async function remove(id: string) {
+    if (!activeCompanyId) return;
     if (!confirm("Supprimer cette réserve ?")) return;
-    const { error } = await supabase.from("pv_reserves").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    setItems((rs) => rs.filter((r) => r.id !== id));
+    try {
+      await deleteFn({ data: { companyId: activeCompanyId, id } });
+      setItems((rs) => rs.filter((r) => r.id !== id));
+      toast.success("Réserve supprimée");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suppression impossible");
+    }
   }
 
   const filtered = items.filter((r) => filter === "all" || r.status === filter);
