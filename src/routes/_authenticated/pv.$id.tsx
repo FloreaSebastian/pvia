@@ -707,9 +707,9 @@ function PvDetail() {
                     <Button size="sm"><CheckCircle2 className="h-4 w-4" /> Préparer la levée</Button>
                   </Link>
                 )}
-                {liftStatus === "completed" && lifts[0]?.pdf_url && (
-                  <Button size="sm" variant="outline" onClick={() => downloadLiftPdf(lifts[0].id)}>
-                    <Download className="h-4 w-4" /> PV de levée
+                {liftStatus === "completed" && (lifts[0]?.pdf_client_url || lifts[0]?.pdf_url) && (
+                  <Button size="sm" variant="outline" onClick={() => downloadLiftPdf(lifts[0].id, "client")}>
+                    <Download className="h-4 w-4" /> PV de levée (client)
                   </Button>
                 )}
               </div>
