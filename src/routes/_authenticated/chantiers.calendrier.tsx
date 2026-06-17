@@ -1202,11 +1202,18 @@ function MonthView({
                           onDragEnd={() => { setDragId(null); setDragOverIdx(null); }}
                           onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
                           onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
-                          className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40", conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
+                          className={cn("flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-[11px] font-medium",
+                            ann && "line-through opacity-50",
+                            e.status === "termine" && "opacity-75",
+                            draggable && "cursor-grab active:cursor-grabbing",
+                            isDragged && "opacity-40",
+                            conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
                           style={{ background: c.bg, color: c.fg }}>
-                          {e.start_at && !e.all_day && <span className="mr-1 opacity-90">{fmtTime(new Date(e.start_at))}</span>}
-                          {e.title}
+                          {statusIcon(e.status)}
+                          {e.start_at && !e.all_day && <span className="opacity-90">{fmtTime(new Date(e.start_at))}</span>}
+                          <span className="truncate">{e.title}</span>
                         </div>
+
                       </HoverCardTrigger>
                       <HoverCardContent side="right" align="start" className="w-72">
                         <EventHoverContent evt={e} memberName={memberName} chantierName={chantierName} clientName={clientName} />
