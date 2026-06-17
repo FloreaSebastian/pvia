@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Loader2, ArrowLeft, ChevronRight, Save, Send, MapPin, MapPinOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { createReserveLift } from "@/lib/reserve-lift.functions";
