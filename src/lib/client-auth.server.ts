@@ -67,7 +67,11 @@ export function readClientCookieToken(): string | null {
   }
 }
 
-export function setClientCookie(token: string, maxAgeSec = CLIENT_SESSION_TTL_SEC) {
+export function setClientCookie(
+  token: string,
+  maxAgeSec: number = CLIENT_SESSION_TTL_SEC,
+  persistent: boolean = true,
+) {
   // Detect prod-ish to set Secure flag. Always Secure in non-localhost.
   let secure = true;
   try {
@@ -80,7 +84,7 @@ export function setClientCookie(token: string, maxAgeSec = CLIENT_SESSION_TTL_SE
     secure ? "Secure" : "",
     "SameSite=Lax",
     "Path=/",
-    `Max-Age=${maxAgeSec}`,
+    persistent ? `Max-Age=${maxAgeSec}` : "",
   ].filter(Boolean);
   setResponseHeader("set-cookie", parts.join("; "));
 }

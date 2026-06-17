@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { useServerFn } from "@tanstack/react-start";
 import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
+import { setRememberMePreference, getRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -40,12 +42,14 @@ function LoginPage() {
   const sendLoginCode = useServerFn(sendEnterpriseLoginCode);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(() => getRememberMePreference());
 
   async function onSendCode(e: React.FormEvent) {
     e.preventDefault();
     const normalized = email.trim().toLowerCase();
     if (!normalized) return;
     setLoading(true);
+    setRememberMePreference(remember);
     const NEUTRAL = "Si un compte existe, un code de connexion a été envoyé.";
     try {
       await sendLoginCode({ data: { email: normalized } });
@@ -95,6 +99,13 @@ function LoginPage() {
               placeholder="vous@entreprise.fr"
             />
           </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox
+              checked={remember}
+              onCheckedChange={(v) => setRemember(v === true)}
+            />
+            <span>Se souvenir de moi pendant 30 jours</span>
+          </label>
           <Button type="submit" className="h-11 w-full shadow-brand" disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Recevoir mon code

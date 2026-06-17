@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { sendClientLoginCode } from "@/lib/client-auth.functions";
+import { setRememberMePreference, getRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/login")({
@@ -31,11 +33,13 @@ function ClientLogin() {
   const sendCode = useServerFn(sendClientLoginCode);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(() => getRememberMePreference());
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
+    setRememberMePreference(remember);
     const NEUTRAL = "Si un accès existe pour cet email, un code vient d'être envoyé.";
     const trimmed = email.trim();
     try {
@@ -106,6 +110,13 @@ function ClientLogin() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox
+                  checked={remember}
+                  onCheckedChange={(v) => setRemember(v === true)}
+                />
+                <span>Se souvenir de moi pendant 30 jours</span>
+              </label>
               <Button type="submit" className="w-full" disabled={loading || !email}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                   <>Recevoir un code <ArrowRight className="ml-1 h-4 w-4" /></>

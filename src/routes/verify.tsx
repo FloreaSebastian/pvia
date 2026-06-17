@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { sendEnterpriseLoginCode, verifyEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
 import { assertPasswordFallbackAllowed, getAuthFallbackConfig } from "@/lib/auth-fallback.functions";
+import { getRememberMePreference, applyRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -90,6 +91,7 @@ function VerifyPage() {
   }, [code, loading, otpBlocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function finalizeLogin() {
+    applyRememberMePreference(getRememberMePreference());
     const { data: { user } } = await supabase.auth.getUser();
     let isAdmin = false;
     if (user) {

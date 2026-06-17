@@ -10,7 +10,6 @@ import {
   X,
   Search,
   HelpCircle,
-  Sparkles,
   AlertCircle,
   Building2,
   UsersRound,
@@ -19,6 +18,13 @@ import {
   CreditCard,
   Calendar,
   Settings,
+  ChevronDown,
+  Activity,
+  Rocket,
+  ClipboardCheck,
+  Mail,
+  Shield,
+  History,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +39,15 @@ import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
 import { useSuspension } from "@/hooks/use-suspension";
+import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -41,16 +56,26 @@ const mainNav = [
   { to: "/chantiers", label: "Chantiers", icon: HardHat },
   { to: "/chantiers/calendrier", label: "Calendrier chantier", icon: Calendar },
   { to: "/reserves", label: "Réserves", icon: AlertCircle },
-  { to: "/historique", label: "Historique", icon: ShieldCheck },
   { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
-  { to: "/parametres", label: "Paramètres", icon: Settings },
 ] as const;
 
-const secondaryNav = [
+const companyMenu = [
+  { to: "/parametres", label: "Paramètres", icon: Settings },
   { to: "/entreprise", label: "Entreprise", icon: Building2 },
   { to: "/equipe", label: "Équipe", icon: UsersRound },
   { to: "/billing", label: "Facturation", icon: CreditCard },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
+] as const;
+
+const adminMenu = [
+  { to: "/admin/dashboard", label: "Cockpit admin", icon: ShieldCheck },
+  { to: "/historique", label: "Historique entreprise", icon: History },
+  { to: "/parametres/audit", label: "Audit", icon: Shield },
+  { to: "/admin/monitoring", label: "Monitoring", icon: Activity },
+  { to: "/admin/go-live", label: "Go Live", icon: Rocket },
+  { to: "/admin/production-audit", label: "Production Audit", icon: ClipboardCheck },
+  { to: "/admin/compliance", label: "Compliance", icon: ShieldCheck },
+  { to: "/admin/emails", label: "Emails", icon: Mail },
 ] as const;
 
 
@@ -146,61 +171,16 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
             );
           })}
 
-          <p className="px-3 pb-1.5 pt-5 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Configuration
-          </p>
-          {secondaryNav.map((i, idx) => {
-            const active = isActive(i.to);
-            const Icon = i.icon;
-            return (
-              <Link
-                key={idx}
-                to={i.to}
-                onClick={() => setOpen(false)}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                  active
-                    ? "bg-sidebar-accent text-foreground"
-                    : "text-foreground/70 hover:bg-sidebar-accent hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{i.label}</span>
-              </Link>
-            );
-          })}
         </nav>
 
-        {/* Footer / Upgrade card + profile */}
+        {/* Footer: company menu */}
         <div className="border-t border-sidebar-border p-3">
-          <div className="mb-3 overflow-hidden rounded-xl border border-primary/20 bg-brand-gradient p-3 text-primary-foreground shadow-brand">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider">
-              <Sparkles className="h-3.5 w-3.5" /> Essai Pro
-            </div>
-            <p className="mt-1 text-[11px] leading-snug text-primary-foreground/85">
-              14 jours offerts — toutes les fonctionnalités premium.
-            </p>
-            <Link to="/billing" onClick={() => setOpen(false)} className="mt-2 inline-flex items-center text-[11px] font-semibold text-primary-foreground underline-offset-2 hover:underline">
-              Activer l'abonnement →
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-lg p-1.5 transition hover:bg-sidebar-accent">
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-gradient text-sm font-semibold text-primary-foreground shadow-elevation-sm">
-              {initial}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-foreground">{userEmail ?? "Utilisateur"}</p>
-              <p className="text-[10px] text-muted-foreground">Administrateur</p>
-            </div>
-            <button
-              onClick={signOut}
-              className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-destructive"
-              aria-label="Déconnexion"
-              title="Déconnexion"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+          <CompanyMenu
+            userEmail={userEmail}
+            initial={initial}
+            onPick={() => setOpen(false)}
+            onSignOut={signOut}
+          />
         </div>
       </aside>
 
@@ -250,5 +230,86 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
       <BottomNav />
       <InstallPrompt companyId={activeCompanyId} />
     </div>
+  );
+}
+
+function CompanyMenu({
+  userEmail,
+  initial,
+  onPick,
+  onSignOut,
+}: {
+  userEmail?: string | null;
+  initial: string;
+  onPick: () => void;
+  onSignOut: () => void;
+}) {
+  const { memberships, activeCompanyId } = useCompany();
+  const { isPlatformAdmin } = useIsPlatformAdmin();
+  const active = memberships.find((m) => m.company_id === activeCompanyId);
+  const companyName = active?.company.name ?? "Entreprise";
+  const logoUrl = active?.company.logo_url ?? null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex w-full items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2 py-2 text-left transition hover:bg-sidebar-accent">
+          {logoUrl ? (
+            <img src={logoUrl} alt="" className="h-9 w-9 rounded-md object-cover" />
+          ) : (
+            <div className="grid h-9 w-9 place-items-center rounded-md bg-brand-gradient text-sm font-semibold text-primary-foreground">
+              {initial}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-foreground">{companyName}</p>
+            <p className="truncate text-[10px] text-muted-foreground">{userEmail ?? "Utilisateur"}</p>
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" side="top" className="w-64">
+        <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Entreprise
+        </DropdownMenuLabel>
+        {companyMenu.map((i) => {
+          const Icon = i.icon;
+          return (
+            <DropdownMenuItem key={i.to} asChild>
+              <Link to={i.to} onClick={onPick} className="cursor-pointer">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+                <span>{i.label}</span>
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+
+        {isPlatformAdmin && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Administration PVIA
+            </DropdownMenuLabel>
+            {adminMenu.map((i) => {
+              const Icon = i.icon;
+              return (
+                <DropdownMenuItem key={i.to} asChild>
+                  <Link to={i.to} onClick={onPick} className="cursor-pointer">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span>{i.label}</span>
+                  </Link>
+                </DropdownMenuItem>
+              );
+            })}
+          </>
+        )}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+          <LogOut className="h-4 w-4" />
+          <span>Déconnexion</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

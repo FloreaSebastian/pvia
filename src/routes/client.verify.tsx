@@ -13,6 +13,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { sendClientLoginCode, verifyClientLoginCode } from "@/lib/client-auth.functions";
+import { getRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -64,7 +65,7 @@ function ClientVerify() {
     }
     setLoading(true);
     try {
-      await verify({ data: { email, code: value } });
+      await verify({ data: { email, code: value, remember: getRememberMePreference() } });
       toast.success("Connexion réussie", { description: "Bienvenue dans votre espace." });
       navigate({ to: "/client/dashboard" });
     } catch (err: any) {

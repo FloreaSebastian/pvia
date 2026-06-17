@@ -182,6 +182,7 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
       .object({
         email: z.string().email().max(255),
         code: z.string().regex(/^\d{6}$/, "Code à 6 chiffres requis"),
+        remember: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -253,9 +254,11 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
     }
 
     // Crée la session
+    const remember = data.remember !== false; // default: persistent 30 days
+    const ttlSec = remember ? CLIENT_SESSION_TTL_SEC : 60 * 60 * 8; // 8h if not remembered
     const token = generateSessionToken();
     const tokenHash = await sha256Hex(token);
-    const expiresAt = new Date(Date.now() + CLIENT_SESSION_TTL_SEC * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + ttlSec * 1000).toISOString();
     await supabaseAdmin.from("client_sessions").insert({
       token_hash: tokenHash,
       client_id: clientId,
@@ -264,7 +267,7 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
       ip_address: ip,
       user_agent: ua,
     });
-    setClientCookie(token);
+    setClientCookie(token, ttlSec, remember);
 
     await writeAuditLog({
       companyId: null,

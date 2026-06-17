@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -18,7 +19,15 @@ import { PageHeader } from "@/components/app/PageHeader";
 
 export const Route = createFileRoute("/_authenticated/historique")({
   component: HistoriqueEntreprisePage,
-  head: () => ({ meta: [{ title: "Historique entreprise — PVIA" }] }),
+  head: () => ({ meta: [{ title: "Historique entreprise — PVIA" }, { name: "robots", content: "noindex" }] }),
+  beforeLoad: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw redirect({ to: "/login" });
+    const { isPlatformAdminEmail } = await import("@/lib/platform-admin");
+    if (!isPlatformAdminEmail(user.email)) throw redirect({ to: "/dashboard" });
+    const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "platform_admin").maybeSingle();
+    if (!data) throw redirect({ to: "/dashboard" });
+  },
 });
 
 type Log = {
