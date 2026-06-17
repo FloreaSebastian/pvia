@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/app/PageHeader";
 import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
@@ -198,6 +202,33 @@ function ChantierCalendarPage() {
   });
   const [evtOpen, setEvtOpen] = useState(false);
   const [evtForm, setEvtForm] = useState<FormState>(blankForm());
+  const [quickEvt, setQuickEvt] = useState<Evt | null>(null);
+  const [search, setSearch] = useState("");
+  const chantierName = useCallback((id: string | null | undefined) => id ? (chantiers.find((c) => c.id === id)?.name ?? "—") : "—", [chantiers]);
+  const clientName = useCallback((id: string | null | undefined) => id ? (clients.find((c) => c.id === id)?.name ?? "—") : "—", [clients]);
+  const memberName = useCallback((id: string | null | undefined) => id ? (membersById.get(id)?.name ?? "—") : null, [membersById]);
+
+  const searchResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return events
+      .filter((e) => {
+        const hay = `${e.title} ${chantierName(e.chantier_id)} ${clientName(e.client_id)}`.toLowerCase();
+        return hay.includes(q);
+      })
+      .slice(0, 10);
+  }, [events, search, chantierName, clientName]);
+
+  function openQuick(e: Evt) {
+    if (e.event_type.startsWith("system_")) return;
+    setQuickEvt(e);
+  }
+  function jumpToEvent(e: Evt) {
+    if (e.start_at) setCursor(new Date(e.start_at));
+    setView("day");
+    setSearch("");
+    setQuickEvt(e);
+  }
 
   function openNew(start?: Date, end?: Date) {
     if (!canWrite) return;
@@ -354,6 +385,45 @@ function ChantierCalendarPage() {
           <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant"><ChevronRight className="h-4 w-4" /></Button>
           <div className="min-w-[180px] text-base font-semibold capitalize">{periodLabel}</div>
         </div>
+        <div className="flex flex-1 items-center gap-2 lg:max-w-md">
+          <Popover open={search.trim().length >= 2 && searchResults.length > 0} onOpenChange={(o) => { if (!o) setSearch(""); }}>
+            <PopoverTrigger asChild>
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher un chantier, client ou événement…"
+                  className="h-9 pl-8"
+                />
+              </div>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[min(420px,90vw)] p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <ul className="max-h-80 overflow-y-auto">
+                {searchResults.map((e) => {
+                  const c = colorOf(e);
+                  return (
+                    <li key={e.id}>
+                      <button type="button" onClick={() => jumpToEvent(e)}
+                        className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
+                        <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{e.title}</span>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {e.start_at ? new Date(e.start_at).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" }) : "—"}
+                            {e.start_at && !e.all_day && ` · ${fmtTime(new Date(e.start_at))}`}
+                            {e.chantier_id && ` · ${chantierName(e.chantier_id)}`}
+                            {e.client_id && ` · ${clientName(e.client_id)}`}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </PopoverContent>
+          </Popover>
+        </div>
         <div className="flex flex-wrap items-center gap-1">
           {(["month","week","day","list","custom"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)}
@@ -434,9 +504,12 @@ function ChantierCalendarPage() {
           days={monthGrid}
           cursor={cursor}
           canWrite={canWrite}
-          onClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
-          onClickEvent={(e) => openEdit(e)}
-
+          onDblClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
+          onClickEvent={(e) => openQuick(e)}
+          onDblClickEvent={(e) => openEdit(e)}
+          memberName={memberName}
+          chantierName={chantierName}
+          clientName={clientName}
           onMoveDay={(targetDay, id) => {
             const evt = events.find((x) => x.id === id);
             if (!evt?.start_at) return;
@@ -463,7 +536,11 @@ function ChantierCalendarPage() {
           events={events}
           canWrite={canWrite}
           onCreateRange={(s, e) => openNew(s, e)}
-          onClickEvent={(e) => openEdit(e)}
+          onClickEvent={(e) => openQuick(e)}
+          onDblClickEvent={(e) => openEdit(e)}
+          memberName={memberName}
+          chantierName={chantierName}
+          clientName={clientName}
           onMove={(id, newStart) => {
             const evt = events.find((x) => x.id === id);
             if (!evt?.start_at) return;
@@ -644,19 +721,77 @@ function ChantierCalendarPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Quick edit side panel */}
+      {quickEvt && activeCompanyId && (
+        <QuickEditSheet
+          evt={quickEvt}
+          members={members}
+          companyId={activeCompanyId}
+          canWrite={canWrite}
+          updateEvtFn={updateEvtFn}
+          deleteEvtFn={deleteEvtFn}
+          chantierName={chantierName}
+          clientName={clientName}
+          onClose={() => setQuickEvt(null)}
+          onOpenFull={(e) => { setQuickEvt(null); openEdit(e); }}
+          onSaved={() => { setQuickEvt(null); void load(); }}
+        />
+      )}
     </div>
   );
 }
 
 // ============= MONTH VIEW =============
+function EventHoverContent({ evt, memberName, chantierName, clientName }: {
+  evt: Evt;
+  memberName: (id: string | null | undefined) => string | null;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
+}) {
+  const c = colorOf(evt);
+  const start = evt.start_at ? new Date(evt.start_at) : null;
+  const end = evt.end_at ? new Date(evt.end_at) : null;
+  const assigned = memberName(evt.assigned_to);
+  return (
+    <div className="space-y-2 text-sm">
+      <div className="flex items-start gap-2">
+        <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold leading-tight">{evt.title}</p>
+          <p className="text-[11px] text-muted-foreground">{TYPE_LABELS[evt.event_type] ?? evt.event_type}</p>
+        </div>
+        <Badge variant="outline" className="capitalize">{evt.status.replace("_", " ")}</Badge>
+      </div>
+      {start && (
+        <p className="text-xs text-muted-foreground">
+          {start.toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
+          {!evt.all_day && ` · ${fmtTime(start)}${end ? ` – ${fmtTime(end)}` : ""}`}
+          {evt.all_day && " · journée entière"}
+        </p>
+      )}
+      {evt.chantier_id && <p className="text-xs"><span className="text-muted-foreground">Chantier :</span> {chantierName(evt.chantier_id)}</p>}
+      {evt.client_id && <p className="text-xs"><span className="text-muted-foreground">Client :</span> {clientName(evt.client_id)}</p>}
+      {assigned && <p className="text-xs"><span className="text-muted-foreground">Assigné :</span> {assigned}</p>}
+      {evt.location && <p className="text-xs"><span className="text-muted-foreground">Lieu :</span> {evt.location}</p>}
+      {evt.description && <p className="line-clamp-3 border-t border-border pt-1.5 text-xs text-muted-foreground">{evt.description}</p>}
+    </div>
+  );
+}
+
 function MonthView({
-  days, cursor, canWrite, onClickDay, onClickEvent, onMoveDay, eventsOn,
+  days, cursor, canWrite, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
+  memberName, chantierName, clientName,
 }: {
   days: Date[]; cursor: Date; canWrite: boolean;
-  onClickDay: (d: Date) => void;
+  onDblClickDay: (d: Date) => void;
   onClickEvent: (e: Evt) => void;
+  onDblClickEvent: (e: Evt) => void;
   onMoveDay: (d: Date, id: string) => void;
   eventsOn: (d: Date) => Evt[];
+  memberName: (id: string | null | undefined) => string | null;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -674,7 +809,7 @@ function MonthView({
           const isDropTarget = dragId && dragOverIdx === i;
           return (
             <div key={i}
-              onClick={() => canWrite && onClickDay(day)}
+              onDoubleClick={() => canWrite && onDblClickDay(day)}
               onDragOver={(e) => { if (canWrite && dragId) { e.preventDefault(); if (dragOverIdx !== i) setDragOverIdx(i); } }}
               onDragLeave={() => { if (dragOverIdx === i) setDragOverIdx(null); }}
               onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); setDragOverIdx(null); onMoveDay(day, id); } }}
@@ -691,17 +826,24 @@ function MonthView({
                   const ann = e.status === "annule";
                   const isDragged = dragId === e.id;
                   return (
-                    <div key={e.id}
-                      draggable={draggable}
-                      onDragStart={() => { if (draggable) setDragId(e.id); }}
-                      onDragEnd={() => { setDragId(null); setDragOverIdx(null); }}
-                      onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
-                      className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40")}
-                      style={{ background: c.bg, color: c.fg }}
-                      title={`${e.title}${e.start_at ? " · " + fmtTime(new Date(e.start_at)) : ""}`}>
-                      {e.start_at && !e.all_day && <span className="mr-1 opacity-90">{fmtTime(new Date(e.start_at))}</span>}
-                      {e.title}
-                    </div>
+                    <HoverCard key={e.id} openDelay={350} closeDelay={80}>
+                      <HoverCardTrigger asChild>
+                        <div
+                          draggable={draggable}
+                          onDragStart={() => { if (draggable) setDragId(e.id); }}
+                          onDragEnd={() => { setDragId(null); setDragOverIdx(null); }}
+                          onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
+                          onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
+                          className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40")}
+                          style={{ background: c.bg, color: c.fg }}>
+                          {e.start_at && !e.all_day && <span className="mr-1 opacity-90">{fmtTime(new Date(e.start_at))}</span>}
+                          {e.title}
+                        </div>
+                      </HoverCardTrigger>
+                      <HoverCardContent side="right" align="start" className="w-72">
+                        <EventHoverContent evt={e} memberName={memberName} chantierName={chantierName} clientName={clientName} />
+                      </HoverCardContent>
+                    </HoverCard>
                   );
                 })}
                 {dayEvts.length > 3 && <div className="px-1 text-[10px] text-muted-foreground">+ {dayEvts.length - 3} autres</div>}
@@ -730,13 +872,18 @@ function fmtMin(min: number) {
 type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number; col: number; cols: number };
 
 function TimeGridView({
-  days, events, canWrite, onCreateRange, onClickEvent, onMove, onResize,
+  days, events, canWrite, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
+  memberName, chantierName, clientName,
 }: {
   days: Date[]; events: Evt[]; canWrite: boolean;
   onCreateRange: (s: Date, e: Date) => void;
   onClickEvent: (e: Evt) => void;
+  onDblClickEvent: (e: Evt) => void;
   onMove: (id: string, newStart: Date) => void;
   onResize: (id: string, newEnd: Date) => void;
+  memberName: (id: string | null | undefined) => string | null;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
 }) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -924,6 +1071,13 @@ function TimeGridView({
           </div>
           {/* Day columns */}
           <div ref={gridRef} onMouseDown={onMouseDownBg}
+            onDoubleClick={(e) => {
+              if (!canWrite) return;
+              if ((e.target as HTMLElement).closest("[data-evt]")) return;
+              const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
+              const s = minutesToDate(days[p.dayIdx], p.minutes);
+              onCreateRange(s, new Date(s.getTime() + 60 * 60000));
+            }}
             className={cn("relative col-span-full -ml-px", drag?.kind === "move" && "cursor-grabbing select-none", drag?.kind === "resize" && "cursor-ns-resize select-none")}
             style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * HOUR_PX, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
             {days.map((d, i) => (
@@ -977,36 +1131,46 @@ function TimeGridView({
               const width = `calc(${subW}% - 4px)`;
 
               return (
-                <div key={evt.id} data-evt
-                  onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
-                  onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
-                  className={cn(
-                    "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
-                    !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
-                    ann && "line-through opacity-60",
-                    isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
-                  )}
-                  style={{
-                    background: c.bg, color: c.fg,
-                    left, width,
-                    top: (liveTop / 60) * HOUR_PX,
-                    height: (liveHeight / 60) * HOUR_PX - 2,
-                    zIndex: isDragged ? 40 : 10,
-                  }}>
-                  <div className="truncate">{evt.title}</div>
-                  {liveHeight >= 30 && (
-                    <div className="truncate text-[10px] opacity-90">
-                      {fmtMin(liveTop)} – {fmtMin(liveTop + liveHeight)}
+                <HoverCard key={evt.id} openDelay={400} closeDelay={80}>
+                  <HoverCardTrigger asChild>
+                    <div data-evt
+                      onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
+                      onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
+                      onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
+                      className={cn(
+                        "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
+                        !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
+                        ann && "line-through opacity-60",
+                        isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                      )}
+                      style={{
+                        background: c.bg, color: c.fg,
+                        left, width,
+                        top: (liveTop / 60) * HOUR_PX,
+                        height: (liveHeight / 60) * HOUR_PX - 2,
+                        zIndex: isDragged ? 40 : 10,
+                      }}>
+                      <div className="truncate">{evt.title}</div>
+                      {liveHeight >= 30 && (
+                        <div className="truncate text-[10px] opacity-90">
+                          {fmtMin(liveTop)} – {fmtMin(liveTop + liveHeight)}
+                        </div>
+                      )}
+                      {/* resize handle */}
+                      {!isSystem && canWrite && (
+                        <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
+                          className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                          style={{ opacity: isDragged ? 1 : undefined }}
+                        />
+                      )}
                     </div>
+                  </HoverCardTrigger>
+                  {!drag && (
+                    <HoverCardContent side="right" align="start" className="w-72">
+                      <EventHoverContent evt={evt} memberName={memberName} chantierName={chantierName} clientName={clientName} />
+                    </HoverCardContent>
                   )}
-                  {/* resize handle */}
-                  {!isSystem && canWrite && (
-                    <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
-                      className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
-                      style={{ opacity: isDragged ? 1 : undefined }}
-                    />
-                  )}
-                </div>
+                </HoverCard>
               );
             })}
 
@@ -1039,5 +1203,162 @@ function TimeGridView({
         </div>
       </div>
     </Card>
+  );
+}
+
+// ============= QUICK EDIT SHEET =============
+function QuickEditSheet({
+  evt, members, companyId, canWrite, updateEvtFn, deleteEvtFn,
+  chantierName, clientName, onClose, onOpenFull, onSaved,
+}: {
+  evt: Evt;
+  members: { user_id: string; name: string }[];
+  companyId: string;
+  canWrite: boolean;
+  updateEvtFn: (a: { data: { companyId: string; id: string; data: Record<string, unknown> } }) => Promise<unknown>;
+  deleteEvtFn: (a: { data: { companyId: string; id: string } }) => Promise<unknown>;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
+  onClose: () => void;
+  onOpenFull: (e: Evt) => void;
+  onSaved: () => void;
+}) {
+  const [start, setStart] = useState(evt.start_at ? toLocalInput(new Date(evt.start_at)) : "");
+  const [end, setEnd] = useState(evt.end_at ? toLocalInput(new Date(evt.end_at)) : "");
+  const [status, setStatus] = useState(evt.status);
+  const [color, setColor] = useState<ColorKey | "">(((evt.color && COLORS.some((c) => c.key === evt.color)) ? evt.color : "") as ColorKey | "");
+  const [assigned, setAssigned] = useState(evt.assigned_to ?? "");
+  const [saving, setSaving] = useState(false);
+  const isSystem = evt.event_type.startsWith("system_");
+  const readOnly = !canWrite || isSystem;
+
+  async function save() {
+    if (readOnly) return;
+    setSaving(true);
+    try {
+      await updateEvtFn({ data: { companyId, id: evt.id, data: {
+        title: evt.title,
+        description: evt.description ?? "",
+        event_type: evt.event_type,
+        status: status as "prevu",
+        start_at: start ? new Date(start).toISOString() : null,
+        end_at: end ? new Date(end).toISOString() : null,
+        all_day: evt.all_day ?? false,
+        assigned_to: assigned || null,
+        client_id: evt.client_id ?? null,
+        reminder_at: evt.reminder_at ?? null,
+        location: evt.location ?? "",
+        color: color || "",
+        color_source: color ? "manual" : "auto",
+      } } });
+      toast.success("Événement mis à jour");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Échec");
+    } finally { setSaving(false); }
+  }
+
+  async function remove() {
+    if (readOnly) return;
+    if (!confirm("Supprimer cet événement ?")) return;
+    try {
+      await deleteEvtFn({ data: { companyId, id: evt.id } });
+      toast.success("Supprimé");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suppression impossible");
+    }
+  }
+
+  return (
+    <Sheet open onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: colorOf(evt).bg }} />
+            <span className="truncate">{evt.title}</span>
+          </SheetTitle>
+          <p className="text-xs text-muted-foreground">
+            {TYPE_LABELS[evt.event_type] ?? evt.event_type}
+            {evt.chantier_id && ` · ${chantierName(evt.chantier_id)}`}
+            {evt.client_id && ` · ${clientName(evt.client_id)}`}
+          </p>
+        </SheetHeader>
+
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Début</Label>
+              <Input type={evt.all_day ? "date" : "datetime-local"} value={evt.all_day ? start.slice(0, 10) : start}
+                onChange={(e) => setStart(e.target.value)} disabled={readOnly} />
+            </div>
+            <div>
+              <Label className="text-xs">Fin</Label>
+              <Input type={evt.all_day ? "date" : "datetime-local"} value={evt.all_day ? end.slice(0, 10) : end}
+                onChange={(e) => setEnd(e.target.value)} disabled={readOnly} />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Statut</Label>
+            <Select value={status} onValueChange={setStatus} disabled={readOnly}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="prevu">Prévu</SelectItem>
+                <SelectItem value="en_cours">En cours</SelectItem>
+                <SelectItem value="termine">Terminé</SelectItem>
+                <SelectItem value="annule">Annulé</SelectItem>
+                <SelectItem value="reporte">Reporté</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Assigné à</Label>
+            <Select value={assigned || "none"} onValueChange={(v) => setAssigned(v === "none" ? "" : v)} disabled={readOnly}>
+              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Couleur</Label>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <button type="button" disabled={readOnly} onClick={() => setColor("")}
+                className={cn("h-7 rounded-md border px-2 text-xs", !color ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                Auto
+              </button>
+              {COLORS.map((c) => (
+                <button key={c.key} type="button" disabled={readOnly}
+                  onClick={() => setColor(c.key)}
+                  className={cn("h-7 w-7 rounded-full border-2 transition", color === c.key ? "border-foreground scale-110" : "border-transparent")}
+                  style={{ background: c.bg }} title={c.label} aria-label={c.label} />
+              ))}
+            </div>
+          </div>
+
+          <Button type="button" variant="outline" size="sm" onClick={() => onOpenFull(evt)} className="w-full">
+            <Pencil className="h-4 w-4" /> Tout modifier (formulaire complet)
+          </Button>
+        </div>
+
+        <SheetFooter className="mt-6 flex-row justify-between gap-2 sm:flex-row sm:justify-between">
+          {!readOnly && (
+            <Button type="button" variant="ghost" size="sm" onClick={remove} className="text-destructive">
+              <Trash2 className="h-4 w-4" /> Supprimer
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
+            <Button type="button" onClick={save} disabled={readOnly || saving} className="shadow-brand">
+              {saving ? "…" : "Enregistrer"}
+            </Button>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
