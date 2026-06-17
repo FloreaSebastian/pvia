@@ -42,6 +42,7 @@ function LoginPage() {
   const sendLoginCode = useServerFn(sendEnterpriseLoginCode);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(() => getRememberMePreference());
 
   async function onSendCode(e: React.FormEvent) {
     e.preventDefault();
