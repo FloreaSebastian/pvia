@@ -232,10 +232,22 @@ function NewPv() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.form) setForm((f) => ({ ...f, ...parsed.form }));
-        if (parsed.reserves) setReserves(parsed.reserves);
+        // Note: les photos (File objects) ne sont pas persistées en localStorage,
+        // on ne restaure que les champs texte des réserves avec photos = [].
+        if (Array.isArray(parsed.reserves)) {
+          setReserves(parsed.reserves.map((r: any) => ({
+            nature: r.nature ?? "",
+            description: r.description ?? "",
+            work_to_execute: r.work_to_execute ?? "",
+            severity: r.severity ?? "mineure",
+            due_date: r.due_date ?? "",
+            photos: [],
+          })));
+        }
         if (typeof parsed.withReserves === "boolean") setWithReserves(parsed.withReserves);
       }
     } catch { /* ignore */ }
+
   }, []);
 
   // Branding
