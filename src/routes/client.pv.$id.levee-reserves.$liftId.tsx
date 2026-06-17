@@ -211,13 +211,33 @@ function ClientLiftDetail() {
 
       {isValidated ? (
         <Card className="border-success/30 bg-success/5 p-5">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-success" />
-            <div>
-              <p className="font-semibold">Levée validée</p>
-              <p className="text-sm text-muted-foreground">
-                Validée le {new Date(report.client_validated_at!).toLocaleString("fr-FR")} par {report.client_validated_email ?? session.email}.
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 text-success" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold">Levée validée et signée</p>
+                <Badge className="gap-1 bg-success/15 text-success hover:bg-success/15">
+                  <ShieldCheck className="h-3 w-3" /> Signature électronique
+                </Badge>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Validée le {new Date(report.client_validated_at!).toLocaleString("fr-FR")} par {(report as any).client_signature_email ?? report.client_validated_email ?? session.email}.
               </p>
+              {(report as any).client_signature && (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Votre signature</p>
+                  <img
+                    src={(report as any).client_signature}
+                    alt="Signature client"
+                    className="h-24 rounded-md border bg-white"
+                  />
+                </div>
+              )}
+              <div className="mt-3">
+                <Button onClick={download} variant="outline" size="sm">
+                  <Download className="mr-1.5 h-4 w-4" /> Télécharger le PDF signé
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
@@ -339,13 +359,13 @@ function ClientLiftValidation({
             Je confirme que les réserves indiquées ont été levées et accepte la signature électronique de ce procès-verbal de levée. Cette signature a la même valeur juridique qu'une signature manuscrite.
           </span>
         </label>
-        <Button onClick={handleValidate} disabled={submitting || rejecting} size="lg" className="mt-4 w-full">
+        <Button onClick={handleValidate} disabled={submitting || rejecting || !consent} size="lg" className="mt-4 w-full">
           {submitting ? (
             <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
           ) : (
             <CheckCircle2 className="mr-1.5 h-4 w-4" />
           )}
-          {submitting ? "Validation en cours…" : "Valider la levée de réserves"}
+          {submitting ? "Validation en cours…" : "Valider et signer la levée"}
         </Button>
       </Card>
 

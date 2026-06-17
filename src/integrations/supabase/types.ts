@@ -1894,6 +1894,12 @@ export type Database = {
           client_rejected_ip: string | null
           client_rejected_reason: string | null
           client_signature: string | null
+          client_signature_consent_at: string | null
+          client_signature_consent_text: string | null
+          client_signature_email: string | null
+          client_signature_ip: string | null
+          client_signature_user_agent: string | null
+          client_signed_at: string | null
           client_validated_at: string | null
           client_validated_email: string | null
           client_validated_ip: string | null
@@ -1927,6 +1933,12 @@ export type Database = {
           client_rejected_ip?: string | null
           client_rejected_reason?: string | null
           client_signature?: string | null
+          client_signature_consent_at?: string | null
+          client_signature_consent_text?: string | null
+          client_signature_email?: string | null
+          client_signature_ip?: string | null
+          client_signature_user_agent?: string | null
+          client_signed_at?: string | null
           client_validated_at?: string | null
           client_validated_email?: string | null
           client_validated_ip?: string | null
@@ -1960,6 +1972,12 @@ export type Database = {
           client_rejected_ip?: string | null
           client_rejected_reason?: string | null
           client_signature?: string | null
+          client_signature_consent_at?: string | null
+          client_signature_consent_text?: string | null
+          client_signature_email?: string | null
+          client_signature_ip?: string | null
+          client_signature_user_agent?: string | null
+          client_signed_at?: string | null
           client_validated_at?: string | null
           client_validated_email?: string | null
           client_validated_ip?: string | null
