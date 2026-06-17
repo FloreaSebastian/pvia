@@ -263,6 +263,8 @@ function Dashboard() {
         </Card>
       </div>
 
+      {activeCompanyId && <ComplianceWidget companyId={activeCompanyId} />}
+
       {/* Recent PV + Quick start */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
