@@ -404,6 +404,28 @@ function LeveeReserves() {
                 </div>
               )}
             </div>
+
+            <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+              <div className="text-xs font-medium">Technicien intervenant (optionnel, PDF interne)</div>
+              <Input
+                placeholder="Nom du technicien sur site"
+                value={technicianName}
+                onChange={(e) => setTechnicianName(e.target.value)}
+                className="h-8 text-sm"
+              />
+              <div className="flex items-center gap-2">
+                <Switch checked={includeTechnicianSig} onCheckedChange={setIncludeTechnicianSig} />
+                <Label className="!mt-0 text-xs">Collecter la signature du technicien</Label>
+              </div>
+              {includeTechnicianSig && (
+                <div>
+                  <div className="rounded-md border border-border bg-background">
+                    <SignaturePad ref={technicianSigRef} canvasProps={{ className: "w-full h-24" }} />
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => technicianSigRef.current?.clear()}>Effacer</Button>
+                </div>
+              )}
+            </div>
           </Card>
 
           <div className="sticky bottom-0 -mx-4 flex flex-wrap justify-end gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
