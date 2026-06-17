@@ -664,7 +664,7 @@ function NewPv() {
       [ID_CHANTIER]: chantierOk ? null : "Adresse chantier et date obligatoires.",
       [ID_TRAVAUX]: travauxOk ? null : "Description des travaux obligatoire.",
       [ID_DECISION]: decisionOk ? null : "Choisissez avec ou sans réserves.",
-      [ID_RESERVES]: reservesOk ? null : "Au moins une réserve avec description.",
+      [ID_RESERVES]: reservesError,
       [ID_PHOTOS]: null,
       [ID_SIGNATURES]: signaturesError,
       [ID_APERCU]: signaturesError ? "Complétez les signatures avant d'accéder à l'aperçu." : null,
