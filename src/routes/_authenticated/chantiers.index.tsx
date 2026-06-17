@@ -30,25 +30,34 @@ type Chantier = {
   latitude: number | null; longitude: number | null;
   type: string | null; status: string; client_id: string | null;
   start_date: string | null; end_date: string | null; description: string | null;
+  color: string | null; progress_percent: number;
 };
 type Client = { id: string; name: string };
 
 const TYPES = ["BTP", "Rénovation", "Photovoltaïque", "Climatisation", "Plomberie", "Électricité", "Construction"];
 const STATUSES = [
+  { value: "preparation", label: "Préparation" },
+  { value: "planifie", label: "Planifié" },
   { value: "en_cours", label: "En cours" },
-  { value: "termine", label: "Terminé" },
+  { value: "en_attente", label: "En attente" },
   { value: "receptionne", label: "Réceptionné" },
-];
+  { value: "termine", label: "Terminé" },
+  { value: "archive", label: "Archivé" },
+] as const;
+type StatusValue = (typeof STATUSES)[number]["value"];
 
-const FILTERS: Array<{ value: "all" | "en_cours" | "termine" | "receptionne"; label: string }> = [
+const FILTERS: Array<{ value: "all" | StatusValue; label: string }> = [
   { value: "all", label: "Tous" },
-  { value: "en_cours", label: "En cours" },
-  { value: "termine", label: "Terminés" },
-  { value: "receptionne", label: "Réceptionnés" },
+  ...STATUSES.map((s) => ({ value: s.value, label: s.label })),
 ];
 
-function statusTone(s: string): "success" | "info" | "warning" {
-  return s === "receptionne" ? "success" : s === "termine" ? "info" : "warning";
+const CHANTIER_PALETTE = ["#3b82f6","#10b981","#f97316","#ef4444","#8b5cf6","#eab308","#0ea5e9","#14b8a6","#ec4899","#6b7280"];
+
+function statusTone(s: string): "success" | "info" | "warning" | "neutral" {
+  if (s === "receptionne") return "success";
+  if (s === "termine" || s === "planifie") return "info";
+  if (s === "en_cours" || s === "en_attente") return "warning";
+  return "neutral"; // preparation, archive
 }
 
 function fmtDate(d: string | null) {
