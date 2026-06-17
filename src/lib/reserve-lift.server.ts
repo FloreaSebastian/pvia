@@ -296,20 +296,29 @@ export async function buildAndStoreReserveLiftPdf(
       } catch { /* skip */ }
       const hasGeo = p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined;
       const captionLines: string[] = [];
-      if (hasGeo) {
-        captionLines.push(`Photo geolocalisee  GPS ${(p.latitude as number).toFixed(5)}, ${(p.longitude as number).toFixed(5)}${p.accuracy ? ` (±${Math.round(p.accuracy)}m)` : ""}`);
+      if (isInternal) {
+        if (hasGeo) {
+          captionLines.push(`Photo geolocalisee  GPS ${(p.latitude as number).toFixed(5)}, ${(p.longitude as number).toFixed(5)}${p.accuracy ? ` (±${Math.round(p.accuracy)}m)` : ""}`);
+        } else {
+          captionLines.push("Photo non geolocalisee");
+        }
+        const exif = (p.exif_metadata ?? {}) as any;
+        const cam = [exif?.Make, exif?.Model].filter(Boolean).join(" ");
+        const takenIso = p.taken_at ?? exif?.DateTimeOriginal ?? null;
+        const meta: string[] = [];
+        if (takenIso) {
+          try { meta.push(`Prise: ${new Date(takenIso).toLocaleString("fr-FR")}`); } catch { /* */ }
+        }
+        if (cam) meta.push(cam);
+        if (meta.length) captionLines.push(meta.join("  ·  "));
       } else {
-        captionLines.push("Photo non geolocalisee");
+        // Client-safe caption: only a binary geoloc badge + capture date. No coords, no EXIF, no camera.
+        captionLines.push(hasGeo ? "Photo geolocalisee" : "Photo non geolocalisee");
+        const takenIso = p.taken_at ?? null;
+        if (takenIso) {
+          try { captionLines.push(`Prise le ${new Date(takenIso).toLocaleDateString("fr-FR")}`); } catch { /* */ }
+        }
       }
-      const exif = (p.exif_metadata ?? {}) as any;
-      const cam = [exif?.Make, exif?.Model].filter(Boolean).join(" ");
-      const takenIso = p.taken_at ?? exif?.DateTimeOriginal ?? null;
-      const meta: string[] = [];
-      if (takenIso) {
-        try { meta.push(`Prise: ${new Date(takenIso).toLocaleString("fr-FR")}`); } catch { /* */ }
-      }
-      if (cam) meta.push(cam);
-      if (meta.length) captionLines.push(meta.join("  ·  "));
       let cy = y - cellH - 9;
       for (const line of captionLines) {
         page.drawText(sanitize(line), { x, y: cy, size: 7, font: helv, color: hasGeo ? rgb(0.13, 0.5, 0.3) : MUTED });
