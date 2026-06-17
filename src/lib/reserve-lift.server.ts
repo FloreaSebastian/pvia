@@ -102,7 +102,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   const { data: photoMeta } = itemIds.length
     ? await supabaseAdmin
         .from("reserve_lift_item_photos" as any)
-        .select("reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at")
+        .select("reserve_lift_item_id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,exif_metadata")
         .in("reserve_lift_item_id", itemIds)
     : { data: [] as any[] };
   const photosByItem = new Map<string, { before: any[]; after: any[] }>();
