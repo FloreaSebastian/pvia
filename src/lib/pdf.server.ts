@@ -528,7 +528,9 @@ export async function generatePvPdfBytes(input: {
     );
     y -= 38;
   } else {
-    reserves.forEach((r, idx) => {
+    for (let idx = 0; idx < reserves.length; idx++) {
+      const r = reserves[idx];
+
       const sevColor =
         r.severity === "majeure" || r.severity === "bloquante" ? rgb(0.80, 0.10, 0.10) :
         r.severity === "mineure" ? rgb(0.92, 0.62, 0.07) :
