@@ -202,86 +202,108 @@ export function ReserveDetailDialog({
             </div>
           )}
 
-          {photos.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium">Photos d'intervention ({photos.length})</div>
-              {(["before", "after", "legacy"] as const).map((kind) => {
-                const subset = photos.filter((p) => p.photoType === kind);
-                if (subset.length === 0) return null;
-                const title = kind === "before" ? "Avant intervention" : kind === "after" ? "Après intervention" : "Non catégorisées";
-                return (
-                  <div key={kind}>
-                    <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{title} ({subset.length})</div>
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                      {subset.map((p) => {
-                        const hasGeo = p.latitude !== null && p.longitude !== null;
-                        return (
-                          <div key={p.id} className="relative overflow-hidden rounded border border-border">
-                            <a href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
-                              {p.url ? <img src={p.url} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square w-full bg-muted" />}
-                            </a>
-                            <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
-                              {hasGeo ? (
-                                <>
-                                  <MapPin className="h-2.5 w-2.5 text-green-300" />
-                                  {p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}
-                                </>
-                              ) : (
-                                <>
-                                  <MapPinOff className="h-2.5 w-2.5 text-amber-300" />
-                                  Non géo.
-                                </>
-                              )}
-                            </div>
-                            {p.uploadedAt && (
-                              <div className="absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
-                                {new Date(p.uploadedAt).toLocaleDateString("fr-FR")}
+          <Tabs defaultValue="photos" className="w-full">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="photos" className="gap-1.5">
+                <ImageIcon className="h-3.5 w-3.5" /> Photos ({photos.length})
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-1.5">
+                <Clock className="h-3.5 w-3.5" /> Historique ({history.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="photos" className="mt-3">
+              {photos.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucune photo.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(["before", "after", "legacy"] as const).map((kind) => {
+                    const subset = photos.filter((p) => p.photoType === kind);
+                    if (subset.length === 0) return null;
+                    const title = kind === "before" ? "Avant intervention" : kind === "after" ? "Après intervention" : "Non catégorisées";
+                    return (
+                      <div key={kind}>
+                        <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{title} ({subset.length})</div>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                          {subset.map((p) => {
+                            const hasGeo = p.latitude !== null && p.longitude !== null;
+                            return (
+                              <div key={p.id} className="relative overflow-hidden rounded border border-border">
+                                <a href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
+                                  {p.url ? <img src={p.url} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square w-full bg-muted" />}
+                                </a>
+                                <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
+                                  {hasGeo ? (
+                                    <>
+                                      <MapPin className="h-2.5 w-2.5 text-green-300" />
+                                      {p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <MapPinOff className="h-2.5 w-2.5 text-amber-300" />
+                                      Non géo.
+                                    </>
+                                  )}
+                                </div>
+                                {p.uploadedAt && (
+                                  <div className="absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
+                                    {new Date(p.uploadedAt).toLocaleDateString("fr-FR")}
+                                  </div>
+                                )}
+                                {hasGeo && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); setMapPhoto(p); }}
+                                    className="absolute bottom-1 right-1 rounded bg-primary px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground hover:opacity-90"
+                                  >
+                                    Voir sur carte
+                                  </button>
+                                )}
                               </div>
-                            )}
-                            {hasGeo && (
-                              <button
-                                type="button"
-                                onClick={(e) => { e.preventDefault(); setMapPhoto(p); }}
-                                className="absolute bottom-1 right-1 rounded bg-primary px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground hover:opacity-90"
-                              >
-                                Voir sur carte
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {subset.some((p) => p.latitude !== null) && (
-                      <div className="mt-1 text-[10px] text-muted-foreground">
-                        {subset
-                          .filter((p) => p.latitude !== null)
-                          .slice(0, 1)
-                          .map((p) => (
-                            <span key={p.id}>Coordonnées disponibles (visibles uniquement côté entreprise).</span>
-                          ))}
+                            );
+                          })}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-
-          <div>
-            <div className="mb-1 text-xs font-medium">Historique ({history.length})</div>
-            <div className="max-h-40 space-y-1 overflow-y-auto rounded border border-border p-2 text-xs">
-              {history.length === 0 && <p className="text-muted-foreground">Aucun événement.</p>}
-              {history.map((h) => (
-                <div key={h.id} className="flex items-start justify-between gap-2 border-b border-border/50 pb-1 last:border-0">
-                  <span className="font-mono text-[10px]">{h.action}</span>
-                  <span className="text-muted-foreground">
-                    {new Date(h.created_at).toLocaleString("fr-FR")}
-                  </span>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="history" className="mt-3">
+              {history.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun événement.</p>
+              ) : (
+                <ol className="relative space-y-2 border-l border-border pl-4 text-xs">
+                  {history.map((h, idx) => (
+                    <li key={`${h.at}-${h.action}-${idx}`} className="relative">
+                      <span className={`absolute -left-[19px] top-1 h-2 w-2 rounded-full ${
+                        h.source === "lift" ? "bg-blue-500"
+                        : h.source === "audit" ? "bg-amber-500"
+                        : h.source === "notification" ? "bg-purple-500"
+                        : "bg-emerald-500"
+                      }`} />
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium">{h.label}</div>
+                          {h.details && (
+                            <div className="text-muted-foreground line-clamp-2">{h.details}</div>
+                          )}
+                          <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <FileText className="h-2.5 w-2.5" />
+                            <span className="font-mono">{h.action}</span>
+                          </div>
+                        </div>
+                        <time className="shrink-0 text-[10px] text-muted-foreground">
+                          {new Date(h.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+                        </time>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
 
         <DialogFooter>
