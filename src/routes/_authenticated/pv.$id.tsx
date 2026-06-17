@@ -87,7 +87,7 @@ type Pv = {
   pdf_generation_status?: string | null;
   photos_failed_count?: number | null;
 };
-type Photo = { id: string; url: string; caption: string | null; signedUrl?: string };
+type Photo = { id: string; url: string; caption: string | null; reserve_id?: string | null; kind?: string | null; signedUrl?: string };
 type Reserve = {
   id: string;
   description: string;
