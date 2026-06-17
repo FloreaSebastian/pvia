@@ -83,14 +83,18 @@ function ChantiersPage() {
   const updateFn = useServerFn(updateChantierFn);
   const deleteFn = useServerFn(deleteChantierFn);
 
+  const [openReservesCount, setOpenReservesCount] = useState(0);
+
   async function load() {
     if (!activeCompanyId) return;
-    const [a, b] = await Promise.all([
+    const [a, b, r] = await Promise.all([
       supabase.from("chantiers").select("*").eq("company_id", activeCompanyId).order("created_at", { ascending: false }),
       supabase.from("clients").select("id,name").eq("company_id", activeCompanyId).order("name"),
+      supabase.from("pv_reserves").select("id", { count: "exact", head: true }).eq("company_id", activeCompanyId).eq("status", "ouverte"),
     ]);
     setItems((a.data as Chantier[]) ?? []);
     setClients((b.data as Client[]) ?? []);
+    setOpenReservesCount(r.count ?? 0);
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId]);
 
