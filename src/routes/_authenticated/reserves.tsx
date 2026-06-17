@@ -39,8 +39,9 @@ type Row = {
 
 function ReservesPage() {
   const { activeCompanyId } = useCompany();
+  const search = Route.useSearch();
   const [items, setItems] = useState<Row[]>([]);
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<string>(search.status);
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
