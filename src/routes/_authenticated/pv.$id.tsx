@@ -542,26 +542,6 @@ function PvDetail() {
         </DialogContent>
       </Dialog>
 
-      {lastEvent && (
-        <Card className="p-4 flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-primary">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
-            <div className="space-y-0.5">
-              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Dernier événement</div>
-              <div className="font-medium text-sm">{lastEvent.action}</div>
-              <div className="text-xs text-muted-foreground">
-                {new Date(lastEvent.created_at).toLocaleString("fr-FR")}
-                {lastEvent.user_name && <> · par <span className="font-medium text-foreground">{lastEvent.user_name}</span></>}
-                {!lastEvent.user_name && <> · système</>}
-                {auditTotal > 0 && <> · {auditTotal} événement{auditTotal > 1 ? "s" : ""} au total</>}
-              </div>
-            </div>
-          </div>
-          <Link to="/pv/$id/historique" params={{ id: pv.id }}>
-            <Button size="sm" variant="outline"><ShieldCheck className="h-4 w-4" /> Voir l'historique complet</Button>
-          </Link>
-        </Card>
-      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2 space-y-5">
