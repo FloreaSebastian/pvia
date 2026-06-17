@@ -21,7 +21,7 @@ async function assertCompanyAdmin(companyId: string, userId: string) {
   if (!data || !isAdminRole(data.role)) {
     throw new Error("Seuls owner/admin peuvent gérer la facturation.");
   }
-  return data.role as "owner" | "admin";
+  return data.role as "directeur" | "responsable_exploitation";
 }
 
 async function assertCompanyMember(companyId: string, userId: string) {
