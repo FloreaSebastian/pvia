@@ -110,6 +110,13 @@ function ClientLogin() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox
+                  checked={remember}
+                  onCheckedChange={(v) => setRemember(v === true)}
+                />
+                <span>Se souvenir de moi pendant 30 jours</span>
+              </label>
               <Button type="submit" className="w-full" disabled={loading || !email}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                   <>Recevoir un code <ArrowRight className="ml-1 h-4 w-4" /></>
