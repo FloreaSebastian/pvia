@@ -1054,6 +1054,13 @@ function TimeGridView({
           </div>
           {/* Day columns */}
           <div ref={gridRef} onMouseDown={onMouseDownBg}
+            onDoubleClick={(e) => {
+              if (!canWrite) return;
+              if ((e.target as HTMLElement).closest("[data-evt]")) return;
+              const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
+              const s = minutesToDate(days[p.dayIdx], p.minutes);
+              onCreateRange(s, new Date(s.getTime() + 60 * 60000));
+            }}
             className={cn("relative col-span-full -ml-px", drag?.kind === "move" && "cursor-grabbing select-none", drag?.kind === "resize" && "cursor-ns-resize select-none")}
             style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * HOUR_PX, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
             {days.map((d, i) => (
