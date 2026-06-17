@@ -947,35 +947,6 @@ function ChantierCalendarPage() {
       )}
 
 
-      {!loading && view === "list" && (
-        <Card className="p-2">
-          {events.length === 0 ? (
-            <p className="p-8 text-center text-sm text-muted-foreground">Aucun événement sur la période.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {[...events].sort((a,b) => (new Date(a.start_at ?? 0).getTime() - new Date(b.start_at ?? 0).getTime())).map((e) => {
-                const c = colorOf(e);
-                const ann = e.status === "annule";
-                return (
-                  <li key={e.id} className={cn("flex cursor-pointer items-start gap-3 px-2 py-2.5 hover:bg-muted/40", ann && "opacity-60 line-through")} onClick={() => openEdit(e)}>
-                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium leading-tight">{e.title}</p>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {e.start_at ? new Date(e.start_at).toLocaleString("fr-FR", { weekday:"short", day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" }) : "—"}
-                        {e.chantier && <> · {e.chantier.name}</>}
-                        {e.assigned_to && <> · {membersById.get(e.assigned_to)?.name ?? "—"}</>}
-                        {e.location && <> · {e.location}</>}
-                      </p>
-                    </div>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: c.bg + "22", color: c.bg }}>{TYPE_LABELS[e.event_type] ?? e.event_type}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
-      )}
 
       {/* Floating + on mobile */}
       {canWrite && (
