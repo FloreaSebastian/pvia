@@ -242,6 +242,8 @@ function ChantierDetailPage() {
   
   const userEvents = useMemo(() => timeline.filter((e) => !e.event_type.startsWith("system_")), [timeline]);
 
+  const STATUS_LABELS_TL: Record<string, string> = { preparation: "Préparation", planifie: "Planifié", en_cours: "En cours", en_attente: "En attente", receptionne: "Réceptionné", termine: "Terminé", archive: "Archivé" };
+
   // Unified chronological timeline (P2.6): chantier creation + events + PVs
   // + documents, important notes, reserves, status/progress changes
   type TLItem = {
