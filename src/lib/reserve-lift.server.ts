@@ -89,7 +89,7 @@ export async function buildAndStoreReserveLiftPdf(
   const isInternal = variant === "internal";
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
-    .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
+    .select("id,numero,status,comment,company_signature,client_signature,technician_signature,technician_name,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
     .eq("id", reportId)
     .maybeSingle();
   if (!report?.company_id) throw new Error("Rapport introuvable.");
