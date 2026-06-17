@@ -242,9 +242,11 @@ function ChantierDetailPage() {
   
   const userEvents = useMemo(() => timeline.filter((e) => !e.event_type.startsWith("system_")), [timeline]);
 
-  // Unified chronological timeline (P2.6): chantier creation + all events + PVs
+  // Unified chronological timeline (P2.6): chantier creation + events + PVs
+  // + documents, important notes, reserves, status/progress changes
   type TLItem = {
-    id: string; date: string; title: string; kind: "create" | "event" | "system" | "pv";
+    id: string; date: string; title: string;
+    kind: "create" | "event" | "system" | "pv" | "document" | "note" | "reserve" | "status" | "progress";
     subtitle?: string; status?: string; tone?: "success" | "info" | "warning" | "neutral" | "danger";
   };
   const unifiedTimeline = useMemo<TLItem[]>(() => {
@@ -269,6 +271,68 @@ function ChantierDetailPage() {
       out.push({ id: `pv-c-${p.id}`, date: p.created_at, title: `PV créé ${p.numero ?? ""}`.trim(), kind: "pv", subtitle: p.type, tone: "neutral" });
       if (p.signed_at) out.push({ id: `pv-s-${p.id}`, date: p.signed_at, title: `PV signé ${p.numero ?? ""}`.trim(), kind: "pv", subtitle: p.type, tone: "success" });
       if (p.sent_to_client_at) out.push({ id: `pv-x-${p.id}`, date: p.sent_to_client_at, title: `PV envoyé au client ${p.numero ?? ""}`.trim(), kind: "pv", tone: "info" });
+    }
+    // Documents
+    for (const doc of (d as { documents?: Array<{ id: string; name: string; category: string | null; created_at: string }> }).documents ?? []) {
+      out.push({
+        id: `doc-${doc.id}`, date: doc.created_at,
+        title: `Document ajouté · ${doc.name}`,
+        kind: "document", subtitle: doc.category ?? undefined, tone: "neutral",
+      });
+    }
+    // Notes importantes (priority !== 'normal')
+    for (const n of (d as { notes?: Array<{ id: string; note: string; priority: string; created_at: string }> }).notes ?? []) {
+      if (n.priority && n.priority !== "normal") {
+        const preview = n.note.length > 90 ? n.note.slice(0, 90) + "…" : n.note;
+        out.push({
+          id: `note-${n.id}`, date: n.created_at,
+          title: `Note importante · ${preview}`,
+          kind: "note", subtitle: n.priority, tone: "warning",
+        });
+      }
+    }
+    // Réserves : créée / levée / validée
+    for (const r of (d as { reserves?: Array<{ id: string; description: string; severity: string; status: string; created_at: string; lifted_at: string | null; validated_at: string | null }> }).reserves ?? []) {
+      const preview = r.description.length > 80 ? r.description.slice(0, 80) + "…" : r.description;
+      out.push({
+        id: `rv-c-${r.id}`, date: r.created_at,
+        title: `Réserve créée · ${preview}`,
+        kind: "reserve", subtitle: r.severity, tone: r.severity === "majeure" ? "danger" : "warning",
+      });
+      if (r.lifted_at) out.push({
+        id: `rv-l-${r.id}`, date: r.lifted_at,
+        title: `Réserve levée · ${preview}`,
+        kind: "reserve", tone: "success",
+      });
+      if (r.validated_at) out.push({
+        id: `rv-v-${r.id}`, date: r.validated_at,
+        title: `Réserve validée · ${preview}`,
+        kind: "reserve", tone: "success",
+      });
+    }
+    // Audit logs — status & progression changes
+    const auditLogs = (d as { auditLogs?: Array<{ id: string; action: string; old_values: Record<string, unknown> | null; new_values: Record<string, unknown> | null; created_at: string }> }).auditLogs ?? [];
+    for (const a of auditLogs) {
+      if (a.action !== "chantier.update") continue;
+      const ov = a.old_values ?? {}; const nv = a.new_values ?? {};
+      if ("status" in nv && nv.status !== ov.status) {
+        const from = (ov.status as string | undefined) ?? "—";
+        const to = (nv.status as string | undefined) ?? "—";
+        out.push({
+          id: `st-${a.id}`, date: a.created_at,
+          title: `Statut chantier : ${STATUS_LABELS_TL[from] ?? from} → ${STATUS_LABELS_TL[to] ?? to}`,
+          kind: "status", tone: "info",
+        });
+      }
+      if ("progress_percent" in nv && nv.progress_percent !== ov.progress_percent) {
+        const from = (ov.progress_percent as number | undefined) ?? 0;
+        const to = (nv.progress_percent as number | undefined) ?? 0;
+        out.push({
+          id: `pr-${a.id}`, date: a.created_at,
+          title: `Progression : ${from}% → ${to}%`,
+          kind: "progress", tone: to >= 100 ? "success" : "info",
+        });
+      }
     }
     return out.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [d, timeline]);
