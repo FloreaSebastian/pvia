@@ -895,11 +895,18 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     assigned_name: r.assigned_to ? (assigneeMap.get(r.assigned_to) || null) : null,
   }));
 
-  const photos: { caption: string | null; bytes: Uint8Array }[] = [];
-  for (const p of (photosRes.data ?? []).slice(0, 12)) {
+  const photos: { caption: string | null; bytes: Uint8Array; reserve_id?: string | null }[] = [];
+  // Bumped limit (12 → 60) to make room for per-reserve photos. Each reserve PV
+  // can carry several photos; the global chantier section is still rendered.
+  for (const p of (photosRes.data ?? []).slice(0, 60)) {
     const { data: f } = await supabaseAdmin.storage.from("pv-assets").download(p.url);
-    if (f) photos.push({ caption: p.caption, bytes: new Uint8Array(await f.arrayBuffer()) });
+    if (f) photos.push({
+      caption: p.caption,
+      bytes: new Uint8Array(await f.arrayBuffer()),
+      reserve_id: (p as any).reserve_id ?? null,
+    });
   }
+
 
 
   let clientEmailEvidence = (pv as any).client_identity_email as string | null;
