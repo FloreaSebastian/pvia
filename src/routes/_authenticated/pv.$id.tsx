@@ -220,9 +220,9 @@ function PvDetail() {
 
   useEffect(() => { loadLifts(); }, [loadLifts]);
 
-  async function downloadLiftPdf(reportId: string) {
+  async function downloadLiftPdf(reportId: string, variant: "client" | "internal" = "client") {
     try {
-      const { url } = await getLiftPdfFn({ data: { reportId } });
+      const { url } = await getLiftPdfFn({ data: { reportId, variant } });
       window.open(url, "_blank");
     } catch (e: any) {
       toast.error(e?.message || "PDF indisponible");
