@@ -151,6 +151,23 @@ function ChantierCalendarPage() {
   const [fHideCancelled, setFHideCancelled] = useState(false);
   const [teamMode, setTeamMode] = useState<TeamMode>("day");
 
+  // P4 prefs
+  const [fullscreen, setFullscreen] = useState<boolean>(() => lsGet(LS.fs, false));
+  const [zoom, setZoom] = useState<Zoom>(() => lsGet<Zoom>(LS.zoom, "normal"));
+  const [weekDays, setWeekDays] = useState<WeekDays>(() => lsGet<WeekDays>(LS.weekDays, 7));
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(() => lsGet(LS.filtersOpen, false));
+  const hourPx = ZOOM_LEVELS[zoom];
+
+  useEffect(() => { lsSet(LS.fs, fullscreen); }, [fullscreen]);
+  useEffect(() => { lsSet(LS.zoom, zoom); }, [zoom]);
+  useEffect(() => { lsSet(LS.weekDays, weekDays); }, [weekDays]);
+  useEffect(() => { lsSet(LS.filtersOpen, filtersOpen); }, [filtersOpen]);
+
+  // Conflict UI state
+  type ConflictRow = { id: string; title: string; start_at: string | null; end_at: string | null };
+  const [confirmConflicts, setConfirmConflicts] = useState<{ list: ConflictRow[]; proceed: () => Promise<void> | void } | null>(null);
+  const [conflictsPanelOpen, setConflictsPanelOpen] = useState(false);
+
   const fetchEvents = useServerFn(listChantierEvents);
   const createEvtFn = useServerFn(createChantierEvent);
   const updateEvtFn = useServerFn(updateChantierEvent);
