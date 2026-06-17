@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusPill } from "@/components/ui/status-pill";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { updateReserveStatus } from "@/lib/reserves.functions";
 import { listReserveLiftPhotos } from "@/lib/reserve-lift.functions";
-import { MapPin, MapPinOff } from "lucide-react";
+import { getReserveHistory, type ReserveHistoryEntry } from "@/lib/reserve-history.functions";
+import { MapPin, MapPinOff, Clock, Image as ImageIcon, FileText } from "lucide-react";
 import {
   RESERVE_STATUSES, reserveStatusLabel, reserveStatusTone,
   RESERVE_PRIORITY_LABEL, isReserveOverdue, type ReserveStatusValue,
