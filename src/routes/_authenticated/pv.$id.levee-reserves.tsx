@@ -378,27 +378,15 @@ function LeveeReserves() {
           </Card>
 
           <Card className="space-y-3 p-4">
-            <div className="flex items-center gap-2">
-              <Switch checked={requireClient} onCheckedChange={setRequireClient} />
-              <Label className="!mt-0 text-sm">Exiger la signature client</Label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label className="mb-1.5 block text-xs">Signature entreprise *</Label>
-                <div className="rounded-md border border-border bg-background">
-                  <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full h-28" }} />
-                </div>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => companySigRef.current?.clear()}>Effacer</Button>
+            <div>
+              <Label className="mb-1.5 block text-xs">Signature entreprise *</Label>
+              <div className="rounded-md border border-border bg-background">
+                <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full h-28" }} />
               </div>
-              {requireClient && (
-                <div>
-                  <Label className="mb-1.5 block text-xs">Signature client *</Label>
-                  <div className="rounded-md border border-border bg-background">
-                    <SignaturePad ref={clientSigRef} canvasProps={{ className: "w-full h-28" }} />
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => clientSigRef.current?.clear()}>Effacer</Button>
-                </div>
-              )}
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => companySigRef.current?.clear()}>Effacer</Button>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                La signature client sera collectée à distance, depuis l'espace client, lors de la validation de la levée.
+              </p>
             </div>
 
             <div className="space-y-2 rounded-md border border-dashed border-border p-3">
