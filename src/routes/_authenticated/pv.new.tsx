@@ -179,7 +179,9 @@ function NewPv() {
     work_to_execute: "",
     severity: "mineure",
     due_date: "",
+    photos: [],
   });
+
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
