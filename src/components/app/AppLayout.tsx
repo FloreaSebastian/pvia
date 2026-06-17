@@ -52,10 +52,10 @@ import {
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/pv", label: "Procès-verbaux", icon: FileText },
-  { to: "/clients", label: "Clients", icon: Users },
-  { to: "/chantiers", label: "Chantiers", icon: HardHat },
-  { to: "/chantiers/calendrier", label: "Calendrier chantier", icon: Calendar },
   { to: "/reserves", label: "Réserves", icon: AlertCircle },
+  { to: "/chantiers/calendrier", label: "Calendrier", icon: Calendar },
+  { to: "/chantiers", label: "Chantiers", icon: HardHat },
+  { to: "/clients", label: "Clients", icon: Users },
   { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
 ] as const;
 
