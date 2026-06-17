@@ -181,7 +181,7 @@ export async function buildAndStoreReserveLiftPdf(
       font: bold,
       color: rgb(0.85, 0.15, 0.15),
       opacity: 0.08,
-      rotate: { type: "degrees", angle: 30 } as any,
+      rotate: degrees(30),
     });
   };
 
