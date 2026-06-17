@@ -33,11 +33,13 @@ function ClientLogin() {
   const sendCode = useServerFn(sendClientLoginCode);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(() => getRememberMePreference());
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
+    setRememberMePreference(remember);
     const NEUTRAL = "Si un accès existe pour cet email, un code vient d'être envoyé.";
     const trimmed = email.trim();
     try {
