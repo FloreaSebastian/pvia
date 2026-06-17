@@ -1087,19 +1087,21 @@ function ChantierCalendarPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Quick edit side panel */}
+      {/* Event action popup */}
       {quickEvt && activeCompanyId && (
-        <QuickEditSheet
+        <EventActionPopover
           evt={quickEvt}
-          members={members}
           companyId={activeCompanyId}
           canWrite={canWrite}
-          updateEvtFn={updateEvtFn}
-          deleteEvtFn={deleteEvtFn}
+          isAdmin={isAdmin}
+          memberName={(id) => (id ? membersById.get(id)?.name ?? null : null)}
           chantierName={chantierName}
           clientName={clientName}
+          updateEvtFn={updateEvtFn}
+          deleteEvtFn={deleteEvtFn}
+          duplicateFn={duplicateFn}
           onClose={() => setQuickEvt(null)}
-          onOpenFull={(e) => { setQuickEvt(null); openEdit(e); }}
+          onEdit={(e) => { setQuickEvt(null); openEdit(e); }}
           onSaved={() => { setQuickEvt(null); void load(); }}
         />
       )}
