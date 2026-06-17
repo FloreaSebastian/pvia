@@ -173,6 +173,16 @@ export const assignReserve = createServerFn({ method: "POST" })
       newValues: patch,
       metadata: { role },
     });
+
+    // Email "réserve assignée" (best-effort, never blocks the response)
+    if (data.assignedTo) {
+      try {
+        const { sendReserveAssignedEmail } = await import("./reserve-email.server");
+        await sendReserveAssignedEmail(data.id, data.assignedTo);
+      } catch (e) {
+        console.error("reserve.assigned email failed:", e);
+      }
+    }
     return { ok: true };
   });
 
