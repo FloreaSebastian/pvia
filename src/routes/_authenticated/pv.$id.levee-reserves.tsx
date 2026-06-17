@@ -210,6 +210,7 @@ function LeveeReserves() {
                 accuracy: e.accuracy,
                 takenAt: e.takenAt,
                 deviceInfo: e.deviceInfo,
+                exifMetadata: sanitizeExifForUpload(e.exifMetadata),
               })),
           );
           return { reserveId: rid, comment: itemComment[rid] || "", photos: allPhotos };
