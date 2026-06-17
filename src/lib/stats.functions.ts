@@ -52,8 +52,11 @@ type CoreKpis = {
   avgDelayHours: number;
   reservesTotal: number;
   reservesOuverte: number;
+  reservesEnCours: number;
   reservesLevee: number;
+  reservesEnAttenteValidation: number;
   reservesValidee: number;
+  reservesRejetee: number;
   emailsSent: number;
   emailsFailed: number;
   photosTotal: number;
