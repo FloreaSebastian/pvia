@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil, AlertTriangle, Users } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil, AlertTriangle, Users, Maximize2, Minimize2, CheckCircle2, Clock, Filter, ZoomIn, Eye } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,8 +21,9 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listChantierEvents, createChantierEvent, updateChantierEvent, deleteChantierEvent,
   listCompanyMembers, rescheduleChantierEvent, resizeChantierEvent, duplicateChantierEvent,
-  reassignChantierEvent,
+  reassignChantierEvent, detectChantierEventConflicts,
 } from "@/lib/chantier-detail.functions";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +95,36 @@ type TeamMode = "day" | "week";
 
 const UNASSIGNED = "__unassigned__";
 
+const ZOOM_LEVELS = { compact: 44, normal: 56, confort: 72 } as const;
+type Zoom = keyof typeof ZOOM_LEVELS;
+type WeekDays = 5 | 6 | 7;
+
+const LS = {
+  fs: "pvia.cal.fullscreen",
+  zoom: "pvia.cal.zoom",
+  weekDays: "pvia.cal.weekDays",
+  filtersOpen: "pvia.cal.filtersOpen",
+};
+function lsGet<T>(k: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try { const v = window.localStorage.getItem(k); return v == null ? fallback : (JSON.parse(v) as T); } catch { return fallback; }
+}
+function lsSet(k: string, v: unknown) {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ }
+}
+
+function statusIcon(status: string) {
+  if (status === "termine") return <CheckCircle2 className="h-3 w-3 shrink-0" />;
+  if (status === "reporte") return <Clock className="h-3 w-3 shrink-0" />;
+  return null;
+}
+function initials(name: string | null | undefined) {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("");
+}
+
 function ChantierCalendarPage() {
   const { activeCompanyId, can } = useCompany();
   const canWrite = can("manage");
@@ -120,6 +151,23 @@ function ChantierCalendarPage() {
   const [fHideCancelled, setFHideCancelled] = useState(false);
   const [teamMode, setTeamMode] = useState<TeamMode>("day");
 
+  // P4 prefs
+  const [fullscreen, setFullscreen] = useState<boolean>(() => lsGet(LS.fs, false));
+  const [zoom, setZoom] = useState<Zoom>(() => lsGet<Zoom>(LS.zoom, "normal"));
+  const [weekDays, setWeekDays] = useState<WeekDays>(() => lsGet<WeekDays>(LS.weekDays, 7));
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(() => lsGet(LS.filtersOpen, false));
+  const hourPx = ZOOM_LEVELS[zoom];
+
+  useEffect(() => { lsSet(LS.fs, fullscreen); }, [fullscreen]);
+  useEffect(() => { lsSet(LS.zoom, zoom); }, [zoom]);
+  useEffect(() => { lsSet(LS.weekDays, weekDays); }, [weekDays]);
+  useEffect(() => { lsSet(LS.filtersOpen, filtersOpen); }, [filtersOpen]);
+
+  // Conflict UI state
+  type ConflictRow = { id: string; title: string; start_at: string | null; end_at: string | null };
+  const [confirmConflicts, setConfirmConflicts] = useState<{ list: ConflictRow[]; proceed: () => Promise<void> | void } | null>(null);
+  const [conflictsPanelOpen, setConflictsPanelOpen] = useState(false);
+
   const fetchEvents = useServerFn(listChantierEvents);
   const createEvtFn = useServerFn(createChantierEvent);
   const updateEvtFn = useServerFn(updateChantierEvent);
@@ -129,15 +177,16 @@ function ChantierCalendarPage() {
   const rescheduleFn = useServerFn(rescheduleChantierEvent);
   const resizeFn = useServerFn(resizeChantierEvent);
   const duplicateFn = useServerFn(duplicateChantierEvent);
+  const detectConflictsFn = useServerFn(detectChantierEventConflicts);
   const membersById = useMemo(() => new Map(members.map((m) => [m.user_id, m])), [members]);
 
   const range = useMemo(() => {
     if (view === "month") return { from: startOfWeek(startOfMonth(cursor)), to: addDays(startOfWeek(endOfMonth(cursor)), 41) };
-    if (view === "week") return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), 6) };
+    if (view === "week") return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
     if (view === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
     if (view === "team") {
       if (teamMode === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
-      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), 6) };
+      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
     }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00");
@@ -145,7 +194,7 @@ function ChantierCalendarPage() {
       return { from: a, to: b >= a ? b : a };
     }
     return { from: startOfMonth(cursor), to: endOfMonth(cursor) };
-  }, [cursor, view, customStart, customEnd, teamMode]);
+  }, [cursor, view, customStart, customEnd, teamMode, weekDays]);
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
@@ -196,8 +245,9 @@ function ChantierCalendarPage() {
   }
 
   // ----- Conflict detection (per assigned member, in current event list) -----
-  const conflicts = useMemo(() => {
-    const out = new Set<string>();
+  const { ids: conflicts, pairs: conflictPairs } = useMemo(() => {
+    const ids = new Set<string>();
+    const pairs: { member: string | null; a: Evt; b: Evt }[] = [];
     const byMember = new Map<string, Evt[]>();
     for (const e of events) {
       if (!e.assigned_to || !e.start_at || e.status === "annule") continue;
@@ -206,7 +256,7 @@ function ChantierCalendarPage() {
       arr.push(e);
       byMember.set(e.assigned_to, arr);
     }
-    for (const arr of byMember.values()) {
+    for (const [member, arr] of byMember.entries()) {
       const sorted = arr.slice().sort((a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime());
       for (let i = 0; i < sorted.length; i++) {
         const a = sorted[i];
@@ -217,12 +267,28 @@ function ChantierCalendarPage() {
           const bS = new Date(b.start_at!).getTime();
           if (bS >= aE) break;
           const bE = b.end_at ? new Date(b.end_at).getTime() : bS + 60 * 60000;
-          if (bS < aE && aS < bE) { out.add(a.id); out.add(b.id); }
+          if (bS < aE && aS < bE) { ids.add(a.id); ids.add(b.id); pairs.push({ member, a, b }); }
         }
       }
     }
-    return out;
+    return { ids, pairs };
   }, [events]);
+
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (fChantier !== "all") n++;
+    if (fClient !== "all") n++;
+    if (fType !== "all") n++;
+    if (fStatus !== "all") n++;
+    if (fAssigned !== "all") n++;
+    if (fColor !== "all") n++;
+    if (fOnlyUnassigned) n++;
+    if (fHideDone) n++;
+    if (fHideCancelled) n++;
+    return n;
+  }, [fChantier, fClient, fType, fStatus, fAssigned, fColor, fOnlyUnassigned, fHideDone, fHideCancelled]);
+
 
   // ----- Reassign (team drag) -----
   async function commitReassign(id: string, assignedTo: string | null) {
@@ -311,6 +377,23 @@ function ChantierCalendarPage() {
     setEvtOpen(true);
   }
 
+  async function persistEvt(payload: Record<string, unknown>) {
+    if (!activeCompanyId || !evtForm.chantier_id) return;
+    try {
+      if (evtForm.id) {
+        await updateEvtFn({ data: { companyId: activeCompanyId, id: evtForm.id, data: payload } });
+        toast.success("Événement mis à jour");
+      } else {
+        await createEvtFn({ data: { companyId: activeCompanyId, chantierId: evtForm.chantier_id, data: payload } });
+        toast.success("Événement créé");
+      }
+      setEvtOpen(false);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Échec");
+    }
+  }
+
   async function saveEvt(ev: React.FormEvent) {
     ev.preventDefault();
     if (!activeCompanyId || !evtForm.chantier_id) { toast.error("Choisissez un chantier."); return; }
@@ -327,20 +410,33 @@ function ChantierCalendarPage() {
       color: evtForm.color || "",
       color_source: evtForm.color_source,
     };
-    try {
-      if (evtForm.id) {
-        await updateEvtFn({ data: { companyId: activeCompanyId, id: evtForm.id, data: payload } });
-        toast.success("Événement mis à jour");
-      } else {
-        await createEvtFn({ data: { companyId: activeCompanyId, chantierId: evtForm.chantier_id, data: payload } });
-        toast.success("Événement créé");
-      }
-      setEvtOpen(false);
-      await load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Échec");
+    // Pre-save conflict detection (when assigned + dated + not cancelled)
+    if (evtForm.assigned_to && payload.start_at && payload.end_at && evtForm.status !== "annule") {
+      try {
+        const r = await detectConflictsFn({ data: {
+          companyId: activeCompanyId,
+          assigned_to: evtForm.assigned_to,
+          start_at: payload.start_at,
+          end_at: payload.end_at,
+          excludeId: evtForm.id ?? null,
+        } });
+        if (r.conflicts.length > 0) {
+          setConfirmConflicts({
+            list: r.conflicts as ConflictRow[],
+            proceed: async () => {
+              setConfirmConflicts(null);
+              await persistEvt(payload);
+              // best-effort audit hook (no dedicated endpoint, log to console for traceability)
+              console.info("[audit] chantier_event.conflict_override", { evtId: evtForm.id, member: evtForm.assigned_to, conflicts: r.conflicts.map((c) => c.id) });
+            },
+          });
+          return;
+        }
+      } catch { /* non-blocking */ }
     }
+    await persistEvt(payload);
   }
+
 
   async function removeEvt() {
     if (!activeCompanyId || !evtForm.id) return;
@@ -425,8 +521,34 @@ function ChantierCalendarPage() {
   }, [view, cursor, customStart, customEnd, teamMode]);
 
 
+  // Keyboard shortcuts (T M S J L E N) — ignored when typing in inputs
+  useEffect(() => {
+    function isEditable(t: EventTarget | null) {
+      if (!(t instanceof HTMLElement)) return false;
+      const tag = t.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable;
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isEditable(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (k === "escape" && fullscreen) { setFullscreen(false); return; }
+      if (k === "t") { setCursor(new Date()); e.preventDefault(); }
+      else if (k === "m") { setView("month"); e.preventDefault(); }
+      else if (k === "s") { setView("week"); e.preventDefault(); }
+      else if (k === "j") { setView("day"); e.preventDefault(); }
+      else if (k === "l") { setView("list"); e.preventDefault(); }
+      else if (k === "e") { setView("team"); e.preventDefault(); }
+      else if (k === "n" && canWrite) { openNew(new Date()); e.preventDefault(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canWrite, fullscreen]);
+
   return (
-    <div className="space-y-3">
+    <div className={cn("space-y-3", fullscreen && "fixed inset-0 z-50 overflow-auto bg-background p-3")}>
+
       <PageHeader
         title="Calendrier"
         description="Vue chantier façon Google Agenda."
@@ -507,8 +629,48 @@ function ChantierCalendarPage() {
               ))}
             </div>
           )}
+
+          {/* Days selector (week / team-week) */}
+          {(view === "week" || (view === "team" && teamMode === "week")) && (
+            <div className="ml-2 inline-flex overflow-hidden rounded-md border border-border" title="Jours affichés dans la semaine">
+              {([5,6,7] as const).map((d) => (
+                <button key={d} onClick={() => setWeekDays(d)}
+                  className={cn("px-2 py-1.5 text-[11px] font-medium transition",
+                    weekDays === d ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted")}>
+                  {d}j
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Zoom (time grid views) */}
+          {(view === "week" || view === "day" || view === "custom" || view === "team") && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="ghost" className="ml-2 gap-1" title="Zoom">
+                  <ZoomIn className="h-3.5 w-3.5" /> {zoom === "compact" ? "Compact" : zoom === "confort" ? "Confort" : "Normal"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-44 p-1">
+                {(["compact","normal","confort"] as const).map((z) => (
+                  <button key={z} onClick={() => setZoom(z)}
+                    className={cn("flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted",
+                      zoom === z && "bg-primary/10 text-primary")}>
+                    <span className="capitalize">{z}</span>
+                    <span className="text-[11px] text-muted-foreground">{ZOOM_LEVELS[z]}px/h</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Fullscreen */}
+          <Button size="icon" variant="ghost" onClick={() => setFullscreen((v) => !v)} title={fullscreen ? "Quitter plein écran (Échap)" : "Plein écran"}>
+            {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
         </div>
       </Card>
+
 
       {view === "custom" && (
         <Card className="flex flex-wrap items-end gap-3 p-3">
@@ -529,7 +691,61 @@ function ChantierCalendarPage() {
         </Card>
       )}
 
+      {/* Filters toggle + conflicts chip */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant={filtersOpen || activeFilterCount > 0 ? "secondary" : "outline"}
+          onClick={() => setFiltersOpen((v) => !v)} className="gap-1.5">
+          <Filter className="h-3.5 w-3.5" />
+          Filtres
+          {activeFilterCount > 0 && <Badge variant="default" className="ml-1 h-5 min-w-5 justify-center px-1.5">{activeFilterCount}</Badge>}
+        </Button>
+        {activeFilterCount > 0 && (
+          <Button size="sm" variant="ghost" onClick={resetFilters} className="text-xs text-muted-foreground">
+            <X className="h-3 w-3" /> Réinitialiser
+          </Button>
+        )}
+        {conflicts.size > 0 && (
+          <Popover open={conflictsPanelOpen} onOpenChange={setConflictsPanelOpen}>
+            <PopoverTrigger asChild>
+              <button type="button"
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-500/15">
+                <AlertTriangle className="h-3 w-3" /> {conflicts.size} conflit{conflicts.size > 1 ? "s" : ""} de planning
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[min(440px,92vw)] p-0">
+              <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Conflits détectés
+              </div>
+              <ul className="max-h-80 divide-y divide-border overflow-y-auto">
+                {conflictPairs.map((p, i) => (
+                  <li key={i} className="px-3 py-2 text-xs">
+                    <div className="mb-1 font-medium text-foreground">{memberName(p.member) ?? "—"}</div>
+                    {[p.a, p.b].map((ev) => (
+                      <div key={ev.id} className="flex items-center justify-between gap-2 py-0.5">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorOf(ev).bg }} />
+                          <span className="truncate">{ev.title}</span>
+                          <span className="shrink-0 text-muted-foreground">
+                            · {ev.start_at ? fmtTime(new Date(ev.start_at)) : "—"}
+                            {ev.end_at ? `–${fmtTime(new Date(ev.end_at))}` : ""}
+                          </span>
+                        </span>
+                        <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs"
+                          onClick={() => { setConflictsPanelOpen(false); openEdit(ev); }}>
+                          <Eye className="h-3 w-3" /> Voir
+                        </Button>
+                      </div>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+
       {/* Filters */}
+      {filtersOpen && (
       <Card className="grid gap-2 p-2 md:grid-cols-6">
         <Select value={fChantier} onValueChange={setFChantier}>
           <SelectTrigger className="h-9"><SelectValue placeholder="Chantier" /></SelectTrigger>
@@ -582,13 +798,10 @@ function ChantierCalendarPage() {
             className={cn("rounded-full border px-2.5 py-1 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
             Masquer annulés
           </button>
-          {conflicts.size > 0 && (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 font-medium text-red-600">
-              <AlertTriangle className="h-3 w-3" /> {conflicts.size} conflit{conflicts.size > 1 ? "s" : ""} de planning
-            </span>
-          )}
         </div>
       </Card>
+      )}
+
 
       {/* Views */}
       {loading && <div className="p-8 text-center text-sm text-muted-foreground">Chargement…</div>}
@@ -623,6 +836,8 @@ function ChantierCalendarPage() {
         <TeamView
           mode={teamMode}
           cursor={cursor}
+          weekDays={weekDays}
+          hourPx={hourPx}
           members={members}
           events={events}
           canWrite={canWrite}
@@ -632,7 +847,6 @@ function ChantierCalendarPage() {
           onCreateForMember={(memberId, start) => {
             if (!canWrite) return;
             openNew(start, new Date(start.getTime() + 60 * 60000));
-            // pre-set assignee after openNew sets form
             setTimeout(() => setEvtForm((f) => ({ ...f, assigned_to: memberId === UNASSIGNED ? "" : memberId })), 0);
           }}
           onReassign={(id, memberId) => void commitReassign(id, memberId === UNASSIGNED ? null : memberId)}
@@ -647,11 +861,12 @@ function ChantierCalendarPage() {
           days={(() => {
             const out: Date[] = [];
             const start = view === "week" ? startOfWeek(cursor) : (view === "day" ? cursor : range.from);
-            const total = view === "week" ? 7 : (view === "day" ? 1 : Math.min(31, Math.max(1, Math.round((range.to.getTime() - range.from.getTime())/86400000)+1)));
+            const total = view === "week" ? weekDays : (view === "day" ? 1 : Math.min(31, Math.max(1, Math.round((range.to.getTime() - range.from.getTime())/86400000)+1)));
             for (let i = 0; i < total; i++) out.push(addDays(new Date(start.getFullYear(), start.getMonth(), start.getDate()), i));
             return out;
           })()}
           events={events}
+          hourPx={hourPx}
           canWrite={canWrite}
           conflictIds={conflicts}
           onCreateRange={(s, e) => openNew(s, e)}
@@ -671,6 +886,7 @@ function ChantierCalendarPage() {
           onResize={(id, newEnd) => { void commitResize(id, newEnd); }}
         />
       )}
+
 
       {!loading && view === "list" && (
         <Card className="p-2">
@@ -857,7 +1073,39 @@ function ChantierCalendarPage() {
           onSaved={() => { setQuickEvt(null); void load(); }}
         />
       )}
+
+      {/* Conflict confirmation modal (pre-save) */}
+      <AlertDialog open={!!confirmConflicts} onOpenChange={(o) => { if (!o) setConfirmConflicts(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" /> Conflit de planning détecté
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Cet événement chevauche {confirmConflicts?.list.length ?? 0} autre{(confirmConflicts?.list.length ?? 0) > 1 ? "s" : ""} déjà assigné{(confirmConflicts?.list.length ?? 0) > 1 ? "s" : ""} à ce membre :
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="max-h-56 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-sm">
+            {confirmConflicts?.list.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-2 py-1">
+                <span className="truncate">{c.title}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {c.start_at ? new Date(c.start_at).toLocaleString("fr-FR", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" }) : "—"}
+                  {c.end_at ? ` – ${new Date(c.end_at).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" })}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { void confirmConflicts?.proceed(); }} className="bg-red-600 hover:bg-red-600/90">
+              Continuer quand même
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
 
@@ -954,11 +1202,18 @@ function MonthView({
                           onDragEnd={() => { setDragId(null); setDragOverIdx(null); }}
                           onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
                           onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
-                          className={cn("truncate rounded px-1.5 py-0.5 text-[11px] font-medium", ann && "line-through opacity-60", draggable && "cursor-grab active:cursor-grabbing", isDragged && "opacity-40", conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
+                          className={cn("flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-[11px] font-medium",
+                            ann && "line-through opacity-50",
+                            e.status === "termine" && "opacity-75",
+                            draggable && "cursor-grab active:cursor-grabbing",
+                            isDragged && "opacity-40",
+                            conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
                           style={{ background: c.bg, color: c.fg }}>
-                          {e.start_at && !e.all_day && <span className="mr-1 opacity-90">{fmtTime(new Date(e.start_at))}</span>}
-                          {e.title}
+                          {statusIcon(e.status)}
+                          {e.start_at && !e.all_day && <span className="opacity-90">{fmtTime(new Date(e.start_at))}</span>}
+                          <span className="truncate">{e.title}</span>
                         </div>
+
                       </HoverCardTrigger>
                       <HoverCardContent side="right" align="start" className="w-72">
                         <EventHoverContent evt={e} memberName={memberName} chantierName={chantierName} clientName={clientName} />
@@ -977,7 +1232,7 @@ function MonthView({
 }
 
 // ============= TIME GRID (week/day/custom) =============
-const HOUR_PX = 56;
+const DEFAULT_HOUR_PX = 56;
 const START_HOUR = 7;
 const END_HOUR = 21;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
@@ -993,7 +1248,7 @@ type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number;
 
 function TimeGridView({
   days, events, canWrite, conflictIds, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
-  memberName, chantierName, clientName,
+  memberName, chantierName, clientName, hourPx = DEFAULT_HOUR_PX,
 }: {
   days: Date[]; events: Evt[]; canWrite: boolean;
   conflictIds: Set<string>;
@@ -1005,6 +1260,7 @@ function TimeGridView({
   memberName: (id: string | null | undefined) => string | null;
   chantierName: (id: string | null | undefined) => string;
   clientName: (id: string | null | undefined) => string;
+  hourPx?: number;
 }) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -1032,7 +1288,7 @@ function TimeGridView({
   // scroll to ~current time on mount / day change
   useEffect(() => {
     const sc = scrollRef.current; if (!sc) return;
-    const target = Math.max(0, (nowMin / 60) * HOUR_PX - 120);
+    const target = Math.max(0, (nowMin / 60) * hourPx - 120);
     sc.scrollTop = target;
     // only once per day-set change
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1044,7 +1300,7 @@ function TimeGridView({
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     const dayIdx = Math.max(0, Math.min(days.length - 1, Math.floor((x / rect.width) * days.length)));
-    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * HOUR_PX)) * TOTAL_HOURS * 60 / 15) * 15));
+    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * hourPx)) * TOTAL_HOURS * 60 / 15) * 15));
     return { dayIdx, minutes };
   }
   function minutesToDate(day: Date, minutes: number) {
@@ -1183,9 +1439,9 @@ function TimeGridView({
       <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "72vh" }}>
         <div className="grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0,1fr))` }}>
           {/* Hours col (sticky left) */}
-          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * HOUR_PX }}>
+          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * hourPx }}>
             {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
-              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * HOUR_PX }}>
+              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * hourPx }}>
                 {String(START_HOUR + h).padStart(2, "0")}:00
               </div>
             ))}
@@ -1200,16 +1456,16 @@ function TimeGridView({
               onCreateRange(s, new Date(s.getTime() + 60 * 60000));
             }}
             className={cn("relative col-span-full -ml-px", drag?.kind === "move" && "cursor-grabbing select-none", drag?.kind === "resize" && "cursor-ns-resize select-none")}
-            style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * HOUR_PX, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
+            style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * hourPx, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
             {days.map((d, i) => (
               <div key={i} className={cn("relative border-l border-border", i === todayIdx && "bg-primary/[0.04]")}>
                 {/* Hour lines */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * HOUR_PX }} />
+                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * hourPx }} />
                 ))}
                 {/* Half-hour subtle */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={"h" + h} className="absolute left-0 right-0 border-t border-dashed border-border/20" style={{ top: h * HOUR_PX + HOUR_PX / 2 }} />
+                  <div key={"h" + h} className="absolute left-0 right-0 border-t border-dashed border-border/20" style={{ top: h * hourPx + hourPx / 2 }} />
                 ))}
               </div>
             ))}
@@ -1217,7 +1473,7 @@ function TimeGridView({
             {/* Current time indicator */}
             {todayIdx >= 0 && nowMin >= 0 && nowMin <= TOTAL_HOURS * 60 && (
               <div className="pointer-events-none absolute z-20" style={{
-                top: (nowMin / 60) * HOUR_PX - 1,
+                top: (nowMin / 60) * hourPx - 1,
                 left: `${todayIdx * colWidthPct}%`,
                 width: `${colWidthPct}%`,
               }}>
@@ -1261,22 +1517,33 @@ function TimeGridView({
                       className={cn(
                         "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
                         !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
-                        ann && "line-through opacity-60",
+                        ann && "line-through opacity-50",
+                        evt.status === "termine" && "opacity-80",
                         isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
                         conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
                       )}
                       style={{
                         background: c.bg, color: c.fg,
                         left, width,
-                        top: (liveTop / 60) * HOUR_PX,
-                        height: (liveHeight / 60) * HOUR_PX - 2,
+                        top: (liveTop / 60) * hourPx,
+                        height: (liveHeight / 60) * hourPx - 2,
                         zIndex: isDragged ? 40 : 10,
                       }}>
-                      <div className="truncate">{evt.title}</div>
+                      <div className="flex items-center gap-1 truncate">
+                        {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                        {statusIcon(evt.status)}
+                        <span className="truncate">{evt.title}</span>
+                        {evt.assigned_to && liveHeight >= 50 && (
+                          <span className="ml-auto shrink-0 rounded-sm bg-white/25 px-1 text-[9px] font-bold">{initials(memberName(evt.assigned_to))}</span>
+                        )}
+                      </div>
                       {liveHeight >= 30 && (
                         <div className="truncate text-[10px] opacity-90">
                           {fmtMin(liveTop)} – {fmtMin(liveTop + liveHeight)}
                         </div>
+                      )}
+                      {liveHeight >= 64 && evt.chantier_id && (
+                        <div className="truncate text-[10px] opacity-80">{chantierName(evt.chantier_id)}</div>
                       )}
                       {/* resize handle */}
                       {!isSystem && canWrite && (
@@ -1286,6 +1553,7 @@ function TimeGridView({
                         />
                       )}
                     </div>
+
                   </HoverCardTrigger>
                   {!drag && (
                     <HoverCardContent side="right" align="start" className="w-72">
@@ -1302,8 +1570,8 @@ function TimeGridView({
                 style={{
                   left: `calc(${drag.dayIdx * colWidthPct}% + 2px)`,
                   width: `calc(${colWidthPct}% - 4px)`,
-                  top: (Math.min(drag.startMin, drag.endMin) / 60) * HOUR_PX,
-                  height: (Math.abs(drag.endMin - drag.startMin) / 60) * HOUR_PX,
+                  top: (Math.min(drag.startMin, drag.endMin) / 60) * hourPx,
+                  height: (Math.abs(drag.endMin - drag.startMin) / 60) * hourPx,
                 }} />
             )}
 
@@ -1311,11 +1579,11 @@ function TimeGridView({
             {dragTooltip && (
               <>
                 <div className="pointer-events-none absolute left-0 right-0 z-30 border-t-2 border-dashed border-primary/70"
-                  style={{ top: (dragTooltip.s / 60) * HOUR_PX }} />
+                  style={{ top: (dragTooltip.s / 60) * hourPx }} />
                 <div className="pointer-events-none absolute z-40 rounded-md bg-foreground px-2 py-1 text-[11px] font-semibold text-background shadow-lg"
                   style={{
                     left: `calc(${dragTooltip.day ? days.indexOf(dragTooltip.day) * colWidthPct : 0}% + 4px)`,
-                    top: (dragTooltip.s / 60) * HOUR_PX - 26,
+                    top: (dragTooltip.s / 60) * hourPx - 26,
                   }}>
                   {fmtMin(dragTooltip.s)} – {fmtMin(dragTooltip.e)}
                 </div>
@@ -1499,7 +1767,7 @@ function fmtHrs(min: number) {
 }
 
 function TeamView({
-  mode, cursor, members, events, canWrite, conflictIds,
+  mode, cursor, members, events, canWrite, conflictIds, weekDays, hourPx,
   onClickEvent, onDblClickEvent, onCreateForMember, onReassign,
   chantierName, clientName, memberName,
 }: {
@@ -1509,6 +1777,8 @@ function TeamView({
   events: Evt[];
   canWrite: boolean;
   conflictIds: Set<string>;
+  weekDays: WeekDays;
+  hourPx: number;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onCreateForMember: (memberId: string, start: Date) => void;
@@ -1517,16 +1787,14 @@ function TeamView({
   clientName: (id: string | null | undefined) => string;
   memberName: (id: string | null | undefined) => string | null;
 }) {
-  // Columns: members + Non assigné
   const cols = useMemo<Member[]>(
     () => [...members, { user_id: UNASSIGNED, name: "Non assigné" }],
     [members],
   );
 
-  // Workload computation (per member, scope = current view)
   const workloadMap = useMemo(() => {
     const map = new Map<string, { min: number; count: number }>();
-    const days = mode === "day" ? [cursor] : Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i));
+    const days = mode === "day" ? [cursor] : Array.from({ length: weekDays }, (_, i) => addDays(startOfWeek(cursor), i));
     for (const e of events) {
       if (!e.start_at || e.status === "annule" || e.event_type.startsWith("system_")) continue;
       const s = new Date(e.start_at);
@@ -1539,7 +1807,7 @@ function TeamView({
       map.set(key, prev);
     }
     return map;
-  }, [events, mode, cursor]);
+  }, [events, mode, cursor, weekDays]);
 
   if (cols.length === 0) {
     return <Card className="p-8 text-center text-sm text-muted-foreground">Aucun membre dans l'équipe.</Card>;
@@ -1548,7 +1816,7 @@ function TeamView({
   if (mode === "week") return (
     <TeamWeekView
       cursor={cursor} cols={cols} events={events} canWrite={canWrite}
-      conflictIds={conflictIds} workloadMap={workloadMap}
+      conflictIds={conflictIds} workloadMap={workloadMap} weekDays={weekDays}
       onClickEvent={onClickEvent} onDblClickEvent={onDblClickEvent}
       onReassign={onReassign} chantierName={chantierName} clientName={clientName} memberName={memberName}
     />
@@ -1556,7 +1824,7 @@ function TeamView({
 
   return (
     <TeamDayView
-      day={cursor} cols={cols} events={events} canWrite={canWrite}
+      day={cursor} cols={cols} events={events} canWrite={canWrite} hourPx={hourPx}
       conflictIds={conflictIds} workloadMap={workloadMap}
       onClickEvent={onClickEvent} onDblClickEvent={onDblClickEvent}
       onCreateForMember={onCreateForMember}
@@ -1566,13 +1834,14 @@ function TeamView({
 }
 
 function TeamDayView({
-  day, cols, events, canWrite, conflictIds, workloadMap,
+  day, cols, events, canWrite, conflictIds, workloadMap, hourPx,
   onClickEvent, onDblClickEvent, onCreateForMember, onReassign,
   chantierName, clientName, memberName,
 }: {
   day: Date; cols: Member[]; events: Evt[]; canWrite: boolean;
   conflictIds: Set<string>;
   workloadMap: Map<string, { min: number; count: number }>;
+  hourPx: number;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onCreateForMember: (memberId: string, start: Date) => void;
@@ -1594,7 +1863,7 @@ function TeamDayView({
     const x = clientX - rect.left;
     const y = clientY - rect.top;
     const colIdx = Math.max(0, Math.min(cols.length - 1, Math.floor((x / rect.width) * cols.length)));
-    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * HOUR_PX)) * TOTAL_HOURS * 60 / 15) * 15));
+    const minutes = Math.max(0, Math.min(TOTAL_HOURS * 60, Math.round((y / (TOTAL_HOURS * hourPx)) * TOTAL_HOURS * 60 / 15) * 15));
     return { colIdx, minutes };
   }
   function minutesToDate(d: Date, minutes: number) {
@@ -1669,9 +1938,9 @@ function TeamDayView({
       </div>
       <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "72vh" }}>
         <div className="grid" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0,1fr))` }}>
-          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * HOUR_PX }}>
+          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * hourPx }}>
             {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
-              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * HOUR_PX }}>
+              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * hourPx }}>
                 {String(START_HOUR + h).padStart(2, "0")}:00
               </div>
             ))}
@@ -1685,11 +1954,11 @@ function TeamDayView({
               onCreateForMember(cols[p.colIdx].user_id, s);
             }}
             className={cn("relative col-span-full -ml-px", drag && "cursor-grabbing select-none")}
-            style={{ gridColumn: `2 / span ${cols.length}`, height: TOTAL_HOURS * HOUR_PX, gridTemplateColumns: `repeat(${cols.length}, minmax(0,1fr))`, display: "grid" }}>
+            style={{ gridColumn: `2 / span ${cols.length}`, height: TOTAL_HOURS * hourPx, gridTemplateColumns: `repeat(${cols.length}, minmax(0,1fr))`, display: "grid" }}>
             {cols.map((c, i) => (
               <div key={c.user_id} className={cn("relative border-l border-border", c.user_id === UNASSIGNED && "bg-muted/20", drag?.colIdx === i && "bg-primary/[0.06]")}>
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * HOUR_PX }} />
+                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * hourPx }} />
                 ))}
               </div>
             ))}
@@ -1720,14 +1989,16 @@ function TeamDayView({
                         background: c.bg, color: c.fg,
                         left: `calc(${liveColIdx * colWidthPct}% + 2px)`,
                         width: `calc(${colWidthPct}% - 4px)`,
-                        top: (topMin / 60) * HOUR_PX,
-                        height: (heightMin / 60) * HOUR_PX - 2,
+                        top: (topMin / 60) * hourPx,
+                        height: (heightMin / 60) * hourPx - 2,
                         zIndex: isDragged ? 40 : 10,
                       }}>
                       <div className="truncate flex items-center gap-1">
                         {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
-                        {evt.title}
+                        {statusIcon(evt.status)}
+                        <span className="truncate">{evt.title}</span>
                       </div>
+
                       {heightMin >= 30 && (
                         <div className="truncate text-[10px] opacity-90">
                           {fmtMin(topMin)} – {fmtMin(topMin + heightMin)}
@@ -1751,13 +2022,14 @@ function TeamDayView({
 }
 
 function TeamWeekView({
-  cursor, cols, events, canWrite, conflictIds, workloadMap,
+  cursor, cols, events, canWrite, conflictIds, workloadMap, weekDays,
   onClickEvent, onDblClickEvent, onReassign,
   chantierName, clientName, memberName,
 }: {
   cursor: Date; cols: Member[]; events: Evt[]; canWrite: boolean;
   conflictIds: Set<string>;
   workloadMap: Map<string, { min: number; count: number }>;
+  weekDays: WeekDays;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onReassign: (id: string, memberId: string) => void;
@@ -1765,7 +2037,7 @@ function TeamWeekView({
   clientName: (id: string | null | undefined) => string;
   memberName: (id: string | null | undefined) => string | null;
 }) {
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i)), [cursor]);
+  const days = useMemo(() => Array.from({ length: weekDays }, (_, i) => addDays(startOfWeek(cursor), i)), [cursor, weekDays]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overMember, setOverMember] = useState<string | null>(null);
 
@@ -1775,7 +2047,7 @@ function TeamWeekView({
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="grid border-b border-border bg-background/95 text-xs" style={{ gridTemplateColumns: `180px repeat(7, minmax(0,1fr))` }}>
+      <div className="grid border-b border-border bg-background/95 text-xs" style={{ gridTemplateColumns: `180px repeat(${days.length}, minmax(0,1fr))` }}>
         <div className="border-r border-border p-2 font-semibold uppercase tracking-wide text-muted-foreground">Membre</div>
         {days.map((d, i) => {
           const isToday = sameDay(d, new Date());
@@ -1794,7 +2066,7 @@ function TeamWeekView({
           const b = workloadBadge(wl.min);
           const isOver = overMember === c.user_id && dragId;
           return (
-            <div key={c.user_id} className={cn("grid", isOver && "bg-primary/[0.06]")} style={{ gridTemplateColumns: `180px repeat(7, minmax(0,1fr))` }}
+            <div key={c.user_id} className={cn("grid", isOver && "bg-primary/[0.06]")} style={{ gridTemplateColumns: `180px repeat(${days.length}, minmax(0,1fr))` }}
               onDragOver={(e) => { if (canWrite && dragId) { e.preventDefault(); if (overMember !== c.user_id) setOverMember(c.user_id); } }}
               onDragLeave={() => { if (overMember === c.user_id) setOverMember(null); }}
               onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); setOverMember(null); onReassign(id, c.user_id); } }}>
@@ -1827,13 +2099,16 @@ function TeamWeekView({
                                 onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
                                 onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
                                 className={cn("flex items-center gap-1 truncate rounded px-1.5 py-1 text-[11px] font-medium",
-                                  ann && "line-through opacity-60",
+                                  ann && "line-through opacity-50",
+                                  e.status === "termine" && "opacity-75",
                                   draggable && "cursor-grab active:cursor-grabbing",
                                   conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
                                 style={{ background: col.bg, color: col.fg }}>
                                 {conflictIds.has(e.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                                {statusIcon(e.status)}
                                 {e.start_at && !e.all_day && <span className="opacity-90">{fmtTime(new Date(e.start_at))}</span>}
                                 <span className="truncate">{e.title}</span>
+
                               </div>
                             </HoverCardTrigger>
                             <HoverCardContent side="right" align="start" className="w-72">
