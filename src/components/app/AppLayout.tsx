@@ -14,7 +14,6 @@ import {
   AlertCircle,
   Building2,
   UsersRound,
-  Smartphone,
   ShieldCheck,
   BarChart3,
   CreditCard,
@@ -35,7 +34,6 @@ import { useSuspension } from "@/hooks/use-suspension";
 
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { to: "/terrain", label: "Mode terrain", icon: Smartphone },
   { to: "/pv", label: "Procès-verbaux", icon: FileText },
   { to: "/reserves", label: "Réserves", icon: AlertCircle },
   { to: "/chantiers", label: "Chantiers", icon: HardHat },

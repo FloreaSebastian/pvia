@@ -32,8 +32,8 @@ export function ProductShowcase() {
 function FeatureList() {
   const items = [
     {
-      title: "Mode terrain hors-ligne",
-      desc: "Continuez à travailler même sans réseau. Synchronisation automatique au retour de connexion.",
+      title: "Création rapide sur chantier",
+      desc: "Interface mobile fluide pour créer un PV en quelques minutes, photos et signatures incluses.",
     },
     {
       title: "Photos géolocalisées",

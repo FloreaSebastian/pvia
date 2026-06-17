@@ -20,7 +20,7 @@ const features = [
   { icon: FileDown, title: "Export PDF automatique", desc: "PV finalisé en PDF haute qualité, prêt à archiver et envoyer." },
   { icon: History, title: "Historique des chantiers", desc: "Tous vos chantiers et documents accessibles en un clic." },
   { icon: Users, title: "Multi-utilisateurs", desc: "Invitez vos équipes, chefs de chantier et gestionnaires." },
-  { icon: Smartphone, title: "Compatible mobile terrain", desc: "Interface optimisée pour usage sur chantier, même hors-ligne." },
+  { icon: Smartphone, title: "Optimisé mobile et tablette", desc: "Interface fluide pour créer et signer vos PV directement sur chantier." },
   { icon: ShieldCheck, title: "Archivage sécurisé", desc: "Stockage chiffré conforme RGPD, conservation 10 ans." },
   { icon: Mail, title: "Envoi automatique", desc: "PV envoyé au client par email avec accusé de réception." },
 ];

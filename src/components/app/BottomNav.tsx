@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Smartphone, AlertCircle, Bell, Plus } from "lucide-react";
+import { LayoutDashboard, HardHat, AlertCircle, Bell, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { vibrate } from "@/lib/pwa";
 
 const items = [
   { to: "/dashboard", label: "Accueil", icon: LayoutDashboard },
-  { to: "/terrain", label: "Terrain", icon: Smartphone },
+  { to: "/chantiers", label: "Chantiers", icon: HardHat },
   { center: true, to: "/pv/new", label: "Nouveau PV", icon: Plus },
   { to: "/reserves", label: "Réserves", icon: AlertCircle },
   { to: "/dashboard", label: "Alertes", icon: Bell, badge: true },
