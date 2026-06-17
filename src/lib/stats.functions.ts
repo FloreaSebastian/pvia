@@ -349,8 +349,11 @@ export const exportCompanyStatsCsv = createServerFn({ method: "POST" })
     rows.push(["Délai moyen signature (h)", k.avgDelayHours]);
     rows.push(["Réserves totales", k.reservesTotal]);
     rows.push(["Réserves ouvertes", k.reservesOuverte]);
+    rows.push(["Réserves en cours", k.reservesEnCours]);
     rows.push(["Réserves levées", k.reservesLevee]);
-    rows.push(["Réserves validées", k.reservesValidee]);
+    rows.push(["Réserves en attente validation", k.reservesEnAttenteValidation]);
+    rows.push(["Réserves validées client", k.reservesValidee]);
+    rows.push(["Réserves rejetées", k.reservesRejetee]);
     rows.push(["Emails envoyés", k.emailsSent]);
     rows.push(["Emails échoués", k.emailsFailed]);
     rows.push(["Photos ajoutées", k.photosTotal]);
