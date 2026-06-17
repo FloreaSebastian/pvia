@@ -1114,36 +1114,46 @@ function TimeGridView({
               const width = `calc(${subW}% - 4px)`;
 
               return (
-                <div key={evt.id} data-evt
-                  onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
-                  onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
-                  className={cn(
-                    "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
-                    !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
-                    ann && "line-through opacity-60",
-                    isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
-                  )}
-                  style={{
-                    background: c.bg, color: c.fg,
-                    left, width,
-                    top: (liveTop / 60) * HOUR_PX,
-                    height: (liveHeight / 60) * HOUR_PX - 2,
-                    zIndex: isDragged ? 40 : 10,
-                  }}>
-                  <div className="truncate">{evt.title}</div>
-                  {liveHeight >= 30 && (
-                    <div className="truncate text-[10px] opacity-90">
-                      {fmtMin(liveTop)} – {fmtMin(liveTop + liveHeight)}
+                <HoverCard key={evt.id} openDelay={400} closeDelay={80}>
+                  <HoverCardTrigger asChild>
+                    <div data-evt
+                      onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
+                      onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
+                      onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
+                      className={cn(
+                        "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
+                        !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
+                        ann && "line-through opacity-60",
+                        isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                      )}
+                      style={{
+                        background: c.bg, color: c.fg,
+                        left, width,
+                        top: (liveTop / 60) * HOUR_PX,
+                        height: (liveHeight / 60) * HOUR_PX - 2,
+                        zIndex: isDragged ? 40 : 10,
+                      }}>
+                      <div className="truncate">{evt.title}</div>
+                      {liveHeight >= 30 && (
+                        <div className="truncate text-[10px] opacity-90">
+                          {fmtMin(liveTop)} – {fmtMin(liveTop + liveHeight)}
+                        </div>
+                      )}
+                      {/* resize handle */}
+                      {!isSystem && canWrite && (
+                        <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
+                          className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                          style={{ opacity: isDragged ? 1 : undefined }}
+                        />
+                      )}
                     </div>
+                  </HoverCardTrigger>
+                  {!drag && (
+                    <HoverCardContent side="right" align="start" className="w-72">
+                      <EventHoverContent evt={evt} memberName={memberName} chantierName={chantierName} clientName={clientName} />
+                    </HoverCardContent>
                   )}
-                  {/* resize handle */}
-                  {!isSystem && canWrite && (
-                    <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
-                      className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
-                      style={{ opacity: isDragged ? 1 : undefined }}
-                    />
-                  )}
-                </div>
+                </HoverCard>
               );
             })}
 
