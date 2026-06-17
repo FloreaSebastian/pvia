@@ -660,15 +660,16 @@ export async function generatePvPdfBytes(input: {
   );
   y -= 8;
 
-  // ============ PHOTOS ============
-  if (photos.length) {
-    sectionTitle(`Photos du chantier (${photos.length})`);
+  // ============ PHOTOS (globales — hors réserves, déjà affichées par carte) ============
+  const globalPhotos = photos.filter((p) => !p.reserve_id);
+  if (globalPhotos.length) {
+    sectionTitle(`Photos du chantier (${globalPhotos.length})`);
     const colsN = 2;
     const gap = 12;
     const cW = (CONTENT_W - gap * (colsN - 1)) / colsN;
     const cH = 150;
     let col = 0;
-    for (const p of photos) {
+    for (const p of globalPhotos) {
       const t = detectImageType(p.bytes);
       if (!t) continue;
       if (col === 0) ensureSpace(cH + 28);
@@ -692,6 +693,7 @@ export async function generatePvPdfBytes(input: {
     if (col !== 0) y -= cH + 24;
     y -= 4;
   }
+
 
   // ============ SIGNATURES ============
   sectionTitle("Signatures");
