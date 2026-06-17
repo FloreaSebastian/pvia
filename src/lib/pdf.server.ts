@@ -594,8 +594,38 @@ export async function generatePvPdfBytes(input: {
       }
 
       y -= rowH + 4;
+
+      // Photos de la réserve, juste sous la carte.
+      const reservePhotos = photos.filter((ph) => ph.reserve_id === (r as any).id);
+      if (reservePhotos.length) {
+        const thumbW = 88, thumbH = 66, gapTh = 6;
+        const perRow = Math.max(1, Math.floor((CONTENT_W - 12) / (thumbW + gapTh)));
+        let rendered = 0;
+        for (const rp of reservePhotos.slice(0, 8)) {
+          const t = detectImageType(rp.bytes);
+          if (!t) continue;
+          if (rendered % perRow === 0) ensureSpace(thumbH + 8);
+          const col = rendered % perRow;
+          const px = MARGIN + 12 + col * (thumbW + gapTh);
+          try {
+            const img = t === "png" ? await pdf.embedPng(rp.bytes) : await pdf.embedJpg(rp.bytes);
+            const ratio = img.width / img.height;
+            let w = thumbW, h = thumbW / ratio;
+            if (h > thumbH) { h = thumbH; w = thumbH * ratio; }
+            const offX = px + (thumbW - w) / 2;
+            const offY = y - thumbH + (thumbH - h) / 2;
+            page.drawRectangle({ x: px, y: y - thumbH, width: thumbW, height: thumbH, borderColor: BORDER, borderWidth: 0.4 });
+            page.drawImage(img, { x: offX, y: offY, width: w, height: h });
+          } catch { /* skip */ }
+          rendered += 1;
+          if (rendered % perRow === 0) y -= thumbH + 8;
+        }
+        if (rendered % perRow !== 0) y -= thumbH + 8;
+        y -= 2;
+      }
     });
   }
+
 
 
   // ============ GARANTIES APPLICABLES ============
