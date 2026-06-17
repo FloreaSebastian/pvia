@@ -153,7 +153,7 @@ export async function generatePvPdfBytes(input: {
   client: Client;
   chantier: Chantier;
   reserves: Reserve[];
-  photos: { caption: string | null; bytes: Uint8Array }[];
+  photos: { caption: string | null; bytes: Uint8Array; reserve_id?: string | null }[];
   branding?: CompanyBrandingSettings;
   proof?: SignatureProofMeta;
   referenceDocument?: ReferenceDocument | null;
