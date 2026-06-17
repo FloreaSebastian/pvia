@@ -109,7 +109,7 @@ export const updateChantier = createServerFn({ method: "POST" })
     const payload = normalize(data.data);
     const { data: prev } = await supabase
       .from("chantiers")
-      .select("name,address,address_line1,postal_code,city,latitude,longitude,type,status,client_id,start_date,end_date,description,company_id")
+      .select("name,address,address_line1,postal_code,city,latitude,longitude,type,status,client_id,start_date,end_date,description,color,progress_percent,company_id")
       .eq("id", data.id).maybeSingle();
     if (!prev || prev.company_id !== data.companyId) throw new Error("Chantier introuvable.");
     const { error } = await supabase.from("chantiers").update(payload).eq("id", data.id).eq("company_id", data.companyId);
