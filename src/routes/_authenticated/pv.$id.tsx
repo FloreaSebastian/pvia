@@ -600,31 +600,35 @@ function PvDetail() {
               </Info>
             )}
           </div>
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Description des travaux</p>
-            <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{pv.description || "—"}</p>
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Observations</p>
-            <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{pv.observations || "—"}</p>
-          </div>
+          <DescriptionBlock label="Description des travaux" text={pv.description} />
+          {pv.observations && (
+            <DescriptionBlock label="Observations" text={pv.observations} />
+          )}
         </Card>
 
-        <Card className="p-6 space-y-4">
-          <h3 className="font-semibold">Signatures</h3>
-          <SignatureBlock label="Client" data={pv.client_signature} />
-          <SignatureBlock label="Entreprise" data={pv.company_signature} />
+        <Card className="p-4 space-y-3">
+          <h3 className="font-semibold text-sm">Signatures</h3>
+          <CompactSignature
+            label="Client"
+            data={pv.client_signature}
+            name={clientName ?? pv.client_identity_email ?? null}
+            date={pv.signed_at}
+          />
+          <CompactSignature
+            label="Entreprise"
+            data={pv.company_signature}
+            name={null}
+            date={pv.signed_at}
+          />
         </Card>
       </div>
 
-      <Card className="p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Camera className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold">Photos chantier ({photos.length})</h3>
-        </div>
-        {photos.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Aucune photo.</p>
-        ) : (
+      {photos.length > 0 && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Camera className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold">Photos chantier ({photos.length})</h3>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {photos.map((p) => (
               <a key={p.id} href={p.signedUrl} target="_blank" rel="noreferrer" className="group block">
@@ -635,8 +639,8 @@ function PvDetail() {
               </a>
             ))}
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
 
       {(() => {
         const total = reserves.length;
