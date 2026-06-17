@@ -111,7 +111,7 @@ export async function buildAndStoreReserveLiftPdf(
   const reserveIds = (itemsRes.data ?? []).map((i: any) => i.reserve_id);
 
   const { data: reservesData } = reserveIds.length
-    ? await supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").in("id", reserveIds)
+    ? await supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date,priority,assigned_to,created_at,lifted_at,validated_at").in("id", reserveIds)
     : { data: [] as any[] };
   const reserveMap = new Map<string, any>((reservesData ?? []).map((r: any) => [r.id, r]));
 
