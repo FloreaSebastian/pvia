@@ -198,6 +198,61 @@ export function ReserveDetailDialog({
             </div>
           )}
 
+          {photos.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium">Photos d'intervention ({photos.length})</div>
+              {(["before", "after", "legacy"] as const).map((kind) => {
+                const subset = photos.filter((p) => p.photoType === kind);
+                if (subset.length === 0) return null;
+                const title = kind === "before" ? "Avant intervention" : kind === "after" ? "Après intervention" : "Non catégorisées";
+                return (
+                  <div key={kind}>
+                    <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{title} ({subset.length})</div>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {subset.map((p) => {
+                        const hasGeo = p.latitude !== null && p.longitude !== null;
+                        return (
+                          <a key={p.id} href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden rounded border border-border">
+                            {p.url ? <img src={p.url} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square w-full bg-muted" />}
+                            <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
+                              {hasGeo ? (
+                                <>
+                                  <MapPin className="h-2.5 w-2.5 text-green-300" />
+                                  {p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}
+                                </>
+                              ) : (
+                                <>
+                                  <MapPinOff className="h-2.5 w-2.5 text-amber-300" />
+                                  Non géo.
+                                </>
+                              )}
+                            </div>
+                            {p.uploadedAt && (
+                              <div className="absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
+                                {new Date(p.uploadedAt).toLocaleDateString("fr-FR")}
+                              </div>
+                            )}
+                          </a>
+                        );
+                      })}
+                    </div>
+                    {subset.some((p) => p.latitude !== null) && (
+                      <div className="mt-1 text-[10px] text-muted-foreground">
+                        {subset
+                          .filter((p) => p.latitude !== null)
+                          .slice(0, 1)
+                          .map((p) => (
+                            <span key={p.id}>Coordonnées disponibles (visibles uniquement côté entreprise).</span>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+
           <div>
             <div className="mb-1 text-xs font-medium">Historique ({history.length})</div>
             <div className="max-h-40 space-y-1 overflow-y-auto rounded border border-border p-2 text-xs">
