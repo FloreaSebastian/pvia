@@ -275,14 +275,8 @@ function ChantierCalendarPage() {
     } catch (err) { toast.error(err instanceof Error ? err.message : "Duplication impossible"); }
   }
 
-  // ----- Drag & drop / Resize -----
-  type DragState =
-    | { kind: "move"; id: string; offsetMin: number; durationMin: number }
-    | { kind: "resize"; id: string; startMs: number }
-    | null;
-  const [drag, setDrag] = useState<DragState>(null);
-  const dragRef = useRef<DragState>(null);
-  useEffect(() => { dragRef.current = drag; }, [drag]);
+  // ----- Drag commits -----
+
 
   async function commitReschedule(id: string, start: Date, end: Date | null) {
     if (!activeCompanyId) return;
