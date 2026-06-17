@@ -855,13 +855,18 @@ function fmtMin(min: number) {
 type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number; col: number; cols: number };
 
 function TimeGridView({
-  days, events, canWrite, onCreateRange, onClickEvent, onMove, onResize,
+  days, events, canWrite, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
+  memberName, chantierName, clientName,
 }: {
   days: Date[]; events: Evt[]; canWrite: boolean;
   onCreateRange: (s: Date, e: Date) => void;
   onClickEvent: (e: Evt) => void;
+  onDblClickEvent: (e: Evt) => void;
   onMove: (id: string, newStart: Date) => void;
   onResize: (id: string, newEnd: Date) => void;
+  memberName: (id: string | null | undefined) => string | null;
+  chantierName: (id: string | null | undefined) => string;
+  clientName: (id: string | null | undefined) => string;
 }) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
