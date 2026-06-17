@@ -121,6 +121,8 @@ function PvDetail() {
   const resendLiftFn = useServerFn(resendValidatedReserveLiftEmail);
   const resendLiftValidationFn = useServerFn(resendReserveLiftValidationEmail);
   const [resendingLiftId, setResendingLiftId] = useState<string | null>(null);
+  const [exportingLiftId, setExportingLiftId] = useState<string | null>(null);
+  const exportExpertiseFn = useServerFn(exportReserveLiftExpertise);
   const [pv, setPv] = useState<Pv | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
