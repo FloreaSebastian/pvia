@@ -182,6 +182,7 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
       .object({
         email: z.string().email().max(255),
         code: z.string().regex(/^\d{6}$/, "Code à 6 chiffres requis"),
+        remember: z.boolean().optional(),
       })
       .parse(d),
   )
