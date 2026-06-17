@@ -247,7 +247,7 @@ export const listChantierEvents = createServerFn({ method: "POST" })
   }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    let q = supabase.from("chantier_events").select("*, chantier:chantiers(id,name), client:clients(id,name)")
+    let q = supabase.from("chantier_events").select("*, chantier:chantiers(id,name,color), client:clients(id,name)")
       .eq("company_id", data.companyId).order("start_at", { ascending: true, nullsFirst: false }).limit(500);
     if (data.from) q = q.gte("start_at", data.from);
     if (data.to) q = q.lte("start_at", data.to);

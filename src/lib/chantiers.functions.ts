@@ -12,6 +12,11 @@ import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "./audit.server";
 
+export const CHANTIER_STATUSES = [
+  "preparation", "planifie", "en_cours", "en_attente", "receptionne", "termine", "archive",
+] as const;
+export type ChantierStatus = (typeof CHANTIER_STATUSES)[number];
+
 const ChantierPayloadSchema = z.object({
   name: z.string().trim().min(1, "Nom requis").max(200),
   address: z.string().trim().max(500).optional().default(""),
@@ -21,11 +26,13 @@ const ChantierPayloadSchema = z.object({
   latitude: z.number().finite().nullable().optional(),
   longitude: z.number().finite().nullable().optional(),
   type: z.string().trim().max(100).optional().default(""),
-  status: z.enum(["en_cours", "termine", "receptionne"]).default("en_cours"),
+  status: z.enum(CHANTIER_STATUSES).default("planifie"),
   client_id: z.string().uuid().nullable().optional(),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   description: z.string().trim().max(5000).optional().default(""),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  progress_percent: z.number().int().min(0).max(100).optional().default(0),
 });
 
 const CreateInput = z.object({ companyId: z.string().uuid(), data: ChantierPayloadSchema });
@@ -65,6 +72,8 @@ function normalize(d: z.infer<typeof ChantierPayloadSchema>) {
     start_date: d.start_date ?? null,
     end_date: d.end_date ?? null,
     description: d.description.trim() || null,
+    color: d.color ? d.color.toLowerCase() : null,
+    progress_percent: typeof d.progress_percent === "number" ? d.progress_percent : 0,
   };
 }
 
@@ -100,7 +109,7 @@ export const updateChantier = createServerFn({ method: "POST" })
     const payload = normalize(data.data);
     const { data: prev } = await supabase
       .from("chantiers")
-      .select("name,address,address_line1,postal_code,city,latitude,longitude,type,status,client_id,start_date,end_date,description,company_id")
+      .select("name,address,address_line1,postal_code,city,latitude,longitude,type,status,client_id,start_date,end_date,description,color,progress_percent,company_id")
       .eq("id", data.id).maybeSingle();
     if (!prev || prev.company_id !== data.companyId) throw new Error("Chantier introuvable.");
     const { error } = await supabase.from("chantiers").update(payload).eq("id", data.id).eq("company_id", data.companyId);

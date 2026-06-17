@@ -30,25 +30,34 @@ type Chantier = {
   latitude: number | null; longitude: number | null;
   type: string | null; status: string; client_id: string | null;
   start_date: string | null; end_date: string | null; description: string | null;
+  color: string | null; progress_percent: number;
 };
 type Client = { id: string; name: string };
 
 const TYPES = ["BTP", "Rénovation", "Photovoltaïque", "Climatisation", "Plomberie", "Électricité", "Construction"];
 const STATUSES = [
+  { value: "preparation", label: "Préparation" },
+  { value: "planifie", label: "Planifié" },
   { value: "en_cours", label: "En cours" },
-  { value: "termine", label: "Terminé" },
+  { value: "en_attente", label: "En attente" },
   { value: "receptionne", label: "Réceptionné" },
-];
+  { value: "termine", label: "Terminé" },
+  { value: "archive", label: "Archivé" },
+] as const;
+type StatusValue = (typeof STATUSES)[number]["value"];
 
-const FILTERS: Array<{ value: "all" | "en_cours" | "termine" | "receptionne"; label: string }> = [
+const FILTERS: Array<{ value: "all" | StatusValue; label: string }> = [
   { value: "all", label: "Tous" },
-  { value: "en_cours", label: "En cours" },
-  { value: "termine", label: "Terminés" },
-  { value: "receptionne", label: "Réceptionnés" },
+  ...STATUSES.map((s) => ({ value: s.value, label: s.label })),
 ];
 
-function statusTone(s: string): "success" | "info" | "warning" {
-  return s === "receptionne" ? "success" : s === "termine" ? "info" : "warning";
+const CHANTIER_PALETTE = ["#3b82f6","#10b981","#f97316","#ef4444","#8b5cf6","#eab308","#0ea5e9","#14b8a6","#ec4899","#6b7280"];
+
+function statusTone(s: string): "success" | "info" | "warning" | "neutral" {
+  if (s === "receptionne") return "success";
+  if (s === "termine" || s === "planifie") return "info";
+  if (s === "en_cours" || s === "en_attente") return "warning";
+  return "neutral"; // preparation, archive
 }
 
 function fmtDate(d: string | null) {
@@ -62,7 +71,7 @@ function ChantiersPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Chantier | null>(null);
-  const empty = { name: "", address: "", address_line1: "", postal_code: "", city: "", latitude: null as number | null, longitude: null as number | null, type: "BTP", status: "en_cours", client_id: "", start_date: "", end_date: "", description: "" };
+  const empty = { name: "", address: "", address_line1: "", postal_code: "", city: "", latitude: null as number | null, longitude: null as number | null, type: "BTP", status: "planifie" as StatusValue, client_id: "", start_date: "", end_date: "", description: "", color: "" as string, progress_percent: 0 };
   const [form, setForm] = useState(empty);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -92,9 +101,11 @@ function ChantiersPage() {
       name: c.name, address: c.address ?? "",
       address_line1: c.address_line1 ?? "", postal_code: c.postal_code ?? "",
       city: c.city ?? "", latitude: c.latitude ?? null, longitude: c.longitude ?? null,
-      type: c.type ?? "BTP", status: c.status,
+      type: c.type ?? "BTP", status: (c.status as StatusValue) ?? "planifie",
       client_id: c.client_id ?? "", start_date: c.start_date ?? "", end_date: c.end_date ?? "",
       description: c.description ?? "",
+      color: c.color ?? "",
+      progress_percent: c.progress_percent ?? 0,
     });
     setOpen(true);
   }
@@ -122,11 +133,13 @@ function ChantiersPage() {
         latitude: form.latitude,
         longitude: form.longitude,
         type: form.type,
-        status: form.status as "en_cours" | "termine" | "receptionne",
+        status: form.status as StatusValue,
         client_id: form.client_id || null,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         description: form.description,
+        color: form.color || null,
+        progress_percent: form.progress_percent,
       };
       if (editing) {
         await updateFn({ data: { companyId: activeCompanyId, id: editing.id, data: payload } });
@@ -211,7 +224,7 @@ function ChantiersPage() {
                       </div>
                       <div>
                         <Label>Statut</Label>
-                        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                        <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StatusValue })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>{STATUSES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                         </Select>
@@ -244,6 +257,32 @@ function ChantiersPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div><Label>Début</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
                       <div><Label>Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Couleur du chantier</Label>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button type="button" onClick={() => setForm({ ...form, color: "" })}
+                            className={cn("h-7 w-7 rounded-full border-2 text-[10px] text-muted-foreground", !form.color ? "border-primary bg-muted" : "border-border hover:border-primary/50")}
+                            aria-label="Aucune couleur"
+                          >—</button>
+                          {CHANTIER_PALETTE.map((hex) => (
+                            <button key={hex} type="button"
+                              onClick={() => setForm({ ...form, color: hex })}
+                              className={cn("h-7 w-7 rounded-full border-2 transition", form.color?.toLowerCase() === hex ? "border-foreground ring-2 ring-offset-1 ring-primary/40" : "border-border hover:scale-110")}
+                              style={{ backgroundColor: hex }}
+                              aria-label={hex}
+                            />
+                          ))}
+                          <input type="color" value={form.color || "#3b82f6"} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-7 w-9 cursor-pointer rounded border border-border bg-transparent p-0" aria-label="Couleur personnalisée" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Avancement ({form.progress_percent}%)</Label>
+                        <input type="range" min={0} max={100} step={5} value={form.progress_percent}
+                          onChange={(e) => setForm({ ...form, progress_percent: Number(e.target.value) })}
+                          className="mt-2 w-full accent-primary" />
+                      </div>
                     </div>
                     <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
                     <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
@@ -367,8 +406,9 @@ function ChantiersPage() {
               <Card
                 key={c.id}
                 onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}
-                className="group relative flex cursor-pointer flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
+                className="group relative flex cursor-pointer flex-col gap-3 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
               >
+                {c.color && <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ backgroundColor: c.color }} />}
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -404,6 +444,16 @@ function ChantiersPage() {
                     </span>
                   </div>
                 )}
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>Avancement</span>
+                    <span className="tabular-nums">{c.progress_percent ?? 0}%</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, Math.min(100, c.progress_percent ?? 0))}%`, backgroundColor: c.color || "hsl(var(--primary))" }} />
+                  </div>
+                </div>
 
                 <div className="mt-auto flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1 text-xs text-primary opacity-70 group-hover:opacity-100">

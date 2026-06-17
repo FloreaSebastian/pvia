@@ -39,7 +39,7 @@ type Evt = {
   location: string | null; description: string | null;
   assigned_to: string | null; reminder_at: string | null;
   color: string | null; color_source: string | null;
-  chantier?: { id: string; name: string } | null;
+  chantier?: { id: string; name: string; color?: string | null } | null;
   client?: { id: string; name: string } | null;
 };
 
@@ -72,11 +72,27 @@ const TYPE_LABELS: Record<string, string> = {
   rappel: "Rappel administratif", debut_travaux: "Début travaux",
   retard: "Retard", remarque: "Remarque",
 };
-function colorOf(e: Evt): { bg: string; fg: string; key: ColorKey } {
-  const k: ColorKey = (e.color && COLORS.some((c) => c.key === e.color))
-    ? (e.color as ColorKey)
-    : (TYPE_TO_COLOR[e.event_type] ?? "blue");
-  const c = COLORS.find((c) => c.key === k)!;
+type ColorMode = "type" | "chantier";
+// Module-level current color mode, set by the page on every render via a
+// sync effect. Lets every helper/subcomponent that calls `colorOf` honor
+// the user's mode without refactoring every component signature.
+let CURRENT_COLOR_MODE: ColorMode = "type";
+function hexToFg(hex: string): string {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return "#ffffff";
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 >= 140 ? "#1f2937" : "#ffffff";
+}
+function colorOf(e: Evt, mode: ColorMode = CURRENT_COLOR_MODE): { bg: string; fg: string; key: ColorKey } {
+  if (e.color && COLORS.some((c) => c.key === e.color)) {
+    const c = COLORS.find((cc) => cc.key === e.color)!;
+    return { bg: c.bg, fg: c.fg, key: e.color as ColorKey };
+  }
+  if (mode === "chantier" && e.chantier?.color && /^#[0-9a-f]{6}$/i.test(e.chantier.color)) {
+    return { bg: e.chantier.color, fg: hexToFg(e.chantier.color), key: "blue" };
+  }
+  const k: ColorKey = TYPE_TO_COLOR[e.event_type] ?? "blue";
+  const c = COLORS.find((cc) => cc.key === k)!;
   return { bg: c.bg, fg: c.fg, key: k };
 }
 
@@ -137,7 +153,7 @@ function ChantierCalendarPage() {
   const [events, setEvents] = useState<Evt[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [chantiers, setChantiers] = useState<{ id: string; name: string }[]>([]);
+  const [chantiers, setChantiers] = useState<{ id: string; name: string; color?: string | null }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [members, setMembers] = useState<{ user_id: string; name: string }[]>([]);
   const [fChantier, setFChantier] = useState("all");
@@ -150,6 +166,7 @@ function ChantierCalendarPage() {
   const [fHideDone, setFHideDone] = useState(false);
   const [fHideCancelled, setFHideCancelled] = useState(false);
   const [teamMode, setTeamMode] = useState<TeamMode>("day");
+  const [colorMode, setColorMode] = useState<ColorMode>("type");
 
   // P4 prefs
   const [fullscreen, setFullscreen] = useState<boolean>(() => lsGet(LS.fs, false));
@@ -227,18 +244,35 @@ function ChantierCalendarPage() {
   useEffect(() => {
     if (!activeCompanyId) return;
     void (async () => {
-      const [c1, c2] = await Promise.all([
-        supabase.from("chantiers").select("id,name").eq("company_id", activeCompanyId).order("name"),
+      const [c1, c2, c3] = await Promise.all([
+        supabase.from("chantiers").select("id,name,color").eq("company_id", activeCompanyId).order("name"),
         supabase.from("clients").select("id,name").eq("company_id", activeCompanyId).order("name"),
+        supabase.from("company_settings").select("calendar_color_mode").eq("company_id", activeCompanyId).maybeSingle(),
       ]);
-      setChantiers((c1.data as { id: string; name: string }[]) ?? []);
+      setChantiers((c1.data as { id: string; name: string; color?: string | null }[]) ?? []);
       setClients((c2.data as { id: string; name: string }[]) ?? []);
+      const mode = (c3.data as { calendar_color_mode?: string } | null)?.calendar_color_mode;
+      if (mode === "type" || mode === "chantier") setColorMode(mode);
       try {
         const r = await fetchMembers({ data: { companyId: activeCompanyId } });
         setMembers(r.members);
       } catch { /* non-blocking */ }
     })();
   }, [activeCompanyId, fetchMembers]);
+
+  async function persistColorMode(next: ColorMode) {
+    if (!activeCompanyId) return;
+    setColorMode(next);
+    const { error } = await supabase
+      .from("company_settings")
+      .upsert({ company_id: activeCompanyId, calendar_color_mode: next }, { onConflict: "company_id" });
+    if (error) toast.error("Réglage non enregistré (droits admin requis ?)");
+    else toast.success(next === "chantier" ? "Couleurs par chantier" : "Couleurs par type");
+  }
+
+  // Sync the active color mode into the module-level variable so subcomponents
+  // (TimeGridView, MonthView, TeamView…) that call `colorOf` pick it up.
+  useEffect(() => { CURRENT_COLOR_MODE = colorMode; }, [colorMode]);
 
   function resetFilters() {
     setFChantier("all"); setFClient("all"); setFType("all"); setFStatus("all"); setFAssigned("all"); setFColor("all");
@@ -713,6 +747,23 @@ function ChantierCalendarPage() {
             <X className="h-3 w-3" /> Réinitialiser
           </Button>
         )}
+        {/* Color mode toggle (admin only) */}
+        <div className="inline-flex h-8 items-center rounded-full border border-border bg-card p-0.5 text-xs">
+          <button type="button"
+            onClick={() => isAdmin ? void persistColorMode("type") : null}
+            disabled={!isAdmin}
+            title={isAdmin ? "Couleur par type d'événement" : "Réglage entreprise — admin requis"}
+            className={cn("rounded-full px-2.5 py-1 transition", colorMode === "type" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground", !isAdmin && "cursor-not-allowed opacity-70")}>
+            Couleur · type
+          </button>
+          <button type="button"
+            onClick={() => isAdmin ? void persistColorMode("chantier") : null}
+            disabled={!isAdmin}
+            title={isAdmin ? "Couleur héritée du chantier" : "Réglage entreprise — admin requis"}
+            className={cn("rounded-full px-2.5 py-1 transition", colorMode === "chantier" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground", !isAdmin && "cursor-not-allowed opacity-70")}>
+            Couleur · chantier
+          </button>
+        </div>
         {conflicts.size > 0 && (
           <Popover open={conflictsPanelOpen} onOpenChange={setConflictsPanelOpen}>
             <PopoverTrigger asChild>

@@ -223,8 +223,15 @@ function ChantierDetailPage() {
 
   const ch = d.chantier;
   const stats = d.stats;
-  const statusLabel = ch.status === "receptionne" ? "Réceptionné" : ch.status === "termine" ? "Terminé" : "En cours";
-  const statusTone: "success" | "info" | "warning" = ch.status === "receptionne" ? "success" : ch.status === "termine" ? "info" : "warning";
+  const STATUS_LABELS: Record<string, string> = { preparation: "Préparation", planifie: "Planifié", en_cours: "En cours", en_attente: "En attente", receptionne: "Réceptionné", termine: "Terminé", archive: "Archivé" };
+  const statusLabel = STATUS_LABELS[ch.status] ?? ch.status;
+  const statusTone: "success" | "info" | "warning" | "neutral" =
+    ch.status === "receptionne" ? "success"
+    : ch.status === "termine" || ch.status === "planifie" ? "info"
+    : ch.status === "en_cours" || ch.status === "en_attente" ? "warning"
+    : "neutral";
+  const chColor = (ch as { color?: string | null }).color ?? null;
+  const chProgress = (ch as { progress_percent?: number | null }).progress_percent ?? 0;
 
   return (
     <div className="space-y-6">
@@ -254,6 +261,7 @@ function ChantierDetailPage() {
       <Card className="grid gap-6 p-6 md:grid-cols-3">
         <div className="space-y-3 md:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
+            {chColor && <span aria-hidden className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: chColor }} title="Couleur du chantier" />}
             <StatusPill tone={statusTone} dot>{statusLabel}</StatusPill>
             {ch.type && <StatusPill tone="neutral">{ch.type}</StatusPill>}
           </div>
@@ -278,10 +286,13 @@ function ChantierDetailPage() {
         <div className="space-y-4">
           <div>
             <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Avancement</span><span className="tabular-nums">{stats.progress}%</span>
+              <span>Avancement chantier</span><span className="tabular-nums">{chProgress}%</span>
             </div>
-            <Progress value={stats.progress} />
-            <p className="mt-1 text-xs text-muted-foreground">{stats.done} / {stats.total} événements terminés</p>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, Math.min(100, chProgress))}%`, backgroundColor: chColor || "hsl(var(--primary))" }} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Événements terminés : {stats.done} / {stats.total} ({stats.progress}%)</p>
+            <div className="mt-2"><Progress value={stats.progress} /></div>
           </div>
           {stats.upcoming && (
             <div className="rounded-lg border border-border bg-card p-3 text-xs">

@@ -403,6 +403,7 @@ export type Database = {
           address_line1: string | null
           city: string | null
           client_id: string | null
+          color: string | null
           company_id: string | null
           created_at: string
           description: string | null
@@ -413,6 +414,7 @@ export type Database = {
           name: string
           owner_id: string
           postal_code: string | null
+          progress_percent: number
           start_date: string | null
           status: string
           type: string | null
@@ -423,6 +425,7 @@ export type Database = {
           address_line1?: string | null
           city?: string | null
           client_id?: string | null
+          color?: string | null
           company_id?: string | null
           created_at?: string
           description?: string | null
@@ -433,6 +436,7 @@ export type Database = {
           name: string
           owner_id: string
           postal_code?: string | null
+          progress_percent?: number
           start_date?: string | null
           status?: string
           type?: string | null
@@ -443,6 +447,7 @@ export type Database = {
           address_line1?: string | null
           city?: string | null
           client_id?: string | null
+          color?: string | null
           company_id?: string | null
           created_at?: string
           description?: string | null
@@ -453,6 +458,7 @@ export type Database = {
           name?: string
           owner_id?: string
           postal_code?: string | null
+          progress_percent?: number
           start_date?: string | null
           status?: string
           type?: string | null
@@ -776,6 +782,7 @@ export type Database = {
       company_settings: {
         Row: {
           brand_color: string
+          calendar_color_mode: string
           company_id: string
           company_signed_email: string | null
           currency: string
@@ -802,6 +809,7 @@ export type Database = {
         }
         Insert: {
           brand_color?: string
+          calendar_color_mode?: string
           company_id: string
           company_signed_email?: string | null
           currency?: string
@@ -828,6 +836,7 @@ export type Database = {
         }
         Update: {
           brand_color?: string
+          calendar_color_mode?: string
           company_id?: string
           company_signed_email?: string | null
           currency?: string
