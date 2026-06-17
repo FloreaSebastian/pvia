@@ -187,7 +187,7 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
       throw new Error("Droits insuffisants (conducteur requis).");
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: Database["public"]["Tables"]["pv_reserves"]["Update"] = {};
     if (data.status) patch.status = data.status;
     if (data.assignedTo !== undefined) patch.assigned_to = data.assignedTo;
     if (data.dueDate !== undefined) patch.due_date = data.dueDate;
@@ -196,6 +196,7 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
     const { error } = await supabase
       .from("pv_reserves")
       .update(patch)
+
       .in("id", data.ids)
       .eq("company_id", data.companyId);
     if (error) throw new Error(error.message);
