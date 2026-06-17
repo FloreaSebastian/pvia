@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, CalendarDays, ArrowRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -189,9 +189,7 @@ function ChantiersPage() {
         className="border-0 bg-transparent px-0 py-0"
         actions={
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/chantiers/calendrier"><CalendarDays className="h-4 w-4" /> Calendrier</Link>
-            </Button>
+
             {canWrite ? (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>

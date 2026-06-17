@@ -17,6 +17,8 @@ import {
   ShieldCheck,
   BarChart3,
   CreditCard,
+  Calendar,
+  Settings,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -35,19 +37,22 @@ import { useSuspension } from "@/hooks/use-suspension";
 const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/pv", label: "Procès-verbaux", icon: FileText },
-  { to: "/reserves", label: "Réserves", icon: AlertCircle },
-  { to: "/chantiers", label: "Chantiers", icon: HardHat },
   { to: "/clients", label: "Clients", icon: Users },
+  { to: "/chantiers", label: "Chantiers", icon: HardHat },
+  { to: "/chantiers/calendrier", label: "Calendrier chantier", icon: Calendar },
+  { to: "/reserves", label: "Réserves", icon: AlertCircle },
+  { to: "/historique", label: "Historique", icon: ShieldCheck },
+  { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
+  { to: "/parametres", label: "Paramètres", icon: Settings },
 ] as const;
 
 const secondaryNav = [
   { to: "/entreprise", label: "Entreprise", icon: Building2 },
   { to: "/equipe", label: "Équipe", icon: UsersRound },
-  { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
-  { to: "/historique", label: "Historique", icon: ShieldCheck },
   { to: "/billing", label: "Facturation", icon: CreditCard },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
 ] as const;
+
 
 export function AppLayout({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
   const location = useLocation();
@@ -68,7 +73,12 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
 
   const initial = (userEmail ?? "U").slice(0, 1).toUpperCase();
 
-  const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + "/");
+  const isActive = (to: string) => {
+    const p = location.pathname;
+    if (to === "/chantiers") return p === "/chantiers" || (p.startsWith("/chantiers/") && !p.startsWith("/chantiers/calendrier"));
+    return p === to || p.startsWith(to + "/");
+  };
+
 
   return (
     <div className="min-h-screen bg-muted/30">
