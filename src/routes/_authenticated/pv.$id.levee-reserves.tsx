@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import SignaturePad from "react-signature-canvas";
+import exifr from "exifr";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,8 @@ type PhotoEntry = {
   accuracy: number | null;
   takenAt: string;
   deviceInfo: string;
+  exifMetadata: Record<string, unknown> | null;
+  gpsSource: "browser" | "exif" | "none";
 };
 
 /** Try to get GPS coords. Resolves with null fields if permission denied / unsupported. */
@@ -58,6 +61,25 @@ function tryGetGps(): Promise<{ latitude: number | null; longitude: number | nul
       { enableHighAccuracy: true, timeout: 7000, maximumAge: 30_000 },
     );
   });
+}
+
+/** Read EXIF tags (GPS, dates, camera) from a file. Never throws. */
+async function readExif(file: File): Promise<Record<string, unknown> | null> {
+  try {
+    const exif = await exifr.parse(file, {
+      gps: true,
+      tiff: true,
+      exif: true,
+      pick: [
+        "latitude", "longitude", "GPSAltitude", "GPSHPositioningError",
+        "DateTimeOriginal", "CreateDate", "ModifyDate",
+        "Make", "Model", "Software", "Orientation", "LensModel",
+      ],
+    });
+    return (exif as Record<string, unknown>) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function LeveeReserves() {
