@@ -218,25 +218,39 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   }
 
   // Reserves lifted
+  const items = (itemsRes.data ?? []) as any[];
   ensureSpace(40);
-  page.drawText(`RESERVES LEVEES (${(itemsRes.data ?? []).length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
+  page.drawText(`RESERVES TRAITEES (${items.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 16;
-  for (const item of (itemsRes.data ?? []) as any[]) {
+  for (const item of items) {
     const reserve = reserveMap.get(item.reserve_id);
     const desc = reserve?.description ?? "(réserve supprimée)";
+    const oldLabel = RESERVE_STATUS_LABEL[item.old_status as ReserveStatusValue] ?? item.old_status ?? "—";
+    const newLabel = RESERVE_STATUS_LABEL[item.new_status as ReserveStatusValue] ?? item.new_status ?? "—";
+    const sevLabel = reserve?.severity ? (RESERVE_SEVERITY_LABEL[reserve.severity] ?? reserve.severity) : "";
+    const isRejected = item.new_status === "rejetee";
+    const accentColor = isRejected ? rgb(0.80, 0.10, 0.10) : rgb(0.13, 0.6, 0.3);
+
     const lines = wrapLines(helv, desc, 9, CONTENT_W - 24);
-    const cLines = item.comment ? wrapLines(helv, `Commentaire: ${item.comment}`, 8.5, CONTENT_W - 24) : [];
-    const h = Math.max(40, lines.length * 12 + cLines.length * 11 + 28);
+    const cLines = item.comment ? wrapLines(helv, `Commentaire : ${item.comment}`, 8.5, CONTENT_W - 24) : [];
+    const headerLine = `${sevLabel ? sevLabel.toUpperCase() + " - " : ""}${oldLabel} → ${newLabel}`;
+    const h = Math.max(48, lines.length * 12 + cLines.length * 11 + 32);
     ensureSpace(h + 6);
-    page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, borderColor: BORDER, borderWidth: 0.5, color: rgb(0.99, 1, 0.99) });
-    page.drawRectangle({ x: MARGIN, y: y - h, width: 3, height: h, color: rgb(0.13, 0.6, 0.3) });
-    page.drawText(`LEVEE - ${sanitize(reserve?.severity ?? "").toUpperCase()}`, { x: MARGIN + 12, y: y - 14, size: 7, font: bold, color: rgb(0.13, 0.6, 0.3) });
+    page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, borderColor: BORDER, borderWidth: 0.5, color: isRejected ? rgb(1, 0.98, 0.98) : rgb(0.99, 1, 0.99) });
+    page.drawRectangle({ x: MARGIN, y: y - h, width: 3, height: h, color: accentColor });
+    page.drawText(sanitize(headerLine), { x: MARGIN + 12, y: y - 14, size: 7.5, font: bold, color: accentColor });
     let yy = y - 28;
     for (const l of lines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 9, font: helv, color: ACCENT }); yy -= 12; }
     for (const l of cLines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 8.5, font: helv, color: MUTED }); yy -= 11; }
     y -= h + 6;
   }
+  if (!items.length) {
+    ensureSpace(28);
+    page.drawText("Aucune réserve associée à ce rapport.", { x: MARGIN, y: y - 12, size: 9, font: helv, color: MUTED });
+    y -= 22;
+  }
   y -= 6;
+
 
   // Photos
   const allPhotoPaths: string[] = ((itemsRes.data ?? []) as any[]).flatMap((i) => i.photo_urls ?? []);
