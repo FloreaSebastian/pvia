@@ -394,3 +394,163 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
 
     return { ok: true as const, pdfPath };
   });
+
+/* ─── client rejection ──────────────────────────────────────────────────── */
+
+const RejectSchema = z.object({
+  pvId: z.string().uuid(),
+  liftId: z.string().uuid(),
+  reason: z.string().trim().min(5, "Motif trop court (5 caractères minimum).").max(2000),
+});
+
+export const rejectReserveLiftAsClient = createServerFn({ method: "POST" })
+  .inputValidator((d) => RejectSchema.parse(d))
+  .handler(async ({ data }) => {
+    const s = await requireSession();
+    const ip = getClientIp() ?? "unknown";
+    const ua = getClientUA();
+
+    await enforceRateLimit({
+      bucket: "client_reject_lift",
+      key: `${s.email}:${data.liftId}`,
+      limit: 5,
+      windowSec: 600,
+    });
+
+    const pv = await fetchPvForClient(data.pvId, s);
+
+    const { data: report } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .select("id,status,company_signature,client_validated_at,company_id,numero,pv_id")
+      .eq("id", data.liftId)
+      .eq("pv_id", pv.id)
+      .maybeSingle();
+    if (!report) throw new Error("Levée introuvable.");
+    if (report.client_validated_at) throw new Error("Cette levée est déjà validée.");
+    if (!report.company_signature) {
+      throw new Error("L'entreprise doit signer la levée avant rejet.");
+    }
+    if (!["signe", "signed_by_company"].includes(report.status as string)) {
+      throw new Error("Cette levée n'est pas en attente de validation.");
+    }
+
+    const nowIso = new Date().toISOString();
+    // Atomic guard: only one request can flip client_rejected_at from null → now()
+    // AND client_validated_at must still be null.
+    const { data: claimed, error: upErr } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .update({
+        client_rejected_at: nowIso,
+        client_rejected_email: s.email,
+        client_rejected_ip: ip,
+        client_rejected_reason: data.reason,
+        status: "client_rejected",
+      } as any)
+      .eq("id", report.id)
+      .is("client_rejected_at", null)
+      .is("client_validated_at", null)
+      .select("id");
+    if (upErr) throw new Error(upErr.message);
+    if (!claimed || claimed.length === 0) {
+      try {
+        await writeAuditLog({
+          companyId: report.company_id,
+          pvId: pv.id,
+          entityType: "reserve_lift",
+          entityId: report.id,
+          action: "reserve_lift.client_double_action_blocked",
+          metadata: { email: s.email, attempted: "reject" },
+          actor: "client",
+        });
+      } catch {}
+      throw new Error("Cette levée a déjà été traitée.");
+    }
+
+    // Reserves are cascaded to 'rejetee' by the SQL trigger
+    // cascade_lift_client_rejection (which also fires sync_reserve_calendar_event
+    // to create a SAV event per reserve).
+    const { data: items } = await supabaseAdmin
+      .from("reserve_lift_items")
+      .select("reserve_id")
+      .eq("report_id", report.id);
+    const reserveIds = (items ?? []).map((i: any) => i.reserve_id);
+
+    // Notify company (push + in-app)
+    if (report.company_id) {
+      try {
+        firePushToCompany(report.company_id, {
+          title: "Levée de réserves rejetée",
+          body: `${report.numero} rejetée par ${s.email}`,
+          url: `/pv/${pv.id}`,
+          tag: `lift-rejected-${report.id}`,
+          requireInteraction: true,
+          data: { kind: "reserve_lift.client_rejected", reportId: report.id, pvId: pv.id },
+        });
+        await supabaseAdmin.from("notifications").insert({
+          company_id: report.company_id,
+          type: "reserve_lift_rejected",
+          title: "Levée de réserves rejetée par le client",
+          body: `${report.numero} pour le PV ${pv.numero} a été rejetée par ${s.email}. Motif : ${data.reason.slice(0, 140)}`,
+        });
+      } catch (e) {
+        console.error("push/notif failed:", e);
+      }
+    }
+
+    // Email entreprise (directeurs + responsables exploitation)
+    try {
+      const { data: admins } = await supabaseAdmin
+        .from("company_members")
+        .select("user_id")
+        .eq("company_id", report.company_id)
+        .eq("status", "active")
+        .in("role", ["directeur", "responsable_exploitation"]);
+      const { sendReserveClientRejectedEmail } = await import("./reserve-email.server");
+      for (const m of (admins ?? []) as { user_id: string | null }[]) {
+        if (!m.user_id) continue;
+        for (const rid of reserveIds) {
+          await sendReserveClientRejectedEmail(rid, m.user_id, data.reason).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.error("rejection email failed:", e);
+    }
+
+    // Audit
+    await writeAuditLog({
+      companyId: report.company_id,
+      pvId: pv.id,
+      entityType: "reserve_lift",
+      entityId: report.id,
+      action: "reserve_lift.client_rejected",
+      newValues: { status: "client_rejected", rejected_at: nowIso },
+      metadata: {
+        actor_email: s.email, ip, ua, numero: report.numero,
+        items: reserveIds.length, reason: data.reason,
+      },
+      actor: "client",
+    });
+    for (const rid of reserveIds) {
+      await writeAuditLog({
+        companyId: report.company_id,
+        pvId: pv.id,
+        entityType: "reserve",
+        entityId: rid,
+        action: "reserve.client_rejected",
+        metadata: { actor_email: s.email, report_id: report.id, reason: data.reason },
+        actor: "client",
+      });
+    }
+
+    // Webhook
+    if (report.company_id) {
+      void dispatchWebhookEvent(report.company_id, "reserve_lift.client_rejected", {
+        report: { id: report.id, numero: report.numero, status: "client_rejected", rejected_at: nowIso },
+        pv: { id: pv.id, numero: pv.numero },
+        rejected_by: { email: s.email },
+        reason: data.reason,
+      });
+    }
+
+    return { ok: true as const };
+  });
