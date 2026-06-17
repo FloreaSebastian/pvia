@@ -710,10 +710,19 @@ function MonthView({
 }
 
 // ============= TIME GRID (week/day/custom) =============
-const HOUR_PX = 48;
+const HOUR_PX = 56;
 const START_HOUR = 7;
 const END_HOUR = 21;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
+
+function fmtMin(min: number) {
+  const total = START_HOUR * 60 + min;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number; col: number; cols: number };
 
 function TimeGridView({
   days, events, canWrite, onCreateRange, onClickEvent, onMove, onResize,
@@ -725,6 +734,7 @@ function TimeGridView({
   onResize: (id: string, newEnd: Date) => void;
 }) {
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   type Drag =
     | { kind: "select"; dayIdx: number; startMin: number; endMin: number }
     | { kind: "move"; id: string; offsetMin: number; durationMin: number; dayIdx: number; startMin: number }
@@ -733,6 +743,27 @@ function TimeGridView({
   const [drag, setDrag] = useState<Drag>(null);
   const dragRef = useRef<Drag>(null);
   useEffect(() => { dragRef.current = drag; }, [drag]);
+
+  // current time
+  const [nowMin, setNowMin] = useState(() => {
+    const n = new Date(); return (n.getHours() - START_HOUR) * 60 + n.getMinutes();
+  });
+  useEffect(() => {
+    const id = setInterval(() => {
+      const n = new Date(); setNowMin((n.getHours() - START_HOUR) * 60 + n.getMinutes());
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
+  const todayIdx = days.findIndex((d) => sameDay(d, new Date()));
+
+  // scroll to ~current time on mount / day change
+  useEffect(() => {
+    const sc = scrollRef.current; if (!sc) return;
+    const target = Math.max(0, (nowMin / 60) * HOUR_PX - 120);
+    sc.scrollTop = target;
+    // only once per day-set change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days.length, days[0]?.toDateString()]);
 
   function pointerToCell(clientX: number, clientY: number) {
     const grid = gridRef.current; if (!grid) return null;
@@ -757,23 +788,32 @@ function TimeGridView({
   }
   function onMouseDownEvent(e: React.MouseEvent, evt: Evt, dayIdx: number, startMin: number, endMin: number) {
     if (!canWrite || evt.event_type.startsWith("system_")) return;
-    e.stopPropagation();
+    e.stopPropagation(); e.preventDefault();
     const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
     setDrag({ kind: "move", id: evt.id, offsetMin: p.minutes - startMin, durationMin: endMin - startMin, dayIdx, startMin });
   }
   function onMouseDownResize(e: React.MouseEvent, evt: Evt, dayIdx: number, startMin: number, endMin: number) {
     if (!canWrite || evt.event_type.startsWith("system_")) return;
-    e.stopPropagation();
+    e.stopPropagation(); e.preventDefault();
     setDrag({ kind: "resize", id: evt.id, dayIdx, startMin, endMin });
   }
 
   useEffect(() => {
-    function onMove(e: MouseEvent) {
+    function onMouseMove(e: MouseEvent) {
       const d = dragRef.current; if (!d) return;
       const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
       if (d.kind === "select") setDrag({ ...d, dayIdx: p.dayIdx, endMin: Math.max(d.startMin + 15, p.minutes) });
-      else if (d.kind === "move") setDrag({ ...d, dayIdx: p.dayIdx, startMin: Math.max(0, p.minutes - d.offsetMin) });
+      else if (d.kind === "move") setDrag({ ...d, dayIdx: p.dayIdx, startMin: Math.max(0, Math.min(TOTAL_HOURS * 60 - d.durationMin, p.minutes - d.offsetMin)) });
       else if (d.kind === "resize") setDrag({ ...d, endMin: Math.max(d.startMin + 15, p.minutes) });
+
+      // auto-scroll
+      const sc = scrollRef.current;
+      if (sc) {
+        const rect = sc.getBoundingClientRect();
+        const edge = 50;
+        if (e.clientY < rect.top + edge) sc.scrollTop -= Math.max(4, (rect.top + edge - e.clientY) / 3);
+        else if (e.clientY > rect.bottom - edge) sc.scrollTop += Math.max(4, (e.clientY - (rect.bottom - edge)) / 3);
+      }
     }
     function onUp() {
       const d = dragRef.current; if (!d) return;
@@ -784,122 +824,211 @@ function TimeGridView({
         const en = minutesToDate(day, Math.max(d.startMin, d.endMin));
         if (en.getTime() - s.getTime() >= 15 * 60000) onCreateRange(s, en);
       } else if (d.kind === "move") {
-        const day = days[d.dayIdx]; onMoveCb(d.id, minutesToDate(day, d.startMin));
+        const day = days[d.dayIdx]; onMove(d.id, minutesToDate(day, d.startMin));
       } else if (d.kind === "resize") {
-        const day = days[d.dayIdx]; onResizeCb(d.id, minutesToDate(day, d.endMin));
+        const day = days[d.dayIdx]; onResize(d.id, minutesToDate(day, d.endMin));
       }
     }
-    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onUp); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days]);
+  }, [days, onMove, onResize, onCreateRange]);
 
-  const onMoveCb = onMove;
-  const onResizeCb = onResize;
-
-  // Position events
-  const positioned = useMemo(() => {
-    const out: { evt: Evt; dayIdx: number; topMin: number; heightMin: number }[] = [];
+  // Base positions with side-by-side overlap layout
+  const positioned = useMemo<Positioned[]>(() => {
+    const byDay: { evt: Evt; dayIdx: number; topMin: number; heightMin: number }[][] = days.map(() => []);
     for (const e of events) {
       if (!e.start_at) continue;
       const s = new Date(e.start_at);
-      const en = e.end_at ? new Date(e.end_at) : new Date(s.getTime() + 60*60000);
+      const en = e.end_at ? new Date(e.end_at) : new Date(s.getTime() + 60 * 60000);
       for (let i = 0; i < days.length; i++) {
         if (sameDay(s, days[i])) {
           const startMin = (s.getHours() - START_HOUR) * 60 + s.getMinutes();
           const endMin = (en.getHours() - START_HOUR) * 60 + en.getMinutes();
-          out.push({ evt: e, dayIdx: i, topMin: Math.max(0, startMin), heightMin: Math.max(20, endMin - startMin) });
+          byDay[i].push({ evt: e, dayIdx: i, topMin: Math.max(0, startMin), heightMin: Math.max(20, endMin - startMin) });
           break;
         }
+      }
+    }
+    const out: Positioned[] = [];
+    for (const dayItems of byDay) {
+      dayItems.sort((a, b) => a.topMin - b.topMin || b.heightMin - a.heightMin);
+      // greedy column assignment
+      const cols: { end: number }[] = [];
+      const assigned: { item: typeof dayItems[number]; col: number }[] = [];
+      for (const it of dayItems) {
+        let col = cols.findIndex((c) => c.end <= it.topMin);
+        if (col === -1) { col = cols.length; cols.push({ end: it.topMin + it.heightMin }); }
+        else cols[col].end = it.topMin + it.heightMin;
+        assigned.push({ item: it, col });
+      }
+      // determine cluster size: events overlapping in time share total columns
+      // simpler: total cols = max columns used in any overlap chain
+      // compute per-event the max cols among the events it overlaps
+      for (const a of assigned) {
+        let maxCols = a.col + 1;
+        for (const b of assigned) {
+          const oa = a.item, ob = b.item;
+          if (oa === ob) continue;
+          const overlap = oa.topMin < ob.topMin + ob.heightMin && ob.topMin < oa.topMin + oa.heightMin;
+          if (overlap) maxCols = Math.max(maxCols, b.col + 1);
+        }
+        out.push({ ...a.item, col: a.col, cols: maxCols });
       }
     }
     return out;
   }, [events, days]);
 
-  const todayIdx = days.findIndex((d) => sameDay(d, new Date()));
+  const colWidthPct = 100 / days.length;
+
+  // Tooltip / floating times during drag
+  const dragTooltip = (() => {
+    if (!drag) return null;
+    if (drag.kind === "select") return { day: days[drag.dayIdx], s: Math.min(drag.startMin, drag.endMin), e: Math.max(drag.startMin, drag.endMin) };
+    if (drag.kind === "move") return { day: days[drag.dayIdx], s: drag.startMin, e: drag.startMin + drag.durationMin };
+    return { day: days[drag.dayIdx], s: drag.startMin, e: drag.endMin };
+  })();
 
   return (
     <Card className="overflow-hidden p-0">
       {/* Header */}
-      <div className="grid border-b border-border bg-muted/30" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0,1fr))` }}>
+      <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 backdrop-blur" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0,1fr))` }}>
         <div />
         {days.map((d, i) => {
           const isToday = sameDay(d, new Date());
           return (
             <div key={i} className="border-l border-border px-2 py-2 text-center text-xs">
               <div className="uppercase tracking-wide text-muted-foreground">{d.toLocaleDateString("fr-FR", { weekday: "short" })}</div>
-              <div className={cn("mx-auto mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-semibold", isToday && "bg-primary text-primary-foreground")}>{d.getDate()}</div>
+              <div className={cn("mx-auto mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold", isToday && "bg-primary text-primary-foreground")}>{d.getDate()}</div>
             </div>
           );
         })}
       </div>
 
       {/* Body */}
-      <div className="relative overflow-auto" style={{ maxHeight: "70vh" }}>
+      <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "72vh" }}>
         <div className="grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0,1fr))` }}>
-          {/* Hours col */}
-          <div className="relative" style={{ height: TOTAL_HOURS * HOUR_PX }}>
+          {/* Hours col (sticky left) */}
+          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * HOUR_PX }}>
             {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
-              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] text-muted-foreground" style={{ top: h * HOUR_PX }}>
-                {String(START_HOUR + h).padStart(2,"0")}:00
+              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * HOUR_PX }}>
+                {String(START_HOUR + h).padStart(2, "0")}:00
               </div>
             ))}
           </div>
           {/* Day columns */}
           <div ref={gridRef} onMouseDown={onMouseDownBg}
-            className="relative col-span-full -ml-px"
+            className={cn("relative col-span-full -ml-px", drag?.kind === "move" && "cursor-grabbing select-none", drag?.kind === "resize" && "cursor-ns-resize select-none")}
             style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * HOUR_PX, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
             {days.map((d, i) => (
-              <div key={i} className={cn("relative border-l border-border", i === todayIdx && "bg-primary/[0.03]")}>
+              <div key={i} className={cn("relative border-l border-border", i === todayIdx && "bg-primary/[0.04]")}>
                 {/* Hour lines */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={h} className="absolute left-0 right-0 border-t border-border/60" style={{ top: h * HOUR_PX }} />
+                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * HOUR_PX }} />
                 ))}
                 {/* Half-hour subtle */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={"h"+h} className="absolute left-0 right-0 border-t border-dashed border-border/30" style={{ top: h * HOUR_PX + HOUR_PX/2 }} />
+                  <div key={"h" + h} className="absolute left-0 right-0 border-t border-dashed border-border/20" style={{ top: h * HOUR_PX + HOUR_PX / 2 }} />
                 ))}
               </div>
             ))}
+
+            {/* Current time indicator */}
+            {todayIdx >= 0 && nowMin >= 0 && nowMin <= TOTAL_HOURS * 60 && (
+              <div className="pointer-events-none absolute z-20" style={{
+                top: (nowMin / 60) * HOUR_PX - 1,
+                left: `${todayIdx * colWidthPct}%`,
+                width: `${colWidthPct}%`,
+              }}>
+                <div className="relative h-0.5 bg-red-500">
+                  <div className="absolute -left-1 -top-[5px] h-3 w-3 rounded-full bg-red-500 shadow" />
+                </div>
+              </div>
+            )}
+
             {/* Events overlay */}
-            {positioned.map(({ evt, dayIdx, topMin, heightMin }) => {
+            {positioned.map((p) => {
+              const { evt, dayIdx, topMin, heightMin, col, cols } = p;
               const c = colorOf(evt);
-              const colWidthPct = 100 / days.length;
               const ann = evt.status === "annule";
+              const isSystem = evt.event_type.startsWith("system_");
+              const isDragged = drag && "id" in drag && drag.id === evt.id;
+
+              // Live position override
+              let liveDayIdx = dayIdx;
+              let liveTop = topMin;
+              let liveHeight = heightMin;
+              if (isDragged && drag?.kind === "move") {
+                liveDayIdx = drag.dayIdx;
+                liveTop = drag.startMin;
+                liveHeight = drag.durationMin;
+              } else if (isDragged && drag?.kind === "resize") {
+                liveHeight = Math.max(15, drag.endMin - drag.startMin);
+              }
+
+              const subW = (colWidthPct / cols);
+              const left = `calc(${liveDayIdx * colWidthPct + col * subW}% + 2px)`;
+              const width = `calc(${subW}% - 4px)`;
+
               return (
                 <div key={evt.id} data-evt
                   onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
-                  onClick={(e) => { e.stopPropagation(); onClickEvent(evt); }}
-                  className={cn("absolute z-10 cursor-grab overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm hover:brightness-105 active:cursor-grabbing", ann && "line-through opacity-60")}
+                  onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
+                  className={cn(
+                    "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
+                    !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
+                    ann && "line-through opacity-60",
+                    isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                  )}
                   style={{
                     background: c.bg, color: c.fg,
-                    left: `calc(${dayIdx * colWidthPct}% + 2px)`,
-                    width: `calc(${colWidthPct}% - 4px)`,
-                    top: (topMin / 60) * HOUR_PX,
-                    height: (heightMin / 60) * HOUR_PX - 2,
+                    left, width,
+                    top: (liveTop / 60) * HOUR_PX,
+                    height: (liveHeight / 60) * HOUR_PX - 2,
+                    zIndex: isDragged ? 40 : 10,
                   }}>
                   <div className="truncate">{evt.title}</div>
-                  {heightMin >= 30 && evt.start_at && (
+                  {liveHeight >= 30 && (
                     <div className="truncate text-[10px] opacity-90">
-                      {fmtTime(new Date(evt.start_at))}{evt.end_at && ` – ${fmtTime(new Date(evt.end_at))}`}
+                      {fmtMin(liveTop)} – {fmtMin(liveTop + liveHeight)}
                     </div>
                   )}
                   {/* resize handle */}
-                  <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
-                    className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize" />
+                  {!isSystem && canWrite && (
+                    <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
+                      className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                      style={{ opacity: isDragged ? 1 : undefined }}
+                    />
+                  )}
                 </div>
               );
             })}
+
             {/* Ghost selection */}
             {drag?.kind === "select" && (
               <div className="pointer-events-none absolute z-20 rounded-md border-2 border-primary/60 bg-primary/20"
                 style={{
-                  left: `calc(${drag.dayIdx * (100/days.length)}% + 2px)`,
-                  width: `calc(${100/days.length}% - 4px)`,
+                  left: `calc(${drag.dayIdx * colWidthPct}% + 2px)`,
+                  width: `calc(${colWidthPct}% - 4px)`,
                   top: (Math.min(drag.startMin, drag.endMin) / 60) * HOUR_PX,
                   height: (Math.abs(drag.endMin - drag.startMin) / 60) * HOUR_PX,
                 }} />
+            )}
+
+            {/* Drag snap line + tooltip */}
+            {dragTooltip && (
+              <>
+                <div className="pointer-events-none absolute left-0 right-0 z-30 border-t-2 border-dashed border-primary/70"
+                  style={{ top: (dragTooltip.s / 60) * HOUR_PX }} />
+                <div className="pointer-events-none absolute z-40 rounded-md bg-foreground px-2 py-1 text-[11px] font-semibold text-background shadow-lg"
+                  style={{
+                    left: `calc(${dragTooltip.day ? days.indexOf(dragTooltip.day) * colWidthPct : 0}% + 4px)`,
+                    top: (dragTooltip.s / 60) * HOUR_PX - 26,
+                  }}>
+                  {fmtMin(dragTooltip.s)} – {fmtMin(dragTooltip.e)}
+                </div>
+              </>
             )}
           </div>
         </div>
