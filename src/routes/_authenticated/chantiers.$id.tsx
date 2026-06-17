@@ -223,8 +223,15 @@ function ChantierDetailPage() {
 
   const ch = d.chantier;
   const stats = d.stats;
-  const statusLabel = ch.status === "receptionne" ? "Réceptionné" : ch.status === "termine" ? "Terminé" : "En cours";
-  const statusTone: "success" | "info" | "warning" = ch.status === "receptionne" ? "success" : ch.status === "termine" ? "info" : "warning";
+  const STATUS_LABELS: Record<string, string> = { preparation: "Préparation", planifie: "Planifié", en_cours: "En cours", en_attente: "En attente", receptionne: "Réceptionné", termine: "Terminé", archive: "Archivé" };
+  const statusLabel = STATUS_LABELS[ch.status] ?? ch.status;
+  const statusTone: "success" | "info" | "warning" | "neutral" =
+    ch.status === "receptionne" ? "success"
+    : ch.status === "termine" || ch.status === "planifie" ? "info"
+    : ch.status === "en_cours" || ch.status === "en_attente" ? "warning"
+    : "neutral";
+  const chColor = (ch as { color?: string | null }).color ?? null;
+  const chProgress = (ch as { progress_percent?: number | null }).progress_percent ?? 0;
 
   return (
     <div className="space-y-6">
