@@ -15,9 +15,13 @@ type Reserve = {
   description: string;
   severity: string;
   status: string;
+  priority?: string | null;
   nature?: string | null;
   work_to_execute?: string | null;
   due_date?: string | null;
+  lifted_at?: string | null;
+  validated_at?: string | null;
+  assigned_name?: string | null;
 };
 type Pv = {
   id?: string;
