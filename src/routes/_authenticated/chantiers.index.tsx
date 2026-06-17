@@ -179,12 +179,6 @@ function ChantiersPage() {
     return (id: string | null) => (id ? m.get(id) ?? null : null);
   }, [clients]);
 
-  const counts = useMemo(() => {
-    const base = { all: items.length, en_cours: 0, termine: 0, receptionne: 0 } as Record<string, number>;
-    for (const c of items) base[c.status] = (base[c.status] ?? 0) + 1;
-    return base;
-  }, [items]);
-
   // P2.7 — dashboard chantier
   const dashboard = useMemo(() => {
     const now = Date.now();
@@ -198,6 +192,12 @@ function ChantiersPage() {
     }
     return { actifs, receptionne, termine, enRetard };
   }, [items]);
+
+  const counts = useMemo(() => {
+    const base: Record<string, number> = { all: items.length, retard: dashboard.enRetard };
+    for (const c of items) base[c.status] = (base[c.status] ?? 0) + 1;
+    return base;
+  }, [items, dashboard.enRetard]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
