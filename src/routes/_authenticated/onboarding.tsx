@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { FieldStepper } from "@/components/field/FieldStepper";
+import { Stepper } from "@/components/app/Stepper";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -280,7 +280,7 @@ function OnboardingPage() {
 
       <div className="space-y-3">
         <Progress value={progress} />
-        <FieldStepper step={step} total={totalSteps} labels={skipCompany ? ["Bienvenue", "Profil", "Terminé"] : STEP_LABELS} />
+        <Stepper step={step} total={totalSteps} labels={skipCompany ? ["Bienvenue", "Profil", "Terminé"] : STEP_LABELS} />
       </div>
 
       <Card className="p-8 shadow-brand">

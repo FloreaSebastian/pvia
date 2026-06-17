@@ -28,7 +28,6 @@ import { Route as ClientLoginRouteImport } from './routes/client.login'
 import { Route as ClientHistoriqueRouteImport } from './routes/client.historique'
 import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
 import { Route as AuthenticatedUpgradeRequiredRouteImport } from './routes/_authenticated/upgrade-required'
-import { Route as AuthenticatedTerrainRouteImport } from './routes/_authenticated/terrain'
 import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
 import { Route as AuthenticatedParametresRouteImport } from './routes/_authenticated/parametres'
@@ -46,7 +45,6 @@ import { Route as AuthenticatedChantiersIndexRouteImport } from './routes/_authe
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
-import { Route as AuthenticatedTerrainIdRouteImport } from './routes/_authenticated/terrain.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 import { Route as AuthenticatedParametresSecuriteRouteImport } from './routes/_authenticated/parametres.securite'
@@ -185,11 +183,6 @@ const AuthenticatedUpgradeRequiredRoute =
     path: '/upgrade-required',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedTerrainRoute = AuthenticatedTerrainRouteImport.update({
-  id: '/terrain',
-  path: '/terrain',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedStatistiquesRoute =
   AuthenticatedStatistiquesRouteImport.update({
     id: '/statistiques',
@@ -278,11 +271,6 @@ const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   id: '/api/public/health',
   path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedTerrainIdRoute = AuthenticatedTerrainIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthenticatedTerrainRoute,
 } as any)
 const AuthenticatedPvNewRoute = AuthenticatedPvNewRouteImport.update({
   id: '/pv/new',
@@ -554,7 +542,6 @@ export interface FileRoutesByFullPath {
   '/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/reserves': typeof AuthenticatedReservesRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
-  '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
   '/client/historique': typeof ClientHistoriqueRoute
@@ -588,7 +575,6 @@ export interface FileRoutesByFullPath {
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
-  '/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
@@ -634,7 +620,6 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/reserves': typeof AuthenticatedReservesRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
-  '/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
   '/client/historique': typeof ClientHistoriqueRoute
@@ -666,7 +651,6 @@ export interface FileRoutesByTo {
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/pv/new': typeof AuthenticatedPvNewRoute
-  '/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
@@ -715,7 +699,6 @@ export interface FileRoutesById {
   '/_authenticated/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
   '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
-  '/_authenticated/terrain': typeof AuthenticatedTerrainRouteWithChildren
   '/_authenticated/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
   '/client/historique': typeof ClientHistoriqueRoute
@@ -749,7 +732,6 @@ export interface FileRoutesById {
   '/_authenticated/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
-  '/_authenticated/terrain/$id': typeof AuthenticatedTerrainIdRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
   '/sign/pv/$token': typeof SignPvTokenRoute
@@ -798,7 +780,6 @@ export interface FileRouteTypes {
     | '/parametres'
     | '/reserves'
     | '/statistiques'
-    | '/terrain'
     | '/upgrade-required'
     | '/client/dashboard'
     | '/client/historique'
@@ -832,7 +813,6 @@ export interface FileRouteTypes {
     | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
-    | '/terrain/$id'
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
@@ -878,7 +858,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reserves'
     | '/statistiques'
-    | '/terrain'
     | '/upgrade-required'
     | '/client/dashboard'
     | '/client/historique'
@@ -910,7 +889,6 @@ export interface FileRouteTypes {
     | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
-    | '/terrain/$id'
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
@@ -958,7 +936,6 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres'
     | '/_authenticated/reserves'
     | '/_authenticated/statistiques'
-    | '/_authenticated/terrain'
     | '/_authenticated/upgrade-required'
     | '/client/dashboard'
     | '/client/historique'
@@ -992,7 +969,6 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/securite'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
-    | '/_authenticated/terrain/$id'
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
@@ -1185,13 +1161,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUpgradeRequiredRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/terrain': {
-      id: '/_authenticated/terrain'
-      path: '/terrain'
-      fullPath: '/terrain'
-      preLoaderRoute: typeof AuthenticatedTerrainRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/statistiques': {
       id: '/_authenticated/statistiques'
       path: '/statistiques'
@@ -1310,13 +1279,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/health'
       preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/terrain/$id': {
-      id: '/_authenticated/terrain/$id'
-      path: '/$id'
-      fullPath: '/terrain/$id'
-      preLoaderRoute: typeof AuthenticatedTerrainIdRouteImport
-      parentRoute: typeof AuthenticatedTerrainRoute
     }
     '/_authenticated/pv/new': {
       id: '/_authenticated/pv/new'
@@ -1651,17 +1613,6 @@ const AuthenticatedParametresRouteWithChildren =
     AuthenticatedParametresRouteChildren,
   )
 
-interface AuthenticatedTerrainRouteChildren {
-  AuthenticatedTerrainIdRoute: typeof AuthenticatedTerrainIdRoute
-}
-
-const AuthenticatedTerrainRouteChildren: AuthenticatedTerrainRouteChildren = {
-  AuthenticatedTerrainIdRoute: AuthenticatedTerrainIdRoute,
-}
-
-const AuthenticatedTerrainRouteWithChildren =
-  AuthenticatedTerrainRoute._addFileChildren(AuthenticatedTerrainRouteChildren)
-
 interface AuthenticatedAdminCompaniesRouteChildren {
   AuthenticatedAdminCompaniesIdRoute: typeof AuthenticatedAdminCompaniesIdRoute
 }
@@ -1734,7 +1685,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedParametresRoute: typeof AuthenticatedParametresRouteWithChildren
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
-  AuthenticatedTerrainRoute: typeof AuthenticatedTerrainRouteWithChildren
   AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
   AuthenticatedAdminBillingRoute: typeof AuthenticatedAdminBillingRoute
   AuthenticatedAdminCompaniesRoute: typeof AuthenticatedAdminCompaniesRouteWithChildren
@@ -1768,7 +1718,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedParametresRoute: AuthenticatedParametresRouteWithChildren,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
-  AuthenticatedTerrainRoute: AuthenticatedTerrainRouteWithChildren,
   AuthenticatedUpgradeRequiredRoute: AuthenticatedUpgradeRequiredRoute,
   AuthenticatedAdminBillingRoute: AuthenticatedAdminBillingRoute,
   AuthenticatedAdminCompaniesRoute:
