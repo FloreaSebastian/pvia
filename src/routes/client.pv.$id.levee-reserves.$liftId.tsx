@@ -47,6 +47,7 @@ function ClientLiftDetail() {
   const detailFn = useServerFn(getClientReserveLiftDetail);
   const pdfFn = useServerFn(getClientReserveLiftPdfUrl);
   const validateFn = useServerFn(validateReserveLiftAsClient);
+  const rejectFn = useServerFn(rejectReserveLiftAsClient);
 
   const q = useQuery({
     queryKey: ["client.lift", pvId, liftId],
