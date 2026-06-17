@@ -124,6 +124,7 @@ export const createReserveLift = createServerFn({ method: "POST" })
     }
     const companySig = validateSignature(data.companySignature);
     const clientSig = validateSignature(data.clientSignature);
+    const technicianSig = validateSignature(data.technicianSignature);
 
     // 3. Verify reserves belong to this PV + are open
     const reserveIds = data.items.map((i) => i.reserveId);
