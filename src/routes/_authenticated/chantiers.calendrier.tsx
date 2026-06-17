@@ -656,17 +656,16 @@ function ChantierCalendarPage() {
 
 // ============= MONTH VIEW =============
 function MonthView({
-  days, cursor, events, canWrite, onClickDay, onClickEvent, onMoveDay, eventsOn,
+  days, cursor, canWrite, onClickDay, onClickEvent, onMoveDay, eventsOn,
 }: {
-  days: Date[]; cursor: Date; events: Evt[]; canWrite: boolean;
-  drag: unknown; setDrag: (d: unknown) => void;
+  days: Date[]; cursor: Date; canWrite: boolean;
   onClickDay: (d: Date) => void;
   onClickEvent: (e: Evt) => void;
   onMoveDay: (d: Date, id: string) => void;
   eventsOn: (d: Date) => Evt[];
 }) {
-  void events;
   const [dragId, setDragId] = useState<string | null>(null);
+
   return (
     <Card className="overflow-hidden p-0">
       <div className="grid grid-cols-7 border-b border-border bg-muted/40 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
