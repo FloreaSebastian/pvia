@@ -1969,13 +1969,14 @@ function TeamDayView({
 }
 
 function TeamWeekView({
-  cursor, cols, events, canWrite, conflictIds, workloadMap,
+  cursor, cols, events, canWrite, conflictIds, workloadMap, weekDays,
   onClickEvent, onDblClickEvent, onReassign,
   chantierName, clientName, memberName,
 }: {
   cursor: Date; cols: Member[]; events: Evt[]; canWrite: boolean;
   conflictIds: Set<string>;
   workloadMap: Map<string, { min: number; count: number }>;
+  weekDays: WeekDays;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onReassign: (id: string, memberId: string) => void;
@@ -1983,7 +1984,7 @@ function TeamWeekView({
   clientName: (id: string | null | undefined) => string;
   memberName: (id: string | null | undefined) => string | null;
 }) {
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i)), [cursor]);
+  const days = useMemo(() => Array.from({ length: weekDays }, (_, i) => addDays(startOfWeek(cursor), i)), [cursor, weekDays]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overMember, setOverMember] = useState<string | null>(null);
 
