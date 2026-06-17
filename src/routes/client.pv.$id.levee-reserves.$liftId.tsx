@@ -17,7 +17,10 @@ import {
   getClientReserveLiftDetail,
   getClientReserveLiftPdfUrl,
   validateReserveLiftAsClient,
+  rejectReserveLiftAsClient,
 } from "@/lib/client-reserve-lift.functions";
+import { Textarea } from "@/components/ui/textarea";
+import { XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/pv/$id/levee-reserves/$liftId")({
