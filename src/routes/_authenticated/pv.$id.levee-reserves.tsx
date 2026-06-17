@@ -207,7 +207,6 @@ function LeveeReserves() {
     const ids = Object.keys(selected).filter((id) => selected[id]);
     if (ids.length === 0) return toast.error("Sélectionnez au moins une réserve.");
     if (status === "signe" && companySigRef.current?.isEmpty()) return toast.error("Signature entreprise obligatoire.");
-    if (status === "signe" && requireClient && clientSigRef.current?.isEmpty()) return toast.error("Signature client obligatoire.");
 
     setSaving(true);
     try {
