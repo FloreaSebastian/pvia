@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Loader2, ArrowLeft, ChevronRight, Save, Send, MapPin, MapPinOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { createReserveLift } from "@/lib/reserve-lift.functions";
@@ -111,11 +112,14 @@ function LeveeReserves() {
   const [itemPhotosAfter, setItemPhotosAfter] = useState<Record<string, PhotoEntry[]>>({});
   const [globalComment, setGlobalComment] = useState("");
   const [requireClient, setRequireClient] = useState(false);
+  const [technicianName, setTechnicianName] = useState("");
+  const [includeTechnicianSig, setIncludeTechnicianSig] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const companySigRef = useRef<SignaturePad>(null);
   const clientSigRef = useRef<SignaturePad>(null);
+  const technicianSigRef = useRef<SignaturePad>(null);
 
   useEffect(() => {
     (async () => {
@@ -242,6 +246,9 @@ function LeveeReserves() {
             ? companySigRef.current!.toDataURL("image/png") : null,
           clientSignature: status === "signe" && !clientSigRef.current?.isEmpty()
             ? clientSigRef.current!.toDataURL("image/png") : null,
+          technicianSignature: status === "signe" && includeTechnicianSig && !technicianSigRef.current?.isEmpty()
+            ? technicianSigRef.current!.toDataURL("image/png") : null,
+          technicianName: technicianName.trim() || null,
         },
       });
       toast.success(`Levée ${res.numero} ${status === "signe" ? "signée" : "enregistrée"}.`);
@@ -394,6 +401,28 @@ function LeveeReserves() {
                     <SignaturePad ref={clientSigRef} canvasProps={{ className: "w-full h-28" }} />
                   </div>
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => clientSigRef.current?.clear()}>Effacer</Button>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+              <div className="text-xs font-medium">Technicien intervenant (optionnel, PDF interne)</div>
+              <Input
+                placeholder="Nom du technicien sur site"
+                value={technicianName}
+                onChange={(e) => setTechnicianName(e.target.value)}
+                className="h-8 text-sm"
+              />
+              <div className="flex items-center gap-2">
+                <Switch checked={includeTechnicianSig} onCheckedChange={setIncludeTechnicianSig} />
+                <Label className="!mt-0 text-xs">Collecter la signature du technicien</Label>
+              </div>
+              {includeTechnicianSig && (
+                <div>
+                  <div className="rounded-md border border-border bg-background">
+                    <SignaturePad ref={technicianSigRef} canvasProps={{ className: "w-full h-24" }} />
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => technicianSigRef.current?.clear()}>Effacer</Button>
                 </div>
               )}
             </div>

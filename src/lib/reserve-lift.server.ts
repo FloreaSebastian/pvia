@@ -89,7 +89,7 @@ export async function buildAndStoreReserveLiftPdf(
   const isInternal = variant === "internal";
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
-    .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
+    .select("id,numero,status,comment,company_signature,client_signature,technician_signature,technician_name,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
     .eq("id", reportId)
     .maybeSingle();
   if (!report?.company_id) throw new Error("Rapport introuvable.");
@@ -469,32 +469,48 @@ export async function buildAndStoreReserveLiftPdf(
   }
 
   // Signatures
+  // Internal PDF with a technician signature collected on site → render 3 columns
+  // (Technicien / Entreprise / Client). Otherwise keep the 2-column layout.
+  const techSig = (report as any).technician_signature as string | null;
+  const techName = (report as any).technician_name as string | null;
+  const showTech = isInternal && (!!techSig || !!techName);
   ensureSpace(180);
   page.drawText("SIGNATURES", { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 14;
-  const sigW = (CONTENT_W - 16) / 2;
+  const sigCount = showTech ? 3 : 2;
+  const sigGap = 12;
+  const sigW = (CONTENT_W - sigGap * (sigCount - 1)) / sigCount;
   const sigH = 110;
-  const drawSig = async (x: number, label: string, data: string | null) => {
+  const drawSig = async (x: number, label: string, data: string | null, subtitle?: string | null) => {
     page.drawRectangle({ x, y: y - sigH, width: sigW, height: sigH, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
-    page.drawText(label.toUpperCase(), { x: x + 12, y: y - 16, size: 8, font: bold, color: PRIMARY });
+    page.drawText(label.toUpperCase(), { x: x + 10, y: y - 14, size: 7.5, font: bold, color: PRIMARY });
+    if (subtitle) {
+      page.drawText(sanitize(subtitle).slice(0, 32), { x: x + 10, y: y - 24, size: 7, font: helv, color: MUTED });
+    }
     if (data) {
       const parsed = dataUrlToBytes(data);
       if (parsed) {
         try {
           const img = parsed.type === "png" ? await pdf.embedPng(parsed.bytes) : await pdf.embedJpg(parsed.bytes);
-          const maxW = sigW - 24, maxH = sigH - 40;
+          const maxW = sigW - 20, maxH = sigH - (subtitle ? 50 : 40);
           const ratio = img.width / img.height;
           let w = maxW, h = maxW / ratio;
           if (h > maxH) { h = maxH; w = maxH * ratio; }
-          page.drawImage(img, { x: x + (sigW - w) / 2, y: y - sigH + 24, width: w, height: h });
+          page.drawImage(img, { x: x + (sigW - w) / 2, y: y - sigH + 18, width: w, height: h });
         } catch { /* skip */ }
       }
     } else {
-      page.drawText("Non signe", { x: x + 12, y: y - sigH / 2, size: 9, font: helv, color: MUTED });
+      page.drawText("Non signe", { x: x + 10, y: y - sigH / 2, size: 8.5, font: helv, color: MUTED });
     }
   };
-  await drawSig(MARGIN, "Entreprise", report.company_signature);
-  await drawSig(MARGIN + sigW + 16, "Client", report.client_signature);
+  if (showTech) {
+    await drawSig(MARGIN, "Technicien", techSig, techName);
+    await drawSig(MARGIN + sigW + sigGap, "Entreprise", report.company_signature);
+    await drawSig(MARGIN + (sigW + sigGap) * 2, "Client", report.client_signature);
+  } else {
+    await drawSig(MARGIN, "Entreprise", report.company_signature);
+    await drawSig(MARGIN + sigW + sigGap, "Client", report.client_signature);
+  }
   y -= sigH + 16;
 
   if ((report as any).client_validated_at) {

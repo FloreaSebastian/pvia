@@ -51,6 +51,8 @@ const InputSchema = z.object({
   items: z.array(ItemSchema).min(1).max(50),
   companySignature: z.string().max(800_000).nullable().optional(),
   clientSignature: z.string().max(800_000).nullable().optional(),
+  technicianSignature: z.string().max(800_000).nullable().optional(),
+  technicianName: z.string().max(200).nullable().optional(),
 });
 
 /** Distance between two GPS points in meters (haversine). */
@@ -122,6 +124,7 @@ export const createReserveLift = createServerFn({ method: "POST" })
     }
     const companySig = validateSignature(data.companySignature);
     const clientSig = validateSignature(data.clientSignature);
+    const technicianSig = validateSignature(data.technicianSignature);
 
     // 3. Verify reserves belong to this PV + are open
     const reserveIds = data.items.map((i) => i.reserveId);
@@ -153,6 +156,8 @@ export const createReserveLift = createServerFn({ method: "POST" })
           comment: data.comment || null,
           company_signature: companySig,
           client_signature: clientSig,
+          technician_signature: technicianSig,
+          technician_name: data.technicianName?.trim() || null,
           require_client_signature: data.requireClientSignature,
           signed_at: data.status === "signe" ? nowIso : null,
           created_by: userId,
