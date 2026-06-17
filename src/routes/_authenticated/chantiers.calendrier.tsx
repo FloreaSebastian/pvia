@@ -95,6 +95,36 @@ type TeamMode = "day" | "week";
 
 const UNASSIGNED = "__unassigned__";
 
+const ZOOM_LEVELS = { compact: 44, normal: 56, confort: 72 } as const;
+type Zoom = keyof typeof ZOOM_LEVELS;
+type WeekDays = 5 | 6 | 7;
+
+const LS = {
+  fs: "pvia.cal.fullscreen",
+  zoom: "pvia.cal.zoom",
+  weekDays: "pvia.cal.weekDays",
+  filtersOpen: "pvia.cal.filtersOpen",
+};
+function lsGet<T>(k: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try { const v = window.localStorage.getItem(k); return v == null ? fallback : (JSON.parse(v) as T); } catch { return fallback; }
+}
+function lsSet(k: string, v: unknown) {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ }
+}
+
+function statusIcon(status: string) {
+  if (status === "termine") return <CheckCircle2 className="h-3 w-3 shrink-0" />;
+  if (status === "reporte") return <Clock className="h-3 w-3 shrink-0" />;
+  return null;
+}
+function initials(name: string | null | undefined) {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("");
+}
+
 function ChantierCalendarPage() {
   const { activeCompanyId, can } = useCompany();
   const canWrite = can("manage");
