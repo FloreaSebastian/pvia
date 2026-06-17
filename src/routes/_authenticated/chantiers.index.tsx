@@ -71,7 +71,7 @@ function ChantiersPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Chantier | null>(null);
-  const empty = { name: "", address: "", address_line1: "", postal_code: "", city: "", latitude: null as number | null, longitude: null as number | null, type: "BTP", status: "en_cours", client_id: "", start_date: "", end_date: "", description: "" };
+  const empty = { name: "", address: "", address_line1: "", postal_code: "", city: "", latitude: null as number | null, longitude: null as number | null, type: "BTP", status: "planifie" as StatusValue, client_id: "", start_date: "", end_date: "", description: "", color: "" as string, progress_percent: 0 };
   const [form, setForm] = useState(empty);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
