@@ -397,6 +397,7 @@ function ChantierCalendarPage() {
     if (view === "month") setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + dir, 1));
     else if (view === "week") setCursor(addDays(cursor, 7 * dir));
     else if (view === "day") setCursor(addDays(cursor, dir));
+    else if (view === "team") setCursor(addDays(cursor, teamMode === "day" ? dir : 7 * dir));
     else if (view === "custom") {
       const days = Math.max(1, Math.round((new Date(customEnd).getTime() - new Date(customStart).getTime()) / 86400000) + 1);
       setCustomStart(toLocalInput(addDays(new Date(customStart + "T00:00:00"), days * dir)).slice(0,10));
