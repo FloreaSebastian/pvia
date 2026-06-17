@@ -331,6 +331,12 @@ export async function buildAndStoreReserveLiftPdf(
         }
         if (cam) meta.push(cam);
         if (meta.length) captionLines.push(meta.join("  ·  "));
+        // Chain of custody (internal only): filename + truncated SHA-256.
+        if (p.file_name || p.file_hash) {
+          const fn = p.file_name ? sanitize(String(p.file_name)) : "—";
+          const fh = p.file_hash ? `${String(p.file_hash).slice(0, 16)}…` : "—";
+          captionLines.push(`Fichier: ${fn}  ·  SHA-256: ${fh}`);
+        }
       } else {
         // Client-safe caption: only a binary geoloc badge + capture date. No coords, no EXIF, no camera.
         captionLines.push(hasGeo ? "Photo geolocalisee" : "Photo non geolocalisee");
