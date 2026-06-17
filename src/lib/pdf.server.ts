@@ -625,7 +625,8 @@ export async function generatePvPdfBytes(input: {
         if (rendered % perRow !== 0) y -= thumbH + 8;
         y -= 2;
       }
-    });
+    }
+
   }
 
 
