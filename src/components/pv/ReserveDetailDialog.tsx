@@ -34,7 +34,7 @@ export type ReserveDetail = {
   company_id: string | null;
 };
 
-type AuditRow = { id: string; action: string; created_at: string; metadata: any };
+type AuditRow = ReserveHistoryEntry;
 
 const STATUS_ACTIONS: Array<{ value: ReserveStatusValue; label: string }> = [
   { value: "en_cours", label: "Passer en cours" },
