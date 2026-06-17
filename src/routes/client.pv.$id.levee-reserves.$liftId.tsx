@@ -195,9 +195,26 @@ function ClientLiftDetail() {
             </div>
           </div>
         </Card>
+      ) : isRejected ? (
+        <Card className="border-destructive/30 bg-destructive/5 p-5">
+          <div className="flex items-start gap-3">
+            <XCircle className="mt-0.5 h-5 w-5 text-destructive" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Levée rejetée</p>
+              <p className="text-sm text-muted-foreground">
+                Rejetée le {new Date((report as any).client_rejected_at!).toLocaleString("fr-FR")} par {(report as any).client_rejected_email ?? session.email}.
+              </p>
+              {(report as any).client_rejected_reason && (
+                <p className="mt-3 whitespace-pre-line rounded-md border border-destructive/20 bg-background p-3 text-sm">
+                  <strong>Motif&nbsp;:</strong> {(report as any).client_rejected_reason}
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
       ) : (
         <ClientLiftValidation
-          onSubmit={async (signatureDataUrl) => {
+          onValidate={async (signatureDataUrl) => {
             await validateFn({
               data: { pvId, liftId, signatureDataUrl, consent: true },
             });
@@ -205,6 +222,12 @@ function ClientLiftDetail() {
             await qc.invalidateQueries({ queryKey: ["client.lift", pvId, liftId] });
             await qc.invalidateQueries({ queryKey: ["client.pv", pvId] });
             navigate({ to: "/client/pv/$id", params: { id: pvId } });
+          }}
+          onReject={async (reason) => {
+            await rejectFn({ data: { pvId, liftId, reason } });
+            toast.success("Levée rejetée. L'entreprise a été notifiée.");
+            await qc.invalidateQueries({ queryKey: ["client.lift", pvId, liftId] });
+            await qc.invalidateQueries({ queryKey: ["client.pv", pvId] });
           }}
         />
       )}
