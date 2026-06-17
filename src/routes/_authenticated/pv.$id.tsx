@@ -874,17 +874,48 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function SignatureBlock({ label, data }: { label: string; data: string | null }) {
+function CompactSignature({ label, data, name, date }: { label: string; data: string | null; name: string | null; date: string | null }) {
   return (
-    <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <div className="grid h-24 place-items-center rounded-md border border-dashed border-border bg-muted/30">
+    <div className="flex items-center gap-3 rounded-md border border-border bg-muted/20 p-2">
+      <div className="grid h-10 w-20 shrink-0 place-items-center overflow-hidden rounded bg-background">
         {data ? (
           <img src={data} alt={`Signature ${label}`} className="max-h-full max-w-full object-contain" />
         ) : (
-          <span className="text-xs text-muted-foreground">Non signé</span>
+          <span className="text-[10px] text-muted-foreground">Non signé</span>
         )}
       </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+        <div className="truncate text-sm font-medium">{name ?? "—"}</div>
+        {data && date && (
+          <div className="text-[11px] text-muted-foreground">
+            {new Date(date).toLocaleDateString("fr-FR")} · {new Date(date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DescriptionBlock({ label, text }: { label: string; text: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const value = text?.trim() || "";
+  const isLong = value.length > 220 || value.split("\n").length > 3;
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm ${!expanded && isLong ? "line-clamp-3" : ""}`}>
+        {value || "—"}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-xs font-medium text-primary hover:underline"
+        >
+          {expanded ? "Voir moins" : "Voir plus"}
+        </button>
+      )}
     </div>
   );
 }
