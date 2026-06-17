@@ -851,9 +851,16 @@ function PvDetail() {
           </div>
         )}
       </Card>
+      <ReserveDetailDialog
+        open={!!reserveDetail}
+        onOpenChange={(o) => !o && setReserveDetail(null)}
+        reserve={reserveDetail}
+        onChanged={() => load()}
+      />
     </div>
   );
 }
+
 
 function labelForType(t: string) {
   switch (t) {
