@@ -598,6 +598,7 @@ function ChantierCalendarPage() {
           days={monthGrid}
           cursor={cursor}
           canWrite={canWrite}
+          conflictIds={conflicts}
           onDblClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
           onClickEvent={(e) => openQuick(e)}
           onDblClickEvent={(e) => openEdit(e)}
@@ -615,6 +616,29 @@ function ChantierCalendarPage() {
             void commitReschedule(id, next, nextEnd);
           }}
           eventsOn={eventsOn}
+        />
+      )}
+
+      {!loading && view === "team" && (
+        <TeamView
+          mode={teamMode}
+          cursor={cursor}
+          members={members}
+          events={events}
+          canWrite={canWrite}
+          conflictIds={conflicts}
+          onClickEvent={(e) => openQuick(e)}
+          onDblClickEvent={(e) => openEdit(e)}
+          onCreateForMember={(memberId, start) => {
+            if (!canWrite) return;
+            openNew(start, new Date(start.getTime() + 60 * 60000));
+            // pre-set assignee after openNew sets form
+            setTimeout(() => setEvtForm((f) => ({ ...f, assigned_to: memberId === UNASSIGNED ? "" : memberId })), 0);
+          }}
+          onReassign={(id, memberId) => void commitReassign(id, memberId === UNASSIGNED ? null : memberId)}
+          chantierName={chantierName}
+          clientName={clientName}
+          memberName={memberName}
         />
       )}
 
