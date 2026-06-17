@@ -19,7 +19,7 @@ import {
   getChantierDetail, createChantierEvent, updateChantierEvent, deleteChantierEvent,
   createChantierNote, deleteChantierNote,
   createChantierDocument, deleteChantierDocument,
-  listCompanyMembers,
+  listCompanyMembers, createChantierAutoPlanning,
 } from "@/lib/chantier-detail.functions";
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
