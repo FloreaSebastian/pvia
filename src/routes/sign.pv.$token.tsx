@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusPill } from "@/components/ui/status-pill";
+import { reserveStatusLabel, reserveStatusTone, RESERVE_SEVERITY_LABEL } from "@/lib/reserve-status";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Loader2, CheckCircle2, AlertCircle, Building2, MapPin, Camera, Eraser, ShieldCheck, Clock, Download, Mail, KeyRound } from "lucide-react";
@@ -218,8 +219,8 @@ function SignPage() {
               {reserves.map((r: any) => (
                 <div key={r.id} className="rounded-lg border border-border/60 p-3">
                   <div className="flex items-center gap-2">
-                    <StatusPill tone={r.severity === "majeure" ? "destructive" : "warning"} size="sm" dot>{r.severity}</StatusPill>
-                    <StatusPill tone={r.status === "levee" || r.status === "validee" ? "success" : "neutral"} size="sm">{r.status}</StatusPill>
+                    <StatusPill tone={r.severity === "majeure" || r.severity === "bloquante" ? "destructive" : "warning"} size="sm" dot>{RESERVE_SEVERITY_LABEL[r.severity] ?? r.severity}</StatusPill>
+                    <StatusPill tone={reserveStatusTone(r.status)} size="sm">{reserveStatusLabel(r.status)}</StatusPill>
                   </div>
                   <p className="mt-2 text-sm">{r.description}</p>
                 </div>

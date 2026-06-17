@@ -5,6 +5,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB }
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
 import { sha256OfBytes, EIDAS_MENTIONS } from "./signature-proof.server";
+import { RESERVE_STATUS_LABEL, RESERVE_SEVERITY_LABEL, type ReserveStatusValue } from "./reserve-status";
 
 const ACCENT = rgb(0.06, 0.09, 0.16);
 const MUTED = rgb(0.42, 0.45, 0.52);
@@ -71,7 +72,7 @@ function wrapLines(font: PDFFont, text: string, size: number, maxWidth: number):
 export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<string> {
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
-    .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email")
+    .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
     .eq("id", reportId)
     .maybeSingle();
   if (!report?.company_id) throw new Error("Rapport introuvable.");
@@ -91,7 +92,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
 
   const reserveIds = (itemsRes.data ?? []).map((i: any) => i.reserve_id);
   const { data: reservesData } = reserveIds.length
-    ? await supabaseAdmin.from("pv_reserves").select("id,description,severity,status").in("id", reserveIds)
+    ? await supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").in("id", reserveIds)
     : { data: [] as any[] };
   const reserveMap = new Map<string, any>((reservesData ?? []).map((r: any) => [r.id, r]));
 
@@ -217,25 +218,39 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   }
 
   // Reserves lifted
+  const items = (itemsRes.data ?? []) as any[];
   ensureSpace(40);
-  page.drawText(`RESERVES LEVEES (${(itemsRes.data ?? []).length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
+  page.drawText(`RESERVES TRAITEES (${items.length})`, { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 16;
-  for (const item of (itemsRes.data ?? []) as any[]) {
+  for (const item of items) {
     const reserve = reserveMap.get(item.reserve_id);
     const desc = reserve?.description ?? "(réserve supprimée)";
+    const oldLabel = RESERVE_STATUS_LABEL[item.old_status as ReserveStatusValue] ?? item.old_status ?? "—";
+    const newLabel = RESERVE_STATUS_LABEL[item.new_status as ReserveStatusValue] ?? item.new_status ?? "—";
+    const sevLabel = reserve?.severity ? (RESERVE_SEVERITY_LABEL[reserve.severity] ?? reserve.severity) : "";
+    const isRejected = item.new_status === "rejetee";
+    const accentColor = isRejected ? rgb(0.80, 0.10, 0.10) : rgb(0.13, 0.6, 0.3);
+
     const lines = wrapLines(helv, desc, 9, CONTENT_W - 24);
-    const cLines = item.comment ? wrapLines(helv, `Commentaire: ${item.comment}`, 8.5, CONTENT_W - 24) : [];
-    const h = Math.max(40, lines.length * 12 + cLines.length * 11 + 28);
+    const cLines = item.comment ? wrapLines(helv, `Commentaire : ${item.comment}`, 8.5, CONTENT_W - 24) : [];
+    const headerLine = `${sevLabel ? sevLabel.toUpperCase() + " - " : ""}${oldLabel} → ${newLabel}`;
+    const h = Math.max(48, lines.length * 12 + cLines.length * 11 + 32);
     ensureSpace(h + 6);
-    page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, borderColor: BORDER, borderWidth: 0.5, color: rgb(0.99, 1, 0.99) });
-    page.drawRectangle({ x: MARGIN, y: y - h, width: 3, height: h, color: rgb(0.13, 0.6, 0.3) });
-    page.drawText(`LEVEE - ${sanitize(reserve?.severity ?? "").toUpperCase()}`, { x: MARGIN + 12, y: y - 14, size: 7, font: bold, color: rgb(0.13, 0.6, 0.3) });
+    page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, borderColor: BORDER, borderWidth: 0.5, color: isRejected ? rgb(1, 0.98, 0.98) : rgb(0.99, 1, 0.99) });
+    page.drawRectangle({ x: MARGIN, y: y - h, width: 3, height: h, color: accentColor });
+    page.drawText(sanitize(headerLine), { x: MARGIN + 12, y: y - 14, size: 7.5, font: bold, color: accentColor });
     let yy = y - 28;
     for (const l of lines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 9, font: helv, color: ACCENT }); yy -= 12; }
     for (const l of cLines) { page.drawText(l, { x: MARGIN + 12, y: yy, size: 8.5, font: helv, color: MUTED }); yy -= 11; }
     y -= h + 6;
   }
+  if (!items.length) {
+    ensureSpace(28);
+    page.drawText("Aucune réserve associée à ce rapport.", { x: MARGIN, y: y - 12, size: 9, font: helv, color: MUTED });
+    y -= 22;
+  }
   y -= 6;
+
 
   // Photos
   const allPhotoPaths: string[] = ((itemsRes.data ?? []) as any[]).flatMap((i) => i.photo_urls ?? []);
@@ -319,6 +334,25 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
       { x: MARGIN, y, size: 8.5, font: bold, color: rgb(0.13, 0.6, 0.3) },
     );
     y -= 16;
+  }
+
+  if ((report as any).client_rejected_at) {
+    const reason = sanitize((report as any).client_rejected_reason || "Aucun motif fourni.");
+    const reasonLines = wrapLines(helv, reason, 9, CONTENT_W - 60);
+    const h = 30 + reasonLines.length * 12;
+    ensureSpace(h + 8);
+    page.drawRectangle({ x: MARGIN, y: y - h, width: CONTENT_W, height: h, color: rgb(1, 0.95, 0.95), borderColor: rgb(0.80, 0.10, 0.10), borderWidth: 0.6 });
+    page.drawText(
+      sanitize(`REJETÉE par le client (${(report as any).client_rejected_email ?? "—"}) le ${formatDate((report as any).client_rejected_at, true)}`),
+      { x: MARGIN + 12, y: y - 14, size: 8.5, font: bold, color: rgb(0.80, 0.10, 0.10) },
+    );
+    let ry = y - 28;
+    page.drawText("Motif :", { x: MARGIN + 12, y: ry, size: 8, font: bold, color: rgb(0.80, 0.10, 0.10) });
+    for (const l of reasonLines) {
+      page.drawText(l, { x: MARGIN + 48, y: ry, size: 9, font: helv, color: ACCENT });
+      ry -= 12;
+    }
+    y -= h + 8;
   }
 
   // ============ PREUVE DE SIGNATURE ELECTRONIQUE (eIDAS SES) ============

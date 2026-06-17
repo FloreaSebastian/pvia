@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { getCompanyBranding, getCompanyBrandingSettings, hexToRgb01, type CompanyBranding, type CompanyBrandingSettings, DEFAULT_BRANDING_SETTINGS } from "./branding.server";
 import { sha256OfBytes, shortUA, EIDAS_MENTIONS } from "./signature-proof.server";
+import { RESERVE_STATUS_LABEL, RESERVE_PRIORITY_LABEL, RESERVE_SEVERITY_LABEL, isReserveOverdue, type ReserveStatusValue } from "./reserve-status";
 
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
@@ -14,9 +15,13 @@ type Reserve = {
   description: string;
   severity: string;
   status: string;
+  priority?: string | null;
   nature?: string | null;
   work_to_execute?: string | null;
   due_date?: string | null;
+  lifted_at?: string | null;
+  validated_at?: string | null;
+  assigned_name?: string | null;
 };
 type Pv = {
   id?: string;
@@ -515,63 +520,83 @@ export async function generatePvPdfBytes(input: {
   if (!reserves.length) {
     ensureSpace(34);
     page.drawRectangle({ x: MARGIN, y: y - 30, width: CONTENT_W, height: 30, color: SUCCESS_BG, borderColor: SUCCESS_FG, borderWidth: 0.5 });
-    page.drawText("Aucune reserve n'a ete formulee lors de la reception.", { x: MARGIN + 14, y: y - 19, size: 10, font: bold, color: SUCCESS_FG });
+    page.drawText(
+      withRes
+        ? "Reception prononcee avec reserves - aucune reserve detaillee n'a ete enregistree."
+        : "Aucune reserve n'a ete formulee lors de la reception.",
+      { x: MARGIN + 14, y: y - 19, size: 10, font: bold, color: SUCCESS_FG },
+    );
     y -= 38;
   } else {
-    // Table header
-    const cols = [
-      { label: "N°", w: 30 },
-      { label: "Description", w: 200 },
-      { label: "Gravite", w: 70 },
-      { label: "Travaux correctifs", w: 140 },
-      { label: "Echeance", w: CONTENT_W - 30 - 200 - 70 - 140 },
-    ];
-    ensureSpace(24);
-    let cx = MARGIN;
-    page.drawRectangle({ x: MARGIN, y: y - 18, width: CONTENT_W, height: 18, color: PRIMARY });
-    for (const c of cols) {
-      page.drawText(sanitize(c.label).toUpperCase(), { x: cx + 6, y: y - 13, size: 7.5, font: bold, color: rgb(1, 1, 1) });
-      cx += c.w;
-    }
-    y -= 18;
     reserves.forEach((r, idx) => {
-      const descLines = wrapLines(helv, r.description, 8.5, cols[1].w - 10);
-      const workLines = wrapLines(helv, r.work_to_execute ?? "-", 8.5, cols[3].w - 10);
-      const rowLines = Math.max(descLines.length, workLines.length, 1);
-      const rowH = Math.max(22, rowLines * 11 + 8);
-      ensureSpace(rowH);
-      // alternating bg
-      if (idx % 2 === 0) page.drawRectangle({ x: MARGIN, y: y - rowH, width: CONTENT_W, height: rowH, color: SOFT });
-      // severity left bar
       const sevColor =
         r.severity === "majeure" || r.severity === "bloquante" ? rgb(0.80, 0.10, 0.10) :
         r.severity === "mineure" ? rgb(0.92, 0.62, 0.07) :
         rgb(0.35, 0.55, 0.80);
-      page.drawRectangle({ x: MARGIN, y: y - rowH, width: 3, height: rowH, color: sevColor });
-      let cx2 = MARGIN;
-      // N°
-      page.drawText(String(idx + 1).padStart(2, "0"), { x: cx2 + 8, y: y - 14, size: 9, font: bold, color: ACCENT });
-      cx2 += cols[0].w;
-      // Description
-      let ly = y - 12;
-      for (const l of descLines) { page.drawText(l, { x: cx2 + 6, y: ly, size: 8.5, font: helv, color: ACCENT }); ly -= 11; }
-      cx2 += cols[1].w;
-      // Gravite badge
-      page.drawText(sanitize(r.severity).toUpperCase(), { x: cx2 + 6, y: y - 14, size: 7.5, font: bold, color: sevColor });
-      page.drawText(sanitize(r.status), { x: cx2 + 6, y: y - 24, size: 7, font: helv, color: MUTED });
-      cx2 += cols[2].w;
-      // Travaux
-      let ly2 = y - 12;
-      for (const l of workLines) { page.drawText(l, { x: cx2 + 6, y: ly2, size: 8.5, font: helv, color: ACCENT }); ly2 -= 11; }
-      cx2 += cols[3].w;
-      // Echeance
-      page.drawText(formatDate(r.due_date), { x: cx2 + 6, y: y - 14, size: 8.5, font: helv, color: ACCENT });
-      // bottom border
-      page.drawLine({ start: { x: MARGIN, y: y - rowH }, end: { x: MARGIN + CONTENT_W, y: y - rowH }, thickness: 0.3, color: BORDER });
-      y -= rowH;
+      const statusLabel = RESERVE_STATUS_LABEL[r.status as ReserveStatusValue] ?? r.status;
+      const priorityLabel = r.priority ? (RESERVE_PRIORITY_LABEL[r.priority] ?? r.priority) : null;
+      const severityLabel = RESERVE_SEVERITY_LABEL[r.severity] ?? r.severity;
+      const overdue = isReserveOverdue(r.due_date ?? null, r.status);
+
+      const descLines = wrapLines(helv, r.description, 9, CONTENT_W - 30);
+      const workLines = r.work_to_execute ? wrapLines(helv, r.work_to_execute, 8.5, CONTENT_W - 30) : [];
+      const natureLine = r.nature ? `Nature : ${r.nature}` : null;
+      const dueLine = r.due_date
+        ? `Echeance : ${formatDate(r.due_date)}${overdue ? "  -  EN RETARD" : ""}`
+        : null;
+      const respLine = r.assigned_name ? `Responsable : ${r.assigned_name}` : null;
+
+      // Compute height
+      let bodyLines = descLines.length + (natureLine ? 1 : 0);
+      if (workLines.length) bodyLines += 1 + workLines.length; // "Travaux a executer" + lines
+      if (dueLine || respLine) bodyLines += 1;
+      const rowH = 38 + bodyLines * 11 + 6;
+      ensureSpace(rowH + 4);
+
+      // Card
+      page.drawRectangle({ x: MARGIN, y: y - rowH, width: CONTENT_W, height: rowH, color: SOFT, borderColor: BORDER, borderWidth: 0.5 });
+      page.drawRectangle({ x: MARGIN, y: y - rowH, width: 4, height: rowH, color: sevColor });
+
+      // Header row: N°, severity badge, status badge, priority badge
+      let hx = MARGIN + 12;
+      page.drawText(`Reserve ${String(idx + 1).padStart(2, "0")}`, { x: hx, y: y - 16, size: 10, font: bold, color: ACCENT });
+      hx += bold.widthOfTextAtSize(`Reserve ${String(idx + 1).padStart(2, "0")}`, 10) + 12;
+
+      const drawBadge = (label: string, color: RGB, bg: RGB) => {
+        const txt = sanitize(label).toUpperCase();
+        const w = bold.widthOfTextAtSize(txt, 7.5) + 10;
+        page.drawRectangle({ x: hx, y: y - 20, width: w, height: 13, color: bg, borderColor: color, borderWidth: 0.4 });
+        page.drawText(txt, { x: hx + 5, y: y - 17, size: 7.5, font: bold, color });
+        hx += w + 6;
+      };
+      const sevBg = rgb(clamp01(sevColor.red * 0.1 + 0.95), clamp01(sevColor.green * 0.1 + 0.95), clamp01(sevColor.blue * 0.1 + 0.95));
+      drawBadge(severityLabel, sevColor, sevBg);
+      drawBadge(statusLabel, PRIMARY_DARK, HEADER_BG);
+      if (priorityLabel) drawBadge(`Prio ${priorityLabel}`, MUTED, SOFT);
+      if (overdue) drawBadge("Retard", rgb(0.80, 0.10, 0.10), rgb(1, 0.93, 0.93));
+
+      // Body
+      let by = y - 36;
+      for (const l of descLines) { page.drawText(l, { x: MARGIN + 12, y: by, size: 9, font: helv, color: ACCENT }); by -= 11; }
+      if (natureLine) { page.drawText(sanitize(natureLine), { x: MARGIN + 12, y: by, size: 8.5, font: italic, color: MUTED }); by -= 11; }
+      if (workLines.length) {
+        page.drawText("Travaux a executer :", { x: MARGIN + 12, y: by, size: 8.5, font: bold, color: PRIMARY_DARK }); by -= 11;
+        for (const l of workLines) { page.drawText(l, { x: MARGIN + 12, y: by, size: 8.5, font: helv, color: ACCENT }); by -= 11; }
+      }
+      if (dueLine || respLine) {
+        const left = dueLine ?? "";
+        const right = respLine ?? "";
+        page.drawText(sanitize(left), { x: MARGIN + 12, y: by, size: 8.5, font: bold, color: overdue ? rgb(0.80, 0.10, 0.10) : MUTED });
+        if (right) {
+          const rw = helv.widthOfTextAtSize(sanitize(right), 8.5);
+          page.drawText(sanitize(right), { x: MARGIN + CONTENT_W - 12 - rw, y: by, size: 8.5, font: helv, color: MUTED });
+        }
+      }
+
+      y -= rowH + 4;
     });
-    y -= 8;
   }
+
 
   // ============ GARANTIES APPLICABLES ============
   sectionTitle("Garanties applicables");
@@ -850,17 +875,32 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
       ? supabaseAdmin.from("chantiers").select("name,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("pv_photos").select("id,url,caption").eq("pv_id", pvId).order("created_at"),
-    supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date").eq("pv_id", pvId).order("created_at"),
+    supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date,priority,assigned_to,lifted_at,validated_at").eq("pv_id", pvId).order("created_at"),
     pv.owner_id
       ? supabaseAdmin.from("profiles").select("full_name").eq("id", pv.owner_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+
+  // Resolve assignee names for reserves
+  const assignedIds = Array.from(new Set((reservesRes.data ?? [])
+    .map((r: any) => r.assigned_to as string | null)
+    .filter((v): v is string => !!v)));
+  const assigneeMap = new Map<string, string>();
+  if (assignedIds.length) {
+    const { data: profs } = await supabaseAdmin.from("profiles").select("id,full_name").in("id", assignedIds);
+    for (const p of (profs ?? [])) assigneeMap.set(p.id as string, (p.full_name as string) ?? "");
+  }
+  const enrichedReserves = (reservesRes.data ?? []).map((r: any) => ({
+    ...r,
+    assigned_name: r.assigned_to ? (assigneeMap.get(r.assigned_to) || null) : null,
+  }));
 
   const photos: { caption: string | null; bytes: Uint8Array }[] = [];
   for (const p of (photosRes.data ?? []).slice(0, 12)) {
     const { data: f } = await supabaseAdmin.storage.from("pv-assets").download(p.url);
     if (f) photos.push({ caption: p.caption, bytes: new Uint8Array(await f.arrayBuffer()) });
   }
+
 
   let clientEmailEvidence = (pv as any).client_identity_email as string | null;
   let identityVerifiedAt = (pv as any).client_identity_verified_at as string | null;
@@ -916,7 +956,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     company: company ?? undefined,
     client: (clientRes as any).data ?? undefined,
     chantier: (chantierRes as any).data ?? undefined,
-    reserves: reservesRes.data ?? [],
+    reserves: enrichedReserves,
     photos,
     branding: brandingSettings,
     proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256: null },
@@ -929,7 +969,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     company: company ?? undefined,
     client: (clientRes as any).data ?? undefined,
     chantier: (chantierRes as any).data ?? undefined,
-    reserves: reservesRes.data ?? [],
+    reserves: enrichedReserves,
     photos,
     branding: brandingSettings,
     proof: { companySignatoryName, pdfGeneratedAt: generatedAt, pdfSha256 },
