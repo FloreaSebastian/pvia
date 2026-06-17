@@ -135,8 +135,12 @@ function ReservesPage() {
       chantierIds.length ? supabase.from("chantiers").select("id,nom").in("id", chantierIds) : Promise.resolve({ data: [] as any }),
       clientIds.length ? supabase.from("clients").select("id,nom").in("id", clientIds) : Promise.resolve({ data: [] as any }),
     ]);
-    const chMap = new Map((chs ?? []).map((c: any) => [c.id, c]));
-    const clMap = new Map((cls ?? []).map((c: any) => [c.id, c]));
+    const chMap = new Map<string, { id: string; nom: string }>(
+      (chs ?? []).map((c: any) => [c.id as string, { id: c.id as string, nom: c.nom as string }]),
+    );
+    const clMap = new Map<string, { id: string; nom: string }>(
+      (cls ?? []).map((c: any) => [c.id as string, { id: c.id as string, nom: c.nom as string }]),
+    );
     setItems(
       rows.map((r) => {
         const pv = pvMap.get(r.pv_id);
@@ -148,6 +152,7 @@ function ReservesPage() {
         };
       }),
     );
+
   }, [activeCompanyId]);
 
   useEffect(() => { load(); }, [load]);
