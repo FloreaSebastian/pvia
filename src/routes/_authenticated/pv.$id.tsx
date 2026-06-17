@@ -759,48 +759,74 @@ function PvDetail() {
               <div className="space-y-1.5">
                 {reserves.map((r) => {
                   const overdue = isReserveOverdue(r.due_date, r.status);
+                  const reservePhotos = photos.filter((p) => p.reserve_id === r.id);
                   return (
-                    <div key={r.id} className={`flex flex-col gap-2 rounded-md border p-2.5 sm:flex-row sm:items-start ${overdue ? "border-red-500/50" : "border-border"}`}>
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"} size="sm">{r.severity}</StatusPill>
-                          <StatusPill tone={reserveStatusTone(r.status) as any} size="sm" dot>{reserveStatusLabel(r.status)}</StatusPill>
-                          {r.priority && r.priority !== "normal" && (
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">P. {r.priority}</span>
+                    <div key={r.id} className={`flex flex-col gap-2 rounded-md border p-2.5 ${overdue ? "border-red-500/50" : "border-border"}`}>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <StatusPill tone={r.severity === "majeure" ? "destructive" : "neutral"} size="sm">{r.severity}</StatusPill>
+                            <StatusPill tone={reserveStatusTone(r.status) as any} size="sm" dot>{reserveStatusLabel(r.status)}</StatusPill>
+                            {r.priority && r.priority !== "normal" && (
+                              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]">P. {r.priority}</span>
+                            )}
+                            {overdue && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">En retard</span>}
+                            {reservePhotos.length === 0 ? (
+                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Ancienne réserve sans photo</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                <Camera className="h-2.5 w-2.5" /> {reservePhotos.length}
+                              </span>
+                            )}
+                          </div>
+                          <p className="line-clamp-2 text-sm leading-snug">{r.description}</p>
+                          {r.work_to_execute && (
+                            <p className="line-clamp-1 text-[11px] text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>
                           )}
-                          {overdue && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">En retard</span>}
+                          <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
+                            {r.due_date && <span className={overdue ? "font-semibold text-red-600" : ""}>📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}</span>}
+                            {r.assigned_to && <span>👷 Assigné</span>}
+                            {r.lifted_at && <span>Levée {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</span>}
+                            {r.validated_at && <span className="text-success">Validée {new Date(r.validated_at).toLocaleDateString("fr-FR")}</span>}
+                          </div>
                         </div>
-                        <p className="line-clamp-2 text-sm leading-snug">{r.description}</p>
-                        {r.work_to_execute && (
-                          <p className="line-clamp-1 text-[11px] text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>
-                        )}
-                        <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
-                          {r.due_date && <span className={overdue ? "font-semibold text-red-600" : ""}>📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}</span>}
-                          {r.assigned_to && <span>👷 Assigné</span>}
-                          {r.lifted_at && <span>Levée {new Date(r.lifted_at).toLocaleDateString("fr-FR")}</span>}
-                          {r.validated_at && <span className="text-success">Validée {new Date(r.validated_at).toLocaleDateString("fr-FR")}</span>}
+                        <div className="flex items-center gap-1 sm:shrink-0">
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
+                            Détails
+                          </Button>
+                          {r.status === "ouverte" && (
+                            <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }} search={{ reserveId: r.id }}>
+                              <Button size="sm" variant="outline" className="h-8">
+                                <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                              </Button>
+                            </Link>
+                          )}
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 sm:shrink-0">
-                        <Button size="sm" variant="outline" className="h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
-                          Détails
-                        </Button>
-                        {r.status === "ouverte" && (
-                          <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }} search={{ reserveId: r.id }}>
-                            <Button size="sm" variant="outline" className="h-8">
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Lever
-                            </Button>
-                          </Link>
-                        )}
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      {reservePhotos.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {reservePhotos.map((p) => (
+                            <a
+                              key={p.id}
+                              href={p.signedUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block h-14 w-14 overflow-hidden rounded border border-border bg-muted"
+                            >
+                              {p.signedUrl && <img src={p.signedUrl} alt="" className="h-full w-full object-cover" />}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
+
 
             {lifts.length > 0 && (
               <div className="space-y-1.5 border-t border-border pt-3">
