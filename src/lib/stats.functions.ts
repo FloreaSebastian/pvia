@@ -280,9 +280,12 @@ export const getCompanyStats = createServerFn({ method: "POST" })
       previous,
       monthly,
       reservesByStatus: [
-        { name: "Ouvertes", value: current.kpis.reservesOuverte, key: "ouverte" },
-        { name: "Levées", value: current.kpis.reservesLevee, key: "levee" },
-        { name: "Validées", value: current.kpis.reservesValidee, key: "validee" },
+        { name: "Ouvertes", value: current.kpis.reservesOuverte, key: "ouverte", color: "#dc2626" },
+        { name: "En cours", value: current.kpis.reservesEnCours, key: "en_cours", color: "#f59e0b" },
+        { name: "Levées", value: current.kpis.reservesLevee, key: "levee", color: "#f59e0b" },
+        { name: "En attente validation", value: current.kpis.reservesEnAttenteValidation, key: "en_attente_validation", color: "#fbbf24" },
+        { name: "Validées client", value: current.kpis.reservesValidee, key: "validee", color: "#16a34a" },
+        { name: "Rejetées", value: current.kpis.reservesRejetee, key: "rejetee", color: "#6b7280" },
       ],
       reservesBySeverity: [
         { name: "Mineure", value: reservesBySeverity.mineure },
