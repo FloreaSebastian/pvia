@@ -165,6 +165,7 @@ function ChantierCalendarPage() {
   const [fHideDone, setFHideDone] = useState(false);
   const [fHideCancelled, setFHideCancelled] = useState(false);
   const [teamMode, setTeamMode] = useState<TeamMode>("day");
+  const [colorMode, setColorMode] = useState<ColorMode>("type");
 
   // P4 prefs
   const [fullscreen, setFullscreen] = useState<boolean>(() => lsGet(LS.fs, false));
