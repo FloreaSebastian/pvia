@@ -56,18 +56,25 @@ export const getReserveComplianceMetrics = createServerFn({ method: "POST" })
     // Photos (sample latest 1000 to keep widget cheap on large tenants)
     const { data: photos } = await supabaseAdmin
       .from("reserve_lift_item_photos" as any)
-      .select("id,latitude,longitude,exif_metadata,suspicious_metadata")
+      .select("id,latitude,longitude,exif_metadata")
       .eq("company_id", data.companyId)
       .order("uploaded_at", { ascending: false })
       .limit(1000);
 
     const photosTotal = (photos ?? []).length;
-    let withGps = 0, withExif = 0, suspicious = 0;
+    let withGps = 0, withExif = 0;
     for (const p of (photos ?? []) as any[]) {
       if (p.latitude != null && p.longitude != null) withGps++;
       if (p.exif_metadata && Object.keys(p.exif_metadata).length > 0) withExif++;
-      if (p.suspicious_metadata && Object.keys(p.suspicious_metadata).length > 0) suspicious++;
     }
+
+    // Anti-fraud: count audit events flagged as suspicious metadata
+    const { count: suspiciousCount } = await supabaseAdmin
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", data.companyId)
+      .eq("action", "reserve_lift_photo.suspicious_metadata");
+    const suspicious = suspiciousCount ?? 0;
 
     // Reserve-lift reports overall
     const { count: liftsTotal } = await supabaseAdmin
