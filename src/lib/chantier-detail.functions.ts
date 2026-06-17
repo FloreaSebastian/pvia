@@ -74,8 +74,10 @@ const EventPayload = z.object({
   reminder_at: z.string().nullable().optional(),
   location: z.string().trim().max(300).optional().default(""),
   color: z.string().trim().max(30).optional().default(""),
+  color_source: z.enum(["auto", "manual"]).optional().default("auto"),
   client_id: z.string().uuid().nullable().optional(),
 });
+
 
 export const createChantierEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -91,6 +93,7 @@ export const createChantierEvent = createServerFn({ method: "POST" })
       start_at: p.start_at || null, end_at: p.end_at || null, all_day: p.all_day ?? false,
       assigned_to: p.assigned_to ?? null, reminder_at: p.reminder_at || null,
       location: p.location.trim() || null, color: p.color.trim() || null,
+      color_source: p.color_source ?? "auto",
       client_id: p.client_id ?? null,
     }).select("id").single();
     if (error || !row) throw new Error(error?.message ?? "Création impossible.");
@@ -111,8 +114,11 @@ export const updateChantierEvent = createServerFn({ method: "POST" })
       start_at: p.start_at || null, end_at: p.end_at || null, all_day: p.all_day ?? false,
       assigned_to: p.assigned_to ?? null, reminder_at: p.reminder_at || null,
       location: p.location.trim() || null, color: p.color.trim() || null,
+      color_source: p.color_source ?? "auto",
       client_id: p.client_id ?? null,
+      reminder_sent_at: null,
     }).eq("id", data.id).eq("company_id", data.companyId);
+
     if (error) throw new Error(error.message);
     await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_event", entityId: data.id, action: "chantier_event.update", newValues: p });
     return { ok: true };
@@ -313,3 +319,72 @@ export const rescheduleChantierEvent = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+// ---------- resize (drag handle) ----------
+export const resizeChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    id: z.string().uuid(),
+    end_at: z.string(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { data: prev } = await supabase.from("chantier_events")
+      .select("end_at").eq("id", data.id).eq("company_id", data.companyId).maybeSingle();
+    if (!prev) throw new Error("Événement introuvable.");
+    const { error } = await supabase.from("chantier_events")
+      .update({ end_at: data.end_at, resized_at: new Date().toISOString(), reminder_sent_at: null })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId,
+      entityType: "chantier_event", entityId: data.id,
+      action: "chantier_event.resized",
+      oldValues: { end_at: prev.end_at },
+      newValues: { end_at: data.end_at },
+    });
+    return { ok: true };
+  });
+
+// ---------- duplicate ----------
+export const duplicateChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { data: src, error: errSrc } = await supabase.from("chantier_events")
+      .select("*").eq("id", data.id).eq("company_id", data.companyId).maybeSingle();
+    if (errSrc || !src) throw new Error("Événement source introuvable.");
+    const { data: row, error } = await supabase.from("chantier_events").insert({
+      company_id: src.company_id,
+      chantier_id: src.chantier_id,
+      client_id: src.client_id,
+      created_by: userId,
+      title: (src.title ?? "") + " (copie)",
+      description: src.description,
+      event_type: src.event_type,
+      status: src.status,
+      start_at: src.start_at,
+      end_at: src.end_at,
+      all_day: src.all_day,
+      assigned_to: src.assigned_to,
+      reminder_at: src.reminder_at,
+      location: src.location,
+      color: src.color,
+      color_source: src.color_source,
+      duplicated_from_event_id: src.id,
+    }).select("id").single();
+
+    if (error || !row) throw new Error(error?.message ?? "Duplication impossible.");
+    await writeAuditLog({
+      companyId: data.companyId, userId,
+      entityType: "chantier_event", entityId: row.id as string,
+      action: "chantier_event.duplicated",
+      newValues: { source_id: src.id },
+    });
+    return { ok: true, id: row.id as string };
+  });
+
