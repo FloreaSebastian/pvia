@@ -39,7 +39,7 @@ type Evt = {
   location: string | null; description: string | null;
   assigned_to: string | null; reminder_at: string | null;
   color: string | null; color_source: string | null;
-  chantier?: { id: string; name: string } | null;
+  chantier?: { id: string; name: string; color?: string | null } | null;
   client?: { id: string; name: string } | null;
 };
 
