@@ -899,10 +899,11 @@ function EventHoverContent({ evt, memberName, chantierName, clientName }: {
 }
 
 function MonthView({
-  days, cursor, canWrite, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
+  days, cursor, canWrite, conflictIds, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
   memberName, chantierName, clientName,
 }: {
   days: Date[]; cursor: Date; canWrite: boolean;
+  conflictIds: Set<string>;
   onDblClickDay: (d: Date) => void;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
