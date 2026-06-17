@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowLeft, ChevronRight, Save, Send } from "lucide-react";
+import { Loader2, ArrowLeft, ChevronRight, Save, Send, MapPin, MapPinOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { createReserveLift } from "@/lib/reserve-lift.functions";
 import { fileToBase64 } from "@/lib/file-upload";
@@ -24,6 +24,42 @@ export const Route = createFileRoute("/_authenticated/pv/$id/levee-reserves")({
 
 type Reserve = { id: string; description: string; severity: string; status: string };
 
+type PhotoEntry = {
+  file: File;
+  previewUrl: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  takenAt: string;
+  deviceInfo: string;
+};
+
+/** Try to get GPS coords. Resolves with null fields if permission denied / unsupported. */
+function tryGetGps(): Promise<{ latitude: number | null; longitude: number | null; accuracy: number | null }> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve({ latitude: null, longitude: null, accuracy: null });
+      return;
+    }
+    const timer = setTimeout(() => resolve({ latitude: null, longitude: null, accuracy: null }), 8000);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(timer);
+        resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? null,
+        });
+      },
+      () => {
+        clearTimeout(timer);
+        resolve({ latitude: null, longitude: null, accuracy: null });
+      },
+      { enableHighAccuracy: true, timeout: 7000, maximumAge: 30_000 },
+    );
+  });
+}
+
 function LeveeReserves() {
   const { id: pvId } = Route.useParams();
   const search = Route.useSearch();
@@ -34,7 +70,8 @@ function LeveeReserves() {
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [itemComment, setItemComment] = useState<Record<string, string>>({});
-  const [itemPhotos, setItemPhotos] = useState<Record<string, File[]>>({});
+  const [itemPhotosBefore, setItemPhotosBefore] = useState<Record<string, PhotoEntry[]>>({});
+  const [itemPhotosAfter, setItemPhotosAfter] = useState<Record<string, PhotoEntry[]>>({});
   const [globalComment, setGlobalComment] = useState("");
   const [requireClient, setRequireClient] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -47,18 +84,52 @@ function LeveeReserves() {
     (async () => {
       const [pvRes, resRes] = await Promise.all([
         supabase.from("pv").select("numero").eq("id", pvId).maybeSingle(),
-        supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).in("status", ["ouverte", "levee"]).order("created_at"),
+        supabase.from("pv_reserves").select("id,description,severity,status").eq("pv_id", pvId).in("status", ["ouverte", "en_cours", "levee"]).order("created_at"),
       ]);
       setPvNumero(pvRes.data?.numero ?? "");
       const rs = (resRes.data ?? []) as Reserve[];
       setReserves(rs);
-      // Pre-select reserve from query param
       if (search.reserveId && rs.some((r) => r.id === search.reserveId)) {
         setSelected({ [search.reserveId]: true });
       }
       setLoading(false);
     })();
   }, [pvId, search.reserveId]);
+
+  async function handleFilesPicked(
+    rid: string,
+    kind: "before" | "after",
+    files: FileList | null,
+  ) {
+    if (!files || files.length === 0) return;
+    const gps = await tryGetGps();
+    if (gps.latitude === null) {
+      toast.message("Photo non géolocalisée (GPS refusé ou indisponible).");
+    }
+    const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 400) : "";
+    const takenAt = new Date().toISOString();
+    const entries: PhotoEntry[] = Array.from(files).map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      latitude: gps.latitude,
+      longitude: gps.longitude,
+      accuracy: gps.accuracy,
+      takenAt,
+      deviceInfo,
+    }));
+    const setter = kind === "before" ? setItemPhotosBefore : setItemPhotosAfter;
+    setter((prev) => ({ ...prev, [rid]: [...(prev[rid] ?? []), ...entries] }));
+  }
+
+  function removePhoto(rid: string, kind: "before" | "after", idx: number) {
+    const setter = kind === "before" ? setItemPhotosBefore : setItemPhotosAfter;
+    setter((prev) => {
+      const list = [...(prev[rid] ?? [])];
+      const removed = list.splice(idx, 1);
+      removed.forEach((e) => URL.revokeObjectURL(e.previewUrl));
+      return { ...prev, [rid]: list };
+    });
+  }
 
   async function onSubmit(status: "brouillon" | "signe") {
     const ids = Object.keys(selected).filter((id) => selected[id]);
@@ -70,14 +141,23 @@ function LeveeReserves() {
     try {
       const items = await Promise.all(
         ids.map(async (rid) => {
-          const photos = await Promise.all(
-            (itemPhotos[rid] ?? []).map(async (f) => ({
-              base64: await fileToBase64(f),
-              mimeType: f.type || "image/jpeg",
-              fileName: f.name,
-            })),
+          const before = itemPhotosBefore[rid] ?? [];
+          const after = itemPhotosAfter[rid] ?? [];
+          const allPhotos = await Promise.all(
+            [...before.map((e) => ({ e, t: "before" as const })), ...after.map((e) => ({ e, t: "after" as const }))]
+              .map(async ({ e, t }) => ({
+                base64: await fileToBase64(e.file),
+                mimeType: e.file.type || "image/jpeg",
+                fileName: e.file.name,
+                photoType: t,
+                latitude: e.latitude,
+                longitude: e.longitude,
+                accuracy: e.accuracy,
+                takenAt: e.takenAt,
+                deviceInfo: e.deviceInfo,
+              })),
           );
-          return { reserveId: rid, comment: itemComment[rid] || "", photos };
+          return { reserveId: rid, comment: itemComment[rid] || "", photos: allPhotos };
         }),
       );
       const res = await createFn({
@@ -102,6 +182,63 @@ function LeveeReserves() {
     }
   }
 
+  function PhotoZone({
+    rid, kind, label,
+  }: { rid: string; kind: "before" | "after"; label: string }) {
+    const list = (kind === "before" ? itemPhotosBefore : itemPhotosAfter)[rid] ?? [];
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium">{label}</Label>
+          <span className="text-[10px] text-muted-foreground">{list.length} photo(s)</span>
+        </div>
+        <input
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp"
+          onChange={(e) => {
+            void handleFilesPicked(rid, kind, e.target.files);
+            e.target.value = "";
+          }}
+          className="block w-full text-xs"
+        />
+        {list.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {list.map((p, idx) => {
+              const geo = p.latitude !== null && p.longitude !== null;
+              return (
+                <div key={idx} className="relative overflow-hidden rounded border border-border">
+                  <img src={p.previewUrl} alt="" className="aspect-square w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(rid, kind, idx)}
+                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                    aria-label="Supprimer"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
+                    {geo ? (
+                      <>
+                        <MapPin className="h-2.5 w-2.5 text-green-300" />
+                        {p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}
+                      </>
+                    ) : (
+                      <>
+                        <MapPinOff className="h-2.5 w-2.5 text-amber-300" />
+                        Non géoloc.
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (loading) return <div className="grid h-64 place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
@@ -116,18 +253,21 @@ function LeveeReserves() {
         </div>
         <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Créer une levée de réserves</h1>
         {reserves.length > 0 && (
-          <p className="mt-0.5 text-xs text-muted-foreground">PV {pvNumero} · {reserves.length} réserve(s) ouverte(s)</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">PV {pvNumero} · {reserves.length} réserve(s) à traiter</p>
         )}
       </div>
 
       {reserves.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-8 text-center text-sm text-muted-foreground">
-          Aucune réserve ouverte à lever sur ce PV.
+          Aucune réserve à lever sur ce PV.
           <Link to="/pv/$id" params={{ id: pvId }}><Button variant="outline" size="sm"><ArrowLeft className="h-4 w-4" /> Retour au PV</Button></Link>
         </Card>
       ) : (
         <Card className="space-y-2 p-4">
           <h2 className="text-sm font-semibold">Réserves à lever</h2>
+          <p className="text-[11px] text-muted-foreground">
+            La géolocalisation des photos est conservée comme preuve d'intervention. Son absence n'invalide ni la réserve ni sa levée.
+          </p>
           <div className="space-y-2">
             {reserves.map((r) => (
               <div key={r.id} className="space-y-2 rounded-md border border-border p-2.5">
@@ -139,20 +279,15 @@ function LeveeReserves() {
                   </div>
                 </div>
                 {selected[r.id] && (
-                  <div className="ml-6 space-y-2">
+                  <div className="ml-6 space-y-3">
                     <Textarea
                       placeholder="Intervention réalisée (optionnel)…"
                       rows={2}
                       value={itemComment[r.id] ?? ""}
                       onChange={(e) => setItemComment((c) => ({ ...c, [r.id]: e.target.value }))}
                     />
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={(e) => setItemPhotos((p) => ({ ...p, [r.id]: Array.from(e.target.files ?? []) }))}
-                      className="block w-full text-xs"
-                    />
+                    <PhotoZone rid={r.id} kind="before" label="Photos AVANT intervention" />
+                    <PhotoZone rid={r.id} kind="after" label="Photos APRÈS intervention" />
                   </div>
                 )}
               </div>
