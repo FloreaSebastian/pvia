@@ -563,3 +563,135 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
     if (!res.ok) throw new Error(res.error || "Envoi échoué.");
     return { ok: true as const, recipient: res.recipient };
   });
+
+/**
+ * List photos (before/after) for a given reserve, with signed URLs.
+ * Company-scoped via RLS; signed URLs valid 1h.
+ * Falls back to legacy `reserve_lift_items.photo_urls` for items predating the dedicated table.
+ */
+export const listReserveLiftPhotos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ reserveId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: reserve } = await supabaseAdmin
+      .from("pv_reserves")
+      .select("id,company_id")
+      .eq("id", data.reserveId)
+      .maybeSingle();
+    if (!reserve?.company_id) throw new Error("Réserve introuvable.");
+
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("id")
+      .eq("company_id", reserve.company_id)
+      .eq("user_id", context.userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member) throw new Error("Accès refusé.");
+
+    const { data: rows } = await supabaseAdmin
+      .from("reserve_lift_item_photos" as any)
+      .select("id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,uploaded_at,uploaded_by,device_info")
+      .eq("reserve_id", data.reserveId)
+      .order("uploaded_at", { ascending: true });
+
+    const items: Array<{
+      id: string;
+      photoType: "before" | "after" | "legacy";
+      url: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      accuracy: number | null;
+      takenAt: string | null;
+      uploadedAt: string | null;
+      uploadedBy: string | null;
+      deviceInfo: string | null;
+    }> = [];
+
+    for (const r of (rows ?? []) as any[]) {
+      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.storage_path, 3600);
+      items.push({
+        id: r.id,
+        photoType: r.photo_type,
+        url: signed?.signedUrl ?? null,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        accuracy: r.accuracy,
+        takenAt: r.taken_at,
+        uploadedAt: r.uploaded_at,
+        uploadedBy: r.uploaded_by,
+        deviceInfo: r.device_info,
+      });
+    }
+
+    // Fallback : legacy photo_urls on items not yet migrated.
+    if (items.length === 0) {
+      const { data: legacyItems } = await supabaseAdmin
+        .from("reserve_lift_items")
+        .select("id,photo_urls")
+        .eq("reserve_id", data.reserveId);
+      for (const it of (legacyItems ?? []) as any[]) {
+        for (const p of (it.photo_urls ?? []) as string[]) {
+          const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(p, 3600);
+          items.push({
+            id: `${it.id}-${p}`,
+            photoType: "legacy",
+            url: signed?.signedUrl ?? null,
+            latitude: null, longitude: null, accuracy: null,
+            takenAt: null, uploadedAt: null, uploadedBy: null, deviceInfo: null,
+          });
+        }
+      }
+    }
+
+    return { photos: items };
+  });
+
+/**
+ * Delete a single reserve-lift photo. Managers/owners only.
+ * Cannot delete from a locked (signed) PV — trigger guards this.
+ */
+export const deleteReserveLiftPhoto = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ photoId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+    const { data: photo } = await supabaseAdmin
+      .from("reserve_lift_item_photos" as any)
+      .select("id,company_id,pv_id,reserve_id,storage_path,photo_type")
+      .eq("id", data.photoId)
+      .maybeSingle();
+    if (!photo) throw new Error("Photo introuvable.");
+
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("role")
+      .eq("company_id", (photo as any).company_id)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
+      throw new Error("Accès refusé.");
+    }
+
+    await supabaseAdmin.storage.from("pv-assets").remove([(photo as any).storage_path]).catch(() => {});
+    const { error: delErr } = await supabaseAdmin
+      .from("reserve_lift_item_photos" as any)
+      .delete()
+      .eq("id", data.photoId);
+    if (delErr) throw new Error(delErr.message);
+
+    await writeAuditLog({
+      companyId: (photo as any).company_id,
+      userId,
+      pvId: (photo as any).pv_id,
+      entityType: "reserve_lift_photo",
+      entityId: data.photoId,
+      action: "reserve_lift_photo.deleted",
+      metadata: { photo_type: (photo as any).photo_type, reserve_id: (photo as any).reserve_id },
+      actor: "user",
+    });
+
+    return { ok: true as const };
+  });
+
