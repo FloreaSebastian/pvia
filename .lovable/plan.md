@@ -1,97 +1,73 @@
-# Refonte Clients & Chantiers (BTP)
+# Refonte module Réserves
 
-Travail volumineux — je propose de le livrer en **3 lots** pour rester revue-able. Tu valides le plan global, puis je peux soit tout livrer d'un coup, soit lot par lot.
+Travail volumineux : DB, server functions, UI cartes/tableau, dashboard, export, notifications. Découpé en 3 lots livrables séquentiellement pour limiter la casse.
 
----
+## Lot A — Base de données & sécurité (migration)
 
-## Lot 1 — Adresse intelligente (Clients & Chantiers)
+Ajouter à `pv_reserves` :
+- `assigned_to uuid` (référence `auth.users`)
+- `due_date date`
+- `priority text` (low / normal / high)
+- Étendre les statuts autorisés : `ouverte`, `en_cours`, `levee`, `en_attente_validation`, `validee`, `rejetee` (sans casser l'existant — `levee` et `validee` restent valides)
+- Index sur `(company_id, status)`, `(assigned_to)`, `(due_date)`
 
-### Base de données
-Migration ajoutant aux deux tables :
-- `address_line1 text`, `postal_code text`, `city text`, `latitude double precision`, `longitude double precision`
-- Garder l'`address` existante (recomposée serveur-side à chaque update)
+Trigger notification :
+- À l'assignation → notif au responsable
+- À la création si assignée → notif
+- Au passage `levee` → notif owner PV
+- Au passage `validee` → notif owner PV
 
-### Backend
-- Réutiliser `searchAddressSuggestions` déjà utilisé pour les PV (api-adresse.data.gouv.fr)
-- Étendre `clients.functions.ts` et `chantiers.functions.ts` :
-  - validation Zod des champs adresse
-  - recomposition `address = "address_line1, postal_code city"`
-  - audit `client.address_updated` / `chantier.address_updated` si changement
+RLS : conserver, vérifier que `assigned_to` peut lire/modifier sa réserve.
 
-### UI
-- Remplacer le champ texte `address` par `<AddressAutocomplete>` (composant existant) dans :
-  - formulaire client (`/clients`)
-  - formulaire chantier (`/chantiers`)
-- Affichage : ville + CP dans les cartes, adresse complète en détail
+## Lot B — Server functions & sécurité rôles
 
----
+`src/lib/reserves.functions.ts` étendu :
+- `updateReserveStatus` — règles par rôle :
+  - `technicien` : peut passer `ouverte → en_cours → levee`
+  - `conducteur_travaux` / `responsable_exploitation` / `directeur` : tous statuts
+  - `assistant_admin` : lecture + suivi, pas de transition technique
+  - `lecture_seule` : aucune mutation
+- `assignReserve({ id, assignedTo, dueDate, priority })` — conducteur+
+- `bulkUpdateReserves` — actions groupées (status, assignation, échéance)
+- `exportReservesCsv` — retourne CSV string filtré
+- `deleteReserve` — directeur/responsable_exploitation uniquement, refus si PV signé (déjà en place, à conserver)
+- Audit : chaque action loggée
 
-## Lot 2 — Fiche chantier `/chantiers/$id` + tables associées
+## Lot C — UI `/reserves`
 
-### Migrations (3 tables + RLS + GRANTs)
-- `chantier_events` (timeline + calendrier unifiés)
-- `chantier_notes` (visibility internal/client, priority, reminder)
-- `chantier_documents` (file_url via bucket `pv-assets` réutilisé, category)
+Refonte de `src/routes/_authenticated/reserves.tsx` :
 
-RLS :
-- SELECT : `is_company_member`
-- INSERT/UPDATE : `can_manage_company` (owner/admin/manager)
-- DELETE : `is_company_admin` (owner/admin)
+**Header dashboard** : 5 cartes cliquables (ouvertes / bloquantes / en retard / à valider / validées)
 
-### Triggers auto-événements
-Triggers `AFTER INSERT/UPDATE` sur `pv` et `pv_reserves` qui insèrent dans `chantier_events` quand `chantier_id IS NOT NULL` :
-- pv.created → "PV créé"
-- pv.signed → "PV signé"
-- reserve.created → "Réserve créée"
-- reserve.lifted → "Réserve levée"
+**Toolbar** :
+- Barre de recherche (description, nature, travaux, n° PV)
+- Filtres avancés : statut, gravité, échéance dépassée, PV, chantier, client
+- Filtres rapides (chips) : Ouvertes / Bloquantes / En retard / À lever / Validées
+- Switch vue cartes / tableau
+- Bouton Export CSV
 
-### Server functions (`chantier-detail.functions.ts`)
-- `getChantierDetail({ id })` → résumé + timeline + notes + docs + stats avancement
-- `createChantierEvent`, `updateChantierEvent`, `deleteChantierEvent`
-- `createChantierNote`, `updateChantierNote`, `deleteChantierNote`
-- `uploadChantierDocument`, `deleteChantierDocument`
-Toutes protégées par `requireSupabaseAuth` + RBAC.
+**Vue cartes** enrichie :
+- Gravité + statut (badges colorés)
+- Description tronquée 2 lignes + "Voir plus"
+- PV / chantier / client
+- Échéance + badge retard
+- Responsable assigné
+- Actions : Lever, Voir PV, Assigner, Modifier échéance
 
-### Route `/chantiers/$id` (sections)
-A. Résumé (nom, client, adresse, statut, dates, %avancement, prochain/dernier événement)
-B. Timeline (événements triés DESC, icône par type)
-C. Notes (toggle internal/client, priority badge)
-D. Documents (upload, catégorie, preview)
-E. Historique = sous-set de la timeline (filter `event_type IN ('system_*')`)
+**Vue tableau** : PV / Client / Chantier / Gravité / Statut / Échéance / Responsable / Actions
 
-### Navigation
-- `/chantiers` : ligne cliquable → `/chantiers/$id`
-- Boutons "Calendrier", "Nouvel événement"
+**Sélection multiple** + actions groupées (marquer levées, assigner, modifier échéance, export sélection)
 
----
+**Modale d'assignation** : sélecteur membre actif de la company, datepicker, priorité
 
-## Lot 3 — Calendrier `/chantiers/calendrier`
+## Hors scope (mentionné mais pas livré ici)
 
-### UI
-- Vue mois / semaine / jour / liste (mobile)
-- Filtres : chantier, client, type, statut
-- Couleurs par `event_type` (mapping CSS tokens)
-- Création / édition événement via dialog
-- Click événement → ouvre détail + lien vers `/chantiers/$id`
+- Modification des sections réserves dans `/pv/:id` (pas urgent, formulaire actuel fonctionne ; je ne touche qu'à `/reserves`)
+- Refonte du flow `levee-reserves` (existant, fonctionnel)
+- Notifications push (l'infra notifications DB existe déjà ; les triggers couvrent l'essentiel)
 
-### Implémentation
-- Composant calendrier custom léger (mois + semaine) — pas de dépendance lourde
-- Liste pour mobile (group by date)
-- Server fn `listChantierEvents({ from, to, filters })`
+## Livraison
 
----
+Je propose de livrer **les 3 lots en une seule passe** car ils sont fortement couplés (UI dépend des nouveaux champs et server functions). Risque : passe longue, mais cohérente.
 
-## Considérations techniques
-
-- **Bucket fichiers** : réutiliser `pv-assets` avec prefix `chantiers/{id}/` (pas de nouveau bucket)
-- **Compatibilité** : ancienne colonne `address` conservée et auto-recomposée ; aucun code legacy cassé
-- **PV ↔ chantier** : la liaison `pv.chantier_id` existe déjà — uniquement les triggers à ajouter
-- **Avancement %** : calculé = `events terminés / events totaux` (simple v1, ajustable plus tard)
-- **RLS** : toutes les tables `company_id` scoped + GRANT explicites
-
-## Risques / à clarifier
-1. **Avancement %** : tu préfères calcul auto (events) ou champ manuel sur chantier ?
-2. **Bucket** : OK pour réutiliser `pv-assets` ou tu veux un bucket `chantier-docs` séparé ?
-3. **Lots** : je livre tout en une fois (~15-20 fichiers + 2 migrations) ou lot par lot avec validation entre chaque ?
-
-Réponds à ces 3 points et je lance.
+**Confirme-moi : on part en une passe, ou je découpe (Lot A seul d'abord, puis B+C) ?**
