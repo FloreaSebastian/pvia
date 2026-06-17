@@ -586,15 +586,32 @@ export async function buildAndStoreReserveLiftPdf(
   const evidenceHash = await sha256OfBytes(evidenceBytes);
   const genAt = new Date().toISOString();
 
-  ensureSpace(40);
-  page.drawText("Empreinte numerique du document", { x: MARGIN, y, size: 7, font: bold, color: MUTED });
-  y -= 10;
-  page.drawText(`UUID : ${report.id}`, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
-  y -= 10;
-  page.drawText(`N° : ${sanitize(report.numero)}   ·   Genere le ${formatDate(genAt, true)}`, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
-  y -= 10;
-  page.drawText(`SHA-256 (preuve) : ${evidenceHash}`, { x: MARGIN, y, size: 6.5, font: helv, color: MUTED });
+  // Traceability block.
+  // Internal: full forensic block with UUIDs of report / PV / company + local & UTC timestamps.
+  // Client : minimal fingerprint only (UUID rapport + hash preuve).
+  ensureSpace(isInternal ? 80 : 40);
+  page.drawText(isInternal ? "TRACABILITE NUMERIQUE" : "Empreinte numerique du document", {
+    x: MARGIN, y, size: 8, font: bold, color: PRIMARY,
+  });
   y -= 12;
+  const traceLines: string[] = [];
+  traceLines.push(`UUID rapport     : ${report.id}`);
+  if (isInternal) {
+    traceLines.push(`UUID PV          : ${report.pv_id}`);
+    traceLines.push(`UUID entreprise  : ${report.company_id}`);
+    traceLines.push(`Genere (UTC)     : ${genAt}`);
+    try {
+      traceLines.push(`Genere (local)   : ${new Date(genAt).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })} (Europe/Paris)`);
+    } catch { /* */ }
+  } else {
+    traceLines.push(`N° : ${sanitize(report.numero)}   ·   Genere le ${formatDate(genAt, true)}`);
+  }
+  traceLines.push(`SHA-256 (preuve) : ${evidenceHash}`);
+  for (const t of traceLines) {
+    page.drawText(t, { x: MARGIN, y, size: 7, font: helv, color: MUTED });
+    y -= 10;
+  }
+  y -= 4;
 
   // Mentions
   ensureSpace(60);
