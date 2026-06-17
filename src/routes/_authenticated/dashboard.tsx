@@ -24,6 +24,7 @@ import { PvStatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Sparkline } from "@/components/app/Sparkline";
 import { useCompany } from "@/hooks/use-company";
+import { ComplianceWidget } from "@/components/dashboard/ComplianceWidget";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
