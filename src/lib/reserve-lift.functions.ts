@@ -537,7 +537,7 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
     // Ensure PDF exists (regenerate if missing)
     if (!report.pdf_url) {
       try {
-        await buildAndStoreReserveLiftPdf(report.id);
+        await buildAndStoreReserveLiftPdfs(report.id);
       } catch (e: any) {
         throw new Error(`Régénération PDF échouée : ${e?.message ?? "inconnue"}`);
       }
