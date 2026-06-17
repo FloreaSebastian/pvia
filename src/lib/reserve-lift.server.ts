@@ -69,7 +69,24 @@ function wrapLines(font: PDFFont, text: string, size: number, maxWidth: number):
   return lines;
 }
 
-export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<string> {
+export type ReserveLiftPdfVariant = "internal" | "client";
+
+/**
+ * Build and persist a reserve-lift PDF.
+ *
+ * Two variants are supported and stored under distinct paths so the
+ * client never sees internal forensic metadata:
+ *  - `internal`: GPS coordinates, accuracy, EXIF, camera, client IP, anti-fraud notes.
+ *  - `client`:   photos + dates only; geolocation reduced to a boolean badge.
+ *
+ * Backward compatible: when `variant === "client"` we also refresh
+ * the legacy `pdf_url` / `pdf_generated_at` columns.
+ */
+export async function buildAndStoreReserveLiftPdf(
+  reportId: string,
+  variant: ReserveLiftPdfVariant = "client",
+): Promise<string> {
+  const isInternal = variant === "internal";
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
     .select("id,numero,status,comment,company_signature,client_signature,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
@@ -135,7 +152,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   })();
 
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`Levée de réserves ${report.numero}`);
+  pdf.setTitle(`Levée de réserves ${report.numero}${isInternal ? " (interne)" : ""}`);
   pdf.setCreator("PVIA");
   pdf.setProducer("PVIA");
 
@@ -190,6 +207,10 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   page.drawText("PROCES-VERBAL", { x: PAGE_W - MARGIN - 220, y: PAGE_H - 40, size: 9, font: bold, color: PRIMARY });
   page.drawText("DE LEVEE DE RESERVES", { x: PAGE_W - MARGIN - 220, y: PAGE_H - 54, size: 9, font: helv, color: MUTED });
   page.drawText(`N° ${sanitize(report.numero)}`, { x: PAGE_W - MARGIN - 220, y: PAGE_H - 78, size: 18, font: bold, color: ACCENT });
+  if (isInternal) {
+    page.drawRectangle({ x: PAGE_W - MARGIN - 220, y: PAGE_H - 100, width: 130, height: 14, color: rgb(0.95, 0.92, 0.80), borderColor: rgb(0.70, 0.55, 0.10), borderWidth: 0.5 });
+    page.drawText("USAGE INTERNE — CONFIDENTIEL", { x: PAGE_W - MARGIN - 216, y: PAGE_H - 96, size: 7, font: bold, color: rgb(0.55, 0.40, 0.05) });
+  }
 
   y = PAGE_H - 140;
 
@@ -275,20 +296,29 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
       } catch { /* skip */ }
       const hasGeo = p.latitude !== null && p.latitude !== undefined && p.longitude !== null && p.longitude !== undefined;
       const captionLines: string[] = [];
-      if (hasGeo) {
-        captionLines.push(`Photo geolocalisee  GPS ${(p.latitude as number).toFixed(5)}, ${(p.longitude as number).toFixed(5)}${p.accuracy ? ` (±${Math.round(p.accuracy)}m)` : ""}`);
+      if (isInternal) {
+        if (hasGeo) {
+          captionLines.push(`Photo geolocalisee  GPS ${(p.latitude as number).toFixed(5)}, ${(p.longitude as number).toFixed(5)}${p.accuracy ? ` (±${Math.round(p.accuracy)}m)` : ""}`);
+        } else {
+          captionLines.push("Photo non geolocalisee");
+        }
+        const exif = (p.exif_metadata ?? {}) as any;
+        const cam = [exif?.Make, exif?.Model].filter(Boolean).join(" ");
+        const takenIso = p.taken_at ?? exif?.DateTimeOriginal ?? null;
+        const meta: string[] = [];
+        if (takenIso) {
+          try { meta.push(`Prise: ${new Date(takenIso).toLocaleString("fr-FR")}`); } catch { /* */ }
+        }
+        if (cam) meta.push(cam);
+        if (meta.length) captionLines.push(meta.join("  ·  "));
       } else {
-        captionLines.push("Photo non geolocalisee");
+        // Client-safe caption: only a binary geoloc badge + capture date. No coords, no EXIF, no camera.
+        captionLines.push(hasGeo ? "Photo geolocalisee" : "Photo non geolocalisee");
+        const takenIso = p.taken_at ?? null;
+        if (takenIso) {
+          try { captionLines.push(`Prise le ${new Date(takenIso).toLocaleDateString("fr-FR")}`); } catch { /* */ }
+        }
       }
-      const exif = (p.exif_metadata ?? {}) as any;
-      const cam = [exif?.Make, exif?.Model].filter(Boolean).join(" ");
-      const takenIso = p.taken_at ?? exif?.DateTimeOriginal ?? null;
-      const meta: string[] = [];
-      if (takenIso) {
-        try { meta.push(`Prise: ${new Date(takenIso).toLocaleString("fr-FR")}`); } catch { /* */ }
-      }
-      if (cam) meta.push(cam);
-      if (meta.length) captionLines.push(meta.join("  ·  "));
       let cy = y - cellH - 9;
       for (const line of captionLines) {
         page.drawText(sanitize(line), { x, y: cy, size: 7, font: helv, color: hasGeo ? rgb(0.13, 0.5, 0.3) : MUTED });
@@ -385,7 +415,7 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   y -= 6;
 
   // Legal note on geolocation
-  if (items.length) {
+  if (items.length && isInternal) {
     const legalText =
       "Les métadonnées de géolocalisation sont enregistrées à titre de preuve d'intervention. Leur absence n'invalide ni la réserve ni sa levée.";
     const legalLines = wrapLines(helv, legalText, 7.5, CONTENT_W - 16);
@@ -509,7 +539,9 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   proofField("a", "Identite verifiee le", formatDate((report as any).client_validated_at, true));
 
   proofField("b", "Methode de signature", "Signature electronique simple — validation par lien email");
-  proofField("b", "Adresse IP client", (report as any).client_validated_ip || "-");
+  if (isInternal) {
+    proofField("b", "Adresse IP client", (report as any).client_validated_ip || "-");
+  }
   proofField("b", "Date de validation client", formatDate((report as any).client_validated_at, true));
   proofField("b", "Signature client (entreprise)", report.client_signature ? "Signature collectee" : "-");
 
@@ -555,17 +587,70 @@ export async function buildAndStoreReserveLiftPdf(reportId: string): Promise<str
   drawFooter();
 
   const bytes = await pdf.save();
-  const path = `${report.company_id}/lifts/${reportId}/LR-${report.numero}.pdf`;
+  const suffix = isInternal ? "internal" : "client";
+  const path = `${report.company_id}/lifts/${reportId}/LR-${report.numero}-${suffix}.pdf`;
   const { error: upErr } = await supabaseAdmin.storage
     .from("pv-assets")
     .upload(path, bytes, { contentType: "application/pdf", upsert: true });
   if (upErr) throw new Error(`Échec upload PDF: ${upErr.message}`);
 
+  const nowIso = new Date().toISOString();
+  const patch: Record<string, unknown> = isInternal
+    ? { pdf_internal_url: path, pdf_internal_generated_at: nowIso }
+    : {
+        pdf_client_url: path,
+        pdf_client_generated_at: nowIso,
+        // Keep legacy columns aligned with the client-safe variant so old code paths
+        // (email delivery, exports) never accidentally expose internal metadata.
+        pdf_url: path,
+        pdf_generated_at: nowIso,
+      };
   const { error: pdfUpdErr } = await supabaseAdmin
     .from("reserve_lift_reports")
-    .update({ pdf_url: path, pdf_generated_at: new Date().toISOString() } as any)
+    .update(patch as any)
     .eq("id", reportId);
   if (pdfUpdErr) throw new Error(`Échec persistance pdf_url: ${pdfUpdErr.message}`);
 
   return path;
+}
+
+/**
+ * Build both variants (internal + client) in sequence, returning their storage paths.
+ * Use this as the default entry point so the two PDFs stay in sync.
+ */
+export async function buildAndStoreReserveLiftPdfs(
+  reportId: string,
+): Promise<{ internalPath: string; clientPath: string }> {
+  const internalPath = await buildAndStoreReserveLiftPdf(reportId, "internal");
+  const clientPath = await buildAndStoreReserveLiftPdf(reportId, "client");
+
+  // Audit both generations (best-effort — never block the lift on audit failures).
+  try {
+    const { writeAuditLog } = await import("./audit.server");
+    const { data: r } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .select("company_id,pv_id,numero")
+      .eq("id", reportId)
+      .maybeSingle();
+    if (r?.company_id) {
+      await writeAuditLog({
+        companyId: r.company_id, pvId: r.pv_id,
+        entityType: "reserve_lift", entityId: reportId,
+        action: "pdf.internal_generated",
+        metadata: { numero: r.numero, path: internalPath },
+        actor: "system",
+      });
+      await writeAuditLog({
+        companyId: r.company_id, pvId: r.pv_id,
+        entityType: "reserve_lift", entityId: reportId,
+        action: "pdf.client_generated",
+        metadata: { numero: r.numero, path: clientPath },
+        actor: "system",
+      });
+    }
+  } catch (e) {
+    console.error("[reserve-lift] audit pdf generation failed", e);
+  }
+
+  return { internalPath, clientPath };
 }

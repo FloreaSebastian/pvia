@@ -8,7 +8,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { firePushToCompany } from "./push.server";
-import { buildAndStoreReserveLiftPdf } from "./reserve-lift.server";
+import { buildAndStoreReserveLiftPdfs } from "./reserve-lift.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
 import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
 import {
@@ -365,7 +365,8 @@ export const createReserveLift = createServerFn({ method: "POST" })
     if (data.status === "signe") {
       await markPdfGenerationStatus("reserve_lift_reports", reportId, "pending");
       try {
-        pdfPath = await buildAndStoreReserveLiftPdf(reportId);
+        const built = await buildAndStoreReserveLiftPdfs(reportId);
+        pdfPath = built.clientPath;
         await markPdfGenerationStatus("reserve_lift_reports", reportId, "ok");
       } catch (e) {
         await markPdfGenerationStatus("reserve_lift_reports", reportId, "failed");
@@ -475,22 +476,35 @@ export const listReserveLifts = createServerFn({ method: "POST" })
     if (!m) throw new Error("Accès refusé.");
     const { data: rows } = await supabaseAdmin
       .from("reserve_lift_reports")
-      .select("id,numero,status,signed_at,pdf_url,created_at,client_validated_at,client_validated_email")
+      .select("id,numero,status,signed_at,pdf_url,pdf_internal_url,pdf_client_url,created_at,client_validated_at,client_validated_email")
       .eq("pv_id", data.pvId)
       .order("created_at", { ascending: false });
     return { lifts: rows ?? [] };
   });
 
+/**
+ * Signed download URL for a reserve-lift PDF.
+ *
+ * Company members only. `variant` defaults to "client" so legacy callers
+ * never accidentally surface internal forensic metadata. The "internal"
+ * variant is gated on company membership too (RLS-aligned) and audited
+ * separately so download events can be traced for assurance / litigation.
+ */
 export const getReserveLiftPdfUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => z.object({ reportId: z.string().uuid() }).parse(i))
+  .inputValidator((i) =>
+    z.object({
+      reportId: z.string().uuid(),
+      variant: z.enum(["internal", "client"]).optional().default("client"),
+    }).parse(i),
+  )
   .handler(async ({ data, context }) => {
     const { data: r } = await supabaseAdmin
       .from("reserve_lift_reports")
-      .select("company_id,pdf_url")
+      .select("company_id,pv_id,numero,pdf_url,pdf_internal_url,pdf_client_url")
       .eq("id", data.reportId)
       .maybeSingle();
-    if (!r?.pdf_url) throw new Error("PDF indisponible.");
+    if (!r?.company_id) throw new Error("Levée introuvable.");
     const { data: m } = await supabaseAdmin
       .from("company_members")
       .select("id")
@@ -499,9 +513,35 @@ export const getReserveLiftPdfUrl = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
     if (!m) throw new Error("Accès refusé.");
-    const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.pdf_url, 3600);
+
+    // Prefer the requested variant; fall back to the legacy `pdf_url` only for
+    // the client variant (the legacy column was always built without GPS gating).
+    const path = data.variant === "internal"
+      ? (r as any).pdf_internal_url
+      : ((r as any).pdf_client_url ?? r.pdf_url);
+    if (!path) {
+      throw new Error(
+        data.variant === "internal"
+          ? "PDF interne indisponible. Régénérez la levée pour produire les deux versions."
+          : "PDF client indisponible.",
+      );
+    }
+
+    const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(path, 3600);
     if (!signed?.signedUrl) throw new Error("Lien indisponible.");
-    return { url: signed.signedUrl };
+
+    await writeAuditLog({
+      companyId: r.company_id,
+      userId: context.userId,
+      pvId: (r as any).pv_id,
+      entityType: "reserve_lift",
+      entityId: data.reportId,
+      action: data.variant === "internal" ? "pdf.internal_downloaded" : "pdf.client_downloaded",
+      metadata: { numero: (r as any).numero, path },
+      actor: "user",
+    });
+
+    return { url: signed.signedUrl, variant: data.variant };
   });
 
 /**
@@ -536,7 +576,7 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
     // Ensure PDF exists (regenerate if missing)
     if (!report.pdf_url) {
       try {
-        await buildAndStoreReserveLiftPdf(report.id);
+        await buildAndStoreReserveLiftPdfs(report.id);
       } catch (e: any) {
         throw new Error(`Régénération PDF échouée : ${e?.message ?? "inconnue"}`);
       }

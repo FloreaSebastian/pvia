@@ -150,15 +150,17 @@ export async function deliverSignedReserveLift(opts: { reportId: string }): Prom
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
     .select(
-      "id,numero,pv_id,company_id,pdf_url,client_validated_at,client_validated_email",
+      "id,numero,pv_id,company_id,pdf_url,pdf_client_url,client_validated_at,client_validated_email",
     )
     .eq("id", opts.reportId)
     .maybeSingle();
   if (!report?.company_id) throw new Error("Rapport introuvable.");
-  if (!report.pdf_url) throw new Error("PDF indisponible.");
+  // Emails to the client MUST always carry the client-safe PDF (no GPS/EXIF).
+  const pdfPath = (report as any).pdf_client_url ?? report.pdf_url;
+  if (!pdfPath) throw new Error("PDF indisponible.");
 
   const [pdfFile, { data: pv }, { data: company }, branding] = await Promise.all([
-    supabaseAdmin.storage.from("pv-assets").download(report.pdf_url),
+    supabaseAdmin.storage.from("pv-assets").download(pdfPath),
     supabaseAdmin.from("pv").select("numero,client_id,sent_to_email").eq("id", report.pv_id).maybeSingle(),
     supabaseAdmin.from("companies").select("name,email").eq("id", report.company_id).maybeSingle(),
     getCompanyBrandingSettings(report.company_id),

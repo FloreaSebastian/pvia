@@ -1895,8 +1895,12 @@ export type Database = {
           created_by: string | null
           id: string
           numero: string
+          pdf_client_generated_at: string | null
+          pdf_client_url: string | null
           pdf_generated_at: string | null
           pdf_generation_status: string
+          pdf_internal_generated_at: string | null
+          pdf_internal_url: string | null
           pdf_url: string | null
           processing_errors: Json
           processing_status: string
@@ -1922,8 +1926,12 @@ export type Database = {
           created_by?: string | null
           id?: string
           numero: string
+          pdf_client_generated_at?: string | null
+          pdf_client_url?: string | null
           pdf_generated_at?: string | null
           pdf_generation_status?: string
+          pdf_internal_generated_at?: string | null
+          pdf_internal_url?: string | null
           pdf_url?: string | null
           processing_errors?: Json
           processing_status?: string
@@ -1949,8 +1957,12 @@ export type Database = {
           created_by?: string | null
           id?: string
           numero?: string
+          pdf_client_generated_at?: string | null
+          pdf_client_url?: string | null
           pdf_generated_at?: string | null
           pdf_generation_status?: string
+          pdf_internal_generated_at?: string | null
+          pdf_internal_url?: string | null
           pdf_url?: string | null
           processing_errors?: Json
           processing_status?: string

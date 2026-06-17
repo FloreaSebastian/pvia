@@ -10,7 +10,7 @@ import { writeAuditLog } from "@/lib/audit.server";
 import { enforceRateLimit } from "@/lib/rate-limit.server";
 import { decodeAndValidateImage } from "@/lib/image-validate.server";
 import { firePushToCompany } from "@/lib/push.server";
-import { buildAndStoreReserveLiftPdf } from "@/lib/reserve-lift.server";
+import { buildAndStoreReserveLiftPdfs } from "@/lib/reserve-lift.server";
 import { dispatchWebhookEvent } from "@/lib/webhooks.server";
 import { deliverSignedReserveLift } from "@/lib/reserve-lift-email.server";
 import {
@@ -230,15 +230,30 @@ export const getClientReserveLiftPdfUrl = createServerFn({ method: "POST" })
     const pv = await fetchPvForClient(data.pvId, s);
     const { data: r } = await supabaseAdmin
       .from("reserve_lift_reports")
-      .select("pdf_url")
+      .select("id,company_id,numero,pdf_url,pdf_client_url")
       .eq("id", data.liftId)
       .eq("pv_id", pv.id)
       .maybeSingle();
-    if (!r?.pdf_url) throw new Error("PDF indisponible.");
+    // Client space ALWAYS serves the client-safe variant. Never fall back to the
+    // internal PDF — that one contains GPS coordinates, EXIF and anti-fraud data.
+    const path = (r as any)?.pdf_client_url ?? (r as any)?.pdf_url ?? null;
+    if (!path) throw new Error("PDF indisponible.");
     const { data: signed } = await supabaseAdmin.storage
       .from("pv-assets")
-      .createSignedUrl(r.pdf_url, 3600);
+      .createSignedUrl(path, 3600);
     if (!signed?.signedUrl) throw new Error("Lien indisponible.");
+
+    try {
+      const { writeAuditLog } = await import("@/lib/audit.server");
+      await writeAuditLog({
+        companyId: (r as any).company_id, pvId: pv.id,
+        entityType: "reserve_lift", entityId: data.liftId,
+        action: "pdf.client_downloaded",
+        metadata: { numero: (r as any).numero, path, by: s.email },
+        actor: "client",
+      });
+    } catch { /* never block download on audit failure */ }
+
     return { url: signed.signedUrl };
   });
 
@@ -344,7 +359,8 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
       const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
       await markPdfGenerationStatus("reserve_lift_reports", report.id, "pending");
       try {
-        pdfPath = await buildAndStoreReserveLiftPdf(report.id);
+        const built = await buildAndStoreReserveLiftPdfs(report.id);
+        pdfPath = built.clientPath;
         await markPdfGenerationStatus("reserve_lift_reports", report.id, "ok");
       } catch (e) {
         await markPdfGenerationStatus("reserve_lift_reports", report.id, "failed");
