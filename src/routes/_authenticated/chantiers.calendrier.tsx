@@ -488,13 +488,25 @@ function ChantierCalendarPage() {
           </Popover>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          {(["month","week","day","list","custom"] as const).map((v) => (
+          {(["month","week","day","team","list","custom"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)}
-              className={cn("rounded-md px-3 py-1.5 text-xs font-medium transition",
+              className={cn("inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition",
                 view === v ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
-              {v === "month" ? "Mois" : v === "week" ? "Semaine" : v === "day" ? "Jour" : v === "list" ? "Liste" : "Personnalisé"}
+              {v === "team" && <Users className="h-3.5 w-3.5" />}
+              {v === "month" ? "Mois" : v === "week" ? "Semaine" : v === "day" ? "Jour" : v === "team" ? "Équipe" : v === "list" ? "Liste" : "Personnalisé"}
             </button>
           ))}
+          {view === "team" && (
+            <div className="ml-2 inline-flex overflow-hidden rounded-md border border-border">
+              {(["day","week"] as const).map((m) => (
+                <button key={m} onClick={() => setTeamMode(m)}
+                  className={cn("px-2.5 py-1.5 text-[11px] font-medium transition",
+                    teamMode === m ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted")}>
+                  {m === "day" ? "Jour" : "Semaine"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </Card>
 
