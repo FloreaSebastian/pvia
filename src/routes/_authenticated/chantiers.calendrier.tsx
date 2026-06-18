@@ -114,7 +114,7 @@ const UNASSIGNED = "__unassigned__";
 
 const ZOOM_LEVELS = { compact: 44, normal: 56, confort: 72 } as const;
 type Zoom = keyof typeof ZOOM_LEVELS;
-type WeekDays = 5 | 6 | 7;
+type WeekDays = 3 | 5 | 6 | 7;
 
 const LS = {
   fs: "pvia.cal.fullscreen",
