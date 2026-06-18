@@ -21,6 +21,7 @@ import {
   createChantierDocument, deleteChantierDocument,
   listCompanyMembers, createChantierAutoPlanning,
 } from "@/lib/chantier-detail.functions";
+import { reopenChantier } from "@/lib/chantiers.functions";
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
   component: ChantierDetailPage,
