@@ -921,7 +921,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
                     Aucune photo de constat initial trouvée pour cette réserve.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {list.map((p, idx) => (
                       <div key={idx} className="relative overflow-hidden rounded border border-border">
                         {p.url ? (
@@ -990,7 +990,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
                     {uploading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                   </div>
                   {list.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {list.map((p, idx) => {
                         const geo = p.latitude !== null && p.longitude !== null;
                         return (
