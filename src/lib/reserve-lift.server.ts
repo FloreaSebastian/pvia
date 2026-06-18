@@ -319,14 +319,39 @@ export async function buildAndStoreReserveLiftPdf(
   y -= partyH + 12;
 
   if (chantier?.name) {
-    ensureSpace(46);
-    page.drawRectangle({ x: MARGIN, y: y - 36, width: CONTENT_W, height: 36, color: rgb(0.99, 0.99, 1), borderColor: BORDER, borderWidth: 0.4 });
-    page.drawText("CHANTIER", { x: MARGIN + 12, y: y - 12, size: 7, font: bold, color: MUTED });
-    page.drawText(sanitize(chantier.name), { x: MARGIN + 12, y: y - 24, size: 10, font: bold, color: ACCENT });
-    if (chantier.address) {
-      page.drawText(sanitize(chantier.address), { x: MARGIN + 200, y: y - 24, size: 8.5, font: helv, color: MUTED });
-    }
-    y -= 46;
+    const chantierAddr = [chantier.address_line1, [chantier.postal_code, chantier.city].filter(Boolean).join(" ")]
+      .filter(Boolean)
+      .join(", ") || chantier.address || "";
+    const ch_lines: Array<{ label: string; value: string }> = [];
+    if (chantier.name) ch_lines.push({ label: "Nom du chantier", value: chantier.name });
+    if (chantierAddr) ch_lines.push({ label: "Adresse", value: chantierAddr });
+    if (chantier.type) ch_lines.push({ label: "Type", value: chantier.type });
+    if (chantier.status) ch_lines.push({ label: "Statut chantier", value: chantier.status });
+    if (chantier.start_date) ch_lines.push({ label: "Debut des travaux", value: formatDate(chantier.start_date) });
+    if (pv?.reception_date) ch_lines.push({ label: "Reception initiale", value: formatDate(pv.reception_date) });
+    ch_lines.push({ label: "Levee de reserves", value: formatDate(report.signed_at ?? report.created_at) });
+
+    const colInnerW = (CONTENT_W - 36) / 2;
+    const lineH = 22;
+    const rows = Math.ceil(ch_lines.length / 2);
+    const blockH = 36 + rows * lineH + 8;
+    ensureSpace(blockH + 8);
+    page.drawRectangle({ x: MARGIN, y: y - blockH, width: CONTENT_W, height: blockH, color: rgb(0.96, 0.98, 1), borderColor: PRIMARY, borderWidth: 0.6 });
+    page.drawRectangle({ x: MARGIN, y: y - blockH, width: 3, height: blockH, color: PRIMARY });
+    // Icon (simple hard-hat suggestion: filled square)
+    page.drawRectangle({ x: MARGIN + 14, y: y - 18, width: 8, height: 8, color: PRIMARY });
+    page.drawText("CHANTIER", { x: MARGIN + 28, y: y - 16, size: 8, font: bold, color: PRIMARY });
+
+    let ry = y - 36;
+    ch_lines.forEach((row, idx) => {
+      const col = idx % 2;
+      const cxx = MARGIN + 14 + col * (colInnerW + 8);
+      if (col === 0 && idx > 0) ry -= lineH;
+      page.drawText(sanitize(row.label.toUpperCase()), { x: cxx, y: ry, size: 6.5, font: bold, color: MUTED });
+      const valLines = wrapLines(helv, row.value, 9, colInnerW - 4);
+      page.drawText(sanitize(valLines[0] ?? "-"), { x: cxx, y: ry - 11, size: 9, font: bold, color: ACCENT });
+    });
+    y -= blockH + 12;
   }
 
   // ============ SYNTHESE DES RESERVES ============
