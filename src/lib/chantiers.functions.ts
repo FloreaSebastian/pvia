@@ -159,3 +159,35 @@ export const deleteChantier = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+export const reopenChantier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ReopenInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: role, error: roleErr } = await supabase.rpc("get_company_role", {
+      _company_id: data.companyId, _user_id: userId,
+    });
+    if (roleErr) throw new Error("Vérification du rôle impossible.");
+    if (!role || !(ADMIN_REOPEN_ROLES as readonly string[]).includes(role)) {
+      throw new Error("Seul un directeur ou responsable d'exploitation peut réouvrir un chantier.");
+    }
+    const { data: prev } = await supabase
+      .from("chantiers").select("status,company_id").eq("id", data.id).maybeSingle();
+    if (!prev || prev.company_id !== data.companyId) throw new Error("Chantier introuvable.");
+    if (prev.status !== "termine" && prev.status !== "archive") {
+      throw new Error("Ce chantier n'est pas clôturé.");
+    }
+    const { error } = await supabase
+      .from("chantiers")
+      .update({ status: "en_cours", closed_at: null, closure_origin: null })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId, entityType: "chantier", entityId: data.id,
+      action: "chantier.reopened",
+      oldValues: { status: prev.status },
+      newValues: { status: "en_cours" },
+    });
+    return { ok: true };
+  });
