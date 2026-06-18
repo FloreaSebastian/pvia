@@ -204,18 +204,19 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         const results = await Promise.all(
           missing.map(async (r) => {
             try {
-              const items = await listPhotosFn({ data: { reserveId: r.id } });
-              const initial = (items as any[])
+              const res = await listPhotosFn({ data: { reserveId: r.id } });
+              const photos = (res?.photos ?? []) as any[];
+              const initial: InitialPhoto[] = photos
                 .filter((p) => p.photoType === "initial")
-                .map((p): InitialPhoto => ({
+                .map((p) => ({
                   url: p.url,
                   label: p.label,
                   takenAt: p.takenAt ?? p.uploadedAt ?? null,
                   hasGeo: p.latitude != null && p.longitude != null,
                 }));
-              return [r.id, initial] as const;
+              return [r.id, initial] as [string, InitialPhoto[]];
             } catch {
-              return [r.id, []] as const;
+              return [r.id, [] as InitialPhoto[]] as [string, InitialPhoto[]];
             }
           }),
         );
