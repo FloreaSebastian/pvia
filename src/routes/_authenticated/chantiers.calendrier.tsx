@@ -1081,6 +1081,7 @@ function ChantierCalendarPage() {
           })()}
           events={events}
           hourPx={hourPx}
+          isMobile={isMobile}
           canWrite={canWrite}
           conflictIds={conflicts}
           onCreateRange={(s, e) => openNew(s, e)}
