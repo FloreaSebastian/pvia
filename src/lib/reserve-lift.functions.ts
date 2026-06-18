@@ -53,10 +53,9 @@ const InputSchema = z.object({
   clientSignature: z.string().max(800_000).nullable().optional(),
   technicianSignature: z.string().max(800_000).nullable().optional(),
   technicianName: z.string().max(200).nullable().optional(),
-  // Phase 1 — single intervenant signature + validation mode
-  signerName: z.string().max(200).nullable().optional(),
-  signerRole: z.string().max(80).nullable().optional(),
-  signerEmail: z.string().max(255).nullable().optional(),
+  // Phase 1 — single intervenant signature + validation mode.
+  // SECURITY (F-03): signer identity (name/role/email) is resolved server-side
+  // from the authenticated session ONLY. The client cannot submit it.
   signerSignature: z.string().max(800_000).nullable().optional(),
   validationMode: z.enum(["on_site", "remote"]).optional().default("remote"),
   clientSignedOnSite: z.boolean().optional().default(false),
@@ -158,22 +157,20 @@ export const createReserveLift = createServerFn({ method: "POST" })
       onsiteOtpEmail = otp.email;
     }
 
-    // Resolve intervenant identity from session (auto-filled, never trusted from client).
-    let resolvedSignerName = (data.signerName ?? "").trim() || null;
-    let resolvedSignerRole = (data.signerRole ?? "").trim() || null;
-    let resolvedSignerEmail = (data.signerEmail ?? "").trim() || null;
+    // SECURITY (F-03): resolve intervenant identity STRICTLY from the authenticated
+    // session. Any signer name/role/email arriving in the payload is ignored.
+    let resolvedSignerName: string | null = null;
+    let resolvedSignerRole: string | null = member?.role ? String(member.role) : null;
+    let resolvedSignerEmail: string | null = null;
     try {
       const { data: prof } = await supabaseAdmin
         .from("profiles")
         .select("full_name")
         .eq("id", userId)
         .maybeSingle();
-      if (!resolvedSignerName && prof?.full_name) resolvedSignerName = prof.full_name;
-      if (!resolvedSignerRole && member?.role) resolvedSignerRole = String(member.role);
-      if (!resolvedSignerEmail) {
-        const { data: authUser } = await (supabaseAdmin as any).auth.admin.getUserById(userId);
-        if (authUser?.user?.email) resolvedSignerEmail = authUser.user.email;
-      }
+      if (prof?.full_name) resolvedSignerName = prof.full_name;
+      const { data: authUser } = await (supabaseAdmin as any).auth.admin.getUserById(userId);
+      if (authUser?.user?.email) resolvedSignerEmail = authUser.user.email;
     } catch { /* best-effort */ }
 
     // 3. Verify reserves belong to this PV + are open
