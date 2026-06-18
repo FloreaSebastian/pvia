@@ -578,7 +578,7 @@ function ChantierCalendarPage() {
 
   function nav(dir: -1 | 1) {
     if (view === "month") setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + dir, 1));
-    else if (view === "week") setCursor(addDays(cursor, 7 * dir));
+    else if (view === "week") setCursor(addDays(cursor, (weekDays === 3 ? 3 : 7) * dir));
     else if (view === "day") setCursor(addDays(cursor, dir));
     else if (view === "team") setCursor(addDays(cursor, teamMode === "day" ? dir : 7 * dir));
     else if (view === "custom") {
@@ -591,6 +591,10 @@ function ChantierCalendarPage() {
   const periodLabel = useMemo(() => {
     if (view === "month") return fmtMonth(cursor);
     if (view === "week") {
+      if (weekDays === 3) {
+        const s = new Date(cursor); s.setHours(0,0,0,0); const e = addDays(s, 2);
+        return `${s.toLocaleDateString("fr-FR", { day:"2-digit", month:"short" })} – ${e.toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" })}`;
+      }
       const s = startOfWeek(cursor); const e = addDays(s, 6);
       return `${s.toLocaleDateString("fr-FR", { day:"2-digit", month:"short" })} – ${e.toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" })}`;
     }
@@ -605,7 +609,7 @@ function ChantierCalendarPage() {
       return `${a.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${b.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
     }
     return "Liste";
-  }, [view, cursor, customStart, customEnd, teamMode]);
+  }, [view, cursor, customStart, customEnd, teamMode, weekDays]);
 
 
   // Keyboard shortcuts (T M S J L E N) — ignored when typing in inputs
