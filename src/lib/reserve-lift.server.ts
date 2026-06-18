@@ -732,6 +732,25 @@ export async function buildAndStoreReserveLiftPdf(
     y -= 8;
   }
 
+  // ============ CONCLUSION ============
+  {
+    const conclusionText1 = "Les reserves mentionnees dans le present proces-verbal ont fait l'objet d'une intervention corrective et ont ete presentees au maitre d'ouvrage pour validation.";
+    const conclusionText2 = "Le present document complete le proces-verbal de reception initial et doit etre conserve avec celui-ci dans le dossier de l'ouvrage.";
+    const w1 = wrapLines(helv, conclusionText1, 9, CONTENT_W - 24);
+    const w2 = wrapLines(helv, conclusionText2, 9, CONTENT_W - 24);
+    const concH = 24 + (w1.length + w2.length) * 12 + 10;
+    ensureSpace(concH + 12);
+    page.drawRectangle({ x: MARGIN, y: y - concH, width: CONTENT_W, height: concH, color: rgb(0.97, 0.98, 1), borderColor: PRIMARY, borderWidth: 0.6 });
+    page.drawRectangle({ x: MARGIN, y: y - concH, width: 3, height: concH, color: PRIMARY });
+    page.drawText("CONCLUSION", { x: MARGIN + 12, y: y - 16, size: 9, font: bold, color: PRIMARY });
+    let cy = y - 32;
+    for (const l of w1) { page.drawText(sanitize(l), { x: MARGIN + 12, y: cy, size: 9, font: helv, color: ACCENT }); cy -= 12; }
+    cy -= 4;
+    for (const l of w2) { page.drawText(sanitize(l), { x: MARGIN + 12, y: cy, size: 9, font: helv, color: ACCENT }); cy -= 12; }
+    y -= concH + 14;
+  }
+
+
   // Signatures (3 colonnes : Technicien / Entreprise / Client)
   const techSig = (report as any).technician_signature as string | null;
   const techName = (report as any).technician_name as string | null;
