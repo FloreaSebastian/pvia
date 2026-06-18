@@ -96,7 +96,6 @@ const ID_CHANTIER = "chantier";
 const ID_TRAVAUX = "travaux";
 const ID_DECISION = "decision";
 const ID_RESERVES = "reserves";
-const ID_PHOTOS = "photos";
 const ID_SIGNATURES = "signatures";
 const ID_APERCU = "apercu";
 
@@ -115,7 +114,6 @@ const STEPS_TAIL_NO_RES: StepDef[] = [
 ];
 const STEPS_TAIL_WITH_RES: StepDef[] = [
   { id: ID_RESERVES, label: "Réserves", icon: AlertTriangle },
-  { id: ID_PHOTOS, label: "Photos", icon: Camera },
   { id: ID_SIGNATURES, label: "Signatures", icon: PenLine },
   { id: ID_APERCU, label: "Aperçu", icon: Eye },
 ];
