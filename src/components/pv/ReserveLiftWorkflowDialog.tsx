@@ -635,28 +635,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     </div>
   );
 
-  const ReserveCard = ({ r, children }: { r: LiftDialogReserve; children?: React.ReactNode }) => (
-    <div className="rounded-md border border-border p-3 space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-            <Badge variant={r.severity === "majeure" ? "destructive" : "secondary"} className="text-[10px]">{r.severity}</Badge>
-            {r.priority && r.priority !== "normal" && (
-              <Badge variant="outline" className="text-[10px]">P. {r.priority}</Badge>
-            )}
-            {r.due_date && (
-              <span className="text-[10px] text-muted-foreground">📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}</span>
-            )}
-          </div>
-          <p className="text-sm leading-snug">{r.description}</p>
-          {r.work_to_execute && (
-            <p className="mt-1 text-[11px] text-muted-foreground"><span className="font-medium">Travaux prévus :</span> {r.work_to_execute}</p>
-          )}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
+  // (ReserveCard is defined at module scope to keep it stable across renders.)
 
   const Body = (
     <div className="space-y-4">
