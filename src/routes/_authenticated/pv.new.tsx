@@ -170,7 +170,7 @@ function NewPv() {
     reserve_completion_delay: "",
     reserve_due_date: "",
   });
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  // Photos générales du PV : déprécié — les photos sont désormais liées aux réserves.
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [newReserve, setNewReserve] = useState<Reserve>({
     nature: "",
