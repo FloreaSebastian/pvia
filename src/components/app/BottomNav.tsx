@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard,
+  CalendarDays,
   HardHat,
   AlertCircle,
   Plus,
@@ -12,12 +12,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { vibrate } from "@/lib/pwa";
 
-const bottomItems = [
-  { to: "/dashboard", label: "Accueil", icon: LayoutDashboard },
-  { to: "/chantiers", label: "Chantiers", icon: HardHat },
+type NavItem =
+  | { to: string; label: string; icon: typeof CalendarDays; badge?: boolean; match: readonly string[]; exclude?: readonly string[] }
+  | { center: true; to: string; label: string; icon: typeof Plus };
+
+const bottomItems: readonly NavItem[] = [
+  { to: "/chantiers/calendrier", label: "Calendrier", icon: CalendarDays, match: ["/chantiers/calendrier"] },
+  { to: "/chantiers", label: "Chantiers", icon: HardHat, match: ["/chantiers"], exclude: ["/chantiers/calendrier"] },
   { center: true, to: "/pv/new", label: "Nouveau PV", icon: Plus },
-  { to: "/reserves", label: "Réserves", icon: AlertCircle, badge: true },
-  { to: "/clients", label: "Clients", icon: Users },
+  { to: "/reserves", label: "Réserves", icon: AlertCircle, badge: true, match: ["/reserves"] },
+  { to: "/clients", label: "Clients", icon: Users, match: ["/clients"] },
 ] as const;
 
 /** Native-feel mobile bottom nav with central "+ PV" FAB. Hidden on lg+. */
@@ -59,9 +63,12 @@ export function BottomNav() {
       {bottomItems.map((it, idx) => {
         const Icon = it.icon;
         const isCenter = "center" in it && it.center;
+        const path = location.pathname;
         const active =
           !isCenter &&
-          "to" in it && (location.pathname === it.to || location.pathname.startsWith(it.to + "/"));
+          "match" in it &&
+          it.match.some((m) => path === m || path.startsWith(m + "/")) &&
+          !(("exclude" in it && it.exclude) ? it.exclude.some((e) => path === e || path.startsWith(e + "/")) : false);
         const showBadge = "badge" in it && it.badge && unread > 0;
 
         if (isCenter) {
