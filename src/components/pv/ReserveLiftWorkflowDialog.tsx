@@ -16,11 +16,16 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft, ChevronRight, Loader2, MapPin, MapPinOff, X,
   Camera, FileSignature, Send, Check, Eye, Mail, UserCheck,
+  Download, Save, RotateCcw, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,13 +37,17 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
-import { createReserveLift, listReserveLiftPhotos } from "@/lib/reserve-lift.functions";
+import {
+  createReserveLift, listReserveLiftPhotos,
+  getReserveLiftPdfUrl, resendReserveLiftValidationEmail,
+} from "@/lib/reserve-lift.functions";
 import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import {
   tryGetGps, buildPhotoEntry, sanitizeExifForUpload, type PhotoEntry,
 } from "@/lib/photo-exif";
+
 
 export type LiftDialogReserve = {
   id: string;
