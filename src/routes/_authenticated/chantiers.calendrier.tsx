@@ -1050,7 +1050,9 @@ function ChantierCalendarPage() {
         <TimeGridView
           days={(() => {
             const out: Date[] = [];
-            const start = view === "week" ? startOfWeek(cursor) : (view === "day" ? cursor : range.from);
+            const start = view === "week"
+              ? (weekDays === 3 ? (() => { const d = new Date(cursor); d.setHours(0,0,0,0); return d; })() : startOfWeek(cursor))
+              : (view === "day" ? cursor : range.from);
             const total = view === "week" ? weekDays : (view === "day" ? 1 : Math.min(31, Math.max(1, Math.round((range.to.getTime() - range.from.getTime())/86400000)+1)));
             for (let i = 0; i < total; i++) out.push(addDays(new Date(start.getFullYear(), start.getMonth(), start.getDate()), i));
             return out;
