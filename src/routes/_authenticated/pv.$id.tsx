@@ -211,6 +211,20 @@ function PvDetail() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-open lift dialog when navigating with ?openLift=<reserveId>
+  useEffect(() => {
+    if (!search.openLift || reserves.length === 0) return;
+    const target = reserves.find((r) => r.id === search.openLift);
+    if (!target) return;
+    if (["validee", "en_attente_validation", "levee"].includes(target.status)) {
+      toast.message("Cette réserve n'est pas à lever.");
+    } else {
+      setLiftPreselectedId(target.id);
+      setLiftDialogOpen(true);
+    }
+    navigate({ to: "/pv/$id", params: { id }, search: {}, replace: true });
+  }, [search.openLift, reserves, id, navigate]);
+
   const loadLogs = useCallback(async () => {
     try {
       const { logs } = await fetchLogsFn({ data: { pvId: id } });
