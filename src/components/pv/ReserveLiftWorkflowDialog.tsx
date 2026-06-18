@@ -715,11 +715,10 @@ export function ReserveLiftWorkflowDialog(props: Props) {
             <ReserveCard key={r.id} r={r}>
               <div>
                 <Label className="text-xs">Travaux réalisés <span className="text-destructive">*</span></Label>
-                <Textarea
-                  rows={3}
-                  placeholder="Ex. Remplacement du micro-onduleur, contrôle de production et vérification du serrage."
-                  value={comments[r.id] ?? ""}
-                  onChange={(e) => setComments((c) => ({ ...c, [r.id]: e.target.value }))}
+                <ReserveInterventionComment
+                  reserveId={r.id}
+                  initialValue={comments[r.id] ?? ""}
+                  onCommit={handleCommentCommit}
                 />
               </div>
             </ReserveCard>
