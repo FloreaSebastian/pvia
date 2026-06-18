@@ -656,6 +656,10 @@ function NewPv() {
       } else if (e?.code === "COMPANY_INCOMPLETE" || /COMPANY_INCOMPLETE|entreprise incomplète/i.test(e?.message ?? "")) {
         toast.error("Fiche entreprise incomplète.");
         setStepIdx(0);
+      } else if (e?.code === "PHOTO_TOO_LARGE" || /PHOTO_TOO_LARGE|at most 6000000|trop volumineuse/i.test(e?.message ?? "")) {
+        toast.error("Une photo de réserve est trop volumineuse. Veuillez reprendre la photo ou choisir une image plus légère.", { duration: 7000 });
+        const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
+        if (idx >= 0) setStepIdx(idx);
       } else if (e?.code === "RESERVE_PHOTO_REQUIRED" || /RESERVE_PHOTO_REQUIRED|au moins une photo/i.test(e?.message ?? "")) {
         toast.error(e?.message || "Chaque réserve doit contenir au moins une photo.");
         const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
