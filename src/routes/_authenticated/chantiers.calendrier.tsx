@@ -1021,7 +1021,7 @@ function ChantierCalendarPage() {
         <MonthView
           days={monthGrid}
           cursor={cursor}
-          canWrite={canWrite}
+          canWrite={canWrite && !isMobile}
           conflictIds={conflicts}
           onDblClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
           onClickEvent={(e) => openQuick(e)}
