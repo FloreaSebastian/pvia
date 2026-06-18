@@ -12,6 +12,7 @@ import { buildAndStoreReserveLiftPdfs } from "./reserve-lift.server";
 import { sha256OfBytes } from "./signature-proof.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
 import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
+import { deliverReserveLiftAtSignature } from "./reserve-lift-signed-delivery.server";
 import {
   PHOTO_ALLOWED_MIMES,
   PHOTO_MAX_BYTES,
@@ -464,7 +465,9 @@ export const createReserveLift = createServerFn({ method: "POST" })
         });
       }
 
-      // EM-C1: only send validation email for REMOTE mode. On-site = client already signed.
+      // EM-B1: post-signature email automation.
+      //  - on_site : send signed PDF to client + internal copy to company.
+      //  - remote  : send client validation link + internal copy to company.
       if (data.validationMode !== "on_site") {
         try {
           await sendReserveLiftValidationRequestEmail({ reportId });
@@ -476,6 +479,19 @@ export const createReserveLift = createServerFn({ method: "POST" })
             audit: { action: "reserve_lift.validation_email_failed", entityType: "reserve_lift" },
           });
         }
+      }
+      try {
+        await deliverReserveLiftAtSignature({
+          reportId,
+          mode: data.validationMode === "on_site" ? "on_site" : "remote",
+        });
+      } catch (e) {
+        await recordProcessingError({
+          table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+          step: "send_signed_emails",
+          error: e,
+          audit: { action: "reserve_lift.email_company_failed", entityType: "reserve_lift" },
+        });
       }
     }
 
@@ -737,6 +753,90 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
     const res = await sendReserveLiftValidationRequestEmail({ reportId: report.id });
     if (!res.ok) throw new Error(res.error || "Envoi échoué.");
     return { ok: true as const, recipient: res.recipient };
+  });
+
+/**
+ * EM-B1 — Unified "Renvoyer au client" trigger.
+ *
+ * Picks the right email based on report state:
+ *  - signed remote, not yet validated → resend validation request link
+ *  - signed on-site OR client-validated → resend signed PDF (client + company copy)
+ */
+export const resendReserveLiftClientEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ reportId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+    const { data: report } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .select("id,company_id,pv_id,status,validation_mode,client_validated_at,pdf_client_url,pdf_url")
+      .eq("id", data.reportId)
+      .maybeSingle();
+    if (!report) throw new Error("Levée introuvable.");
+    if (report.status !== "signe" && report.status !== "client_validated") {
+      throw new Error("La levée doit être signée par l'entreprise.");
+    }
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("role,status")
+      .eq("company_id", report.company_id)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
+      throw new Error("Accès refusé.");
+    }
+
+    const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");
+
+    // Remote + not validated → validation link
+    if (report.validation_mode !== "on_site" && !report.client_validated_at) {
+      await assertNotRecentlySent({
+        emailType: "reserve_lift_request",
+        pvId: report.pv_id,
+        windowSec: 60,
+        label: "La demande de validation",
+      });
+      const res = await sendReserveLiftValidationRequestEmail({ reportId: report.id });
+      if (!res.ok) throw new Error(res.error || "Envoi échoué.");
+      return { ok: true as const, kind: "validation_request" as const, recipient: res.recipient };
+    }
+
+    // On-site OR already validated → resend signed PDF
+    await assertNotRecentlySent({
+      emailType: report.client_validated_at ? "reserve_lift_client_validated" : "reserve_lift_signed_client",
+      pvId: report.pv_id,
+      windowSec: 60,
+      label: "L'email du PDF signé",
+    });
+
+    // Ensure PDFs exist
+    if (!report.pdf_client_url && !report.pdf_url) {
+      try {
+        await buildAndStoreReserveLiftPdfs(report.id);
+      } catch (e: any) {
+        throw new Error(`Régénération PDF échouée : ${e?.message ?? "inconnue"}`);
+      }
+    }
+
+    if (report.client_validated_at) {
+      await deliverSignedReserveLift({ reportId: report.id });
+    } else {
+      await deliverReserveLiftAtSignature({ reportId: report.id, mode: "on_site" });
+    }
+
+    await writeAuditLog({
+      companyId: report.company_id,
+      userId,
+      pvId: report.pv_id,
+      entityType: "reserve_lift",
+      entityId: report.id,
+      action: "reserve_lift.signed_email_resent",
+      metadata: { validation_mode: report.validation_mode, client_validated: !!report.client_validated_at },
+      actor: "user",
+    });
+
+    return { ok: true as const, kind: "signed_pdf" as const };
   });
 
 /**

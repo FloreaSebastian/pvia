@@ -39,7 +39,7 @@ import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
 import {
   createReserveLift, listReserveLiftPhotos,
-  getReserveLiftPdfUrl, resendReserveLiftValidationEmail,
+  getReserveLiftPdfUrl, resendReserveLiftClientEmail,
 } from "@/lib/reserve-lift.functions";
 import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
@@ -173,7 +173,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const sendOtpFn = useServerFn(sendOnsiteClientOtp);
   const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
   const getPdfUrlFn = useServerFn(getReserveLiftPdfUrl);
-  const resendValidationFn = useServerFn(resendReserveLiftValidationEmail);
+  const resendClientEmailFn = useServerFn(resendReserveLiftClientEmail);
 
 
   // Intervenant identity (auto-filled, read-only)
@@ -803,11 +803,15 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     }
   }
   async function handleResendClient() {
-    if (!completed || completed.mode !== "remote") return;
+    if (!completed) return;
     setResending(true);
     try {
-      await resendValidationFn({ data: { reportId: completed.reportId } });
-      toast.success("Email renvoyé au client.");
+      await resendClientEmailFn({ data: { reportId: completed.reportId } });
+      toast.success(
+        completed.mode === "on_site"
+          ? "PDF renvoyé au client et à l'entreprise."
+          : "Email renvoyé au client.",
+      );
       setCompleted((c) => (c ? { ...c, emailSent: true, emailError: null } : c));
     } catch (e: any) {
       toast.error(e?.message || "Envoi échoué.");
@@ -1286,18 +1290,16 @@ export function ReserveLiftWorkflowDialog(props: Props) {
             : <Download className="h-4 w-4" />}
           Télécharger PDF interne
         </Button>
-        {completed.mode === "remote" && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="sm:col-span-2"
-            onClick={handleResendClient}
-            disabled={resending}
-          >
-            {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-            Renvoyer au client
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="sm:col-span-2"
+          onClick={handleResendClient}
+          disabled={resending}
+        >
+          {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+          {completed.mode === "on_site" ? "Renvoyer le PDF signé" : "Renvoyer au client"}
+        </Button>
       </div>
 
       <p className="text-[11px] text-muted-foreground">
