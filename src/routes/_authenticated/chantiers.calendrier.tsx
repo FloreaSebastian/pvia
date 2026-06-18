@@ -1081,14 +1081,7 @@ function ChantierCalendarPage() {
 
 
 
-      {/* Floating + on mobile */}
-      {canWrite && (
-        <button onClick={() => openNew(new Date())}
-          className="fixed bottom-20 right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg lg:hidden"
-          aria-label="Nouvel événement">
-          <Plus className="h-5 w-5" />
-        </button>
-      )}
+      {/* Mobile FAB removed — utiliser le "+" du header ou le bouton central PV de la BottomNav */}
 
       {/* Dialog */}
       <Dialog open={evtOpen} onOpenChange={setEvtOpen}>
