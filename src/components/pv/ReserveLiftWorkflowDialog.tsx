@@ -804,11 +804,15 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     }
   }
   async function handleResendClient() {
-    if (!completed || completed.mode !== "remote") return;
+    if (!completed) return;
     setResending(true);
     try {
-      await resendValidationFn({ data: { reportId: completed.reportId } });
-      toast.success("Email renvoyé au client.");
+      await resendClientEmailFn({ data: { reportId: completed.reportId } });
+      toast.success(
+        completed.mode === "on_site"
+          ? "PDF renvoyé au client et à l'entreprise."
+          : "Email renvoyé au client.",
+      );
       setCompleted((c) => (c ? { ...c, emailSent: true, emailError: null } : c));
     } catch (e: any) {
       toast.error(e?.message || "Envoi échoué.");
