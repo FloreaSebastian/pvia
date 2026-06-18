@@ -199,6 +199,24 @@ function ChantierCalendarPage() {
   useEffect(() => { lsSet(LS.weekDays, weekDays); }, [weekDays]);
   useEffect(() => { lsSet(LS.filtersOpen, filtersOpen); }, [filtersOpen]);
 
+  // Persist the chosen view as the user's default ("Vue par défaut").
+  // Only day / week / week5 (week + 5 days) / month are saved; team / custom are session-only.
+  useEffect(() => {
+    let pref: DefaultViewPref | null = null;
+    if (view === "day") pref = "day";
+    else if (view === "month") pref = "month";
+    else if (view === "week") pref = weekDays === 5 ? "week5" : "week";
+    if (pref) lsSet(LS.defaultView, pref);
+  }, [view, weekDays]);
+
+  function applyDefaultViewPreset(p: DefaultViewPref) {
+    if (p === "day") { setView("day"); }
+    else if (p === "month") { setView("month"); }
+    else if (p === "week") { setView("week"); setWeekDays(7); }
+    else if (p === "week5") { setView("week"); setWeekDays(5); }
+  }
+
+
   // Conflict UI state
   type ConflictRow = { id: string; title: string; start_at: string | null; end_at: string | null };
   const [confirmConflicts, setConfirmConflicts] = useState<{ list: ConflictRow[]; proceed: () => Promise<void> | void } | null>(null);
