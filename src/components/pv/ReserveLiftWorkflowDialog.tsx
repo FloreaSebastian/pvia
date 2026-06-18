@@ -10,7 +10,7 @@
  * - Backward compat: legacy company/technician signature columns are still
  *   populated server-side. OTP for client signature is Phase 2.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import SignaturePad from "react-signature-canvas";
 import { useServerFn } from "@tanstack/react-start";
 import {
