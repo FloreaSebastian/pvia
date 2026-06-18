@@ -171,6 +171,47 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     })();
   }, [open, user?.id, user?.email, activeRole]);
 
+  // Prefill OTP email from client profile when opening
+  useEffect(() => {
+    if (!open) return;
+    if (clientEmail) setOtpEmail(clientEmail);
+  }, [open, clientEmail]);
+
+  async function handleSendOtp() {
+    if (!activeCompanyId) { toast.error("Entreprise active introuvable."); return; }
+    const email = otpEmail.trim().toLowerCase();
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) { toast.error("Email client invalide."); return; }
+    setOtpSending(true);
+    try {
+      const res = await sendOtpFn({ data: { companyId: activeCompanyId, email, pvId } });
+      setOtpId(res.otpId);
+      setOtpExpiresAt(res.expiresAt);
+      setOtpVerified(false);
+      setOtpCode("");
+      toast.success(`Code envoyé à ${email}.`);
+    } catch (e: any) {
+      toast.error(e?.message || "Envoi du code échoué.");
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpId) { toast.error("Envoyez d'abord un code."); return; }
+    if (!/^\d{6}$/.test(otpCode)) { toast.error("Code à 6 chiffres attendu."); return; }
+    setOtpVerifying(true);
+    try {
+      await verifyOtpFn({ data: { otpId, code: otpCode } });
+      setOtpVerified(true);
+      toast.success("Identité client vérifiée.");
+    } catch (e: any) {
+      toast.error(e?.message || "Code invalide.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  }
+
+
   // --- Initial selection
   useEffect(() => {
     if (!open) return;
