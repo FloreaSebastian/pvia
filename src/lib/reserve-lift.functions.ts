@@ -223,7 +223,14 @@ export const createReserveLift = createServerFn({ method: "POST" })
           // On-site flow: record client validation timestamps right away.
           client_validated_at:
             data.validationMode === "on_site" && clientSig ? nowIso : null,
-          client_validated_email: resolvedSignerEmail, // best-effort placeholder for on-site
+          client_validated_email:
+            data.validationMode === "on_site" && clientSig
+              ? (onsiteOtpEmail ?? resolvedSignerEmail)
+              : null,
+          client_signature_email:
+            data.validationMode === "on_site" && clientSig ? onsiteOtpEmail : null,
+          client_signature_otp_id:
+            data.validationMode === "on_site" && clientSig ? (data.clientOtpId ?? null) : null,
           client_signed_at:
             data.validationMode === "on_site" && clientSig ? nowIso : null,
         } as any)
