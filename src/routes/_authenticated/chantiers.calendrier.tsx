@@ -201,12 +201,12 @@ function ChantierCalendarPage() {
   useEffect(() => { lsSet(LS.filtersOpen, filtersOpen); }, [filtersOpen]);
 
   // Persist the chosen view as the user's default ("Vue par défaut").
-  // Only day / week / week5 (week + 5 days) / month are saved; team / custom are session-only.
+  // Only day / week / week3 / month are saved; team / custom are session-only.
   useEffect(() => {
     let pref: DefaultViewPref | null = null;
     if (view === "day") pref = "day";
     else if (view === "month") pref = "month";
-    else if (view === "week") pref = weekDays === 5 ? "week5" : "week";
+    else if (view === "week") pref = weekDays === 3 ? "week3" : "week";
     if (pref) lsSet(LS.defaultView, pref);
   }, [view, weekDays]);
 
@@ -214,7 +214,7 @@ function ChantierCalendarPage() {
     if (p === "day") { setView("day"); }
     else if (p === "month") { setView("month"); }
     else if (p === "week") { setView("week"); setWeekDays(7); }
-    else if (p === "week5") { setView("week"); setWeekDays(5); }
+    else if (p === "week3") { setView("week"); setWeekDays(3); }
   }
 
 
