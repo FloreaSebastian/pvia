@@ -747,14 +747,76 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       } else {
         toast.success(`Levée ${res.numero} envoyée au client pour validation.`);
       }
+      // Brouillon obsolète une fois finalisé
+      clearDraft();
+      // Notifier le parent pour invalider les queries (liste, statut PV…)
       onCompleted?.(res.reportId, res.numero);
-      onOpenChange(false);
+      // Ne PAS fermer brutalement : afficher l'écran de confirmation.
+      setCompleted({
+        reportId: res.reportId,
+        numero: res.numero,
+        mode: validationMode,
+        // Le serveur déclenche déjà l'email de demande de validation en mode
+        // distance ; on l'affiche optimiste et un bouton "Renvoyer" est fourni
+        // en cas d'échec côté boîte client.
+        emailSent: validationMode === "remote",
+      });
     } catch (e: any) {
       toast.error(e?.message || "Échec de la création de la levée.");
     } finally {
       setSubmitting(false);
     }
   }
+
+  // --- Safe close (confirmation if unsaved data exists)
+  function requestClose() {
+    if (submitting) return;
+    if (completed) { onOpenChange(false); return; }
+    if (isDirty) { setConfirmCloseOpen(true); return; }
+    onOpenChange(false);
+  }
+  function handleDialogOpenChange(next: boolean) {
+    if (next) { onOpenChange(true); return; }
+    requestClose();
+  }
+  function confirmCloseAndSaveDraft() {
+    if (saveDraft()) toast.success("Brouillon enregistré.");
+    setConfirmCloseOpen(false);
+    onOpenChange(false);
+  }
+  function confirmCloseDiscard() {
+    setConfirmCloseOpen(false);
+    onOpenChange(false);
+  }
+
+  // --- PDF download + email resend (confirmation screen)
+  async function handleDownloadPdf(variant: "client" | "internal") {
+    if (!completed) return;
+    setPdfDownloading(variant);
+    try {
+      const { url } = await getPdfUrlFn({ data: { reportId: completed.reportId, variant } });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      toast.error(e?.message || "PDF indisponible.");
+    } finally {
+      setPdfDownloading(null);
+    }
+  }
+  async function handleResendClient() {
+    if (!completed || completed.mode !== "remote") return;
+    setResending(true);
+    try {
+      await resendValidationFn({ data: { reportId: completed.reportId } });
+      toast.success("Email renvoyé au client.");
+      setCompleted((c) => (c ? { ...c, emailSent: true, emailError: null } : c));
+    } catch (e: any) {
+      toast.error(e?.message || "Envoi échoué.");
+      setCompleted((c) => (c ? { ...c, emailError: e?.message ?? "Envoi échoué." } : c));
+    } finally {
+      setResending(false);
+    }
+  }
+
 
   // --- UI parts
   const gpsBadge = (() => {
