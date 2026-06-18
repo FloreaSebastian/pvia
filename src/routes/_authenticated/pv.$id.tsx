@@ -38,12 +38,16 @@ import { FileArchive } from "lucide-react";
 import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 import { updateReserveStatus, deleteReserve as deleteReserveFn } from "@/lib/reserves.functions";
 import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
+import { ReserveLiftWorkflowDialog, type LiftDialogReserve } from "@/components/pv/ReserveLiftWorkflowDialog";
 import { reserveStatusLabel, reserveStatusTone, isReserveOverdue } from "@/lib/reserve-status";
 
 
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
+  validateSearch: (s: Record<string, unknown>) => ({
+    openLift: typeof s.openLift === "string" ? s.openLift : undefined,
+  }),
   head: () => ({ meta: [{ title: "Détail PV — PVIA" }] }),
 });
 
@@ -108,6 +112,7 @@ type Reserve = {
 
 function PvDetail() {
   const { id } = Route.useParams();
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const sendPv = useServerFn(sendPvToClient);
   const changeStatusFn = useServerFn(updatePvStatus);
@@ -127,6 +132,8 @@ function PvDetail() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [reserveDetail, setReserveDetail] = useState<ReserveDetail | null>(null);
+  const [liftDialogOpen, setLiftDialogOpen] = useState(false);
+  const [liftPreselectedId, setLiftPreselectedId] = useState<string | null>(null);
   const updateReserveFn = useServerFn(updateReserveStatus);
   const deleteReserveServerFn = useServerFn(deleteReserveFn);
 
@@ -203,6 +210,20 @@ function PvDetail() {
   }, [id, navigate]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-open lift dialog when navigating with ?openLift=<reserveId>
+  useEffect(() => {
+    if (!search.openLift || reserves.length === 0) return;
+    const target = reserves.find((r) => r.id === search.openLift);
+    if (!target) return;
+    if (["validee", "en_attente_validation", "levee"].includes(target.status)) {
+      toast.message("Cette réserve n'est pas à lever.");
+    } else {
+      setLiftPreselectedId(target.id);
+      setLiftDialogOpen(true);
+    }
+    navigate({ to: "/pv/$id", params: { id }, search: {}, replace: true });
+  }, [search.openLift, reserves, id, navigate]);
 
   const loadLogs = useCallback(async () => {
     try {
@@ -734,9 +755,14 @@ function PvDetail() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {(liftStatus === "pending" || liftStatus === "partial") && (
-                  <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }}>
-                    <Button size="sm"><CheckCircle2 className="h-4 w-4" /> Préparer la levée</Button>
-                  </Link>
+                  <Button size="sm" onClick={() => {
+                    const open = reserves.filter((r) => ["ouverte", "en_cours", "rejetee"].includes(r.status));
+                    if (open.length === 0) { toast.error("Aucune réserve ouverte à lever."); return; }
+                    setLiftPreselectedId(null);
+                    setLiftDialogOpen(true);
+                  }}>
+                    <CheckCircle2 className="h-4 w-4" /> Préparer la levée
+                  </Button>
                 )}
                 {liftStatus === "completed" && (lifts[0]?.pdf_client_url || lifts[0]?.pdf_url) && (
                   <Button size="sm" variant="outline" onClick={() => downloadLiftPdf(lifts[0].id, "client")}>
@@ -794,12 +820,19 @@ function PvDetail() {
                           <Button size="sm" variant="outline" className="h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
                             Détails
                           </Button>
-                          {r.status === "ouverte" && (
-                            <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }} search={{ reserveId: r.id }}>
-                              <Button size="sm" variant="outline" className="h-8">
-                                <CheckCircle2 className="h-3.5 w-3.5" /> Lever
-                              </Button>
-                            </Link>
+                          {(r.status === "ouverte" || r.status === "en_cours" || r.status === "rejetee") && (
+                            <Button
+                              size="sm" variant="outline" className="h-8"
+                              onClick={() => {
+                                if (r.status === "validee") { toast.error("Cette réserve est déjà validée."); return; }
+                                if (r.status === "en_attente_validation") { toast.error("Cette réserve est en attente de validation."); return; }
+                                if (r.status === "levee") { toast.error("Cette réserve est déjà levée."); return; }
+                                setLiftPreselectedId(r.id);
+                                setLiftDialogOpen(true);
+                              }}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                            </Button>
                           )}
                           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -922,6 +955,22 @@ function PvDetail() {
         onOpenChange={(o) => !o && setReserveDetail(null)}
         reserve={reserveDetail}
         onChanged={() => load()}
+      />
+      <ReserveLiftWorkflowDialog
+        open={liftDialogOpen}
+        onOpenChange={setLiftDialogOpen}
+        pvId={pv.id}
+        pvNumero={pv.numero}
+        reserves={reserves
+          .filter((r) => ["ouverte", "en_cours", "rejetee"].includes(r.status))
+          .map<LiftDialogReserve>((r) => ({
+            id: r.id, description: r.description, severity: r.severity, status: r.status,
+            priority: r.priority, due_date: r.due_date, work_to_execute: r.work_to_execute,
+          }))}
+        preselectedReserveId={liftPreselectedId}
+        chantierLabel={chantierName}
+        clientLabel={clientName}
+        onCompleted={() => load()}
       />
     </div>
   );

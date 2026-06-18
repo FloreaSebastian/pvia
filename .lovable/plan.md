@@ -1,50 +1,89 @@
-# Réserves dans PV — refonte intégrée
+## Objectif
 
-Travail très volumineux. Je propose un plan découpé en 3 lots avec un scope réaliste pour cette passe (Lot 1 + Lot 2). Lot 3 (PDF + workflow complet validation client) sera livré ensuite.
+Remplacer la navigation vers `/pv/:id/levee-reserves` par une **popup workflow** (Dialog desktop / Sheet bottom mobile) ouverte depuis les boutons "Lever" / "Préparer la levée" sur la fiche PV et la page Réserves. La page existante reste accessible en fallback.
 
-## Lot 1 — Harmonisation & UI PV (livré cette passe)
+## Architecture
 
-**Statuts** : créer `src/lib/reserve-status.ts` (constantes + libellés + tons + helpers) et l'utiliser partout (`/reserves`, `/pv/:id`, `/pv/:id/levee-reserves`).
+**Nouveau composant :** `src/components/pv/ReserveLiftWorkflowDialog.tsx`
+- Dialog responsive (Dialog desktop, Sheet `side="bottom"` sur mobile via `useIsMobile`)
+- Stepper horizontal compact, navigation Précédent/Suivant
+- Réutilise la logique GPS/EXIF/`tryGetGps`/`readExif`/`sanitizeExifForUpload` (extraite dans `src/lib/photo-exif.ts` pour partage avec la page existante)
+- Réutilise `createReserveLift` server fn (aucun changement backend nécessaire — tout est déjà en place)
 
-**Section réserves dans `/pv/:id`** :
-- Masquer si aucune réserve
-- Carte enrichie par réserve : statut / gravité / priorité / responsable / échéance + badge retard / description / travaux / photos miniatures
-- Boutons : Lever (lien existant) / Assigner (modale partagée) / Détails (popover ou drawer)
+**Props :**
+```ts
+{ open: boolean; onOpenChange: (o:boolean)=>void;
+  pvId: string; pvNumero: string;
+  reserves: Reserve[];           // ouvertes/en_cours/rejetée
+  preselectedReserveId?: string;
+  chantierLabel?: string; clientLabel?: string;
+  onCompleted?: (reportId: string) => void }
+```
 
-**Modal détail réserve** : nouveau composant `ReserveDetailDialog` qui affiche tous les champs, l'historique (lecture de `audit_logs` filtrés sur `entity_type=reserve` + `entity_id`), et les actions disponibles selon le rôle (assigner, en cours, lever, rejeter, en attente validation, valider).
+## Étapes du stepper
 
-## Lot 2 — Server functions étendues + calendrier (livré cette passe)
+1. **Réserves** — sélection (préselection si `preselectedReserveId`), affiche desc/sévérité/statut
+2. **Photos AVANT** — par réserve sélectionnée, upload + capture mobile (`capture="environment"`), preview, badge GPS/Non géoloc.
+3. **Intervention** — Textarea "Travaux réalisés" par réserve (**obligatoire**)
+4. **Photos APRÈS** — même UI que step 2
+5. **Signature intervenant** — nom + signature tactile (obligatoires par défaut, toggle "Inclure")
+6. **Signature entreprise** — signature tactile (obligatoire)
+7. **Résumé & envoi** — récap + bouton "Finaliser et envoyer au client"
 
-**Server functions** (`src/lib/reserves.functions.ts`) :
-- Étendre `updateReserveStatus` :
-  - Technicien : peut passer `ouverte → en_cours → levee` UNIQUEMENT pour les réserves qui lui sont assignées
-  - Rejet (`rejetee`) requiert un motif (champ optionnel `reason`)
-- Nouvelle `rejectReserve({ id, reason })` — conducteur+
-- À l'assignation avec échéance → créer/mettre à jour un événement `chantier_events` (type `controle_qualite`, lié au responsable)
-- Au passage `validee` → marquer l'événement lié `termine`
-- Au passage `rejetee` → créer événement SAV
+Bouton "Suivant" désactivé tant que les validations d'étape ne passent pas, avec message inline.
 
-**Notifications** : trigger SQL pour `reserve_lifted`, `reserve_validated`, `reserve_rejected` (assignment déjà fait au lot précédent).
+## Validations bloquantes (finalisation)
 
-**Échéance proche/dépassée** : non livré ici (nécessite un cron job ; on a déjà le calcul côté UI).
+Par réserve sélectionnée :
+- ≥ 1 photo AVANT
+- ≥ 1 photo APRÈS
+- commentaire intervention non vide
 
-## Lot 3 (HORS scope cette passe — à livrer ensuite)
+Global :
+- nom intervenant + signature intervenant non vides
+- signature entreprise non vide
 
-- Refonte PDF PV : ajouter colonnes statut/gravité/priorité/responsable/échéance/travaux
-- Refonte PDF levée : statut avant/après, photos avant/après, motif rejet
-- Flow validation client complet côté client.* (rejet avec motif, signature, etc.)
-- Cron job pour notifications "échéance proche/dépassée"
-- Templates email réserves (créés/levées/rejetées)
+Tous les messages d'erreur via `toast.error` clair + bandeau dans la popup.
 
-**Raison** : les PDF (`pdf.functions.ts` + templates) et le flow client (`client.pv.$id...tsx`, `client-reserve-lift.functions.ts`) sont chacun ~300-500 lignes à toucher et ont leur propre logique de rendu. Les inclure ferait exploser la passe et augmenterait fortement le risque de régression.
+## Intégration
 
-## Livrables cette passe
+**`src/routes/_authenticated/pv.$id.tsx`** :
+- État `liftDialogOpen` + `preselectedReserveId`
+- Remplacer `<Link to="/pv/$id/levee-reserves">` par `<Button onClick={() => openDialog()}>` pour :
+  - bouton "Préparer la levée" (l.737)
+  - bouton "Lever" par réserve (l.798) → set `preselectedReserveId`
+- Garde clauses + toasts : "Aucune réserve ouverte à lever.", "Cette réserve est déjà validée.", "Cette réserve est en attente de validation.", "Droits insuffisants." (via `canSignAsCompany`)
+- Après `onCompleted` → `router.invalidate()` pour rafraîchir le statut
 
-1. `src/lib/reserve-status.ts` (nouveau)
-2. `src/lib/reserves.functions.ts` (étendu : `rejectReserve`, technicien-assigné, event calendrier)
-3. `src/components/pv/ReserveDetailDialog.tsx` (nouveau)
-4. `src/routes/_authenticated/pv.$id.tsx` (section réserves enrichie)
-5. `src/routes/_authenticated/reserves.tsx` (utilise les helpers harmonisés)
-6. Migration SQL : trigger notifs `reserve_lifted` / `reserve_validated` / `reserve_rejected`, et création auto d'événement calendrier à l'assignation avec échéance
+**`src/routes/_authenticated/reserves.tsx`** (l.458) :
+- Idem : remplacer Link par bouton ouvrant la popup (charger PV à la volée, ou naviguer vers fiche PV avec `?openLift=<reserveId>` puis auto-open)
 
-Confirme : on part sur Lot 1 + Lot 2 cette passe, Lot 3 (PDF + flow client + cron) la passe suivante ?
+## Sécurité rôles
+
+Le bouton est masqué/désactivé selon `canSignAsCompany(role)` (déjà importé via `@/lib/roles`). Toast "Droits insuffisants." si tentative. La server fn `createReserveLift` reste l'autorité (aucune mutation directe browser).
+
+## Compatibilité
+
+- Page `/pv/:id/levee-reserves` conservée intacte (fallback, multi-réserves batch)
+- Refactor minimal : extraire helpers EXIF dans `src/lib/photo-exif.ts` et les ré-utiliser depuis la page existante
+
+## Fichiers
+
+**Créés :**
+- `src/components/pv/ReserveLiftWorkflowDialog.tsx` (~500 lignes)
+- `src/lib/photo-exif.ts` (helpers GPS/EXIF extraits)
+
+**Modifiés :**
+- `src/routes/_authenticated/pv.$id.tsx` (boutons → popup)
+- `src/routes/_authenticated/reserves.tsx` (bouton "Lever" → navigue avec auto-open)
+- `src/routes/_authenticated/pv.$id.levee-reserves.tsx` (import depuis photo-exif.ts)
+
+## Hors scope (déjà en place)
+
+- `createReserveLift` (génération report + items + photos + PDFs + email client) ✅
+- Email client validation ✅
+- Signature client espace client ✅
+- Cascade rejet client → status `rejetee` (trigger DB) ✅
+- PDF client/interne ✅
+
+Aucune migration SQL nécessaire.
