@@ -707,7 +707,8 @@ function NewPv() {
     ].filter(Boolean).join(" · ");
     const decisionLine = withReserves === true ? "Réception avec réserves" : withReserves === false ? "Réception sans réserve" : "";
     const reservesLine = reserves.length ? `${reserves.length} réserve${reserves.length > 1 ? "s" : ""}` : "";
-    const photosLine = photos.length ? `${photos.length} photo${photos.length > 1 ? "s" : ""}` : "";
+    const reservesPhotosCount = reserves.reduce((acc, r) => acc + r.photos.length, 0);
+    const reservesLineFull = reservesLine + (reservesPhotosCount ? ` · ${reservesPhotosCount} photo${reservesPhotosCount > 1 ? "s" : ""}` : "");
     const sigParts: string[] = [];
     if (signatureMode) sigParts.push(signatureMode === "remote" ? "À distance" : "Sur place");
     if (companySignatureDataUrl) sigParts.push("Entreprise ✓");
@@ -720,12 +721,11 @@ function NewPv() {
       [ID_CHANTIER]: chantierLine,
       [ID_TRAVAUX]: travauxLine,
       [ID_DECISION]: decisionLine,
-      [ID_RESERVES]: reservesLine,
-      [ID_PHOTOS]: photosLine,
+      [ID_RESERVES]: reservesLineFull,
       [ID_SIGNATURES]: sigParts.join(" · "),
       [ID_APERCU]: "",
     };
-  }, [branding, clients, chantiers, form, withReserves, reserves, photos, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpVerified, onsiteOtpEmail]);
+  }, [branding, clients, chantiers, form, withReserves, reserves, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpVerified, onsiteOtpEmail]);
 
   const otpStatus: "idle" | "sent" | "verified" | "error" = onsiteOtpVerified
     ? "verified"
