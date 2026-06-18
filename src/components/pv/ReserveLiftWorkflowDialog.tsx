@@ -70,6 +70,7 @@ type StepId =
   | "after"
   | "signer"
   | "mode"
+  | "otp"
   | "client"
   | "review";
 
