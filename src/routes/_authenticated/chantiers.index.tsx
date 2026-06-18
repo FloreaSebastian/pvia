@@ -82,6 +82,8 @@ function ChantiersPage() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
   const canWrite = can("manage");
+  const isMobile = useIsMobile();
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const createFn = useServerFn(createChantierFn);
   const updateFn = useServerFn(updateChantierFn);
   const deleteFn = useServerFn(deleteChantierFn);
