@@ -159,6 +159,58 @@ export const createReserveLift = createServerFn({ method: "POST" })
     } catch { /* best-effort */ }
 
     // 3. Verify reserves belong to this PV + are open
+    const reserveIds = data.items.map((i) => i.reserveId);
+    const { data: reserves } = await supabaseAdmin
+      .from("pv_reserves")
+      .select("id,status,pv_id,company_id,description,severity")
+      .in("id", reserveIds);
+    const reserveById = new Map((reserves ?? []).map((r) => [r.id, r]));
+    for (const id of reserveIds) {
+      const r = reserveById.get(id);
+      if (!r) throw new Error("Réserve introuvable.");
+      if (r.pv_id !== data.pvId) throw new Error("Réserve liée à un autre PV.");
+      if (r.company_id !== pv.company_id) throw new Error("Accès refusé.");
+    }
+
+    // 4. Generate numero + insert report with retry on UNIQUE collision (race-safe)
+    const nowIso = new Date().toISOString();
+    let report: { id: string; numero: string } | null = null;
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const numero = await generateLiftNumber(pv.id);
+      const { data: ins, error: insErr } = await supabaseAdmin
+        .from("reserve_lift_reports")
+        .insert({
+          company_id: pv.company_id,
+          pv_id: pv.id,
+          numero,
+          status: data.status,
+          comment: data.comment || null,
+          company_signature: companySigForStorage,
+          client_signature: clientSig,
+          technician_signature: technicianSig,
+          technician_name: data.technicianName?.trim() || null,
+          require_client_signature: data.requireClientSignature,
+          signed_at: data.status === "signe" ? nowIso : null,
+          created_by: userId,
+          // New intervenant + validation-mode fields
+          signer_user_id: userId,
+          signer_name: resolvedSignerName,
+          signer_role: resolvedSignerRole,
+          signer_email: resolvedSignerEmail,
+          signer_signature: signerSig,
+          signer_signed_at: data.status === "signe" ? nowIso : null,
+          validation_mode: data.validationMode ?? "remote",
+          client_signed_on_site: !!data.clientSignedOnSite && !!clientSig,
+          // On-site flow: record client validation timestamps right away.
+          client_validated_at:
+            data.validationMode === "on_site" && clientSig ? nowIso : null,
+          client_validated_email: resolvedSignerEmail, // best-effort placeholder for on-site
+          client_signed_at:
+            data.validationMode === "on_site" && clientSig ? nowIso : null,
+        } as any)
+        .select("id,numero")
+        .single();
 
 
       if (!insErr && ins) { report = ins as { id: string; numero: string }; break; }
