@@ -142,6 +142,22 @@ export const createReserveLift = createServerFn({ method: "POST" })
     // Mirror intervenant signature into legacy company_signature column for PDF/back-compat.
     const companySigForStorage = signerSig;
 
+    // Phase 2 — On-site client signature requires a verified OTP (email link).
+    let onsiteOtpEmail: string | null = null;
+    if (data.status === "signe" && data.validationMode === "on_site" && clientSig) {
+      if (!data.clientOtpId) {
+        throw new Error("Vérification d'identité client obligatoire (code OTP).");
+      }
+      const { assertSignatureOtpVerified } = await import("./signature-otp.server");
+      const otp = await assertSignatureOtpVerified({
+        otpId: data.clientOtpId,
+        expectedCompanyId: pv.company_id,
+        expectedPvId: pv.id,
+        expectedMode: "onsite",
+      });
+      onsiteOtpEmail = otp.email;
+    }
+
     // Resolve intervenant identity from session (auto-filled, never trusted from client).
     let resolvedSignerName = (data.signerName ?? "").trim() || null;
     let resolvedSignerRole = (data.signerRole ?? "").trim() || null;
