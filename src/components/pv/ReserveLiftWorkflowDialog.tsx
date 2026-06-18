@@ -191,6 +191,22 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Post-finalize confirmation screen
+  type CompletedState = {
+    reportId: string;
+    numero: string;
+    mode: "on_site" | "remote";
+    emailSent: boolean;
+    emailError?: string | null;
+  };
+  const [completed, setCompleted] = useState<CompletedState | null>(null);
+  const [pdfDownloading, setPdfDownloading] = useState<"client" | "internal" | null>(null);
+  const [resending, setResending] = useState(false);
+
+  // Unsaved-changes confirm dialog
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+
+
   const [validationMode, setValidationMode] = useState<"on_site" | "remote">("remote");
 
   const signerSigRef = useRef<SignaturePad>(null);
