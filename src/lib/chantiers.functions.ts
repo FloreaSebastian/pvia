@@ -38,6 +38,8 @@ const ChantierPayloadSchema = z.object({
 const CreateInput = z.object({ companyId: z.string().uuid(), data: ChantierPayloadSchema });
 const UpdateInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid(), data: ChantierPayloadSchema });
 const DeleteInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid() });
+const ReopenInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid() });
+const ADMIN_REOPEN_ROLES = ["directeur", "responsable_exploitation"] as const;
 
 async function assertCanManage(supabase: SupabaseClient<Database>, companyId: string, userId: string) {
   const { data, error } = await supabase.rpc("can_manage_company", { _company_id: companyId, _user_id: userId });
