@@ -149,7 +149,8 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       { id: "mode",         label: "Validation",      short: "6", icon: Mail },
     ];
     if (validationMode === "on_site") {
-      base.push({ id: "client", label: "Signature client", short: "7", icon: FileSignature });
+      base.push({ id: "otp",    label: "Vérif. client",     short: "7", icon: Mail });
+      base.push({ id: "client", label: "Signature client",  short: "8", icon: FileSignature });
     }
     base.push({ id: "review", label: "Finalisation", short: String(base.length + 1), icon: Send });
     return base;
