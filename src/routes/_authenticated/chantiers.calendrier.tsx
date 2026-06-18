@@ -1370,7 +1370,7 @@ function MonthView({
                 {dayEvts.slice(0, 3).map((e) => {
                   const c = colorOf(e);
                   const isSystem = e.event_type.startsWith("system_");
-                  const draggable = canWrite && !isSystem && !!e.start_at;
+                  const draggable = canWrite && !isMobile && !isSystem && !!e.start_at;
                   const ann = e.status === "annule";
                   const isDragged = dragId === e.id;
                   return (
