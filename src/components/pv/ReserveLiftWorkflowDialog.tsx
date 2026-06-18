@@ -283,7 +283,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         },
       });
       toast.success(`Levée ${res.numero} envoyée au client.`);
-      onCompleted?.(res.id, res.numero);
+      onCompleted?.(res.reportId, res.numero);
       onOpenChange(false);
     } catch (e: any) {
       const code = e?.code;
