@@ -121,6 +121,7 @@ const LS = {
   zoom: "pvia.cal.zoom",
   weekDays: "pvia.cal.weekDays",
   filtersOpen: "pvia.cal.filtersOpen",
+  defaultView: "pvia.cal.defaultView",
 };
 function lsGet<T>(k: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -130,6 +131,19 @@ function lsSet(k: string, v: unknown) {
   if (typeof window === "undefined") return;
   try { window.localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ }
 }
+
+// Saved default view preference: which view to open the calendar on.
+// "week5" = week with 5 days (Mon-Fri).
+type DefaultViewPref = "day" | "week" | "week5" | "month";
+function loadInitialView(isMobile: boolean): { view: ViewKind; weekDays: WeekDays | null } {
+  const saved = lsGet<DefaultViewPref | null>(LS.defaultView, null);
+  if (saved === "day") return { view: "day", weekDays: null };
+  if (saved === "week") return { view: "week", weekDays: 7 };
+  if (saved === "week5") return { view: "week", weekDays: 5 };
+  if (saved === "month") return { view: "month", weekDays: null };
+  return { view: isMobile ? "day" : "month", weekDays: null };
+}
+
 
 function statusIcon(status: string) {
   if (status === "termine") return <CheckCircle2 className="h-3 w-3 shrink-0" />;
