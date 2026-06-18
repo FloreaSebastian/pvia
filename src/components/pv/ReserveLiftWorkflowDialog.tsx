@@ -311,6 +311,11 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       }
       case "mode":
         return { ok: true };
+      case "otp": {
+        if (validationMode !== "on_site") return { ok: true };
+        if (!otpVerified) return { ok: false, msg: "Vérifiez l'identité du client (OTP email)." };
+        return { ok: true };
+      }
       case "client": {
         if (validationMode !== "on_site") return { ok: true };
         if (!clientConsent) return { ok: false, msg: "Le client doit accepter avant de signer." };
