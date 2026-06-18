@@ -685,7 +685,6 @@ function NewPv() {
       [ID_TRAVAUX]: travauxOk ? null : "Description des travaux obligatoire.",
       [ID_DECISION]: decisionOk ? null : "Choisissez avec ou sans réserves.",
       [ID_RESERVES]: reservesError,
-      [ID_PHOTOS]: null,
       [ID_SIGNATURES]: signaturesError,
       [ID_APERCU]: signaturesError ? "Complétez les signatures avant d'accéder à l'aperçu." : null,
     };
