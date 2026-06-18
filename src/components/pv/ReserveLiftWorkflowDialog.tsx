@@ -10,7 +10,7 @@
  * - Backward compat: legacy company/technician signature columns are still
  *   populated server-side. OTP for client signature is Phase 2.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import SignaturePad from "react-signature-canvas";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -93,6 +93,64 @@ function prettyRole(r: string | null | undefined): string {
   return ROLE_LABELS[r] ?? r;
 }
 
+/**
+ * Top-level stable component — defining this INSIDE ReserveLiftWorkflowDialog
+ * gave it a new function identity on every render, causing React to unmount
+ * and remount the subtree. That unmount/remount made the comment <Textarea>
+ * lose focus after each keystroke. Keep this component module-scoped.
+ */
+function ReserveCard({ r, children }: { r: LiftDialogReserve; children?: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-border p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5 mb-1">
+            <Badge variant={r.severity === "majeure" ? "destructive" : "secondary"} className="text-[10px]">{r.severity}</Badge>
+            {r.priority && r.priority !== "normal" && (
+              <Badge variant="outline" className="text-[10px]">P. {r.priority}</Badge>
+            )}
+            {r.due_date && (
+              <span className="text-[10px] text-muted-foreground">📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}</span>
+            )}
+          </div>
+          <p className="text-sm leading-snug">{r.description}</p>
+          {r.work_to_execute && (
+            <p className="mt-1 text-[11px] text-muted-foreground"><span className="font-medium">Travaux prévus :</span> {r.work_to_execute}</p>
+          )}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Memoized comment field per reserve — local state keeps every keystroke
+ * inside the textarea instead of bubbling up to the dialog and re-rendering
+ * the whole step tree. The parent receives the value via a stable callback.
+ */
+const ReserveInterventionComment = memo(function ReserveInterventionComment({
+  reserveId, initialValue, onCommit,
+}: { reserveId: string; initialValue: string; onCommit: (rid: string, value: string) => void }) {
+  const [value, setValue] = useState(initialValue);
+  // Sync if parent resets (e.g. dialog reopened)
+  useEffect(() => { setValue(initialValue); }, [initialValue, reserveId]);
+  return (
+    <Textarea
+      rows={3}
+      placeholder="Ex. Remplacement du micro-onduleur, contrôle de production et vérification du serrage."
+      value={value}
+      onChange={(e) => {
+        const v = e.target.value;
+        setValue(v);
+        onCommit(reserveId, v);
+      }}
+    />
+  );
+});
+
+type GpsPermission = "pending" | "granted" | "denied" | "unavailable";
+
 export function ReserveLiftWorkflowDialog(props: Props) {
   const {
     open, onOpenChange, pvId, pvNumero, reserves, preselectedReserveId,
@@ -138,6 +196,17 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
 
+  // GPS permission state — requested at dialog open
+  const [gpsPermission, setGpsPermission] = useState<GpsPermission>("pending");
+  const [lastKnownPosition, setLastKnownPosition] = useState<{
+    latitude: number; longitude: number; accuracy: number | null;
+  } | null>(null);
+
+  // Stable callback for the memoized comment input
+  const handleCommentCommit = useCallback((rid: string, value: string) => {
+    setComments((c) => (c[rid] === value ? c : { ...c, [rid]: value }));
+  }, []);
+
   // STEPS (dynamic — "otp" + "client" steps only when on_site)
   const STEPS: { id: StepId; label: string; short: string; icon: any }[] = useMemo(() => {
     const base: { id: StepId; label: string; short: string; icon: any }[] = [
@@ -176,6 +245,32 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     if (!open) return;
     if (clientEmail) setOtpEmail(clientEmail);
   }, [open, clientEmail]);
+
+  // Request geolocation immediately when popup opens so the badge and the
+  // photo capture flow have a position ready before the user reaches the
+  // "Photos après" step.
+  useEffect(() => {
+    if (!open) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGpsPermission("unavailable");
+      return;
+    }
+    setGpsPermission("pending");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLastKnownPosition({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? null,
+        });
+        setGpsPermission("granted");
+      },
+      (err) => {
+        setGpsPermission(err.code === err.PERMISSION_DENIED ? "denied" : "unavailable");
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+    );
+  }, [open]);
 
   async function handleSendOtp() {
     if (!activeCompanyId) { toast.error("Entreprise active introuvable."); return; }
@@ -241,6 +336,8 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     setOtpCode("");
     setOtpVerified(false);
     setOtpExpiresAt(null);
+    setGpsPermission("pending");
+    setLastKnownPosition(null);
     setStepIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -297,15 +394,43 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     if (!files || files.length === 0) return;
     setUploading(true);
     try {
-      const browserGps = await tryGetGps();
+      // Try to refresh GPS if user previously granted; fall back to last known
+      // position; never block the upload if GPS is denied/unavailable.
+      let browserGps: { latitude: number | null; longitude: number | null; accuracy: number | null } = {
+        latitude: lastKnownPosition?.latitude ?? null,
+        longitude: lastKnownPosition?.longitude ?? null,
+        accuracy: lastKnownPosition?.accuracy ?? null,
+      };
+      if (gpsPermission === "granted" || gpsPermission === "pending") {
+        const fresh = await tryGetGps();
+        if (fresh.latitude !== null && fresh.longitude !== null) {
+          browserGps = fresh;
+          setLastKnownPosition({
+            latitude: fresh.latitude,
+            longitude: fresh.longitude,
+            accuracy: fresh.accuracy,
+          });
+          if (gpsPermission !== "granted") setGpsPermission("granted");
+        }
+      }
       const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 400) : "";
       const list = Array.from(files);
       const entries: PhotoEntry[] = [];
       let compressedCount = 0;
       for (const raw of list) {
-        const { file, compressed } = await compressImageFile(raw);
-        if (compressed) compressedCount++;
-        entries.push(await buildPhotoEntry(file, browserGps, deviceInfo));
+        try {
+          const { file, compressed } = await compressImageFile(raw);
+          if (compressed) compressedCount++;
+          entries.push(await buildPhotoEntry(file, browserGps, deviceInfo));
+        } catch (innerErr: any) {
+          // Don't abort the whole batch — fall back to raw file with no GPS.
+          console.warn("[lift] photo processing failed, using raw", innerErr);
+          entries.push(await buildPhotoEntry(raw, browserGps, deviceInfo));
+        }
+      }
+      if (entries.length === 0) {
+        toast.error("Aucune photo n'a pu être ajoutée.");
+        return;
       }
       if (compressedCount > 0) toast.success(`${compressedCount} photo(s) optimisée(s).`);
       setPhotosAfter((prev) => ({ ...prev, [rid]: [...(prev[rid] ?? []), ...entries] }));
@@ -472,12 +597,26 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   }
 
   // --- UI parts
+  const gpsBadge = (() => {
+    switch (gpsPermission) {
+      case "granted":
+        return <Badge variant="outline" className="gap-1 text-[10px] border-green-500/40 text-green-700 dark:text-green-400"><MapPin className="h-3 w-3" />GPS activé</Badge>;
+      case "denied":
+        return <Badge variant="outline" className="gap-1 text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-400"><MapPinOff className="h-3 w-3" />GPS refusé</Badge>;
+      case "unavailable":
+        return <Badge variant="outline" className="gap-1 text-[10px] border-muted-foreground/30"><MapPinOff className="h-3 w-3" />GPS indisponible</Badge>;
+      default:
+        return <Badge variant="outline" className="gap-1 text-[10px]"><Loader2 className="h-3 w-3 animate-spin" />GPS en attente</Badge>;
+    }
+  })();
+
   const HeaderInfo = (
     <div className="space-y-1 text-xs text-muted-foreground">
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span><span className="font-medium text-foreground">PV :</span> {pvNumero}</span>
         {chantierLabel && <span><span className="font-medium text-foreground">Chantier :</span> {chantierLabel}</span>}
         {clientLabel && <span><span className="font-medium text-foreground">Client :</span> {clientLabel}</span>}
+        {gpsBadge}
       </div>
     </div>
   );
@@ -510,28 +649,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     </div>
   );
 
-  const ReserveCard = ({ r, children }: { r: LiftDialogReserve; children?: React.ReactNode }) => (
-    <div className="rounded-md border border-border p-3 space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-            <Badge variant={r.severity === "majeure" ? "destructive" : "secondary"} className="text-[10px]">{r.severity}</Badge>
-            {r.priority && r.priority !== "normal" && (
-              <Badge variant="outline" className="text-[10px]">P. {r.priority}</Badge>
-            )}
-            {r.due_date && (
-              <span className="text-[10px] text-muted-foreground">📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}</span>
-            )}
-          </div>
-          <p className="text-sm leading-snug">{r.description}</p>
-          {r.work_to_execute && (
-            <p className="mt-1 text-[11px] text-muted-foreground"><span className="font-medium">Travaux prévus :</span> {r.work_to_execute}</p>
-          )}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
+  // (ReserveCard is defined at module scope to keep it stable across renders.)
 
   const Body = (
     <div className="space-y-4">
@@ -611,11 +729,10 @@ export function ReserveLiftWorkflowDialog(props: Props) {
             <ReserveCard key={r.id} r={r}>
               <div>
                 <Label className="text-xs">Travaux réalisés <span className="text-destructive">*</span></Label>
-                <Textarea
-                  rows={3}
-                  placeholder="Ex. Remplacement du micro-onduleur, contrôle de production et vérification du serrage."
-                  value={comments[r.id] ?? ""}
-                  onChange={(e) => setComments((c) => ({ ...c, [r.id]: e.target.value }))}
+                <ReserveInterventionComment
+                  reserveId={r.id}
+                  initialValue={comments[r.id] ?? ""}
+                  onCommit={handleCommentCommit}
                 />
               </div>
             </ReserveCard>
