@@ -33,6 +33,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
 import { createReserveLift, listReserveLiftPhotos } from "@/lib/reserve-lift.functions";
+import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import {
