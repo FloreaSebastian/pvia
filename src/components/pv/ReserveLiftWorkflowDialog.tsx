@@ -172,6 +172,9 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const listPhotosFn = useServerFn(listReserveLiftPhotos);
   const sendOtpFn = useServerFn(sendOnsiteClientOtp);
   const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
+  const getPdfUrlFn = useServerFn(getReserveLiftPdfUrl);
+  const resendValidationFn = useServerFn(resendReserveLiftValidationEmail);
+
 
   // Intervenant identity (auto-filled, read-only)
   const [signerName, setSignerName] = useState("");
