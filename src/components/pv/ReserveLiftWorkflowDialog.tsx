@@ -16,11 +16,16 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft, ChevronRight, Loader2, MapPin, MapPinOff, X,
   Camera, FileSignature, Send, Check, Eye, Mail, UserCheck,
+  Download, Save, RotateCcw, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,13 +37,17 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
-import { createReserveLift, listReserveLiftPhotos } from "@/lib/reserve-lift.functions";
+import {
+  createReserveLift, listReserveLiftPhotos,
+  getReserveLiftPdfUrl, resendReserveLiftValidationEmail,
+} from "@/lib/reserve-lift.functions";
 import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import {
   tryGetGps, buildPhotoEntry, sanitizeExifForUpload, type PhotoEntry,
 } from "@/lib/photo-exif";
+
 
 export type LiftDialogReserve = {
   id: string;
@@ -163,6 +172,9 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const listPhotosFn = useServerFn(listReserveLiftPhotos);
   const sendOtpFn = useServerFn(sendOnsiteClientOtp);
   const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
+  const getPdfUrlFn = useServerFn(getReserveLiftPdfUrl);
+  const resendValidationFn = useServerFn(resendReserveLiftValidationEmail);
+
 
   // Intervenant identity (auto-filled, read-only)
   const [signerName, setSignerName] = useState("");
@@ -178,6 +190,22 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const [loadingInitial, setLoadingInitial] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Post-finalize confirmation screen
+  type CompletedState = {
+    reportId: string;
+    numero: string;
+    mode: "on_site" | "remote";
+    emailSent: boolean;
+    emailError?: string | null;
+  };
+  const [completed, setCompleted] = useState<CompletedState | null>(null);
+  const [pdfDownloading, setPdfDownloading] = useState<"client" | "internal" | null>(null);
+  const [resending, setResending] = useState(false);
+
+  // Unsaved-changes confirm dialog
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+
 
   const [validationMode, setValidationMode] = useState<"on_site" | "remote">("remote");
 
@@ -206,6 +234,69 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const handleCommentCommit = useCallback((rid: string, value: string) => {
     setComments((c) => (c[rid] === value ? c : { ...c, [rid]: value }));
   }, []);
+
+  // ---- Draft persistence (localStorage, per pvId + userId)
+  // Only text-level state is persisted (selected reserves, comments,
+  // validation mode). Photos and signatures are not stored — they stay
+  // in-memory and the user re-uploads / re-signs on resume.
+  const draftKey = useMemo(
+    () => (user?.id && pvId ? `lift-draft:${user.id}:${pvId}` : null),
+    [user?.id, pvId],
+  );
+  const [hasDraft, setHasDraft] = useState(false);
+
+  useEffect(() => {
+    if (!open || !draftKey) return;
+    try {
+      setHasDraft(!!window.localStorage.getItem(draftKey));
+    } catch { /* ignore */ }
+  }, [open, draftKey]);
+
+  const saveDraft = useCallback(() => {
+    if (!draftKey) return false;
+    try {
+      const payload = {
+        selected, comments, validationMode,
+        signerName, signerRole, signerEmail,
+        savedAt: new Date().toISOString(),
+      };
+      window.localStorage.setItem(draftKey, JSON.stringify(payload));
+      setHasDraft(true);
+      return true;
+    } catch { return false; }
+  }, [draftKey, selected, comments, validationMode, signerName, signerRole, signerEmail]);
+
+  const restoreDraft = useCallback(() => {
+    if (!draftKey) return;
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const d = JSON.parse(raw) as any;
+      if (d?.selected) setSelected(d.selected);
+      if (d?.comments) setComments(d.comments);
+      if (d?.validationMode) setValidationMode(d.validationMode);
+      toast.success("Brouillon restauré.");
+    } catch {
+      toast.error("Brouillon illisible.");
+    }
+  }, [draftKey]);
+
+  const clearDraft = useCallback(() => {
+    if (!draftKey) return;
+    try { window.localStorage.removeItem(draftKey); setHasDraft(false); } catch { /* ignore */ }
+  }, [draftKey]);
+
+  // Has the user entered anything that would be lost on close?
+  const isDirty = useMemo(() => {
+    if (completed) return false; // already finalized
+    if (Object.values(selected).some(Boolean)) return true;
+    if (Object.values(comments).some((c) => c.trim().length > 0)) return true;
+    if (Object.values(photosAfter).some((arr) => arr.length > 0)) return true;
+    if (signerSigData || clientSigData) return true;
+    return false;
+  }, [completed, selected, comments, photosAfter, signerSigData, clientSigData]);
+
+
 
   // STEPS (dynamic — "otp" + "client" steps only when on_site)
   const STEPS: { id: StepId; label: string; short: string; icon: any }[] = useMemo(() => {
@@ -338,7 +429,10 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     setOtpExpiresAt(null);
     setGpsPermission("pending");
     setLastKnownPosition(null);
+    setCompleted(null);
+    setConfirmCloseOpen(false);
     setStepIdx(0);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -653,14 +747,76 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       } else {
         toast.success(`Levée ${res.numero} envoyée au client pour validation.`);
       }
+      // Brouillon obsolète une fois finalisé
+      clearDraft();
+      // Notifier le parent pour invalider les queries (liste, statut PV…)
       onCompleted?.(res.reportId, res.numero);
-      onOpenChange(false);
+      // Ne PAS fermer brutalement : afficher l'écran de confirmation.
+      setCompleted({
+        reportId: res.reportId,
+        numero: res.numero,
+        mode: validationMode,
+        // Le serveur déclenche déjà l'email de demande de validation en mode
+        // distance ; on l'affiche optimiste et un bouton "Renvoyer" est fourni
+        // en cas d'échec côté boîte client.
+        emailSent: validationMode === "remote",
+      });
     } catch (e: any) {
       toast.error(e?.message || "Échec de la création de la levée.");
     } finally {
       setSubmitting(false);
     }
   }
+
+  // --- Safe close (confirmation if unsaved data exists)
+  function requestClose() {
+    if (submitting) return;
+    if (completed) { onOpenChange(false); return; }
+    if (isDirty) { setConfirmCloseOpen(true); return; }
+    onOpenChange(false);
+  }
+  function handleDialogOpenChange(next: boolean) {
+    if (next) { onOpenChange(true); return; }
+    requestClose();
+  }
+  function confirmCloseAndSaveDraft() {
+    if (saveDraft()) toast.success("Brouillon enregistré.");
+    setConfirmCloseOpen(false);
+    onOpenChange(false);
+  }
+  function confirmCloseDiscard() {
+    setConfirmCloseOpen(false);
+    onOpenChange(false);
+  }
+
+  // --- PDF download + email resend (confirmation screen)
+  async function handleDownloadPdf(variant: "client" | "internal") {
+    if (!completed) return;
+    setPdfDownloading(variant);
+    try {
+      const { url } = await getPdfUrlFn({ data: { reportId: completed.reportId, variant } });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      toast.error(e?.message || "PDF indisponible.");
+    } finally {
+      setPdfDownloading(null);
+    }
+  }
+  async function handleResendClient() {
+    if (!completed || completed.mode !== "remote") return;
+    setResending(true);
+    try {
+      await resendValidationFn({ data: { reportId: completed.reportId } });
+      toast.success("Email renvoyé au client.");
+      setCompleted((c) => (c ? { ...c, emailSent: true, emailError: null } : c));
+    } catch (e: any) {
+      toast.error(e?.message || "Envoi échoué.");
+      setCompleted((c) => (c ? { ...c, emailError: e?.message ?? "Envoi échoué." } : c));
+    } finally {
+      setResending(false);
+    }
+  }
+
 
   // --- UI parts
   const gpsBadge = (() => {
@@ -765,7 +921,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
                     Aucune photo de constat initial trouvée pour cette réserve.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {list.map((p, idx) => (
                       <div key={idx} className="relative overflow-hidden rounded border border-border">
                         {p.url ? (
@@ -834,7 +990,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
                     {uploading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                   </div>
                   {list.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {list.map((p, idx) => {
                         const geo = p.latitude !== null && p.longitude !== null;
                         return (
@@ -1068,16 +1224,113 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     </div>
   );
 
-  const Footer = (
-    <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
+  // --- Confirmation screen shown after a successful finalize.
+  // Replaces the wizard body. The popup is NOT closed automatically.
+  const CompletedPanel = completed ? (
+    <div className="space-y-4">
+      <div className="rounded-md border border-green-500/40 bg-green-500/5 p-4">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600 dark:text-green-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">Levée de réserves finalisée</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Numéro : <span className="font-mono font-medium text-foreground">{completed.numero}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Statut : {completed.mode === "on_site" ? "Signée sur place" : "Envoyée au client"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {completed.mode === "remote" && (
+        <div className={`rounded-md border p-3 text-xs ${
+          completed.emailError
+            ? "border-amber-500/40 bg-amber-500/5 text-amber-800 dark:text-amber-300"
+            : "border-border bg-muted/30"
+        }`}>
+          {completed.emailError ? (
+            <>
+              <div className="flex items-center gap-2 mb-1 font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                PDF généré, mais email au client non envoyé.
+              </div>
+              <p className="opacity-80">{completed.emailError}</p>
+            </>
+          ) : (
+            <>Email de demande de validation envoyé au client. Vous pouvez le renvoyer si nécessaire.</>
+          )}
+        </div>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => handleDownloadPdf("client")}
+          disabled={pdfDownloading !== null}
+        >
+          {pdfDownloading === "client"
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : <Download className="h-4 w-4" />}
+          Télécharger PDF client
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => handleDownloadPdf("internal")}
+          disabled={pdfDownloading !== null}
+        >
+          {pdfDownloading === "internal"
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : <Download className="h-4 w-4" />}
+          Télécharger PDF interne
+        </Button>
+        {completed.mode === "remote" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="sm:col-span-2"
+            onClick={handleResendClient}
+            disabled={resending}
+          >
+            {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            Renvoyer au client
+          </Button>
+        )}
+      </div>
+
+      <p className="text-[11px] text-muted-foreground">
+        Le PDF client ne contient ni GPS ni IP. Le PDF interne contient l'ensemble
+        des preuves (à conserver côté entreprise).
+      </p>
+    </div>
+  ) : null;
+
+  // Footer for the wizard (steps). Hidden when on the completion screen.
+  const WizardFooter = (
+    <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-background px-1 py-2 sm:py-3">
       <Button variant="outline" size="sm" onClick={goPrev} disabled={stepIdx === 0 || submitting}>
         <ChevronLeft className="h-4 w-4" /> Précédent
       </Button>
-      <span className="text-[11px] text-muted-foreground">Étape {stepIdx + 1} / {STEPS.length}</span>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => { if (saveDraft()) toast.success("Brouillon enregistré."); }}
+          disabled={submitting || !isDirty}
+          title="Sauvegarde locale sur cet appareil"
+        >
+          <Save className="h-4 w-4" /> Enregistrer en brouillon
+        </Button>
+        <span className="hidden sm:inline text-[11px] text-muted-foreground">
+          Étape {stepIdx + 1} / {STEPS.length}
+        </span>
+      </div>
       {step?.id === "review" ? (
         <Button size="sm" onClick={handleFinalize} disabled={submitting}>
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Finaliser
+          Finaliser et générer les PDF
         </Button>
       ) : (
         <Button size="sm" onClick={goNext} disabled={submitting}>
@@ -1087,31 +1340,109 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     </div>
   );
 
+  // Footer for the confirmation screen
+  const CompletedFooter = (
+    <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-background px-1 py-2 sm:py-3">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          if (completed) onCompleted?.(completed.reportId, completed.numero);
+          onOpenChange(false);
+        }}
+      >
+        <Eye className="h-4 w-4" /> Voir la levée
+      </Button>
+      <Button size="sm" onClick={() => onOpenChange(false)}>
+        Fermer la levée
+      </Button>
+    </div>
+  );
+
+  const Content = completed ? CompletedPanel : Body;
+  const Footer = completed ? CompletedFooter : WizardFooter;
+  const TitleText = completed ? "Levée de réserves finalisée" : "Levée de réserve";
+  const SubText = completed
+    ? "Téléchargez les PDF ou renvoyez l'email au client si nécessaire."
+    : "Workflow guidé pour traiter et valider la levée.";
+
+  // Resume-draft banner (only when wizard hasn't been touched yet)
+  const ResumeBanner = (!completed && hasDraft && !isDirty) ? (
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+      <span>Un brouillon de levée existe pour ce PV sur cet appareil.</span>
+      <div className="flex items-center gap-1">
+        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={restoreDraft}>
+          <RotateCcw className="h-3.5 w-3.5" /> Reprendre
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground" onClick={clearDraft}>
+          Ignorer
+        </Button>
+      </div>
+    </div>
+  ) : null;
+
+  const ConfirmCloseDialog = (
+    <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Quitter la levée en cours ?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Vous avez une levée en cours non enregistrée. Vous pouvez l'enregistrer
+            comme brouillon pour la reprendre plus tard sur cet appareil, ou abandonner
+            les modifications.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+          <AlertDialogCancel>Continuer la levée</AlertDialogCancel>
+          <Button variant="ghost" onClick={confirmCloseDiscard}>
+            Abandonner
+          </Button>
+          <AlertDialogAction onClick={confirmCloseAndSaveDraft}>
+            <Save className="h-4 w-4" /> Enregistrer en brouillon
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[92vh] overflow-y-auto flex flex-col">
-          <SheetHeader>
-            <SheetTitle>Levée de réserve</SheetTitle>
-            <SheetDescription>Workflow guidé pour traiter et valider la levée.</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto py-3">{Body}</div>
-          {Footer}
-        </SheetContent>
-      </Sheet>
+      <>
+        <Sheet open={open} onOpenChange={handleDialogOpenChange}>
+          <SheetContent side="bottom" className="h-[95vh] max-h-[95vh] flex flex-col p-0">
+            <SheetHeader className="px-4 pt-4 pb-2">
+              <SheetTitle>{TitleText}</SheetTitle>
+              <SheetDescription>{SubText}</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto px-4 pb-2">
+              {ResumeBanner}
+              {Content}
+            </div>
+            <div className="px-4">{Footer}</div>
+          </SheetContent>
+        </Sheet>
+        {ConfirmCloseDialog}
+      </>
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Levée de réserve</DialogTitle>
-          <DialogDescription>Workflow guidé pour traiter et valider la levée.</DialogDescription>
-        </DialogHeader>
-        <div className="flex-1 overflow-y-auto pr-1">{Body}</div>
-        {Footer}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] p-0 flex flex-col gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>{TitleText}</DialogTitle>
+            <DialogDescription>{SubText}</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 pb-2">
+            {ResumeBanner}
+            {Content}
+          </div>
+          <div className="px-6 pb-4">{Footer}</div>
+        </DialogContent>
+      </Dialog>
+      {ConfirmCloseDialog}
+    </>
   );
 }
+
