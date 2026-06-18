@@ -376,10 +376,9 @@ function NewPv() {
 
   function pickDecision(value: boolean) {
     // Si on bascule de "avec réserves" vers "sans réserve" et qu'il y a déjà des données → confirmation
-    if (withReserves === true && value === false && (reserves.length > 0 || photos.length > 0)) {
-      if (!confirm("Passer en réception sans réserve va supprimer les réserves et photos déjà saisies. Confirmer ?")) return;
+    if (withReserves === true && value === false && reserves.length > 0) {
+      if (!confirm("Passer en réception sans réserve va supprimer les réserves déjà saisies. Confirmer ?")) return;
       setReserves([]);
-      setPhotos([]);
     }
     setWithReserves(value);
   }
