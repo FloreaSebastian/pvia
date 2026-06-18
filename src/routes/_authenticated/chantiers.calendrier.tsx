@@ -1491,6 +1491,7 @@ function TimeGridView({
 
   function onMouseDownBg(e: React.MouseEvent) {
     if (!canWrite) return;
+    if (isMobile) return; // mobile: no marquee selection, avoid hijacking taps/scroll
     if ((e.target as HTMLElement).closest("[data-evt]")) return;
     const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
     setDrag({ kind: "select", dayIdx: p.dayIdx, startMin: p.minutes, endMin: p.minutes + 60 });
