@@ -933,7 +933,8 @@ export const reopenReserveLiftReport = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
-
+/**
+ * List photos (before/after) for a given reserve, with signed URLs.
  * Company-scoped via RLS; signed URLs valid 1h.
  * Falls back to legacy `reserve_lift_items.photo_urls` for items predating the dedicated table.
  */
