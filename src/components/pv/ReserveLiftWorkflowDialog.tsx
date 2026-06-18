@@ -1290,18 +1290,16 @@ export function ReserveLiftWorkflowDialog(props: Props) {
             : <Download className="h-4 w-4" />}
           Télécharger PDF interne
         </Button>
-        {completed.mode === "remote" && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="sm:col-span-2"
-            onClick={handleResendClient}
-            disabled={resending}
-          >
-            {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-            Renvoyer au client
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="sm:col-span-2"
+          onClick={handleResendClient}
+          disabled={resending}
+        >
+          {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+          {completed.mode === "on_site" ? "Renvoyer le PDF signé" : "Renvoyer au client"}
+        </Button>
       </div>
 
       <p className="text-[11px] text-muted-foreground">
