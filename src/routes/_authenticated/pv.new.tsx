@@ -340,12 +340,31 @@ function NewPv() {
     setNewReserve({ nature: "", description: "", work_to_execute: "", severity: "mineure", due_date: "", photos: [] });
   }
 
-  function addReservePhotos(files: FileList | null) {
+  async function compressAndBuild(files: FileList): Promise<ReservePhoto[]> {
+    const out: ReservePhoto[] = [];
+    let compressedCount = 0;
+    for (const file of Array.from(files)) {
+      try {
+        const { file: finalFile, compressed } = await compressImageFile(file);
+        if (compressed) compressedCount += 1;
+        out.push({ file: finalFile, preview: URL.createObjectURL(finalFile) });
+      } catch {
+        out.push({ file, preview: URL.createObjectURL(file) });
+      }
+    }
+    if (compressedCount > 0) {
+      toast.success(
+        compressedCount === 1
+          ? "Photo optimisée"
+          : `${compressedCount} photos optimisées`,
+      );
+    }
+    return out;
+  }
+
+  async function addReservePhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const next: ReservePhoto[] = Array.from(files).map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+    const next = await compressAndBuild(files);
     setNewReserve((r) => ({ ...r, photos: [...r.photos, ...next] }));
   }
 
@@ -361,12 +380,9 @@ function NewPv() {
     );
   }
 
-  function addPhotosToExistingReserve(reserveIdx: number, files: FileList | null) {
+  async function addPhotosToExistingReserve(reserveIdx: number, files: FileList | null) {
     if (!files || files.length === 0) return;
-    const next: ReservePhoto[] = Array.from(files).map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+    const next = await compressAndBuild(files);
     setReserves((rs) =>
       rs.map((r, i) => (i === reserveIdx ? { ...r, photos: [...r.photos, ...next] } : r)),
     );
