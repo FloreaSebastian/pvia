@@ -314,6 +314,30 @@ function PvDetail() {
     }
   }
 
+  async function handleReopenLift(reportId: string) {
+    if (!confirm("Réouvrir cette levée ? Le PDF et la signature de l'intervenant seront effacés. Cette action est tracée.")) return;
+    setReopeningLiftId(reportId);
+    try {
+      await reopenLiftFn({ data: { reportId } });
+      toast.success("Levée réouverte — vous pouvez la modifier.");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Réouverture impossible.");
+    } finally {
+      setReopeningLiftId(null);
+    }
+  }
+
+  function handleNewAttemptAfterRejection() {
+    // Open the existing lift dialog scoped to rejected reserves (the dialog
+    // already filters reserves with status 'rejetee'). A fresh report is
+    // always created on upsert — old history is preserved untouched.
+    setLiftPreselectedId(null);
+    setLiftDialogOpen(true);
+  }
+
+
+
 
 
 
