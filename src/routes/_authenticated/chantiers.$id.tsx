@@ -396,12 +396,17 @@ function ChantierDetailPage() {
             <Button asChild variant="outline" size="sm">
               <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /> Calendrier</Link>
             </Button>
-            {canWrite && (
+            {canWrite && !isLocked && (
               <Button variant="outline" size="sm" onClick={() => runAutoPlanning(false)} disabled={autoPlanLoading}>
                 <Sparkles className="h-4 w-4" /> {autoPlanLoading ? "Création…" : "Planning auto"}
               </Button>
             )}
-            {canWrite && (
+            {isLocked && isAdmin && (
+              <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopenLoading}>
+                {reopenLoading ? "Réouverture…" : "Réouvrir le chantier"}
+              </Button>
+            )}
+            {canWrite && !isLocked && (
               <Button onClick={openNewEvt} className="shadow-brand">
                 <Plus className="h-4 w-4" /> Nouvel événement
               </Button>
@@ -417,7 +422,15 @@ function ChantierDetailPage() {
             {chColor && <span aria-hidden className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: chColor }} title="Couleur du chantier" />}
             <StatusPill tone={statusTone} dot>{statusLabel}</StatusPill>
             {ch.type && <StatusPill tone="neutral">{ch.type}</StatusPill>}
+            {isLocked && <StatusPill tone="neutral">🔒 Verrouillé</StatusPill>}
           </div>
+          {(chReceivedAt || chClosedAt || closureOriginLabel) && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {chReceivedAt && <span>Réception : <strong className="text-foreground">{fmtDateTime(chReceivedAt)}</strong></span>}
+              {chClosedAt && <span>Clôture : <strong className="text-foreground">{fmtDateTime(chClosedAt)}</strong></span>}
+              {closureOriginLabel && <span>Origine : <strong className="text-foreground">{closureOriginLabel}</strong></span>}
+            </div>
+          )}
           {ch.address && (
             <p className="flex items-start gap-2 text-sm text-muted-foreground">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0" /> {ch.address}
