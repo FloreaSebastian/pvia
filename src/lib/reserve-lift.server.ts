@@ -186,20 +186,15 @@ export async function buildAndStoreReserveLiftPdf(
   };
 
   const ensureSpace = (needed: number) => {
-    if (y - needed < MARGIN + 30) {
-      drawFooter();
+    if (y - needed < MARGIN + 36) {
       page = pdf.addPage([PAGE_W, PAGE_H]);
       pageNum += 1;
       y = PAGE_H - MARGIN;
       drawWatermark(page);
     }
   };
-  const drawFooter = () => {
-    page.drawLine({ start: { x: MARGIN, y: MARGIN }, end: { x: PAGE_W - MARGIN, y: MARGIN }, thickness: 0.5, color: BORDER });
-    const footerText = sanitize(branding.pdf_footer || "Document généré par PVIA.");
-    page.drawText(`Levée ${sanitize(report.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
-    page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
-  };
+  // Footer is drawn in a final pass once total page count is known.
+  const drawFooter = () => { /* no-op: see final pagination pass below */ };
 
   drawWatermark(page);
 
