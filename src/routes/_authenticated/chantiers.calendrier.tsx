@@ -1498,12 +1498,14 @@ function TimeGridView({
   }
   function onMouseDownEvent(e: React.MouseEvent, evt: Evt, dayIdx: number, startMin: number, endMin: number) {
     if (!canWrite || evt.event_type.startsWith("system_")) return;
+    if (isMobile) return; // mobile: tap = open. Drag-to-reschedule désactivé sur mobile (cf. V2 plan).
     e.stopPropagation(); e.preventDefault();
     const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
     setDrag({ kind: "move", id: evt.id, offsetMin: p.minutes - startMin, durationMin: endMin - startMin, dayIdx, startMin });
   }
   function onMouseDownResize(e: React.MouseEvent, evt: Evt, dayIdx: number, startMin: number, endMin: number) {
     if (!canWrite || evt.event_type.startsWith("system_")) return;
+    if (isMobile) return;
     e.stopPropagation(); e.preventDefault();
     setDrag({ kind: "resize", id: evt.id, dayIdx, startMin, endMin });
   }
