@@ -597,12 +597,26 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   }
 
   // --- UI parts
+  const gpsBadge = (() => {
+    switch (gpsPermission) {
+      case "granted":
+        return <Badge variant="outline" className="gap-1 text-[10px] border-green-500/40 text-green-700 dark:text-green-400"><MapPin className="h-3 w-3" />GPS activé</Badge>;
+      case "denied":
+        return <Badge variant="outline" className="gap-1 text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-400"><MapPinOff className="h-3 w-3" />GPS refusé</Badge>;
+      case "unavailable":
+        return <Badge variant="outline" className="gap-1 text-[10px] border-muted-foreground/30"><MapPinOff className="h-3 w-3" />GPS indisponible</Badge>;
+      default:
+        return <Badge variant="outline" className="gap-1 text-[10px]"><Loader2 className="h-3 w-3 animate-spin" />GPS en attente</Badge>;
+    }
+  })();
+
   const HeaderInfo = (
     <div className="space-y-1 text-xs text-muted-foreground">
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span><span className="font-medium text-foreground">PV :</span> {pvNumero}</span>
         {chantierLabel && <span><span className="font-medium text-foreground">Chantier :</span> {chantierLabel}</span>}
         {clientLabel && <span><span className="font-medium text-foreground">Client :</span> {clientLabel}</span>}
+        {gpsBadge}
       </div>
     </div>
   );
