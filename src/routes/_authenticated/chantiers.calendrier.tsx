@@ -993,6 +993,22 @@ function ChantierCalendarPage() {
             </button>
           </div>
         </div>
+        {/* Légende couleurs par type d'événement */}
+        <div className="col-span-full mt-1 border-t border-border/60 pt-2">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Légende</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[11px]">
+            {Object.entries(TYPE_LABELS).map(([k, label]) => {
+              const colorKey = TYPE_TO_COLOR[k] ?? "blue";
+              const swatch = COLORS.find((c) => c.key === colorKey)!;
+              return (
+                <span key={k} className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: swatch.bg }} aria-hidden />
+                  <span className="text-foreground">{label}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
       </Card>
       )}
 
