@@ -862,7 +862,10 @@ export function ReserveLiftWorkflowDialog(props: Props) {
               <li>• Signature intervenant : {signerSigData ? "✓" : "—"}</li>
               <li>• Mode de validation client : {validationMode === "on_site" ? "Sur place" : "À distance (email)"}</li>
               {validationMode === "on_site" && (
-                <li>• Signature client : {clientSigData ? "✓" : "—"}</li>
+                <>
+                  <li>• OTP client vérifié : {otpVerified ? `✓ (${otpEmail})` : "—"}</li>
+                  <li>• Signature client : {clientSigData ? "✓" : "—"}</li>
+                </>
               )}
             </ul>
           </div>
