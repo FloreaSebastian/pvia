@@ -39,7 +39,7 @@ import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
 import {
   createReserveLift, listReserveLiftPhotos,
-  getReserveLiftPdfUrl, resendReserveLiftValidationEmail, resendReserveLiftClientEmail,
+  getReserveLiftPdfUrl, resendReserveLiftClientEmail,
 } from "@/lib/reserve-lift.functions";
 import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
