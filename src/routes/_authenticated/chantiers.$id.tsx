@@ -91,7 +91,22 @@ function ChantierDetailPage() {
   const deleteDocFn = useServerFn(deleteChantierDocument);
   const fetchMembers = useServerFn(listCompanyMembers);
   const autoPlanFn = useServerFn(createChantierAutoPlanning);
+  const reopenFn = useServerFn(reopenChantier);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
+  const [reopenLoading, setReopenLoading] = useState(false);
+
+  async function handleReopen() {
+    if (!activeCompanyId) return;
+    if (!confirm("Réouvrir ce chantier ? Il repassera en « En cours ».")) return;
+    setReopenLoading(true);
+    try {
+      await reopenFn({ data: { companyId: activeCompanyId, id } });
+      toast.success("Chantier réouvert.");
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Réouverture impossible.");
+    } finally { setReopenLoading(false); }
+  }
 
   async function runAutoPlanning(replace = false) {
     if (!activeCompanyId) return;
