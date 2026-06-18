@@ -324,96 +324,33 @@ function ChantiersPage() {
         }
       />
 
-      {/* Dashboard chantier (P2.7) */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {[
-          { key: "actifs", label: "Actifs", value: dashboard.actifs, icon: Activity, tone: "text-warning", filter: "en_cours" as const },
-          { key: "receptionne", label: "Réceptionnés", value: dashboard.receptionne, icon: CheckCircle2, tone: "text-success", filter: "receptionne" as const },
-          { key: "termine", label: "Terminés", value: dashboard.termine, icon: Flag, tone: "text-primary", filter: "termine" as const },
-          { key: "retard", label: "En retard", value: dashboard.enRetard, icon: AlertTriangle, tone: "text-destructive", filter: "retard" as const },
-          { key: "reserves", label: "Réserves ouvertes", value: openReservesCount, icon: AlertCircle, tone: "text-warning", to: "/reserves" as const, search: { status: "ouverte" as const } },
-        ].map((s) => {
-          const Icon = s.icon;
-          const onClick = () => {
-            if ("to" in s && s.to) {
-              const search = "search" in s ? s.search : undefined;
-              navigate({ to: s.to, search });
-              return;
-            }
-            if (s.filter) setStatusFilter(s.filter);
-          };
-          return (
-            <button key={s.key} type="button" onClick={onClick}
-              className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:shadow-brand hover:border-primary/40">
-              <span className={cn("grid h-10 w-10 place-items-center rounded-lg bg-muted", s.tone)}>
-                <Icon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-2xl font-semibold leading-none tabular-nums">{s.value}</p>
-                <p className="mt-1 truncate text-xs text-muted-foreground">{s.label}</p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Filter chips */}
-      <div className="flex flex-wrap items-center gap-2">
-        {FILTERS.map((f) => {
-          const active = statusFilter === f.value;
-          return (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setStatusFilter(f.value)}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                active
-                  ? "border-primary bg-primary text-primary-foreground shadow-brand"
-                  : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-              )}
-            >
-              {f.label}
-              <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] tabular-nums", active ? "bg-primary-foreground/20" : "bg-muted")}>
-                {counts[f.value] ?? 0}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un chantier, client, adresse…"
-            className="h-10 pl-9 pr-9"
-          />
+      {/* Search bar with embedded view toggle */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher un chantier…"
+          className="h-11 pl-9 pr-24"
+        />
+        <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted"
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted"
               aria-label="Effacer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {filtered.length} chantier{filtered.length > 1 ? "s" : ""}
-          </span>
-          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+          <div className="inline-flex rounded-md border border-border bg-card p-0.5">
             <button
               type="button"
               onClick={() => setView("grid")}
               className={cn(
-                "inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition",
-                view === "grid" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                "inline-flex h-7 items-center rounded px-2 transition",
+                view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
               aria-label="Vue grille"
             >
@@ -423,8 +360,8 @@ function ChantiersPage() {
               type="button"
               onClick={() => setView("list")}
               className={cn(
-                "inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition",
-                view === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                "inline-flex h-7 items-center rounded px-2 transition",
+                view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
               aria-label="Vue liste"
             >
@@ -433,6 +370,109 @@ function ChantiersPage() {
           </div>
         </div>
       </div>
+
+      {/* Compact KPIs — horizontal scroll on mobile */}
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 sm:gap-3">
+        {[
+          { key: "actifs", emoji: "🏗️", label: "Actifs", value: dashboard.actifs, filter: "en_cours" as FilterValue, tone: "border-warning/40 bg-warning/5" },
+          { key: "receptionne", emoji: "🏁", label: "Réceptionnés", value: dashboard.receptionne, filter: "receptionne" as FilterValue, tone: "border-info/40 bg-info/5" },
+          { key: "termine", emoji: "✅", label: "Terminés", value: dashboard.termine, filter: "termine" as FilterValue, tone: "border-success/40 bg-success/5" },
+          { key: "retard", emoji: "⚠️", label: "Retard", value: dashboard.enRetard, filter: "retard" as FilterValue, tone: "border-destructive/40 bg-destructive/5" },
+        ].map((s) => {
+          const active = statusFilter === s.filter;
+          return (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setStatusFilter(s.filter)}
+              className={cn(
+                "group inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition hover:border-primary/40 sm:flex sm:flex-col sm:items-start sm:gap-1 sm:px-3 sm:py-3",
+                s.tone,
+                active && "border-primary ring-1 ring-primary/40"
+              )}
+            >
+              <span className="text-base leading-none sm:hidden">{s.emoji}</span>
+              <span className="text-lg font-semibold tabular-nums leading-none">{s.value}</span>
+              <span className="text-[11px] text-muted-foreground sm:text-xs">{s.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Filter chips — main + collapsible "more" */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { value: "all" as FilterValue, label: "Tous" },
+            { value: "en_cours" as FilterValue, label: "Actifs" },
+            { value: "receptionne" as FilterValue, label: "Réceptionnés" },
+            { value: "termine" as FilterValue, label: "Terminés" },
+          ].map((f) => {
+            const active = statusFilter === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setStatusFilter(f.value)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground shadow-brand"
+                    : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                )}
+              >
+                {f.label}
+                <span className={cn("rounded-full px-1.5 text-[10px] tabular-nums", active ? "bg-primary-foreground/20" : "bg-muted")}>
+                  {counts[f.value] ?? 0}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setShowMoreFilters((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          >
+            Plus de filtres
+            <ChevronDown className={cn("h-3 w-3 transition-transform", showMoreFilters && "rotate-180")} />
+          </button>
+          <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+            {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+          </span>
+        </div>
+        {showMoreFilters && (
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { value: "preparation" as FilterValue, label: "Préparation" },
+              { value: "planifie" as FilterValue, label: "Planifié" },
+              { value: "en_attente" as FilterValue, label: "En attente" },
+              { value: "archive" as FilterValue, label: "Archivé" },
+              { value: "retard" as FilterValue, label: "⚠️ Retard" },
+            ].map((f) => {
+              const active = statusFilter === f.value;
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setStatusFilter(f.value)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground shadow-brand"
+                      : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  )}
+                >
+                  {f.label}
+                  <span className={cn("rounded-full px-1.5 text-[10px] tabular-nums", active ? "bg-primary-foreground/20" : "bg-muted")}>
+                    {counts[f.value] ?? 0}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
 
       {/* Empty state */}
       {filtered.length === 0 && (
