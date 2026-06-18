@@ -646,8 +646,13 @@ function ChantierCalendarPage() {
         className="border-0 bg-transparent px-0 py-0"
         actions={
           <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm"><Link to="/chantiers"><ArrowLeft className="h-4 w-4" /> Chantiers</Link></Button>
-            {canWrite && <Button onClick={() => openNew(new Date())} className="shadow-brand"><Plus className="h-4 w-4" /> Nouvel événement</Button>}
+            <Button asChild variant="ghost" size="sm"><Link to="/chantiers"><ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Chantiers</span></Link></Button>
+            {canWrite && (
+              <Button onClick={() => openNew(new Date())} size="sm" className="shadow-brand">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nouvel événement</span>
+              </Button>
+            )}
           </div>
         }
       />
