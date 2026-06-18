@@ -246,6 +246,32 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     if (clientEmail) setOtpEmail(clientEmail);
   }, [open, clientEmail]);
 
+  // Request geolocation immediately when popup opens so the badge and the
+  // photo capture flow have a position ready before the user reaches the
+  // "Photos après" step.
+  useEffect(() => {
+    if (!open) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGpsPermission("unavailable");
+      return;
+    }
+    setGpsPermission("pending");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLastKnownPosition({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? null,
+        });
+        setGpsPermission("granted");
+      },
+      (err) => {
+        setGpsPermission(err.code === err.PERMISSION_DENIED ? "denied" : "unavailable");
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+    );
+  }, [open]);
+
   async function handleSendOtp() {
     if (!activeCompanyId) { toast.error("Entreprise active introuvable."); return; }
     const email = otpEmail.trim().toLowerCase();
