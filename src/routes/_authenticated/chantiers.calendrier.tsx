@@ -808,7 +808,7 @@ function ChantierCalendarPage() {
 
           {(view === "week" || (view === "team" && teamMode === "week")) && (
             <div className="ml-2 inline-flex overflow-hidden rounded-md border border-border" title="Jours affichés dans la semaine">
-              {([5,6,7] as const).map((d) => (
+              {([3,5,6,7] as const).map((d) => (
                 <button key={d} onClick={() => setWeekDays(d)}
                   className={cn("px-2 py-1.5 text-[11px] font-medium transition",
                     weekDays === d ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted")}>
