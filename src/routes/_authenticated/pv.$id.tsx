@@ -737,9 +737,14 @@ function PvDetail() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {(liftStatus === "pending" || liftStatus === "partial") && (
-                  <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }}>
-                    <Button size="sm"><CheckCircle2 className="h-4 w-4" /> Préparer la levée</Button>
-                  </Link>
+                  <Button size="sm" onClick={() => {
+                    const open = reserves.filter((r) => ["ouverte", "en_cours", "rejetee"].includes(r.status));
+                    if (open.length === 0) { toast.error("Aucune réserve ouverte à lever."); return; }
+                    setLiftPreselectedId(null);
+                    setLiftDialogOpen(true);
+                  }}>
+                    <CheckCircle2 className="h-4 w-4" /> Préparer la levée
+                  </Button>
                 )}
                 {liftStatus === "completed" && (lifts[0]?.pdf_client_url || lifts[0]?.pdf_url) && (
                   <Button size="sm" variant="outline" onClick={() => downloadLiftPdf(lifts[0].id, "client")}>
