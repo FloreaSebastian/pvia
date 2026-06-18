@@ -34,6 +34,18 @@ function formatDate(s: string | null | undefined, withTime = false): string {
   return `${date} a ${time}`;
 }
 
+const ROLE_LABELS_FR: Record<string, string> = {
+  directeur: "Directeur",
+  responsable_exploitation: "Responsable d'exploitation",
+  conducteur_travaux: "Conducteur de travaux",
+  assistant_admin: "Assistant administratif",
+  technicien: "Technicien",
+};
+function prettyRole(r: string | null | undefined): string {
+  if (!r) return "Intervenant";
+  return ROLE_LABELS_FR[r] ?? r;
+}
+
 function detectImageType(bytes: Uint8Array): "png" | "jpg" | null {
   if (bytes.length < 4) return null;
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "png";
