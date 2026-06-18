@@ -652,48 +652,35 @@ function ChantierCalendarPage() {
         }
       />
 
-      {/* Mobile toolbar: View ▼ → Date → < Aujourd'hui > → Search → Filters */}
+      {/* Mobile toolbar: View → Date → < Aujourd'hui > → Search → Filters */}
       <Card className="flex flex-col gap-2 p-2 lg:hidden">
-        {/* 1. View selector (Jour / Semaine / 5j / Mois) */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full justify-between">
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="h-4 w-4" />
-                Vue · {view === "day" ? "Jour" : view === "week" ? (weekDays === 5 ? "5 jours" : "Semaine") : view === "month" ? "Mois" : view === "team" ? "Équipe" : "Personnalisé"}
-              </span>
-              <ChevronRight className="h-4 w-4 rotate-90 opacity-60" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-56 p-1">
-            {([
-              { key: "day" as const, label: "Jour" },
-              { key: "week" as const, label: "Semaine" },
-              { key: "week5" as const, label: "5 jours (Lun → Ven)" },
-              { key: "month" as const, label: "Mois" },
-            ]).map((opt) => {
-              const isActive =
-                (opt.key === "day" && view === "day") ||
-                (opt.key === "month" && view === "month") ||
-                (opt.key === "week" && view === "week" && weekDays !== 5) ||
-                (opt.key === "week5" && view === "week" && weekDays === 5);
-              return (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => applyDefaultViewPreset(opt.key)}
-                  className={cn("flex w-full items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted", isActive && "bg-primary/10 text-primary font-medium")}
-                >
-                  <span>{opt.label}</span>
-                  {isActive && <span className="text-[10px] uppercase tracking-wide text-muted-foreground">défaut</span>}
-                </button>
-              );
-            })}
-            <div className="border-t border-border/60 mt-1 pt-1 px-2 py-1 text-[10px] text-muted-foreground">
-              La vue choisie devient celle par défaut.
-            </div>
-          </PopoverContent>
-        </Popover>
+        {/* 1. View segmented control (Jour / 3j / Sem / Mois) */}
+        <div className="inline-flex w-full rounded-md border border-border bg-muted/40 p-0.5">
+          {([
+            { key: "day" as const, label: "Jour" },
+            { key: "week3" as const, label: "3j" },
+            { key: "week" as const, label: "Sem" },
+            { key: "month" as const, label: "Mois" },
+          ]).map((opt) => {
+            const isActive =
+              (opt.key === "day" && view === "day") ||
+              (opt.key === "month" && view === "month") ||
+              (opt.key === "week" && view === "week" && weekDays !== 3) ||
+              (opt.key === "week3" && view === "week" && weekDays === 3);
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => applyDefaultViewPreset(opt.key)}
+                className={cn("flex-1 min-h-[40px] rounded-[5px] text-sm font-medium transition",
+                  isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
 
         {/* 2. Date courante */}
         <div className="text-center text-base font-semibold capitalize">{periodLabel}</div>
