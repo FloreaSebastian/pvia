@@ -394,15 +394,43 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     if (!files || files.length === 0) return;
     setUploading(true);
     try {
-      const browserGps = await tryGetGps();
+      // Try to refresh GPS if user previously granted; fall back to last known
+      // position; never block the upload if GPS is denied/unavailable.
+      let browserGps: { latitude: number | null; longitude: number | null; accuracy: number | null } = {
+        latitude: lastKnownPosition?.latitude ?? null,
+        longitude: lastKnownPosition?.longitude ?? null,
+        accuracy: lastKnownPosition?.accuracy ?? null,
+      };
+      if (gpsPermission === "granted" || gpsPermission === "pending") {
+        const fresh = await tryGetGps();
+        if (fresh.latitude !== null && fresh.longitude !== null) {
+          browserGps = fresh;
+          setLastKnownPosition({
+            latitude: fresh.latitude,
+            longitude: fresh.longitude,
+            accuracy: fresh.accuracy,
+          });
+          if (gpsPermission !== "granted") setGpsPermission("granted");
+        }
+      }
       const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 400) : "";
       const list = Array.from(files);
       const entries: PhotoEntry[] = [];
       let compressedCount = 0;
       for (const raw of list) {
-        const { file, compressed } = await compressImageFile(raw);
-        if (compressed) compressedCount++;
-        entries.push(await buildPhotoEntry(file, browserGps, deviceInfo));
+        try {
+          const { file, compressed } = await compressImageFile(raw);
+          if (compressed) compressedCount++;
+          entries.push(await buildPhotoEntry(file, browserGps, deviceInfo));
+        } catch (innerErr: any) {
+          // Don't abort the whole batch — fall back to raw file with no GPS.
+          console.warn("[lift] photo processing failed, using raw", innerErr);
+          entries.push(await buildPhotoEntry(raw, browserGps, deviceInfo));
+        }
+      }
+      if (entries.length === 0) {
+        toast.error("Aucune photo n'a pu être ajoutée.");
+        return;
       }
       if (compressedCount > 0) toast.success(`${compressedCount} photo(s) optimisée(s).`);
       setPhotosAfter((prev) => ({ ...prev, [rid]: [...(prev[rid] ?? []), ...entries] }));
