@@ -63,9 +63,12 @@ export function BottomNav() {
       {bottomItems.map((it, idx) => {
         const Icon = it.icon;
         const isCenter = "center" in it && it.center;
+        const path = location.pathname;
         const active =
           !isCenter &&
-          "to" in it && (location.pathname === it.to || location.pathname.startsWith(it.to + "/"));
+          "match" in it &&
+          it.match.some((m) => path === m || path.startsWith(m + "/")) &&
+          !(("exclude" in it && it.exclude) ? it.exclude.some((e) => path === e || path.startsWith(e + "/")) : false);
         const showBadge = "badge" in it && it.badge && unread > 0;
 
         if (isCenter) {
