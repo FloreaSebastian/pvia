@@ -1938,6 +1938,7 @@ export type Database = {
           client_signature_consent_text: string | null
           client_signature_email: string | null
           client_signature_ip: string | null
+          client_signature_otp_id: string | null
           client_signature_user_agent: string | null
           client_signed_at: string | null
           client_signed_on_site: boolean
@@ -1985,6 +1986,7 @@ export type Database = {
           client_signature_consent_text?: string | null
           client_signature_email?: string | null
           client_signature_ip?: string | null
+          client_signature_otp_id?: string | null
           client_signature_user_agent?: string | null
           client_signed_at?: string | null
           client_signed_on_site?: boolean
@@ -2032,6 +2034,7 @@ export type Database = {
           client_signature_consent_text?: string | null
           client_signature_email?: string | null
           client_signature_ip?: string | null
+          client_signature_otp_id?: string | null
           client_signature_user_agent?: string | null
           client_signed_at?: string | null
           client_signed_on_site?: boolean
@@ -2069,7 +2072,15 @@ export type Database = {
           updated_at?: string
           validation_mode?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reserve_lift_reports_client_signature_otp_id_fkey"
+            columns: ["client_signature_otp_id"]
+            isOneToOne: false
+            referencedRelation: "pv_signature_otps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stripe_webhook_events: {
         Row: {
