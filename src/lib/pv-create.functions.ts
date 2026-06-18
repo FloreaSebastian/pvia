@@ -34,6 +34,15 @@ const PhotoSchema = z.object({
   fileName: z.string().min(1).max(200),
   kind: z.enum(["avant", "apres", "autre", "reserve"]).default("autre"),
   caption: z.string().max(500).optional().default(""),
+  // --- Optional EXIF / GPS metadata (added in 2026 — old clients still work). ---
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  accuracy: z.number().min(0).max(100_000).nullable().optional(),
+  takenAt: z.string().datetime().nullable().optional(),
+  deviceInfo: z.string().max(500).nullable().optional(),
+  exifMetadata: z.record(z.string(), z.any()).nullable().optional(),
+  fileHash: z.string().max(128).nullable().optional(),
+  photoLabel: z.string().max(80).nullable().optional(),
 });
 
 const ReserveSchema = z.object({
@@ -231,8 +240,24 @@ export const createPv = createServerFn({ method: "POST" })
     const companySig = sigOrNull(data.company_signature ?? null);
 
     // 4. Validate photos (mime + magic-number + size)
+    type PhotoMeta = {
+      latitude: number | null; longitude: number | null; accuracy: number | null;
+      takenAt: string | null; deviceInfo: string | null;
+      exifMetadata: Record<string, any> | null;
+      fileHash: string | null; photoLabel: string | null;
+    };
+    const extractMeta = (p: z.infer<typeof PhotoSchema>): PhotoMeta => ({
+      latitude: p.latitude ?? null,
+      longitude: p.longitude ?? null,
+      accuracy: p.accuracy ?? null,
+      takenAt: p.takenAt ?? null,
+      deviceInfo: p.deviceInfo ?? null,
+      exifMetadata: p.exifMetadata ?? null,
+      fileHash: p.fileHash ?? null,
+      photoLabel: p.photoLabel ?? null,
+    });
     const photoBuffers: Array<{
-      bytes: Uint8Array; mime: string; fileName: string; kind: string; caption: string;
+      bytes: Uint8Array; mime: string; fileName: string; kind: string; caption: string; meta: PhotoMeta;
     }> = [];
     for (const p of data.photos) {
       const declared = p.mimeType.toLowerCase();
@@ -255,6 +280,7 @@ export const createPv = createServerFn({ method: "POST" })
         fileName: safeFilename(p.fileName),
         kind: p.kind,
         caption: p.caption ?? "",
+        meta: extractMeta(p),
       });
     }
 
@@ -386,6 +412,12 @@ export const createPv = createServerFn({ method: "POST" })
       kind: string,
       caption: string,
       reserveId: string | null,
+      meta: {
+        latitude: number | null; longitude: number | null; accuracy: number | null;
+        takenAt: string | null; deviceInfo: string | null;
+        exifMetadata: Record<string, any> | null;
+        fileHash: string | null; photoLabel: string | null;
+      } | null,
     ) => {
       const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
       const path = `${data.companyId}/pv/${pvId}/${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -404,14 +436,27 @@ export const createPv = createServerFn({ method: "POST" })
         });
         return;
       }
+      const captionPrefix = meta?.photoLabel
+        ? `[${kind}] ${meta.photoLabel}`
+        : `[${kind}]`;
       const { error: phErr } = await supabaseAdmin.from("pv_photos").insert({
         pv_id: pvId,
         owner_id: userId,
         company_id: data.companyId,
         url: path,
-        caption: caption ? `[${kind}] ${caption}` : `[${kind}]`,
+        caption: caption ? `${captionPrefix} ${caption}` : captionPrefix,
         kind,
         reserve_id: reserveId,
+        latitude: meta?.latitude ?? null,
+        longitude: meta?.longitude ?? null,
+        accuracy: meta?.accuracy ?? null,
+        taken_at: meta?.takenAt ?? null,
+        uploaded_by: userId,
+        device_info: meta?.deviceInfo ?? null,
+        exif_metadata: meta?.exifMetadata ?? null,
+        file_hash: meta?.fileHash ?? null,
+        file_name: fileName,
+        photo_label: meta?.photoLabel ?? null,
       } as never);
       if (phErr) {
         failedPhotos += 1;
@@ -430,15 +475,17 @@ export const createPv = createServerFn({ method: "POST" })
 
     // 9a. Global PV photos (chantier-level, no reserve_id).
     for (const p of photoBuffers) {
-      await persistPhoto(p.bytes, p.mime, p.fileName, p.kind, p.caption, null);
+      await persistPhoto(p.bytes, p.mime, p.fileName, p.kind, p.caption, null, p.meta);
     }
 
-    // 9b. Per-reserve photos — validate, upload, link reserve_id.
+    // 9b. Per-reserve photos — validate, upload, link reserve_id, compute label.
     if (insertedReserves.length === data.reserves.length) {
       for (let i = 0; i < data.reserves.length; i++) {
         const reserveId = insertedReserves[i].id;
         const reservePhotos = data.reserves[i].photos ?? [];
-        for (const p of reservePhotos) {
+        const reserveNum = String(i + 1).padStart(3, "0");
+        for (let j = 0; j < reservePhotos.length; j++) {
+          const p = reservePhotos[j];
           const declared = p.mimeType.toLowerCase();
           if (!PHOTO_ALLOWED_MIMES.has(declared)) {
             throw new Error(`Photo réserve "${p.fileName}" : format non supporté.`);
@@ -451,6 +498,7 @@ export const createPv = createServerFn({ method: "POST" })
           if (!sniffed || normMime(sniffed) !== normMime(declared)) {
             throw new Error(`Photo réserve "${p.fileName}" : contenu non reconnu.`);
           }
+          const photoLabel = p.photoLabel || `RES-${reserveNum}-CONST-${String(j + 1).padStart(3, "0")}`;
           await persistPhoto(
             bytes,
             normMime(sniffed),
@@ -458,6 +506,16 @@ export const createPv = createServerFn({ method: "POST" })
             "reserve",
             p.caption ?? "",
             reserveId,
+            {
+              latitude: p.latitude ?? null,
+              longitude: p.longitude ?? null,
+              accuracy: p.accuracy ?? null,
+              takenAt: p.takenAt ?? null,
+              deviceInfo: p.deviceInfo ?? null,
+              exifMetadata: p.exifMetadata ?? null,
+              fileHash: p.fileHash ?? null,
+              photoLabel,
+            },
           );
         }
       }

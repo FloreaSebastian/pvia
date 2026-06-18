@@ -677,7 +677,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: reserve } = await supabaseAdmin
       .from("pv_reserves")
-      .select("id,company_id")
+      .select("id,company_id,pv_id,created_at")
       .eq("id", data.reserveId)
       .maybeSingle();
     if (!reserve?.company_id) throw new Error("Réserve introuvable.");
@@ -691,16 +691,25 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!member) throw new Error("Accès refusé.");
 
-    const { data: rows } = await supabaseAdmin
-      .from("reserve_lift_item_photos" as any)
-      .select("id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,uploaded_at,uploaded_by,device_info")
-      .eq("reserve_id", data.reserveId)
-      .order("uploaded_at", { ascending: true });
+    // Determine reserve order in its PV (1-based) for label fallback
+    let reserveIndex = 1;
+    if (reserve.pv_id) {
+      const { data: siblings } = await supabaseAdmin
+        .from("pv_reserves")
+        .select("id,created_at")
+        .eq("pv_id", reserve.pv_id)
+        .order("created_at", { ascending: true });
+      const found = (siblings ?? []).findIndex((r) => r.id === reserve.id);
+      if (found >= 0) reserveIndex = found + 1;
+    }
+    const reserveNum = String(reserveIndex).padStart(3, "0");
 
-    const items: Array<{
+    type Item = {
       id: string;
-      photoType: "before" | "after" | "legacy";
+      photoType: "initial" | "before" | "after" | "legacy";
       url: string | null;
+      label: string | null;
+      fileName: string | null;
       latitude: number | null;
       longitude: number | null;
       accuracy: number | null;
@@ -708,14 +717,55 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
       uploadedAt: string | null;
       uploadedBy: string | null;
       deviceInfo: string | null;
-    }> = [];
+    };
+    const items: Item[] = [];
 
-    for (const r of (rows ?? []) as any[]) {
-      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.storage_path, 3600);
+    // --- Initial constat photos from pv_photos.reserve_id ---
+    const { data: initialRows } = await supabaseAdmin
+      .from("pv_photos")
+      .select("id,url,caption,created_at,latitude,longitude,accuracy,taken_at,uploaded_by,device_info,file_name,photo_label")
+      .eq("reserve_id", data.reserveId)
+      .order("created_at", { ascending: true });
+
+    for (let idx = 0; idx < (initialRows ?? []).length; idx++) {
+      const r = (initialRows as any[])[idx];
+      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.url, 3600);
       items.push({
         id: r.id,
-        photoType: r.photo_type,
+        photoType: "initial",
         url: signed?.signedUrl ?? null,
+        label: r.photo_label ?? `RES-${reserveNum}-CONST-${String(idx + 1).padStart(3, "0")}`,
+        fileName: r.file_name ?? null,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        accuracy: r.accuracy,
+        takenAt: r.taken_at,
+        uploadedAt: r.created_at,
+        uploadedBy: r.uploaded_by,
+        deviceInfo: r.device_info,
+      });
+    }
+
+    // --- Lift photos (before/after) from reserve_lift_item_photos ---
+    const { data: rows } = await supabaseAdmin
+      .from("reserve_lift_item_photos" as any)
+      .select("id,photo_type,storage_path,latitude,longitude,accuracy,taken_at,uploaded_at,uploaded_by,device_info,file_name")
+      .eq("reserve_id", data.reserveId)
+      .order("uploaded_at", { ascending: true });
+
+    let beforeIdx = 0; let afterIdx = 0;
+    for (const r of (rows ?? []) as any[]) {
+      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.storage_path, 3600);
+      const type = r.photo_type as "before" | "after" | "legacy";
+      let label: string | null = null;
+      if (type === "before") { beforeIdx += 1; label = `RES-${reserveNum}-AVANT-${String(beforeIdx).padStart(3, "0")}`; }
+      else if (type === "after") { afterIdx += 1; label = `RES-${reserveNum}-APRES-${String(afterIdx).padStart(3, "0")}`; }
+      items.push({
+        id: r.id,
+        photoType: type,
+        url: signed?.signedUrl ?? null,
+        label,
+        fileName: r.file_name ?? null,
         latitude: r.latitude,
         longitude: r.longitude,
         accuracy: r.accuracy,
@@ -726,8 +776,9 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
       });
     }
 
-    // Fallback : legacy photo_urls on items not yet migrated.
-    if (items.length === 0) {
+    // Legacy fallback: only when no lift photos at all
+    const hasLiftPhotos = items.some((i) => i.photoType === "before" || i.photoType === "after");
+    if (!hasLiftPhotos) {
       const { data: legacyItems } = await supabaseAdmin
         .from("reserve_lift_items")
         .select("id,photo_urls")
@@ -739,6 +790,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
             id: `${it.id}-${p}`,
             photoType: "legacy",
             url: signed?.signedUrl ?? null,
+            label: null, fileName: null,
             latitude: null, longitude: null, accuracy: null,
             takenAt: null, uploadedAt: null, uploadedBy: null, deviceInfo: null,
           });
@@ -746,7 +798,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
       }
     }
 
-    return { photos: items };
+    return { photos: items, reserveIndex };
   });
 
 /**

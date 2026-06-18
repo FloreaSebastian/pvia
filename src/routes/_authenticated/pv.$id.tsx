@@ -39,6 +39,7 @@ import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 import { updateReserveStatus, deleteReserve as deleteReserveFn } from "@/lib/reserves.functions";
 import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
 import { ReserveLiftWorkflowDialog, type LiftDialogReserve } from "@/components/pv/ReserveLiftWorkflowDialog";
+import { PhotoLightboxDialog, type LightboxPhoto } from "@/components/pv/PhotoLightboxDialog";
 import { reserveStatusLabel, reserveStatusTone, isReserveOverdue } from "@/lib/reserve-status";
 
 
@@ -91,7 +92,13 @@ type Pv = {
   pdf_generation_status?: string | null;
   photos_failed_count?: number | null;
 };
-type Photo = { id: string; url: string; caption: string | null; reserve_id?: string | null; kind?: string | null; signedUrl?: string };
+type Photo = {
+  id: string; url: string; caption: string | null;
+  reserve_id?: string | null; kind?: string | null; signedUrl?: string;
+  latitude?: number | null; longitude?: number | null; accuracy?: number | null;
+  taken_at?: string | null; created_at?: string | null;
+  device_info?: string | null; file_name?: string | null; photo_label?: string | null;
+};
 type Reserve = {
   id: string;
   description: string;
@@ -134,6 +141,7 @@ function PvDetail() {
   const [reserveDetail, setReserveDetail] = useState<ReserveDetail | null>(null);
   const [liftDialogOpen, setLiftDialogOpen] = useState(false);
   const [liftPreselectedId, setLiftPreselectedId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ photos: LightboxPhoto[]; index: number; reserve?: Reserve | null } | null>(null);
   const updateReserveFn = useServerFn(updateReserveStatus);
   const deleteReserveServerFn = useServerFn(deleteReserveFn);
 
@@ -183,7 +191,7 @@ function PvDetail() {
     setPv(pvData as Pv);
 
     const [photosRes, reservesRes] = await Promise.all([
-      supabase.from("pv_photos").select("id,url,caption,reserve_id,kind").eq("pv_id", id),
+      supabase.from("pv_photos").select("id,url,caption,reserve_id,kind,latitude,longitude,accuracy,taken_at,created_at,device_info,file_name,photo_label").eq("pv_id", id),
       supabase.from("pv_reserves").select("id,description,severity,status,priority,nature,work_to_execute,due_date,assigned_to,lifted_at,validated_at,created_at,pv_id,company_id").eq("pv_id", id).order("created_at"),
     ]);
     const ph = (photosRes.data ?? []) as Photo[];
@@ -783,7 +791,7 @@ function PvDetail() {
             )}
             {reserves.length > 0 && (
               <div className="space-y-1.5">
-                {reserves.map((r) => {
+                {reserves.map((r, reserveIdx) => {
                   const overdue = isReserveOverdue(r.due_date, r.status);
                   const reservePhotos = photos.filter((p) => p.reserve_id === r.id);
                   return (
@@ -800,9 +808,16 @@ function PvDetail() {
                             {reservePhotos.length === 0 ? (
                               <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Ancienne réserve sans photo</span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                <Camera className="h-2.5 w-2.5" /> {reservePhotos.length}
-                              </span>
+                              <>
+                                <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                  <Camera className="h-2.5 w-2.5" /> {reservePhotos.length}
+                                </span>
+                                {reservePhotos.some((p) => p.latitude != null) ? (
+                                  <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">📍 Géolocalisée</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Non géolocalisée</span>
+                                )}
+                              </>
                             )}
                           </div>
                           <p className="line-clamp-2 text-sm leading-snug">{r.description}</p>
@@ -841,17 +856,32 @@ function PvDetail() {
                       </div>
                       {reservePhotos.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
-                          {reservePhotos.map((p) => (
-                            <a
-                              key={p.id}
-                              href={p.signedUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block h-14 w-14 overflow-hidden rounded border border-border bg-muted"
-                            >
-                              {p.signedUrl && <img src={p.signedUrl} alt="" className="h-full w-full object-cover" />}
-                            </a>
-                          ))}
+                          {reservePhotos.map((p, pi) => {
+                            const reserveNum = String(reserveIdx + 1).padStart(3, "0");
+                            const label = p.photo_label ?? `RES-${reserveNum}-CONST-${String(pi + 1).padStart(3, "0")}`;
+                            const lbPhotos: LightboxPhoto[] = reservePhotos.map((q, qi) => ({
+                              id: q.id, url: q.signedUrl ?? null,
+                              label: q.photo_label ?? `RES-${reserveNum}-CONST-${String(qi + 1).padStart(3, "0")}`,
+                              fileName: q.file_name ?? null,
+                              takenAt: q.taken_at ?? null, uploadedAt: q.created_at ?? null,
+                              latitude: q.latitude ?? null, longitude: q.longitude ?? null,
+                              accuracy: q.accuracy ?? null, deviceInfo: q.device_info ?? null,
+                              photoType: "initial",
+                            }));
+                            return (
+                              <button
+                                key={p.id} type="button"
+                                onClick={() => setLightbox({ photos: lbPhotos, index: pi, reserve: r })}
+                                title={label}
+                                className="relative block h-14 w-14 overflow-hidden rounded border border-border bg-muted"
+                              >
+                                {p.signedUrl && <img src={p.signedUrl} alt={label} className="h-full w-full object-cover" />}
+                                {p.latitude == null && (
+                                  <span className="absolute left-0.5 top-0.5 rounded bg-amber-500/90 px-1 text-[8px] font-medium text-white">!</span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -972,6 +1002,20 @@ function PvDetail() {
         clientLabel={clientName}
         onCompleted={() => load()}
       />
+      {lightbox && (
+        <PhotoLightboxDialog
+          open={!!lightbox}
+          onOpenChange={(o) => !o && setLightbox(null)}
+          photos={lightbox.photos}
+          startIndex={lightbox.index}
+          context={{
+            reserveDescription: lightbox.reserve?.description,
+            reserveSeverity: lightbox.reserve?.severity,
+            reserveStatus: lightbox.reserve ? reserveStatusLabel(lightbox.reserve.status) : undefined,
+            showExactGps: true,
+          }}
+        />
+      )}
     </div>
   );
 }

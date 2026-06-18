@@ -1555,36 +1555,66 @@ export type Database = {
       }
       pv_photos: {
         Row: {
+          accuracy: number | null
           caption: string | null
           company_id: string | null
           created_at: string
+          device_info: string | null
+          exif_metadata: Json | null
+          file_hash: string | null
+          file_name: string | null
           id: string
           kind: string
+          latitude: number | null
+          longitude: number | null
           owner_id: string
+          photo_label: string | null
           pv_id: string
           reserve_id: string | null
+          taken_at: string | null
+          uploaded_by: string | null
           url: string
         }
         Insert: {
+          accuracy?: number | null
           caption?: string | null
           company_id?: string | null
           created_at?: string
+          device_info?: string | null
+          exif_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
           id?: string
           kind?: string
+          latitude?: number | null
+          longitude?: number | null
           owner_id: string
+          photo_label?: string | null
           pv_id: string
           reserve_id?: string | null
+          taken_at?: string | null
+          uploaded_by?: string | null
           url: string
         }
         Update: {
+          accuracy?: number | null
           caption?: string | null
           company_id?: string | null
           created_at?: string
+          device_info?: string | null
+          exif_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
           id?: string
           kind?: string
+          latitude?: number | null
+          longitude?: number | null
           owner_id?: string
+          photo_label?: string | null
           pv_id?: string
           reserve_id?: string | null
+          taken_at?: string | null
+          uploaded_by?: string | null
           url?: string
         }
         Relationships: [
