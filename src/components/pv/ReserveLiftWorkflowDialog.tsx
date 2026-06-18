@@ -129,7 +129,16 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const [clientSigData, setClientSigData] = useState<string | null>(null);
   const [clientConsent, setClientConsent] = useState(false);
 
-  // STEPS (dynamic — "client" step only when on_site)
+  // OTP state (on-site only — Phase 2)
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpId, setOtpId] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
+
+  // STEPS (dynamic — "otp" + "client" steps only when on_site)
   const STEPS: { id: StepId; label: string; short: string; icon: any }[] = useMemo(() => {
     const base: { id: StepId; label: string; short: string; icon: any }[] = [
       { id: "select",       label: "Réserves",        short: "1", icon: Check },
