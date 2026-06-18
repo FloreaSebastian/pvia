@@ -465,7 +465,9 @@ export const createReserveLift = createServerFn({ method: "POST" })
         });
       }
 
-      // EM-C1: only send validation email for REMOTE mode. On-site = client already signed.
+      // EM-B1: post-signature email automation.
+      //  - on_site : send signed PDF to client + internal copy to company.
+      //  - remote  : send client validation link + internal copy to company.
       if (data.validationMode !== "on_site") {
         try {
           await sendReserveLiftValidationRequestEmail({ reportId });
@@ -477,6 +479,19 @@ export const createReserveLift = createServerFn({ method: "POST" })
             audit: { action: "reserve_lift.validation_email_failed", entityType: "reserve_lift" },
           });
         }
+      }
+      try {
+        await deliverReserveLiftAtSignature({
+          reportId,
+          mode: data.validationMode === "on_site" ? "on_site" : "remote",
+        });
+      } catch (e) {
+        await recordProcessingError({
+          table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+          step: "send_signed_emails",
+          error: e,
+          audit: { action: "reserve_lift.email_company_failed", entityType: "reserve_lift" },
+        });
       }
     }
 
