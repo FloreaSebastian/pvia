@@ -1710,7 +1710,7 @@ function TimeGridView({
                         background: c.bg, color: c.fg,
                         left, width,
                         top: (liveTop / 60) * hourPx,
-                        height: (liveHeight / 60) * hourPx - 2,
+                        height: Math.max(isMobile ? 48 : 18, (liveHeight / 60) * hourPx - 2),
                         zIndex: isDragged ? 40 : 10,
                       }}>
                       <div className="flex items-center gap-1 truncate">
