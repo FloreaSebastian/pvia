@@ -190,7 +190,7 @@ function ChantierCalendarPage() {
   // P4 prefs
   const [fullscreen, setFullscreen] = useState<boolean>(() => lsGet(LS.fs, false));
   const [zoom, setZoom] = useState<Zoom>(() => lsGet<Zoom>(LS.zoom, "normal"));
-  const [weekDays, setWeekDays] = useState<WeekDays>(() => lsGet<WeekDays>(LS.weekDays, 7));
+  const [weekDays, setWeekDays] = useState<WeekDays>(() => (initial.weekDays ?? lsGet<WeekDays>(LS.weekDays, 7)));
   const [filtersOpen, setFiltersOpen] = useState<boolean>(() => lsGet(LS.filtersOpen, false));
   const hourPx = ZOOM_LEVELS[zoom];
 
