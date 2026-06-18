@@ -1310,56 +1310,87 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   ) : null;
 
   // Footer for the wizard (steps). Hidden when on the completion screen.
+  // On mobile: primary action is full-width on its own row, secondary row underneath.
   const WizardFooter = (
-    <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-background px-1 py-2 sm:py-3">
-      <Button variant="outline" size="sm" onClick={goPrev} disabled={stepIdx === 0 || submitting}>
-        <ChevronLeft className="h-4 w-4" /> Précédent
-      </Button>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => { if (saveDraft()) toast.success("Brouillon enregistré."); }}
-          disabled={submitting || !isDirty}
-          title="Sauvegarde locale sur cet appareil"
-        >
-          <Save className="h-4 w-4" /> Enregistrer en brouillon
-        </Button>
-        <span className="hidden sm:inline text-[11px] text-muted-foreground">
-          Étape {stepIdx + 1} / {STEPS.length}
-        </span>
+    <div
+      className="sticky bottom-0 z-10 -mx-1 border-t border-border bg-background px-1 py-2 sm:py-3"
+      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {step?.id === "review" ? (
+          <Button
+            size="lg"
+            onClick={handleFinalize}
+            disabled={submitting}
+            className="order-1 w-full sm:order-2 sm:w-auto"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Finaliser et générer les PDF
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            onClick={goNext}
+            disabled={submitting}
+            className="order-1 w-full sm:order-2 sm:w-auto"
+          >
+            Suivant <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
+
+        <div className="order-2 flex items-center justify-between gap-2 sm:order-1 sm:justify-start">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goPrev}
+            disabled={stepIdx === 0 || submitting}
+            className="min-h-10"
+          >
+            <ChevronLeft className="h-4 w-4" /> Précédent
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { if (saveDraft()) toast.success("Brouillon enregistré."); }}
+            disabled={submitting || !isDirty}
+            title="Sauvegarde locale sur cet appareil"
+            className="min-h-10"
+          >
+            <Save className="h-4 w-4" />
+            <span className="hidden sm:inline">Enregistrer en brouillon</span>
+            <span className="sm:hidden">Brouillon</span>
+          </Button>
+          <span className="ml-auto text-[11px] text-muted-foreground sm:ml-2">
+            {stepIdx + 1} / {STEPS.length}
+          </span>
+        </div>
       </div>
-      {step?.id === "review" ? (
-        <Button size="sm" onClick={handleFinalize} disabled={submitting}>
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Finaliser et générer les PDF
-        </Button>
-      ) : (
-        <Button size="sm" onClick={goNext} disabled={submitting}>
-          Suivant <ChevronRight className="h-4 w-4" />
-        </Button>
-      )}
     </div>
   );
 
   // Footer for the confirmation screen
   const CompletedFooter = (
-    <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-background px-1 py-2 sm:py-3">
+    <div
+      className="sticky bottom-0 z-10 -mx-1 flex flex-col gap-2 border-t border-border bg-background px-1 py-2 sm:flex-row sm:items-center sm:justify-between sm:py-3"
+      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+    >
       <Button
         variant="outline"
-        size="sm"
+        size="lg"
         onClick={() => {
           if (completed) onCompleted?.(completed.reportId, completed.numero);
           onOpenChange(false);
         }}
+        className="w-full sm:w-auto"
       >
         <Eye className="h-4 w-4" /> Voir la levée
       </Button>
-      <Button size="sm" onClick={() => onOpenChange(false)}>
+      <Button size="lg" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
         Fermer la levée
       </Button>
     </div>
   );
+
 
   const Content = completed ? CompletedPanel : Body;
   const Footer = completed ? CompletedFooter : WizardFooter;

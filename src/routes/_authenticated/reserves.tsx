@@ -18,6 +18,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -97,7 +98,9 @@ function ReservesPage() {
   const [quick, setQuick] = useState<string>(search.quick);
   const [query, setQuery] = useState("");
   const [severity, setSeverity] = useState<string>("all");
+  const isMobile = useIsMobile();
   const [view, setView] = useState<"cards" | "table">("cards");
+  const effectiveView: "cards" | "table" = isMobile ? "cards" : view;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [assignOpen, setAssignOpen] = useState<{ ids: string[] } | null>(null);
   const [assignUser, setAssignUser] = useState<string>("none");
@@ -367,7 +370,7 @@ function ReservesPage() {
             <SelectItem value="majeure">Majeure</SelectItem>
           </SelectContent>
         </Select>
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto hidden gap-1 md:flex">
           <Button size="sm" variant={view === "cards" ? "default" : "outline"} onClick={() => setView("cards")}>
             <LayoutGrid className="h-4 w-4" />
           </Button>
@@ -405,7 +408,7 @@ function ReservesPage() {
         ) : (
           <p className="px-1 text-xs text-muted-foreground">Aucun résultat pour ces filtres.</p>
         )
-      ) : view === "cards" ? (
+      ) : effectiveView === "cards" ? (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((r) => {
             const overdue = isOverdue(r);

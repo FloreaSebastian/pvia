@@ -26,6 +26,7 @@ import {
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const Route = createFileRoute("/_authenticated/chantiers/calendrier")({
   component: ChantierCalendarPage,
@@ -145,8 +146,9 @@ function ChantierCalendarPage() {
   const { activeCompanyId, can } = useCompany();
   const canWrite = can("manage");
   const isAdmin = can("admin");
+  const isMobile = useIsMobile();
   
-  const [view, setView] = useState<ViewKind>("month");
+  const [view, setView] = useState<ViewKind>(isMobile ? "day" : "month");
   const [cursor, setCursor] = useState(new Date());
   const [customStart, setCustomStart] = useState(() => toLocalInput(new Date()).slice(0,10));
   const [customEnd, setCustomEnd] = useState(() => toLocalInput(addDays(new Date(), 4)).slice(0,10));
@@ -652,7 +654,9 @@ function ChantierCalendarPage() {
           </Popover>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          {(["month","week","day","team","custom"] as const).map((v) => (
+          {(["month","week","day","team","custom"] as const)
+            .filter((v) => !isMobile || v === "day" || v === "week")
+            .map((v) => (
             <button key={v} onClick={() => setView(v)}
               className={cn("inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition",
                 view === v ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
