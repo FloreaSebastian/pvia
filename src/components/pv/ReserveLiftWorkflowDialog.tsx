@@ -195,6 +195,11 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     setClientSigData(null);
     setClientConsent(false);
     setValidationMode("remote");
+    setOtpEmail("");
+    setOtpId(null);
+    setOtpCode("");
+    setOtpVerified(false);
+    setOtpExpiresAt(null);
     setStepIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
