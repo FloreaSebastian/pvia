@@ -815,7 +815,7 @@ export async function buildAndStoreReserveLiftPdf(
 
   await drawSig(MARGIN, "Intervenant", signerSig, {
     who: signerName,
-    role: prettyRoleLabel(signerRole),
+    role: prettyRole(signerRole),
     date: formatDate(signerDate, true),
     extra: signerEmail,
   });
