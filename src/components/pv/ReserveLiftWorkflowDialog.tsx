@@ -820,8 +820,15 @@ export function ReserveLiftWorkflowDialog(props: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
-                      type="file" multiple accept="image/png,image/jpeg,image/webp" capture="environment"
-                      onChange={(e) => { void handleAfterFiles(r.id, e.target.files); e.target.value = ""; }}
+                      type="file" multiple accept="image/*" capture="environment"
+                      onChange={(e) => {
+                        // Convertir la FileList vivante en File[] AVANT de reset
+                        // l'input, sinon la liste devient vide pendant que la
+                        // fonction asynchrone tente de l'itérer.
+                        const picked = e.target.files ? Array.from(e.target.files) : [];
+                        e.target.value = "";
+                        void handleAfterFiles(r.id, picked);
+                      }}
                       className="h-9 text-xs"
                     />
                     {uploading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
