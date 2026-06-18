@@ -123,54 +123,44 @@ export const createReserveLift = createServerFn({ method: "POST" })
     await assertSubscriptionUsable(pv.company_id, userId);
 
     // 2. Validate signatures
+    // Phase 1: prefer the new "intervenant" signature; fall back to legacy companySignature.
+    const effectiveSignerSig = data.signerSignature ?? data.companySignature ?? null;
     if (data.status === "signe") {
-      if (!data.companySignature) throw new Error("Signature entreprise obligatoire.");
-      if (data.requireClientSignature && !data.clientSignature) {
+      if (!effectiveSignerSig) throw new Error("Signature intervenant obligatoire.");
+      if (data.validationMode === "on_site" && !data.clientSignature) {
+        throw new Error("Signature client obligatoire (signature sur place).");
+      }
+      if (data.validationMode !== "on_site" && data.requireClientSignature && !data.clientSignature) {
         throw new Error("Signature client obligatoire selon vos paramètres.");
       }
     }
-    const companySig = validateSignature(data.companySignature);
+    const signerSig = validateSignature(effectiveSignerSig);
     const clientSig = validateSignature(data.clientSignature);
     const technicianSig = validateSignature(data.technicianSignature);
+    // Mirror intervenant signature into legacy company_signature column for PDF/back-compat.
+    const companySigForStorage = signerSig;
+
+    // Resolve intervenant identity from session (auto-filled, never trusted from client).
+    let resolvedSignerName = (data.signerName ?? "").trim() || null;
+    let resolvedSignerRole = (data.signerRole ?? "").trim() || null;
+    let resolvedSignerEmail = (data.signerEmail ?? "").trim() || null;
+    try {
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", userId)
+        .maybeSingle();
+      if (!resolvedSignerName && prof?.full_name) resolvedSignerName = prof.full_name;
+      if (!resolvedSignerRole && member?.role) resolvedSignerRole = String(member.role);
+      if (!resolvedSignerEmail) {
+        const { data: authUser } = await (supabaseAdmin as any).auth.admin.getUserById(userId);
+        if (authUser?.user?.email) resolvedSignerEmail = authUser.user.email;
+      }
+    } catch { /* best-effort */ }
 
     // 3. Verify reserves belong to this PV + are open
-    const reserveIds = data.items.map((i) => i.reserveId);
-    const { data: reserves } = await supabaseAdmin
-      .from("pv_reserves")
-      .select("id,status,pv_id,company_id,description,severity")
-      .in("id", reserveIds);
-    const reserveById = new Map((reserves ?? []).map((r) => [r.id, r]));
-    for (const id of reserveIds) {
-      const r = reserveById.get(id);
-      if (!r) throw new Error("Réserve introuvable.");
-      if (r.pv_id !== data.pvId) throw new Error("Réserve liée à un autre PV.");
-      if (r.company_id !== pv.company_id) throw new Error("Accès refusé.");
-    }
 
-    // 4. Generate numero + insert report with retry on UNIQUE collision (race-safe)
-    const nowIso = new Date().toISOString();
-    let report: { id: string; numero: string } | null = null;
-    let lastErr: unknown = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const numero = await generateLiftNumber(pv.id);
-      const { data: ins, error: insErr } = await supabaseAdmin
-        .from("reserve_lift_reports")
-        .insert({
-          company_id: pv.company_id,
-          pv_id: pv.id,
-          numero,
-          status: data.status,
-          comment: data.comment || null,
-          company_signature: companySig,
-          client_signature: clientSig,
-          technician_signature: technicianSig,
-          technician_name: data.technicianName?.trim() || null,
-          require_client_signature: data.requireClientSignature,
-          signed_at: data.status === "signe" ? nowIso : null,
-          created_by: userId,
-        } as any)
-        .select("id,numero")
-        .single();
+
       if (!insErr && ins) { report = ins as { id: string; numero: string }; break; }
       lastErr = insErr;
       const code = (insErr as { code?: string } | null)?.code;
