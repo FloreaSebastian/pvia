@@ -164,6 +164,8 @@ function ChantierCalendarPage() {
   
   const initial = useMemo(() => loadInitialView(isMobile), [isMobile]);
   const [view, setView] = useState<ViewKind>(initial.view);
+  const [cursor, setCursor] = useState(new Date());
+
 
   const [customStart, setCustomStart] = useState(() => toLocalInput(new Date()).slice(0,10));
   const [customEnd, setCustomEnd] = useState(() => toLocalInput(addDays(new Date(), 4)).slice(0,10));
