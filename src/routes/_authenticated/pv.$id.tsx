@@ -926,6 +926,22 @@ function PvDetail() {
         reserve={reserveDetail}
         onChanged={() => load()}
       />
+      <ReserveLiftWorkflowDialog
+        open={liftDialogOpen}
+        onOpenChange={setLiftDialogOpen}
+        pvId={pv.id}
+        pvNumero={pv.numero}
+        reserves={reserves
+          .filter((r) => ["ouverte", "en_cours", "rejetee"].includes(r.status))
+          .map<LiftDialogReserve>((r) => ({
+            id: r.id, description: r.description, severity: r.severity, status: r.status,
+            priority: r.priority, due_date: r.due_date, work_to_execute: r.work_to_execute,
+          }))}
+        preselectedReserveId={liftPreselectedId}
+        chantierLabel={chantierName}
+        clientLabel={clientName}
+        onCompleted={() => load()}
+      />
     </div>
   );
 }
