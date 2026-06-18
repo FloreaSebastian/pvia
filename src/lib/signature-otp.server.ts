@@ -157,6 +157,8 @@ export async function assertSignatureOtpVerified(opts: {
   expectedPvId?: string | null;
   expectedCompanyId?: string | null;
   expectedMode?: SignatureMode;
+  /** Max age (ms) between OTP verification (used_at) and signature. Default 30 min. */
+  maxAgeMs?: number;
 }): Promise<SignatureOtpRow> {
   const otp = await getSignatureOtp(opts.otpId);
   if (opts.expectedCompanyId && otp.company_id !== opts.expectedCompanyId)
@@ -166,6 +168,13 @@ export async function assertSignatureOtpVerified(opts: {
   if (opts.expectedMode && otp.signature_mode !== opts.expectedMode)
     throw new Error("Mode OTP incorrect.");
   if (!otp.used_at) throw new Error("Vérification d'identité non validée.");
+
+  // F-12 — Freshness window: refuse a stale OTP (replay window).
+  const maxAge = opts.maxAgeMs ?? 30 * 60 * 1000;
+  const usedAtMs = new Date(otp.used_at).getTime();
+  if (!Number.isFinite(usedAtMs) || Date.now() - usedAtMs > maxAge) {
+    throw new Error("Vérification d'identité expirée. Veuillez recommencer.");
+  }
   return otp;
 }
 

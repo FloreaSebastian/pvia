@@ -1054,6 +1054,7 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          expires_at: string
           id: string
           last_accessed_at: string | null
           name: string
@@ -1065,6 +1066,7 @@ export type Database = {
           company_id: string
           created_at?: string
           created_by?: string | null
+          expires_at?: string
           id?: string
           last_accessed_at?: string | null
           name?: string
@@ -1076,6 +1078,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string | null
+          expires_at?: string
           id?: string
           last_accessed_at?: string | null
           name?: string
