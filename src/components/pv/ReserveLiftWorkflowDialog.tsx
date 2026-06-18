@@ -100,9 +100,11 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   } = props;
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const { activeRole } = useCompany();
+  const { activeRole, activeCompanyId } = useCompany();
   const createFn = useServerFn(createReserveLift);
   const listPhotosFn = useServerFn(listReserveLiftPhotos);
+  const sendOtpFn = useServerFn(sendOnsiteClientOtp);
+  const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
 
   // Intervenant identity (auto-filled, read-only)
   const [signerName, setSignerName] = useState("");
