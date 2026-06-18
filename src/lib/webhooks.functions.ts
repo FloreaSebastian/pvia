@@ -59,7 +59,7 @@ export const listApiKeys = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => CompanySchema.parse(i))
   .handler(async ({ data, context }) => {
-    await assertMember(data.companyId, context.userId);
+    await assertAdmin(data.companyId, context.userId);
     const { data: rows } = await supabaseAdmin
       .from("api_keys")
       .select("id,name,prefix,scopes,last_used_at,revoked_at,created_at")
