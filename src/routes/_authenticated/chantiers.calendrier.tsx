@@ -162,8 +162,9 @@ function ChantierCalendarPage() {
   const isAdmin = can("admin");
   const isMobile = useIsMobile();
   
-  const [view, setView] = useState<ViewKind>(isMobile ? "day" : "month");
-  const [cursor, setCursor] = useState(new Date());
+  const initial = useMemo(() => loadInitialView(isMobile), [isMobile]);
+  const [view, setView] = useState<ViewKind>(initial.view);
+
   const [customStart, setCustomStart] = useState(() => toLocalInput(new Date()).slice(0,10));
   const [customEnd, setCustomEnd] = useState(() => toLocalInput(addDays(new Date(), 4)).slice(0,10));
   const [events, setEvents] = useState<Evt[]>([]);
