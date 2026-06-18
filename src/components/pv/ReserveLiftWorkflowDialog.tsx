@@ -59,6 +59,7 @@ type Props = {
   preselectedReserveId?: string | null;
   chantierLabel?: string | null;
   clientLabel?: string | null;
+  clientEmail?: string | null;
   onCompleted?: (reportId: string, numero: string) => void;
 };
 
