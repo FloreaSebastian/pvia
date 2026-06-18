@@ -136,7 +136,7 @@ export async function buildAndStoreReserveLiftPdf(
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
     pv?.chantier_id
-      ? supabaseAdmin.from("chantiers").select("name,address").eq("id", pv.chantier_id).maybeSingle()
+      ? supabaseAdmin.from("chantiers").select("name,address,address_line1,postal_code,city,type,start_date,end_date,description,status").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   const client = (clientRes as any).data;
