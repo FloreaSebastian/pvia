@@ -173,7 +173,6 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const sendOtpFn = useServerFn(sendOnsiteClientOtp);
   const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
   const getPdfUrlFn = useServerFn(getReserveLiftPdfUrl);
-  const resendValidationFn = useServerFn(resendReserveLiftValidationEmail);
   const resendClientEmailFn = useServerFn(resendReserveLiftClientEmail);
 
 
