@@ -397,35 +397,18 @@ function ChantiersPage() {
         })}
       </div>
 
-      {/* Filter chips — main + collapsible "more" */}
+      {/* "Plus de filtres" — secondary statuses only (KPIs above already act as primary filters) */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          {[
-            { value: "all" as FilterValue, label: "Tous" },
-            { value: "en_cours" as FilterValue, label: "Actifs" },
-            { value: "receptionne" as FilterValue, label: "Réceptionnés" },
-            { value: "termine" as FilterValue, label: "Terminés" },
-          ].map((f) => {
-            const active = statusFilter === f.value;
-            return (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setStatusFilter(f.value)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground shadow-brand"
-                    : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )}
-              >
-                {f.label}
-                <span className={cn("rounded-full px-1.5 text-[10px] tabular-nums", active ? "bg-primary-foreground/20" : "bg-muted")}>
-                  {counts[f.value] ?? 0}
-                </span>
-              </button>
-            );
-          })}
+          {statusFilter !== "all" && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
+            >
+              <X className="h-3 w-3" /> Tous ({counts.all ?? 0})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowMoreFilters((v) => !v)}
@@ -445,7 +428,6 @@ function ChantiersPage() {
               { value: "planifie" as FilterValue, label: "Planifié" },
               { value: "en_attente" as FilterValue, label: "En attente" },
               { value: "archive" as FilterValue, label: "Archivé" },
-              { value: "retard" as FilterValue, label: "⚠️ Retard" },
             ].map((f) => {
               const active = statusFilter === f.value;
               return (
@@ -470,6 +452,7 @@ function ChantiersPage() {
           </div>
         )}
       </div>
+
 
 
       {/* Empty state */}
