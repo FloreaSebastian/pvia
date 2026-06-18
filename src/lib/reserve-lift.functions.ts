@@ -60,6 +60,8 @@ const InputSchema = z.object({
   signerSignature: z.string().max(800_000).nullable().optional(),
   validationMode: z.enum(["on_site", "remote"]).optional().default("remote"),
   clientSignedOnSite: z.boolean().optional().default(false),
+  // Phase 2 — OTP id for on-site client signature (verified before signing in the dialog).
+  clientOtpId: z.string().uuid().nullable().optional(),
 });
 
 /** Distance between two GPS points in meters (haversine). */
