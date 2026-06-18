@@ -2461,6 +2461,12 @@ export type Database = {
         Returns: boolean
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      reserve_lift_is_locked: {
+        Args: {
+          _report: Database["public"]["Tables"]["reserve_lift_reports"]["Row"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "user" | "platform_admin"
