@@ -875,23 +875,8 @@ function ChantierCalendarPage() {
             <X className="h-3 w-3" /> Réinitialiser
           </Button>
         )}
-        {/* Color mode toggle (admin only) */}
-        <div className="inline-flex h-8 items-center rounded-full border border-border bg-card p-0.5 text-xs">
-          <button type="button"
-            onClick={() => isAdmin ? void persistColorMode("type") : null}
-            disabled={!isAdmin}
-            title={isAdmin ? "Couleur par type d'événement" : "Réglage entreprise — admin requis"}
-            className={cn("rounded-full px-2.5 py-1 transition", colorMode === "type" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground", !isAdmin && "cursor-not-allowed opacity-70")}>
-            Couleur · type
-          </button>
-          <button type="button"
-            onClick={() => isAdmin ? void persistColorMode("chantier") : null}
-            disabled={!isAdmin}
-            title={isAdmin ? "Couleur héritée du chantier" : "Réglage entreprise — admin requis"}
-            className={cn("rounded-full px-2.5 py-1 transition", colorMode === "chantier" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground", !isAdmin && "cursor-not-allowed opacity-70")}>
-            Couleur · chantier
-          </button>
-        </div>
+        {/* Color mode toggle moved into the Filters panel below. */}
+
         {conflicts.size > 0 && (
           <Popover open={conflictsPanelOpen} onOpenChange={setConflictsPanelOpen}>
             <PopoverTrigger asChild>
