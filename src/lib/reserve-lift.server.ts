@@ -244,7 +244,24 @@ export async function buildAndStoreReserveLiftPdf(
     { x: MARGIN, y: PAGE_H - 124, size: 9.5, font: helv, color: MUTED },
   );
 
-  y = PAGE_H - 148;
+  y = PAGE_H - 140;
+
+  // ============ BANDEAU DE LIAISON AVEC LE PV PRINCIPAL ============
+  {
+    const bandH = 52;
+    const bandBg = rgb(0.93, 0.96, 1);
+    page.drawRectangle({ x: MARGIN, y: y - bandH, width: CONTENT_W, height: bandH, color: bandBg, borderColor: PRIMARY, borderWidth: 0.8 });
+    page.drawRectangle({ x: MARGIN, y: y - bandH, width: 4, height: bandH, color: PRIMARY });
+    const liaisonTitle = sanitize(`Document juridiquement lie au Proces-Verbal de Reception n° ${pv?.numero ?? "—"}`);
+    page.drawText(liaisonTitle, { x: MARGIN + 14, y: y - 18, size: 10, font: bold, color: ACCENT });
+    const dReception = `Date reception : ${formatDate(pv?.reception_date)}`;
+    const dLevee = `Date levee : ${formatDate(report.signed_at ?? report.created_at)}`;
+    page.drawText(sanitize(dReception), { x: MARGIN + 14, y: y - 36, size: 9, font: helv, color: ACCENT });
+    const dLeveeW = helv.widthOfTextAtSize(sanitize(dLevee), 9);
+    page.drawText(sanitize(dLevee), { x: MARGIN + CONTENT_W - 14 - dLeveeW, y: y - 36, size: 9, font: helv, color: ACCENT });
+    y -= bandH + 12;
+  }
+
 
   // ============ BLOC JURIDIQUE — Lien avec le PV initial ============
   ensureSpace(86);
@@ -714,6 +731,25 @@ export async function buildAndStoreReserveLiftPdf(
     for (const l of cl) { page.drawText(l, { x: MARGIN, y, size: 10, font: helv, color: ACCENT }); y -= 14; }
     y -= 8;
   }
+
+  // ============ CONCLUSION ============
+  {
+    const conclusionText1 = "Les reserves mentionnees dans le present proces-verbal ont fait l'objet d'une intervention corrective et ont ete presentees au maitre d'ouvrage pour validation.";
+    const conclusionText2 = "Le present document complete le proces-verbal de reception initial et doit etre conserve avec celui-ci dans le dossier de l'ouvrage.";
+    const w1 = wrapLines(helv, conclusionText1, 9, CONTENT_W - 24);
+    const w2 = wrapLines(helv, conclusionText2, 9, CONTENT_W - 24);
+    const concH = 24 + (w1.length + w2.length) * 12 + 10;
+    ensureSpace(concH + 12);
+    page.drawRectangle({ x: MARGIN, y: y - concH, width: CONTENT_W, height: concH, color: rgb(0.97, 0.98, 1), borderColor: PRIMARY, borderWidth: 0.6 });
+    page.drawRectangle({ x: MARGIN, y: y - concH, width: 3, height: concH, color: PRIMARY });
+    page.drawText("CONCLUSION", { x: MARGIN + 12, y: y - 16, size: 9, font: bold, color: PRIMARY });
+    let cy = y - 32;
+    for (const l of w1) { page.drawText(sanitize(l), { x: MARGIN + 12, y: cy, size: 9, font: helv, color: ACCENT }); cy -= 12; }
+    cy -= 4;
+    for (const l of w2) { page.drawText(sanitize(l), { x: MARGIN + 12, y: cy, size: 9, font: helv, color: ACCENT }); cy -= 12; }
+    y -= concH + 14;
+  }
+
 
   // Signatures (3 colonnes : Technicien / Entreprise / Client)
   const techSig = (report as any).technician_signature as string | null;
