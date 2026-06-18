@@ -336,6 +336,8 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     setOtpCode("");
     setOtpVerified(false);
     setOtpExpiresAt(null);
+    setGpsPermission("pending");
+    setLastKnownPosition(null);
     setStepIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
