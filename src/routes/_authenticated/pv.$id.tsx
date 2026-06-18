@@ -112,6 +112,7 @@ type Reserve = {
 
 function PvDetail() {
   const { id } = Route.useParams();
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const sendPv = useServerFn(sendPvToClient);
   const changeStatusFn = useServerFn(updatePvStatus);
