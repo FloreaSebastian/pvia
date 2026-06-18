@@ -324,16 +324,9 @@ function NewPv() {
     setOnsiteOtpCode("");
   }, [form.client_id, form.new_client_email, clients]);
 
-  function onFiles(files: FileList | null, kind: "avant" | "apres" | "autre") {
-    if (!files) return;
-    const next = Array.from(files).map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-      caption: "",
-      kind,
-    }));
-    setPhotos((p) => [...p, ...next]);
-  }
+  // Note: l'étape "Photos générales" a été supprimée du workflow.
+  // Les photos sont désormais uniquement liées à chaque réserve via addReservePhotos.
+
 
   function addReserve() {
     if (!newReserve.description.trim() && !newReserve.nature.trim()) {
