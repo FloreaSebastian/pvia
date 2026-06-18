@@ -53,6 +53,13 @@ const InputSchema = z.object({
   clientSignature: z.string().max(800_000).nullable().optional(),
   technicianSignature: z.string().max(800_000).nullable().optional(),
   technicianName: z.string().max(200).nullable().optional(),
+  // Phase 1 — single intervenant signature + validation mode
+  signerName: z.string().max(200).nullable().optional(),
+  signerRole: z.string().max(80).nullable().optional(),
+  signerEmail: z.string().max(255).nullable().optional(),
+  signerSignature: z.string().max(800_000).nullable().optional(),
+  validationMode: z.enum(["on_site", "remote"]).optional().default("remote"),
+  clientSignedOnSite: z.boolean().optional().default(false),
 });
 
 /** Distance between two GPS points in meters (haversine). */
