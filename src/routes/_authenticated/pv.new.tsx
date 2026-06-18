@@ -48,6 +48,7 @@ import { getCompanyBrandingFn } from "@/lib/branding.functions";
 import { getPvNumberingSettings } from "@/lib/pv-numbering.functions";
 import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
+import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
