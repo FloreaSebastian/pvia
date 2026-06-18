@@ -641,8 +641,102 @@ function ChantierCalendarPage() {
         }
       />
 
-      {/* Toolbar */}
-      <Card className="flex flex-col gap-2 p-2 lg:flex-row lg:items-center lg:justify-between">
+      {/* Mobile toolbar: View ▼ → Date → < Aujourd'hui > → Search → Filters */}
+      <Card className="flex flex-col gap-2 p-2 lg:hidden">
+        {/* 1. View selector (Jour / Semaine / 5j / Mois) */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full justify-between">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4" />
+                Vue · {view === "day" ? "Jour" : view === "week" ? (weekDays === 5 ? "5 jours" : "Semaine") : view === "month" ? "Mois" : view === "team" ? "Équipe" : "Personnalisé"}
+              </span>
+              <ChevronRight className="h-4 w-4 rotate-90 opacity-60" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-56 p-1">
+            {([
+              { key: "day" as const, label: "Jour" },
+              { key: "week" as const, label: "Semaine" },
+              { key: "week5" as const, label: "5 jours (Lun → Ven)" },
+              { key: "month" as const, label: "Mois" },
+            ]).map((opt) => {
+              const isActive =
+                (opt.key === "day" && view === "day") ||
+                (opt.key === "month" && view === "month") ||
+                (opt.key === "week" && view === "week" && weekDays !== 5) ||
+                (opt.key === "week5" && view === "week" && weekDays === 5);
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => applyDefaultViewPreset(opt.key)}
+                  className={cn("flex w-full items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted", isActive && "bg-primary/10 text-primary font-medium")}
+                >
+                  <span>{opt.label}</span>
+                  {isActive && <span className="text-[10px] uppercase tracking-wide text-muted-foreground">défaut</span>}
+                </button>
+              );
+            })}
+            <div className="border-t border-border/60 mt-1 pt-1 px-2 py-1 text-[10px] text-muted-foreground">
+              La vue choisie devient celle par défaut.
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* 2. Date courante */}
+        <div className="text-center text-base font-semibold capitalize">{periodLabel}</div>
+
+        {/* 3. < Aujourd'hui > */}
+        <div className="flex items-center justify-between gap-2">
+          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Précédent" className="h-10 w-10"><ChevronLeft className="h-5 w-5" /></Button>
+          <Button size="sm" variant="outline" onClick={() => setCursor(new Date())} className="flex-1 h-10">Aujourd'hui</Button>
+          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant" className="h-10 w-10"><ChevronRight className="h-5 w-5" /></Button>
+        </div>
+
+        {/* 4. Recherche */}
+        <Popover open={search.trim().length >= 2 && searchResults.length > 0} onOpenChange={(o) => { if (!o) setSearch(""); }}>
+          <PopoverTrigger asChild>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher…"
+                className="h-10 pl-8"
+              />
+            </div>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[min(420px,90vw)] p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <ul className="max-h-80 overflow-y-auto">
+              {searchResults.map((e) => {
+                const c = colorOf(e);
+                return (
+                  <li key={e.id}>
+                    <button type="button" onClick={() => jumpToEvent(e)}
+                      className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
+                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{e.title}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {e.start_at ? new Date(e.start_at).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" }) : "—"}
+                          {e.start_at && !e.all_day && ` · ${fmtTime(new Date(e.start_at))}`}
+                          {e.chantier_id && ` · ${chantierName(e.chantier_id)}`}
+                          {e.client_id && ` · ${clientName(e.client_id)}`}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </PopoverContent>
+        </Popover>
+        {/* 5. Filtres : reuses the same toggle button rendered below (filtersOpen / activeFilterCount). */}
+      </Card>
+
+      {/* Desktop toolbar */}
+      <Card className="hidden lg:flex flex-col gap-2 p-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setCursor(new Date())}>Aujourd'hui</Button>
           <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Précédent"><ChevronLeft className="h-4 w-4" /></Button>
@@ -689,9 +783,7 @@ function ChantierCalendarPage() {
           </Popover>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          {(["month","week","day","team","custom"] as const)
-            .filter((v) => !isMobile || v === "day" || v === "week")
-            .map((v) => (
+          {(["month","week","day","team","custom"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)}
               className={cn("inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition",
                 view === v ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
@@ -711,7 +803,6 @@ function ChantierCalendarPage() {
             </div>
           )}
 
-          {/* Days selector (week / team-week) */}
           {(view === "week" || (view === "team" && teamMode === "week")) && (
             <div className="ml-2 inline-flex overflow-hidden rounded-md border border-border" title="Jours affichés dans la semaine">
               {([5,6,7] as const).map((d) => (
@@ -724,7 +815,6 @@ function ChantierCalendarPage() {
             </div>
           )}
 
-          {/* Zoom (time grid views) */}
           {(view === "week" || view === "day" || view === "custom" || view === "team") && (
             <Popover>
               <PopoverTrigger asChild>
@@ -745,12 +835,12 @@ function ChantierCalendarPage() {
             </Popover>
           )}
 
-          {/* Fullscreen */}
           <Button size="icon" variant="ghost" onClick={() => setFullscreen((v) => !v)} title={fullscreen ? "Quitter plein écran (Échap)" : "Plein écran"}>
             {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
         </div>
       </Card>
+
 
 
       {view === "custom" && (
