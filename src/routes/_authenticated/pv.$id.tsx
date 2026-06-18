@@ -802,12 +802,19 @@ function PvDetail() {
                           <Button size="sm" variant="outline" className="h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
                             Détails
                           </Button>
-                          {r.status === "ouverte" && (
-                            <Link to="/pv/$id/levee-reserves" params={{ id: pv.id }} search={{ reserveId: r.id }}>
-                              <Button size="sm" variant="outline" className="h-8">
-                                <CheckCircle2 className="h-3.5 w-3.5" /> Lever
-                              </Button>
-                            </Link>
+                          {(r.status === "ouverte" || r.status === "en_cours" || r.status === "rejetee") && (
+                            <Button
+                              size="sm" variant="outline" className="h-8"
+                              onClick={() => {
+                                if (r.status === "validee") { toast.error("Cette réserve est déjà validée."); return; }
+                                if (r.status === "en_attente_validation") { toast.error("Cette réserve est en attente de validation."); return; }
+                                if (r.status === "levee") { toast.error("Cette réserve est déjà levée."); return; }
+                                setLiftPreselectedId(r.id);
+                                setLiftDialogOpen(true);
+                              }}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                            </Button>
                           )}
                           <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
