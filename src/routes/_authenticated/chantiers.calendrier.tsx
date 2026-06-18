@@ -971,9 +971,28 @@ function ChantierCalendarPage() {
             className={cn("rounded-full border px-2.5 py-1 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
             Masquer annulés
           </button>
+          {/* Color mode (admin only) — moved here from the always-visible chip row */}
+          <div className="ml-auto inline-flex h-7 items-center rounded-full border border-border bg-card p-0.5">
+            <span className="px-2 text-[10px] uppercase tracking-wide text-muted-foreground">Couleurs</span>
+            <button type="button"
+              onClick={() => isAdmin ? void persistColorMode("type") : null}
+              disabled={!isAdmin}
+              title={isAdmin ? "Couleur par type d'événement" : "Réglage entreprise — admin requis"}
+              className={cn("rounded-full px-2 py-0.5 text-[11px] transition", colorMode === "type" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground", !isAdmin && "cursor-not-allowed opacity-70")}>
+              Type
+            </button>
+            <button type="button"
+              onClick={() => isAdmin ? void persistColorMode("chantier") : null}
+              disabled={!isAdmin}
+              title={isAdmin ? "Couleur héritée du chantier" : "Réglage entreprise — admin requis"}
+              className={cn("rounded-full px-2 py-0.5 text-[11px] transition", colorMode === "chantier" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground", !isAdmin && "cursor-not-allowed opacity-70")}>
+              Chantier
+            </button>
+          </div>
         </div>
       </Card>
       )}
+
 
 
       {/* Views */}
