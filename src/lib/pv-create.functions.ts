@@ -81,7 +81,23 @@ const InputSchema = z.object({
 
 export const createPv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => InputSchema.parse(i))
+  .inputValidator((i) => {
+    try {
+      return InputSchema.parse(i);
+    } catch (e: any) {
+      const issues = e?.issues as Array<{ path: (string | number)[]; code: string; message: string }> | undefined;
+      const photoTooLarge = issues?.find((it) => {
+        const p = it.path?.join(".") ?? "";
+        return /photos?\.\d+\.base64/.test(p) && (it.code === "too_big" || /at most/i.test(it.message ?? ""));
+      });
+      if (photoTooLarge) {
+        const err = new Error("Une photo de réserve est trop volumineuse. Merci d'utiliser une photo plus légère.");
+        (err as any).code = "PHOTO_TOO_LARGE";
+        throw err;
+      }
+      throw e;
+    }
+  })
   .handler(async ({ data, context }) => {
     const userId = context.userId;
 

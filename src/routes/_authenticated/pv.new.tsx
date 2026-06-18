@@ -48,6 +48,7 @@ import { getCompanyBrandingFn } from "@/lib/branding.functions";
 import { getPvNumberingSettings } from "@/lib/pv-numbering.functions";
 import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
+import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
@@ -74,7 +75,6 @@ export const Route = createFileRoute("/_authenticated/pv/new")({
   head: () => ({ meta: [{ title: "Créer un PV — PVIA" }] }),
 });
 
-type Photo = { file: File; preview: string; caption: string; kind: "avant" | "apres" | "autre" };
 type ReservePhoto = { file: File; preview: string };
 type Severity = "mineure" | "majeure" | "bloquante";
 type Reserve = {
@@ -95,7 +95,6 @@ const ID_CHANTIER = "chantier";
 const ID_TRAVAUX = "travaux";
 const ID_DECISION = "decision";
 const ID_RESERVES = "reserves";
-const ID_PHOTOS = "photos";
 const ID_SIGNATURES = "signatures";
 const ID_APERCU = "apercu";
 
@@ -114,7 +113,6 @@ const STEPS_TAIL_NO_RES: StepDef[] = [
 ];
 const STEPS_TAIL_WITH_RES: StepDef[] = [
   { id: ID_RESERVES, label: "Réserves", icon: AlertTriangle },
-  { id: ID_PHOTOS, label: "Photos", icon: Camera },
   { id: ID_SIGNATURES, label: "Signatures", icon: PenLine },
   { id: ID_APERCU, label: "Aperçu", icon: Eye },
 ];
@@ -171,7 +169,7 @@ function NewPv() {
     reserve_completion_delay: "",
     reserve_due_date: "",
   });
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  // Photos générales du PV : déprécié — les photos sont désormais liées aux réserves.
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [newReserve, setNewReserve] = useState<Reserve>({
     nature: "",
@@ -325,16 +323,9 @@ function NewPv() {
     setOnsiteOtpCode("");
   }, [form.client_id, form.new_client_email, clients]);
 
-  function onFiles(files: FileList | null, kind: "avant" | "apres" | "autre") {
-    if (!files) return;
-    const next = Array.from(files).map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-      caption: "",
-      kind,
-    }));
-    setPhotos((p) => [...p, ...next]);
-  }
+  // Note: l'étape "Photos générales" a été supprimée du workflow.
+  // Les photos sont désormais uniquement liées à chaque réserve via addReservePhotos.
+
 
   function addReserve() {
     if (!newReserve.description.trim() && !newReserve.nature.trim()) {
@@ -349,12 +340,31 @@ function NewPv() {
     setNewReserve({ nature: "", description: "", work_to_execute: "", severity: "mineure", due_date: "", photos: [] });
   }
 
-  function addReservePhotos(files: FileList | null) {
+  async function compressAndBuild(files: FileList): Promise<ReservePhoto[]> {
+    const out: ReservePhoto[] = [];
+    let compressedCount = 0;
+    for (const file of Array.from(files)) {
+      try {
+        const { file: finalFile, compressed } = await compressImageFile(file);
+        if (compressed) compressedCount += 1;
+        out.push({ file: finalFile, preview: URL.createObjectURL(finalFile) });
+      } catch {
+        out.push({ file, preview: URL.createObjectURL(file) });
+      }
+    }
+    if (compressedCount > 0) {
+      toast.success(
+        compressedCount === 1
+          ? "Photo optimisée"
+          : `${compressedCount} photos optimisées`,
+      );
+    }
+    return out;
+  }
+
+  async function addReservePhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const next: ReservePhoto[] = Array.from(files).map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+    const next = await compressAndBuild(files);
     setNewReserve((r) => ({ ...r, photos: [...r.photos, ...next] }));
   }
 
@@ -370,12 +380,9 @@ function NewPv() {
     );
   }
 
-  function addPhotosToExistingReserve(reserveIdx: number, files: FileList | null) {
+  async function addPhotosToExistingReserve(reserveIdx: number, files: FileList | null) {
     if (!files || files.length === 0) return;
-    const next: ReservePhoto[] = Array.from(files).map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+    const next = await compressAndBuild(files);
     setReserves((rs) =>
       rs.map((r, i) => (i === reserveIdx ? { ...r, photos: [...r.photos, ...next] } : r)),
     );
@@ -384,10 +391,9 @@ function NewPv() {
 
   function pickDecision(value: boolean) {
     // Si on bascule de "avec réserves" vers "sans réserve" et qu'il y a déjà des données → confirmation
-    if (withReserves === true && value === false && (reserves.length > 0 || photos.length > 0)) {
-      if (!confirm("Passer en réception sans réserve va supprimer les réserves et photos déjà saisies. Confirmer ?")) return;
+    if (withReserves === true && value === false && reserves.length > 0) {
+      if (!confirm("Passer en réception sans réserve va supprimer les réserves déjà saisies. Confirmer ?")) return;
       setReserves([]);
-      setPhotos([]);
     }
     setWithReserves(value);
   }
@@ -542,19 +548,49 @@ function NewPv() {
         action === "brouillon" ? null : onsiteOtpEmail.trim().toLowerCase() || null;
       const otpId = action === "onsite" ? onsiteOtpId : null;
 
-      const encodedPhotos = withReserves
-        ? await Promise.all(photos.map(async (p) => ({
-            base64: await fileToBase64(p.file),
-            mimeType: p.file.type || "image/jpeg",
-            fileName: p.file.name,
-            kind: p.kind,
-            caption: p.caption || "",
-          })))
-        : [];
-
       const amount = form.work_reference_amount.trim()
         ? Number(form.work_reference_amount.replace(",", "."))
         : null;
+
+      // Encode reserve photos client-side. Compression a déjà été appliquée à l'ajout ;
+      // on vérifie quand même la taille du base64 final pour ne jamais envoyer
+      // une image qui ferait échouer la validation serveur.
+      let payloadReserves: any[] = [];
+      if (withReserves) {
+        for (let ri = 0; ri < reserves.length; ri++) {
+          const r = reserves[ri];
+          const encodedReservePhotos = [];
+          for (const p of r.photos) {
+            const base64 = await fileToBase64(p.file);
+            if (base64.length > PHOTO_BASE64_MAX) {
+              toast.error(
+                `Réserve ${ri + 1} : une photo est trop volumineuse. Veuillez reprendre la photo ou choisir une image plus légère.`,
+                { duration: 7000 },
+              );
+              setSaving(false);
+              const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
+              if (idx >= 0) setStepIdx(idx);
+              return;
+            }
+            encodedReservePhotos.push({
+              base64,
+              mimeType: p.file.type || "image/jpeg",
+              fileName: p.file.name,
+              kind: "reserve" as const,
+              caption: "",
+            });
+          }
+          payloadReserves.push({
+            description: r.description || r.nature,
+            severity: r.severity === "bloquante" ? "majeure" as const : r.severity,
+            status: "ouverte" as const,
+            nature: r.nature,
+            work_to_execute: r.work_to_execute,
+            due_date: r.due_date || null,
+            photos: encodedReservePhotos,
+          });
+        }
+      }
 
       const res = await createPvFn({
         data: {
@@ -582,22 +618,8 @@ function NewPv() {
           chantier_address: form.chantier_address,
           chantier_postal_code: form.chantier_postal_code,
           chantier_city: form.chantier_city,
-          reserves: withReserves ? await Promise.all(reserves.map(async (r) => ({
-            description: r.description || r.nature,
-            severity: r.severity === "bloquante" ? "majeure" as const : r.severity,
-            status: "ouverte" as const,
-            nature: r.nature,
-            work_to_execute: r.work_to_execute,
-            due_date: r.due_date || null,
-            photos: await Promise.all(r.photos.map(async (p) => ({
-              base64: await fileToBase64(p.file),
-              mimeType: p.file.type || "image/jpeg",
-              fileName: p.file.name,
-              kind: "reserve" as const,
-              caption: "",
-            }))),
-          }))) : [],
-          photos: encodedPhotos,
+          reserves: payloadReserves,
+          photos: [],
         },
       });
 
@@ -634,6 +656,10 @@ function NewPv() {
       } else if (e?.code === "COMPANY_INCOMPLETE" || /COMPANY_INCOMPLETE|entreprise incomplète/i.test(e?.message ?? "")) {
         toast.error("Fiche entreprise incomplète.");
         setStepIdx(0);
+      } else if (e?.code === "PHOTO_TOO_LARGE" || /PHOTO_TOO_LARGE|at most 6000000|trop volumineuse/i.test(e?.message ?? "")) {
+        toast.error("Une photo de réserve est trop volumineuse. Veuillez reprendre la photo ou choisir une image plus légère.", { duration: 7000 });
+        const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
+        if (idx >= 0) setStepIdx(idx);
       } else if (e?.code === "RESERVE_PHOTO_REQUIRED" || /RESERVE_PHOTO_REQUIRED|au moins une photo/i.test(e?.message ?? "")) {
         toast.error(e?.message || "Chaque réserve doit contenir au moins une photo.");
         const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
@@ -678,7 +704,6 @@ function NewPv() {
       [ID_TRAVAUX]: travauxOk ? null : "Description des travaux obligatoire.",
       [ID_DECISION]: decisionOk ? null : "Choisissez avec ou sans réserves.",
       [ID_RESERVES]: reservesError,
-      [ID_PHOTOS]: null,
       [ID_SIGNATURES]: signaturesError,
       [ID_APERCU]: signaturesError ? "Complétez les signatures avant d'accéder à l'aperçu." : null,
     };
@@ -701,7 +726,8 @@ function NewPv() {
     ].filter(Boolean).join(" · ");
     const decisionLine = withReserves === true ? "Réception avec réserves" : withReserves === false ? "Réception sans réserve" : "";
     const reservesLine = reserves.length ? `${reserves.length} réserve${reserves.length > 1 ? "s" : ""}` : "";
-    const photosLine = photos.length ? `${photos.length} photo${photos.length > 1 ? "s" : ""}` : "";
+    const reservesPhotosCount = reserves.reduce((acc, r) => acc + r.photos.length, 0);
+    const reservesLineFull = reservesLine + (reservesPhotosCount ? ` · ${reservesPhotosCount} photo${reservesPhotosCount > 1 ? "s" : ""}` : "");
     const sigParts: string[] = [];
     if (signatureMode) sigParts.push(signatureMode === "remote" ? "À distance" : "Sur place");
     if (companySignatureDataUrl) sigParts.push("Entreprise ✓");
@@ -714,12 +740,11 @@ function NewPv() {
       [ID_CHANTIER]: chantierLine,
       [ID_TRAVAUX]: travauxLine,
       [ID_DECISION]: decisionLine,
-      [ID_RESERVES]: reservesLine,
-      [ID_PHOTOS]: photosLine,
+      [ID_RESERVES]: reservesLineFull,
       [ID_SIGNATURES]: sigParts.join(" · "),
       [ID_APERCU]: "",
     };
-  }, [branding, clients, chantiers, form, withReserves, reserves, photos, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpVerified, onsiteOtpEmail]);
+  }, [branding, clients, chantiers, form, withReserves, reserves, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpVerified, onsiteOtpEmail]);
 
   const otpStatus: "idle" | "sent" | "verified" | "error" = onsiteOtpVerified
     ? "verified"
@@ -1253,32 +1278,7 @@ function NewPv() {
               )}
 
 
-              {currentStep.id === ID_PHOTOS && (
-                <>
-                  <SectionHeader icon={Camera} title="Photos des réserves" desc="Documentez visuellement les réserves (optionnel mais recommandé)." />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <PhotoUploader label="Photos de réserves" kind="autre" onFiles={onFiles} />
-                    <PhotoUploader label="Photos avant intervention" kind="avant" onFiles={onFiles} />
-                  </div>
-                  {photos.length > 0 && (
-                    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                      {photos.map((p, i) => (
-                        <div key={i} className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                          <div className="relative">
-                            <img src={p.preview} alt="" className="aspect-square w-full object-cover" />
-                            <span className="absolute left-2 top-2 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider shadow">{p.kind}</span>
-                            <button type="button" onClick={() => setPhotos(photos.filter((_, j) => j !== i))} className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-md bg-background/90 opacity-0 transition-opacity group-hover:opacity-100">
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                          <Input placeholder="Légende…" className="rounded-none border-0 border-t text-xs" value={p.caption}
-                            onChange={(e) => { const c = [...photos]; c[i].caption = e.target.value; setPhotos(c); }} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
+
 
               {currentStep.id === ID_SIGNATURES && (
                 <>
