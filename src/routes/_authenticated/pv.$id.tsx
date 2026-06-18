@@ -925,41 +925,72 @@ function PvDetail() {
               <div className="space-y-1.5 border-t border-border pt-3">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">PV de levée ({lifts.length})</p>
                 {lifts.map((l) => {
-                  const validated = !!l.client_validated_at;
-                  const liftStatusLabel = validated ? "Validée client" : l.status === "signe" ? "Attente validation client" : "Brouillon";
-                  const liftTone = validated ? "success" : l.status === "signe" ? "warning" : "neutral";
+                  const display = deriveDisplayStatus(l as any);
+                  const label = STATUS_LABELS[display];
+                  const tone = STATUS_TONES[display];
+                  const validated = display === "client_validated";
+                  const rejected = display === "client_rejected";
+                  const editable = isEditableDraft(l as any);
+                  const eligibleReopen = canReopenClientSide(l as any);
+                  const hasClientPdf = !!(l.pdf_client_url || l.pdf_url);
                   return (
                     <div key={l.id} className="flex flex-col gap-2 rounded-md border border-border p-2.5 text-sm sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex flex-wrap items-center gap-2 min-w-0">
                         <span className="font-medium">N° {l.numero}</span>
-                        <StatusPill tone={liftTone as any} size="sm" dot>{liftStatusLabel}</StatusPill>
+                        <StatusPill tone={tone as any} size="sm" dot>{label}</StatusPill>
                         <span className="text-[11px] text-muted-foreground">{new Date(l.signed_at || l.created_at).toLocaleDateString("fr-FR")}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {(l.pdf_client_url || l.pdf_url) && (
+                        {editable && (
+                          <Button size="sm" variant="default" className="h-8" onClick={() => { setLiftPreselectedId(null); setLiftDialogOpen(true); }}>
+                            <Pencil className="h-3.5 w-3.5" /> Reprendre
+                          </Button>
+                        )}
+                        {hasClientPdf && !editable && (
                           <Button size="sm" variant={validated ? "default" : "outline"} className="h-8" onClick={() => downloadLiftPdf(l.id, "client")}>
                             <Download className="h-3.5 w-3.5" /> PDF client
                           </Button>
                         )}
-                        {l.pdf_internal_url && (
+                        {l.pdf_internal_url && !editable && (
                           <Button size="sm" variant="outline" className="h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement">
                             <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail">
-                          {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
-                          Export expertise
-                        </Button>
+                        {!editable && (
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail">
+                            {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
+                            Export expertise
+                          </Button>
+                        )}
                         {validated && (
                           <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
                             Renvoyer
                           </Button>
                         )}
-                        {!validated && l.status === "signe" && (
+                        {display === "envoyee_client" && (
                           <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                             Relancer
+                          </Button>
+                        )}
+                        {eligibleReopen && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8"
+                            onClick={() => handleReopenLift(l.id)}
+                            disabled={reopeningLiftId === l.id}
+                            title="Réouvrir (directeur / responsable d'exploitation uniquement, avant validation client)"
+                          >
+                            {reopeningLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5" />}
+                            Réouvrir
+                          </Button>
+                        )}
+                        {rejected && (
+                          <Button size="sm" variant="default" className="h-8" onClick={handleNewAttemptAfterRejection}>
+                            <PlusCircle className="h-3.5 w-3.5" />
+                            Nouvelle tentative
                           </Button>
                         )}
                       </div>
