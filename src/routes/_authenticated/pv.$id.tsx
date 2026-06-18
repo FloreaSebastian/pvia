@@ -1002,6 +1002,20 @@ function PvDetail() {
         clientLabel={clientName}
         onCompleted={() => load()}
       />
+      {lightbox && (
+        <PhotoLightboxDialog
+          open={!!lightbox}
+          onOpenChange={(o) => !o && setLightbox(null)}
+          photos={lightbox.photos}
+          startIndex={lightbox.index}
+          context={{
+            reserveDescription: lightbox.reserve?.description,
+            reserveSeverity: lightbox.reserve?.severity,
+            reserveStatus: lightbox.reserve ? reserveStatusLabel(lightbox.reserve.status) : undefined,
+            showExactGps: true,
+          }}
+        />
+      )}
     </div>
   );
 }
