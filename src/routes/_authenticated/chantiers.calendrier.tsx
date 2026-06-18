@@ -114,7 +114,7 @@ const UNASSIGNED = "__unassigned__";
 
 const ZOOM_LEVELS = { compact: 44, normal: 56, confort: 72 } as const;
 type Zoom = keyof typeof ZOOM_LEVELS;
-type WeekDays = 5 | 6 | 7;
+type WeekDays = 3 | 5 | 6 | 7;
 
 const LS = {
   fs: "pvia.cal.fullscreen",
@@ -133,13 +133,14 @@ function lsSet(k: string, v: unknown) {
 }
 
 // Saved default view preference: which view to open the calendar on.
-// "week5" = week with 5 days (Mon-Fri).
-type DefaultViewPref = "day" | "week" | "week5" | "month";
+// "week3" = 3-day view anchored on cursor (mobile field view).
+type DefaultViewPref = "day" | "week3" | "week" | "month";
 function loadInitialView(isMobile: boolean): { view: ViewKind; weekDays: WeekDays | null } {
-  const saved = lsGet<DefaultViewPref | null>(LS.defaultView, null);
+  const saved = lsGet<DefaultViewPref | "week5" | null>(LS.defaultView, null);
   if (saved === "day") return { view: "day", weekDays: null };
+  if (saved === "week3") return { view: "week", weekDays: 3 };
   if (saved === "week") return { view: "week", weekDays: 7 };
-  if (saved === "week5") return { view: "week", weekDays: 5 };
+  if (saved === "week5") return { view: "week", weekDays: 7 }; // legacy migration
   if (saved === "month") return { view: "month", weekDays: null };
   return { view: isMobile ? "day" : "month", weekDays: null };
 }
@@ -200,12 +201,12 @@ function ChantierCalendarPage() {
   useEffect(() => { lsSet(LS.filtersOpen, filtersOpen); }, [filtersOpen]);
 
   // Persist the chosen view as the user's default ("Vue par défaut").
-  // Only day / week / week5 (week + 5 days) / month are saved; team / custom are session-only.
+  // Only day / week / week3 / month are saved; team / custom are session-only.
   useEffect(() => {
     let pref: DefaultViewPref | null = null;
     if (view === "day") pref = "day";
     else if (view === "month") pref = "month";
-    else if (view === "week") pref = weekDays === 5 ? "week5" : "week";
+    else if (view === "week") pref = weekDays === 3 ? "week3" : "week";
     if (pref) lsSet(LS.defaultView, pref);
   }, [view, weekDays]);
 
@@ -213,7 +214,7 @@ function ChantierCalendarPage() {
     if (p === "day") { setView("day"); }
     else if (p === "month") { setView("month"); }
     else if (p === "week") { setView("week"); setWeekDays(7); }
-    else if (p === "week5") { setView("week"); setWeekDays(5); }
+    else if (p === "week3") { setView("week"); setWeekDays(3); }
   }
 
 
@@ -237,11 +238,17 @@ function ChantierCalendarPage() {
 
   const range = useMemo(() => {
     if (view === "month") return { from: startOfWeek(startOfMonth(cursor)), to: addDays(startOfWeek(endOfMonth(cursor)), 41) };
-    if (view === "week") return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
+    if (view === "week") {
+      if (weekDays === 3) {
+        const d = new Date(cursor); d.setHours(0,0,0,0);
+        return { from: d, to: addDays(d, 2) };
+      }
+      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
+    }
     if (view === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
     if (view === "team") {
       if (teamMode === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
-      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
+      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), (weekDays === 3 ? 7 : weekDays) - 1) };
     }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00");
@@ -571,7 +578,7 @@ function ChantierCalendarPage() {
 
   function nav(dir: -1 | 1) {
     if (view === "month") setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + dir, 1));
-    else if (view === "week") setCursor(addDays(cursor, 7 * dir));
+    else if (view === "week") setCursor(addDays(cursor, (weekDays === 3 ? 3 : 7) * dir));
     else if (view === "day") setCursor(addDays(cursor, dir));
     else if (view === "team") setCursor(addDays(cursor, teamMode === "day" ? dir : 7 * dir));
     else if (view === "custom") {
@@ -584,6 +591,10 @@ function ChantierCalendarPage() {
   const periodLabel = useMemo(() => {
     if (view === "month") return fmtMonth(cursor);
     if (view === "week") {
+      if (weekDays === 3) {
+        const s = new Date(cursor); s.setHours(0,0,0,0); const e = addDays(s, 2);
+        return `${s.toLocaleDateString("fr-FR", { day:"2-digit", month:"short" })} – ${e.toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" })}`;
+      }
       const s = startOfWeek(cursor); const e = addDays(s, 6);
       return `${s.toLocaleDateString("fr-FR", { day:"2-digit", month:"short" })} – ${e.toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" })}`;
     }
@@ -598,7 +609,7 @@ function ChantierCalendarPage() {
       return `${a.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${b.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
     }
     return "Liste";
-  }, [view, cursor, customStart, customEnd, teamMode]);
+  }, [view, cursor, customStart, customEnd, teamMode, weekDays]);
 
 
   // Keyboard shortcuts (T M S J L E N) — ignored when typing in inputs
@@ -635,54 +646,46 @@ function ChantierCalendarPage() {
         className="border-0 bg-transparent px-0 py-0"
         actions={
           <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm"><Link to="/chantiers"><ArrowLeft className="h-4 w-4" /> Chantiers</Link></Button>
-            {canWrite && <Button onClick={() => openNew(new Date())} className="shadow-brand"><Plus className="h-4 w-4" /> Nouvel événement</Button>}
+            <Button asChild variant="ghost" size="sm"><Link to="/chantiers"><ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Chantiers</span></Link></Button>
+            {canWrite && (
+              <Button onClick={() => openNew(new Date())} size="sm" className="shadow-brand">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nouvel événement</span>
+              </Button>
+            )}
           </div>
         }
       />
 
-      {/* Mobile toolbar: View ▼ → Date → < Aujourd'hui > → Search → Filters */}
+      {/* Mobile toolbar: View → Date → < Aujourd'hui > → Search → Filters */}
       <Card className="flex flex-col gap-2 p-2 lg:hidden">
-        {/* 1. View selector (Jour / Semaine / 5j / Mois) */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full justify-between">
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="h-4 w-4" />
-                Vue · {view === "day" ? "Jour" : view === "week" ? (weekDays === 5 ? "5 jours" : "Semaine") : view === "month" ? "Mois" : view === "team" ? "Équipe" : "Personnalisé"}
-              </span>
-              <ChevronRight className="h-4 w-4 rotate-90 opacity-60" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-56 p-1">
-            {([
-              { key: "day" as const, label: "Jour" },
-              { key: "week" as const, label: "Semaine" },
-              { key: "week5" as const, label: "5 jours (Lun → Ven)" },
-              { key: "month" as const, label: "Mois" },
-            ]).map((opt) => {
-              const isActive =
-                (opt.key === "day" && view === "day") ||
-                (opt.key === "month" && view === "month") ||
-                (opt.key === "week" && view === "week" && weekDays !== 5) ||
-                (opt.key === "week5" && view === "week" && weekDays === 5);
-              return (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => applyDefaultViewPreset(opt.key)}
-                  className={cn("flex w-full items-center justify-between rounded-md px-2 py-2 text-sm hover:bg-muted", isActive && "bg-primary/10 text-primary font-medium")}
-                >
-                  <span>{opt.label}</span>
-                  {isActive && <span className="text-[10px] uppercase tracking-wide text-muted-foreground">défaut</span>}
-                </button>
-              );
-            })}
-            <div className="border-t border-border/60 mt-1 pt-1 px-2 py-1 text-[10px] text-muted-foreground">
-              La vue choisie devient celle par défaut.
-            </div>
-          </PopoverContent>
-        </Popover>
+        {/* 1. View segmented control (Jour / 3j / Sem / Mois) */}
+        <div className="inline-flex w-full rounded-md border border-border bg-muted/40 p-0.5">
+          {([
+            { key: "day" as const, label: "Jour" },
+            { key: "week3" as const, label: "3j" },
+            { key: "week" as const, label: "Sem" },
+            { key: "month" as const, label: "Mois" },
+          ]).map((opt) => {
+            const isActive =
+              (opt.key === "day" && view === "day") ||
+              (opt.key === "month" && view === "month") ||
+              (opt.key === "week" && view === "week" && weekDays !== 3) ||
+              (opt.key === "week3" && view === "week" && weekDays === 3);
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => applyDefaultViewPreset(opt.key)}
+                className={cn("flex-1 min-h-[40px] rounded-[5px] text-sm font-medium transition",
+                  isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
 
         {/* 2. Date courante */}
         <div className="text-center text-base font-semibold capitalize">{periodLabel}</div>
@@ -805,7 +808,7 @@ function ChantierCalendarPage() {
 
           {(view === "week" || (view === "team" && teamMode === "week")) && (
             <div className="ml-2 inline-flex overflow-hidden rounded-md border border-border" title="Jours affichés dans la semaine">
-              {([5,6,7] as const).map((d) => (
+              {([3,5,6,7] as const).map((d) => (
                 <button key={d} onClick={() => setWeekDays(d)}
                   className={cn("px-2 py-1.5 text-[11px] font-medium transition",
                     weekDays === d ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted")}>
@@ -990,6 +993,22 @@ function ChantierCalendarPage() {
             </button>
           </div>
         </div>
+        {/* Légende couleurs par type d'événement */}
+        <div className="col-span-full mt-1 border-t border-border/60 pt-2">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Légende</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[11px]">
+            {Object.entries(TYPE_LABELS).map(([k, label]) => {
+              const colorKey = TYPE_TO_COLOR[k] ?? "blue";
+              const swatch = COLORS.find((c) => c.key === colorKey)!;
+              return (
+                <span key={k} className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: swatch.bg }} aria-hidden />
+                  <span className="text-foreground">{label}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
       </Card>
       )}
 
@@ -1003,6 +1022,7 @@ function ChantierCalendarPage() {
           days={monthGrid}
           cursor={cursor}
           canWrite={canWrite}
+          isMobile={isMobile}
           conflictIds={conflicts}
           onDblClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
           onClickEvent={(e) => openQuick(e)}
@@ -1052,13 +1072,16 @@ function ChantierCalendarPage() {
         <TimeGridView
           days={(() => {
             const out: Date[] = [];
-            const start = view === "week" ? startOfWeek(cursor) : (view === "day" ? cursor : range.from);
+            const start = view === "week"
+              ? (weekDays === 3 ? (() => { const d = new Date(cursor); d.setHours(0,0,0,0); return d; })() : startOfWeek(cursor))
+              : (view === "day" ? cursor : range.from);
             const total = view === "week" ? weekDays : (view === "day" ? 1 : Math.min(31, Math.max(1, Math.round((range.to.getTime() - range.from.getTime())/86400000)+1)));
             for (let i = 0; i < total; i++) out.push(addDays(new Date(start.getFullYear(), start.getMonth(), start.getDate()), i));
             return out;
           })()}
           events={events}
           hourPx={hourPx}
+          isMobile={isMobile}
           canWrite={canWrite}
           conflictIds={conflicts}
           onCreateRange={(s, e) => openNew(s, e)}
@@ -1081,14 +1104,7 @@ function ChantierCalendarPage() {
 
 
 
-      {/* Floating + on mobile */}
-      {canWrite && (
-        <button onClick={() => openNew(new Date())}
-          className="fixed bottom-20 right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg lg:hidden"
-          aria-label="Nouvel événement">
-          <Plus className="h-5 w-5" />
-        </button>
-      )}
+      {/* Mobile FAB removed — utiliser le "+" du header ou le bouton central PV de la BottomNav */}
 
       {/* Dialog */}
       <Dialog open={evtOpen} onOpenChange={setEvtOpen}>
@@ -1312,10 +1328,10 @@ function EventHoverContent({ evt, memberName, chantierName, clientName }: {
 }
 
 function MonthView({
-  days, cursor, canWrite, conflictIds, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
+  days, cursor, canWrite, isMobile, conflictIds, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
   memberName, chantierName, clientName,
 }: {
-  days: Date[]; cursor: Date; canWrite: boolean;
+  days: Date[]; cursor: Date; canWrite: boolean; isMobile?: boolean;
   conflictIds: Set<string>;
   onDblClickDay: (d: Date) => void;
   onClickEvent: (e: Evt) => void;
@@ -1355,7 +1371,7 @@ function MonthView({
                 {dayEvts.slice(0, 3).map((e) => {
                   const c = colorOf(e);
                   const isSystem = e.event_type.startsWith("system_");
-                  const draggable = canWrite && !isSystem && !!e.start_at;
+                  const draggable = canWrite && !isMobile && !isSystem && !!e.start_at;
                   const ann = e.status === "annule";
                   const isDragged = dragId === e.id;
                   return (
@@ -1412,10 +1428,10 @@ function fmtMin(min: number) {
 type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number; col: number; cols: number };
 
 function TimeGridView({
-  days, events, canWrite, conflictIds, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
+  days, events, canWrite, isMobile, conflictIds, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
   memberName, chantierName, clientName, hourPx = DEFAULT_HOUR_PX,
 }: {
-  days: Date[]; events: Evt[]; canWrite: boolean;
+  days: Date[]; events: Evt[]; canWrite: boolean; isMobile?: boolean;
   conflictIds: Set<string>;
   onCreateRange: (s: Date, e: Date) => void;
   onClickEvent: (e: Evt) => void;
@@ -1476,18 +1492,21 @@ function TimeGridView({
 
   function onMouseDownBg(e: React.MouseEvent) {
     if (!canWrite) return;
+    if (isMobile) return; // mobile: no marquee selection, avoid hijacking taps/scroll
     if ((e.target as HTMLElement).closest("[data-evt]")) return;
     const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
     setDrag({ kind: "select", dayIdx: p.dayIdx, startMin: p.minutes, endMin: p.minutes + 60 });
   }
   function onMouseDownEvent(e: React.MouseEvent, evt: Evt, dayIdx: number, startMin: number, endMin: number) {
     if (!canWrite || evt.event_type.startsWith("system_")) return;
+    if (isMobile) return; // mobile: tap = open. Drag-to-reschedule désactivé sur mobile (cf. V2 plan).
     e.stopPropagation(); e.preventDefault();
     const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
     setDrag({ kind: "move", id: evt.id, offsetMin: p.minutes - startMin, durationMin: endMin - startMin, dayIdx, startMin });
   }
   function onMouseDownResize(e: React.MouseEvent, evt: Evt, dayIdx: number, startMin: number, endMin: number) {
     if (!canWrite || evt.event_type.startsWith("system_")) return;
+    if (isMobile) return;
     e.stopPropagation(); e.preventDefault();
     setDrag({ kind: "resize", id: evt.id, dayIdx, startMin, endMin });
   }
@@ -1691,7 +1710,7 @@ function TimeGridView({
                         background: c.bg, color: c.fg,
                         left, width,
                         top: (liveTop / 60) * hourPx,
-                        height: (liveHeight / 60) * hourPx - 2,
+                        height: Math.max(isMobile ? 48 : 18, (liveHeight / 60) * hourPx - 2),
                         zIndex: isDragged ? 40 : 10,
                       }}>
                       <div className="flex items-center gap-1 truncate">
