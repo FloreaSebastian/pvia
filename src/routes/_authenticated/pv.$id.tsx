@@ -45,6 +45,9 @@ import { reserveStatusLabel, reserveStatusTone, isReserveOverdue } from "@/lib/r
 
 export const Route = createFileRoute("/_authenticated/pv/$id")({
   component: PvDetail,
+  validateSearch: (s: Record<string, unknown>) => ({
+    openLift: typeof s.openLift === "string" ? s.openLift : undefined,
+  }),
   head: () => ({ meta: [{ title: "Détail PV — PVIA" }] }),
 });
 
