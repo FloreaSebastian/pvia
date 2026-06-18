@@ -390,8 +390,18 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   }, [open, step?.id, selectedReserves, initialPhotos, listPhotosFn]);
 
   // --- After-photo upload
-  async function handleAfterFiles(rid: string, files: FileList | null) {
-    if (!files || files.length === 0) return;
+  // IMPORTANT: `files` must be a plain File[], NOT a live FileList.
+  // The caller resets `e.target.value = ""` right after invoking us, which
+  // empties the input's FileList synchronously — if we iterated the live
+  // FileList in this async function, `Array.from(files)` would yield `[]`
+  // and no photo would ever be added.
+  async function handleAfterFiles(rid: string, files: File[]) {
+    if (!files || files.length === 0) {
+      toast.error("Aucun fichier sélectionné.");
+      return;
+    }
+    const ACCEPTED = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"];
+    const MAX_RAW_BYTES = 25 * 1024 * 1024; // 25 MB hard cap per file
     setUploading(true);
     try {
       // Try to refresh GPS if user previously granted; fall back to last known
@@ -402,40 +412,96 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         accuracy: lastKnownPosition?.accuracy ?? null,
       };
       if (gpsPermission === "granted" || gpsPermission === "pending") {
-        const fresh = await tryGetGps();
-        if (fresh.latitude !== null && fresh.longitude !== null) {
-          browserGps = fresh;
-          setLastKnownPosition({
-            latitude: fresh.latitude,
-            longitude: fresh.longitude,
-            accuracy: fresh.accuracy,
-          });
-          if (gpsPermission !== "granted") setGpsPermission("granted");
-        }
+        try {
+          const fresh = await tryGetGps();
+          if (fresh.latitude !== null && fresh.longitude !== null) {
+            browserGps = fresh;
+            setLastKnownPosition({
+              latitude: fresh.latitude,
+              longitude: fresh.longitude,
+              accuracy: fresh.accuracy,
+            });
+            if (gpsPermission !== "granted") setGpsPermission("granted");
+          }
+        } catch { /* GPS optionnel — n'empêche jamais l'ajout */ }
       }
       const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 400) : "";
-      const list = Array.from(files);
       const entries: PhotoEntry[] = [];
       let compressedCount = 0;
-      for (const raw of list) {
+      let skippedTooLarge = 0;
+      let skippedBadType = 0;
+      let usedRawFallback = 0;
+      let usedWithoutGps = 0;
+
+      for (const raw of files) {
+        const type = (raw.type || "").toLowerCase();
+        // Type check — accept anything starting with image/, plus empty type
+        // (iOS camera capture parfois renvoie type vide).
+        if (type && !type.startsWith("image/")) {
+          skippedBadType++;
+          continue;
+        }
+        if (type && !ACCEPTED.includes(type)) {
+          // HEIC/HEIF or other image — try anyway; compression will fall back.
+        }
+        if (raw.size > MAX_RAW_BYTES) {
+          skippedTooLarge++;
+          continue;
+        }
+        let processed: File = raw;
         try {
           const { file, compressed } = await compressImageFile(raw);
+          processed = file;
           if (compressed) compressedCount++;
-          entries.push(await buildPhotoEntry(file, browserGps, deviceInfo));
-        } catch (innerErr: any) {
-          // Don't abort the whole batch — fall back to raw file with no GPS.
-          console.warn("[lift] photo processing failed, using raw", innerErr);
-          entries.push(await buildPhotoEntry(raw, browserGps, deviceInfo));
+        } catch (compressErr) {
+          console.warn("[lift] compression échouée, fichier original utilisé", compressErr);
+          usedRawFallback++;
+        }
+        try {
+          const entry = await buildPhotoEntry(processed, browserGps, deviceInfo);
+          if (entry.latitude === null) usedWithoutGps++;
+          entries.push(entry);
+        } catch (buildErr) {
+          // Dernier filet : créer une entrée minimale pour ne jamais perdre la photo.
+          console.warn("[lift] buildPhotoEntry a échoué, entrée minimale", buildErr);
+          entries.push({
+            file: processed,
+            previewUrl: URL.createObjectURL(processed),
+            latitude: browserGps.latitude,
+            longitude: browserGps.longitude,
+            accuracy: browserGps.accuracy,
+            takenAt: new Date().toISOString(),
+            deviceInfo,
+            exifMetadata: null,
+            gpsSource: browserGps.latitude !== null ? "browser" : "none",
+          });
+          if (browserGps.latitude === null) usedWithoutGps++;
         }
       }
+
       if (entries.length === 0) {
-        toast.error("Aucune photo n'a pu être ajoutée.");
+        if (skippedBadType > 0) {
+          toast.error("Format photo non pris en charge. Utilisez JPG, PNG ou WebP.");
+        } else if (skippedTooLarge > 0) {
+          toast.error("Photo trop volumineuse (>25 Mo). Veuillez reprendre la photo.");
+        } else {
+          toast.error("Erreur de lecture des photos.");
+        }
         return;
       }
-      if (compressedCount > 0) toast.success(`${compressedCount} photo(s) optimisée(s).`);
+
       setPhotosAfter((prev) => ({ ...prev, [rid]: [...(prev[rid] ?? []), ...entries] }));
+
+      // Messages d'info (non bloquants)
+      if (compressedCount > 0) toast.success(`${entries.length} photo(s) ajoutée(s) — ${compressedCount} optimisée(s).`);
+      else toast.success(`${entries.length} photo(s) ajoutée(s).`);
+      if (usedRawFallback > 0) toast.message(`${usedRawFallback} photo(s) : compression impossible, original utilisé.`);
+      if (usedWithoutGps > 0) toast.message(`${usedWithoutGps} photo(s) ajoutée(s) sans géolocalisation.`);
+      if (skippedTooLarge > 0) toast.message(`${skippedTooLarge} photo(s) ignorée(s) (trop volumineuses).`);
+      if (skippedBadType > 0) toast.message(`${skippedBadType} fichier(s) ignoré(s) (format non image).`);
     } catch (e: any) {
-      toast.error(e?.message || "Échec d'import photo.");
+      console.error("[lift] handleAfterFiles error", e);
+      toast.error(e?.message || "Erreur inattendue lors de l'ajout des photos.");
     } finally {
       setUploading(false);
     }
@@ -754,8 +820,15 @@ export function ReserveLiftWorkflowDialog(props: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
-                      type="file" multiple accept="image/png,image/jpeg,image/webp" capture="environment"
-                      onChange={(e) => { void handleAfterFiles(r.id, e.target.files); e.target.value = ""; }}
+                      type="file" multiple accept="image/*" capture="environment"
+                      onChange={(e) => {
+                        // Convertir la FileList vivante en File[] AVANT de reset
+                        // l'input, sinon la liste devient vide pendant que la
+                        // fonction asynchrone tente de l'itérer.
+                        const picked = e.target.files ? Array.from(e.target.files) : [];
+                        e.target.value = "";
+                        void handleAfterFiles(r.id, picked);
+                      }}
                       className="h-9 text-xs"
                     />
                     {uploading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
