@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const Route = createFileRoute("/_authenticated/chantiers/")({
   component: ChantiersPage,
