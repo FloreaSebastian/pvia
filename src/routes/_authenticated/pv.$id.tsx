@@ -136,7 +136,9 @@ function PvDetail() {
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
   const resendLiftFn = useServerFn(resendValidatedReserveLiftEmail);
   const resendLiftValidationFn = useServerFn(resendReserveLiftValidationEmail);
+  const reopenLiftFn = useServerFn(reopenReserveLiftReport);
   const [resendingLiftId, setResendingLiftId] = useState<string | null>(null);
+  const [reopeningLiftId, setReopeningLiftId] = useState<string | null>(null);
   const [exportingLiftId, setExportingLiftId] = useState<string | null>(null);
   const exportExpertiseFn = useServerFn(exportReserveLiftExpertise);
   const [pv, setPv] = useState<Pv | null>(null);
