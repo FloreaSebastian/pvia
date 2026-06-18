@@ -443,11 +443,10 @@ export function ReserveLiftWorkflowDialog(props: Props) {
           comment: "",
           requireClientSignature: false,
           items,
-          // New intervenant signature (server mirrors it into company_signature for compat)
+          // New intervenant signature (server mirrors it into company_signature for compat).
+          // SECURITY (F-03): signer identity (name/role/email) is resolved server-side
+          // from the authenticated session — never sent from the client.
           signerSignature: signerSig,
-          signerName: signerName.trim() || null,
-          signerRole: signerRole || null,
-          signerEmail: signerEmail.trim() || null,
           validationMode,
           clientSignedOnSite: validationMode === "on_site",
           clientSignature: clientSig,
