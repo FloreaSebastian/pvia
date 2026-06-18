@@ -455,7 +455,7 @@ function ReservesPage() {
                     </Select>
                   )}
                   {r.status === "ouverte" && (
-                    <Link to="/pv/$id/levee-reserves" params={{ id: r.pv_id }} search={{ reserveId: r.id }}>
+                    <Link to="/pv/$id" params={{ id: r.pv_id }} search={{ openLift: r.id }}>
                       <Button size="sm" variant="outline" className="h-8">
                         <CheckCircle2 className="h-3.5 w-3.5" /> Lever
                       </Button>
