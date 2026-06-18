@@ -235,6 +235,69 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     setComments((c) => (c[rid] === value ? c : { ...c, [rid]: value }));
   }, []);
 
+  // ---- Draft persistence (localStorage, per pvId + userId)
+  // Only text-level state is persisted (selected reserves, comments,
+  // validation mode). Photos and signatures are not stored — they stay
+  // in-memory and the user re-uploads / re-signs on resume.
+  const draftKey = useMemo(
+    () => (user?.id && pvId ? `lift-draft:${user.id}:${pvId}` : null),
+    [user?.id, pvId],
+  );
+  const [hasDraft, setHasDraft] = useState(false);
+
+  useEffect(() => {
+    if (!open || !draftKey) return;
+    try {
+      setHasDraft(!!window.localStorage.getItem(draftKey));
+    } catch { /* ignore */ }
+  }, [open, draftKey]);
+
+  const saveDraft = useCallback(() => {
+    if (!draftKey) return false;
+    try {
+      const payload = {
+        selected, comments, validationMode,
+        signerName, signerRole, signerEmail,
+        savedAt: new Date().toISOString(),
+      };
+      window.localStorage.setItem(draftKey, JSON.stringify(payload));
+      setHasDraft(true);
+      return true;
+    } catch { return false; }
+  }, [draftKey, selected, comments, validationMode, signerName, signerRole, signerEmail]);
+
+  const restoreDraft = useCallback(() => {
+    if (!draftKey) return;
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const d = JSON.parse(raw) as any;
+      if (d?.selected) setSelected(d.selected);
+      if (d?.comments) setComments(d.comments);
+      if (d?.validationMode) setValidationMode(d.validationMode);
+      toast.success("Brouillon restauré.");
+    } catch {
+      toast.error("Brouillon illisible.");
+    }
+  }, [draftKey]);
+
+  const clearDraft = useCallback(() => {
+    if (!draftKey) return;
+    try { window.localStorage.removeItem(draftKey); setHasDraft(false); } catch { /* ignore */ }
+  }, [draftKey]);
+
+  // Has the user entered anything that would be lost on close?
+  const isDirty = useMemo(() => {
+    if (completed) return false; // already finalized
+    if (Object.values(selected).some(Boolean)) return true;
+    if (Object.values(comments).some((c) => c.trim().length > 0)) return true;
+    if (Object.values(photosAfter).some((arr) => arr.length > 0)) return true;
+    if (signerSigData || clientSigData) return true;
+    return false;
+  }, [completed, selected, comments, photosAfter, signerSigData, clientSigData]);
+
+
+
   // STEPS (dynamic — "otp" + "client" steps only when on_site)
   const STEPS: { id: StepId; label: string; short: string; icon: any }[] = useMemo(() => {
     const base: { id: StepId; label: string; short: string; icon: any }[] = [
