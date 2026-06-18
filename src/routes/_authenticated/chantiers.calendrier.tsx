@@ -238,11 +238,17 @@ function ChantierCalendarPage() {
 
   const range = useMemo(() => {
     if (view === "month") return { from: startOfWeek(startOfMonth(cursor)), to: addDays(startOfWeek(endOfMonth(cursor)), 41) };
-    if (view === "week") return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
+    if (view === "week") {
+      if (weekDays === 3) {
+        const d = new Date(cursor); d.setHours(0,0,0,0);
+        return { from: d, to: addDays(d, 2) };
+      }
+      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
+    }
     if (view === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
     if (view === "team") {
       if (teamMode === "day") { const d = new Date(cursor); d.setHours(0,0,0,0); return { from: d, to: d }; }
-      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), weekDays - 1) };
+      return { from: startOfWeek(cursor), to: addDays(startOfWeek(cursor), (weekDays === 3 ? 7 : weekDays) - 1) };
     }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00");
