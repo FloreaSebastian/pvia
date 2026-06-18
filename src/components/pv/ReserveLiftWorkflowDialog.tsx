@@ -1,16 +1,21 @@
 /**
- * Reserve Lift Workflow popup — guided step-by-step UI to process a reserve
- * directly from the PV sheet. Replaces navigation to /pv/:id/levee-reserves
- * for the common single-reserve flow.
+ * Reserve Lift Workflow popup — Phase 1 refactor.
  *
- * Desktop: large Dialog. Mobile: bottom Sheet.
+ * - Single intervenant signature (auto-filled from session — name, role, email)
+ * - "Constat initial" read-only step replaces the old "Photos avant" step:
+ *   the photos taken when the reserve was created (pv_photos.reserve_id) are
+ *   shown automatically. Technicians no longer re-shoot the same photos.
+ * - Validation mode selector: on-site (client signs in the popup) vs remote
+ *   (an email is sent to the client after finalization).
+ * - Backward compat: legacy company/technician signature columns are still
+ *   populated server-side. OTP for client signature is Phase 2.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft, ChevronRight, Loader2, MapPin, MapPinOff, X,
-  Camera, FileSignature, Send, Check,
+  Camera, FileSignature, Send, Check, Eye, Mail, UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,14 +23,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 
 import { useIsMobile } from "@/hooks/use-mobile";
-import { createReserveLift } from "@/lib/reserve-lift.functions";
+import { useAuth } from "@/hooks/use-auth";
+import { useCompany } from "@/hooks/use-company";
+import { supabase } from "@/integrations/supabase/client";
+import { createReserveLift, listReserveLiftPhotos } from "@/lib/reserve-lift.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import {
@@ -54,40 +61,102 @@ type Props = {
   onCompleted?: (reportId: string, numero: string) => void;
 };
 
-type StepId = "select" | "before" | "intervention" | "after" | "tech" | "company" | "review";
+type StepId =
+  | "select"
+  | "constat"
+  | "intervention"
+  | "after"
+  | "signer"
+  | "mode"
+  | "client"
+  | "review";
 
-const STEPS: { id: StepId; label: string; short: string; icon: any }[] = [
-  { id: "select",       label: "Réserves",      short: "1", icon: Check },
-  { id: "before",       label: "Photos avant",  short: "2", icon: Camera },
-  { id: "intervention", label: "Intervention",  short: "3", icon: FileSignature },
-  { id: "after",        label: "Photos après",  short: "4", icon: Camera },
-  { id: "tech",         label: "Technicien",    short: "5", icon: FileSignature },
-  { id: "company",      label: "Entreprise",    short: "6", icon: FileSignature },
-  { id: "review",       label: "Envoi",         short: "7", icon: Send },
-];
+type InitialPhoto = {
+  url: string | null;
+  label: string | null;
+  takenAt: string | null;
+  hasGeo: boolean;
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  directeur: "Directeur",
+  responsable_exploitation: "Responsable d'exploitation",
+  conducteur_travaux: "Conducteur de travaux",
+  assistant_admin: "Assistant administratif",
+  technicien: "Technicien",
+};
+function prettyRole(r: string | null | undefined): string {
+  if (!r) return "Intervenant";
+  return ROLE_LABELS[r] ?? r;
+}
 
 export function ReserveLiftWorkflowDialog(props: Props) {
-  const { open, onOpenChange, pvId, pvNumero, reserves, preselectedReserveId, chantierLabel, clientLabel, onCompleted } = props;
+  const {
+    open, onOpenChange, pvId, pvNumero, reserves, preselectedReserveId,
+    chantierLabel, clientLabel, onCompleted,
+  } = props;
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const { activeRole } = useCompany();
   const createFn = useServerFn(createReserveLift);
+  const listPhotosFn = useServerFn(listReserveLiftPhotos);
 
-  // State
+  // Intervenant identity (auto-filled, read-only)
+  const [signerName, setSignerName] = useState("");
+  const [signerRole, setSignerRole] = useState<string>("");
+  const [signerEmail, setSignerEmail] = useState("");
+
+  // Wizard state
   const [stepIdx, setStepIdx] = useState(0);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
-  const [photosBefore, setPhotosBefore] = useState<Record<string, PhotoEntry[]>>({});
   const [photosAfter, setPhotosAfter] = useState<Record<string, PhotoEntry[]>>({});
-  const [technicianName, setTechnicianName] = useState("");
-  const [includeTechnicianSig, setIncludeTechnicianSig] = useState(true);
+  const [initialPhotos, setInitialPhotos] = useState<Record<string, InitialPhoto[]>>({});
+  const [loadingInitial, setLoadingInitial] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [uploadingKind, setUploadingKind] = useState<null | "before" | "after">(null);
-  const techSigRef = useRef<SignaturePad>(null);
-  const companySigRef = useRef<SignaturePad>(null);
-  // Persist signatures across step navigation (SignaturePad unmounts otherwise).
-  const [techSigData, setTechSigData] = useState<string | null>(null);
-  const [companySigData, setCompanySigData] = useState<string | null>(null);
 
-  // Init selection from preselected
+  const [validationMode, setValidationMode] = useState<"on_site" | "remote">("remote");
+
+  const signerSigRef = useRef<SignaturePad>(null);
+  const clientSigRef = useRef<SignaturePad>(null);
+  const [signerSigData, setSignerSigData] = useState<string | null>(null);
+  const [clientSigData, setClientSigData] = useState<string | null>(null);
+  const [clientConsent, setClientConsent] = useState(false);
+
+  // STEPS (dynamic — "client" step only when on_site)
+  const STEPS: { id: StepId; label: string; short: string; icon: any }[] = useMemo(() => {
+    const base: { id: StepId; label: string; short: string; icon: any }[] = [
+      { id: "select",       label: "Réserves",        short: "1", icon: Check },
+      { id: "constat",      label: "Constat initial", short: "2", icon: Eye },
+      { id: "intervention", label: "Intervention",    short: "3", icon: FileSignature },
+      { id: "after",        label: "Photos après",    short: "4", icon: Camera },
+      { id: "signer",       label: "Intervenant",     short: "5", icon: UserCheck },
+      { id: "mode",         label: "Validation",      short: "6", icon: Mail },
+    ];
+    if (validationMode === "on_site") {
+      base.push({ id: "client", label: "Signature client", short: "7", icon: FileSignature });
+    }
+    base.push({ id: "review", label: "Finalisation", short: String(base.length + 1), icon: Send });
+    return base;
+  }, [validationMode]);
+
+  // --- Fetch full_name for intervenant on open
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    setSignerEmail(user.email ?? "");
+    setSignerRole(activeRole ?? "");
+    (async () => {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      setSignerName(prof?.full_name ?? "");
+    })();
+  }, [open, user?.id, user?.email, activeRole]);
+
+  // --- Initial selection
   useEffect(() => {
     if (!open) return;
     if (preselectedReserveId && reserves.some((r) => r.id === preselectedReserveId)) {
@@ -100,19 +169,21 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     setStepIdx(0);
   }, [open, preselectedReserveId, reserves]);
 
-  // Cleanup preview URLs on close/unmount
+  // Cleanup on close
   useEffect(() => {
     if (open) return;
-    const all = [...Object.values(photosBefore).flat(), ...Object.values(photosAfter).flat()];
-    all.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-    setPhotosBefore({}); setPhotosAfter({}); setComments({});
-    setTechnicianName(""); setIncludeTechnicianSig(true);
-    setTechSigData(null); setCompanySigData(null);
+    Object.values(photosAfter).flat().forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    setPhotosAfter({});
+    setComments({});
+    setInitialPhotos({});
+    setSignerSigData(null);
+    setClientSigData(null);
+    setClientConsent(false);
+    setValidationMode("remote");
     setStepIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const selectedIds = useMemo(() => Object.keys(selected).filter((k) => selected[k]), [selected]);
   const selectedReserves = useMemo(
     () => reserves.filter((r) => selected[r.id]),
     [reserves, selected],
@@ -120,10 +191,50 @@ export function ReserveLiftWorkflowDialog(props: Props) {
 
   const step = STEPS[stepIdx];
 
-  // --- Photo upload handler with compression
-  async function handleFiles(rid: string, kind: "before" | "after", files: FileList | null) {
+  // Load initial constat photos when entering the constat step (or selection changes)
+  useEffect(() => {
+    if (!open) return;
+    if (step?.id !== "constat") return;
+    if (selectedReserves.length === 0) return;
+    const missing = selectedReserves.filter((r) => !initialPhotos[r.id]);
+    if (missing.length === 0) return;
+    setLoadingInitial(true);
+    (async () => {
+      try {
+        const results = await Promise.all(
+          missing.map(async (r) => {
+            try {
+              const res = await listPhotosFn({ data: { reserveId: r.id } });
+              const photos = (res?.photos ?? []) as any[];
+              const initial: InitialPhoto[] = photos
+                .filter((p) => p.photoType === "initial")
+                .map((p) => ({
+                  url: p.url,
+                  label: p.label,
+                  takenAt: p.takenAt ?? p.uploadedAt ?? null,
+                  hasGeo: p.latitude != null && p.longitude != null,
+                }));
+              return [r.id, initial] as [string, InitialPhoto[]];
+            } catch {
+              return [r.id, [] as InitialPhoto[]] as [string, InitialPhoto[]];
+            }
+          }),
+        );
+        setInitialPhotos((prev) => {
+          const next = { ...prev };
+          for (const [rid, list] of results) next[rid] = list;
+          return next;
+        });
+      } finally {
+        setLoadingInitial(false);
+      }
+    })();
+  }, [open, step?.id, selectedReserves, initialPhotos, listPhotosFn]);
+
+  // --- After-photo upload
+  async function handleAfterFiles(rid: string, files: FileList | null) {
     if (!files || files.length === 0) return;
-    setUploadingKind(kind);
+    setUploading(true);
     try {
       const browserGps = await tryGetGps();
       const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 400) : "";
@@ -136,18 +247,16 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         entries.push(await buildPhotoEntry(file, browserGps, deviceInfo));
       }
       if (compressedCount > 0) toast.success(`${compressedCount} photo(s) optimisée(s).`);
-      const setter = kind === "before" ? setPhotosBefore : setPhotosAfter;
-      setter((prev) => ({ ...prev, [rid]: [...(prev[rid] ?? []), ...entries] }));
+      setPhotosAfter((prev) => ({ ...prev, [rid]: [...(prev[rid] ?? []), ...entries] }));
     } catch (e: any) {
       toast.error(e?.message || "Échec d'import photo.");
     } finally {
-      setUploadingKind(null);
+      setUploading(false);
     }
   }
 
-  function removePhoto(rid: string, kind: "before" | "after", idx: number) {
-    const setter = kind === "before" ? setPhotosBefore : setPhotosAfter;
-    setter((prev) => {
+  function removeAfter(rid: string, idx: number) {
+    setPhotosAfter((prev) => {
       const list = [...(prev[rid] ?? [])];
       const removed = list.splice(idx, 1);
       removed.forEach((e) => URL.revokeObjectURL(e.previewUrl));
@@ -159,13 +268,10 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   function validateStep(id: StepId): { ok: boolean; msg?: string } {
     switch (id) {
       case "select":
-        if (selectedIds.length === 0) return { ok: false, msg: "Sélectionnez au moins une réserve." };
+        if (selectedReserves.length === 0) return { ok: false, msg: "Sélectionnez au moins une réserve." };
         return { ok: true };
-      case "before": {
-        const missing = selectedReserves.filter((r) => (photosBefore[r.id]?.length ?? 0) === 0);
-        if (missing.length > 0) return { ok: false, msg: "Au moins 1 photo AVANT par réserve sélectionnée." };
+      case "constat":
         return { ok: true };
-      }
       case "intervention": {
         const missing = selectedReserves.filter((r) => !(comments[r.id] ?? "").trim());
         if (missing.length > 0) return { ok: false, msg: "Décrivez les travaux réalisés pour chaque réserve." };
@@ -176,19 +282,21 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         if (missing.length > 0) return { ok: false, msg: "Au moins 1 photo APRÈS par réserve sélectionnée." };
         return { ok: true };
       }
-      case "tech":
-        if (includeTechnicianSig) {
-          if (!technicianName.trim()) return { ok: false, msg: "Nom du technicien obligatoire." };
-          // Read current pad if mounted, else fallback to stored
-          const sig = techSigRef.current && !techSigRef.current.isEmpty()
-            ? techSigRef.current.toDataURL("image/png") : techSigData;
-          if (!sig) return { ok: false, msg: "Signature du technicien obligatoire." };
-        }
+      case "signer": {
+        if (!signerName.trim()) return { ok: false, msg: "Nom de l'intervenant manquant." };
+        const sig = signerSigRef.current && !signerSigRef.current.isEmpty()
+          ? signerSigRef.current.toDataURL("image/png") : signerSigData;
+        if (!sig) return { ok: false, msg: "Signature intervenant obligatoire." };
         return { ok: true };
-      case "company": {
-        const sig = companySigRef.current && !companySigRef.current.isEmpty()
-          ? companySigRef.current.toDataURL("image/png") : companySigData;
-        if (!sig) return { ok: false, msg: "Signature entreprise obligatoire." };
+      }
+      case "mode":
+        return { ok: true };
+      case "client": {
+        if (validationMode !== "on_site") return { ok: true };
+        if (!clientConsent) return { ok: false, msg: "Le client doit accepter avant de signer." };
+        const sig = clientSigRef.current && !clientSigRef.current.isEmpty()
+          ? clientSigRef.current.toDataURL("image/png") : clientSigData;
+        if (!sig) return { ok: false, msg: "Signature client obligatoire (sur place)." };
         return { ok: true };
       }
       case "review":
@@ -196,79 +304,72 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     }
   }
 
-  function persistSigBeforeNav() {
-    if (techSigRef.current && !techSigRef.current.isEmpty()) {
-      setTechSigData(techSigRef.current.toDataURL("image/png"));
+  function persistSigs() {
+    if (signerSigRef.current && !signerSigRef.current.isEmpty()) {
+      setSignerSigData(signerSigRef.current.toDataURL("image/png"));
     }
-    if (companySigRef.current && !companySigRef.current.isEmpty()) {
-      setCompanySigData(companySigRef.current.toDataURL("image/png"));
+    if (clientSigRef.current && !clientSigRef.current.isEmpty()) {
+      setClientSigData(clientSigRef.current.toDataURL("image/png"));
     }
   }
 
   function goNext() {
-    persistSigBeforeNav();
+    persistSigs();
     const v = validateStep(step.id);
     if (!v.ok) { toast.error(v.msg!); return; }
     setStepIdx((i) => Math.min(STEPS.length - 1, i + 1));
   }
   function goPrev() {
-    persistSigBeforeNav();
+    persistSigs();
     setStepIdx((i) => Math.max(0, i - 1));
   }
 
   // --- Finalize
   async function handleFinalize() {
-    persistSigBeforeNav();
-    // Re-run all validations
+    persistSigs();
     for (const s of STEPS) {
       const v = validateStep(s.id);
       if (!v.ok) {
         toast.error(v.msg!);
-        const idx = STEPS.findIndex((x) => x.id === s.id);
-        setStepIdx(idx);
+        setStepIdx(STEPS.findIndex((x) => x.id === s.id));
         return;
       }
     }
-    const companySig = companySigRef.current && !companySigRef.current.isEmpty()
-      ? companySigRef.current.toDataURL("image/png") : companySigData;
-    const techSig = includeTechnicianSig
-      ? (techSigRef.current && !techSigRef.current.isEmpty()
-          ? techSigRef.current.toDataURL("image/png") : techSigData)
+    const signerSig = signerSigRef.current && !signerSigRef.current.isEmpty()
+      ? signerSigRef.current.toDataURL("image/png") : signerSigData;
+    const clientSig = validationMode === "on_site"
+      ? (clientSigRef.current && !clientSigRef.current.isEmpty()
+          ? clientSigRef.current.toDataURL("image/png") : clientSigData)
       : null;
-    if (!companySig) { toast.error("Signature entreprise obligatoire."); return; }
+    if (!signerSig) { toast.error("Signature intervenant obligatoire."); return; }
 
     setSubmitting(true);
     try {
       const items = await Promise.all(
         selectedReserves.map(async (r) => {
-          const before = photosBefore[r.id] ?? [];
           const after = photosAfter[r.id] ?? [];
-          const all = await Promise.all(
-            [
-              ...before.map((e) => ({ e, t: "before" as const })),
-              ...after.map((e) => ({ e, t: "after" as const })),
-            ].map(async ({ e, t }) => {
-              const base64 = await fileToBase64(e.file);
-              if (base64.length > PHOTO_BASE64_MAX) {
-                throw new Error("Une photo reste trop volumineuse après compression. Réessayez avec une photo plus petite.");
-              }
-              return {
-                base64,
-                mimeType: e.file.type || "image/jpeg",
-                fileName: e.file.name,
-                photoType: t,
-                latitude: e.latitude,
-                longitude: e.longitude,
-                accuracy: e.accuracy,
-                takenAt: e.takenAt,
-                deviceInfo: e.deviceInfo,
-                exifMetadata: sanitizeExifForUpload(e.exifMetadata),
-              };
-            }),
-          );
-          return { reserveId: r.id, comment: (comments[r.id] ?? "").trim(), photos: all };
+          const photos = await Promise.all(after.map(async (e) => {
+            const base64 = await fileToBase64(e.file);
+            if (base64.length > PHOTO_BASE64_MAX) {
+              throw new Error("Une photo reste trop volumineuse après compression.");
+            }
+            return {
+              base64,
+              mimeType: e.file.type || "image/jpeg",
+              fileName: e.file.name,
+              photoType: "after" as const,
+              latitude: e.latitude,
+              longitude: e.longitude,
+              accuracy: e.accuracy,
+              takenAt: e.takenAt,
+              deviceInfo: e.deviceInfo,
+              exifMetadata: sanitizeExifForUpload(e.exifMetadata),
+            };
+          }));
+          return { reserveId: r.id, comment: (comments[r.id] ?? "").trim(), photos };
         }),
       );
+
       const res = await createFn({
         data: {
           pvId,
@@ -276,24 +377,29 @@ export function ReserveLiftWorkflowDialog(props: Props) {
           comment: "",
           requireClientSignature: false,
           items,
-          companySignature: companySig,
-          clientSignature: null,
-          technicianSignature: techSig,
-          technicianName: technicianName.trim() || null,
+          // New intervenant signature (server mirrors it into company_signature for compat)
+          signerSignature: signerSig,
+          signerName: signerName.trim() || null,
+          signerRole: signerRole || null,
+          signerEmail: signerEmail.trim() || null,
+          validationMode,
+          clientSignedOnSite: validationMode === "on_site",
+          clientSignature: clientSig,
+          // Legacy fields kept for back-compat — left null on new flow
+          companySignature: null,
+          technicianSignature: null,
+          technicianName: null,
         },
       });
-      toast.success(`Levée ${res.numero} envoyée au client.`);
+      if (validationMode === "on_site") {
+        toast.success(`Levée ${res.numero} finalisée et signée sur place.`);
+      } else {
+        toast.success(`Levée ${res.numero} envoyée au client pour validation.`);
+      }
       onCompleted?.(res.reportId, res.numero);
       onOpenChange(false);
     } catch (e: any) {
-      const code = e?.code;
-      if (code === "PHOTO_TOO_LARGE") {
-        toast.error("Photo trop volumineuse — réduisez la taille puis réessayez.");
-        const beforeIdx = STEPS.findIndex((s) => s.id === "before");
-        setStepIdx(beforeIdx);
-      } else {
-        toast.error(e?.message || "Échec de la création de la levée.");
-      }
+      toast.error(e?.message || "Échec de la création de la levée.");
     } finally {
       setSubmitting(false);
     }
@@ -319,7 +425,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
           <div key={s.id} className="flex items-center gap-1 shrink-0">
             <button
               type="button"
-              onClick={() => { persistSigBeforeNav(); setStepIdx(idx); }}
+              onClick={() => { persistSigs(); setStepIdx(idx); }}
               className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
                 active ? "bg-primary text-primary-foreground"
                 : done ? "bg-primary/10 text-primary"
@@ -337,56 +443,6 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       })}
     </div>
   );
-
-  const PhotoZone = ({ rid, kind }: { rid: string; kind: "before" | "after" }) => {
-    const list = (kind === "before" ? photosBefore : photosAfter)[rid] ?? [];
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs">{kind === "before" ? "Photos avant" : "Photos après"} <span className="text-destructive">*</span></Label>
-          <span className="text-[10px] text-muted-foreground">{list.length} photo(s)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="file"
-            multiple
-            accept="image/png,image/jpeg,image/webp"
-            capture="environment"
-            onChange={(e) => { void handleFiles(rid, kind, e.target.files); e.target.value = ""; }}
-            className="h-9 text-xs"
-          />
-          {uploadingKind === kind && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-        </div>
-        {list.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {list.map((p, idx) => {
-              const geo = p.latitude !== null && p.longitude !== null;
-              return (
-                <div key={idx} className="relative overflow-hidden rounded border border-border">
-                  <img src={p.previewUrl} alt="" className="aspect-square w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(rid, kind, idx)}
-                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-                    aria-label="Supprimer"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                  <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
-                    {geo ? (
-                      <><MapPin className="h-2.5 w-2.5 text-green-300" />{p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}</>
-                    ) : (
-                      <><MapPinOff className="h-2.5 w-2.5 text-amber-300" />Non géoloc.</>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const ReserveCard = ({ r, children }: { r: LiftDialogReserve; children?: React.ReactNode }) => (
     <div className="rounded-md border border-border p-3 space-y-2">
@@ -416,8 +472,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       {HeaderInfo}
       {Stepper}
 
-      {/* Step content */}
-      {step.id === "select" && (
+      {step?.id === "select" && (
         <div className="space-y-2">
           {reserves.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune réserve ouverte à lever.</p>
@@ -440,18 +495,50 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         </div>
       )}
 
-      {step.id === "before" && (
+      {step?.id === "constat" && (
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">Documentez l'état initial avant l'intervention (au moins 1 photo par réserve).</p>
-          {selectedReserves.map((r) => (
-            <ReserveCard key={r.id} r={r}>
-              <PhotoZone rid={r.id} kind="before" />
-            </ReserveCard>
-          ))}
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs">
+            Ces photos ont été prises lors de la création de la réserve et constituent le
+            <span className="font-medium"> constat initial</span>. Aucune modification possible.
+          </div>
+          {loadingInitial && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Chargement des photos initiales…
+            </div>
+          )}
+          {selectedReserves.map((r) => {
+            const list = initialPhotos[r.id] ?? [];
+            return (
+              <ReserveCard key={r.id} r={r}>
+                {list.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground italic">
+                    Aucune photo de constat initial trouvée pour cette réserve.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {list.map((p, idx) => (
+                      <div key={idx} className="relative overflow-hidden rounded border border-border">
+                        {p.url ? (
+                          <img src={p.url} alt={p.label ?? ""} className="aspect-square w-full object-cover" />
+                        ) : (
+                          <div className="aspect-square grid place-items-center bg-muted text-[10px] text-muted-foreground">N/A</div>
+                        )}
+                        <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
+                          <span className="truncate">{p.label}</span>
+                          {p.hasGeo ? <MapPin className="h-2.5 w-2.5 text-green-300 shrink-0" />
+                                    : <MapPinOff className="h-2.5 w-2.5 text-amber-300 shrink-0" />}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ReserveCard>
+            );
+          })}
         </div>
       )}
 
-      {step.id === "intervention" && (
+      {step?.id === "intervention" && (
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">Décrivez les travaux réalisés pour chaque réserve.</p>
           {selectedReserves.map((r) => (
@@ -470,104 +557,197 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         </div>
       )}
 
-      {step.id === "after" && (
+      {step?.id === "after" && (
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">Photos preuves après intervention (au moins 1 photo par réserve).</p>
-          {selectedReserves.map((r) => (
-            <ReserveCard key={r.id} r={r}>
-              <PhotoZone rid={r.id} kind="after" />
-            </ReserveCard>
-          ))}
-        </div>
-      )}
-
-      {step.id === "tech" && (
-        <div className="space-y-3 rounded-md border border-border p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-sm">Signature technicien intervenant</Label>
-              <p className="text-[11px] text-muted-foreground">Trace l'auteur de l'intervention sur site.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={includeTechnicianSig} onCheckedChange={setIncludeTechnicianSig} />
-              <Label className="!mt-0 text-xs">Inclure</Label>
-            </div>
-          </div>
-          {includeTechnicianSig && (
-            <>
-              <div>
-                <Label className="text-xs">Nom du technicien <span className="text-destructive">*</span></Label>
-                <Input
-                  value={technicianName}
-                  onChange={(e) => setTechnicianName(e.target.value)}
-                  placeholder="Nom Prénom"
-                  className="h-9"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Signature <span className="text-destructive">*</span></Label>
-                <div className="rounded-md border border-border bg-background">
-                  <SignaturePad
-                    ref={techSigRef}
-                    canvasProps={{ className: "w-full h-28" }}
-                    onEnd={() => {
-                      if (techSigRef.current && !techSigRef.current.isEmpty()) {
-                        setTechSigData(techSigRef.current.toDataURL("image/png"));
-                      }
-                    }}
-                  />
+          <p className="text-xs text-muted-foreground">Photos preuves <span className="font-medium">après intervention</span> (au moins 1 par réserve).</p>
+          {selectedReserves.map((r) => {
+            const list = photosAfter[r.id] ?? [];
+            return (
+              <ReserveCard key={r.id} r={r}>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Photos après <span className="text-destructive">*</span></Label>
+                    <span className="text-[10px] text-muted-foreground">{list.length} photo(s)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file" multiple accept="image/png,image/jpeg,image/webp" capture="environment"
+                      onChange={(e) => { void handleAfterFiles(r.id, e.target.files); e.target.value = ""; }}
+                      className="h-9 text-xs"
+                    />
+                    {uploading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  </div>
+                  {list.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {list.map((p, idx) => {
+                        const geo = p.latitude !== null && p.longitude !== null;
+                        return (
+                          <div key={idx} className="relative overflow-hidden rounded border border-border">
+                            <img src={p.previewUrl} alt="" className="aspect-square w-full object-cover" />
+                            <button type="button" onClick={() => removeAfter(r.id, idx)}
+                              className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                              aria-label="Supprimer">
+                              <X className="h-3 w-3" />
+                            </button>
+                            <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
+                              {geo ? (
+                                <><MapPin className="h-2.5 w-2.5 text-green-300" />{p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}</>
+                              ) : (
+                                <><MapPinOff className="h-2.5 w-2.5 text-amber-300" />Non géoloc.</>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
-                  onClick={() => { techSigRef.current?.clear(); setTechSigData(null); }}>
-                  Effacer
-                </Button>
-              </div>
-            </>
-          )}
+              </ReserveCard>
+            );
+          })}
         </div>
       )}
 
-      {step.id === "company" && (
+      {step?.id === "signer" && (
         <div className="space-y-3 rounded-md border border-border p-3">
           <div>
-            <Label className="text-sm">Signature entreprise <span className="text-destructive">*</span></Label>
+            <Label className="text-sm">Intervenant</Label>
             <p className="text-[11px] text-muted-foreground">
-              Validation interne. Le client signera à distance via l'email qui lui sera envoyé.
+              Données issues de la session active. Cette signature engage l'auteur de l'intervention.
             </p>
           </div>
-          <div className="rounded-md border border-border bg-background">
-            <SignaturePad
-              ref={companySigRef}
-              canvasProps={{ className: "w-full h-32" }}
-              onEnd={() => {
-                if (companySigRef.current && !companySigRef.current.isEmpty()) {
-                  setCompanySigData(companySigRef.current.toDataURL("image/png"));
-                }
-              }}
-            />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded border border-border bg-muted/30 px-2 py-1.5">
+              <div className="text-[10px] uppercase text-muted-foreground">Nom</div>
+              <div className="text-sm font-medium">{signerName || "—"}</div>
+            </div>
+            <div className="rounded border border-border bg-muted/30 px-2 py-1.5">
+              <div className="text-[10px] uppercase text-muted-foreground">Fonction</div>
+              <div className="text-sm font-medium">{prettyRole(signerRole)}</div>
+            </div>
+            <div className="rounded border border-border bg-muted/30 px-2 py-1.5 sm:col-span-2">
+              <div className="text-[10px] uppercase text-muted-foreground">Email</div>
+              <div className="text-sm font-medium truncate">{signerEmail || "—"}</div>
+            </div>
           </div>
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
-            onClick={() => { companySigRef.current?.clear(); setCompanySigData(null); }}>
-            Effacer
-          </Button>
+          <div>
+            <Label className="text-xs">Signature <span className="text-destructive">*</span></Label>
+            <div className="rounded-md border border-border bg-background">
+              <SignaturePad
+                ref={signerSigRef}
+                canvasProps={{ className: "w-full h-32" }}
+                onEnd={() => {
+                  if (signerSigRef.current && !signerSigRef.current.isEmpty()) {
+                    setSignerSigData(signerSigRef.current.toDataURL("image/png"));
+                  }
+                }}
+              />
+            </div>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+              onClick={() => { signerSigRef.current?.clear(); setSignerSigData(null); }}>
+              Effacer
+            </Button>
+          </div>
         </div>
       )}
 
-      {step.id === "review" && (
+      {step?.id === "mode" && (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm">Mode de validation client</Label>
+            <p className="text-[11px] text-muted-foreground">Choisissez comment le client validera la levée.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setValidationMode("on_site")}
+              className={`rounded-md border p-3 text-left transition ${
+                validationMode === "on_site" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <UserCheck className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Signature sur place</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Le client signe directement dans cette popup. Aucun email envoyé.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setValidationMode("remote")}
+              className={`rounded-md border p-3 text-left transition ${
+                validationMode === "remote" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Mail className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Signature à distance</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Un email est envoyé au client pour qu'il valide depuis son espace.
+              </p>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step?.id === "client" && validationMode === "on_site" && (
+        <div className="space-y-3 rounded-md border border-border p-3">
+          <div>
+            <Label className="text-sm">Signature client (sur place)</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Le client appose sa signature ci-dessous. IP et horodatage sont enregistrés.
+            </p>
+          </div>
+          <label className="flex items-start gap-2 text-xs">
+            <Checkbox checked={clientConsent} onCheckedChange={(v) => setClientConsent(!!v)} className="mt-0.5" />
+            <span>
+              Le client reconnaît avoir pris connaissance des travaux réalisés et valide la levée des réserves
+              listées dans ce document.
+            </span>
+          </label>
+          <div>
+            <Label className="text-xs">Signature <span className="text-destructive">*</span></Label>
+            <div className="rounded-md border border-border bg-background">
+              <SignaturePad
+                ref={clientSigRef}
+                canvasProps={{ className: "w-full h-32" }}
+                onEnd={() => {
+                  if (clientSigRef.current && !clientSigRef.current.isEmpty()) {
+                    setClientSigData(clientSigRef.current.toDataURL("image/png"));
+                  }
+                }}
+              />
+            </div>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs"
+              onClick={() => { clientSigRef.current?.clear(); setClientSigData(null); }}>
+              Effacer
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step?.id === "review" && (
         <div className="space-y-3">
           <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
             <p className="font-medium mb-1">Récapitulatif</p>
             <ul className="space-y-1 text-xs text-muted-foreground">
               <li>• {selectedReserves.length} réserve(s) à lever</li>
-              <li>• {selectedReserves.reduce((n, r) => n + (photosBefore[r.id]?.length ?? 0), 0)} photo(s) avant</li>
-              <li>• {selectedReserves.reduce((n, r) => n + (photosAfter[r.id]?.length ?? 0), 0)} photo(s) après</li>
-              <li>• Signature entreprise : {companySigData ? "✓" : "—"}</li>
-              <li>• Technicien : {includeTechnicianSig ? `${technicianName || "—"} ${techSigData ? "(signé)" : ""}` : "Non inclus"}</li>
+              <li>• Photos initiales (constat) : récupérées automatiquement</li>
+              <li>• {selectedReserves.reduce((n, r) => n + (photosAfter[r.id]?.length ?? 0), 0)} photo(s) après intervention</li>
+              <li>• Intervenant : {signerName || "—"} — {prettyRole(signerRole)}</li>
+              <li>• Signature intervenant : {signerSigData ? "✓" : "—"}</li>
+              <li>• Mode de validation client : {validationMode === "on_site" ? "Sur place" : "À distance (email)"}</li>
+              {validationMode === "on_site" && (
+                <li>• Signature client : {clientSigData ? "✓" : "—"}</li>
+              )}
             </ul>
           </div>
           <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs">
-            En finalisant, un PV de levée est généré (PDF client + interne) et le client recevra un email
-            pour valider et signer la levée depuis son espace.
+            {validationMode === "on_site"
+              ? "En finalisant, la levée est signée par le client immédiatement, le PDF est généré et le PV est mis à jour."
+              : "En finalisant, un PV de levée est généré et le client recevra un email pour valider et signer depuis son espace."}
           </div>
         </div>
       )}
@@ -576,18 +756,14 @@ export function ReserveLiftWorkflowDialog(props: Props) {
 
   const Footer = (
     <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-      <Button
-        variant="outline" size="sm"
-        onClick={goPrev}
-        disabled={stepIdx === 0 || submitting}
-      >
+      <Button variant="outline" size="sm" onClick={goPrev} disabled={stepIdx === 0 || submitting}>
         <ChevronLeft className="h-4 w-4" /> Précédent
       </Button>
       <span className="text-[11px] text-muted-foreground">Étape {stepIdx + 1} / {STEPS.length}</span>
-      {step.id === "review" ? (
+      {step?.id === "review" ? (
         <Button size="sm" onClick={handleFinalize} disabled={submitting}>
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Finaliser et envoyer
+          Finaliser
         </Button>
       ) : (
         <Button size="sm" onClick={goNext} disabled={submitting}>
@@ -603,7 +779,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         <SheetContent side="bottom" className="h-[92vh] overflow-y-auto flex flex-col">
           <SheetHeader>
             <SheetTitle>Levée de réserve</SheetTitle>
-            <SheetDescription>Workflow guidé pour traiter et envoyer la levée au client.</SheetDescription>
+            <SheetDescription>Workflow guidé pour traiter et valider la levée.</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto py-3">{Body}</div>
           {Footer}
@@ -617,7 +793,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Levée de réserve</DialogTitle>
-          <DialogDescription>Workflow guidé pour traiter et envoyer la levée au client.</DialogDescription>
+          <DialogDescription>Workflow guidé pour traiter et valider la levée.</DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto pr-1">{Body}</div>
         {Footer}
