@@ -38,6 +38,7 @@ import { FileArchive } from "lucide-react";
 import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 import { updateReserveStatus, deleteReserve as deleteReserveFn } from "@/lib/reserves.functions";
 import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
+import { ReserveLiftWorkflowDialog, type LiftDialogReserve } from "@/components/pv/ReserveLiftWorkflowDialog";
 import { reserveStatusLabel, reserveStatusTone, isReserveOverdue } from "@/lib/reserve-status";
 
 
