@@ -1940,6 +1940,7 @@ export type Database = {
           client_signature_ip: string | null
           client_signature_user_agent: string | null
           client_signed_at: string | null
+          client_signed_on_site: boolean
           client_validated_at: string | null
           client_validated_email: string | null
           client_validated_ip: string | null
@@ -1962,10 +1963,17 @@ export type Database = {
           pv_id: string
           require_client_signature: boolean
           signed_at: string | null
+          signer_email: string | null
+          signer_name: string | null
+          signer_role: string | null
+          signer_signature: string | null
+          signer_signed_at: string | null
+          signer_user_id: string | null
           status: string
           technician_name: string | null
           technician_signature: string | null
           updated_at: string
+          validation_mode: string
         }
         Insert: {
           client_rejected_at?: string | null
@@ -1979,6 +1987,7 @@ export type Database = {
           client_signature_ip?: string | null
           client_signature_user_agent?: string | null
           client_signed_at?: string | null
+          client_signed_on_site?: boolean
           client_validated_at?: string | null
           client_validated_email?: string | null
           client_validated_ip?: string | null
@@ -2001,10 +2010,17 @@ export type Database = {
           pv_id: string
           require_client_signature?: boolean
           signed_at?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          signer_role?: string | null
+          signer_signature?: string | null
+          signer_signed_at?: string | null
+          signer_user_id?: string | null
           status?: string
           technician_name?: string | null
           technician_signature?: string | null
           updated_at?: string
+          validation_mode?: string
         }
         Update: {
           client_rejected_at?: string | null
@@ -2018,6 +2034,7 @@ export type Database = {
           client_signature_ip?: string | null
           client_signature_user_agent?: string | null
           client_signed_at?: string | null
+          client_signed_on_site?: boolean
           client_validated_at?: string | null
           client_validated_email?: string | null
           client_validated_ip?: string | null
@@ -2040,10 +2057,17 @@ export type Database = {
           pv_id?: string
           require_client_signature?: boolean
           signed_at?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          signer_role?: string | null
+          signer_signature?: string | null
+          signer_signed_at?: string | null
+          signer_user_id?: string | null
           status?: string
           technician_name?: string | null
           technician_signature?: string | null
           updated_at?: string
+          validation_mode?: string
         }
         Relationships: []
       }
