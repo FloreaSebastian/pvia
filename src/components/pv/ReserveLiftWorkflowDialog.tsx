@@ -96,7 +96,7 @@ function prettyRole(r: string | null | undefined): string {
 export function ReserveLiftWorkflowDialog(props: Props) {
   const {
     open, onOpenChange, pvId, pvNumero, reserves, preselectedReserveId,
-    chantierLabel, clientLabel, onCompleted,
+    chantierLabel, clientLabel, clientEmail, onCompleted,
   } = props;
   const isMobile = useIsMobile();
   const { user } = useAuth();
