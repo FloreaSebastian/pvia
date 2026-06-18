@@ -133,13 +133,14 @@ function lsSet(k: string, v: unknown) {
 }
 
 // Saved default view preference: which view to open the calendar on.
-// "week5" = week with 5 days (Mon-Fri).
-type DefaultViewPref = "day" | "week" | "week5" | "month";
+// "week3" = 3-day view anchored on cursor (mobile field view).
+type DefaultViewPref = "day" | "week3" | "week" | "month";
 function loadInitialView(isMobile: boolean): { view: ViewKind; weekDays: WeekDays | null } {
-  const saved = lsGet<DefaultViewPref | null>(LS.defaultView, null);
+  const saved = lsGet<DefaultViewPref | "week5" | null>(LS.defaultView, null);
   if (saved === "day") return { view: "day", weekDays: null };
+  if (saved === "week3") return { view: "week", weekDays: 3 };
   if (saved === "week") return { view: "week", weekDays: 7 };
-  if (saved === "week5") return { view: "week", weekDays: 5 };
+  if (saved === "week5") return { view: "week", weekDays: 7 }; // legacy migration
   if (saved === "month") return { view: "month", weekDays: null };
   return { view: isMobile ? "day" : "month", weekDays: null };
 }
