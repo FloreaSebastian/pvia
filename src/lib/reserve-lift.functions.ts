@@ -840,7 +840,100 @@ export const resendReserveLiftClientEmail = createServerFn({ method: "POST" })
   });
 
 /**
- * List photos (before/after) for a given reserve, with signed URLs.
+ * Lot C — Controlled reopening of a signed reserve-lift report.
+ *
+ * Allowed strictly to directeur / responsable_exploitation, and ONLY before
+ * the client has signed, validated or rejected the lift. Resets the report
+ * to `en_cours`, wipes signatures + PDFs (best-effort storage cleanup) and
+ * writes audits `reserve_lift.reopened` + `reserve_lift.status_changed`.
+ */
+export const reopenReserveLiftReport = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ reportId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+    const { data: report } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .select(
+        "id,company_id,pv_id,status,client_signature,client_validated_at,client_rejected_at,pdf_url,pdf_client_url,pdf_internal_url",
+      )
+      .eq("id", data.reportId)
+      .maybeSingle();
+    if (!report) throw new Error("Levée introuvable.");
+    if (report.client_validated_at)
+      throw new Error("Cette levée a déjà été validée par le client — réouverture impossible.");
+    if (report.client_rejected_at)
+      throw new Error("Cette levée a été rejetée par le client — créez une nouvelle tentative.");
+    if (report.client_signature)
+      throw new Error("Signature client présente — réouverture impossible.");
+
+    const { data: member } = await supabaseAdmin
+      .from("company_members")
+      .select("role,status")
+      .eq("company_id", report.company_id)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+    const role = String(member?.role ?? "");
+    if (!["directeur", "responsable_exploitation"].includes(role)) {
+      throw new Error(
+        "Accès refusé : seul un directeur ou un responsable d'exploitation peut réouvrir une levée.",
+      );
+    }
+
+    // Best-effort cleanup of stored PDFs so the report doesn't leak stale documents.
+    const toRemove = [report.pdf_url, (report as any).pdf_client_url, (report as any).pdf_internal_url]
+      .filter((p): p is string => typeof p === "string" && p.length > 0);
+    if (toRemove.length) {
+      try {
+        await supabaseAdmin.storage.from("pv-assets").remove(toRemove);
+      } catch (e) {
+        console.warn("[reopenReserveLiftReport] storage cleanup failed", e);
+      }
+    }
+
+    const { error: upErr } = await supabaseAdmin
+      .from("reserve_lift_reports")
+      .update({
+        status: "en_cours",
+        pdf_url: null,
+        pdf_client_url: null,
+        pdf_internal_url: null,
+        signer_signature: null,
+        company_signature: null,
+        technician_signature: null,
+        client_signature_otp_id: null,
+        signed_at: null,
+        signer_signed_at: null,
+      } as never)
+      .eq("id", report.id);
+    if (upErr) throw new Error(upErr.message);
+
+    await writeAuditLog({
+      companyId: report.company_id,
+      userId,
+      pvId: report.pv_id,
+      entityType: "reserve_lift",
+      entityId: report.id,
+      action: "reserve_lift.reopened",
+      metadata: { previous_status: report.status, role },
+      actor: "user",
+    });
+    await writeAuditLog({
+      companyId: report.company_id,
+      userId,
+      pvId: report.pv_id,
+      entityType: "reserve_lift",
+      entityId: report.id,
+      action: "reserve_lift.status_changed",
+      metadata: { from: report.status, to: "en_cours" },
+      actor: "user",
+    });
+
+    return { ok: true as const };
+  });
+
+
  * Company-scoped via RLS; signed URLs valid 1h.
  * Falls back to legacy `reserve_lift_items.photo_urls` for items predating the dedicated table.
  */
