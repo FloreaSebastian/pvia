@@ -244,7 +244,24 @@ export async function buildAndStoreReserveLiftPdf(
     { x: MARGIN, y: PAGE_H - 124, size: 9.5, font: helv, color: MUTED },
   );
 
-  y = PAGE_H - 148;
+  y = PAGE_H - 140;
+
+  // ============ BANDEAU DE LIAISON AVEC LE PV PRINCIPAL ============
+  {
+    const bandH = 52;
+    const bandBg = rgb(0.93, 0.96, 1);
+    page.drawRectangle({ x: MARGIN, y: y - bandH, width: CONTENT_W, height: bandH, color: bandBg, borderColor: PRIMARY, borderWidth: 0.8 });
+    page.drawRectangle({ x: MARGIN, y: y - bandH, width: 4, height: bandH, color: PRIMARY });
+    const liaisonTitle = sanitize(`Document juridiquement lie au Proces-Verbal de Reception n° ${pv?.numero ?? "—"}`);
+    page.drawText(liaisonTitle, { x: MARGIN + 14, y: y - 18, size: 10, font: bold, color: ACCENT });
+    const dReception = `Date reception : ${formatDate(pv?.reception_date)}`;
+    const dLevee = `Date levee : ${formatDate(report.signed_at ?? report.created_at)}`;
+    page.drawText(sanitize(dReception), { x: MARGIN + 14, y: y - 36, size: 9, font: helv, color: ACCENT });
+    const dLeveeW = helv.widthOfTextAtSize(sanitize(dLevee), 9);
+    page.drawText(sanitize(dLevee), { x: MARGIN + CONTENT_W - 14 - dLeveeW, y: y - 36, size: 9, font: helv, color: ACCENT });
+    y -= bandH + 12;
+  }
+
 
   // ============ BLOC JURIDIQUE — Lien avec le PV initial ============
   ensureSpace(86);
