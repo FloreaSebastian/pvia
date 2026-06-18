@@ -93,6 +93,64 @@ function prettyRole(r: string | null | undefined): string {
   return ROLE_LABELS[r] ?? r;
 }
 
+/**
+ * Top-level stable component — defining this INSIDE ReserveLiftWorkflowDialog
+ * gave it a new function identity on every render, causing React to unmount
+ * and remount the subtree. That unmount/remount made the comment <Textarea>
+ * lose focus after each keystroke. Keep this component module-scoped.
+ */
+function ReserveCard({ r, children }: { r: LiftDialogReserve; children?: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-border p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5 mb-1">
+            <Badge variant={r.severity === "majeure" ? "destructive" : "secondary"} className="text-[10px]">{r.severity}</Badge>
+            {r.priority && r.priority !== "normal" && (
+              <Badge variant="outline" className="text-[10px]">P. {r.priority}</Badge>
+            )}
+            {r.due_date && (
+              <span className="text-[10px] text-muted-foreground">📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}</span>
+            )}
+          </div>
+          <p className="text-sm leading-snug">{r.description}</p>
+          {r.work_to_execute && (
+            <p className="mt-1 text-[11px] text-muted-foreground"><span className="font-medium">Travaux prévus :</span> {r.work_to_execute}</p>
+          )}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Memoized comment field per reserve — local state keeps every keystroke
+ * inside the textarea instead of bubbling up to the dialog and re-rendering
+ * the whole step tree. The parent receives the value via a stable callback.
+ */
+const ReserveInterventionComment = memo(function ReserveInterventionComment({
+  reserveId, initialValue, onCommit,
+}: { reserveId: string; initialValue: string; onCommit: (rid: string, value: string) => void }) {
+  const [value, setValue] = useState(initialValue);
+  // Sync if parent resets (e.g. dialog reopened)
+  useEffect(() => { setValue(initialValue); }, [initialValue, reserveId]);
+  return (
+    <Textarea
+      rows={3}
+      placeholder="Ex. Remplacement du micro-onduleur, contrôle de production et vérification du serrage."
+      value={value}
+      onChange={(e) => {
+        const v = e.target.value;
+        setValue(v);
+        onCommit(reserveId, v);
+      }}
+    />
+  );
+});
+
+type GpsPermission = "pending" | "granted" | "denied" | "unavailable";
+
 export function ReserveLiftWorkflowDialog(props: Props) {
   const {
     open, onOpenChange, pvId, pvNumero, reserves, preselectedReserveId,
