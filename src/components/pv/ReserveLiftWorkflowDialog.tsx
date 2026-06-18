@@ -451,6 +451,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
           validationMode,
           clientSignedOnSite: validationMode === "on_site",
           clientSignature: clientSig,
+          clientOtpId: validationMode === "on_site" && otpVerified ? otpId : null,
           // Legacy fields kept for back-compat — left null on new flow
           companySignature: null,
           technicianSignature: null,
