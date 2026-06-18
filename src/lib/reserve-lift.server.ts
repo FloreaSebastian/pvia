@@ -987,6 +987,25 @@ export async function buildAndStoreReserveLiftPdf(
 
   drawFooter();
 
+  // ============ FINAL PAGINATION PASS ============
+  // Draw a legal footer on every page now that the total page count is known.
+  const allPages = pdf.getPages();
+  const totalPages = allPages.length;
+  const genStamp = new Date().toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const footerLine1 = sanitize("PVIA - Proces-Verbal de Levee de Reserves");
+  const footerLine2 = sanitize(
+    `N° Levee : ${report.numero}   |   Lie au PV : ${pv?.numero ?? "—"}   |   Genere le ${genStamp}`,
+  );
+  allPages.forEach((p, idx) => {
+    const num = idx + 1;
+    p.drawLine({ start: { x: MARGIN, y: MARGIN - 4 }, end: { x: PAGE_W - MARGIN, y: MARGIN - 4 }, thickness: 0.5, color: BORDER });
+    p.drawText(footerLine1, { x: MARGIN, y: MARGIN - 16, size: 7.5, font: bold, color: PRIMARY });
+    p.drawText(footerLine2, { x: MARGIN, y: MARGIN - 28, size: 7, font: helv, color: MUTED });
+    const pageLabel = `Page ${num} / ${totalPages}`;
+    const pwidth = bold.widthOfTextAtSize(pageLabel, 7.5);
+    p.drawText(pageLabel, { x: PAGE_W - MARGIN - pwidth, y: MARGIN - 16, size: 7.5, font: bold, color: ACCENT });
+  });
+
   const bytes = await pdf.save();
   const suffix = isInternal ? "internal" : "client";
   const path = `${report.company_id}/lifts/${reportId}/LR-${report.numero}-${suffix}.pdf`;
