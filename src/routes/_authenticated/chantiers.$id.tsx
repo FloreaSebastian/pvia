@@ -360,15 +360,26 @@ function ChantierDetailPage() {
 
   const ch = d.chantier;
   const stats = d.stats;
-  const STATUS_LABELS: Record<string, string> = { preparation: "Préparation", planifie: "Planifié", en_cours: "En cours", en_attente: "En attente", receptionne: "Réceptionné", termine: "Terminé", archive: "Archivé" };
+  const STATUS_LABELS: Record<string, string> = { preparation: "Préparation", planifie: "Planifié", en_cours: "En cours", en_attente: "En attente", receptionne: "🏁 Réceptionné", termine: "✅ Terminé", archive: "📦 Archivé" };
   const statusLabel = STATUS_LABELS[ch.status] ?? ch.status;
   const statusTone: "success" | "info" | "warning" | "neutral" =
     ch.status === "receptionne" ? "success"
-    : ch.status === "termine" || ch.status === "planifie" ? "info"
+    : ch.status === "termine" ? "success"
+    : ch.status === "archive" ? "neutral"
+    : ch.status === "planifie" ? "info"
     : ch.status === "en_cours" || ch.status === "en_attente" ? "warning"
     : "neutral";
   const chColor = (ch as { color?: string | null }).color ?? null;
   const chProgress = (ch as { progress_percent?: number | null }).progress_percent ?? 0;
+  const chReceivedAt = (ch as { received_at?: string | null }).received_at ?? null;
+  const chClosedAt = (ch as { closed_at?: string | null }).closed_at ?? null;
+  const chClosureOrigin = (ch as { closure_origin?: string | null }).closure_origin ?? null;
+  const isLocked = ch.status === "termine" || ch.status === "archive";
+  const closureOriginLabel =
+    chClosureOrigin === "pv_no_reserve" ? "PV signé sans réserve"
+    : chClosureOrigin === "reserves_validated" ? "Toutes réserves validées"
+    : chClosureOrigin === "manual" ? "Clôture manuelle"
+    : null;
 
   return (
     <div className="space-y-6">
