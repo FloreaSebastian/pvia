@@ -533,19 +533,49 @@ function NewPv() {
         action === "brouillon" ? null : onsiteOtpEmail.trim().toLowerCase() || null;
       const otpId = action === "onsite" ? onsiteOtpId : null;
 
-      const encodedPhotos = withReserves
-        ? await Promise.all(photos.map(async (p) => ({
-            base64: await fileToBase64(p.file),
-            mimeType: p.file.type || "image/jpeg",
-            fileName: p.file.name,
-            kind: p.kind,
-            caption: p.caption || "",
-          })))
-        : [];
-
       const amount = form.work_reference_amount.trim()
         ? Number(form.work_reference_amount.replace(",", "."))
         : null;
+
+      // Encode reserve photos client-side. Compression a déjà été appliquée à l'ajout ;
+      // on vérifie quand même la taille du base64 final pour ne jamais envoyer
+      // une image qui ferait échouer la validation serveur.
+      let payloadReserves: any[] = [];
+      if (withReserves) {
+        for (let ri = 0; ri < reserves.length; ri++) {
+          const r = reserves[ri];
+          const encodedReservePhotos = [];
+          for (const p of r.photos) {
+            const base64 = await fileToBase64(p.file);
+            if (base64.length > PHOTO_BASE64_MAX) {
+              toast.error(
+                `Réserve ${ri + 1} : une photo est trop volumineuse. Veuillez reprendre la photo ou choisir une image plus légère.`,
+                { duration: 7000 },
+              );
+              setSaving(false);
+              const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
+              if (idx >= 0) setStepIdx(idx);
+              return;
+            }
+            encodedReservePhotos.push({
+              base64,
+              mimeType: p.file.type || "image/jpeg",
+              fileName: p.file.name,
+              kind: "reserve" as const,
+              caption: "",
+            });
+          }
+          payloadReserves.push({
+            description: r.description || r.nature,
+            severity: r.severity === "bloquante" ? "majeure" as const : r.severity,
+            status: "ouverte" as const,
+            nature: r.nature,
+            work_to_execute: r.work_to_execute,
+            due_date: r.due_date || null,
+            photos: encodedReservePhotos,
+          });
+        }
+      }
 
       const res = await createPvFn({
         data: {
@@ -573,22 +603,8 @@ function NewPv() {
           chantier_address: form.chantier_address,
           chantier_postal_code: form.chantier_postal_code,
           chantier_city: form.chantier_city,
-          reserves: withReserves ? await Promise.all(reserves.map(async (r) => ({
-            description: r.description || r.nature,
-            severity: r.severity === "bloquante" ? "majeure" as const : r.severity,
-            status: "ouverte" as const,
-            nature: r.nature,
-            work_to_execute: r.work_to_execute,
-            due_date: r.due_date || null,
-            photos: await Promise.all(r.photos.map(async (p) => ({
-              base64: await fileToBase64(p.file),
-              mimeType: p.file.type || "image/jpeg",
-              fileName: p.file.name,
-              kind: "reserve" as const,
-              caption: "",
-            }))),
-          }))) : [],
-          photos: encodedPhotos,
+          reserves: payloadReserves,
+          photos: [],
         },
       });
 
