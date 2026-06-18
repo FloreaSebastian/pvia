@@ -12,6 +12,7 @@ import { buildAndStoreReserveLiftPdfs } from "./reserve-lift.server";
 import { sha256OfBytes } from "./signature-proof.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
 import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
+import { deliverReserveLiftAtSignature } from "./reserve-lift-signed-delivery.server";
 import {
   PHOTO_ALLOWED_MIMES,
   PHOTO_MAX_BYTES,
