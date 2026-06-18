@@ -196,6 +196,17 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
 
+  // GPS permission state — requested at dialog open
+  const [gpsPermission, setGpsPermission] = useState<GpsPermission>("pending");
+  const [lastKnownPosition, setLastKnownPosition] = useState<{
+    latitude: number; longitude: number; accuracy: number | null;
+  } | null>(null);
+
+  // Stable callback for the memoized comment input
+  const handleCommentCommit = useCallback((rid: string, value: string) => {
+    setComments((c) => (c[rid] === value ? c : { ...c, [rid]: value }));
+  }, []);
+
   // STEPS (dynamic — "otp" + "client" steps only when on_site)
   const STEPS: { id: StepId; label: string; short: string; icon: any }[] = useMemo(() => {
     const base: { id: StepId; label: string; short: string; icon: any }[] = [
