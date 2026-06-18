@@ -128,6 +128,8 @@ function PvDetail() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [reserveDetail, setReserveDetail] = useState<ReserveDetail | null>(null);
+  const [liftDialogOpen, setLiftDialogOpen] = useState(false);
+  const [liftPreselectedId, setLiftPreselectedId] = useState<string | null>(null);
   const updateReserveFn = useServerFn(updateReserveStatus);
   const deleteReserveServerFn = useServerFn(deleteReserveFn);
 
