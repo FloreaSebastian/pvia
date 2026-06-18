@@ -408,7 +408,7 @@ function ReservesPage() {
         ) : (
           <p className="px-1 text-xs text-muted-foreground">Aucun résultat pour ces filtres.</p>
         )
-      ) : view === "cards" ? (
+      ) : effectiveView === "cards" ? (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((r) => {
             const overdue = isOverdue(r);
