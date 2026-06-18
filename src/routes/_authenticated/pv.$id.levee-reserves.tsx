@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import SignaturePad from "react-signature-canvas";
-import exifr from "exifr";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import { Loader2, ArrowLeft, ChevronRight, Save, Send, MapPin, MapPinOff, X } fr
 import { toast } from "sonner";
 import { createReserveLift } from "@/lib/reserve-lift.functions";
 import { fileToBase64 } from "@/lib/file-upload";
+import { tryGetGps, readExif, sanitizeExifForUpload, type PhotoEntry } from "@/lib/photo-exif";
 
 export const Route = createFileRoute("/_authenticated/pv/$id/levee-reserves")({
   component: LeveeReserves,
