@@ -21,6 +21,7 @@ import {
   createChantierDocument, deleteChantierDocument,
   listCompanyMembers, createChantierAutoPlanning,
 } from "@/lib/chantier-detail.functions";
+import { reopenChantier } from "@/lib/chantiers.functions";
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
   component: ChantierDetailPage,
@@ -90,7 +91,22 @@ function ChantierDetailPage() {
   const deleteDocFn = useServerFn(deleteChantierDocument);
   const fetchMembers = useServerFn(listCompanyMembers);
   const autoPlanFn = useServerFn(createChantierAutoPlanning);
+  const reopenFn = useServerFn(reopenChantier);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
+  const [reopenLoading, setReopenLoading] = useState(false);
+
+  async function handleReopen() {
+    if (!activeCompanyId) return;
+    if (!confirm("Réouvrir ce chantier ? Il repassera en « En cours ».")) return;
+    setReopenLoading(true);
+    try {
+      await reopenFn({ data: { companyId: activeCompanyId, id } });
+      toast.success("Chantier réouvert.");
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Réouverture impossible.");
+    } finally { setReopenLoading(false); }
+  }
 
   async function runAutoPlanning(replace = false) {
     if (!activeCompanyId) return;
@@ -344,15 +360,26 @@ function ChantierDetailPage() {
 
   const ch = d.chantier;
   const stats = d.stats;
-  const STATUS_LABELS: Record<string, string> = { preparation: "Préparation", planifie: "Planifié", en_cours: "En cours", en_attente: "En attente", receptionne: "Réceptionné", termine: "Terminé", archive: "Archivé" };
+  const STATUS_LABELS: Record<string, string> = { preparation: "Préparation", planifie: "Planifié", en_cours: "En cours", en_attente: "En attente", receptionne: "🏁 Réceptionné", termine: "✅ Terminé", archive: "📦 Archivé" };
   const statusLabel = STATUS_LABELS[ch.status] ?? ch.status;
   const statusTone: "success" | "info" | "warning" | "neutral" =
     ch.status === "receptionne" ? "success"
-    : ch.status === "termine" || ch.status === "planifie" ? "info"
+    : ch.status === "termine" ? "success"
+    : ch.status === "archive" ? "neutral"
+    : ch.status === "planifie" ? "info"
     : ch.status === "en_cours" || ch.status === "en_attente" ? "warning"
     : "neutral";
   const chColor = (ch as { color?: string | null }).color ?? null;
   const chProgress = (ch as { progress_percent?: number | null }).progress_percent ?? 0;
+  const chReceivedAt = (ch as { received_at?: string | null }).received_at ?? null;
+  const chClosedAt = (ch as { closed_at?: string | null }).closed_at ?? null;
+  const chClosureOrigin = (ch as { closure_origin?: string | null }).closure_origin ?? null;
+  const isLocked = ch.status === "termine" || ch.status === "archive";
+  const closureOriginLabel =
+    chClosureOrigin === "pv_no_reserve" ? "PV signé sans réserve"
+    : chClosureOrigin === "reserves_validated" ? "Toutes réserves validées"
+    : chClosureOrigin === "manual" ? "Clôture manuelle"
+    : null;
 
   return (
     <div className="space-y-6">
@@ -369,12 +396,17 @@ function ChantierDetailPage() {
             <Button asChild variant="outline" size="sm">
               <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /> Calendrier</Link>
             </Button>
-            {canWrite && (
+            {canWrite && !isLocked && (
               <Button variant="outline" size="sm" onClick={() => runAutoPlanning(false)} disabled={autoPlanLoading}>
                 <Sparkles className="h-4 w-4" /> {autoPlanLoading ? "Création…" : "Planning auto"}
               </Button>
             )}
-            {canWrite && (
+            {isLocked && isAdmin && (
+              <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopenLoading}>
+                {reopenLoading ? "Réouverture…" : "Réouvrir le chantier"}
+              </Button>
+            )}
+            {canWrite && !isLocked && (
               <Button onClick={openNewEvt} className="shadow-brand">
                 <Plus className="h-4 w-4" /> Nouvel événement
               </Button>
@@ -390,7 +422,15 @@ function ChantierDetailPage() {
             {chColor && <span aria-hidden className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: chColor }} title="Couleur du chantier" />}
             <StatusPill tone={statusTone} dot>{statusLabel}</StatusPill>
             {ch.type && <StatusPill tone="neutral">{ch.type}</StatusPill>}
+            {isLocked && <StatusPill tone="neutral">🔒 Verrouillé</StatusPill>}
           </div>
+          {(chReceivedAt || chClosedAt || closureOriginLabel) && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {chReceivedAt && <span>Réception : <strong className="text-foreground">{fmtDateTime(chReceivedAt)}</strong></span>}
+              {chClosedAt && <span>Clôture : <strong className="text-foreground">{fmtDateTime(chClosedAt)}</strong></span>}
+              {closureOriginLabel && <span>Origine : <strong className="text-foreground">{closureOriginLabel}</strong></span>}
+            </div>
+          )}
           {ch.address && (
             <p className="flex items-start gap-2 text-sm text-muted-foreground">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0" /> {ch.address}

@@ -413,6 +413,8 @@ export type Database = {
           address_line1: string | null
           city: string | null
           client_id: string | null
+          closed_at: string | null
+          closure_origin: string | null
           color: string | null
           company_id: string | null
           created_at: string
@@ -425,6 +427,7 @@ export type Database = {
           owner_id: string
           postal_code: string | null
           progress_percent: number
+          received_at: string | null
           start_date: string | null
           status: string
           type: string | null
@@ -435,6 +438,8 @@ export type Database = {
           address_line1?: string | null
           city?: string | null
           client_id?: string | null
+          closed_at?: string | null
+          closure_origin?: string | null
           color?: string | null
           company_id?: string | null
           created_at?: string
@@ -447,6 +452,7 @@ export type Database = {
           owner_id: string
           postal_code?: string | null
           progress_percent?: number
+          received_at?: string | null
           start_date?: string | null
           status?: string
           type?: string | null
@@ -457,6 +463,8 @@ export type Database = {
           address_line1?: string | null
           city?: string | null
           client_id?: string | null
+          closed_at?: string | null
+          closure_origin?: string | null
           color?: string | null
           company_id?: string | null
           created_at?: string
@@ -469,6 +477,7 @@ export type Database = {
           owner_id?: string
           postal_code?: string | null
           progress_percent?: number
+          received_at?: string | null
           start_date?: string | null
           status?: string
           type?: string | null
@@ -2379,6 +2388,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _chantier_audit: {
+        Args: {
+          _action: string
+          _chantier: string
+          _company: string
+          _meta: Json
+          _user: string
+        }
+        Returns: undefined
+      }
       can_add_member: { Args: { _company_id: string }; Returns: boolean }
       can_create_company: { Args: { _user_id: string }; Returns: boolean }
       can_create_pv: { Args: { _company_id: string }; Returns: boolean }
