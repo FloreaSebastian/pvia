@@ -442,16 +442,18 @@ export const createReserveLift = createServerFn({ method: "POST" })
         });
       }
 
-      // EM-C1: when company signs the lift, ask the client to validate.
-      try {
-        await sendReserveLiftValidationRequestEmail({ reportId });
-      } catch (e) {
-        await recordProcessingError({
-          table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
-          step: "send_validation_email",
-          error: e,
-          audit: { action: "reserve_lift.validation_email_failed", entityType: "reserve_lift" },
-        });
+      // EM-C1: only send validation email for REMOTE mode. On-site = client already signed.
+      if (data.validationMode !== "on_site") {
+        try {
+          await sendReserveLiftValidationRequestEmail({ reportId });
+        } catch (e) {
+          await recordProcessingError({
+            table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
+            step: "send_validation_email",
+            error: e,
+            audit: { action: "reserve_lift.validation_email_failed", entityType: "reserve_lift" },
+          });
+        }
       }
     }
 
