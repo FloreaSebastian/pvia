@@ -39,6 +39,7 @@ import { SignatureTimeline } from "@/components/app/SignatureTimeline";
 import { updateReserveStatus, deleteReserve as deleteReserveFn } from "@/lib/reserves.functions";
 import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
 import { ReserveLiftWorkflowDialog, type LiftDialogReserve } from "@/components/pv/ReserveLiftWorkflowDialog";
+import { PhotoLightboxDialog, type LightboxPhoto } from "@/components/pv/PhotoLightboxDialog";
 import { reserveStatusLabel, reserveStatusTone, isReserveOverdue } from "@/lib/reserve-status";
 
 
@@ -91,7 +92,13 @@ type Pv = {
   pdf_generation_status?: string | null;
   photos_failed_count?: number | null;
 };
-type Photo = { id: string; url: string; caption: string | null; reserve_id?: string | null; kind?: string | null; signedUrl?: string };
+type Photo = {
+  id: string; url: string; caption: string | null;
+  reserve_id?: string | null; kind?: string | null; signedUrl?: string;
+  latitude?: number | null; longitude?: number | null; accuracy?: number | null;
+  taken_at?: string | null; created_at?: string | null;
+  device_info?: string | null; file_name?: string | null; photo_label?: string | null;
+};
 type Reserve = {
   id: string;
   description: string;
@@ -183,7 +190,7 @@ function PvDetail() {
     setPv(pvData as Pv);
 
     const [photosRes, reservesRes] = await Promise.all([
-      supabase.from("pv_photos").select("id,url,caption,reserve_id,kind").eq("pv_id", id),
+      supabase.from("pv_photos").select("id,url,caption,reserve_id,kind,latitude,longitude,accuracy,taken_at,created_at,device_info,file_name,photo_label").eq("pv_id", id),
       supabase.from("pv_reserves").select("id,description,severity,status,priority,nature,work_to_execute,due_date,assigned_to,lifted_at,validated_at,created_at,pv_id,company_id").eq("pv_id", id).order("created_at"),
     ]);
     const ph = (photosRes.data ?? []) as Photo[];

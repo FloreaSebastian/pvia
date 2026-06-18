@@ -1,21 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusPill } from "@/components/ui/status-pill";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { updateReserveStatus } from "@/lib/reserves.functions";
 import { listReserveLiftPhotos } from "@/lib/reserve-lift.functions";
 import { getReserveHistory, type ReserveHistoryEntry } from "@/lib/reserve-history.functions";
-import { MapPin, MapPinOff, Clock, Image as ImageIcon, FileText } from "lucide-react";
+import { MapPin, MapPinOff, Clock, Image as ImageIcon, FileText, Tag } from "lucide-react";
 import {
   RESERVE_STATUSES, reserveStatusLabel, reserveStatusTone,
   RESERVE_PRIORITY_LABEL, isReserveOverdue, type ReserveStatusValue,
 } from "@/lib/reserve-status";
 import { useCompany } from "@/hooks/use-company";
+import { PhotoLightboxDialog, type LightboxPhoto } from "./PhotoLightboxDialog";
 
 export type ReserveDetail = {
   id: string;
@@ -36,12 +36,34 @@ export type ReserveDetail = {
 
 type AuditRow = ReserveHistoryEntry;
 
+type PhotoItem = {
+  id: string;
+  photoType: "initial" | "before" | "after" | "legacy";
+  url: string | null;
+  label: string | null;
+  fileName: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  takenAt: string | null;
+  uploadedAt: string | null;
+  uploadedBy: string | null;
+  deviceInfo: string | null;
+};
+
 const STATUS_ACTIONS: Array<{ value: ReserveStatusValue; label: string }> = [
   { value: "en_cours", label: "Passer en cours" },
   { value: "levee", label: "Marquer levée" },
   { value: "en_attente_validation", label: "Attente validation client" },
   { value: "validee", label: "Valider" },
   { value: "rejetee", label: "Rejeter" },
+];
+
+const SECTIONS: Array<{ key: "initial" | "before" | "after" | "legacy"; title: string }> = [
+  { key: "initial", title: "Constat initial" },
+  { key: "before", title: "Avant levée" },
+  { key: "after", title: "Après levée" },
+  { key: "legacy", title: "Archivées / non catégorisées" },
 ];
 
 export function ReserveDetailDialog({
@@ -57,14 +79,10 @@ export function ReserveDetailDialog({
   const listPhotosFn = useServerFn(listReserveLiftPhotos);
   const historyFn = useServerFn(getReserveHistory);
   const [history, setHistory] = useState<AuditRow[]>([]);
-  const [photos, setPhotos] = useState<Array<{
-    id: string; photoType: "before" | "after" | "legacy"; url: string | null;
-    latitude: number | null; longitude: number | null; accuracy: number | null;
-    takenAt: string | null; uploadedAt: string | null;
-  }>>([]);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [rejectReason, setRejectReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [mapPhoto, setMapPhoto] = useState<{ latitude: number | null; longitude: number | null; url: string | null } | null>(null);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   const canManage = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux", "technicien"].includes(activeRole);
   const canValidate = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux"].includes(activeRole);
@@ -75,18 +93,30 @@ export function ReserveDetailDialog({
       try {
         const h = await historyFn({ data: { reserveId: reserve.id } });
         setHistory(h.entries);
-      } catch {
-        setHistory([]);
-      }
+      } catch { setHistory([]); }
       try {
         const res = await listPhotosFn({ data: { reserveId: reserve.id } });
-        setPhotos(res.photos);
-      } catch {
-        setPhotos([]);
-      }
+        setPhotos(res.photos as PhotoItem[]);
+      } catch { setPhotos([]); }
     })();
   }, [open, reserve?.id]);
 
+  const lightboxPhotos: LightboxPhoto[] = useMemo(
+    () => photos.map((p) => ({
+      id: p.id,
+      url: p.url,
+      label: p.label,
+      fileName: p.fileName,
+      takenAt: p.takenAt,
+      uploadedAt: p.uploadedAt,
+      latitude: p.latitude,
+      longitude: p.longitude,
+      accuracy: p.accuracy,
+      deviceInfo: p.deviceInfo,
+      photoType: p.photoType,
+    })),
+    [photos],
+  );
 
   if (!reserve) return null;
   const overdue = isReserveOverdue(reserve.due_date, reserve.status);
@@ -216,50 +246,42 @@ export function ReserveDetailDialog({
               {photos.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Aucune photo.</p>
               ) : (
-                <div className="space-y-2">
-                  {(["before", "after", "legacy"] as const).map((kind) => {
-                    const subset = photos.filter((p) => p.photoType === kind);
+                <div className="space-y-3">
+                  {SECTIONS.map((section) => {
+                    const subset = photos.filter((p) => p.photoType === section.key);
                     if (subset.length === 0) return null;
-                    const title = kind === "before" ? "Avant intervention" : kind === "after" ? "Après intervention" : "Non catégorisées";
                     return (
-                      <div key={kind}>
-                        <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{title} ({subset.length})</div>
+                      <div key={section.key}>
+                        <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          {section.title} ({subset.length})
+                        </div>
                         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                           {subset.map((p) => {
                             const hasGeo = p.latitude !== null && p.longitude !== null;
+                            const globalIdx = photos.findIndex((x) => x.id === p.id);
                             return (
-                              <div key={p.id} className="relative overflow-hidden rounded border border-border">
-                                <a href={p.url ?? "#"} target="_blank" rel="noopener noreferrer" className="block">
-                                  {p.url ? <img src={p.url} alt="" className="aspect-square w-full object-cover" /> : <div className="aspect-square w-full bg-muted" />}
-                                </a>
-                                <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
-                                  {hasGeo ? (
-                                    <>
-                                      <MapPin className="h-2.5 w-2.5 text-green-300" />
-                                      {p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <MapPinOff className="h-2.5 w-2.5 text-amber-300" />
-                                      Non géo.
-                                    </>
-                                  )}
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setLightboxIdx(globalIdx)}
+                                className="group relative block overflow-hidden rounded border border-border text-left"
+                              >
+                                {p.url
+                                  ? <img src={p.url} alt={p.label ?? ""} className="aspect-square w-full object-cover transition group-hover:opacity-90" />
+                                  : <div className="aspect-square w-full bg-muted" />}
+                                <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1">
+                                  <span className="flex items-center gap-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
+                                    {hasGeo
+                                      ? <><MapPin className="h-2.5 w-2.5 text-green-300" />{p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}</>
+                                      : <><MapPinOff className="h-2.5 w-2.5 text-amber-300" />Non géo.</>}
+                                  </span>
                                 </div>
-                                {p.uploadedAt && (
-                                  <div className="absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
-                                    {new Date(p.uploadedAt).toLocaleDateString("fr-FR")}
+                                {p.label && (
+                                  <div className="absolute left-1 top-1 inline-flex items-center gap-1 rounded bg-black/70 px-1 py-0.5 font-mono text-[9px] text-white">
+                                    <Tag className="h-2.5 w-2.5" />{p.label.replace(/^RES-\d+-/, "")}
                                   </div>
                                 )}
-                                {hasGeo && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); setMapPhoto(p); }}
-                                    className="absolute bottom-1 right-1 rounded bg-primary px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground hover:opacity-90"
-                                  >
-                                    Voir sur carte
-                                  </button>
-                                )}
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -312,36 +334,19 @@ export function ReserveDetailDialog({
       </DialogContent>
     </Dialog>
 
-    {mapPhoto && mapPhoto.latitude !== null && mapPhoto.longitude !== null && (
-      <Dialog open={!!mapPhoto} onOpenChange={(o) => !o && setMapPhoto(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Position de la photo</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="overflow-hidden rounded border border-border">
-              <iframe
-                title="Carte"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapPhoto.longitude - 0.005}%2C${mapPhoto.latitude - 0.003}%2C${mapPhoto.longitude + 0.005}%2C${mapPhoto.latitude + 0.003}&layer=mapnik&marker=${mapPhoto.latitude}%2C${mapPhoto.longitude}`}
-                className="h-72 w-full"
-              />
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Coordonnées : {mapPhoto.latitude.toFixed(6)}, {mapPhoto.longitude.toFixed(6)}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm" variant="outline">
-                <a href={`https://www.google.com/maps?q=${mapPhoto.latitude},${mapPhoto.longitude}`} target="_blank" rel="noopener noreferrer">Google Maps</a>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <a href={`https://www.openstreetmap.org/?mlat=${mapPhoto.latitude}&mlon=${mapPhoto.longitude}#map=18/${mapPhoto.latitude}/${mapPhoto.longitude}`} target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
-              </Button>
-              <Button asChild size="sm">
-                <a href={`https://www.google.com/maps/dir/?api=1&destination=${mapPhoto.latitude},${mapPhoto.longitude}`} target="_blank" rel="noopener noreferrer">Itinéraire</a>
-              </Button>
-            </div>
-          </div>
-          <DialogFooter><Button variant="outline" onClick={() => setMapPhoto(null)}>Fermer</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+    {lightboxIdx !== null && (
+      <PhotoLightboxDialog
+        open={lightboxIdx !== null}
+        onOpenChange={(o) => !o && setLightboxIdx(null)}
+        photos={lightboxPhotos}
+        startIndex={lightboxIdx}
+        context={{
+          reserveDescription: reserve.description,
+          reserveStatus: reserveStatusLabel(reserve.status),
+          reserveSeverity: reserve.severity,
+          showExactGps: true,
+        }}
+      />
     )}
   </>
   );

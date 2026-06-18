@@ -49,6 +49,7 @@ import { getPvNumberingSettings } from "@/lib/pv-numbering.functions";
 import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
+import { tryGetGps, readExif, sanitizeExifForUpload } from "@/lib/photo-exif";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
@@ -75,7 +76,17 @@ export const Route = createFileRoute("/_authenticated/pv/new")({
   head: () => ({ meta: [{ title: "Créer un PV — PVIA" }] }),
 });
 
-type ReservePhoto = { file: File; preview: string };
+type ReservePhoto = {
+  file: File;
+  preview: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  takenAt: string | null;
+  deviceInfo: string | null;
+  exifMetadata: Record<string, any> | null;
+  gpsSource: "browser" | "exif" | "none";
+};
 type Severity = "mineure" | "majeure" | "bloquante";
 type Reserve = {
   nature: string;
@@ -343,21 +354,52 @@ function NewPv() {
   async function compressAndBuild(files: FileList): Promise<ReservePhoto[]> {
     const out: ReservePhoto[] = [];
     let compressedCount = 0;
+    let geoCount = 0;
+    const browserGps = await tryGetGps();
+    const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 480) : "";
     for (const file of Array.from(files)) {
+      let finalFile = file;
       try {
-        const { file: finalFile, compressed } = await compressImageFile(file);
-        if (compressed) compressedCount += 1;
-        out.push({ file: finalFile, preview: URL.createObjectURL(finalFile) });
-      } catch {
-        out.push({ file, preview: URL.createObjectURL(file) });
+        const r = await compressImageFile(file);
+        finalFile = r.file;
+        if (r.compressed) compressedCount += 1;
+      } catch { /* fallback to original */ }
+      const exif = await readExif(finalFile);
+      let latitude = browserGps.latitude;
+      let longitude = browserGps.longitude;
+      let accuracy = browserGps.accuracy;
+      let gpsSource: ReservePhoto["gpsSource"] = browserGps.latitude !== null ? "browser" : "none";
+      if (latitude === null && exif) {
+        const exLat = typeof exif.latitude === "number" ? (exif.latitude as number) : null;
+        const exLng = typeof exif.longitude === "number" ? (exif.longitude as number) : null;
+        if (exLat !== null && exLng !== null) {
+          latitude = exLat; longitude = exLng; gpsSource = "exif";
+          const hpe = (exif as any).GPSHPositioningError;
+          accuracy = typeof hpe === "number" ? hpe : null;
+        }
       }
+      let takenAt: string | null = null;
+      const exifDate = exif?.DateTimeOriginal ?? exif?.CreateDate;
+      if (exifDate instanceof Date && !isNaN(exifDate.getTime())) takenAt = exifDate.toISOString();
+      else if (typeof exifDate === "string") {
+        const d = new Date(exifDate); if (!isNaN(d.getTime())) takenAt = d.toISOString();
+      }
+      if (latitude !== null) geoCount += 1;
+      out.push({
+        file: finalFile,
+        preview: URL.createObjectURL(finalFile),
+        latitude, longitude, accuracy,
+        takenAt: takenAt ?? new Date().toISOString(),
+        deviceInfo,
+        exifMetadata: sanitizeExifForUpload(exif ?? null),
+        gpsSource,
+      });
     }
     if (compressedCount > 0) {
-      toast.success(
-        compressedCount === 1
-          ? "Photo optimisée"
-          : `${compressedCount} photos optimisées`,
-      );
+      toast.success(compressedCount === 1 ? "Photo optimisée" : `${compressedCount} photos optimisées`);
+    }
+    if (out.length > 0 && geoCount < out.length) {
+      toast.info(`${out.length - geoCount} photo${out.length - geoCount > 1 ? "s" : ""} sans géolocalisation`);
     }
     return out;
   }
@@ -559,8 +601,10 @@ function NewPv() {
       if (withReserves) {
         for (let ri = 0; ri < reserves.length; ri++) {
           const r = reserves[ri];
+          const reserveNum = String(ri + 1).padStart(3, "0");
           const encodedReservePhotos = [];
-          for (const p of r.photos) {
+          for (let pi = 0; pi < r.photos.length; pi++) {
+            const p = r.photos[pi];
             const base64 = await fileToBase64(p.file);
             if (base64.length > PHOTO_BASE64_MAX) {
               toast.error(
@@ -578,6 +622,13 @@ function NewPv() {
               fileName: p.file.name,
               kind: "reserve" as const,
               caption: "",
+              latitude: p.latitude,
+              longitude: p.longitude,
+              accuracy: p.accuracy,
+              takenAt: p.takenAt,
+              deviceInfo: p.deviceInfo,
+              exifMetadata: p.exifMetadata,
+              photoLabel: `RES-${reserveNum}-CONST-${String(pi + 1).padStart(3, "0")}`,
             });
           }
           payloadReserves.push({
@@ -1204,6 +1255,12 @@ function NewPv() {
                           {newReserve.photos.map((p, i) => (
                             <div key={i} className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted">
                               <img src={p.preview} alt="" className="h-full w-full object-cover" />
+                              <div className="absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 font-mono text-[9px] text-white">
+                                CONST-{String(i + 1).padStart(3, "0")}
+                              </div>
+                              <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
+                                {p.latitude !== null ? (p.accuracy ? `GPS ±${Math.round(p.accuracy)}m` : "GPS") : "Non géo."}
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => removeNewReservePhoto(i)}
@@ -1231,6 +1288,11 @@ function NewPv() {
                                   <Badge variant={r.severity === "mineure" ? "secondary" : "destructive"}>{r.severity}</Badge>
                                   {r.due_date && <Badge variant="outline" className="gap-1"><CalendarDays className="h-3 w-3" /> {r.due_date}</Badge>}
                                   <Badge variant="outline" className="gap-1"><Camera className="h-3 w-3" /> {r.photos.length}</Badge>
+                                  {r.photos.some((p) => p.latitude !== null) ? (
+                                    <Badge variant="outline" className="gap-1 text-emerald-700 border-emerald-300"><MapPin className="h-3 w-3" /> Géolocalisée</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300">Non géolocalisée</Badge>
+                                  )}
                                 </div>
                                 {r.description && <p className="mt-1 text-muted-foreground">{r.description}</p>}
                                 {r.work_to_execute && <p className="mt-1 text-xs"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>}
@@ -1242,8 +1304,14 @@ function NewPv() {
                           </div>
                           <div className="flex flex-wrap items-center gap-2 pl-10">
                             {r.photos.map((p, pi) => (
-                              <div key={pi} className="relative h-16 w-16 overflow-hidden rounded-md border border-border bg-muted">
+                              <div key={pi} className="relative h-16 w-16 overflow-hidden rounded-md border border-border bg-muted" title={`RES-${String(i + 1).padStart(3, "0")}-CONST-${String(pi + 1).padStart(3, "0")}`}>
                                 <img src={p.preview} alt="" className="h-full w-full object-cover" />
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-center font-mono text-[8px] leading-tight text-white">
+                                  CONST-{String(pi + 1).padStart(3, "0")}
+                                </div>
+                                {p.latitude === null && (
+                                  <div className="absolute left-0.5 top-0.5 rounded bg-amber-500/90 px-1 text-[8px] font-medium text-white">!</div>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => removeReservePhoto(i, pi)}
