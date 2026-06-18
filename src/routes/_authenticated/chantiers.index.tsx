@@ -222,7 +222,7 @@ function ChantiersPage() {
   }, [items, query, statusFilter, clientName]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Chantiers"
         description="Tous vos chantiers en un coup d'œil."
