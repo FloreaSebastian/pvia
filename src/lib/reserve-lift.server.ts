@@ -136,7 +136,7 @@ export async function buildAndStoreReserveLiftPdf(
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
     pv?.chantier_id
-      ? supabaseAdmin.from("chantiers").select("name,address").eq("id", pv.chantier_id).maybeSingle()
+      ? supabaseAdmin.from("chantiers").select("name,address,address_line1,postal_code,city,type,start_date,end_date,description,status").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   const client = (clientRes as any).data;
@@ -186,20 +186,15 @@ export async function buildAndStoreReserveLiftPdf(
   };
 
   const ensureSpace = (needed: number) => {
-    if (y - needed < MARGIN + 30) {
-      drawFooter();
+    if (y - needed < MARGIN + 36) {
       page = pdf.addPage([PAGE_W, PAGE_H]);
       pageNum += 1;
       y = PAGE_H - MARGIN;
       drawWatermark(page);
     }
   };
-  const drawFooter = () => {
-    page.drawLine({ start: { x: MARGIN, y: MARGIN }, end: { x: PAGE_W - MARGIN, y: MARGIN }, thickness: 0.5, color: BORDER });
-    const footerText = sanitize(branding.pdf_footer || "Document généré par PVIA.");
-    page.drawText(`Levée ${sanitize(report.numero)} · ${footerText}`, { x: MARGIN, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
-    page.drawText(`Page ${pageNum}`, { x: PAGE_W - MARGIN - 40, y: MARGIN - 14, size: 8, font: helv, color: MUTED });
-  };
+  // Footer is drawn in a final pass once total page count is known.
+  const drawFooter = () => { /* no-op: see final pagination pass below */ };
 
   drawWatermark(page);
 
@@ -324,14 +319,39 @@ export async function buildAndStoreReserveLiftPdf(
   y -= partyH + 12;
 
   if (chantier?.name) {
-    ensureSpace(46);
-    page.drawRectangle({ x: MARGIN, y: y - 36, width: CONTENT_W, height: 36, color: rgb(0.99, 0.99, 1), borderColor: BORDER, borderWidth: 0.4 });
-    page.drawText("CHANTIER", { x: MARGIN + 12, y: y - 12, size: 7, font: bold, color: MUTED });
-    page.drawText(sanitize(chantier.name), { x: MARGIN + 12, y: y - 24, size: 10, font: bold, color: ACCENT });
-    if (chantier.address) {
-      page.drawText(sanitize(chantier.address), { x: MARGIN + 200, y: y - 24, size: 8.5, font: helv, color: MUTED });
-    }
-    y -= 46;
+    const chantierAddr = [chantier.address_line1, [chantier.postal_code, chantier.city].filter(Boolean).join(" ")]
+      .filter(Boolean)
+      .join(", ") || chantier.address || "";
+    const ch_lines: Array<{ label: string; value: string }> = [];
+    if (chantier.name) ch_lines.push({ label: "Nom du chantier", value: chantier.name });
+    if (chantierAddr) ch_lines.push({ label: "Adresse", value: chantierAddr });
+    if (chantier.type) ch_lines.push({ label: "Type", value: chantier.type });
+    if (chantier.status) ch_lines.push({ label: "Statut chantier", value: chantier.status });
+    if (chantier.start_date) ch_lines.push({ label: "Debut des travaux", value: formatDate(chantier.start_date) });
+    if (pv?.reception_date) ch_lines.push({ label: "Reception initiale", value: formatDate(pv.reception_date) });
+    ch_lines.push({ label: "Levee de reserves", value: formatDate(report.signed_at ?? report.created_at) });
+
+    const colInnerW = (CONTENT_W - 36) / 2;
+    const lineH = 22;
+    const rows = Math.ceil(ch_lines.length / 2);
+    const blockH = 36 + rows * lineH + 8;
+    ensureSpace(blockH + 8);
+    page.drawRectangle({ x: MARGIN, y: y - blockH, width: CONTENT_W, height: blockH, color: rgb(0.96, 0.98, 1), borderColor: PRIMARY, borderWidth: 0.6 });
+    page.drawRectangle({ x: MARGIN, y: y - blockH, width: 3, height: blockH, color: PRIMARY });
+    // Icon (simple hard-hat suggestion: filled square)
+    page.drawRectangle({ x: MARGIN + 14, y: y - 18, width: 8, height: 8, color: PRIMARY });
+    page.drawText("CHANTIER", { x: MARGIN + 28, y: y - 16, size: 8, font: bold, color: PRIMARY });
+
+    let ry = y - 36;
+    ch_lines.forEach((row, idx) => {
+      const col = idx % 2;
+      const cxx = MARGIN + 14 + col * (colInnerW + 8);
+      if (col === 0 && idx > 0) ry -= lineH;
+      page.drawText(sanitize(row.label.toUpperCase()), { x: cxx, y: ry, size: 6.5, font: bold, color: MUTED });
+      const valLines = wrapLines(helv, row.value, 9, colInnerW - 4);
+      page.drawText(sanitize(valLines[0] ?? "-"), { x: cxx, y: ry - 11, size: 9, font: bold, color: ACCENT });
+    });
+    y -= blockH + 12;
   }
 
   // ============ SYNTHESE DES RESERVES ============
@@ -966,6 +986,25 @@ export async function buildAndStoreReserveLiftPdf(
   }
 
   drawFooter();
+
+  // ============ FINAL PAGINATION PASS ============
+  // Draw a legal footer on every page now that the total page count is known.
+  const allPages = pdf.getPages();
+  const totalPages = allPages.length;
+  const genStamp = new Date().toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const footerLine1 = sanitize("PVIA - Proces-Verbal de Levee de Reserves");
+  const footerLine2 = sanitize(
+    `N° Levee : ${report.numero}   |   Lie au PV : ${pv?.numero ?? "—"}   |   Genere le ${genStamp}`,
+  );
+  allPages.forEach((p, idx) => {
+    const num = idx + 1;
+    p.drawLine({ start: { x: MARGIN, y: MARGIN - 4 }, end: { x: PAGE_W - MARGIN, y: MARGIN - 4 }, thickness: 0.5, color: BORDER });
+    p.drawText(footerLine1, { x: MARGIN, y: MARGIN - 16, size: 7.5, font: bold, color: PRIMARY });
+    p.drawText(footerLine2, { x: MARGIN, y: MARGIN - 28, size: 7, font: helv, color: MUTED });
+    const pageLabel = `Page ${num} / ${totalPages}`;
+    const pwidth = bold.widthOfTextAtSize(pageLabel, 7.5);
+    p.drawText(pageLabel, { x: PAGE_W - MARGIN - pwidth, y: MARGIN - 16, size: 7.5, font: bold, color: ACCENT });
+  });
 
   const bytes = await pdf.save();
   const suffix = isInternal ? "internal" : "client";
