@@ -1327,10 +1327,10 @@ function EventHoverContent({ evt, memberName, chantierName, clientName }: {
 }
 
 function MonthView({
-  days, cursor, canWrite, conflictIds, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
+  days, cursor, canWrite, isMobile, conflictIds, onDblClickDay, onClickEvent, onDblClickEvent, onMoveDay, eventsOn,
   memberName, chantierName, clientName,
 }: {
-  days: Date[]; cursor: Date; canWrite: boolean;
+  days: Date[]; cursor: Date; canWrite: boolean; isMobile?: boolean;
   conflictIds: Set<string>;
   onDblClickDay: (d: Date) => void;
   onClickEvent: (e: Evt) => void;
