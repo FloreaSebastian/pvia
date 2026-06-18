@@ -34,6 +34,18 @@ function formatDate(s: string | null | undefined, withTime = false): string {
   return `${date} a ${time}`;
 }
 
+const ROLE_LABELS_FR: Record<string, string> = {
+  directeur: "Directeur",
+  responsable_exploitation: "Responsable d'exploitation",
+  conducteur_travaux: "Conducteur de travaux",
+  assistant_admin: "Assistant administratif",
+  technicien: "Technicien",
+};
+function prettyRole(r: string | null | undefined): string {
+  if (!r) return "Intervenant";
+  return ROLE_LABELS_FR[r] ?? r;
+}
+
 function detectImageType(bytes: Uint8Array): "png" | "jpg" | null {
   if (bytes.length < 4) return null;
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "png";
@@ -89,7 +101,7 @@ export async function buildAndStoreReserveLiftPdf(
   const isInternal = variant === "internal";
   const { data: report } = await supabaseAdmin
     .from("reserve_lift_reports")
-    .select("id,numero,status,comment,company_signature,client_signature,technician_signature,technician_name,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_validated_ip,client_signed_at,client_signature_ip,client_signature_user_agent,client_signature_email,client_signature_consent_text,client_signature_consent_at,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
+    .select("id,numero,status,comment,company_signature,client_signature,technician_signature,technician_name,signer_signature,signer_name,signer_role,signer_email,signer_signed_at,validation_mode,signed_at,pv_id,company_id,created_at,client_validated_at,client_validated_email,client_validated_ip,client_signed_at,client_signature_ip,client_signature_user_agent,client_signature_email,client_signature_consent_text,client_signature_consent_at,client_signature_otp_id,client_rejected_at,client_rejected_email,client_rejected_reason,client_rejected_ip")
     .eq("id", reportId)
     .maybeSingle();
   if (!report?.company_id) throw new Error("Rapport introuvable.");
@@ -751,22 +763,32 @@ export async function buildAndStoreReserveLiftPdf(
   }
 
 
-  // Signatures (3 colonnes : Technicien / Entreprise / Client)
-  const techSig = (report as any).technician_signature as string | null;
-  const techName = (report as any).technician_name as string | null;
-  const showTech = isInternal && (!!techSig || !!techName);
+  // Signatures — Phase 2: single "Intervenant" (signer_*) + Client.
+  // Falls back to legacy technician_*/company_signature for old records.
+  const signerSig =
+    ((report as any).signer_signature as string | null) ?? report.company_signature ?? null;
+  const signerName =
+    ((report as any).signer_name as string | null)
+    ?? ((report as any).technician_name as string | null)
+    ?? company?.name
+    ?? null;
+  const signerRole =
+    ((report as any).signer_role as string | null)
+    ?? ((report as any).technician_name ? "Technicien" : "Représentant entreprise");
+  const signerEmail = (report as any).signer_email as string | null;
+  const signerDate = (report as any).signer_signed_at ?? report.signed_at;
+
   ensureSpace(200);
   page.drawText("SIGNATURES", { x: MARGIN, y, size: 9, font: bold, color: PRIMARY });
   y -= 14;
-  const sigCount = showTech ? 3 : 2;
   const sigGap = 12;
-  const sigW = (CONTENT_W - sigGap * (sigCount - 1)) / sigCount;
+  const sigW = (CONTENT_W - sigGap) / 2;
   const sigH = 130;
   const drawSig = async (
     x: number,
     label: string,
     data: string | null,
-    opts: { who?: string | null; role?: string | null; date?: string | null },
+    opts: { who?: string | null; role?: string | null; date?: string | null; extra?: string | null },
   ) => {
     page.drawRectangle({ x, y: y - sigH, width: sigW, height: sigH, borderColor: BORDER, borderWidth: 0.5, color: rgb(1, 1, 1) });
     page.drawRectangle({ x, y: y - 1, width: sigW, height: 1, color: PRIMARY });
@@ -786,7 +808,6 @@ export async function buildAndStoreReserveLiftPdf(
     } else {
       page.drawText("Non signe", { x: x + 10, y: y - sigH / 2 + 10, size: 8.5, font: helv, color: MUTED });
     }
-    // Footer : nom / fonction / date+heure
     let fy = y - sigH + 42;
     page.drawLine({ start: { x: x + 8, y: fy + 6 }, end: { x: x + sigW - 8, y: fy + 6 }, thickness: 0.3, color: BORDER });
     page.drawText(sanitize(opts.who ?? "—").slice(0, 32), { x: x + 10, y: fy - 4, size: 8, font: bold, color: ACCENT });
@@ -797,35 +818,29 @@ export async function buildAndStoreReserveLiftPdf(
     }
     if (opts.date) {
       page.drawText(sanitize(opts.date), { x: x + 10, y: fy - 4, size: 7, font: helv, color: MUTED });
+      fy -= 10;
+    }
+    if (opts.extra) {
+      page.drawText(sanitize(opts.extra).slice(0, 48), { x: x + 10, y: fy - 4, size: 6.5, font: helv, color: MUTED });
     }
   };
 
-  if (showTech) {
-    await drawSig(MARGIN, "Technicien intervenant", techSig, {
-      who: techName, role: "Technicien", date: formatDate(report.signed_at, true),
-    });
-    await drawSig(MARGIN + sigW + sigGap, "Entreprise", report.company_signature, {
-      who: company?.name, role: "Representant entreprise", date: formatDate(report.signed_at, true),
-    });
-    await drawSig(MARGIN + (sigW + sigGap) * 2, "Client (maitre d'ouvrage)", report.client_signature, {
-      who: client?.name,
-      role: (report as any).client_validated_email || client?.email || null,
-      date: (report as any).client_validated_at
-        ? formatDate((report as any).client_validated_at, true)
-        : ((report as any).client_signed_at ? formatDate((report as any).client_signed_at, true) : "Non signe"),
-    });
-  } else {
-    await drawSig(MARGIN, "Entreprise", report.company_signature, {
-      who: company?.name, role: "Representant entreprise", date: formatDate(report.signed_at, true),
-    });
-    await drawSig(MARGIN + sigW + sigGap, "Client (maitre d'ouvrage)", report.client_signature, {
-      who: client?.name,
-      role: (report as any).client_validated_email || client?.email || null,
-      date: (report as any).client_validated_at
-        ? formatDate((report as any).client_validated_at, true)
-        : ((report as any).client_signed_at ? formatDate((report as any).client_signed_at, true) : "Non signe"),
-    });
-  }
+  await drawSig(MARGIN, "Intervenant", signerSig, {
+    who: signerName,
+    role: prettyRole(signerRole),
+    date: formatDate(signerDate, true),
+    extra: signerEmail,
+  });
+  await drawSig(MARGIN + sigW + sigGap, "Client (maitre d'ouvrage)", report.client_signature, {
+    who: client?.name,
+    role: (report as any).client_validated_email || (report as any).client_signature_email || client?.email || null,
+    date: (report as any).client_validated_at
+      ? formatDate((report as any).client_validated_at, true)
+      : ((report as any).client_signed_at ? formatDate((report as any).client_signed_at, true) : "Non signe"),
+    extra: isInternal && (report as any).client_signature_otp_id
+      ? `OTP id: ${String((report as any).client_signature_otp_id).slice(0, 8)}…`
+      : null,
+  });
   y -= sigH + 16;
 
   if ((report as any).client_validated_at) {

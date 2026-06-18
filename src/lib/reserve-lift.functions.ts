@@ -60,6 +60,8 @@ const InputSchema = z.object({
   signerSignature: z.string().max(800_000).nullable().optional(),
   validationMode: z.enum(["on_site", "remote"]).optional().default("remote"),
   clientSignedOnSite: z.boolean().optional().default(false),
+  // Phase 2 — OTP id for on-site client signature (verified before signing in the dialog).
+  clientOtpId: z.string().uuid().nullable().optional(),
 });
 
 /** Distance between two GPS points in meters (haversine). */
@@ -140,6 +142,22 @@ export const createReserveLift = createServerFn({ method: "POST" })
     // Mirror intervenant signature into legacy company_signature column for PDF/back-compat.
     const companySigForStorage = signerSig;
 
+    // Phase 2 — On-site client signature requires a verified OTP (email link).
+    let onsiteOtpEmail: string | null = null;
+    if (data.status === "signe" && data.validationMode === "on_site" && clientSig) {
+      if (!data.clientOtpId) {
+        throw new Error("Vérification d'identité client obligatoire (code OTP).");
+      }
+      const { assertSignatureOtpVerified } = await import("./signature-otp.server");
+      const otp = await assertSignatureOtpVerified({
+        otpId: data.clientOtpId,
+        expectedCompanyId: pv.company_id,
+        expectedPvId: pv.id,
+        expectedMode: "onsite",
+      });
+      onsiteOtpEmail = otp.email;
+    }
+
     // Resolve intervenant identity from session (auto-filled, never trusted from client).
     let resolvedSignerName = (data.signerName ?? "").trim() || null;
     let resolvedSignerRole = (data.signerRole ?? "").trim() || null;
@@ -205,7 +223,14 @@ export const createReserveLift = createServerFn({ method: "POST" })
           // On-site flow: record client validation timestamps right away.
           client_validated_at:
             data.validationMode === "on_site" && clientSig ? nowIso : null,
-          client_validated_email: resolvedSignerEmail, // best-effort placeholder for on-site
+          client_validated_email:
+            data.validationMode === "on_site" && clientSig
+              ? (onsiteOtpEmail ?? resolvedSignerEmail)
+              : null,
+          client_signature_email:
+            data.validationMode === "on_site" && clientSig ? onsiteOtpEmail : null,
+          client_signature_otp_id:
+            data.validationMode === "on_site" && clientSig ? (data.clientOtpId ?? null) : null,
           client_signed_at:
             data.validationMode === "on_site" && clientSig ? nowIso : null,
         } as any)

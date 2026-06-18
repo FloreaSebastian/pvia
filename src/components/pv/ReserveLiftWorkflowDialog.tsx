@@ -33,6 +33,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCompany } from "@/hooks/use-company";
 import { supabase } from "@/integrations/supabase/client";
 import { createReserveLift, listReserveLiftPhotos } from "@/lib/reserve-lift.functions";
+import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import {
@@ -58,6 +59,7 @@ type Props = {
   preselectedReserveId?: string | null;
   chantierLabel?: string | null;
   clientLabel?: string | null;
+  clientEmail?: string | null;
   onCompleted?: (reportId: string, numero: string) => void;
 };
 
@@ -68,6 +70,7 @@ type StepId =
   | "after"
   | "signer"
   | "mode"
+  | "otp"
   | "client"
   | "review";
 
@@ -93,13 +96,15 @@ function prettyRole(r: string | null | undefined): string {
 export function ReserveLiftWorkflowDialog(props: Props) {
   const {
     open, onOpenChange, pvId, pvNumero, reserves, preselectedReserveId,
-    chantierLabel, clientLabel, onCompleted,
+    chantierLabel, clientLabel, clientEmail, onCompleted,
   } = props;
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const { activeRole } = useCompany();
+  const { activeRole, activeCompanyId } = useCompany();
   const createFn = useServerFn(createReserveLift);
   const listPhotosFn = useServerFn(listReserveLiftPhotos);
+  const sendOtpFn = useServerFn(sendOnsiteClientOtp);
+  const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
 
   // Intervenant identity (auto-filled, read-only)
   const [signerName, setSignerName] = useState("");
@@ -124,7 +129,16 @@ export function ReserveLiftWorkflowDialog(props: Props) {
   const [clientSigData, setClientSigData] = useState<string | null>(null);
   const [clientConsent, setClientConsent] = useState(false);
 
-  // STEPS (dynamic — "client" step only when on_site)
+  // OTP state (on-site only — Phase 2)
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpId, setOtpId] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
+
+  // STEPS (dynamic — "otp" + "client" steps only when on_site)
   const STEPS: { id: StepId; label: string; short: string; icon: any }[] = useMemo(() => {
     const base: { id: StepId; label: string; short: string; icon: any }[] = [
       { id: "select",       label: "Réserves",        short: "1", icon: Check },
@@ -135,7 +149,8 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       { id: "mode",         label: "Validation",      short: "6", icon: Mail },
     ];
     if (validationMode === "on_site") {
-      base.push({ id: "client", label: "Signature client", short: "7", icon: FileSignature });
+      base.push({ id: "otp",    label: "Vérif. client",     short: "7", icon: Mail });
+      base.push({ id: "client", label: "Signature client",  short: "8", icon: FileSignature });
     }
     base.push({ id: "review", label: "Finalisation", short: String(base.length + 1), icon: Send });
     return base;
@@ -155,6 +170,47 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       setSignerName(prof?.full_name ?? "");
     })();
   }, [open, user?.id, user?.email, activeRole]);
+
+  // Prefill OTP email from client profile when opening
+  useEffect(() => {
+    if (!open) return;
+    if (clientEmail) setOtpEmail(clientEmail);
+  }, [open, clientEmail]);
+
+  async function handleSendOtp() {
+    if (!activeCompanyId) { toast.error("Entreprise active introuvable."); return; }
+    const email = otpEmail.trim().toLowerCase();
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) { toast.error("Email client invalide."); return; }
+    setOtpSending(true);
+    try {
+      const res = await sendOtpFn({ data: { companyId: activeCompanyId, email, pvId } });
+      setOtpId(res.otpId);
+      setOtpExpiresAt(res.expiresAt);
+      setOtpVerified(false);
+      setOtpCode("");
+      toast.success(`Code envoyé à ${email}.`);
+    } catch (e: any) {
+      toast.error(e?.message || "Envoi du code échoué.");
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpId) { toast.error("Envoyez d'abord un code."); return; }
+    if (!/^\d{6}$/.test(otpCode)) { toast.error("Code à 6 chiffres attendu."); return; }
+    setOtpVerifying(true);
+    try {
+      await verifyOtpFn({ data: { otpId, code: otpCode } });
+      setOtpVerified(true);
+      toast.success("Identité client vérifiée.");
+    } catch (e: any) {
+      toast.error(e?.message || "Code invalide.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  }
+
 
   // --- Initial selection
   useEffect(() => {
@@ -180,6 +236,11 @@ export function ReserveLiftWorkflowDialog(props: Props) {
     setClientSigData(null);
     setClientConsent(false);
     setValidationMode("remote");
+    setOtpEmail("");
+    setOtpId(null);
+    setOtpCode("");
+    setOtpVerified(false);
+    setOtpExpiresAt(null);
     setStepIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -291,6 +352,11 @@ export function ReserveLiftWorkflowDialog(props: Props) {
       }
       case "mode":
         return { ok: true };
+      case "otp": {
+        if (validationMode !== "on_site") return { ok: true };
+        if (!otpVerified) return { ok: false, msg: "Vérifiez l'identité du client (OTP email)." };
+        return { ok: true };
+      }
       case "client": {
         if (validationMode !== "on_site") return { ok: true };
         if (!clientConsent) return { ok: false, msg: "Le client doit accepter avant de signer." };
@@ -385,6 +451,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
           validationMode,
           clientSignedOnSite: validationMode === "on_site",
           clientSignature: clientSig,
+          clientOtpId: validationMode === "on_site" && otpVerified ? otpId : null,
           // Legacy fields kept for back-compat — left null on new flow
           companySignature: null,
           technicianSignature: null,
@@ -692,6 +759,61 @@ export function ReserveLiftWorkflowDialog(props: Props) {
         </div>
       )}
 
+      {step?.id === "otp" && validationMode === "on_site" && (
+        <div className="space-y-3 rounded-md border border-border p-3">
+          <div>
+            <Label className="text-sm">Vérification d'identité client (OTP email)</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Un code à 6 chiffres est envoyé au client. Obligatoire avant la signature sur place.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs">Email du client <span className="text-destructive">*</span></Label>
+              <div className="flex gap-2">
+                <Input
+                  type="email" placeholder="client@exemple.fr" value={otpEmail}
+                  onChange={(e) => { setOtpEmail(e.target.value); setOtpVerified(false); setOtpId(null); }}
+                  disabled={otpSending || otpVerified}
+                  className="h-9 text-sm"
+                />
+                <Button size="sm" type="button" variant="secondary"
+                  onClick={handleSendOtp} disabled={otpSending || otpVerified || !otpEmail.trim()}>
+                  {otpSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  {otpId ? "Renvoyer" : "Envoyer le code"}
+                </Button>
+              </div>
+              {otpExpiresAt && !otpVerified && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Code valable jusqu'à {new Date(otpExpiresAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.
+                </p>
+              )}
+            </div>
+            {otpId && !otpVerified && (
+              <div>
+                <Label className="text-xs">Code reçu (6 chiffres) <span className="text-destructive">*</span></Label>
+                <div className="flex gap-2">
+                  <Input
+                    inputMode="numeric" pattern="\d{6}" maxLength={6} placeholder="123456"
+                    value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    className="h-9 text-sm tracking-widest font-mono"
+                  />
+                  <Button size="sm" type="button" onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length !== 6}>
+                    {otpVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    Vérifier
+                  </Button>
+                </div>
+              </div>
+            )}
+            {otpVerified && (
+              <div className="rounded border border-green-500/40 bg-green-500/5 px-3 py-2 text-xs text-green-700 dark:text-green-400 flex items-center gap-2">
+                <Check className="h-4 w-4" /> Identité vérifiée pour {otpEmail}.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {step?.id === "client" && validationMode === "on_site" && (
         <div className="space-y-3 rounded-md border border-border p-3">
           <div>
@@ -740,7 +862,10 @@ export function ReserveLiftWorkflowDialog(props: Props) {
               <li>• Signature intervenant : {signerSigData ? "✓" : "—"}</li>
               <li>• Mode de validation client : {validationMode === "on_site" ? "Sur place" : "À distance (email)"}</li>
               {validationMode === "on_site" && (
-                <li>• Signature client : {clientSigData ? "✓" : "—"}</li>
+                <>
+                  <li>• OTP client vérifié : {otpVerified ? `✓ (${otpEmail})` : "—"}</li>
+                  <li>• Signature client : {clientSigData ? "✓" : "—"}</li>
+                </>
               )}
             </ul>
           </div>

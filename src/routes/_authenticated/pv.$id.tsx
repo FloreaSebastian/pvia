@@ -1000,6 +1000,7 @@ function PvDetail() {
         preselectedReserveId={liftPreselectedId}
         chantierLabel={chantierName}
         clientLabel={clientName}
+        clientEmail={clientEmail}
         onCompleted={() => load()}
       />
       {lightbox && (
