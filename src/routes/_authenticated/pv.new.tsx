@@ -1259,32 +1259,7 @@ function NewPv() {
               )}
 
 
-              {currentStep.id === ID_PHOTOS && (
-                <>
-                  <SectionHeader icon={Camera} title="Photos des réserves" desc="Documentez visuellement les réserves (optionnel mais recommandé)." />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <PhotoUploader label="Photos de réserves" kind="autre" onFiles={onFiles} />
-                    <PhotoUploader label="Photos avant intervention" kind="avant" onFiles={onFiles} />
-                  </div>
-                  {photos.length > 0 && (
-                    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                      {photos.map((p, i) => (
-                        <div key={i} className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                          <div className="relative">
-                            <img src={p.preview} alt="" className="aspect-square w-full object-cover" />
-                            <span className="absolute left-2 top-2 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider shadow">{p.kind}</span>
-                            <button type="button" onClick={() => setPhotos(photos.filter((_, j) => j !== i))} className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-md bg-background/90 opacity-0 transition-opacity group-hover:opacity-100">
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                          <Input placeholder="Légende…" className="rounded-none border-0 border-t text-xs" value={p.caption}
-                            onChange={(e) => { const c = [...photos]; c[i].caption = e.target.value; setPhotos(c); }} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
+
 
               {currentStep.id === ID_SIGNATURES && (
                 <>
