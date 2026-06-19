@@ -914,8 +914,9 @@ function ChantierCalendarPage() {
         </Card>
       )}
 
-      {/* Filters toggle + conflicts chip */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Filters toggle + conflicts chip — desktop only (mobile uses the compact bar icon) */}
+      <div className="hidden lg:flex flex-wrap items-center gap-2">
+
         <Button size="sm" variant={filtersOpen || activeFilterCount > 0 ? "secondary" : "outline"}
           onClick={() => setFiltersOpen((v) => !v)} className="gap-1.5">
           <Filter className="h-3.5 w-3.5" />
