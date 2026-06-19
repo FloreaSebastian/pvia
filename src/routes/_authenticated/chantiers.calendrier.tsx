@@ -202,6 +202,7 @@ function ChantierCalendarPage() {
   const [zoom, setZoom] = useState<Zoom>(() => lsGet<Zoom>(LS.zoom, "normal"));
   const [weekDays, setWeekDays] = useState<WeekDays>(() => (initial.weekDays ?? lsGet<WeekDays>(LS.weekDays, 7)));
   const [filtersOpen, setFiltersOpen] = useState<boolean>(() => lsGet(LS.filtersOpen, false));
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const hourPx = ZOOM_LEVELS[zoom];
 
   useEffect(() => { lsSet(LS.fs, fullscreen); }, [fullscreen]);
