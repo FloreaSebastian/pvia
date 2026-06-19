@@ -1063,6 +1063,91 @@ function ChantierCalendarPage() {
       </Card>
       )}
 
+      {/* Mobile filters sheet — reuses the same filter controls */}
+      <Sheet open={isMobile && filtersOpen} onOpenChange={(o) => { if (!o) setFiltersOpen(false); }}>
+        <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center justify-between gap-2">
+              <span>Filtres</span>
+              {activeFilterCount > 0 && (
+                <Button size="sm" variant="ghost" onClick={resetFilters} className="h-7 gap-1 text-xs">
+                  <X className="h-3 w-3" /> Réinitialiser
+                </Button>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="grid gap-2 pt-3">
+            <Select value={fChantier} onValueChange={setFChantier}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Chantier" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={fClient} onValueChange={setFClient}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Client" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={fType} onValueChange={setFType}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={fStatus} onValueChange={setFStatus}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous statuts</SelectItem>
+                <SelectItem value="prevu">Prévu</SelectItem><SelectItem value="en_cours">En cours</SelectItem>
+                <SelectItem value="termine">Terminé</SelectItem><SelectItem value="annule">Annulé</SelectItem>
+                <SelectItem value="reporte">Reporté</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={fAssigned} onValueChange={setFAssigned}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Assigné" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous membres</SelectItem>
+                {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={fColor} onValueChange={setFColor}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Couleur" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes couleurs</SelectItem>
+                {COLORS.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
+              <button type="button" onClick={() => setFOnlyUnassigned((v) => !v)}
+                className={cn("rounded-full border px-3 py-1.5 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                Non assignés
+              </button>
+              <button type="button" onClick={() => setFHideDone((v) => !v)}
+                className={cn("rounded-full border px-3 py-1.5 transition", fHideDone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                Masquer terminés
+              </button>
+              <button type="button" onClick={() => setFHideCancelled((v) => !v)}
+                className={cn("rounded-full border px-3 py-1.5 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                Masquer annulés
+              </button>
+            </div>
+            <div className="border-t border-border/60 pt-3">
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Légende</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[11px]">
+                {Object.entries(TYPE_LABELS).map(([k, label]) => {
+                  const colorKey = TYPE_TO_COLOR[k] ?? "blue";
+                  const swatch = COLORS.find((c) => c.key === colorKey)!;
+                  return (
+                    <span key={k} className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: swatch.bg }} aria-hidden />
+                      <span className="text-foreground">{label}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+            <Button onClick={() => setFiltersOpen(false)} className="mt-2 h-11">Appliquer</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+
+
 
 
       {/* Views */}
