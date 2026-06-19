@@ -1,65 +1,118 @@
-## Calendrier Mobile V2 — Plan
 
-Scope: refonte UX mobile du calendrier (`src/routes/_authenticated/chantiers.calendrier.tsx`, 2357 lignes) sans casser le desktop. Les changements sont presque tous présentation/UX ; pas de modif backend.
+# Calendrier Mobile V3 — Refonte façon Google Agenda
 
-### 1. Vues disponibles
-- Retirer "5 jours" du sélecteur (UI + persistance).
-- Ajouter une vraie vue **3 jours** (`view: "week"`, `weekDays: 3`, ancré sur la date courante : `cursor → cursor+2`, pas un `startOfWeek`).
-- Liste finale : Jour · 3 jours · Semaine · Mois (+ Équipe / Personnalisé restent desktop).
-- Persistance `pvia.cal.defaultView` : `day | week3 | week | month`. Migration des anciennes valeurs (`week5` → `week`).
-- Fallback : mobile = `day`, desktop = `month` (déjà en place).
+Refonte **uniquement mobile** (`<lg`) du fichier `src/routes/_authenticated/chantiers.calendrier.tsx`. Le desktop reste **inchangé**. Aucune migration SQL, aucune server function modifiée.
 
-### 2. Comportement tactile des événements (mobile)
-- Sur mobile (`useIsMobile`), désactiver `draggable` natif HTML5.
-- Nouveau handler : `onPointerDown` démarre un timer 700 ms. Si le doigt bouge avant → annule (= tap). Si le timer expire :
-  - active mode "drag" (state local `mobileDragId`), vibration `navigator.vibrate?.(20)`, classe visuelle (ring + scale + opacity).
-  - le déplacement utilise pointermove/up sur le conteneur jour : on capture le drop sur la colonne survolée (réutilise le même `applyMove` que le drag desktop).
-- `onClick` (tap court) → ouvre Bottom Sheet détails.
-- Desktop : on garde HTML5 drag & drop existant inchangé.
+---
 
-### 3. Bottom Sheet détails événement
-- Nouveau composant interne `EventBottomSheet` (basé `Sheet side="bottom"` déjà importé) :
-  - Titre, type (badge couleur), date, heure début/fin, chantier, client, responsable, description.
-  - Actions : Modifier (ouvre le dialog existant), Voir chantier (`/chantiers/$id`), Voir client (`/clients?...`), Supprimer (si `canWrite`).
-- Sur desktop, comportement clic actuel inchangé (popover / dialog existant). Sur mobile, le tap déclenche le sheet.
+## 1. Cartes événements lisibles (mobile)
 
-### 4. Chevauchements
-- Dans le rendu jour/semaine/3-jours : grouper les événements qui se chevauchent par colonne de jour (algorithme simple : tri par début, regrouper si `start < prevEnd`).
-- Si un cluster dépasse 2 visibles : afficher les 2 premiers + bloc `+N autres` cliquable → ouvre une liste (Bottom Sheet sur mobile, popover sur desktop) qui liste tous les événements du cluster ; tap → ouvre le Bottom Sheet détail.
+Nouveau rendu sur 3 lignes dans `TimeGridView` quand `isMobile` :
 
-### 5. Cartes événements lisibles
-- `min-h-[48px]` mobile, padding 8px, line-height resserrée.
-- Layout : pastille couleur 4px à gauche, heure (text-xs), titre tronqué sur 2 lignes (`line-clamp-2`).
-- Ne jamais tronquer à 1 caractère : retirer toute logique qui force `truncate` à largeur 0 ; garantir min-width contenu.
+```text
+🏗 Villa Dupont          ← chantier (line-clamp-1, font-semibold)
+09h00 → 11h00            ← horaire (text-xs, tabular-nums)
+Réception PV             ← type label (text-xs opacity-90)
+```
 
-### 6. Légende couleurs
-- Dans le panneau Filtres : ajouter section "Légende" listant les types (PV, Intervention, SAV, Réserve bloquante, Réception) avec leur couleur. Source : mapping existant `EVENT_TYPE_COLORS` (vérifier nom réel et compléter au besoin).
+- Priorité d'affichage : **chantier > type > heure** (fallback titre si pas de chantier).
+- Pas de troncature à 1 caractère : on retire le titre court, on garde lignes 1/2/3 avec `line-clamp-1`.
+- Hauteur minimum **70 px** sur mobile (idéal 80) — quel que soit la durée. Desktop garde l'ancien `minH`.
 
-### 7. Bouton flottant
-- Retirer le FAB `+` mobile du calendrier. Remplacer par un bouton icône discret dans le header (à côté du bouton Filtres). Le bouton central "Nouveau PV" de BottomNav reste seul gros bouton.
+## 2. Palette métier centralisée
 
-### 8. Barre d'outils mobile
-- Ordre imposé sur `lg:hidden` : (1) sélecteur Vue, (2) date courante, (3) bloc `<` Aujourd'hui `>`, (4) recherche, (5) Filtres.
-- Le sélecteur Vue mobile devient un segmented control 4 options : Jour | 3j | Sem | Mois.
+Nouvelle map `BUSINESS_COLORS` qui remplace l'usage actuel de `TYPE_TO_COLOR` aléatoire :
 
-### 9. Filtres mobile
-- Tout dans un Sheet repliable (déjà existant) : type, chantier, client, responsable, statut, "couleur type/chantier", légende.
-- Aucune option avancée hors du sheet sur mobile.
+| Type                                 | Couleur | Hex      |
+|--------------------------------------|---------|----------|
+| `system_pv_created/signed`, `pv*`    | 🟦 Bleu  | #2563eb |
+| `reception`                          | 🟩 Vert  | #10b981 |
+| `intervention`, `pose`, `visite_technique`, `debut_travaux`, `livraison_materiel`, `controle_qualite` | 🟨 Jaune | #eab308 |
+| `system_reserve_created/lifted`      | 🟧 Orange| #f97316 |
+| `sav`                                | 🟥 Rouge | #ef4444 |
+| `retard`                             | ⬛ Noir  | #1f2937 |
+| `rappel`, `appel_client`, `remarque` | 🟪 Violet| #8b5cf6 |
 
-### 10. Responsive & perf
-- Tester via Playwright à 360 / 390 / 430 px : pas d'overflow horizontal, pas de double scroll.
-- `useMemo` sur clusters par jour ; `React.memo` sur la carte événement ; éviter recalculs sur drag.
+`colorOf()` route vers cette palette quand `mode === "type"`. Le mode `chantier` (couleur perso) reste dispo via Filtres. La légende dans le panneau Filtres est mise à jour.
 
-### Détails techniques
-- Fichier principal : `src/routes/_authenticated/chantiers.calendrier.tsx`. Pas de nouveau fichier route ; sous-composants extraits en haut du fichier (ou dans `src/components/calendar/` si trop long).
-- Hook : `useIsMobile()` (`src/hooks/use-mobile.tsx`).
-- UI : `Sheet` (déjà importé) pour Bottom Sheet, `Button`, `Badge`, `cn`.
-- Pas de migration SQL, pas de changement aux server functions.
+## 3. Chevauchements — règle « +N autres »
 
-### Tests Playwright
-Scénarios couverts post-refactor : tap = ouverture, appui long 700 ms = drag, création via header, recherche, filtres, vues Jour/3j/Sem/Mois, navigation vers chantier/client. Captures à 360/390/430.
+Dans `TimeGridView`, calcul du *clustering* déjà présent. Sur mobile, si un cluster contient **>2** events :
 
-### Hors scope
-- Pas de modification des events backend ni des permissions.
-- Pas de refonte desktop : on conserve l'expérience actuelle ≥ `lg`.
-- Pas de virtualisation lourde (à n'introduire que si le profilage l'exige).
+- Afficher les 2 premiers (par heure de début) plein format.
+- Remplacer les autres par un seul bloc compact `+N autres` (même colonne, même hauteur cumulée).
+- Tap → ouvre un **Bottom Sheet** listant tous les events du cluster (titre + horaire + type), chaque ligne tap → ouvre la fiche événement.
+
+Desktop : comportement actuel conservé.
+
+## 4. Vue Jour comme vue principale mobile
+
+- **Auto-scroll** vers l'heure courante au montage de la vue Jour (mobile uniquement) — déjà partiellement présent, on s'assure que l'heure courante est centrée et qu'on scroll uniquement à l'ouverture, pas à chaque rerender.
+- **Ligne rouge « now »** : composant `<NowLine />` (1 px `bg-red-500` + pastille 8 px à gauche), positionné via `topForTime(now)`. Refresh toutes les minutes.
+- En vue Semaine/3j la ligne n'apparaît que dans la colonne d'aujourd'hui.
+
+## 5. Vue 3 jours = J / J+1 / J+2
+
+Déjà ajoutée en V2 mais ancrée sur le cursor. On confirme **J / J+1 / J+2** (anchor = `cursor`, pas `startOfWeek`). Pas de changement supplémentaire.
+
+## 6. Colonnes plus aérées
+
+- Retirer les bordures verticales internes mobile (`divide-x` → `divide-none lg:divide-x`).
+- Quadrillage horizontal : 1 ligne par heure seulement (pas demi-heures sur mobile).
+- Padding interne event card : `p-2` mobile (au lieu de `p-1`).
+
+## 7. Header mobile compact
+
+Une seule zone, hauteur réduite :
+
+```text
+[Jour|3j|Sem|Mois]   18 juin   < Aujourd'hui >
+[🔍 Recherche…………………………………] [Filtres]
+```
+
+- `py-2` au lieu de `py-3`, suppression de la marge entre les deux lignes.
+- Le bouton `+` reste dans le PageHeader (déjà fait en V2), pas de FAB concurrent du PV central.
+
+## 8. Bottom Sheet « Fiche événement » mobile
+
+Nouveau composant interne `EventBottomSheet` (basé sur `Sheet side="bottom"`).
+
+Contenu :
+- Titre + pastille couleur
+- Type (label métier)
+- Date + horaire
+- Chantier (lien)
+- Client (lien)
+- Responsable
+- Description
+- Actions : **Modifier · Voir chantier · Voir client · Supprimer**
+
+Sur mobile, tap event → ce sheet (au lieu du `Dialog` actuel). Desktop garde le Dialog.
+
+## 9. Hors-scope (intentionnel)
+
+- Pas de refonte desktop.
+- Pas de virtualisation lourde.
+- Pas de modification des appels backend (events shape inchangé).
+- Pas de changement du module Réserves/Chantiers ailleurs (mais la palette `BUSINESS_COLORS` pourra être réutilisée plus tard — exportée par sécurité).
+
+---
+
+## Plan d'exécution (1 seul fichier modifié)
+
+`src/routes/_authenticated/chantiers.calendrier.tsx` :
+
+1. Ajouter `BUSINESS_COLORS` + nouveau `colorOf()`.
+2. Ajouter `<NowLine />` + auto-scroll « once » sur vue Jour mobile.
+3. Refactor render event card mobile (3 lignes + min-h 70).
+4. Cluster overflow `+N autres` + sheet liste.
+5. `EventBottomSheet` + branchement tap mobile.
+6. Compact header + nettoyage bordures mobile.
+
+TypeScript strict. Pas de nouveau package.
+
+---
+
+**Estimation impact** : ~250 lignes ajoutées / ~120 modifiées dans un seul fichier. Aucun risque backend. Desktop pixel-identique.
+
+Veux-tu que je lance l'implémentation telle quelle, ou ajuster un point (palette, hauteur min, BottomSheet vs Dialog plein écran) avant ?
