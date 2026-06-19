@@ -1605,6 +1605,52 @@ function TimeGridView({
 
   const colWidthPct = 100 / days.length;
 
+  // ----- Mobile cluster overflow: si +2 events se chevauchent, on n'en garde
+  // que 2 et on rend un bloc "+N autres" qui ouvre une liste. -----
+  const { hiddenIds, overflows } = useMemo(() => {
+    const hidden = new Set<string>();
+    const overflowList: { dayIdx: number; topMin: number; heightMin: number; col: number; cols: number; evts: Evt[] }[] = [];
+    if (!isMobile) return { hiddenIds: hidden, overflows: overflowList };
+    // Group by day, then split into overlap clusters.
+    const byDay = new Map<number, Positioned[]>();
+    for (const p of positioned) {
+      const arr = byDay.get(p.dayIdx) ?? [];
+      arr.push(p); byDay.set(p.dayIdx, arr);
+    }
+    for (const [, items] of byDay) {
+      const sorted = items.slice().sort((a, b) => a.topMin - b.topMin);
+      let cluster: Positioned[] = [];
+      let clusterEnd = -1;
+      const flush = () => {
+        if (cluster.length > 2) {
+          const visible = cluster.slice().sort((a, b) => a.topMin - b.topMin).slice(0, 2);
+          const visIds = new Set(visible.map((v) => v.evt.id));
+          const hiddenEvts: Evt[] = [];
+          for (const c of cluster) if (!visIds.has(c.evt.id)) { hidden.add(c.evt.id); hiddenEvts.push(c.evt); }
+          const top = Math.min(...cluster.map((c) => c.topMin));
+          const bottom = Math.max(...cluster.map((c) => c.topMin + c.heightMin));
+          overflowList.push({
+            dayIdx: cluster[0].dayIdx, topMin: top, heightMin: Math.max(40, bottom - top),
+            col: 1, cols: 2, evts: hiddenEvts,
+          });
+        }
+        cluster = []; clusterEnd = -1;
+      };
+      for (const it of sorted) {
+        if (cluster.length === 0 || it.topMin < clusterEnd) {
+          cluster.push(it);
+          clusterEnd = Math.max(clusterEnd, it.topMin + it.heightMin);
+        } else {
+          flush();
+          cluster.push(it);
+          clusterEnd = it.topMin + it.heightMin;
+        }
+      }
+      flush();
+    }
+    return { hiddenIds: hidden, overflows: overflowList };
+  }, [positioned, isMobile]);
+
   // Tooltip / floating times during drag
   const dragTooltip = (() => {
     if (!drag) return null;
