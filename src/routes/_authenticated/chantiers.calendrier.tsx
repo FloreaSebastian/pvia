@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -44,27 +45,38 @@ type Evt = {
   client?: { id: string; name: string } | null;
 };
 
-// ----- Palette (Google-Agenda style) -----
+// ----- Palette métier (PVIA) — règle unique : même type = même couleur partout -----
 const COLORS = [
-  { key: "blue",   label: "Bleu",    bg: "#3b82f6", fg: "#ffffff" },
-  { key: "green",  label: "Vert",    bg: "#10b981", fg: "#ffffff" },
-  { key: "orange", label: "Orange",  bg: "#f97316", fg: "#ffffff" },
-  { key: "red",    label: "Rouge",   bg: "#ef4444", fg: "#ffffff" },
-  { key: "purple", label: "Violet",  bg: "#8b5cf6", fg: "#ffffff" },
-  { key: "yellow", label: "Jaune",   bg: "#eab308", fg: "#1f2937" },
-  { key: "gray",   label: "Gris",    bg: "#6b7280", fg: "#ffffff" },
-  { key: "sky",    label: "Bleu clair", bg: "#0ea5e9", fg: "#ffffff" },
-  { key: "slate",  label: "Gris foncé", bg: "#334155", fg: "#ffffff" },
+  { key: "blue",   label: "Bleu (Procès-verbal)",     bg: "#2563eb", fg: "#ffffff" },
+  { key: "green",  label: "Vert (Réception)",         bg: "#10b981", fg: "#ffffff" },
+  { key: "yellow", label: "Jaune (Intervention)",     bg: "#eab308", fg: "#1f2937" },
+  { key: "orange", label: "Orange (Réserve)",         bg: "#f97316", fg: "#ffffff" },
+  { key: "red",    label: "Rouge (SAV)",              bg: "#ef4444", fg: "#ffffff" },
+  { key: "black",  label: "Noir (Bloquant / Retard)", bg: "#1f2937", fg: "#ffffff" },
+  { key: "purple", label: "Violet (Administratif)",   bg: "#8b5cf6", fg: "#ffffff" },
+  { key: "sky",    label: "Bleu clair",               bg: "#0ea5e9", fg: "#ffffff" },
+  { key: "gray",   label: "Gris",                     bg: "#6b7280", fg: "#ffffff" },
+  { key: "slate",  label: "Gris foncé",               bg: "#334155", fg: "#ffffff" },
 ] as const;
 type ColorKey = typeof COLORS[number]["key"];
 
+// Mapping métier — chaque type d'événement => 1 catégorie couleur.
 const TYPE_TO_COLOR: Record<string, ColorKey> = {
-  visite_technique: "blue", intervention: "green", pose: "purple",
-  livraison_materiel: "orange", controle_qualite: "yellow", reception: "red",
-  sav: "gray", appel_client: "sky", rappel: "slate",
-  debut_travaux: "green", retard: "red", remarque: "gray",
-  system_pv_created: "slate", system_pv_signed: "slate",
-  system_reserve_created: "yellow", system_reserve_lifted: "yellow",
+  // 🟦 Procès-verbal
+  system_pv_created: "blue", system_pv_signed: "blue",
+  // 🟩 Réception
+  reception: "green", debut_travaux: "green",
+  // 🟨 Intervention / pose / visite / contrôle / livraison
+  intervention: "yellow", pose: "yellow", visite_technique: "yellow",
+  controle_qualite: "yellow", livraison_materiel: "yellow",
+  // 🟧 Réserve
+  system_reserve_created: "orange", system_reserve_lifted: "orange",
+  // 🟥 SAV
+  sav: "red",
+  // ⬛ Bloquant / retard
+  retard: "black",
+  // 🟪 Administratif
+  rappel: "purple", appel_client: "purple", remarque: "purple",
 };
 const TYPE_LABELS: Record<string, string> = {
   visite_technique: "Visite technique", intervention: "Intervention", pose: "Pose",
@@ -74,9 +86,6 @@ const TYPE_LABELS: Record<string, string> = {
   retard: "Retard", remarque: "Remarque",
 };
 type ColorMode = "type" | "chantier";
-// Module-level current color mode, set by the page on every render via a
-// sync effect. Lets every helper/subcomponent that calls `colorOf` honor
-// the user's mode without refactoring every component signature.
 let CURRENT_COLOR_MODE: ColorMode = "type";
 function hexToFg(hex: string): string {
   const h = hex.replace("#", "");
@@ -92,7 +101,7 @@ function colorOf(e: Evt, mode: ColorMode = CURRENT_COLOR_MODE): { bg: string; fg
   if (mode === "chantier" && e.chantier?.color && /^#[0-9a-f]{6}$/i.test(e.chantier.color)) {
     return { bg: e.chantier.color, fg: hexToFg(e.chantier.color), key: "blue" };
   }
-  const k: ColorKey = TYPE_TO_COLOR[e.event_type] ?? "blue";
+  const k: ColorKey = TYPE_TO_COLOR[e.event_type] ?? "purple";
   const c = COLORS.find((cc) => cc.key === k)!;
   return { bg: c.bg, fg: c.fg, key: k };
 }
@@ -404,6 +413,7 @@ function ChantierCalendarPage() {
   const [evtOpen, setEvtOpen] = useState(false);
   const [evtForm, setEvtForm] = useState<FormState>(blankForm());
   const [quickEvt, setQuickEvt] = useState<Evt | null>(null);
+  const [clusterSheet, setClusterSheet] = useState<Evt[] | null>(null);
   const [search, setSearch] = useState("");
   const chantierName = useCallback((id: string | null | undefined) => id ? (chantiers.find((c) => c.id === id)?.name ?? "—") : "—", [chantiers]);
   const clientName = useCallback((id: string | null | undefined) => id ? (clients.find((c) => c.id === id)?.name ?? "—") : "—", [clients]);
@@ -1087,6 +1097,7 @@ function ChantierCalendarPage() {
           onCreateRange={(s, e) => openNew(s, e)}
           onClickEvent={(e) => openQuick(e)}
           onDblClickEvent={(e) => openEdit(e)}
+          onClusterMore={(evts) => setClusterSheet(evts)}
           memberName={memberName}
           chantierName={chantierName}
           clientName={clientName}
@@ -1256,6 +1267,44 @@ function ChantierCalendarPage() {
       )}
 
       {/* Conflict confirmation modal (pre-save) */}
+      {/* Mobile: liste des events d'un cluster (chevauchements >2) */}
+      <Sheet open={!!clusterSheet} onOpenChange={(o) => !o && setClusterSheet(null)}>
+        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Événements en chevauchement</SheetTitle>
+          </SheetHeader>
+          <ul className="mt-3 divide-y divide-border">
+            {clusterSheet?.map((e) => {
+              const c = colorOf(e);
+              const s = e.start_at ? new Date(e.start_at) : null;
+              const en = e.end_at ? new Date(e.end_at) : null;
+              return (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    onClick={() => { setClusterSheet(null); openQuick(e); }}
+                    className="flex w-full items-start gap-3 py-3 text-left"
+                  >
+                    <span className="mt-1 h-3 w-3 shrink-0 rounded-full" style={{ background: c.bg }} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">
+                        {e.chantier_id ? chantierName(e.chantier_id) : e.title}
+                      </span>
+                      <span className="block text-xs tabular-nums text-muted-foreground">
+                        {s ? `${fmtTime(s)}${en ? ` → ${fmtTime(en)}` : ""}` : "—"}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {TYPE_LABELS[e.event_type] ?? e.event_type}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </SheetContent>
+      </Sheet>
+
       <AlertDialog open={!!confirmConflicts} onOpenChange={(o) => { if (!o) setConfirmConflicts(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1429,6 +1478,7 @@ type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number;
 
 function TimeGridView({
   days, events, canWrite, isMobile, conflictIds, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
+  onClusterMore,
   memberName, chantierName, clientName, hourPx = DEFAULT_HOUR_PX,
 }: {
   days: Date[]; events: Evt[]; canWrite: boolean; isMobile?: boolean;
@@ -1438,6 +1488,7 @@ function TimeGridView({
   onDblClickEvent: (e: Evt) => void;
   onMove: (id: string, newStart: Date) => void;
   onResize: (id: string, newEnd: Date) => void;
+  onClusterMore?: (evts: Evt[]) => void;
   memberName: (id: string | null | undefined) => string | null;
   chantierName: (id: string | null | undefined) => string;
   clientName: (id: string | null | undefined) => string;
@@ -1595,6 +1646,52 @@ function TimeGridView({
 
   const colWidthPct = 100 / days.length;
 
+  // ----- Mobile cluster overflow: si +2 events se chevauchent, on n'en garde
+  // que 2 et on rend un bloc "+N autres" qui ouvre une liste. -----
+  const { hiddenIds, overflows } = useMemo(() => {
+    const hidden = new Set<string>();
+    const overflowList: { dayIdx: number; topMin: number; heightMin: number; col: number; cols: number; evts: Evt[] }[] = [];
+    if (!isMobile) return { hiddenIds: hidden, overflows: overflowList };
+    // Group by day, then split into overlap clusters.
+    const byDay = new Map<number, Positioned[]>();
+    for (const p of positioned) {
+      const arr = byDay.get(p.dayIdx) ?? [];
+      arr.push(p); byDay.set(p.dayIdx, arr);
+    }
+    for (const [, items] of byDay) {
+      const sorted = items.slice().sort((a, b) => a.topMin - b.topMin);
+      let cluster: Positioned[] = [];
+      let clusterEnd = -1;
+      const flush = () => {
+        if (cluster.length > 2) {
+          const visible = cluster.slice().sort((a, b) => a.topMin - b.topMin).slice(0, 2);
+          const visIds = new Set(visible.map((v) => v.evt.id));
+          const hiddenEvts: Evt[] = [];
+          for (const c of cluster) if (!visIds.has(c.evt.id)) { hidden.add(c.evt.id); hiddenEvts.push(c.evt); }
+          const top = Math.min(...cluster.map((c) => c.topMin));
+          const bottom = Math.max(...cluster.map((c) => c.topMin + c.heightMin));
+          overflowList.push({
+            dayIdx: cluster[0].dayIdx, topMin: top, heightMin: Math.max(40, bottom - top),
+            col: 1, cols: 2, evts: hiddenEvts,
+          });
+        }
+        cluster = []; clusterEnd = -1;
+      };
+      for (const it of sorted) {
+        if (cluster.length === 0 || it.topMin < clusterEnd) {
+          cluster.push(it);
+          clusterEnd = Math.max(clusterEnd, it.topMin + it.heightMin);
+        } else {
+          flush();
+          cluster.push(it);
+          clusterEnd = it.topMin + it.heightMin;
+        }
+      }
+      flush();
+    }
+    return { hiddenIds: hidden, overflows: overflowList };
+  }, [positioned, isMobile]);
+
   // Tooltip / floating times during drag
   const dragTooltip = (() => {
     if (!drag) return null;
@@ -1642,13 +1739,13 @@ function TimeGridView({
             className={cn("relative col-span-full -ml-px", drag?.kind === "move" && "cursor-grabbing select-none", drag?.kind === "resize" && "cursor-ns-resize select-none")}
             style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * hourPx, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
             {days.map((d, i) => (
-              <div key={i} className={cn("relative border-l border-border", i === todayIdx && "bg-primary/[0.04]")}>
+              <div key={i} className={cn("relative", isMobile ? "" : "border-l border-border", i === todayIdx && "bg-primary/[0.04]")}>
                 {/* Hour lines */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * hourPx }} />
+                  <div key={h} className={cn("absolute left-0 right-0 border-t", isMobile ? "border-border/30" : "border-border/50")} style={{ top: h * hourPx }} />
                 ))}
-                {/* Half-hour subtle */}
-                {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
+                {/* Half-hour subtle (desktop only — moins de quadrillage sur mobile) */}
+                {!isMobile && Array.from({ length: TOTAL_HOURS }).map((_, h) => (
                   <div key={"h" + h} className="absolute left-0 right-0 border-t border-dashed border-border/20" style={{ top: h * hourPx + hourPx / 2 }} />
                 ))}
               </div>
@@ -1670,6 +1767,7 @@ function TimeGridView({
             {/* Events overlay */}
             {positioned.map((p) => {
               const { evt, dayIdx, topMin, heightMin, col, cols } = p;
+              if (hiddenIds.has(evt.id)) return null;
               const c = colorOf(evt);
               const ann = evt.status === "annule";
               const isSystem = evt.event_type.startsWith("system_");
@@ -1687,32 +1785,65 @@ function TimeGridView({
                 liveHeight = Math.max(15, drag.endMin - drag.startMin);
               }
 
-              const subW = (colWidthPct / cols);
-              const left = `calc(${liveDayIdx * colWidthPct + col * subW}% + 2px)`;
+              // Sur mobile, si le cluster a été ramené à 2 colonnes max, recale.
+              const renderCols = isMobile ? Math.min(cols, 2) : cols;
+              const renderCol = Math.min(col, renderCols - 1);
+              const subW = (colWidthPct / renderCols);
+              const left = `calc(${liveDayIdx * colWidthPct + renderCol * subW}% + 2px)`;
               const width = `calc(${subW}% - 4px)`;
 
-              return (
-                <HoverCard key={evt.id} openDelay={400} closeDelay={80}>
-                  <HoverCardTrigger asChild>
-                    <div data-evt
-                      onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
-                      onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
-                      onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
-                      className={cn(
-                        "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
-                        !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
-                        ann && "line-through opacity-50",
-                        evt.status === "termine" && "opacity-80",
-                        isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
-                        conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
+              const startDate = evt.start_at ? new Date(evt.start_at) : null;
+              const endDate = evt.end_at ? new Date(evt.end_at) : null;
+              const timeLabel = startDate
+                ? `${fmtTime(startDate)}${endDate ? ` → ${fmtTime(endDate)}` : ""}`
+                : "";
+              const chName = evt.chantier_id ? chantierName(evt.chantier_id) : null;
+              const typeLabel = TYPE_LABELS[evt.event_type] ?? evt.title;
+
+              const cardEl = (
+                <div data-evt
+                  onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
+                  onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
+                  onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
+                  className={cn(
+                    "absolute overflow-hidden rounded-md shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
+                    isMobile ? "p-2" : "px-1.5 py-1",
+                    "text-[11px] font-medium",
+                    !isSystem && canWrite && !isMobile && "cursor-grab active:cursor-grabbing",
+                    isMobile && "cursor-pointer",
+                    ann && "line-through opacity-50",
+                    evt.status === "termine" && "opacity-80",
+                    isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                    conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
+                  )}
+                  style={{
+                    background: c.bg, color: c.fg,
+                    left, width,
+                    top: (liveTop / 60) * hourPx,
+                    height: Math.max(isMobile ? 70 : 18, (liveHeight / 60) * hourPx - 2),
+                    zIndex: isDragged ? 40 : 10,
+                  }}>
+                  {isMobile ? (
+                    <div className="flex h-full flex-col justify-start gap-0.5 leading-tight">
+                      {/* Ligne 1 : chantier (ou titre si pas de chantier) */}
+                      <div className="flex items-center gap-1">
+                        {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                        {statusIcon(evt.status)}
+                        <span className="line-clamp-1 text-[13px] font-semibold">
+                          {chName ?? evt.title}
+                        </span>
+                      </div>
+                      {/* Ligne 2 : horaire */}
+                      {timeLabel && (
+                        <div className="text-[11px] tabular-nums opacity-95">{timeLabel}</div>
                       )}
-                      style={{
-                        background: c.bg, color: c.fg,
-                        left, width,
-                        top: (liveTop / 60) * hourPx,
-                        height: Math.max(isMobile ? 48 : 18, (liveHeight / 60) * hourPx - 2),
-                        zIndex: isDragged ? 40 : 10,
-                      }}>
+                      {/* Ligne 3 : type métier (ou titre si déjà affiché en ligne 1) */}
+                      <div className="line-clamp-1 text-[11px] opacity-90">
+                        {chName ? typeLabel : (TYPE_LABELS[evt.event_type] ?? "")}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                       <div className="flex items-center gap-1 truncate">
                         {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
                         {statusIcon(evt.status)}
@@ -1729,22 +1860,50 @@ function TimeGridView({
                       {liveHeight >= 64 && evt.chantier_id && (
                         <div className="truncate text-[10px] opacity-80">{chantierName(evt.chantier_id)}</div>
                       )}
-                      {/* resize handle */}
-                      {!isSystem && canWrite && (
-                        <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
-                          className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
-                          style={{ opacity: isDragged ? 1 : undefined }}
-                        />
-                      )}
-                    </div>
+                    </>
+                  )}
+                  {/* resize handle (desktop only) */}
+                  {!isSystem && canWrite && !isMobile && (
+                    <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
+                      className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                      style={{ opacity: isDragged ? 1 : undefined }}
+                    />
+                  )}
+                </div>
+              );
 
-                  </HoverCardTrigger>
+              if (isMobile) return <div key={evt.id}>{cardEl}</div>;
+              return (
+                <HoverCard key={evt.id} openDelay={400} closeDelay={80}>
+                  <HoverCardTrigger asChild>{cardEl}</HoverCardTrigger>
                   {!drag && (
                     <HoverCardContent side="right" align="start" className="w-72">
                       <EventHoverContent evt={evt} memberName={memberName} chantierName={chantierName} clientName={clientName} />
                     </HoverCardContent>
                   )}
                 </HoverCard>
+              );
+            })}
+
+            {/* Mobile cluster overflow pills */}
+            {isMobile && overflows.map((o, idx) => {
+              const subW = colWidthPct / o.cols;
+              const left = `calc(${o.dayIdx * colWidthPct + o.col * subW}% + 2px)`;
+              const width = `calc(${subW}% - 4px)`;
+              return (
+                <button
+                  key={`ovf-${idx}`}
+                  type="button"
+                  onClick={() => onClusterMore?.(o.evts)}
+                  className="absolute z-20 flex items-center justify-center rounded-md border border-dashed border-foreground/30 bg-background/80 px-2 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur hover:bg-background"
+                  style={{
+                    left, width,
+                    top: (o.topMin / 60) * hourPx,
+                    height: Math.max(40, (o.heightMin / 60) * hourPx - 2),
+                  }}
+                >
+                  +{o.evts.length} autres
+                </button>
               );
             })}
 
