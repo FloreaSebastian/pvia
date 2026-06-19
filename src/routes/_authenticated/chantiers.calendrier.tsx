@@ -1698,13 +1698,13 @@ function TimeGridView({
             className={cn("relative col-span-full -ml-px", drag?.kind === "move" && "cursor-grabbing select-none", drag?.kind === "resize" && "cursor-ns-resize select-none")}
             style={{ gridColumn: `2 / span ${days.length}`, height: TOTAL_HOURS * hourPx, gridTemplateColumns: `repeat(${days.length}, minmax(0,1fr))`, display: "grid" }}>
             {days.map((d, i) => (
-              <div key={i} className={cn("relative border-l border-border", i === todayIdx && "bg-primary/[0.04]")}>
+              <div key={i} className={cn("relative", isMobile ? "" : "border-l border-border", i === todayIdx && "bg-primary/[0.04]")}>
                 {/* Hour lines */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * hourPx }} />
+                  <div key={h} className={cn("absolute left-0 right-0 border-t", isMobile ? "border-border/30" : "border-border/50")} style={{ top: h * hourPx }} />
                 ))}
-                {/* Half-hour subtle */}
-                {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
+                {/* Half-hour subtle (desktop only — moins de quadrillage sur mobile) */}
+                {!isMobile && Array.from({ length: TOTAL_HOURS }).map((_, h) => (
                   <div key={"h" + h} className="absolute left-0 right-0 border-t border-dashed border-border/20" style={{ top: h * hourPx + hourPx / 2 }} />
                 ))}
               </div>
@@ -1726,6 +1726,7 @@ function TimeGridView({
             {/* Events overlay */}
             {positioned.map((p) => {
               const { evt, dayIdx, topMin, heightMin, col, cols } = p;
+              if (hiddenIds.has(evt.id)) return null;
               const c = colorOf(evt);
               const ann = evt.status === "annule";
               const isSystem = evt.event_type.startsWith("system_");
@@ -1743,32 +1744,65 @@ function TimeGridView({
                 liveHeight = Math.max(15, drag.endMin - drag.startMin);
               }
 
-              const subW = (colWidthPct / cols);
-              const left = `calc(${liveDayIdx * colWidthPct + col * subW}% + 2px)`;
+              // Sur mobile, si le cluster a été ramené à 2 colonnes max, recale.
+              const renderCols = isMobile ? Math.min(cols, 2) : cols;
+              const renderCol = Math.min(col, renderCols - 1);
+              const subW = (colWidthPct / renderCols);
+              const left = `calc(${liveDayIdx * colWidthPct + renderCol * subW}% + 2px)`;
               const width = `calc(${subW}% - 4px)`;
 
-              return (
-                <HoverCard key={evt.id} openDelay={400} closeDelay={80}>
-                  <HoverCardTrigger asChild>
-                    <div data-evt
-                      onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
-                      onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
-                      onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
-                      className={cn(
-                        "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
-                        !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
-                        ann && "line-through opacity-50",
-                        evt.status === "termine" && "opacity-80",
-                        isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
-                        conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
+              const startDate = evt.start_at ? new Date(evt.start_at) : null;
+              const endDate = evt.end_at ? new Date(evt.end_at) : null;
+              const timeLabel = startDate
+                ? `${fmtTime(startDate)}${endDate ? ` → ${fmtTime(endDate)}` : ""}`
+                : "";
+              const chName = evt.chantier_id ? chantierName(evt.chantier_id) : null;
+              const typeLabel = TYPE_LABELS[evt.event_type] ?? evt.title;
+
+              const cardEl = (
+                <div data-evt
+                  onMouseDown={(e) => onMouseDownEvent(e, evt, dayIdx, topMin, topMin + heightMin)}
+                  onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
+                  onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
+                  className={cn(
+                    "absolute overflow-hidden rounded-md shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
+                    isMobile ? "p-2" : "px-1.5 py-1",
+                    "text-[11px] font-medium",
+                    !isSystem && canWrite && !isMobile && "cursor-grab active:cursor-grabbing",
+                    isMobile && "cursor-pointer",
+                    ann && "line-through opacity-50",
+                    evt.status === "termine" && "opacity-80",
+                    isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                    conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
+                  )}
+                  style={{
+                    background: c.bg, color: c.fg,
+                    left, width,
+                    top: (liveTop / 60) * hourPx,
+                    height: Math.max(isMobile ? 70 : 18, (liveHeight / 60) * hourPx - 2),
+                    zIndex: isDragged ? 40 : 10,
+                  }}>
+                  {isMobile ? (
+                    <div className="flex h-full flex-col justify-start gap-0.5 leading-tight">
+                      {/* Ligne 1 : chantier (ou titre si pas de chantier) */}
+                      <div className="flex items-center gap-1">
+                        {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                        {statusIcon(evt.status)}
+                        <span className="line-clamp-1 text-[13px] font-semibold">
+                          {chName ?? evt.title}
+                        </span>
+                      </div>
+                      {/* Ligne 2 : horaire */}
+                      {timeLabel && (
+                        <div className="text-[11px] tabular-nums opacity-95">{timeLabel}</div>
                       )}
-                      style={{
-                        background: c.bg, color: c.fg,
-                        left, width,
-                        top: (liveTop / 60) * hourPx,
-                        height: Math.max(isMobile ? 48 : 18, (liveHeight / 60) * hourPx - 2),
-                        zIndex: isDragged ? 40 : 10,
-                      }}>
+                      {/* Ligne 3 : type métier (ou titre si déjà affiché en ligne 1) */}
+                      <div className="line-clamp-1 text-[11px] opacity-90">
+                        {chName ? typeLabel : (TYPE_LABELS[evt.event_type] ?? "")}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                       <div className="flex items-center gap-1 truncate">
                         {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
                         {statusIcon(evt.status)}
@@ -1785,22 +1819,50 @@ function TimeGridView({
                       {liveHeight >= 64 && evt.chantier_id && (
                         <div className="truncate text-[10px] opacity-80">{chantierName(evt.chantier_id)}</div>
                       )}
-                      {/* resize handle */}
-                      {!isSystem && canWrite && (
-                        <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
-                          className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
-                          style={{ opacity: isDragged ? 1 : undefined }}
-                        />
-                      )}
-                    </div>
+                    </>
+                  )}
+                  {/* resize handle (desktop only) */}
+                  {!isSystem && canWrite && !isMobile && (
+                    <div onMouseDown={(e) => onMouseDownResize(e, evt, dayIdx, topMin, topMin + heightMin)}
+                      className="absolute inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b bg-white/30 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                      style={{ opacity: isDragged ? 1 : undefined }}
+                    />
+                  )}
+                </div>
+              );
 
-                  </HoverCardTrigger>
+              if (isMobile) return <div key={evt.id}>{cardEl}</div>;
+              return (
+                <HoverCard key={evt.id} openDelay={400} closeDelay={80}>
+                  <HoverCardTrigger asChild>{cardEl}</HoverCardTrigger>
                   {!drag && (
                     <HoverCardContent side="right" align="start" className="w-72">
                       <EventHoverContent evt={evt} memberName={memberName} chantierName={chantierName} clientName={clientName} />
                     </HoverCardContent>
                   )}
                 </HoverCard>
+              );
+            })}
+
+            {/* Mobile cluster overflow pills */}
+            {isMobile && overflows.map((o, idx) => {
+              const subW = colWidthPct / o.cols;
+              const left = `calc(${o.dayIdx * colWidthPct + o.col * subW}% + 2px)`;
+              const width = `calc(${subW}% - 4px)`;
+              return (
+                <button
+                  key={`ovf-${idx}`}
+                  type="button"
+                  onClick={() => onClusterMore?.(o.evts)}
+                  className="absolute z-20 flex items-center justify-center rounded-md border border-dashed border-foreground/30 bg-background/80 px-2 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur hover:bg-background"
+                  style={{
+                    left, width,
+                    top: (o.topMin / 60) * hourPx,
+                    height: Math.max(40, (o.heightMin / 60) * hourPx - 2),
+                  }}
+                >
+                  +{o.evts.length} autres
+                </button>
               );
             })}
 
