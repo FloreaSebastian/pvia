@@ -202,6 +202,7 @@ function ChantierCalendarPage() {
   const [zoom, setZoom] = useState<Zoom>(() => lsGet<Zoom>(LS.zoom, "normal"));
   const [weekDays, setWeekDays] = useState<WeekDays>(() => (initial.weekDays ?? lsGet<WeekDays>(LS.weekDays, 7)));
   const [filtersOpen, setFiltersOpen] = useState<boolean>(() => lsGet(LS.filtersOpen, false));
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const hourPx = ZOOM_LEVELS[zoom];
 
   useEffect(() => { lsSet(LS.fs, fullscreen); }, [fullscreen]);
@@ -647,35 +648,50 @@ function ChantierCalendarPage() {
   }, [canWrite, fullscreen]);
 
   return (
-    <div className={cn("space-y-3", fullscreen && "fixed inset-0 z-50 overflow-auto bg-background p-3")}>
+    <div className={cn("space-y-1.5 lg:space-y-3", fullscreen && "fixed inset-0 z-50 overflow-auto bg-background p-3")}>
 
-      <PageHeader
-        title="Calendrier"
-        description="Vue chantier façon Google Agenda."
-        contained={false}
-        className="border-0 bg-transparent px-0 py-0"
-        actions={
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm"><Link to="/chantiers"><ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Chantiers</span></Link></Button>
-            {canWrite && (
-              <Button onClick={() => openNew(new Date())} size="sm" className="shadow-brand">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Nouvel événement</span>
-              </Button>
-            )}
-          </div>
-        }
-      />
+      <div className="hidden lg:block">
+        <PageHeader
+          title="Calendrier"
+          description="Vue chantier façon Google Agenda."
+          contained={false}
+          className="border-0 bg-transparent px-0 py-0"
+          actions={
+            <div className="flex items-center gap-2">
+              <Button asChild variant="ghost" size="sm"><Link to="/chantiers"><ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Chantiers</span></Link></Button>
+              {canWrite && (
+                <Button onClick={() => openNew(new Date())} size="sm" className="shadow-brand">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Nouvel événement</span>
+                </Button>
+              )}
+            </div>
+          }
+        />
+      </div>
 
-      {/* Mobile toolbar: View → Date → < Aujourd'hui > → Search → Filters */}
-      <Card className="flex flex-col gap-2 p-2 lg:hidden">
-        {/* 1. View segmented control (Jour / 3j / Sem / Mois) */}
-        <div className="inline-flex w-full rounded-md border border-border bg-muted/40 p-0.5">
+      {/* Mobile compact toolbar — single 48px bar, Google Calendar style */}
+      <div className="sticky top-0 z-30 flex items-center gap-0.5 border-b border-border bg-background/95 px-1 py-1 backdrop-blur lg:hidden">
+        <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Précédent" className="h-9 w-9 shrink-0">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <button
+          type="button"
+          onClick={() => setCursor(new Date())}
+          className="min-w-0 flex-1 truncate px-1 text-center text-[13px] font-semibold capitalize"
+          title="Aujourd'hui"
+        >
+          {periodLabel}
+        </button>
+        <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant" className="h-9 w-9 shrink-0">
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <div className="ml-0.5 inline-flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5">
           {([
-            { key: "day" as const, label: "Jour" },
-            { key: "week3" as const, label: "3j" },
-            { key: "week" as const, label: "Sem" },
-            { key: "month" as const, label: "Mois" },
+            { key: "day" as const, label: "J" },
+            { key: "week3" as const, label: "3J" },
+            { key: "week" as const, label: "S" },
+            { key: "month" as const, label: "M" },
           ]).map((opt) => {
             const isActive =
               (opt.key === "day" && view === "day") ||
@@ -687,47 +703,67 @@ function ChantierCalendarPage() {
                 key={opt.key}
                 type="button"
                 onClick={() => applyDefaultViewPreset(opt.key)}
-                className={cn("flex-1 min-h-[40px] rounded-[5px] text-sm font-medium transition",
-                  isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                className={cn(
+                  "h-8 min-w-[26px] rounded-[5px] px-1 text-[11px] font-semibold transition",
+                  isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
+                )}
               >
                 {opt.label}
               </button>
             );
           })}
         </div>
+        <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher" className="h-9 w-9 shrink-0">
+          <Search className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant={activeFilterCount > 0 ? "secondary" : "ghost"}
+          onClick={() => setFiltersOpen(true)}
+          aria-label="Filtres"
+          className="relative h-9 w-9 shrink-0"
+        >
+          <Filter className="h-4 w-4" />
+          {activeFilterCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+        </Button>
+        {canWrite && (
+          <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" className="h-9 w-9 shrink-0 shadow-brand">
+            <Plus className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
 
-
-        {/* 2. Date courante */}
-        <div className="text-center text-base font-semibold capitalize">{periodLabel}</div>
-
-        {/* 3. < Aujourd'hui > */}
-        <div className="flex items-center justify-between gap-2">
-          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Précédent" className="h-10 w-10"><ChevronLeft className="h-5 w-5" /></Button>
-          <Button size="sm" variant="outline" onClick={() => setCursor(new Date())} className="flex-1 h-10">Aujourd'hui</Button>
-          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant" className="h-10 w-10"><ChevronRight className="h-5 w-5" /></Button>
-        </div>
-
-        {/* 4. Recherche */}
-        <Popover open={search.trim().length >= 2 && searchResults.length > 0} onOpenChange={(o) => { if (!o) setSearch(""); }}>
-          <PopoverTrigger asChild>
+      {/* Mobile search sheet */}
+      <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
+        <SheetContent side="top" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Rechercher</SheetTitle>
+          </SheetHeader>
+          <div className="pt-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher…"
+                placeholder="Chantier, client, événement…"
                 className="h-10 pl-8"
               />
             </div>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-[min(420px,90vw)] p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <ul className="max-h-80 overflow-y-auto">
+            <ul className="mt-2 max-h-[60vh] overflow-y-auto">
               {searchResults.map((e) => {
                 const c = colorOf(e);
                 return (
                   <li key={e.id}>
-                    <button type="button" onClick={() => jumpToEvent(e)}
-                      className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
+                    <button
+                      type="button"
+                      onClick={() => { setMobileSearchOpen(false); jumpToEvent(e); }}
+                      className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+                    >
                       <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium">{e.title}</span>
@@ -742,11 +778,14 @@ function ChantierCalendarPage() {
                   </li>
                 );
               })}
+              {search.trim().length >= 2 && searchResults.length === 0 && (
+                <li className="px-2 py-4 text-center text-sm text-muted-foreground">Aucun résultat</li>
+              )}
             </ul>
-          </PopoverContent>
-        </Popover>
-        {/* 5. Filtres : reuses the same toggle button rendered below (filtersOpen / activeFilterCount). */}
-      </Card>
+          </div>
+        </SheetContent>
+      </Sheet>
+
 
       {/* Desktop toolbar */}
       <Card className="hidden lg:flex flex-col gap-2 p-2 lg:flex-row lg:items-center lg:justify-between">
@@ -875,8 +914,9 @@ function ChantierCalendarPage() {
         </Card>
       )}
 
-      {/* Filters toggle + conflicts chip */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Filters toggle + conflicts chip — desktop only (mobile uses the compact bar icon) */}
+      <div className="hidden lg:flex flex-wrap items-center gap-2">
+
         <Button size="sm" variant={filtersOpen || activeFilterCount > 0 ? "secondary" : "outline"}
           onClick={() => setFiltersOpen((v) => !v)} className="gap-1.5">
           <Filter className="h-3.5 w-3.5" />
@@ -930,9 +970,10 @@ function ChantierCalendarPage() {
         )}
       </div>
 
-      {/* Filters */}
-      {filtersOpen && (
+      {/* Filters — desktop inline Card; mobile renders inside a bottom Sheet */}
+      {filtersOpen && !isMobile && (
       <Card className="grid gap-2 p-2 md:grid-cols-6">
+
         <Select value={fChantier} onValueChange={setFChantier}>
           <SelectTrigger className="h-9"><SelectValue placeholder="Chantier" /></SelectTrigger>
           <SelectContent><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
@@ -1021,6 +1062,91 @@ function ChantierCalendarPage() {
         </div>
       </Card>
       )}
+
+      {/* Mobile filters sheet — reuses the same filter controls */}
+      <Sheet open={isMobile && filtersOpen} onOpenChange={(o) => { if (!o) setFiltersOpen(false); }}>
+        <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center justify-between gap-2">
+              <span>Filtres</span>
+              {activeFilterCount > 0 && (
+                <Button size="sm" variant="ghost" onClick={resetFilters} className="h-7 gap-1 text-xs">
+                  <X className="h-3 w-3" /> Réinitialiser
+                </Button>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="grid gap-2 pt-3">
+            <Select value={fChantier} onValueChange={setFChantier}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Chantier" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={fClient} onValueChange={setFClient}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Client" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={fType} onValueChange={setFType}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={fStatus} onValueChange={setFStatus}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous statuts</SelectItem>
+                <SelectItem value="prevu">Prévu</SelectItem><SelectItem value="en_cours">En cours</SelectItem>
+                <SelectItem value="termine">Terminé</SelectItem><SelectItem value="annule">Annulé</SelectItem>
+                <SelectItem value="reporte">Reporté</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={fAssigned} onValueChange={setFAssigned}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Assigné" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous membres</SelectItem>
+                {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={fColor} onValueChange={setFColor}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Couleur" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes couleurs</SelectItem>
+                {COLORS.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
+              <button type="button" onClick={() => setFOnlyUnassigned((v) => !v)}
+                className={cn("rounded-full border px-3 py-1.5 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                Non assignés
+              </button>
+              <button type="button" onClick={() => setFHideDone((v) => !v)}
+                className={cn("rounded-full border px-3 py-1.5 transition", fHideDone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                Masquer terminés
+              </button>
+              <button type="button" onClick={() => setFHideCancelled((v) => !v)}
+                className={cn("rounded-full border px-3 py-1.5 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                Masquer annulés
+              </button>
+            </div>
+            <div className="border-t border-border/60 pt-3">
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Légende</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-[11px]">
+                {Object.entries(TYPE_LABELS).map(([k, label]) => {
+                  const colorKey = TYPE_TO_COLOR[k] ?? "blue";
+                  const swatch = COLORS.find((c) => c.key === colorKey)!;
+                  return (
+                    <span key={k} className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: swatch.bg }} aria-hidden />
+                      <span className="text-foreground">{label}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+            <Button onClick={() => setFiltersOpen(false)} className="mt-2 h-11">Appliquer</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+
 
 
 
@@ -1520,7 +1646,9 @@ function TimeGridView({
   // scroll to ~current time on mount / day change
   useEffect(() => {
     const sc = scrollRef.current; if (!sc) return;
-    const target = Math.max(0, (nowMin / 60) * hourPx - 120);
+    // Mobile = Google Agenda behaviour: start at 07:00 (top of grid).
+    // Desktop = scroll near current time for context.
+    const target = isMobile ? 0 : Math.max(0, (nowMin / 60) * hourPx - 120);
     sc.scrollTop = target;
     // only once per day-set change
     // eslint-disable-next-line react-hooks/exhaustive-deps
