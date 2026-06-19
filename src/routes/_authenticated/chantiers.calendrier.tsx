@@ -44,27 +44,38 @@ type Evt = {
   client?: { id: string; name: string } | null;
 };
 
-// ----- Palette (Google-Agenda style) -----
+// ----- Palette métier (PVIA) — règle unique : même type = même couleur partout -----
 const COLORS = [
-  { key: "blue",   label: "Bleu",    bg: "#3b82f6", fg: "#ffffff" },
-  { key: "green",  label: "Vert",    bg: "#10b981", fg: "#ffffff" },
-  { key: "orange", label: "Orange",  bg: "#f97316", fg: "#ffffff" },
-  { key: "red",    label: "Rouge",   bg: "#ef4444", fg: "#ffffff" },
-  { key: "purple", label: "Violet",  bg: "#8b5cf6", fg: "#ffffff" },
-  { key: "yellow", label: "Jaune",   bg: "#eab308", fg: "#1f2937" },
-  { key: "gray",   label: "Gris",    bg: "#6b7280", fg: "#ffffff" },
-  { key: "sky",    label: "Bleu clair", bg: "#0ea5e9", fg: "#ffffff" },
-  { key: "slate",  label: "Gris foncé", bg: "#334155", fg: "#ffffff" },
+  { key: "blue",   label: "Bleu (Procès-verbal)",     bg: "#2563eb", fg: "#ffffff" },
+  { key: "green",  label: "Vert (Réception)",         bg: "#10b981", fg: "#ffffff" },
+  { key: "yellow", label: "Jaune (Intervention)",     bg: "#eab308", fg: "#1f2937" },
+  { key: "orange", label: "Orange (Réserve)",         bg: "#f97316", fg: "#ffffff" },
+  { key: "red",    label: "Rouge (SAV)",              bg: "#ef4444", fg: "#ffffff" },
+  { key: "black",  label: "Noir (Bloquant / Retard)", bg: "#1f2937", fg: "#ffffff" },
+  { key: "purple", label: "Violet (Administratif)",   bg: "#8b5cf6", fg: "#ffffff" },
+  { key: "sky",    label: "Bleu clair",               bg: "#0ea5e9", fg: "#ffffff" },
+  { key: "gray",   label: "Gris",                     bg: "#6b7280", fg: "#ffffff" },
+  { key: "slate",  label: "Gris foncé",               bg: "#334155", fg: "#ffffff" },
 ] as const;
 type ColorKey = typeof COLORS[number]["key"];
 
+// Mapping métier — chaque type d'événement => 1 catégorie couleur.
 const TYPE_TO_COLOR: Record<string, ColorKey> = {
-  visite_technique: "blue", intervention: "green", pose: "purple",
-  livraison_materiel: "orange", controle_qualite: "yellow", reception: "red",
-  sav: "gray", appel_client: "sky", rappel: "slate",
-  debut_travaux: "green", retard: "red", remarque: "gray",
-  system_pv_created: "slate", system_pv_signed: "slate",
-  system_reserve_created: "yellow", system_reserve_lifted: "yellow",
+  // 🟦 Procès-verbal
+  system_pv_created: "blue", system_pv_signed: "blue",
+  // 🟩 Réception
+  reception: "green", debut_travaux: "green",
+  // 🟨 Intervention / pose / visite / contrôle / livraison
+  intervention: "yellow", pose: "yellow", visite_technique: "yellow",
+  controle_qualite: "yellow", livraison_materiel: "yellow",
+  // 🟧 Réserve
+  system_reserve_created: "orange", system_reserve_lifted: "orange",
+  // 🟥 SAV
+  sav: "red",
+  // ⬛ Bloquant / retard
+  retard: "black",
+  // 🟪 Administratif
+  rappel: "purple", appel_client: "purple", remarque: "purple",
 };
 const TYPE_LABELS: Record<string, string> = {
   visite_technique: "Visite technique", intervention: "Intervention", pose: "Pose",
@@ -74,9 +85,6 @@ const TYPE_LABELS: Record<string, string> = {
   retard: "Retard", remarque: "Remarque",
 };
 type ColorMode = "type" | "chantier";
-// Module-level current color mode, set by the page on every render via a
-// sync effect. Lets every helper/subcomponent that calls `colorOf` honor
-// the user's mode without refactoring every component signature.
 let CURRENT_COLOR_MODE: ColorMode = "type";
 function hexToFg(hex: string): string {
   const h = hex.replace("#", "");
@@ -92,7 +100,7 @@ function colorOf(e: Evt, mode: ColorMode = CURRENT_COLOR_MODE): { bg: string; fg
   if (mode === "chantier" && e.chantier?.color && /^#[0-9a-f]{6}$/i.test(e.chantier.color)) {
     return { bg: e.chantier.color, fg: hexToFg(e.chantier.color), key: "blue" };
   }
-  const k: ColorKey = TYPE_TO_COLOR[e.event_type] ?? "blue";
+  const k: ColorKey = TYPE_TO_COLOR[e.event_type] ?? "purple";
   const c = COLORS.find((cc) => cc.key === k)!;
   return { bg: c.bg, fg: c.fg, key: k };
 }
