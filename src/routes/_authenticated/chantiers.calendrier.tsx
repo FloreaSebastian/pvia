@@ -413,6 +413,7 @@ function ChantierCalendarPage() {
   const [evtOpen, setEvtOpen] = useState(false);
   const [evtForm, setEvtForm] = useState<FormState>(blankForm());
   const [quickEvt, setQuickEvt] = useState<Evt | null>(null);
+  const [clusterSheet, setClusterSheet] = useState<Evt[] | null>(null);
   const [search, setSearch] = useState("");
   const chantierName = useCallback((id: string | null | undefined) => id ? (chantiers.find((c) => c.id === id)?.name ?? "—") : "—", [chantiers]);
   const clientName = useCallback((id: string | null | undefined) => id ? (clients.find((c) => c.id === id)?.name ?? "—") : "—", [clients]);
