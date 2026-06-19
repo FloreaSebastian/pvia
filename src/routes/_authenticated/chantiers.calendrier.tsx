@@ -1095,6 +1095,7 @@ function ChantierCalendarPage() {
           onCreateRange={(s, e) => openNew(s, e)}
           onClickEvent={(e) => openQuick(e)}
           onDblClickEvent={(e) => openEdit(e)}
+          onClusterMore={(evts) => setClusterSheet(evts)}
           memberName={memberName}
           chantierName={chantierName}
           clientName={clientName}
