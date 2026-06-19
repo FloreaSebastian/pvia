@@ -1437,6 +1437,7 @@ type Positioned = { evt: Evt; dayIdx: number; topMin: number; heightMin: number;
 
 function TimeGridView({
   days, events, canWrite, isMobile, conflictIds, onCreateRange, onClickEvent, onDblClickEvent, onMove, onResize,
+  onClusterMore,
   memberName, chantierName, clientName, hourPx = DEFAULT_HOUR_PX,
 }: {
   days: Date[]; events: Evt[]; canWrite: boolean; isMobile?: boolean;
@@ -1446,6 +1447,7 @@ function TimeGridView({
   onDblClickEvent: (e: Evt) => void;
   onMove: (id: string, newStart: Date) => void;
   onResize: (id: string, newEnd: Date) => void;
+  onClusterMore?: (evts: Evt[]) => void;
   memberName: (id: string | null | undefined) => string | null;
   chantierName: (id: string | null | undefined) => string;
   clientName: (id: string | null | undefined) => string;
