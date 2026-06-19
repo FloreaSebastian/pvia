@@ -970,9 +970,10 @@ function ChantierCalendarPage() {
         )}
       </div>
 
-      {/* Filters */}
-      {filtersOpen && (
+      {/* Filters — desktop inline Card; mobile renders inside a bottom Sheet */}
+      {filtersOpen && !isMobile && (
       <Card className="grid gap-2 p-2 md:grid-cols-6">
+
         <Select value={fChantier} onValueChange={setFChantier}>
           <SelectTrigger className="h-9"><SelectValue placeholder="Chantier" /></SelectTrigger>
           <SelectContent><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
