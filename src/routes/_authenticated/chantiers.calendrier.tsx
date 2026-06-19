@@ -648,7 +648,7 @@ function ChantierCalendarPage() {
   }, [canWrite, fullscreen]);
 
   return (
-    <div className={cn("space-y-3", fullscreen && "fixed inset-0 z-50 overflow-auto bg-background p-3")}>
+    <div className={cn("space-y-1.5 lg:space-y-3", fullscreen && "fixed inset-0 z-50 overflow-auto bg-background p-3")}>
 
       <div className="hidden lg:block">
         <PageHeader
