@@ -1646,7 +1646,9 @@ function TimeGridView({
   // scroll to ~current time on mount / day change
   useEffect(() => {
     const sc = scrollRef.current; if (!sc) return;
-    const target = Math.max(0, (nowMin / 60) * hourPx - 120);
+    // Mobile = Google Agenda behaviour: start at 07:00 (top of grid).
+    // Desktop = scroll near current time for context.
+    const target = isMobile ? 0 : Math.max(0, (nowMin / 60) * hourPx - 120);
     sc.scrollTop = target;
     // only once per day-set change
     // eslint-disable-next-line react-hooks/exhaustive-deps
