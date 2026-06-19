@@ -1267,6 +1267,44 @@ function ChantierCalendarPage() {
       )}
 
       {/* Conflict confirmation modal (pre-save) */}
+      {/* Mobile: liste des events d'un cluster (chevauchements >2) */}
+      <Sheet open={!!clusterSheet} onOpenChange={(o) => !o && setClusterSheet(null)}>
+        <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Événements en chevauchement</SheetTitle>
+          </SheetHeader>
+          <ul className="mt-3 divide-y divide-border">
+            {clusterSheet?.map((e) => {
+              const c = colorOf(e);
+              const s = e.start_at ? new Date(e.start_at) : null;
+              const en = e.end_at ? new Date(e.end_at) : null;
+              return (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    onClick={() => { setClusterSheet(null); openQuick(e); }}
+                    className="flex w-full items-start gap-3 py-3 text-left"
+                  >
+                    <span className="mt-1 h-3 w-3 shrink-0 rounded-full" style={{ background: c.bg }} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">
+                        {e.chantier_id ? chantierName(e.chantier_id) : e.title}
+                      </span>
+                      <span className="block text-xs tabular-nums text-muted-foreground">
+                        {s ? `${fmtTime(s)}${en ? ` → ${fmtTime(en)}` : ""}` : "—"}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {TYPE_LABELS[e.event_type] ?? e.event_type}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </SheetContent>
+      </Sheet>
+
       <AlertDialog open={!!confirmConflicts} onOpenChange={(o) => { if (!o) setConfirmConflicts(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
