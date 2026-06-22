@@ -20,27 +20,27 @@ const matrix: Array<{
   {
     path: "/parametres/api",
     allowed: ["directeur", "responsable"],
-    denied: ["conducteur", "technicien", "assistant"],
+    denied: ["conducteur", "technicien", "assistant", "lecture_seule"],
   },
   {
     path: "/parametres/integrations",
     allowed: ["directeur", "responsable"],
-    denied: ["conducteur", "technicien", "assistant"],
+    denied: ["conducteur", "technicien", "assistant", "lecture_seule"],
   },
   {
     path: "/facturation",
     allowed: ["directeur"],
-    denied: ["responsable", "conducteur", "technicien", "assistant"],
+    denied: ["responsable", "conducteur", "technicien", "assistant", "lecture_seule"],
   },
   {
     path: "/equipe",
     allowed: ["directeur", "responsable"],
-    denied: ["conducteur", "technicien", "assistant"],
+    denied: ["conducteur", "technicien", "assistant", "lecture_seule"],
   },
   {
     path: "/entreprise",
     allowed: ["directeur"],
-    denied: ["responsable", "conducteur", "technicien", "assistant"],
+    denied: ["responsable", "conducteur", "technicien", "assistant", "lecture_seule"],
   },
 ];
 
