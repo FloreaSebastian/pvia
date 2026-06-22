@@ -301,6 +301,15 @@ export function ReserveDetailDialog({
         <div className="space-y-2 rounded border border-border p-2">
           <div className="text-xs font-medium">Actions</div>
           <div className="flex flex-wrap gap-1">
+            {onLever && reserve.status !== "validee" && reserve.status !== "levee" && (
+              <Button
+                size="sm"
+                className="shadow-brand"
+                onClick={() => { onLever(reserve); onOpenChange(false); }}
+              >
+                <FileCheck2 className="h-3.5 w-3.5" /> Lever la réserve
+              </Button>
+            )}
             {STATUS_ACTIONS.filter((a) => {
               if (a.value === reserve.status) return false;
               if (!canValidate && (a.value === "validee" || a.value === "en_attente_validation")) return false;
