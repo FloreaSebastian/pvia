@@ -45,19 +45,26 @@ export const exportReserveLiftExpertise = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
     if (!member) throw new Error("Accès refusé.");
+    // Export expertise = PDF interne + GPS + EXIF + hashes + audit.
+    // Restreint aux rôles de pilotage ; technicien et lecture_seule refusés.
+    const EXPERTISE_ROLES = new Set([
+      "directeur",
+      "responsable_exploitation",
+      "conducteur_travaux",
+      "assistant_admin",
+    ]);
+    if (!EXPERTISE_ROLES.has(String((member as any).role))) {
+      throw new Error("Accès refusé : export expertise réservé à la direction et à l'encadrement.");
+    }
 
-    // 2. Related rows
-    const [pvRes, itemsRes, photosRes, auditRes, companyRes] = await Promise.all([
+    // 2. Related rows — photos sont liées via reserve_lift_item_id, pas report_id.
+    const [pvRes, itemsRes, auditRes, companyRes] = await Promise.all([
       supabaseAdmin.from("pv")
         .select("id,numero,type,reception_date,client_id,chantier_id,description,signed_at")
         .eq("id", report.pv_id).maybeSingle(),
       supabaseAdmin.from("reserve_lift_items")
         .select("id,reserve_id,comment,photo_urls")
         .eq("report_id", report.id),
-      supabaseAdmin.from("reserve_lift_item_photos" as any)
-        .select("*")
-        .eq("report_id", report.id)
-        .order("uploaded_at", { ascending: true }),
       supabaseAdmin.from("audit_logs")
         .select("id,action,user_id,entity_type,entity_id,metadata,created_at")
         .eq("entity_type", "reserve_lift")
@@ -65,6 +72,15 @@ export const exportReserveLiftExpertise = createServerFn({ method: "POST" })
         .order("created_at", { ascending: true }),
       supabaseAdmin.from("companies").select("name,siren,email").eq("id", report.company_id).maybeSingle(),
     ]);
+
+    const itemIds = (itemsRes.data ?? []).map((it: any) => it.id);
+    const photosRes = itemIds.length
+      ? await supabaseAdmin.from("reserve_lift_item_photos" as any)
+          .select("*")
+          .in("reserve_lift_item_id", itemIds)
+          .order("uploaded_at", { ascending: true })
+      : { data: [] as any[] };
+
 
     const reserveIds = Array.from(new Set((itemsRes.data ?? []).map((it: any) => it.reserve_id)));
     const reservesRes = reserveIds.length
