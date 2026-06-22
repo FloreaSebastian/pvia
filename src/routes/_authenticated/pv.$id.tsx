@@ -979,7 +979,7 @@ function PvDetail() {
                             Relancer
                           </Button>
                         )}
-                        {eligibleReopen && (
+                        {eligibleReopen && canReopenLift && (
                           <Button
                             size="sm"
                             variant="outline"
