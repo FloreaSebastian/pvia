@@ -13,6 +13,8 @@ import { sha256OfBytes } from "./signature-proof.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
 import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
 import { deliverReserveLiftAtSignature } from "./reserve-lift-signed-delivery.server";
+import { isLiftSignedStatus, resolveSignedLiftStatus } from "./reserve-lift-status";
+import { SIGNED_URL_PDF_TTL, SIGNED_URL_PHOTO_TTL } from "./signed-url-ttl";
 import {
   PHOTO_ALLOWED_MIMES,
   PHOTO_MAX_BYTES,
@@ -200,7 +202,10 @@ export const createReserveLift = createServerFn({ method: "POST" })
           company_id: pv.company_id,
           pv_id: pv.id,
           numero,
-          status: data.status,
+          status:
+            data.status === "signe"
+              ? resolveSignedLiftStatus(data.validationMode)
+              : data.status,
           comment: data.comment || null,
           company_signature: companySigForStorage,
           client_signature: clientSig,
