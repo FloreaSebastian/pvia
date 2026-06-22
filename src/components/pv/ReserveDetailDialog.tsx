@@ -104,12 +104,13 @@ function PhotoTile({ p, onOpen }: PhotoTileProps) {
 }
 
 export function ReserveDetailDialog({
-  open, onOpenChange, reserve, onChanged,
+  open, onOpenChange, reserve, onChanged, onLever,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   reserve: ReserveDetail | null;
   onChanged?: () => void;
+  onLever?: (reserve: ReserveDetail) => void;
 }) {
   const { activeRole } = useCompany();
   const isMobile = useIsMobile();
