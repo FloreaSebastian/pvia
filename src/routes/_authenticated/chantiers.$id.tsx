@@ -22,6 +22,8 @@ import {
   listCompanyMembers, createChantierAutoPlanning,
 } from "@/lib/chantier-detail.functions";
 import { reopenChantier } from "@/lib/chantiers.functions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DossierTab } from "@/components/chantiers/DossierTab";
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
   component: ChantierDetailPage,
