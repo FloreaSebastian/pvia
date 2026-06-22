@@ -18,9 +18,19 @@ import {
   listWebhooks, createWebhook, updateWebhook, rotateWebhookSecret,
   deleteWebhook, sendTestWebhook, listDeliveries, retryDelivery, drainCompanyWebhooks,
 } from "@/lib/webhooks.functions";
+import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
+import { ADMIN_ROLES } from "@/lib/roles";
+
+function GuardedApiSettings() {
+  return (
+    <RouteRoleGuard allow={ADMIN_ROLES}>
+      <ApiSettings />
+    </RouteRoleGuard>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/parametres/api")({
-  component: ApiSettings,
+  component: GuardedApiSettings,
   head: () => ({ meta: [{ title: "API & Webhooks — Paramètres PVIA" }] }),
 });
 
