@@ -791,7 +791,7 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
       .eq("id", data.reportId)
       .maybeSingle();
     if (!report) throw new Error("Levée introuvable.");
-    if (report.status !== "signe") throw new Error("La levée doit être signée par l'entreprise.");
+    if (!isLiftSignedStatus(report.status)) throw new Error("La levée doit être signée par l'entreprise.");
     if (report.client_validated_at) throw new Error("La levée est déjà validée par le client.");
 
     const { data: member } = await supabaseAdmin
@@ -837,7 +837,7 @@ export const resendReserveLiftClientEmail = createServerFn({ method: "POST" })
       .eq("id", data.reportId)
       .maybeSingle();
     if (!report) throw new Error("Levée introuvable.");
-    if (report.status !== "signe" && report.status !== "client_validated") {
+    if (!isLiftSignedStatus(report.status) && report.status !== "client_validated") {
       throw new Error("La levée doit être signée par l'entreprise.");
     }
     const { data: member } = await supabaseAdmin
