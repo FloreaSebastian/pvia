@@ -961,8 +961,8 @@ function PvDetail() {
                             <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
-                        {!editable && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail">
+                        {!editable && canViewInternal && (
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail — réservé aux rôles opérationnels">
                             {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
                             Export expertise
                           </Button>
