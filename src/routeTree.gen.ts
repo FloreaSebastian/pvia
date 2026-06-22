@@ -58,6 +58,7 @@ import { Route as AuthenticatedParametresAuditRouteImport } from './routes/_auth
 import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
 import { Route as AuthenticatedChantiersCalendrierRouteImport } from './routes/_authenticated/chantiers.calendrier'
 import { Route as AuthenticatedChantiersIdRouteImport } from './routes/_authenticated/chantiers.$id'
+import { Route as AuthenticatedAdminSystemHealthRouteImport } from './routes/_authenticated/admin.system-health'
 import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
 import { Route as AuthenticatedAdminProductionAuditRouteImport } from './routes/_authenticated/admin.production-audit'
 import { Route as AuthenticatedAdminProcessingFailuresRouteImport } from './routes/_authenticated/admin.processing-failures'
@@ -349,6 +350,12 @@ const AuthenticatedChantiersIdRoute =
     path: '/chantiers/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminSystemHealthRoute =
+  AuthenticatedAdminSystemHealthRouteImport.update({
+    id: '/admin/system-health',
+    path: '/admin/system-health',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminSupportRoute =
   AuthenticatedAdminSupportRouteImport.update({
     id: '/admin/support',
@@ -569,6 +576,7 @@ export interface FileRoutesByFullPath {
   '/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
+  '/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
   '/chantiers/$id': typeof AuthenticatedChantiersIdRoute
   '/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -646,6 +654,7 @@ export interface FileRoutesByTo {
   '/admin/monitoring': typeof AuthenticatedAdminMonitoringRoute
   '/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
+  '/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
   '/chantiers/$id': typeof AuthenticatedChantiersIdRoute
   '/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -728,6 +737,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/_authenticated/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
+  '/_authenticated/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
   '/_authenticated/chantiers/$id': typeof AuthenticatedChantiersIdRoute
   '/_authenticated/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -810,6 +820,7 @@ export interface FileRouteTypes {
     | '/admin/processing-failures'
     | '/admin/production-audit'
     | '/admin/support'
+    | '/admin/system-health'
     | '/chantiers/$id'
     | '/chantiers/calendrier'
     | '/parametres/api'
@@ -887,6 +898,7 @@ export interface FileRouteTypes {
     | '/admin/monitoring'
     | '/admin/processing-failures'
     | '/admin/production-audit'
+    | '/admin/system-health'
     | '/chantiers/$id'
     | '/chantiers/calendrier'
     | '/parametres/api'
@@ -968,6 +980,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/processing-failures'
     | '/_authenticated/admin/production-audit'
     | '/_authenticated/admin/support'
+    | '/_authenticated/admin/system-health'
     | '/_authenticated/chantiers/$id'
     | '/_authenticated/chantiers/calendrier'
     | '/_authenticated/parametres/api'
@@ -1385,6 +1398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChantiersIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/system-health': {
+      id: '/_authenticated/admin/system-health'
+      path: '/admin/system-health'
+      fullPath: '/admin/system-health'
+      preLoaderRoute: typeof AuthenticatedAdminSystemHealthRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/support': {
       id: '/_authenticated/admin/support'
       path: '/admin/support'
@@ -1719,6 +1739,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminProcessingFailuresRoute: typeof AuthenticatedAdminProcessingFailuresRoute
   AuthenticatedAdminProductionAuditRoute: typeof AuthenticatedAdminProductionAuditRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
+  AuthenticatedAdminSystemHealthRoute: typeof AuthenticatedAdminSystemHealthRoute
   AuthenticatedChantiersIdRoute: typeof AuthenticatedChantiersIdRoute
   AuthenticatedChantiersCalendrierRoute: typeof AuthenticatedChantiersCalendrierRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
@@ -1756,6 +1777,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminProductionAuditRoute:
     AuthenticatedAdminProductionAuditRoute,
   AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRouteWithChildren,
+  AuthenticatedAdminSystemHealthRoute: AuthenticatedAdminSystemHealthRoute,
   AuthenticatedChantiersIdRoute: AuthenticatedChantiersIdRoute,
   AuthenticatedChantiersCalendrierRoute: AuthenticatedChantiersCalendrierRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
@@ -1830,13 +1852,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
