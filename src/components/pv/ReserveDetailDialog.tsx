@@ -294,6 +294,9 @@ export function ReserveDetailDialog({
             Échéance : {new Date(reserve.due_date).toLocaleDateString("fr-FR")}
           </div>
         )}
+        {(reserve.assigned_name || reserve.assigned_to) && (
+          <div>Responsable : {reserve.assigned_name || "—"}</div>
+        )}
         {reserve.lifted_at && <div>Levée : {new Date(reserve.lifted_at).toLocaleDateString("fr-FR")}</div>}
         {reserve.validated_at && <div>Validée : {new Date(reserve.validated_at).toLocaleDateString("fr-FR")}</div>}
       </div>
