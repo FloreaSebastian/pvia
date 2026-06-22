@@ -29,6 +29,7 @@ import {
   updateReserveStatus, deleteReserve, assignReserve,
   bulkUpdateReserves, exportReservesCsv,
 } from "@/lib/reserves.functions";
+import { getReserveCounters } from "@/lib/reserve-counters";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 
