@@ -17,7 +17,7 @@ import {
   RESERVE_STATUSES, reserveStatusLabel, reserveStatusTone,
   RESERVE_PRIORITY_LABEL, isReserveOverdue, type ReserveStatusValue,
 } from "@/lib/reserve-status";
-import { reserveLiftStatusLabel, reserveLiftStatusTone } from "@/lib/reserve-lift-status";
+import { deriveDisplayStatus, STATUS_LABELS as LIFT_STATUS_LABELS, STATUS_TONES as LIFT_STATUS_TONES } from "@/lib/reserve-lift-status";
 import { useCompany } from "@/hooks/use-company";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PhotoLightboxDialog, type LightboxPhoto } from "./PhotoLightboxDialog";
