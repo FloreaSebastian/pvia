@@ -664,6 +664,11 @@ function ChantierDetailPage() {
           </Card>
         </div>
       </div>
+        </TabsContent>
+        <TabsContent value="dossier" className="mt-4">
+          {activeCompanyId && <DossierTab companyId={activeCompanyId} chantierId={id} detail={d} />}
+        </TabsContent>
+      </Tabs>
 
       {/* Event dialog */}
       <Dialog open={evtOpen} onOpenChange={setEvtOpen}>
