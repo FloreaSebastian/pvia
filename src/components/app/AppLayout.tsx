@@ -38,6 +38,7 @@ import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
+import { isAdminRole, isOwnerRole } from "@/lib/roles";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
 import {
