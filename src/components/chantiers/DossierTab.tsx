@@ -157,6 +157,7 @@ export function DossierTab({
       work_to_execute: r.work_to_execute,
       due_date: r.due_date,
       assigned_to: r.assigned_to,
+      assigned_name: (r as any).assigned_name ?? null,
       lifted_at: r.lifted_at,
       validated_at: r.validated_at,
       created_at: r.created_at,

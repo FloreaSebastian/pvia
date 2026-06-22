@@ -32,6 +32,7 @@ export type ReserveDetail = {
   work_to_execute?: string | null;
   due_date?: string | null;
   assigned_to?: string | null;
+  assigned_name?: string | null;
   lifted_at?: string | null;
   validated_at?: string | null;
   created_at: string;
@@ -292,6 +293,9 @@ export function ReserveDetailDialog({
           <div className={overdue ? "font-semibold text-red-600" : ""}>
             Échéance : {new Date(reserve.due_date).toLocaleDateString("fr-FR")}
           </div>
+        )}
+        {(reserve.assigned_name || reserve.assigned_to) && (
+          <div>Responsable : {reserve.assigned_name || "—"}</div>
         )}
         {reserve.lifted_at && <div>Levée : {new Date(reserve.lifted_at).toLocaleDateString("fr-FR")}</div>}
         {reserve.validated_at && <div>Validée : {new Date(reserve.validated_at).toLocaleDateString("fr-FR")}</div>}

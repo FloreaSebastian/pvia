@@ -70,13 +70,32 @@ export const getChantierDetail = createServerFn({ method: "POST" })
           .limit(200)
       : { data: [] as Array<{ id: string; pv_id: string; description: string; severity: string; status: string; priority: string | null; nature: string | null; work_to_execute: string | null; due_date: string | null; assigned_to: string | null; created_at: string; lifted_at: string | null; validated_at: string | null }> };
 
+    // Résolution des responsables (assigned_to → profile.full_name)
+    const assigneeIds = Array.from(
+      new Set(((rvRes.data ?? []) as any[]).map((r) => r.assigned_to).filter(Boolean)),
+    ) as string[];
+    const assigneeMap = new Map<string, string>();
+    if (assigneeIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", assigneeIds);
+      for (const p of (profs ?? []) as any[]) {
+        if (p?.id && p?.full_name) assigneeMap.set(p.id, p.full_name);
+      }
+    }
+    const reservesWithAssignee = ((rvRes.data ?? []) as any[]).map((r) => ({
+      ...r,
+      assigned_name: r.assigned_to ? (assigneeMap.get(r.assigned_to) || null) : null,
+    }));
+
     return {
       chantier: chRes.data,
       events,
       notes: ntRes.data ?? [],
       documents: dcRes.data ?? [],
       pvs: pvRes.data ?? [],
-      reserves: rvRes.data ?? [],
+      reserves: reservesWithAssignee,
       auditLogs: alRes.data ?? [],
       stats: { total, done, progress, upcoming, last },
     };

@@ -268,6 +268,21 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
+    // Résolution des responsables (assigned_to → profile.full_name)
+    const assigneeIds = Array.from(
+      new Set(((rows ?? []) as any[]).map((r) => r.assigned_to).filter(Boolean)),
+    ) as string[];
+    const assigneeMap = new Map<string, string>();
+    if (assigneeIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", assigneeIds);
+      for (const p of (profs ?? []) as any[]) {
+        if (p?.id && p?.full_name) assigneeMap.set(p.id, p.full_name);
+      }
+    }
+
     const header = [
       "PV",
       "Client",
@@ -285,6 +300,8 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
     const lines = [header.join(";")];
     for (const r of rows ?? []) {
       const pv = (r as any).pv;
+      const assigneeId = (r as any).assigned_to as string | null;
+      const assigneeName = assigneeId ? (assigneeMap.get(assigneeId) || assigneeId) : "";
       lines.push(
         [
           csvEscape(pv?.numero),
@@ -295,7 +312,7 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
           csvEscape(r.status),
           csvEscape((r as any).priority),
           csvEscape(r.due_date),
-          csvEscape((r as any).assigned_to),
+          csvEscape(assigneeName),
           csvEscape(r.created_at),
           csvEscape(r.lifted_at),
           csvEscape(r.validated_at),
