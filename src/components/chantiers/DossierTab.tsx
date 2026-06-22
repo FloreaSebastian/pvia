@@ -327,14 +327,16 @@ export function DossierTab({
                       <p className="mt-1.5 text-[11px] text-muted-foreground">{items.length} réserve{items.length > 1 ? "s" : ""} traitée{items.length > 1 ? "s" : ""}</p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {rep.pdf_url && (
+                      {(rep.pdf_client_url || rep.pdf_url) && (
                         <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => openLiftPdf(rep.id, "client")} className="h-7 gap-1 text-[11px]">
                           <FileCheck2 className="h-3 w-3" /> PDF client
                         </Button>
                       )}
-                      <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => openLiftPdf(rep.id, "internal")} className="h-7 gap-1 text-[11px]">
-                        <FileLock2 className="h-3 w-3" /> PDF interne
-                      </Button>
+                      {rep.pdf_internal_url && (
+                        <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => openLiftPdf(rep.id, "internal")} className="h-7 gap-1 text-[11px]" title="Réservé directeur / responsable / conducteur / assistant admin">
+                          <FileLock2 className="h-3 w-3" /> PDF interne
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => exportExpertise(rep.id)} className="h-7 gap-1 text-[11px]">
                         <Package className="h-3 w-3" /> Export expertise
                       </Button>
