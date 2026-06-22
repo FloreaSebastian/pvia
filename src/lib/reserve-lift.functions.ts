@@ -656,12 +656,26 @@ export const getReserveLiftPdfUrl = createServerFn({ method: "POST" })
     if (!r?.company_id) throw new Error("Levée introuvable.");
     const { data: m } = await supabaseAdmin
       .from("company_members")
-      .select("id")
+      .select("role")
       .eq("company_id", r.company_id)
       .eq("user_id", context.userId)
       .eq("status", "active")
       .maybeSingle();
     if (!m) throw new Error("Accès refusé.");
+    if (data.variant === "internal" && !isManageRole(m.role)) {
+      await writeAuditLog({
+        companyId: r.company_id,
+        userId: context.userId,
+        pvId: (r as any).pv_id,
+        entityType: "reserve_lift",
+        entityId: data.reportId,
+        action: "reserve_lift.pdf_internal_denied",
+        metadata: { numero: (r as any).numero, attempted_role: m.role },
+        actor: "user",
+      });
+      throw new Error("Accès refusé.");
+    }
+
 
     // Prefer the requested variant; fall back to the legacy `pdf_url` only for
     // the client variant (the legacy column was always built without GPS gating).
