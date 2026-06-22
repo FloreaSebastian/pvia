@@ -113,7 +113,16 @@ export type AuditAction =
   | "pv.signed_email_resent_failed"
   | "pv_email_settings.updated"
   | "reserve.status_updated"
-  | "client.login_code_attempt";
+  | "client.login_code_attempt"
+  // Lot Compteurs + Réouvertures
+  | "reserve_lift.reopened"
+  | "reserve_lift.status_changed"
+  | "reserve_lift.status_recomputed"
+  | "reserve_lift.pdf_deleted_on_reopen"
+  | "reserve_lift.client_pdf_deleted_on_reopen"
+  | "reserve_lift.internal_pdf_deleted_on_reopen"
+  | "chantier.reopened"
+  | "chantier.status_recomputed";
 
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
