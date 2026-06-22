@@ -723,7 +723,7 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
     const userId = context.userId;
     const { data: report } = await supabaseAdmin
       .from("reserve_lift_reports")
-      .select("id,company_id,pv_id,numero,status,client_validated_at,pdf_url")
+      .select("id,company_id,pv_id,numero,status,client_validated_at,pdf_url,pdf_client_url")
       .eq("id", data.reportId)
       .maybeSingle();
     if (!report) throw new Error("Levée introuvable.");
@@ -741,8 +741,9 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
       throw new Error("Accès refusé.");
     }
 
-    // Ensure PDF exists (regenerate if missing)
-    if (!report.pdf_url) {
+    // Ensure PDF exists (regenerate if missing). New lifts populate
+    // `pdf_client_url`; `pdf_url` only exists on legacy rows. Need either.
+    if (!(report as any).pdf_client_url && !report.pdf_url) {
       try {
         await buildAndStoreReserveLiftPdfs(report.id);
       } catch (e: any) {

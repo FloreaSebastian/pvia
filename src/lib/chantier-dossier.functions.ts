@@ -32,7 +32,11 @@ export const getChantierDossier = createServerFn({ method: "POST" })
         }>,
         liftReports: [] as Array<{
           id: string; numero: string | null; status: string; pv_id: string;
-          signed_at: string | null; pdf_url: string | null; created_at: string;
+          signed_at: string | null; pdf_url: string | null;
+          pdf_client_url: string | null; pdf_internal_url: string | null;
+          client_validated_at: string | null; client_rejected_at: string | null;
+          client_signature: string | null; validation_mode: string | null;
+          created_at: string;
         }>,
         liftItems: [] as Array<{
           id: string; report_id: string; reserve_id: string; comment: string | null;
@@ -60,7 +64,7 @@ export const getChantierDossier = createServerFn({ method: "POST" })
         .limit(500),
       supabase
         .from("reserve_lift_reports")
-        .select("id,numero,status,pv_id,signed_at,pdf_url,created_at")
+        .select("id,numero,status,pv_id,signed_at,pdf_url,pdf_client_url,pdf_internal_url,client_validated_at,client_rejected_at,client_signature,validation_mode,created_at")
         .in("pv_id", pvIds)
         .order("created_at", { ascending: false })
         .limit(100),
