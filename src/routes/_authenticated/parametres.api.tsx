@@ -177,6 +177,22 @@ function ApiSettings() {
     reload();
   };
 
+  if (!isAdmin) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-semibold">API & Webhooks</h2>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Réservé aux rôles <b>Directeur</b> et <b>Responsable d'exploitation</b>.
+          Les clés API et webhooks exposent l'ensemble des données de l'entreprise et ne sont pas
+          accessibles aux autres rôles.
+        </p>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* API KEYS */}
