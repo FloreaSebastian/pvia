@@ -1,118 +1,86 @@
+# Refonte métier — Réserve enrichie + Dossier chantier
 
-# Calendrier Mobile V3 — Refonte façon Google Agenda
-
-Refonte **uniquement mobile** (`<lg`) du fichier `src/routes/_authenticated/chantiers.calendrier.tsx`. Le desktop reste **inchangé**. Aucune migration SQL, aucune server function modifiée.
-
----
-
-## 1. Cartes événements lisibles (mobile)
-
-Nouveau rendu sur 3 lignes dans `TimeGridView` quand `isMobile` :
-
-```text
-🏗 Villa Dupont          ← chantier (line-clamp-1, font-semibold)
-09h00 → 11h00            ← horaire (text-xs, tabular-nums)
-Réception PV             ← type label (text-xs opacity-90)
-```
-
-- Priorité d'affichage : **chantier > type > heure** (fallback titre si pas de chantier).
-- Pas de troncature à 1 caractère : on retire le titre court, on garde lignes 1/2/3 avec `line-clamp-1`.
-- Hauteur minimum **70 px** sur mobile (idéal 80) — quel que soit la durée. Desktop garde l'ancien `minH`.
-
-## 2. Palette métier centralisée
-
-Nouvelle map `BUSINESS_COLORS` qui remplace l'usage actuel de `TYPE_TO_COLOR` aléatoire :
-
-| Type                                 | Couleur | Hex      |
-|--------------------------------------|---------|----------|
-| `system_pv_created/signed`, `pv*`    | 🟦 Bleu  | #2563eb |
-| `reception`                          | 🟩 Vert  | #10b981 |
-| `intervention`, `pose`, `visite_technique`, `debut_travaux`, `livraison_materiel`, `controle_qualite` | 🟨 Jaune | #eab308 |
-| `system_reserve_created/lifted`      | 🟧 Orange| #f97316 |
-| `sav`                                | 🟥 Rouge | #ef4444 |
-| `retard`                             | ⬛ Noir  | #1f2937 |
-| `rappel`, `appel_client`, `remarque` | 🟪 Violet| #8b5cf6 |
-
-`colorOf()` route vers cette palette quand `mode === "type"`. Le mode `chantier` (couleur perso) reste dispo via Filtres. La légende dans le panneau Filtres est mise à jour.
-
-## 3. Chevauchements — règle « +N autres »
-
-Dans `TimeGridView`, calcul du *clustering* déjà présent. Sur mobile, si un cluster contient **>2** events :
-
-- Afficher les 2 premiers (par heure de début) plein format.
-- Remplacer les autres par un seul bloc compact `+N autres` (même colonne, même hauteur cumulée).
-- Tap → ouvre un **Bottom Sheet** listant tous les events du cluster (titre + horaire + type), chaque ligne tap → ouvre la fiche événement.
-
-Desktop : comportement actuel conservé.
-
-## 4. Vue Jour comme vue principale mobile
-
-- **Auto-scroll** vers l'heure courante au montage de la vue Jour (mobile uniquement) — déjà partiellement présent, on s'assure que l'heure courante est centrée et qu'on scroll uniquement à l'ouverture, pas à chaque rerender.
-- **Ligne rouge « now »** : composant `<NowLine />` (1 px `bg-red-500` + pastille 8 px à gauche), positionné via `topForTime(now)`. Refresh toutes les minutes.
-- En vue Semaine/3j la ligne n'apparaît que dans la colonne d'aujourd'hui.
-
-## 5. Vue 3 jours = J / J+1 / J+2
-
-Déjà ajoutée en V2 mais ancrée sur le cursor. On confirme **J / J+1 / J+2** (anchor = `cursor`, pas `startOfWeek`). Pas de changement supplémentaire.
-
-## 6. Colonnes plus aérées
-
-- Retirer les bordures verticales internes mobile (`divide-x` → `divide-none lg:divide-x`).
-- Quadrillage horizontal : 1 ligne par heure seulement (pas demi-heures sur mobile).
-- Padding interne event card : `p-2` mobile (au lieu de `p-1`).
-
-## 7. Header mobile compact
-
-Une seule zone, hauteur réduite :
-
-```text
-[Jour|3j|Sem|Mois]   18 juin   < Aujourd'hui >
-[🔍 Recherche…………………………………] [Filtres]
-```
-
-- `py-2` au lieu de `py-3`, suppression de la marge entre les deux lignes.
-- Le bouton `+` reste dans le PageHeader (déjà fait en V2), pas de FAB concurrent du PV central.
-
-## 8. Bottom Sheet « Fiche événement » mobile
-
-Nouveau composant interne `EventBottomSheet` (basé sur `Sheet side="bottom"`).
-
-Contenu :
-- Titre + pastille couleur
-- Type (label métier)
-- Date + horaire
-- Chantier (lien)
-- Client (lien)
-- Responsable
-- Description
-- Actions : **Modifier · Voir chantier · Voir client · Supprimer**
-
-Sur mobile, tap event → ce sheet (au lieu du `Dialog` actuel). Desktop garde le Dialog.
-
-## 9. Hors-scope (intentionnel)
-
-- Pas de refonte desktop.
-- Pas de virtualisation lourde.
-- Pas de modification des appels backend (events shape inchangé).
-- Pas de changement du module Réserves/Chantiers ailleurs (mais la palette `BUSINESS_COLORS` pourra être réutilisée plus tard — exportée par sécurité).
+Ce chantier est volumineux. Je propose de le livrer en **2 lots indépendants**, chacun shippable seul, mobile-first, sans casser l'existant.
 
 ---
 
-## Plan d'exécution (1 seul fichier modifié)
+## LOT 1 — Fiche réserve "dossier complet"
 
-`src/routes/_authenticated/chantiers.calendrier.tsx` :
+**Cible** : `src/components/pv/ReserveDetailDialog.tsx` (déjà existant) → refonte en vue structurée + mobile bottom-sheet.
 
-1. Ajouter `BUSINESS_COLORS` + nouveau `colorOf()`.
-2. Ajouter `<NowLine />` + auto-scroll « once » sur vue Jour mobile.
-3. Refactor render event card mobile (3 lignes + min-h 70).
-4. Cluster overflow `+N autres` + sheet liste.
-5. `EventBottomSheet` + branchement tap mobile.
-6. Compact header + nettoyage bordures mobile.
+### Sections affichées (accordéons repliables sur mobile)
 
-TypeScript strict. Pas de nouveau package.
+1. **Réserve** — nature, description, gravité, priorité, statut, échéance, responsable, travaux, PV/chantier/client (liens).
+2. **Photos constat initial** — requête `pv_photos` filtrées `reserve_id = reserve.id`. Grille 2 col mobile, badges GPS, lightbox via `PhotoLightboxDialog`, bouton carte si GPS.
+3. **Levées liées** — `reserve_lift_items` join `reserve_lift_reports` filtrées par `reserve_id`. Pour chaque levée : numéro, dates, statut, mode validation, intervenant, validation client, motif rejet, commentaire.
+4. **Photos après intervention** — `reserve_lift_item_photos` `photo_type='after'` groupées par levée.
+5. **Mode comparatif Avant / Après** — toggle dédié, 2 colonnes desktop / vertical mobile.
+6. **Actions contextuelles** (selon statut) — Lever, Voir levée, Renvoyer client, PDF client, PDF interne, Export expertise, Nouvelle tentative.
+7. **Timeline courte** — reconstruite depuis `audit_logs` filtrés (`reserve` + `reserve_lift` liés).
+
+### Nouveaux fichiers
+- `src/lib/reserve-detail.functions.ts` — `getReserveDossier({ companyId, reserveId })` : retourne `{ reserve, pv, chantier, client, photosBefore, lifts:[{report, items, photosAfter}], timeline }`.
+- `src/components/pv/ReserveBeforeAfterGrid.tsx` — galerie comparative réutilisable.
+
+### Fichiers modifiés
+- `src/components/pv/ReserveDetailDialog.tsx` — refonte UI, bottom-sheet mobile via `Sheet side="bottom"`, accordéons.
 
 ---
 
-**Estimation impact** : ~250 lignes ajoutées / ~120 modifiées dans un seul fichier. Aucun risque backend. Desktop pixel-identique.
+## LOT 2 — Dossier chantier
 
-Veux-tu que je lance l'implémentation telle quelle, ou ajuster un point (palette, hauteur min, BottomSheet vs Dialog plein écran) avant ?
+**Cible** : `src/routes/_authenticated/chantiers.$id.tsx`. Ajout d'un onglet **Dossier** (Tabs existants).
+
+### Sous-onglets (mobile = accordéons)
+
+1. **Résumé** — KPIs compacts (PV, réserves ouvertes/validées, levées, statut, dates).
+2. **PV** — liste cartes (numéro, statut, avec/sans réserve, PDF).
+3. **Réserves** — groupées par PV, avec accès direct à `ReserveDetailDialog`.
+4. **Levées** — toutes les `reserve_lift_reports` du chantier.
+5. **Photos** — galerie unifiée par source (PV / constat / après / docs) avec lightbox.
+6. **Documents** — PDF PV signés, PDF levées (client/interne), exports expertise, `chantier_documents`.
+7. **Emails** — `email_logs` filtrés par chantier/PV.
+8. **Historique** — timeline unifiée depuis `audit_logs` (chantier + PV + réserves + levées).
+
+### Export dossier chantier (ZIP)
+- Bouton **"Exporter dossier chantier"** réservé rôles `directeur` / `responsable_exploitation` / `conducteur_travaux`.
+- Server fn calquée sur `exportReserveLiftExpertise` mais agrégée chantier.
+
+### Nouveaux fichiers
+- `src/lib/chantier-dossier.functions.ts` — `getChantierDossier` + `exportChantierDossier` (ZIP).
+- `src/components/chantier/DossierTab.tsx` — conteneur onglet (lazy-loaded).
+- `src/components/chantier/DossierSummary.tsx`
+- `src/components/chantier/DossierPvList.tsx`
+- `src/components/chantier/DossierReserves.tsx`
+- `src/components/chantier/DossierLifts.tsx`
+- `src/components/chantier/DossierGallery.tsx`
+- `src/components/chantier/DossierDocuments.tsx`
+- `src/components/chantier/DossierEmails.tsx`
+- `src/components/chantier/DossierTimeline.tsx`
+
+### Fichiers modifiés
+- `src/routes/_authenticated/chantiers.$id.tsx` — ajout onglet "Dossier".
+
+---
+
+## Sécurité
+- Toutes les server fns sous `requireSupabaseAuth` + check `get_company_role`.
+- Export ZIP : check rôle, audit log.
+- Jamais d'URL signée PDF interne ni GPS exact côté client (client portal hors scope ici).
+
+## Stack
+- Pas de nouveau package : `JSZip` déjà utilisé. Réutilisation `Sheet`, `Tabs`, `Accordion`, `Dialog`, `PhotoLightboxDialog`.
+- Loaders via TanStack Query (`ensureQueryData` + `useSuspenseQuery`), conforme template.
+
+## Estimation
+- Lot 1 : ~1 fichier modifié, 2 créés, ~600 lignes.
+- Lot 2 : 1 modifié, 10 créés, ~1500 lignes.
+- TypeScript strict OK, mobile testé 360/390/430.
+
+---
+
+## Question avant implémentation
+
+**Veux-tu que je livre les 2 lots d'un seul coup**, ou **uniquement le Lot 1** (Réserve enrichie) en premier pour valider l'ergonomie avant d'attaquer le Dossier chantier ?
+
+Mon conseil : **Lot 1 d'abord** — plus petit, validable en 1 session, et la fiche réserve est réutilisée dans le Lot 2.
