@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
+import { deriveDisplayStatus, STATUS_LABELS, STATUS_TONES } from "@/lib/reserve-lift-status";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { getChantierDossier } from "@/lib/chantier-dossier.functions";
@@ -311,12 +312,13 @@ export function DossierTab({
             <ul className="space-y-2">
               {dossier.liftReports.map((rep) => {
                 const items = dossier.liftItems.filter((it) => it.report_id === rep.id);
+                const ds = deriveDisplayStatus(rep as any);
                 return (
                   <li key={rep.id} className="rounded-lg border border-border bg-card p-3 text-sm">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs font-semibold">{rep.numero ?? "Levée"}</span>
-                      <StatusPill tone={rep.status === "signe" || rep.status === "client_validated" ? "success" : rep.status === "client_rejected" ? "destructive" : "info"} size="sm">
-                        {rep.status}
+                      <StatusPill tone={STATUS_TONES[ds]} size="sm">
+                        {STATUS_LABELS[ds]}
                       </StatusPill>
                       <span className="text-[11px] text-muted-foreground">PV {pvNumeroById.get(rep.pv_id) ?? "—"}</span>
                       <span className="ml-auto text-[11px] text-muted-foreground">{fmt(rep.signed_at ?? rep.created_at)}</span>
