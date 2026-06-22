@@ -1,24 +1,40 @@
 /**
- * Lot 2 — Dossier chantier unifié.
+ * Lot 2 / Refonte mobile — Dossier chantier unifié.
  * Onglet "Dossier" qui regroupe : résumé, PV, réserves, levées,
  * photos, documents, emails et historique chronologique.
- * Charge des données complémentaires (pv_photos, reserve_lift_reports,
- * email_logs) via getChantierDossier.
+ *
+ * UX mobile :
+ * - KPI cards compactes (2 colonnes).
+ * - Onglets scrollables horizontalement.
+ * - Réserves groupées par PV (Collapsible) avec actions "Détail" + "Lever".
+ * - ReserveDetailDialog + ReserveLiftWorkflowDialog ouverts en bottom-sheet.
+ * - PhotoLightboxDialog pour toutes les photos (jamais d'ouverture d'onglet).
+ * - Levées : actions PDF client / PDF interne / export expertise.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   FileText, AlertTriangle, CheckCircle2, Image as ImageIcon,
   Paperclip, Mail, History, ExternalLink, ChevronRight, Clock,
+  FileCheck2, FileLock2, Package, ChevronDown,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { getChantierDossier } from "@/lib/chantier-dossier.functions";
 import type { getChantierDetail } from "@/lib/chantier-detail.functions";
+import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
+import { ReserveLiftWorkflowDialog } from "@/components/pv/ReserveLiftWorkflowDialog";
+import { PhotoLightboxDialog, type LightboxPhoto } from "@/components/pv/PhotoLightboxDialog";
+import {
+  getReserveLiftPdfUrl,
+} from "@/lib/reserve-lift.functions";
+import { exportReserveLiftExpertise } from "@/lib/reserve-lift-expertise.functions";
+import { reserveStatusTone, reserveStatusLabel } from "@/lib/reserve-status";
 
 type Detail = Awaited<ReturnType<typeof getChantierDetail>>;
 type Dossier = Awaited<ReturnType<typeof getChantierDossier>>;
@@ -37,21 +53,30 @@ function fmtDay(d: string | null | undefined) {
 const PV_STATUS_TONE: Record<string, "success" | "info" | "warning" | "neutral" | "destructive"> = {
   signe: "success", envoye: "info", brouillon: "neutral", a_signer: "warning",
 };
-const RESERVE_STATUS_TONE: Record<string, "success" | "warning" | "destructive" | "info" | "neutral"> = {
-  ouverte: "warning", levee: "info", en_attente_validation: "info",
-  validee: "success", rejetee: "destructive",
-};
-const RESERVE_STATUS_LABEL: Record<string, string> = {
-  ouverte: "Ouverte", levee: "Levée", en_attente_validation: "À valider",
-  validee: "Validée", rejetee: "Rejetée",
-};
 
 export function DossierTab({
-  companyId, chantierId, detail,
-}: { companyId: string; chantierId: string; detail: Detail }) {
+  companyId, chantierId, detail, onReload,
+}: { companyId: string; chantierId: string; detail: Detail; onReload?: () => void }) {
   const fetchDossier = useServerFn(getChantierDossier);
+  const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
+  const exportExpertiseFn = useServerFn(exportReserveLiftExpertise);
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busyLiftId, setBusyLiftId] = useState<string | null>(null);
+
+  // Dialogs
+  const [activeReserve, setActiveReserve] = useState<ReserveDetail | null>(null);
+  const [liftCtx, setLiftCtx] = useState<{ pvId: string; pvNumero: string; preselectedReserveId: string | null } | null>(null);
+  const [lightbox, setLightbox] = useState<{ photos: LightboxPhoto[]; idx: number } | null>(null);
+
+  const loadDossier = useCallback(() => {
+    setLoading(true);
+    return fetchDossier({ data: { companyId, chantierId } })
+      .then((r) => setDossier(r))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Dossier indisponible"))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, chantierId]);
 
   useEffect(() => {
     let alive = true;
@@ -91,250 +116,434 @@ export function DossierTab({
     return c;
   }, [detail.reserves]);
 
+  // Combined lightbox photos (initial + after lift)
+  const allLightboxPhotos: LightboxPhoto[] = useMemo(() => {
+    const out: LightboxPhoto[] = [];
+    for (const p of dossier?.photos ?? []) {
+      out.push({
+        id: `pv-${p.id}`,
+        url: p.url,
+        label: p.caption ?? p.photo_label ?? null,
+        takenAt: p.taken_at ?? p.created_at,
+        photoType: "initial",
+      });
+    }
+    for (const p of dossier?.liftPhotos ?? []) {
+      out.push({
+        id: `lift-${p.id}`,
+        url: p.photo_url,
+        label: p.photo_type ?? null,
+        takenAt: p.taken_at ?? p.created_at,
+        photoType: (p.photo_type as "after") ?? "after",
+      });
+    }
+    return out;
+  }, [dossier]);
+
+  function openLightbox(photoId: string) {
+    const idx = allLightboxPhotos.findIndex((p) => p.id === photoId);
+    if (idx >= 0) setLightbox({ photos: allLightboxPhotos, idx });
+  }
+
+  function openReserveDetail(r: typeof detail.reserves[number]) {
+    setActiveReserve({
+      id: r.id,
+      description: r.description,
+      severity: r.severity,
+      status: r.status,
+      priority: r.priority,
+      nature: r.nature,
+      work_to_execute: r.work_to_execute,
+      due_date: r.due_date,
+      assigned_to: r.assigned_to,
+      lifted_at: r.lifted_at,
+      validated_at: r.validated_at,
+      created_at: r.created_at,
+      pv_id: r.pv_id,
+      company_id: companyId,
+    });
+  }
+
+  function openLiftWorkflow(reserveId: string, pvId: string) {
+    setLiftCtx({
+      pvId,
+      pvNumero: pvNumeroById.get(pvId) ?? pvId.slice(0, 6),
+      preselectedReserveId: reserveId,
+    });
+  }
+
+  async function openLiftPdf(reportId: string, variant: "client" | "internal") {
+    setBusyLiftId(reportId);
+    try {
+      const res = await getLiftPdfFn({ data: { reportId, variant } });
+      if (res?.url) window.open(res.url, "_blank", "noopener");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "PDF indisponible");
+    } finally { setBusyLiftId(null); }
+  }
+
+  async function exportExpertise(reportId: string) {
+    setBusyLiftId(reportId);
+    try {
+      const res = await exportExpertiseFn({ data: { reportId } });
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.fileName; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Export prêt");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export impossible");
+    } finally { setBusyLiftId(null); }
+  }
+
+  // Build reserves list for the workflow dialog (filtered to current PV)
+  const liftDialogReserves = useMemo(() => {
+    if (!liftCtx) return [];
+    return detail.reserves
+      .filter((r) => r.pv_id === liftCtx.pvId)
+      .map((r) => ({
+        id: r.id,
+        description: r.description,
+        severity: r.severity,
+        status: r.status,
+        priority: r.priority ?? null,
+        due_date: r.due_date ?? null,
+        work_to_execute: r.work_to_execute ?? null,
+      }));
+  }, [liftCtx, detail.reserves]);
+
   return (
-    <Tabs defaultValue="resume" className="w-full">
-      <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
-        <TabsTrigger value="resume">Résumé</TabsTrigger>
-        <TabsTrigger value="pv">PV ({detail.pvs.length})</TabsTrigger>
-        <TabsTrigger value="reserves">Réserves ({reserveCounts.total})</TabsTrigger>
-        <TabsTrigger value="levees">Levées ({dossier?.liftReports.length ?? 0})</TabsTrigger>
-        <TabsTrigger value="photos">Photos ({dossier?.photos.length ?? 0})</TabsTrigger>
-        <TabsTrigger value="documents">Documents ({detail.documents.length})</TabsTrigger>
-        <TabsTrigger value="emails">Emails ({dossier?.emails.length ?? 0})</TabsTrigger>
-        <TabsTrigger value="historique">Historique</TabsTrigger>
-      </TabsList>
+    <>
+      <Tabs defaultValue="resume" className="w-full">
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <TabsTrigger value="resume" className="shrink-0">Résumé</TabsTrigger>
+          <TabsTrigger value="pv" className="shrink-0">PV ({detail.pvs.length})</TabsTrigger>
+          <TabsTrigger value="reserves" className="shrink-0">Réserves ({reserveCounts.total})</TabsTrigger>
+          <TabsTrigger value="levees" className="shrink-0">Levées ({dossier?.liftReports.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="photos" className="shrink-0">Photos ({allLightboxPhotos.length})</TabsTrigger>
+          <TabsTrigger value="documents" className="shrink-0">Docs ({detail.documents.length})</TabsTrigger>
+          <TabsTrigger value="emails" className="shrink-0">Emails ({dossier?.emails.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="historique" className="shrink-0">Historique</TabsTrigger>
+        </TabsList>
 
-      {/* Résumé */}
-      <TabsContent value="resume" className="mt-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={<FileText className="h-4 w-4" />} label="PV" value={detail.pvs.length} />
-          <StatCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Réserves ouvertes" value={reserveCounts.open} />
-          <StatCard icon={<CheckCircle2 className="h-4 w-4 text-success" />} label="Réserves validées" value={reserveCounts.validated} />
-          <StatCard icon={<ImageIcon className="h-4 w-4" />} label="Photos" value={dossier?.photos.length ?? 0} />
-          <StatCard icon={<Paperclip className="h-4 w-4" />} label="Documents" value={detail.documents.length} />
-          <StatCard icon={<History className="h-4 w-4" />} label="Levées" value={dossier?.liftReports.length ?? 0} />
-          <StatCard icon={<Mail className="h-4 w-4" />} label="Emails envoyés" value={(dossier?.emails ?? []).filter((e) => e.status === "sent").length} />
-          <StatCard icon={<AlertTriangle className="h-4 w-4 text-destructive" />} label="Réserves rejetées" value={reserveCounts.rejected} />
-        </div>
-      </TabsContent>
+        {/* Résumé — compact 2 cols mobile */}
+        <TabsContent value="resume" className="mt-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <StatCard icon={<FileText className="h-4 w-4" />} label="PV" value={detail.pvs.length} />
+            <StatCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Ouvertes" value={reserveCounts.open} />
+            <StatCard icon={<CheckCircle2 className="h-4 w-4 text-success" />} label="Validées" value={reserveCounts.validated} />
+            <StatCard icon={<History className="h-4 w-4" />} label="Levées" value={dossier?.liftReports.length ?? 0} />
+            <StatCard icon={<ImageIcon className="h-4 w-4" />} label="Photos" value={allLightboxPhotos.length} />
+            <StatCard icon={<Paperclip className="h-4 w-4" />} label="Documents" value={detail.documents.length} />
+            <StatCard icon={<Mail className="h-4 w-4" />} label="Emails" value={(dossier?.emails ?? []).filter((e) => e.status === "sent").length} />
+            <StatCard icon={<AlertTriangle className="h-4 w-4 text-destructive" />} label="Rejetées" value={reserveCounts.rejected} />
+          </div>
+        </TabsContent>
 
-      {/* PV */}
-      <TabsContent value="pv" className="mt-4">
-        {detail.pvs.length === 0 ? (
-          <EmptyHint label="Aucun PV pour ce chantier." />
-        ) : (
-          <ul className="space-y-2">
-            {detail.pvs.map((p) => {
-              const rs = reservesByPv.get(p.id) ?? [];
-              return (
-                <li key={p.id}>
-                  <Link
-                    to="/pv/$id"
-                    params={{ id: p.id }}
-                    className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 hover:bg-muted/50"
-                  >
-                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{p.numero ?? "PV"} <span className="text-xs text-muted-foreground">· {p.type}</span></p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <StatusPill tone={PV_STATUS_TONE[p.status] ?? "neutral"}>{p.status}</StatusPill>
-                        {p.signed_at && <span>Signé {fmtDay(p.signed_at)}</span>}
-                        {p.sent_to_client_at && <span>· Envoyé {fmtDay(p.sent_to_client_at)}</span>}
-                        {rs.length > 0 && <span>· {rs.length} réserve{rs.length > 1 ? "s" : ""}</span>}
-                      </p>
+        {/* PV */}
+        <TabsContent value="pv" className="mt-3">
+          {detail.pvs.length === 0 ? <EmptyHint label="Aucun PV pour ce chantier." /> : (
+            <ul className="space-y-2">
+              {detail.pvs.map((p) => {
+                const rs = reservesByPv.get(p.id) ?? [];
+                return (
+                  <li key={p.id} className="rounded-lg border border-border bg-card p-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{p.numero ?? "PV"} <span className="text-xs text-muted-foreground">· {p.type}</span></p>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <StatusPill tone={PV_STATUS_TONE[p.status] ?? "neutral"} size="sm">{p.status}</StatusPill>
+                          {p.signed_at && <span>Signé {fmtDay(p.signed_at)}</span>}
+                          {rs.length > 0 && <span>· {rs.length} réserve{rs.length > 1 ? "s" : ""}</span>}
+                        </div>
+                      </div>
+                      <Button asChild size="sm" variant="outline" className="h-8 shrink-0">
+                        <Link to="/pv/$id" params={{ id: p.id }}>Ouvrir <ChevronRight className="h-3.5 w-3.5" /></Link>
+                      </Button>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </TabsContent>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
 
-      {/* Réserves */}
-      <TabsContent value="reserves" className="mt-4">
-        {detail.reserves.length === 0 ? (
-          <EmptyHint label="Aucune réserve déclarée." />
-        ) : (
-          <ul className="space-y-2">
-            {detail.reserves.map((r) => (
-              <li key={r.id} className="rounded-lg border border-border bg-card p-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusPill tone={RESERVE_STATUS_TONE[r.status] ?? "neutral"}>
-                    {RESERVE_STATUS_LABEL[r.status] ?? r.status}
-                  </StatusPill>
-                  <StatusPill tone={r.severity === "majeure" ? "destructive" : "warning"}>{r.severity}</StatusPill>
-                  <Link to="/pv/$id" params={{ id: r.pv_id }} className="text-xs text-primary hover:underline">
-                    PV {pvNumeroById.get(r.pv_id) ?? "—"}
-                  </Link>
-                  <span className="ml-auto text-xs text-muted-foreground">{fmtDay(r.created_at)}</span>
-                </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm">{r.description}</p>
-                {(r.lifted_at || r.validated_at) && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {r.lifted_at && <>Levée : {fmt(r.lifted_at)}</>}
-                    {r.lifted_at && r.validated_at && " · "}
-                    {r.validated_at && <>Validée : {fmt(r.validated_at)}</>}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </TabsContent>
+        {/* Réserves — groupées par PV, repliables */}
+        <TabsContent value="reserves" className="mt-3">
+          {detail.reserves.length === 0 ? <EmptyHint label="Aucune réserve déclarée." /> : (
+            <div className="space-y-2">
+              {detail.pvs
+                .filter((p) => (reservesByPv.get(p.id)?.length ?? 0) > 0)
+                .map((p) => {
+                  const rs = reservesByPv.get(p.id) ?? [];
+                  return (
+                    <Collapsible key={p.id} defaultOpen className="rounded-lg border border-border bg-card">
+                      <CollapsibleTrigger className="flex w-full items-center gap-2 p-3 text-left">
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform [&[data-state=closed]]:-rotate-90" />
+                        <span className="truncate text-sm font-medium">{p.numero ?? "PV"}</span>
+                        <span className="ml-auto text-xs text-muted-foreground">{rs.length} réserve{rs.length > 1 ? "s" : ""}</span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 px-3 pb-3">
+                        {rs.map((r) => (
+                          <ReserveRow
+                            key={r.id}
+                            r={r}
+                            onDetail={() => openReserveDetail(r)}
+                            onLever={() => openLiftWorkflow(r.id, r.pv_id)}
+                          />
+                        ))}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
+            </div>
+          )}
+        </TabsContent>
 
-      {/* Levées */}
-      <TabsContent value="levees" className="mt-4">
-        {loading ? <LoadingHint /> : !dossier?.liftReports.length ? (
-          <EmptyHint label="Aucune levée enregistrée." />
-        ) : (
-          <ul className="space-y-2">
-            {dossier.liftReports.map((rep) => {
-              const items = dossier.liftItems.filter((it) => it.report_id === rep.id);
-              return (
-                <li key={rep.id} className="rounded-lg border border-border bg-card p-3 text-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">{rep.numero ?? "Levée"}</span>
-                    <StatusPill tone={rep.status === "signe" || rep.status === "client_validated" ? "success" : rep.status === "client_rejected" ? "destructive" : "info"}>
-                      {rep.status}
-                    </StatusPill>
-                    <span className="text-xs text-muted-foreground">PV {pvNumeroById.get(rep.pv_id) ?? "—"}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{fmt(rep.signed_at ?? rep.created_at)}</span>
+        {/* Levées */}
+        <TabsContent value="levees" className="mt-3">
+          {loading ? <LoadingHint /> : !dossier?.liftReports.length ? <EmptyHint label="Aucune levée enregistrée." /> : (
+            <ul className="space-y-2">
+              {dossier.liftReports.map((rep) => {
+                const items = dossier.liftItems.filter((it) => it.report_id === rep.id);
+                return (
+                  <li key={rep.id} className="rounded-lg border border-border bg-card p-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs font-semibold">{rep.numero ?? "Levée"}</span>
+                      <StatusPill tone={rep.status === "signe" || rep.status === "client_validated" ? "success" : rep.status === "client_rejected" ? "destructive" : "info"} size="sm">
+                        {rep.status}
+                      </StatusPill>
+                      <span className="text-[11px] text-muted-foreground">PV {pvNumeroById.get(rep.pv_id) ?? "—"}</span>
+                      <span className="ml-auto text-[11px] text-muted-foreground">{fmt(rep.signed_at ?? rep.created_at)}</span>
+                    </div>
+                    {items.length > 0 && (
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">{items.length} réserve{items.length > 1 ? "s" : ""} traitée{items.length > 1 ? "s" : ""}</p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {rep.pdf_url && (
+                        <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => openLiftPdf(rep.id, "client")} className="h-7 gap-1 text-[11px]">
+                          <FileCheck2 className="h-3 w-3" /> PDF client
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => openLiftPdf(rep.id, "internal")} className="h-7 gap-1 text-[11px]">
+                        <FileLock2 className="h-3 w-3" /> PDF interne
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => exportExpertise(rep.id)} className="h-7 gap-1 text-[11px]">
+                        <Package className="h-3 w-3" /> Export expertise
+                      </Button>
+                      <Button asChild size="sm" variant="ghost" className="h-7 gap-1 text-[11px]">
+                        <Link to="/pv/$id/levee-reserves" params={{ id: rep.pv_id }}>
+                          <ExternalLink className="h-3 w-3" /> Ouvrir
+                        </Link>
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
+
+        {/* Photos */}
+        <TabsContent value="photos" className="mt-3">
+          {loading ? <LoadingHint /> : allLightboxPhotos.length === 0 ? <EmptyHint label="Aucune photo." /> : (
+            <div className="space-y-4">
+              {(dossier?.photos.length ?? 0) > 0 && (
+                <section>
+                  <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Constat initial</p>
+                  <PhotoGrid
+                    items={(dossier?.photos ?? []).map((p) => ({
+                      id: `pv-${p.id}`, url: p.url, caption: p.caption ?? p.photo_label ?? null,
+                      date: p.taken_at ?? p.created_at,
+                    }))}
+                    onOpen={openLightbox}
+                  />
+                </section>
+              )}
+              {(dossier?.liftPhotos.length ?? 0) > 0 && (
+                <section>
+                  <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Après intervention</p>
+                  <PhotoGrid
+                    items={(dossier?.liftPhotos ?? []).map((p) => ({
+                      id: `lift-${p.id}`, url: p.photo_url, caption: p.photo_type ?? null,
+                      date: p.taken_at ?? p.created_at,
+                    }))}
+                    onOpen={openLightbox}
+                  />
+                </section>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Documents */}
+        <TabsContent value="documents" className="mt-3">
+          {detail.documents.length === 0 ? <EmptyHint label="Aucun document." /> : (
+            <ul className="space-y-2">
+              {detail.documents.map((doc) => (
+                <li key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 text-sm">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{doc.name}</p>
+                    <p className="text-xs text-muted-foreground">{doc.category ?? "autre"} · {fmtDay(doc.created_at)}</p>
                   </div>
-                  {items.length > 0 && (
-                    <p className="mt-2 text-xs text-muted-foreground">{items.length} réserve{items.length > 1 ? "s" : ""} traitée{items.length > 1 ? "s" : ""}</p>
-                  )}
-                  {rep.pdf_url && (
-                    <a href={rep.pdf_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                      <ExternalLink className="h-3 w-3" /> Ouvrir le PDF
-                    </a>
-                  )}
+                  <Button asChild size="sm" variant="ghost">
+                    <a href={doc.file_url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                  </Button>
                 </li>
-              );
-            })}
-          </ul>
-        )}
-      </TabsContent>
+              ))}
+            </ul>
+          )}
+        </TabsContent>
 
-      {/* Photos */}
-      <TabsContent value="photos" className="mt-4">
-        {loading ? <LoadingHint /> : (dossier?.photos.length ?? 0) + (dossier?.liftPhotos.length ?? 0) === 0 ? (
-          <EmptyHint label="Aucune photo." />
-        ) : (
-          <>
-            {(dossier?.photos.length ?? 0) > 0 && (
-              <>
-                <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Constat initial</p>
-                <PhotoGrid
-                  items={(dossier?.photos ?? []).map((p) => ({
-                    id: p.id, url: p.url, caption: p.caption ?? p.photo_label ?? null,
-                    date: p.taken_at ?? p.created_at,
-                  }))}
-                />
-              </>
-            )}
-            {(dossier?.liftPhotos.length ?? 0) > 0 && (
-              <>
-                <p className="mb-2 mt-4 text-xs font-semibold uppercase text-muted-foreground">Après intervention</p>
-                <PhotoGrid
-                  items={(dossier?.liftPhotos ?? []).map((p) => ({
-                    id: p.id, url: p.photo_url, caption: p.photo_type ?? null,
-                    date: p.taken_at ?? p.created_at,
-                  }))}
-                />
-              </>
-            )}
-          </>
-        )}
-      </TabsContent>
+        {/* Emails */}
+        <TabsContent value="emails" className="mt-3">
+          {loading ? <LoadingHint /> : !dossier?.emails.length ? <EmptyHint label="Aucun email envoyé pour ce chantier." /> : (
+            <ul className="space-y-2">
+              {dossier.emails.map((e) => (
+                <li key={e.id} className="rounded-lg border border-border bg-card p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="truncate font-medium">{e.recipient_email}</span>
+                    <StatusPill tone={e.status === "sent" ? "success" : e.status === "failed" || e.status === "dlq" ? "destructive" : "neutral"} size="sm">
+                      {e.status}
+                    </StatusPill>
+                    <span className="text-[11px] text-muted-foreground">{e.email_type}</span>
+                    <span className="ml-auto text-[11px] text-muted-foreground">{fmt(e.sent_at ?? e.created_at)}</span>
+                  </div>
+                  {e.subject && <p className="mt-1 truncate text-sm">{e.subject}</p>}
+                  {e.error_message && <p className="mt-1 text-xs text-destructive">{e.error_message}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </TabsContent>
 
-      {/* Documents */}
-      <TabsContent value="documents" className="mt-4">
-        {detail.documents.length === 0 ? (
-          <EmptyHint label="Aucun document." />
-        ) : (
-          <ul className="space-y-2">
-            {detail.documents.map((doc) => (
-              <li key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 text-sm">
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{doc.name}</p>
-                  <p className="text-xs text-muted-foreground">{doc.category ?? "autre"} · {fmtDay(doc.created_at)}</p>
-                </div>
-                <Button asChild size="sm" variant="ghost">
-                  <a href={doc.file_url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </TabsContent>
+        {/* Historique */}
+        <TabsContent value="historique" className="mt-3">
+          {detail.auditLogs.length === 0 ? <EmptyHint label="Aucune entrée d'historique." /> : (
+            <ol className="space-y-2">
+              {detail.auditLogs.slice(0, 100).map((a) => (
+                <li key={a.id} className="flex items-start gap-2 rounded-lg border border-border bg-card p-2 text-xs">
+                  <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{a.action}</p>
+                    <p className="text-muted-foreground">{fmt(a.created_at)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </TabsContent>
+      </Tabs>
 
-      {/* Emails */}
-      <TabsContent value="emails" className="mt-4">
-        {loading ? <LoadingHint /> : !dossier?.emails.length ? (
-          <EmptyHint label="Aucun email envoyé pour ce chantier." />
-        ) : (
-          <ul className="space-y-2">
-            {dossier.emails.map((e) => (
-              <li key={e.id} className="rounded-lg border border-border bg-card p-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="font-medium">{e.recipient_email}</span>
-                  <StatusPill tone={e.status === "sent" ? "success" : e.status === "failed" || e.status === "dlq" ? "destructive" : "neutral"}>
-                    {e.status}
-                  </StatusPill>
-                  <span className="text-xs text-muted-foreground">{e.email_type}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{fmt(e.sent_at ?? e.created_at)}</span>
-                </div>
-                {e.subject && <p className="mt-1 truncate text-sm">{e.subject}</p>}
-                {e.error_message && <p className="mt-1 text-xs text-destructive">{e.error_message}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </TabsContent>
+      <ReserveDetailDialog
+        open={!!activeReserve}
+        onOpenChange={(o) => { if (!o) setActiveReserve(null); }}
+        reserve={activeReserve}
+        onChanged={() => { onReload?.(); void loadDossier(); }}
+        onLever={(r) => {
+          setActiveReserve(null);
+          openLiftWorkflow(r.id, r.pv_id);
+        }}
+      />
 
-      {/* Historique */}
-      <TabsContent value="historique" className="mt-4">
-        {detail.auditLogs.length === 0 ? (
-          <EmptyHint label="Aucune entrée d'historique." />
-        ) : (
-          <ol className="space-y-2">
-            {detail.auditLogs.slice(0, 100).map((a) => (
-              <li key={a.id} className="flex items-start gap-2 rounded-lg border border-border bg-card p-2 text-xs">
-                <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{a.action}</p>
-                  <p className="text-muted-foreground">{fmt(a.created_at)}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+      {liftCtx && (
+        <ReserveLiftWorkflowDialog
+          open={!!liftCtx}
+          onOpenChange={(o) => { if (!o) setLiftCtx(null); }}
+          pvId={liftCtx.pvId}
+          pvNumero={liftCtx.pvNumero}
+          reserves={liftDialogReserves}
+          preselectedReserveId={liftCtx.preselectedReserveId}
+          chantierLabel={detail.chantier.name}
+          clientLabel={detail.chantier.client?.name ?? null}
+          clientEmail={detail.chantier.client?.email ?? null}
+          onCompleted={() => {
+            toast.success("Levée finalisée");
+            setLiftCtx(null);
+            onReload?.();
+            void loadDossier();
+          }}
+        />
+      )}
+
+      {lightbox && (
+        <PhotoLightboxDialog
+          open={!!lightbox}
+          onOpenChange={(o) => { if (!o) setLightbox(null); }}
+          photos={lightbox.photos}
+          startIndex={lightbox.idx}
+          context={{ showExactGps: true }}
+        />
+      )}
+    </>
+  );
+}
+
+function ReserveRow({
+  r, onDetail, onLever,
+}: {
+  r: { id: string; description: string; severity: string; status: string; due_date: string | null; lifted_at: string | null; validated_at: string | null; created_at: string };
+  onDetail: () => void;
+  onLever: () => void;
+}) {
+  const canLift = r.status !== "validee" && r.status !== "levee" && r.status !== "en_attente_validation";
+  return (
+    <div className="rounded-md border border-border/70 bg-background p-2.5 text-sm">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <StatusPill tone={reserveStatusTone(r.status) as any} size="sm" dot>{reserveStatusLabel(r.status)}</StatusPill>
+        <StatusPill tone={r.severity === "majeure" ? "destructive" : "warning"} size="sm">{r.severity}</StatusPill>
+        {r.due_date && <span className="text-[10px] text-muted-foreground">📅 {fmtDay(r.due_date)}</span>}
+        <span className="ml-auto text-[10px] text-muted-foreground">{fmtDay(r.created_at)}</span>
+      </div>
+      <p className="mt-1.5 line-clamp-2 text-[13px] leading-snug">{r.description}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={onDetail}>
+          Détail
+        </Button>
+        {canLift && (
+          <Button size="sm" className="h-7 shadow-brand text-[11px]" onClick={onLever}>
+            <FileCheck2 className="h-3 w-3" /> Lever
+          </Button>
         )}
-      </TabsContent>
-    </Tabs>
+      </div>
+    </div>
   );
 }
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <Card className="flex items-center gap-3 p-3">
-      <div className="grid h-9 w-9 place-items-center rounded-lg bg-muted">{icon}</div>
+    <Card className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-muted sm:h-9 sm:w-9">{icon}</div>
       <div className="min-w-0">
-        <p className="truncate text-xs text-muted-foreground">{label}</p>
-        <p className="text-lg font-semibold tabular-nums">{value}</p>
+        <p className="truncate text-[10px] uppercase tracking-wider text-muted-foreground sm:text-xs">{label}</p>
+        <p className="text-base font-semibold tabular-nums sm:text-lg">{value}</p>
       </div>
     </Card>
   );
 }
 
-function PhotoGrid({ items }: { items: Array<{ id: string; url: string; caption: string | null; date: string }> }) {
+function PhotoGrid({
+  items, onOpen,
+}: {
+  items: Array<{ id: string; url: string; caption: string | null; date: string }>;
+  onOpen: (id: string) => void;
+}) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
       {items.map((p) => (
-        <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="group block overflow-hidden rounded-lg border border-border bg-muted">
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => onOpen(p.id)}
+          className="group block overflow-hidden rounded-lg border border-border bg-muted text-left"
+        >
           <div className="aspect-square overflow-hidden">
             <img src={p.url} alt={p.caption ?? ""} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
           </div>
@@ -344,7 +553,7 @@ function PhotoGrid({ items }: { items: Array<{ id: string; url: string; caption:
               {p.date && <p className="truncate">{fmtDay(p.date)}</p>}
             </div>
           )}
-        </a>
+        </button>
       ))}
     </div>
   );
