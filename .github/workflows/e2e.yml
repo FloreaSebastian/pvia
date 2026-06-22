@@ -66,23 +66,51 @@ jobs:
           echo "Dev server failed to start" >&2
           exit 1
 
-      - name: Run Playwright E2E
-        run: bun run test:e2e
+      - name: Run Playwright E2E (desktop)
+        id: e2e_desktop
+        env:
+          E2E_VARIANT: desktop
+        run: bunx playwright test --project=desktop
 
-      - name: Upload Playwright HTML report
+      - name: Upload desktop HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-report-desktop
+          path: playwright-report-desktop/
           retention-days: 14
           if-no-files-found: ignore
 
-      - name: Upload Playwright traces & screenshots
-        if: failure()
+      - name: Upload desktop traces & screenshots
+        if: failure() && steps.e2e_desktop.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-test-results
-          path: test-results/
+          name: playwright-results-desktop
+          path: test-results-desktop/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Run Playwright E2E (mobile emulation)
+        id: e2e_mobile
+        if: always()
+        env:
+          E2E_VARIANT: mobile
+        run: bunx playwright test --project=mobile
+
+      - name: Upload mobile HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-mobile
+          path: playwright-report-mobile/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload mobile traces & screenshots
+        if: failure() && steps.e2e_mobile.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-mobile
+          path: test-results-mobile/
           retention-days: 14
           if-no-files-found: ignore
