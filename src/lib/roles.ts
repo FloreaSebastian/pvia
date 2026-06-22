@@ -88,7 +88,7 @@ export const ROLE_META: Record<
   technicien: {
     label: "Technicien",
     short: "Technicien",
-    description: "Terrain : chantiers assignés, photos, observations, réserves.",
+    description: "Consultation terrain des chantiers et suivi opérationnel. Peut ajouter des photos si autorisé, sans droit de création, signature ou validation.",
     badgeClass: "bg-green-600 text-white hover:bg-green-600/90",
     emoji: "🔧",
   },
