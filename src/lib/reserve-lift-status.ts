@@ -81,3 +81,34 @@ export function isEditableDraft(r: RawLiftRow): boolean {
   const ds = deriveDisplayStatus(r);
   return ds === "brouillon" || ds === "en_cours";
 }
+
+/**
+ * Statuses considered "signed by company" (legacy + new vocabulary).
+ *
+ * Use this list — NEVER compare `report.status === "signe"` directly — so
+ * post-migration rows (`signee_intervenant`, `envoyee_client`) keep working
+ * alongside legacy rows still tagged `signe` / `signed_by_company`.
+ */
+export const LIFT_SIGNED_STATUSES = [
+  "signe",
+  "signed_by_company",
+  "signee_intervenant",
+  "envoyee_client",
+] as const;
+
+export function isLiftSignedStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return (LIFT_SIGNED_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * Canonical status to persist when a lift is signed by the intervenant.
+ * - `on_site`  → `signee_intervenant` (client already signed in person)
+ * - `remote`   → `envoyee_client`     (waiting for client validation by email)
+ */
+export function resolveSignedLiftStatus(
+  validationMode: string | null | undefined,
+): "signee_intervenant" | "envoyee_client" {
+  return validationMode === "on_site" ? "signee_intervenant" : "envoyee_client";
+}
+
