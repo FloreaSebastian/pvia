@@ -22,6 +22,8 @@ import {
   listCompanyMembers, createChantierAutoPlanning,
 } from "@/lib/chantier-detail.functions";
 import { reopenChantier } from "@/lib/chantiers.functions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DossierTab } from "@/components/chantiers/DossierTab";
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
   component: ChantierDetailPage,
@@ -415,6 +417,12 @@ function ChantierDetailPage() {
         }
       />
 
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList>
+          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="dossier">Dossier chantier</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="mt-4 space-y-6">
       {/* Résumé */}
       <Card className="grid gap-6 p-6 md:grid-cols-3">
         <div className="space-y-3 md:col-span-2">
@@ -656,6 +664,11 @@ function ChantierDetailPage() {
           </Card>
         </div>
       </div>
+        </TabsContent>
+        <TabsContent value="dossier" className="mt-4">
+          {activeCompanyId && <DossierTab companyId={activeCompanyId} chantierId={id} detail={d} />}
+        </TabsContent>
+      </Tabs>
 
       {/* Event dialog */}
       <Dialog open={evtOpen} onOpenChange={setEvtOpen}>
