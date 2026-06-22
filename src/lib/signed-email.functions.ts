@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { deliverSignedPv } from "./email.server";
+import { writeAuditLog } from "./audit.server";
 
 const Schema = z.object({ pvId: z.string().uuid() });
 
@@ -17,7 +18,7 @@ export const sendSignedPvEmail = createServerFn({ method: "POST" })
     const { userId } = context;
     const { data: pv } = await supabaseAdmin
       .from("pv")
-      .select("id,company_id,status")
+      .select("id,company_id,status,numero")
       .eq("id", data.pvId)
       .maybeSingle();
     if (!pv?.company_id) throw new Error("PV introuvable.");
@@ -25,7 +26,7 @@ export const sendSignedPvEmail = createServerFn({ method: "POST" })
 
     const { data: m } = await supabaseAdmin
       .from("company_members")
-      .select("id")
+      .select("id,role")
       .eq("company_id", pv.company_id)
       .eq("user_id", userId)
       .eq("status", "active")
@@ -41,9 +42,43 @@ export const sendSignedPvEmail = createServerFn({ method: "POST" })
       label: "L'email du PV signé",
     });
 
-    const res = await deliverSignedPv({ pvId: pv.id, trigger: "manual" });
-    const anySent = res.client?.status === "sent" || res.company?.status === "sent";
-    return { ok: anySent, ...res };
+    try {
+      const res = await deliverSignedPv({ pvId: pv.id, trigger: "manual" });
+      const anySent = res.client?.status === "sent" || res.company?.status === "sent";
+
+      await writeAuditLog({
+        companyId: pv.company_id,
+        userId,
+        pvId: pv.id,
+        entityType: "pv",
+        entityId: pv.id,
+        action: "pv.signed_email_resent",
+        metadata: {
+          numero: (pv as any).numero ?? null,
+          role: (m as any).role ?? null,
+          client_status: res.client?.status ?? null,
+          client_recipient: (res.client as any)?.recipient ?? null,
+          company_status: res.company?.status ?? null,
+          company_recipient: (res.company as any)?.recipient ?? null,
+          trigger: "manual",
+        },
+        actor: "user",
+      });
+
+      return { ok: anySent, ...res };
+    } catch (e: any) {
+      await writeAuditLog({
+        companyId: pv.company_id,
+        userId,
+        pvId: pv.id,
+        entityType: "pv",
+        entityId: pv.id,
+        action: "pv.signed_email_resent_failed",
+        metadata: { numero: (pv as any).numero ?? null, error: String(e?.message ?? e) },
+        actor: "user",
+      });
+      throw e;
+    }
   });
 
 const ListSchema = z.object({ pvId: z.string().uuid() });

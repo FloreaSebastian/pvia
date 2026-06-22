@@ -817,6 +817,18 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
 
     const res = await sendReserveLiftValidationRequestEmail({ reportId: report.id });
     if (!res.ok) throw new Error(res.error || "Envoi échoué.");
+
+    await writeAuditLog({
+      companyId: report.company_id,
+      userId,
+      pvId: report.pv_id,
+      entityType: "reserve_lift",
+      entityId: report.id,
+      action: "reserve_lift.validation_email_resent",
+      metadata: { recipient: res.recipient ?? null, role: (member as any).role ?? null, trigger: "manual" },
+      actor: "user",
+    });
+
     return { ok: true as const, recipient: res.recipient };
   });
 
@@ -864,6 +876,22 @@ export const resendReserveLiftClientEmail = createServerFn({ method: "POST" })
       });
       const res = await sendReserveLiftValidationRequestEmail({ reportId: report.id });
       if (!res.ok) throw new Error(res.error || "Envoi échoué.");
+
+      await writeAuditLog({
+        companyId: report.company_id,
+        userId,
+        pvId: report.pv_id,
+        entityType: "reserve_lift",
+        entityId: report.id,
+        action: "reserve_lift.validation_email_resent",
+        metadata: {
+          recipient: res.recipient ?? null,
+          role: (member as any).role ?? null,
+          trigger: "resend_unified",
+        },
+        actor: "user",
+      });
+
       return { ok: true as const, kind: "validation_request" as const, recipient: res.recipient };
     }
 
