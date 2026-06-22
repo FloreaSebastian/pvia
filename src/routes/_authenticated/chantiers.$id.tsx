@@ -666,7 +666,7 @@ function ChantierDetailPage() {
       </div>
         </TabsContent>
         <TabsContent value="dossier" className="mt-4">
-          {activeCompanyId && <DossierTab companyId={activeCompanyId} chantierId={id} detail={d} />}
+          {activeCompanyId && <DossierTab companyId={activeCompanyId} chantierId={id} detail={d} onReload={reload} />}
         </TabsContent>
       </Tabs>
 

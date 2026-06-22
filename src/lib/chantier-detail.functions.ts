@@ -64,11 +64,11 @@ export const getChantierDetail = createServerFn({ method: "POST" })
     const rvRes = pvIds.length
       ? await supabase
           .from("pv_reserves")
-          .select("id,pv_id,description,severity,status,created_at,lifted_at,validated_at")
+          .select("id,pv_id,description,severity,status,priority,nature,work_to_execute,due_date,assigned_to,created_at,lifted_at,validated_at")
           .in("pv_id", pvIds)
           .order("created_at", { ascending: false })
           .limit(200)
-      : { data: [] as Array<{ id: string; pv_id: string; description: string; severity: string; status: string; created_at: string; lifted_at: string | null; validated_at: string | null }> };
+      : { data: [] as Array<{ id: string; pv_id: string; description: string; severity: string; status: string; priority: string | null; nature: string | null; work_to_execute: string | null; due_date: string | null; assigned_to: string | null; created_at: string; lifted_at: string | null; validated_at: string | null }> };
 
     return {
       chantier: chRes.data,
