@@ -15,8 +15,18 @@ import { getStripeEnvironment, PLAN_PRICE_IDS } from "@/lib/stripe";
 import { PageHeader } from "@/components/app/PageHeader";
 
 
+import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
+
+function GuardedBillingPage() {
+  return (
+    <RouteRoleGuard allow={OWNER_ROLES}>
+      <BillingPage />
+    </RouteRoleGuard>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/billing")({
-  component: BillingPage,
+  component: GuardedBillingPage,
   head: () => ({ meta: [{ title: "Facturation — PVIA" }] }),
 });
 
