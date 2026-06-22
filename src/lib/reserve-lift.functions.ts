@@ -695,7 +695,7 @@ export const getReserveLiftPdfUrl = createServerFn({ method: "POST" })
       );
     }
 
-    const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(path, 3600);
+    const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(path, SIGNED_URL_PDF_TTL);
     if (!signed?.signedUrl) throw new Error("Lien indisponible.");
 
     await writeAuditLog({
@@ -1060,7 +1060,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
 
     for (let idx = 0; idx < (initialRows ?? []).length; idx++) {
       const r = (initialRows as any[])[idx];
-      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.url, 3600);
+      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.url, SIGNED_URL_PHOTO_TTL);
       items.push({
         id: r.id,
         photoType: "initial",
@@ -1086,7 +1086,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
 
     let beforeIdx = 0; let afterIdx = 0;
     for (const r of (rows ?? []) as any[]) {
-      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.storage_path, 3600);
+      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.storage_path, SIGNED_URL_PHOTO_TTL);
       const type = r.photo_type as "before" | "after" | "legacy";
       let label: string | null = null;
       if (type === "before") { beforeIdx += 1; label = `RES-${reserveNum}-AVANT-${String(beforeIdx).padStart(3, "0")}`; }
@@ -1116,7 +1116,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
         .eq("reserve_id", data.reserveId);
       for (const it of (legacyItems ?? []) as any[]) {
         for (const p of (it.photo_urls ?? []) as string[]) {
-          const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(p, 3600);
+          const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(p, SIGNED_URL_PHOTO_TTL);
           items.push({
             id: `${it.id}-${p}`,
             photoType: "legacy",
