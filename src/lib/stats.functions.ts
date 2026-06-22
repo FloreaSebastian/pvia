@@ -109,13 +109,15 @@ async function computeCoreKpis(
   let reserves = rrows ?? [];
   if (pvType && pvIds.length === 0) reserves = [];
   else if (pvType) reserves = reserves.filter((r) => pvIds.includes(r.pv_id as string));
+  const reservesCounters = getReserveCounters(reserves as unknown as { status?: string | null }[]);
   const reservesByStatus = {
-    ouverte: 0, en_cours: 0, levee: 0, en_attente_validation: 0, validee: 0, rejetee: 0,
+    ouverte: reservesCounters.ouvertes,
+    en_cours: reservesCounters.enCours,
+    levee: reservesCounters.levees,
+    en_attente_validation: reservesCounters.enAttenteValidation,
+    validee: reservesCounters.validees,
+    rejetee: reservesCounters.rejetees,
   } as Record<string, number>;
-  for (const r of reserves) {
-    const s = (r.status as string) ?? "ouverte";
-    reservesByStatus[s] = (reservesByStatus[s] ?? 0) + 1;
-  }
 
   // Photos
   let photoQ = supabaseAdmin
