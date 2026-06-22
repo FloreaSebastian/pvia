@@ -106,15 +106,15 @@ export function DossierTab({
   );
 
   const reserveCounts = useMemo(() => {
-    const c = { total: 0, open: 0, lifted: 0, validated: 0, rejected: 0 };
-    for (const r of detail.reserves) {
-      c.total++;
-      if (r.status === "ouverte") c.open++;
-      else if (r.status === "levee" || r.status === "en_attente_validation") c.lifted++;
-      else if (r.status === "validee") c.validated++;
-      else if (r.status === "rejetee") c.rejected++;
-    }
-    return c;
+    const c = getReserveCounters(detail.reserves);
+    // Mapping vers les anciens noms (rétro-compatibilité du JSX existant).
+    return {
+      total: c.total,
+      open: c.ouvertes,
+      lifted: c.levees + c.enAttenteValidation,
+      validated: c.validees,
+      rejected: c.rejetees,
+    };
   }, [detail.reserves]);
 
   // Combined lightbox photos (initial + after lift)
