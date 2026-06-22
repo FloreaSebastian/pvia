@@ -15,9 +15,19 @@ import {
   listCalendarTokens, createCalendarToken, revokeCalendarToken,
 } from "@/lib/calendar.functions";
 import { createWebhook } from "@/lib/webhooks.functions";
+import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
+import { ADMIN_ROLES } from "@/lib/roles";
+
+function GuardedIntegrationsSettings() {
+  return (
+    <RouteRoleGuard allow={ADMIN_ROLES}>
+      <IntegrationsSettings />
+    </RouteRoleGuard>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/parametres/integrations")({
-  component: IntegrationsSettings,
+  component: GuardedIntegrationsSettings,
   head: () => ({ meta: [{ title: "Intégrations — Paramètres PVIA" }] }),
 });
 

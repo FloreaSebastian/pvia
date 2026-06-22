@@ -37,8 +37,19 @@ import { sendInvite } from "@/lib/invites.functions";
 import { logUserAction } from "@/lib/audit.functions";
 import { ROLE_META, ROLE_ORDER, isOwnerRole, type CompanyRoleValue } from "@/lib/roles";
 
+import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
+import { ADMIN_ROLES } from "@/lib/roles";
+
+function GuardedTeamPage() {
+  return (
+    <RouteRoleGuard allow={ADMIN_ROLES}>
+      <TeamPage />
+    </RouteRoleGuard>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/equipe")({
-  component: TeamPage,
+  component: GuardedTeamPage,
   head: () => ({ meta: [{ title: "Équipe — PVIA" }] }),
 });
 

@@ -13,8 +13,19 @@ import { updateCompanyBranding } from "@/lib/branding.functions";
 import { uploadCompanyLogo } from "@/lib/company-logo.functions";
 import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
 
+import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
+import { ADMIN_ROLES } from "@/lib/roles";
+
+function GuardedCompanyPage() {
+  return (
+    <RouteRoleGuard allow={ADMIN_ROLES}>
+      <CompanyPage />
+    </RouteRoleGuard>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/entreprise")({
-  component: CompanyPage,
+  component: GuardedCompanyPage,
   head: () => ({ meta: [{ title: "Entreprise — PVIA" }] }),
 });
 
