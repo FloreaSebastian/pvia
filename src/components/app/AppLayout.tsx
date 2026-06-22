@@ -290,7 +290,7 @@ function CompanyMenu({
         <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
           Entreprise
         </DropdownMenuLabel>
-        {companyMenu.map((i) => {
+        {visibleCompanyMenu.map((i) => {
           const Icon = i.icon;
           return (
             <DropdownMenuItem key={i.to} asChild>
