@@ -36,6 +36,7 @@ import {
 } from "@/lib/reserve-lift.functions";
 import { exportReserveLiftExpertise } from "@/lib/reserve-lift-expertise.functions";
 import { reserveStatusTone, reserveStatusLabel } from "@/lib/reserve-status";
+import { getReserveCounters } from "@/lib/reserve-counters";
 
 type Detail = Awaited<ReturnType<typeof getChantierDetail>>;
 type Dossier = Awaited<ReturnType<typeof getChantierDossier>>;
