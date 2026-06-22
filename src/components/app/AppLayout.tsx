@@ -255,7 +255,14 @@ function CompanyMenu({
   onPick: () => void;
   onSignOut: () => void;
 }) {
-  const { memberships, activeCompanyId } = useCompany();
+  const { memberships, activeCompanyId, activeRole } = useCompany();
+  const isOwner = isOwnerRole(activeRole);
+  const isAdmin = isAdminRole(activeRole);
+  const visibleCompanyMenu = companyMenu.filter((i) => {
+    if (i.ownerOnly && !isOwner) return false;
+    if (i.adminOnly && !isAdmin) return false;
+    return true;
+  });
   const { isPlatformAdmin } = useIsPlatformAdmin();
   const active = memberships.find((m) => m.company_id === activeCompanyId);
   const companyName = active?.company.name ?? "Entreprise";
