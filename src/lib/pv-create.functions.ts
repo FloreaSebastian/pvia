@@ -400,11 +400,32 @@ export const createPv = createServerFn({ method: "POST" })
       }
     }
 
-    // 9. Upload photos via service role + insert pv_photos rows — WF-M (photo).
+    // 9. Upload photos via service role + insert pv_photos rows.
+    // Photos GLOBALES : non-bloquantes (recordProcessingError).
+    // Photos RÉSERVES : juridiquement obligatoires → toute erreur déclenche un
+    // rollback complet (PV + réserves + storage déjà uploadé) et un throw.
     let uploadedPhotos = 0;
     let failedPhotos = 0;
+    const uploadedReservePaths: string[] = [];
+    const uploadedGlobalPaths: string[] = [];
+
+    const rollbackPv = async (reason: string) => {
+      try {
+        await supabaseAdmin.from("pv_photos").delete().eq("pv_id", pvId);
+        await supabaseAdmin.from("pv_reserves").delete().eq("pv_id", pvId);
+        const allPaths = [...uploadedReservePaths, ...uploadedGlobalPaths];
+        if (allPaths.length) {
+          await supabaseAdmin.storage.from("pv-assets").remove(allPaths);
+        }
+        await supabaseAdmin.from("pv").delete().eq("id", pvId);
+      } catch (e) {
+        console.error("[pv-create] rollback failed", reason, e);
+      }
+    };
 
     // Helper to upload a single (validated) photo and persist its row.
+    // When `blocking` is true (reserve photos), failures return false so the
+    // caller can rollback; the helper does NOT swallow the error.
     const persistPhoto = async (
       bytes: Uint8Array,
       mime: string,
@@ -418,7 +439,8 @@ export const createPv = createServerFn({ method: "POST" })
         exifMetadata: Record<string, any> | null;
         fileHash: string | null; photoLabel: string | null;
       } | null,
-    ) => {
+      blocking = false,
+    ): Promise<{ ok: boolean; path?: string; reason?: string }> => {
       const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
       const path = `${data.companyId}/pv/${pvId}/${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error: upErr } = await supabaseAdmin.storage
@@ -426,6 +448,16 @@ export const createPv = createServerFn({ method: "POST" })
         .upload(path, bytes, { contentType: mime, upsert: false });
       if (upErr) {
         failedPhotos += 1;
+        if (blocking) {
+          await writeAuditLog({
+            companyId: data.companyId, userId, pvId,
+            entityType: "pv_photo", entityId: reserveId ?? pvId,
+            action: "pv.reserve_photo_upload_failed_blocking",
+            metadata: { path, kind, reserve_id: reserveId, file_name: fileName, reason: upErr.message ?? "upload_failed" },
+            actor: "user",
+          });
+          return { ok: false, reason: upErr.message ?? "upload_failed" };
+        }
         const { recordProcessingError } = await import("@/lib/processing-status.server");
         await recordProcessingError({
           table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
@@ -434,8 +466,11 @@ export const createPv = createServerFn({ method: "POST" })
           meta: { path, kind, reserveId },
           audit: { action: "pv.photo_upload_failed", entityType: "pv_photo" },
         });
-        return;
+        return { ok: false, reason: upErr.message ?? "upload_failed" };
       }
+      if (blocking) uploadedReservePaths.push(path);
+      else uploadedGlobalPaths.push(path);
+
       const captionPrefix = meta?.photoLabel
         ? `[${kind}] ${meta.photoLabel}`
         : `[${kind}]`;
@@ -460,6 +495,16 @@ export const createPv = createServerFn({ method: "POST" })
       } as never);
       if (phErr) {
         failedPhotos += 1;
+        if (blocking) {
+          await writeAuditLog({
+            companyId: data.companyId, userId, pvId,
+            entityType: "pv_photo", entityId: reserveId ?? pvId,
+            action: "pv.reserve_photo_insert_failed_blocking",
+            metadata: { path, kind, reserve_id: reserveId, file_name: fileName, reason: phErr.message },
+            actor: "user",
+          });
+          return { ok: false, path, reason: phErr.message };
+        }
         const { recordProcessingError } = await import("@/lib/processing-status.server");
         await recordProcessingError({
           table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
@@ -468,17 +513,23 @@ export const createPv = createServerFn({ method: "POST" })
           meta: { path, kind, reserveId },
           audit: { action: "pv.photo_row_insert_failed", entityType: "pv_photo" },
         });
-      } else {
-        uploadedPhotos += 1;
+        return { ok: false, path, reason: phErr.message };
       }
+      uploadedPhotos += 1;
+      return { ok: true, path };
     };
 
-    // 9a. Global PV photos (chantier-level, no reserve_id).
+    // 9a. Global PV photos (chantier-level, no reserve_id) — non-bloquantes.
     for (const p of photoBuffers) {
-      await persistPhoto(p.bytes, p.mime, p.fileName, p.kind, p.caption, null, p.meta);
+      await persistPhoto(p.bytes, p.mime, p.fileName, p.kind, p.caption, null, p.meta, false);
     }
 
-    // 9b. Per-reserve photos — validate, upload, link reserve_id, compute label.
+    // 9b. Per-reserve photos — OBLIGATOIRES juridiquement.
+    // Si la création des réserves a partiellement échoué, on bloque aussi.
+    if (data.reserves.length && insertedReserves.length !== data.reserves.length) {
+      await rollbackPv("reserves_insert_incomplete");
+      throw new Error("Impossible de créer le PV : les réserves n'ont pas pu être enregistrées.");
+    }
     if (insertedReserves.length === data.reserves.length) {
       for (let i = 0; i < data.reserves.length; i++) {
         const reserveId = insertedReserves[i].id;
@@ -488,18 +539,21 @@ export const createPv = createServerFn({ method: "POST" })
           const p = reservePhotos[j];
           const declared = p.mimeType.toLowerCase();
           if (!PHOTO_ALLOWED_MIMES.has(declared)) {
+            await rollbackPv("reserve_photo_invalid_mime");
             throw new Error(`Photo réserve "${p.fileName}" : format non supporté.`);
           }
           const bytes = decodeBase64(p.base64);
           if (bytes.length === 0 || bytes.length > PHOTO_MAX_BYTES) {
+            await rollbackPv("reserve_photo_invalid_size");
             throw new Error(`Photo réserve "${p.fileName}" : taille invalide.`);
           }
           const sniffed = sniffImageMime(bytes);
           if (!sniffed || normMime(sniffed) !== normMime(declared)) {
+            await rollbackPv("reserve_photo_invalid_content");
             throw new Error(`Photo réserve "${p.fileName}" : contenu non reconnu.`);
           }
           const photoLabel = p.photoLabel || `RES-${reserveNum}-CONST-${String(j + 1).padStart(3, "0")}`;
-          await persistPhoto(
+          const res = await persistPhoto(
             bytes,
             normMime(sniffed),
             safeFilename(p.fileName),
@@ -516,7 +570,14 @@ export const createPv = createServerFn({ method: "POST" })
               fileHash: p.fileHash ?? null,
               photoLabel,
             },
+            true,
           );
+          if (!res.ok) {
+            await rollbackPv("reserve_photo_persist_failed");
+            throw new Error(
+              `Impossible de créer le PV : la photo « ${p.fileName} » liée à une réserve n'a pas pu être enregistrée.`,
+            );
+          }
         }
       }
     }
@@ -527,6 +588,7 @@ export const createPv = createServerFn({ method: "POST" })
         await bumpPhotosFailed(pvId, failedPhotos);
       } catch {}
     }
+
 
 
     // 9b. Link OTP to PV for onsite mode
