@@ -34,12 +34,12 @@ function fmtDay(d: string | null | undefined) {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-const PV_STATUS_TONE: Record<string, "success" | "info" | "warning" | "neutral" | "danger"> = {
+const PV_STATUS_TONE: Record<string, "success" | "info" | "warning" | "neutral" | "destructive"> = {
   signe: "success", envoye: "info", brouillon: "neutral", a_signer: "warning",
 };
-const RESERVE_STATUS_TONE: Record<string, "success" | "warning" | "danger" | "info" | "neutral"> = {
+const RESERVE_STATUS_TONE: Record<string, "success" | "warning" | "destructive" | "info" | "neutral"> = {
   ouverte: "warning", levee: "info", en_attente_validation: "info",
-  validee: "success", rejetee: "danger",
+  validee: "success", rejetee: "destructive",
 };
 const RESERVE_STATUS_LABEL: Record<string, string> = {
   ouverte: "Ouverte", levee: "Levée", en_attente_validation: "À valider",
@@ -164,7 +164,7 @@ export function DossierTab({
                   <StatusPill tone={RESERVE_STATUS_TONE[r.status] ?? "neutral"}>
                     {RESERVE_STATUS_LABEL[r.status] ?? r.status}
                   </StatusPill>
-                  <StatusPill tone={r.severity === "majeure" ? "danger" : "warning"}>{r.severity}</StatusPill>
+                  <StatusPill tone={r.severity === "majeure" ? "destructive" : "warning"}>{r.severity}</StatusPill>
                   <Link to="/pv/$id" params={{ id: r.pv_id }} className="text-xs text-primary hover:underline">
                     PV {pvNumeroById.get(r.pv_id) ?? "—"}
                   </Link>
@@ -196,7 +196,7 @@ export function DossierTab({
                 <li key={rep.id} className="rounded-lg border border-border bg-card p-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{rep.numero ?? "Levée"}</span>
-                    <StatusPill tone={rep.status === "signe" || rep.status === "client_validated" ? "success" : rep.status === "client_rejected" ? "danger" : "info"}>
+                    <StatusPill tone={rep.status === "signe" || rep.status === "client_validated" ? "success" : rep.status === "client_rejected" ? "destructive" : "info"}>
                       {rep.status}
                     </StatusPill>
                     <span className="text-xs text-muted-foreground">PV {pvNumeroById.get(rep.pv_id) ?? "—"}</span>
@@ -282,7 +282,7 @@ export function DossierTab({
                 <div className="flex flex-wrap items-center gap-2">
                   <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="font-medium">{e.recipient_email}</span>
-                  <StatusPill tone={e.status === "sent" ? "success" : e.status === "failed" || e.status === "dlq" ? "danger" : "neutral"}>
+                  <StatusPill tone={e.status === "sent" ? "success" : e.status === "failed" || e.status === "dlq" ? "destructive" : "neutral"}>
                     {e.status}
                   </StatusPill>
                   <span className="text-xs text-muted-foreground">{e.email_type}</span>
