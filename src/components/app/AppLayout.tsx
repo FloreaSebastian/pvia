@@ -59,11 +59,21 @@ const mainNav = [
   { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
 ] as const;
 
-const companyMenu = [
+type CompanyMenuItem = {
+  to: string;
+  label: string;
+  icon: typeof Settings;
+  /** Restreint au directeur uniquement. */
+  ownerOnly?: boolean;
+  /** Restreint aux rôles administrateurs (directeur, responsable_exploitation). */
+  adminOnly?: boolean;
+};
+
+const companyMenu: readonly CompanyMenuItem[] = [
   { to: "/parametres", label: "Paramètres", icon: Settings },
-  { to: "/entreprise", label: "Entreprise", icon: Building2 },
-  { to: "/equipe", label: "Équipe", icon: UsersRound },
-  { to: "/billing", label: "Facturation", icon: CreditCard },
+  { to: "/entreprise", label: "Entreprise", icon: Building2, adminOnly: true },
+  { to: "/equipe", label: "Équipe", icon: UsersRound, adminOnly: true },
+  { to: "/billing", label: "Facturation", icon: CreditCard, ownerOnly: true },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
 ] as const;
 
