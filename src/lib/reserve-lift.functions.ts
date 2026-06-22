@@ -258,11 +258,39 @@ export const createReserveLift = createServerFn({ method: "POST" })
     const reportId = report.id;
     const numero = report.numero;
 
-    // 6. Validate + upload item photos, insert items — WF-M3: item insert errors are no longer silent.
+    // 6. Validate + upload item photos, insert items.
+    // ATOMICITÉ : si une étape échoue (upload photo, insertion item, insertion
+    // metadata photo), on rollback tout ce qui a été créé puis on throw.
+    // Aucune réserve ne doit passer en "levee" si la création n'est pas complète.
     const { recordProcessingError, markPdfGenerationStatus } = await import("@/lib/processing-status.server");
-    for (const item of data.items) {
-      const photoPaths: string[] = [];
-      const photoRows: Array<{
+    const uploadedPaths: string[] = [];
+    const insertedItemIds: string[] = [];
+
+    const rollback = async (reason: string) => {
+      try {
+        if (insertedItemIds.length) {
+          await supabaseAdmin
+            .from("reserve_lift_item_photos" as any)
+            .delete()
+            .in("reserve_lift_item_id", insertedItemIds);
+          await supabaseAdmin
+            .from("reserve_lift_items")
+            .delete()
+            .in("id", insertedItemIds);
+        }
+        if (uploadedPaths.length) {
+          await supabaseAdmin.storage.from("pv-assets").remove(uploadedPaths);
+        }
+        await supabaseAdmin.from("reserve_lift_reports").delete().eq("id", reportId);
+      } catch (cleanupErr) {
+        console.error("[reserve-lift] rollback failed", reason, cleanupErr);
+      }
+    };
+
+    const allPhotoRows: Array<{
+      itemId: string;
+      reserveId: string;
+      row: {
         path: string;
         photoType: "before" | "after";
         latitude: number | null;
@@ -274,163 +302,180 @@ export const createReserveLift = createServerFn({ method: "POST" })
         fileHash: string;
         fileSize: number;
         fileName: string;
-      }> = [];
-      for (const p of item.photos) {
-        const declared = p.mimeType.toLowerCase();
-        if (!PHOTO_ALLOWED_MIMES.has(declared)) {
-          throw new Error(`Photo "${p.fileName}" : format non supporté.`);
-        }
-        const bytes = decodeBase64(p.base64);
-        if (bytes.length === 0 || bytes.length > PHOTO_MAX_BYTES) {
-          throw new Error(`Photo "${p.fileName}" : volumineuse ou vide.`);
-        }
-        const sniffed = sniffImageMime(bytes);
-        if (!sniffed || normMime(sniffed) !== normMime(declared)) {
-          throw new Error(`Photo "${p.fileName}" : type incorrect.`);
-        }
-        const ext = sniffed === "image/jpeg" ? "jpg" : sniffed === "image/png" ? "png" : "webp";
-        const path = `${pv.company_id}/lifts/${reportId}/${item.reserveId}-${p.photoType ?? "after"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabaseAdmin.storage
-          .from("pv-assets")
-          .upload(path, bytes, { contentType: normMime(sniffed), upsert: false });
-        if (upErr) {
-          await recordProcessingError({
-            table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
-            step: "upload_item_photo",
-            error: upErr,
-            meta: { path, reserve_id: item.reserveId },
-            audit: { action: "pv.photo_upload_failed", entityType: "reserve_lift_item" },
-          });
-          continue;
-        }
-        photoPaths.push(path);
-        const fileHash = await sha256OfBytes(bytes);
-        photoRows.push({
-          path,
-          photoType: (p.photoType ?? "after") as "before" | "after",
-          latitude: p.latitude ?? null,
-          longitude: p.longitude ?? null,
-          accuracy: p.accuracy ?? null,
-          takenAt: p.takenAt ?? null,
-          deviceInfo: p.deviceInfo ?? null,
-          exifMetadata: p.exifMetadata ?? null,
-          fileHash,
-          fileSize: bytes.length,
-          fileName: safeFilename(p.fileName),
-        });
-      }
+      };
+    }> = [];
 
-      const reserve = reserveById.get(item.reserveId)!;
-      const { data: insertedItem, error: itemErr } = await supabaseAdmin.from("reserve_lift_items").insert({
-        report_id: reportId,
-        reserve_id: item.reserveId,
-        old_status: reserve.status,
-        new_status: "levee",
-        comment: item.comment || null,
-        photo_urls: photoPaths,
-      } as any).select("id").single();
-      if (itemErr || !insertedItem) {
-        await recordProcessingError({
-          table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
-          step: "insert_lift_item",
-          error: itemErr,
-          meta: { reserve_id: item.reserveId },
-          audit: { action: "reserve_lift.item_insert_failed", entityType: "reserve_lift_item" },
-        });
-        continue;
-      }
-
-      // Persist per-photo metadata in the dedicated table.
-      if (photoRows.length) {
-        const rowsToInsert = photoRows.map((row) => ({
-          company_id: pv.company_id,
-          pv_id: pv.id,
-          reserve_id: item.reserveId,
-          reserve_lift_item_id: insertedItem.id,
-          photo_url: row.path,
-          storage_path: row.path,
-          photo_type: row.photoType,
-          latitude: row.latitude,
-          longitude: row.longitude,
-          accuracy: row.accuracy,
-          taken_at: row.takenAt,
-          uploaded_by: userId,
-          device_info: row.deviceInfo,
-          exif_metadata: row.exifMetadata,
-          file_hash: row.fileHash,
-          file_size: row.fileSize,
-          file_name: row.fileName,
-        }));
-        const { error: phErr } = await supabaseAdmin.from("reserve_lift_item_photos" as any).insert(rowsToInsert as any);
-        if (phErr) {
-          await recordProcessingError({
-            table: "reserve_lift_reports", id: reportId, companyId: pv.company_id, pvId: pv.id, userId,
-            step: "insert_lift_item_photos",
-            error: phErr,
-            meta: { reserve_id: item.reserveId, photo_count: photoRows.length },
-            audit: { action: "reserve_lift_photo.insert_failed", entityType: "reserve_lift_photo" },
-          });
-        } else {
-          // Audit per photo (exif detection + geo + anti-fraud signals)
-          for (const row of photoRows) {
-            const geoRecorded = row.latitude !== null && row.longitude !== null;
-            const exif = (row.exifMetadata ?? {}) as Record<string, any>;
-            const exifDetected = exif && Object.keys(exif).some((k) => k !== "gps_source" && k !== "browser_gps");
-            const browserGps = exif?.browser_gps as { latitude: number | null; longitude: number | null } | undefined;
-            const exifLat = typeof exif?.latitude === "number" ? exif.latitude : null;
-            const exifLng = typeof exif?.longitude === "number" ? exif.longitude : null;
-
-            // Suspicious checks
-            const suspicious: string[] = [];
-            if (browserGps?.latitude != null && exifLat != null && exifLng != null && browserGps.longitude != null) {
-              const dist = haversineMeters(browserGps.latitude, browserGps.longitude, exifLat, exifLng);
-              if (dist > 100) suspicious.push(`gps_mismatch_${Math.round(dist)}m`);
-            }
-            if (row.takenAt) {
-              const t = new Date(row.takenAt).getTime();
-              const now = Date.now();
-              if (!isNaN(t) && (t > now + 5 * 60_000 || t < now - 365 * 24 * 3600_000)) {
-                suspicious.push("exif_date_inconsistent");
-              }
-            }
-
+    try {
+      for (const item of data.items) {
+        const photoPaths: string[] = [];
+        const photoRows: Array<{
+          path: string;
+          photoType: "before" | "after";
+          latitude: number | null;
+          longitude: number | null;
+          accuracy: number | null;
+          takenAt: string | null;
+          deviceInfo: string | null;
+          exifMetadata: Record<string, any> | null;
+          fileHash: string;
+          fileSize: number;
+          fileName: string;
+        }> = [];
+        for (const p of item.photos) {
+          const declared = p.mimeType.toLowerCase();
+          if (!PHOTO_ALLOWED_MIMES.has(declared)) {
+            throw new Error(`Photo "${p.fileName}" : format non supporté.`);
+          }
+          const bytes = decodeBase64(p.base64);
+          if (bytes.length === 0 || bytes.length > PHOTO_MAX_BYTES) {
+            throw new Error(`Photo "${p.fileName}" : volumineuse ou vide.`);
+          }
+          const sniffed = sniffImageMime(bytes);
+          if (!sniffed || normMime(sniffed) !== normMime(declared)) {
+            throw new Error(`Photo "${p.fileName}" : type incorrect.`);
+          }
+          const ext = sniffed === "image/jpeg" ? "jpg" : sniffed === "image/png" ? "png" : "webp";
+          const path = `${pv.company_id}/lifts/${reportId}/${item.reserveId}-${p.photoType ?? "after"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const { error: upErr } = await supabaseAdmin.storage
+            .from("pv-assets")
+            .upload(path, bytes, { contentType: normMime(sniffed), upsert: false });
+          if (upErr) {
             await writeAuditLog({
-              companyId: pv.company_id,
-              userId,
-              pvId: pv.id,
-              entityType: "reserve_lift_photo",
-              entityId: item.reserveId,
-              action: exifDetected ? "reserve_lift_photo.exif_detected" : "reserve_lift_photo.exif_missing",
-              metadata: {
-                photo_type: row.photoType,
-                gps_source: exif?.gps_source ?? "none",
-                accuracy: row.accuracy,
-                geo_recorded: geoRecorded,
-                camera_make: exif?.Make ?? null,
-                camera_model: exif?.Model ?? null,
-                report_id: reportId,
-              },
+              companyId: pv.company_id, userId, pvId: pv.id,
+              entityType: "reserve_lift_item", entityId: item.reserveId,
+              action: "reserve_lift.photo_upload_failed_blocking",
+              metadata: { reserve_id: item.reserveId, file_name: p.fileName, reason: upErr.message ?? "upload_failed", report_id: reportId },
               actor: "user",
             });
-            if (suspicious.length) {
-              await writeAuditLog({
-                companyId: pv.company_id,
-                userId,
-                pvId: pv.id,
-                entityType: "reserve_lift_photo",
-                entityId: item.reserveId,
-                action: "reserve_lift_photo.suspicious_metadata",
-                metadata: { signals: suspicious, report_id: reportId, photo_type: row.photoType },
-                actor: "user",
-              });
-            }
+            throw new Error(`Impossible de finaliser : la photo « ${p.fileName} » n'a pas pu être enregistrée.`);
+          }
+          uploadedPaths.push(path);
+          photoPaths.push(path);
+          const fileHash = await sha256OfBytes(bytes);
+          photoRows.push({
+            path,
+            photoType: (p.photoType ?? "after") as "before" | "after",
+            latitude: p.latitude ?? null,
+            longitude: p.longitude ?? null,
+            accuracy: p.accuracy ?? null,
+            takenAt: p.takenAt ?? null,
+            deviceInfo: p.deviceInfo ?? null,
+            exifMetadata: p.exifMetadata ?? null,
+            fileHash,
+            fileSize: bytes.length,
+            fileName: safeFilename(p.fileName),
+          });
+        }
+
+        const reserve = reserveById.get(item.reserveId)!;
+        const { data: insertedItem, error: itemErr } = await supabaseAdmin.from("reserve_lift_items").insert({
+          report_id: reportId,
+          reserve_id: item.reserveId,
+          old_status: reserve.status,
+          new_status: "levee",
+          comment: item.comment || null,
+          photo_urls: photoPaths,
+        } as any).select("id").single();
+        if (itemErr || !insertedItem) {
+          await writeAuditLog({
+            companyId: pv.company_id, userId, pvId: pv.id,
+            entityType: "reserve_lift", entityId: reportId,
+            action: "reserve_lift.creation_failed",
+            metadata: { reserve_id: item.reserveId, step: "insert_lift_item", message: (itemErr as any)?.message ?? "insert_failed" },
+            actor: "user",
+          });
+          throw new Error("Impossible de créer la levée : une réserve n'a pas pu être enregistrée.");
+        }
+        insertedItemIds.push(insertedItem.id);
+
+        if (photoRows.length) {
+          const rowsToInsert = photoRows.map((row) => ({
+            company_id: pv.company_id,
+            pv_id: pv.id,
+            reserve_id: item.reserveId,
+            reserve_lift_item_id: insertedItem.id,
+            photo_url: row.path,
+            storage_path: row.path,
+            photo_type: row.photoType,
+            latitude: row.latitude,
+            longitude: row.longitude,
+            accuracy: row.accuracy,
+            taken_at: row.takenAt,
+            uploaded_by: userId,
+            device_info: row.deviceInfo,
+            exif_metadata: row.exifMetadata,
+            file_hash: row.fileHash,
+            file_size: row.fileSize,
+            file_name: row.fileName,
+          }));
+          const { error: phErr } = await supabaseAdmin.from("reserve_lift_item_photos" as any).insert(rowsToInsert as any);
+          if (phErr) {
+            await writeAuditLog({
+              companyId: pv.company_id, userId, pvId: pv.id,
+              entityType: "reserve_lift", entityId: reportId,
+              action: "reserve_lift.creation_failed",
+              metadata: { reserve_id: item.reserveId, step: "insert_lift_item_photos", message: phErr.message },
+              actor: "user",
+            });
+            throw new Error("Impossible de finaliser : les métadonnées des photos n'ont pas pu être enregistrées.");
+          }
+          for (const row of photoRows) {
+            allPhotoRows.push({ itemId: insertedItem.id, reserveId: item.reserveId, row });
           }
         }
       }
+    } catch (atomicErr) {
+      await rollback((atomicErr as Error)?.message ?? "atomic_failure");
+      throw atomicErr;
     }
 
+    // Audit per photo (exif detection + geo + anti-fraud signals) — after atomic success.
+    for (const { reserveId, row } of allPhotoRows) {
+      const geoRecorded = row.latitude !== null && row.longitude !== null;
+      const exif = (row.exifMetadata ?? {}) as Record<string, any>;
+      const exifDetected = exif && Object.keys(exif).some((k) => k !== "gps_source" && k !== "browser_gps");
+      const browserGps = exif?.browser_gps as { latitude: number | null; longitude: number | null } | undefined;
+      const exifLat = typeof exif?.latitude === "number" ? exif.latitude : null;
+      const exifLng = typeof exif?.longitude === "number" ? exif.longitude : null;
+      const suspicious: string[] = [];
+      if (browserGps?.latitude != null && exifLat != null && exifLng != null && browserGps.longitude != null) {
+        const dist = haversineMeters(browserGps.latitude, browserGps.longitude, exifLat, exifLng);
+        if (dist > 100) suspicious.push(`gps_mismatch_${Math.round(dist)}m`);
+      }
+      if (row.takenAt) {
+        const t = new Date(row.takenAt).getTime();
+        const now = Date.now();
+        if (!isNaN(t) && (t > now + 5 * 60_000 || t < now - 365 * 24 * 3600_000)) {
+          suspicious.push("exif_date_inconsistent");
+        }
+      }
+      await writeAuditLog({
+        companyId: pv.company_id, userId, pvId: pv.id,
+        entityType: "reserve_lift_photo", entityId: reserveId,
+        action: exifDetected ? "reserve_lift_photo.exif_detected" : "reserve_lift_photo.exif_missing",
+        metadata: {
+          photo_type: row.photoType,
+          gps_source: exif?.gps_source ?? "none",
+          accuracy: row.accuracy,
+          geo_recorded: geoRecorded,
+          camera_make: exif?.Make ?? null,
+          camera_model: exif?.Model ?? null,
+          report_id: reportId,
+        },
+        actor: "user",
+      });
+      if (suspicious.length) {
+        await writeAuditLog({
+          companyId: pv.company_id, userId, pvId: pv.id,
+          entityType: "reserve_lift_photo", entityId: reserveId,
+          action: "reserve_lift_photo.suspicious_metadata",
+          metadata: { signals: suspicious, report_id: reportId, photo_type: row.photoType },
+          actor: "user",
+        });
+      }
+    }
 
-    // 7. Update each reserve to status=levee — WF-M4.
+    // 7. Update each reserve to status=levee — atomic prerequisite satisfied.
     if (reserveIds.length) {
       const { error: upResErr } = await supabaseAdmin
         .from("pv_reserves")
