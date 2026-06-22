@@ -64,10 +64,7 @@ export const getChantierDossier = createServerFn({ method: "POST" })
         .limit(500),
       supabase
         .from("reserve_lift_reports")
-        .select(
-          "id,numero,status,pv_id,signed_at,pdf_url,pdf_client_url,pdf_internal_url," +
-            "client_validated_at,client_rejected_at,client_signature,validation_mode,created_at",
-        )
+        .select("id,numero,status,pv_id,signed_at,pdf_url,pdf_client_url,pdf_internal_url,client_validated_at,client_rejected_at,client_signature,validation_mode,created_at")
         .in("pv_id", pvIds)
         .order("created_at", { ascending: false })
         .limit(100),
