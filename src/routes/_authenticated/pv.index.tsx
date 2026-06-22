@@ -3,16 +3,15 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Plus, Download, Trash2, FileText, Search, X, ChevronRight, Calendar,
   Building2, AlertTriangle, CheckCircle2, Share2, ArrowUpDown,
-  Clock, FileCheck2, ShieldAlert, Files,
+  Clock, FileCheck2, ShieldAlert, Files, ListFilter, Check,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuRadioGroup, DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+} from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
@@ -35,8 +34,8 @@ type Pv = {
   reception_with_reserves: boolean | null;
   chantier_id: string | null;
   client_id: string | null;
-  chantiers?: { nom: string | null } | null;
-  clients?: { nom: string | null; prenom: string | null } | null;
+  chantiers?: { name: string | null } | null;
+  clients?: { name: string | null } | null;
   pv_reserves?: { count: number }[] | null;
 };
 
@@ -50,7 +49,7 @@ const STATUS_FILTERS = [
 type StatusFilterId = (typeof STATUS_FILTERS)[number]["id"];
 
 const RESERVE_FILTERS = [
-  { id: "all", label: "Toutes réserves" },
+  { id: "all", label: "Toutes" },
   { id: "with", label: "Avec réserves" },
   { id: "without", label: "Sans réserve" },
 ] as const;
@@ -69,10 +68,6 @@ const SORT_STORAGE_KEY = "pvia.pv.list.sort";
 
 function formatDate(d: string | null) {
   return d ? new Date(d).toLocaleDateString("fr-FR") : "—";
-}
-function clientName(c: Pv["clients"]) {
-  if (!c) return null;
-  return [c.prenom, c.nom].filter(Boolean).join(" ") || null;
 }
 function reservesCount(p: Pv) {
   return p.pv_reserves?.[0]?.count ?? 0;
@@ -99,11 +94,15 @@ function PvList() {
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("pv")
-      .select("id,numero,type,status,reception_date,created_at,pdf_url,reception_with_reserves,chantier_id,client_id,chantiers(nom),clients(nom,prenom),pv_reserves(count)")
+      .select("id,numero,type,status,reception_date,created_at,pdf_url,reception_with_reserves,chantier_id,client_id,chantiers(name),clients(name),pv_reserves(count)")
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
+    if (error) {
+      console.error("[pv.index] load error", error);
+      toast.error(error.message);
+    }
     setItems((data as unknown as Pv[]) ?? []);
     setLoading(false);
   }, [activeCompanyId]);
@@ -126,8 +125,8 @@ function PvList() {
       if (reserveFilter === "with" && !p.reception_with_reserves) return false;
       if (reserveFilter === "without" && p.reception_with_reserves) return false;
       if (!q) return true;
-      const cn = clientName(p.clients ?? null) ?? "";
-      const ch = p.chantiers?.nom ?? "";
+      const cn = p.clients?.name ?? "";
+      const ch = p.chantiers?.name ?? "";
       return (
         p.numero.toLowerCase().includes(q) ||
         (p.type ?? "").toLowerCase().includes(q) ||
@@ -150,6 +149,9 @@ function PvList() {
   useEffect(() => { setVisible(PAGE_SIZE); }, [statusFilter, reserveFilter, query, sort]);
 
   const shown = filteredSorted.slice(0, visible);
+  const activeFiltersCount =
+    (statusFilter !== "all" ? 1 : 0) +
+    (reserveFilter !== "all" ? 1 : 0);
 
   async function remove(id: string) {
     if (!confirm("Supprimer ce PV ?")) return;
@@ -192,8 +194,12 @@ function PvList() {
     { id: "total", label: "Total", value: items.length, icon: Files, tone: "text-foreground" },
     { id: "signed", label: "Signés", value: counts["signe"] ?? 0, icon: FileCheck2, tone: "text-emerald-600 dark:text-emerald-400" },
     { id: "pending", label: "En attente", value: counts["en_attente"] ?? 0, icon: Clock, tone: "text-amber-600 dark:text-amber-400" },
-    { id: "reserves", label: "Avec réserves", value: counts.reserves_with, icon: ShieldAlert, tone: "text-orange-600 dark:text-orange-400" },
+    { id: "reserves", label: "Réserves", value: counts.reserves_with, icon: ShieldAlert, tone: "text-orange-600 dark:text-orange-400" },
   ];
+
+  const statusLabel = STATUS_FILTERS.find((f) => f.id === statusFilter)?.label ?? "Tous";
+  const reserveLabel = RESERVE_FILTERS.find((f) => f.id === reserveFilter)?.label ?? "Toutes";
+  const sortLabel = SORT_OPTIONS.find((o) => o.id === sort)?.label ?? "Plus récent";
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -209,12 +215,12 @@ function PvList() {
         }
       />
 
-      {/* KPI strip — scroll horizontal on mobile */}
-      <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:grid sm:grid-cols-4 sm:gap-3 sm:overflow-visible sm:px-0">
+      {/* KPI grid — 2 cols mobile, 4 cols desktop. No horizontal scroll. */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
         {kpis.map((k) => {
           const Icon = k.icon;
           return (
-            <Card key={k.id} className="flex min-w-[130px] shrink-0 items-center gap-3 p-3 sm:min-w-0">
+            <Card key={k.id} className="flex items-center gap-2.5 p-3">
               <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted ${k.tone}`}>
                 <Icon className="h-4 w-4" />
               </div>
@@ -227,96 +233,98 @@ function PvList() {
         })}
       </div>
 
-      {/* Sticky search + filters */}
-      <div className="sticky top-0 z-20 -mx-3 space-y-2 border-b border-border/60 bg-background/85 px-3 py-2 backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:px-3 sm:py-2.5">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher…"
-              className="h-9 pl-9 pr-9"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Effacer la recherche"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+      {/* Search + filter buttons (open bottom sheets on mobile) */}
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Rechercher un PV, chantier, client…"
+            className="h-10 pl-9 pr-9"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Effacer la recherche"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <FilterSheetButton
+            icon={<ListFilter className="h-3.5 w-3.5" />}
+            label="Statut"
+            value={statusFilter === "all" ? null : statusLabel}
+            title="Statut"
+          >
+            {(close) => (
+              <SheetOptionList
+                options={STATUS_FILTERS.map((f) => ({
+                  id: f.id, label: f.label, hint: counts[f.id] ?? 0,
+                }))}
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v as StatusFilterId); close(); }}
+              />
             )}
+          </FilterSheetButton>
+
+          <FilterSheetButton
+            icon={<ShieldAlert className="h-3.5 w-3.5" />}
+            label="Réserves"
+            value={reserveFilter === "all" ? null : reserveLabel}
+            title="Réserves"
+          >
+            {(close) => (
+              <SheetOptionList
+                options={RESERVE_FILTERS.map((f) => ({
+                  id: f.id,
+                  label: f.label,
+                  hint:
+                    f.id === "all" ? items.length :
+                    f.id === "with" ? counts.reserves_with :
+                    counts.reserves_without,
+                }))}
+                value={reserveFilter}
+                onChange={(v) => { setReserveFilter(v as ReserveFilterId); close(); }}
+              />
+            )}
+          </FilterSheetButton>
+
+          <FilterSheetButton
+            icon={<ArrowUpDown className="h-3.5 w-3.5" />}
+            label="Trier"
+            value={sortLabel}
+            title="Trier par"
+          >
+            {(close) => (
+              <SheetOptionList
+                options={SORT_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
+                value={sort}
+                onChange={(v) => { setSort(v as SortId); close(); }}
+              />
+            )}
+          </FilterSheetButton>
+        </div>
+
+        {activeFiltersCount > 0 && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              {filteredSorted.length} résultat{filteredSorted.length > 1 ? "s" : ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter("all"); setReserveFilter("all"); }}
+              className="font-medium text-primary hover:underline"
+            >
+              Réinitialiser
+            </button>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 shrink-0 gap-1.5">
-                <ArrowUpDown className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Trier</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Trier par</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup value={sort} onValueChange={(v) => setSort(v as SortId)}>
-                {SORT_OPTIONS.map((o) => (
-                  <DropdownMenuRadioItem key={o.id} value={o.id}>{o.label}</DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Status chips */}
-        <div className="-mx-3 flex items-center gap-1.5 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-          {STATUS_FILTERS.map((f) => {
-            const active = statusFilter === f.id;
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setStatusFilter(f.id)}
-                className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium transition sm:h-8 sm:text-xs ${
-                  active
-                    ? "bg-primary text-primary-foreground shadow-brand"
-                    : "border border-border bg-card text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {f.label}
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${active ? "bg-primary-foreground/20" : "bg-muted text-foreground"}`}>
-                  {counts[f.id] ?? 0}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Reserve chips */}
-        <div className="-mx-3 flex items-center gap-1.5 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-          {RESERVE_FILTERS.map((f) => {
-            const active = reserveFilter === f.id;
-            const count =
-              f.id === "all" ? items.length : f.id === "with" ? counts.reserves_with : counts.reserves_without;
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setReserveFilter(f.id)}
-                className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium transition ${
-                  active
-                    ? "bg-foreground text-background"
-                    : "border border-dashed border-border bg-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {f.id === "with" && <AlertTriangle className="h-3 w-3" />}
-                {f.id === "without" && <CheckCircle2 className="h-3 w-3" />}
-                {f.label}
-                <span className="tabular-nums opacity-70">{count}</span>
-              </button>
-            );
-          })}
-        </div>
+        )}
       </div>
 
       {/* MOBILE: card grid */}
@@ -388,7 +396,7 @@ function PvList() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{p.type}</TableCell>
                   <TableCell><PvStatusPill status={p.status} /></TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground">{p.chantiers?.nom ?? "—"}</TableCell>
+                  <TableCell className="max-w-[200px] truncate text-muted-foreground">{p.chantiers?.name ?? "—"}</TableCell>
                   <TableCell>
                     {p.reception_with_reserves ? (
                       <StatusPill tone="warning" size="sm">{rc > 0 ? `${rc} réserves` : "Avec réserves"}</StatusPill>
@@ -432,6 +440,78 @@ function PvList() {
   );
 }
 
+function FilterSheetButton({
+  icon, label, value, title, children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | null;
+  title: string;
+  children: (close: () => void) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          className={`flex h-10 w-full items-center justify-between gap-1.5 rounded-lg border px-3 text-left text-xs font-medium transition ${
+            value
+              ? "border-primary/40 bg-primary/5 text-foreground"
+              : "border-border bg-card text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            {icon}
+            <span className="truncate">{value ?? label}</span>
+          </span>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 rotate-90 opacity-60" />
+        </button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="rounded-t-2xl p-0">
+        <SheetHeader className="border-b border-border px-5 py-4">
+          <SheetTitle className="text-base">{title}</SheetTitle>
+        </SheetHeader>
+        <div className="max-h-[60vh] overflow-y-auto p-2">
+          {children(() => setOpen(false))}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function SheetOptionList({
+  options, value, onChange,
+}: {
+  options: { id: string; label: string; hint?: number | string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col">
+      {options.map((o) => {
+        const active = o.id === value;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => onChange(o.id)}
+            className={`flex items-center justify-between gap-3 rounded-lg px-3 py-3 text-left text-sm transition ${
+              active ? "bg-primary/10 text-foreground" : "hover:bg-muted"
+            }`}
+          >
+            <span className="font-medium">{o.label}</span>
+            <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              {o.hint !== undefined && <span className="tabular-nums">{o.hint}</span>}
+              {active && <Check className="h-4 w-4 text-primary" />}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function EmptyBlock({ total }: { total: number }) {
   return (
     <div className="px-4 py-12 text-center">
@@ -468,8 +548,8 @@ function PvCard({
   onShare: () => void;
   onRemove: () => void;
 }) {
-  const ch = pv.chantiers?.nom;
-  const cn = clientName(pv.clients ?? null);
+  const ch = pv.chantiers?.name;
+  const cn = pv.clients?.name;
   const rc = reservesCount(pv);
   const withReserves = !!pv.reception_with_reserves;
   return (
