@@ -5,7 +5,8 @@ export type Role =
   | "responsable"
   | "conducteur"
   | "technicien"
-  | "assistant";
+  | "assistant"
+  | "lecture_seule";
 
 const envMap: Record<Role, { email: string; password: string }> = {
   directeur: {
@@ -27,6 +28,10 @@ const envMap: Record<Role, { email: string; password: string }> = {
   assistant: {
     email: "E2E_ASSISTANT_EMAIL",
     password: "E2E_ASSISTANT_PASSWORD",
+  },
+  lecture_seule: {
+    email: "E2E_LECTURE_SEULE_EMAIL",
+    password: "E2E_LECTURE_SEULE_PASSWORD",
   },
 };
 

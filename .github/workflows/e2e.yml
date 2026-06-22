@@ -27,6 +27,8 @@ jobs:
       E2E_TECHNICIEN_PASSWORD: ${{ secrets.E2E_TECHNICIEN_PASSWORD }}
       E2E_ASSISTANT_EMAIL: ${{ secrets.E2E_ASSISTANT_EMAIL }}
       E2E_ASSISTANT_PASSWORD: ${{ secrets.E2E_ASSISTANT_PASSWORD }}
+      E2E_LECTURE_SEULE_EMAIL: ${{ secrets.E2E_LECTURE_SEULE_EMAIL }}
+      E2E_LECTURE_SEULE_PASSWORD: ${{ secrets.E2E_LECTURE_SEULE_PASSWORD }}
       # Backend (publishable, non sensible) — surchargez via secrets si besoin
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
