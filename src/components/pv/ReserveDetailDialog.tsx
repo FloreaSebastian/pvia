@@ -460,8 +460,8 @@ export function ReserveDetailDialog({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="font-mono text-xs font-semibold">{l.numero ?? "—"}</span>
-                        <StatusPill tone={reserveLiftStatusTone(l.status) as any} size="sm" dot>
-                          {reserveLiftStatusLabel(l.status)}
+                        <StatusPill tone={LIFT_STATUS_TONES[deriveDisplayStatus(l)] as any} size="sm" dot>
+                          {LIFT_STATUS_LABELS[deriveDisplayStatus(l)]}
                         </StatusPill>
                         <span className="text-[10px] text-muted-foreground">
                           {new Date(l.created_at).toLocaleDateString("fr-FR")}
