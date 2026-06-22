@@ -956,8 +956,8 @@ function PvDetail() {
                             <Download className="h-3.5 w-3.5" /> PDF client
                           </Button>
                         )}
-                        {l.pdf_internal_url && !editable && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement">
+                        {l.pdf_internal_url && !editable && canViewInternal && (
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement (rôles : directeur, responsable, conducteur, assistant)">
                             <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
