@@ -25,8 +25,8 @@ export type HealthCheck = {
   severity: HealthSeverity;
   /** Nombre de lignes problématiques détectées. */
   count: number;
-  /** Détail libre (échantillon d'IDs, message d'erreur, etc.). */
-  details?: Record<string, unknown> | null;
+  /** Détail libre (échantillon d'IDs). */
+  details?: { sample: string[] } | null;
 };
 
 export type SystemHealthResult = {
