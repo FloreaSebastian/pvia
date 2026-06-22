@@ -94,7 +94,7 @@ function SystemHealthPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        icon={<ShieldCheck className="h-5 w-5" />}
+        eyebrow={<span className="inline-flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Admin</span>}
         title="Santé système"
         description="Audit automatique de cohérence des données et des workflows métier."
         actions={
