@@ -975,11 +975,16 @@ export const reopenReserveLiftReport = createServerFn({ method: "POST" })
     }
 
     // Best-effort cleanup of stored PDFs so the report doesn't leak stale documents.
-    const toRemove = [report.pdf_url, (report as any).pdf_client_url, (report as any).pdf_internal_url]
+    const pdfMain = report.pdf_url ?? null;
+    const pdfClient = (report as any).pdf_client_url ?? null;
+    const pdfInternal = (report as any).pdf_internal_url ?? null;
+    const toRemove = [pdfMain, pdfClient, pdfInternal]
       .filter((p): p is string => typeof p === "string" && p.length > 0);
+    const removed: string[] = [];
     if (toRemove.length) {
       try {
-        await supabaseAdmin.storage.from("pv-assets").remove(toRemove);
+        const { data: removedRows } = await supabaseAdmin.storage.from("pv-assets").remove(toRemove);
+        for (const r of removedRows ?? []) removed.push(r.name);
       } catch (e) {
         console.warn("[reopenReserveLiftReport] storage cleanup failed", e);
       }
@@ -1002,25 +1007,46 @@ export const reopenReserveLiftReport = createServerFn({ method: "POST" })
       .eq("id", report.id);
     if (upErr) throw new Error(upErr.message);
 
-    await writeAuditLog({
+    // Audits explicites par PDF supprimé (visibilité côté audit log).
+    const baseAudit = {
       companyId: report.company_id,
       userId,
       pvId: report.pv_id,
-      entityType: "reserve_lift",
+      entityType: "reserve_lift" as const,
       entityId: report.id,
+      actor: "user" as const,
+    };
+    if (pdfMain) {
+      await writeAuditLog({
+        ...baseAudit,
+        action: "reserve_lift.pdf_deleted_on_reopen",
+        metadata: { path: pdfMain, removed: removed.includes(pdfMain), role },
+      });
+    }
+    if (pdfClient) {
+      await writeAuditLog({
+        ...baseAudit,
+        action: "reserve_lift.client_pdf_deleted_on_reopen",
+        metadata: { path: pdfClient, removed: removed.includes(pdfClient), role },
+      });
+    }
+    if (pdfInternal) {
+      await writeAuditLog({
+        ...baseAudit,
+        action: "reserve_lift.internal_pdf_deleted_on_reopen",
+        metadata: { path: pdfInternal, removed: removed.includes(pdfInternal), role },
+      });
+    }
+
+    await writeAuditLog({
+      ...baseAudit,
       action: "reserve_lift.reopened",
-      metadata: { previous_status: report.status, role },
-      actor: "user",
+      metadata: { previous_status: report.status, role, pdfs_cleared: toRemove.length },
     });
     await writeAuditLog({
-      companyId: report.company_id,
-      userId,
-      pvId: report.pv_id,
-      entityType: "reserve_lift",
-      entityId: report.id,
+      ...baseAudit,
       action: "reserve_lift.status_changed",
       metadata: { from: report.status, to: "en_cours" },
-      actor: "user",
     });
 
     return { ok: true as const };
