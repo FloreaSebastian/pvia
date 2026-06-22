@@ -107,7 +107,13 @@ export type AuditAction =
   | "reserve_lift.pdf_regenerated"
   | "reserve_lift.validation_email_resent"
   | "reserve_lift.client_double_validation_blocked"
-  | "reserve_lift.client_validated_email_failed";
+  | "reserve_lift.client_validated_email_failed"
+  // Lot 5 — Combler les angles morts d'audit
+  | "pv.signed_email_resent"
+  | "pv.signed_email_resent_failed"
+  | "pv_email_settings.updated"
+  | "reserve.status_updated"
+  | "client.login_code_attempt";
 
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
