@@ -29,6 +29,7 @@ import {
   updateReserveStatus, deleteReserve, assignReserve,
   bulkUpdateReserves, exportReservesCsv,
 } from "@/lib/reserves.functions";
+import { getReserveCounters } from "@/lib/reserve-counters";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 
@@ -277,13 +278,14 @@ function ReservesPage() {
     });
   }, [items, filter, severity, quick, query]);
 
+  const counters = useMemo(() => getReserveCounters(items), [items]);
   const dash = useMemo(() => ({
-    ouvertes: items.filter((r) => r.status === "ouverte").length,
-    bloquantes: items.filter((r) => r.severity === "majeure" && r.status !== "validee").length,
-    retard: items.filter(isOverdue).length,
-    a_valider: items.filter((r) => r.status === "en_attente_validation" || r.status === "levee").length,
-    validees: items.filter((r) => r.status === "validee").length,
-  }), [items]);
+    ouvertes: counters.ouvertes,
+    bloquantes: counters.bloquantes,
+    retard: counters.enRetard,
+    a_valider: counters.enAttenteValidation + counters.levees,
+    validees: counters.validees,
+  }), [counters]);
 
   function toggleQuick(k: string) {
     const next = quick === k ? "all" : k;
