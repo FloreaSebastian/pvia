@@ -27,6 +27,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/hooks/use-company";
+import { isAdminRole, isManageRole } from "@/lib/roles";
 import { toast } from "sonner";
 import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
 import { useServerFn } from "@tanstack/react-start";
