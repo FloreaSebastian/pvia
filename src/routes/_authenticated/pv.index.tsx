@@ -114,11 +114,9 @@ function PvList() {
     for (const f of STATUS_FILTERS) if (f.id !== "all") c[f.id] = 0;
     for (const p of items) c[p.status] = (c[p.status] ?? 0) + 1;
     const withRes = items.filter((p) => p.reception_with_reserves).length;
-    return {
-      ...c,
-      reserves_with: withRes,
-      reserves_without: items.length - withRes,
-    };
+    c.reserves_with = withRes;
+    c.reserves_without = items.length - withRes;
+    return c;
   }, [items]);
 
   const filteredSorted = useMemo(() => {
