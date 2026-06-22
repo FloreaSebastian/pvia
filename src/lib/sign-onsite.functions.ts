@@ -8,10 +8,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendOnsiteOtpEmail } from "./email.server";
 import { writeAuditLog } from "./audit.server";
 import { enforceRateLimit } from "./rate-limit.server";
+import { isManageRole } from "./roles";
 import {
   createSignatureOtp,
   verifySignatureOtp,
@@ -28,16 +28,29 @@ export const sendOnsiteClientOtp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => SendSchema.parse(i))
   .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { userId } = context;
 
-    const { data: m } = await supabaseAdmin
+    const { data: member } = await supabaseAdmin
       .from("company_members")
-      .select("id")
+      .select("role")
       .eq("company_id", data.companyId)
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!m) throw new Error("Accès refusé.");
+
+    if (!member || !isManageRole(member.role)) {
+      await writeAuditLog({
+        companyId: data.companyId,
+        userId,
+        pvId: data.pvId ?? undefined,
+        entityType: "pv",
+        action: "pv.onsite_otp_send_denied",
+        metadata: { email_masked: maskEmail(data.email), attempted_role: member?.role ?? null },
+        actor: "user",
+      });
+      throw new Error("Accès refusé.");
+    }
 
     await enforceRateLimit({
       bucket: "onsite.otp.send",
@@ -96,24 +109,37 @@ export const verifyOnsiteClientOtp = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => VerifySchema.parse(i))
   .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { userId } = context;
 
-    // Pre-check membership against the OTP's company before verification.
+    // Pre-check role against the OTP's company before verification.
     const { data: otpHead } = await supabaseAdmin
       .from("pv_signature_otps")
-      .select("company_id")
+      .select("company_id, pv_id")
       .eq("id", data.otpId)
       .maybeSingle();
     if (!otpHead) throw new Error("Code introuvable.");
 
-    const { data: m } = await supabaseAdmin
+    const { data: member } = await supabaseAdmin
       .from("company_members")
-      .select("id")
+      .select("role")
       .eq("company_id", otpHead.company_id)
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!m) throw new Error("Accès refusé.");
+
+    if (!member || !isManageRole(member.role)) {
+      await writeAuditLog({
+        companyId: otpHead.company_id,
+        userId,
+        pvId: otpHead.pv_id ?? undefined,
+        entityType: "pv",
+        action: "pv.onsite_otp_verify_denied",
+        metadata: { otp_id: data.otpId, attempted_role: member?.role ?? null },
+        actor: "user",
+      });
+      throw new Error("Accès refusé.");
+    }
 
     const otp = await verifySignatureOtp({
       otpId: data.otpId,
