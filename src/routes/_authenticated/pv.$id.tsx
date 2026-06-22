@@ -27,6 +27,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/hooks/use-company";
+import { isAdminRole, isManageRole } from "@/lib/roles";
 import { toast } from "sonner";
 import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
 import { useServerFn } from "@tanstack/react-start";
@@ -125,6 +127,9 @@ function PvDetail() {
   const { id } = Route.useParams();
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const { activeRole } = useCompany();
+  const canViewInternal = isManageRole(activeRole);
+  const canReopenLift = isAdminRole(activeRole);
   const sendPv = useServerFn(sendPvToClient);
   const changeStatusFn = useServerFn(updatePvStatus);
   const regenPdf = useServerFn(regeneratePvPdf);
@@ -951,13 +956,13 @@ function PvDetail() {
                             <Download className="h-3.5 w-3.5" /> PDF client
                           </Button>
                         )}
-                        {l.pdf_internal_url && !editable && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement">
+                        {l.pdf_internal_url && !editable && canViewInternal && (
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement (rôles : directeur, responsable, conducteur, assistant)">
                             <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
-                        {!editable && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail">
+                        {!editable && canViewInternal && (
+                          <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail — réservé aux rôles opérationnels">
                             {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
                             Export expertise
                           </Button>
@@ -974,7 +979,7 @@ function PvDetail() {
                             Relancer
                           </Button>
                         )}
-                        {eligibleReopen && (
+                        {eligibleReopen && canReopenLift && (
                           <Button
                             size="sm"
                             variant="outline"

@@ -38,6 +38,7 @@ import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
+import { isAdminRole, isOwnerRole } from "@/lib/roles";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
 import {
@@ -59,11 +60,21 @@ const mainNav = [
   { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
 ] as const;
 
-const companyMenu = [
+type CompanyMenuItem = {
+  to: string;
+  label: string;
+  icon: typeof Settings;
+  /** Restreint au directeur uniquement. */
+  ownerOnly?: boolean;
+  /** Restreint aux rôles administrateurs (directeur, responsable_exploitation). */
+  adminOnly?: boolean;
+};
+
+const companyMenu: readonly CompanyMenuItem[] = [
   { to: "/parametres", label: "Paramètres", icon: Settings },
-  { to: "/entreprise", label: "Entreprise", icon: Building2 },
-  { to: "/equipe", label: "Équipe", icon: UsersRound },
-  { to: "/billing", label: "Facturation", icon: CreditCard },
+  { to: "/entreprise", label: "Entreprise", icon: Building2, adminOnly: true },
+  { to: "/equipe", label: "Équipe", icon: UsersRound, adminOnly: true },
+  { to: "/billing", label: "Facturation", icon: CreditCard, ownerOnly: true },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
 ] as const;
 
@@ -244,7 +255,14 @@ function CompanyMenu({
   onPick: () => void;
   onSignOut: () => void;
 }) {
-  const { memberships, activeCompanyId } = useCompany();
+  const { memberships, activeCompanyId, activeRole } = useCompany();
+  const isOwner = isOwnerRole(activeRole);
+  const isAdmin = isAdminRole(activeRole);
+  const visibleCompanyMenu = companyMenu.filter((i) => {
+    if (i.ownerOnly && !isOwner) return false;
+    if (i.adminOnly && !isAdmin) return false;
+    return true;
+  });
   const { isPlatformAdmin } = useIsPlatformAdmin();
   const active = memberships.find((m) => m.company_id === activeCompanyId);
   const companyName = active?.company.name ?? "Entreprise";
@@ -272,7 +290,7 @@ function CompanyMenu({
         <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
           Entreprise
         </DropdownMenuLabel>
-        {companyMenu.map((i) => {
+        {visibleCompanyMenu.map((i) => {
           const Icon = i.icon;
           return (
             <DropdownMenuItem key={i.to} asChild>

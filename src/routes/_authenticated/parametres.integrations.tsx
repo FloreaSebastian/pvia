@@ -232,7 +232,11 @@ function IntegrationsSettings() {
                 <p className="mt-0.5 text-xs text-muted-foreground">Paiements & abonnements PVIA.</p>
               </div>
             </div>
-            <Button asChild size="sm" variant="outline"><Link to="/parametres/facturation">Gérer</Link></Button>
+            {isAdmin ? (
+              <Button asChild size="sm" variant="outline"><Link to="/parametres/facturation">Gérer</Link></Button>
+            ) : (
+              <Button size="sm" variant="outline" disabled title="Réservé aux directeurs / responsables d'exploitation">Gérer</Button>
+            )}
           </div>
           <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-card/40 p-4">
             <div className="flex items-start gap-3">
