@@ -32,6 +32,7 @@ export type ReserveDetail = {
   work_to_execute?: string | null;
   due_date?: string | null;
   assigned_to?: string | null;
+  assigned_name?: string | null;
   lifted_at?: string | null;
   validated_at?: string | null;
   created_at: string;
