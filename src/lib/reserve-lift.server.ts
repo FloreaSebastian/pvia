@@ -127,6 +127,21 @@ export async function buildAndStoreReserveLiftPdf(
     : { data: [] as any[] };
   const reserveMap = new Map<string, any>((reservesData ?? []).map((r: any) => [r.id, r]));
 
+  // Résolution des noms de responsables (assigned_to → profile)
+  const assigneeIds = Array.from(
+    new Set((reservesData ?? []).map((r: any) => r.assigned_to).filter(Boolean)),
+  ) as string[];
+  const assigneeNameMap = new Map<string, string>();
+  if (assigneeIds.length) {
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id,full_name")
+      .in("id", assigneeIds);
+    for (const p of (profs ?? []) as any[]) {
+      if (p?.id && p?.full_name) assigneeNameMap.set(p.id, p.full_name);
+    }
+  }
+
   // Photos with metadata (before/after + GPS + integrity hash) for these items
   const { data: photoMeta } = itemIds.length
     ? await supabaseAdmin
