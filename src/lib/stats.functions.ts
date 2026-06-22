@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
+import { getReserveCounters } from "./reserve-counters";
 
 /* ----------------------------- helpers ----------------------------- */
 
