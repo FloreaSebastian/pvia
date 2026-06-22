@@ -583,7 +583,7 @@ export async function buildAndStoreReserveLiftPdf(
     };
     drawMeta(0, "Gravite", sevLabel);
     drawMeta(1, "Priorite", prioLabel);
-    drawMeta(2, "Responsable", reserve?.assigned_to || "—");
+    drawMeta(2, "Responsable", reserve?.assigned_to ? (assigneeNameMap.get(reserve.assigned_to) || "—") : "—");
     drawMeta(3, "Echeance", reserve?.due_date ? formatDate(reserve.due_date) : "—");
     y -= 24;
     drawMeta(0, "Creee le", reserve?.created_at ? formatDate(reserve.created_at) : "—");
