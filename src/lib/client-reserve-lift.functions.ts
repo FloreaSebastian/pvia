@@ -158,7 +158,7 @@ export const getClientReserveLiftDetail = createServerFn({ method: "POST" })
           photos = await Promise.all(
             rows.map(async (r: any) => {
               const { data: u } = await supabaseAdmin.storage
-                .from("pv-assets").createSignedUrl(r.storage_path, 3600);
+                .from("pv-assets").createSignedUrl(r.storage_path, SIGNED_URL_PHOTO_TTL);
               return {
                 id: r.id,
                 url: u?.signedUrl ?? null,
@@ -173,7 +173,7 @@ export const getClientReserveLiftDetail = createServerFn({ method: "POST" })
           photos = await Promise.all(
             ((it.photo_urls ?? []) as string[]).map(async (p, idx) => {
               const { data: u } = await supabaseAdmin.storage
-                .from("pv-assets").createSignedUrl(p, 3600);
+                .from("pv-assets").createSignedUrl(p, SIGNED_URL_PHOTO_TTL);
               return {
                 id: `${it.id}-${idx}`,
                 url: u?.signedUrl ?? null,
@@ -242,7 +242,7 @@ export const getClientReserveLiftPdfUrl = createServerFn({ method: "POST" })
     if (!path) throw new Error("PDF indisponible.");
     const { data: signed } = await supabaseAdmin.storage
       .from("pv-assets")
-      .createSignedUrl(path, 3600);
+      .createSignedUrl(path, SIGNED_URL_PDF_TTL);
     if (!signed?.signedUrl) throw new Error("Lien indisponible.");
 
     try {
