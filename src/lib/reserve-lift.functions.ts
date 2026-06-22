@@ -13,6 +13,8 @@ import { sha256OfBytes } from "./signature-proof.server";
 import { deliverSignedReserveLift } from "./reserve-lift-email.server";
 import { sendReserveLiftValidationRequestEmail } from "./reserve-lift-validation-email.server";
 import { deliverReserveLiftAtSignature } from "./reserve-lift-signed-delivery.server";
+import { isLiftSignedStatus, resolveSignedLiftStatus } from "./reserve-lift-status";
+import { SIGNED_URL_PDF_TTL, SIGNED_URL_PHOTO_TTL } from "./signed-url-ttl";
 import {
   PHOTO_ALLOWED_MIMES,
   PHOTO_MAX_BYTES,
@@ -200,7 +202,10 @@ export const createReserveLift = createServerFn({ method: "POST" })
           company_id: pv.company_id,
           pv_id: pv.id,
           numero,
-          status: data.status,
+          status:
+            data.status === "signe"
+              ? resolveSignedLiftStatus(data.validationMode)
+              : data.status,
           comment: data.comment || null,
           company_signature: companySigForStorage,
           client_signature: clientSig,
@@ -690,7 +695,7 @@ export const getReserveLiftPdfUrl = createServerFn({ method: "POST" })
       );
     }
 
-    const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(path, 3600);
+    const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(path, SIGNED_URL_PDF_TTL);
     if (!signed?.signedUrl) throw new Error("Lien indisponible.");
 
     await writeAuditLog({
@@ -786,7 +791,7 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
       .eq("id", data.reportId)
       .maybeSingle();
     if (!report) throw new Error("Levée introuvable.");
-    if (report.status !== "signe") throw new Error("La levée doit être signée par l'entreprise.");
+    if (!isLiftSignedStatus(report.status)) throw new Error("La levée doit être signée par l'entreprise.");
     if (report.client_validated_at) throw new Error("La levée est déjà validée par le client.");
 
     const { data: member } = await supabaseAdmin
@@ -832,7 +837,7 @@ export const resendReserveLiftClientEmail = createServerFn({ method: "POST" })
       .eq("id", data.reportId)
       .maybeSingle();
     if (!report) throw new Error("Levée introuvable.");
-    if (report.status !== "signe" && report.status !== "client_validated") {
+    if (!isLiftSignedStatus(report.status) && report.status !== "client_validated") {
       throw new Error("La levée doit être signée par l'entreprise.");
     }
     const { data: member } = await supabaseAdmin
@@ -1055,7 +1060,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
 
     for (let idx = 0; idx < (initialRows ?? []).length; idx++) {
       const r = (initialRows as any[])[idx];
-      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.url, 3600);
+      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.url, SIGNED_URL_PHOTO_TTL);
       items.push({
         id: r.id,
         photoType: "initial",
@@ -1081,7 +1086,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
 
     let beforeIdx = 0; let afterIdx = 0;
     for (const r of (rows ?? []) as any[]) {
-      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.storage_path, 3600);
+      const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(r.storage_path, SIGNED_URL_PHOTO_TTL);
       const type = r.photo_type as "before" | "after" | "legacy";
       let label: string | null = null;
       if (type === "before") { beforeIdx += 1; label = `RES-${reserveNum}-AVANT-${String(beforeIdx).padStart(3, "0")}`; }
@@ -1111,7 +1116,7 @@ export const listReserveLiftPhotos = createServerFn({ method: "POST" })
         .eq("reserve_id", data.reserveId);
       for (const it of (legacyItems ?? []) as any[]) {
         for (const p of (it.photo_urls ?? []) as string[]) {
-          const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(p, 3600);
+          const { data: signed } = await supabaseAdmin.storage.from("pv-assets").createSignedUrl(p, SIGNED_URL_PHOTO_TTL);
           items.push({
             id: `${it.id}-${p}`,
             photoType: "legacy",
