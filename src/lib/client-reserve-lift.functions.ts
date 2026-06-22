@@ -13,6 +13,8 @@ import { firePushToCompany } from "@/lib/push.server";
 import { buildAndStoreReserveLiftPdfs } from "@/lib/reserve-lift.server";
 import { dispatchWebhookEvent } from "@/lib/webhooks.server";
 import { deliverSignedReserveLift } from "@/lib/reserve-lift-email.server";
+import { LIFT_SIGNED_STATUSES, isLiftSignedStatus } from "@/lib/reserve-lift-status";
+import { SIGNED_URL_PDF_TTL, SIGNED_URL_PHOTO_TTL } from "@/lib/signed-url-ttl";
 import {
   getClientIp,
   getClientUA,
@@ -69,7 +71,7 @@ export const listClientReserveLifts = createServerFn({ method: "POST" })
       .from("reserve_lift_reports")
       .select("id,numero,status,signed_at,client_validated_at,pdf_url,created_at,comment")
       .eq("pv_id", data.pvId)
-      .in("status", ["signe", "signed_by_company", "client_validated"])
+      .in("status", [...LIFT_SIGNED_STATUSES, "client_validated"])
       .order("created_at", { ascending: false });
 
     // attach item counts
@@ -300,7 +302,7 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
     if (!report.company_signature) {
       throw new Error("L'entreprise doit signer la levée avant validation.");
     }
-    if (!["signe", "signed_by_company"].includes(report.status as string)) {
+    if (!isLiftSignedStatus(report.status as string)) {
       throw new Error("Cette levée n'est pas en attente de validation.");
     }
 
@@ -524,7 +526,7 @@ export const rejectReserveLiftAsClient = createServerFn({ method: "POST" })
     if (!report.company_signature) {
       throw new Error("L'entreprise doit signer la levée avant rejet.");
     }
-    if (!["signe", "signed_by_company"].includes(report.status as string)) {
+    if (!isLiftSignedStatus(report.status as string)) {
       throw new Error("Cette levée n'est pas en attente de validation.");
     }
 
