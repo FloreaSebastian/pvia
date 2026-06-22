@@ -127,6 +127,9 @@ function PvDetail() {
   const { id } = Route.useParams();
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const { activeRole } = useCompany();
+  const canViewInternal = isManageRole(activeRole);
+  const canReopenLift = isAdminRole(activeRole);
   const sendPv = useServerFn(sendPvToClient);
   const changeStatusFn = useServerFn(updatePvStatus);
   const regenPdf = useServerFn(regeneratePvPdf);
