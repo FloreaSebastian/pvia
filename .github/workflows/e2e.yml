@@ -29,10 +29,8 @@ jobs:
       E2E_ASSISTANT_PASSWORD: ${{ secrets.E2E_ASSISTANT_PASSWORD }}
       E2E_LECTURE_SEULE_EMAIL: ${{ secrets.E2E_LECTURE_SEULE_EMAIL }}
       E2E_LECTURE_SEULE_PASSWORD: ${{ secrets.E2E_LECTURE_SEULE_PASSWORD }}
-      # Backend (publishable, non sensible) — surchargez via secrets si besoin
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+      # Backend Supabase (publishable, non sensible) — valeurs par défaut depuis .env du repo.
+      # NOTE : on n'override PAS via secrets ici, sinon un secret absent écraserait .env avec une chaîne vide.
 
     steps:
       - name: Checkout
@@ -50,13 +48,14 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Start dev server
-        run: bun run dev &
-        env:
-          PORT: "8080"
+        run: |
+          nohup bunx vite dev --port 8080 --host 0.0.0.0 > /tmp/dev-server.log 2>&1 &
+          echo $! > /tmp/dev-server.pid
+
 
       - name: Wait for dev server
         run: |
-          for i in {1..60}; do
+          for i in {1..90}; do
             if curl -sSf http://localhost:8080 >/dev/null 2>&1; then
               echo "Dev server ready"
               exit 0
@@ -64,7 +63,10 @@ jobs:
             sleep 2
           done
           echo "Dev server failed to start" >&2
+          echo "--- dev-server.log ---"
+          tail -n 200 /tmp/dev-server.log || true
           exit 1
+
 
       - name: Run Playwright E2E (desktop)
         id: e2e_desktop
