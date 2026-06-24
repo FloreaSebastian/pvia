@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Camera, MapPin, MapPinOff, Plus, Trash2, Upload, Download, X, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, MapPin, MapPinOff, Plus, Trash2, Upload, Download, X, Loader2, Image as ImageIcon, FolderOpen } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -107,6 +107,21 @@ export function ChantierPhotosTab({
         <Card className="p-6 text-center text-sm text-muted-foreground">
           <Loader2 className="mx-auto h-5 w-5 animate-spin" />
         </Card>
+      ) : photos.length === 0 ? (
+        <Card className="flex flex-col items-center gap-3 p-8 text-center">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-muted">
+            <Camera className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Aucune photo chantier</p>
+            <p className="mt-1 text-xs text-muted-foreground">Ajoutez des photos avant, pendant ou en fin de chantier.</p>
+          </div>
+          {canWrite && (
+            <Button size="sm" onClick={() => openUpload("during")}>
+              <Plus className="h-4 w-4" /> Ajouter des photos
+            </Button>
+          )}
+        </Card>
       ) : (
         SECTIONS.map((s) => {
           const items = photos.filter((p) => p.photo_type === s.type);
@@ -205,8 +220,19 @@ function UploadSheet({
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (open) { setType(defaultType); setCaption(""); setFiles([]); setProgress(0); } }, [open, defaultType]);
+
+  function appendFiles(list: FileList | null) {
+    if (!list || list.length === 0) return;
+    setFiles((prev) => [...prev, ...Array.from(list)]);
+  }
+  function removeFile(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -281,7 +307,7 @@ function UploadSheet({
         <SheetHeader><SheetTitle>Ajouter des photos chantier</SheetTitle></SheetHeader>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <Label>Type de photo</Label>
+            <Label>1. Type de photo</Label>
             <Select value={type} onValueChange={(v) => setType(v as PhotoType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -292,19 +318,41 @@ function UploadSheet({
             </Select>
           </div>
           <div>
-            <Label>Photos *</Label>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-              className="block w-full text-sm file:mr-2 file:rounded file:border-0 file:bg-primary file:px-3 file:py-2 file:text-primary-foreground"
-            />
-            {files.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{files.length} fichier(s) sélectionné(s)</p>}
+            <Label>2. Source des photos</Label>
+            <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button type="button" variant="outline" className="h-auto justify-start gap-2 py-3" onClick={() => cameraRef.current?.click()} disabled={uploading}>
+                <Camera className="h-4 w-4" />
+                <span className="text-left text-xs leading-tight">Prendre<br />une photo</span>
+              </Button>
+              <Button type="button" variant="outline" className="h-auto justify-start gap-2 py-3" onClick={() => galleryRef.current?.click()} disabled={uploading}>
+                <ImageIcon className="h-4 w-4" />
+                <span className="text-left text-xs leading-tight">Choisir depuis<br />la galerie</span>
+              </Button>
+              <Button type="button" variant="outline" className="h-auto justify-start gap-2 py-3" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                <FolderOpen className="h-4 w-4" />
+                <span className="text-left text-xs leading-tight">Choisir un<br />fichier image</span>
+              </Button>
+            </div>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { appendFiles(e.target.files); e.target.value = ""; }} />
+            <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { appendFiles(e.target.files); e.target.value = ""; }} />
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { appendFiles(e.target.files); e.target.value = ""; }} />
+            {files.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {files.map((f, i) => (
+                  <li key={`${f.name}-${i}`} className="flex items-center gap-2 rounded border border-border bg-muted/30 p-1.5 text-xs">
+                    <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate flex-1">{f.name}</span>
+                    <span className="text-muted-foreground">{Math.round(f.size / 1024)} Ko</span>
+                    <button type="button" onClick={() => removeFile(i)} disabled={uploading} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div>
-            <Label>Commentaire (optionnel)</Label>
+            <Label>3. Commentaire (optionnel)</Label>
             <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={2000} rows={3} placeholder="Description, contexte, etc." />
           </div>
           {uploading && (
@@ -313,7 +361,7 @@ function UploadSheet({
           <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>Annuler</Button>
             <Button type="submit" disabled={uploading || files.length === 0}>
-              {uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Upload…</> : <><Upload className="h-4 w-4" /> Uploader</>}
+              {uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Upload…</> : <><Upload className="h-4 w-4" /> Uploader {files.length > 0 ? `(${files.length})` : ""}</>}
             </Button>
           </DialogFooter>
         </form>

@@ -27,6 +27,7 @@ import { deriveDisplayStatus, STATUS_LABELS, STATUS_TONES } from "@/lib/reserve-
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { getChantierDossier } from "@/lib/chantier-dossier.functions";
+import { listChantierPhotos } from "@/lib/chantier-photos.functions";
 import type { getChantierDetail } from "@/lib/chantier-detail.functions";
 import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
 import { ReserveLiftWorkflowDialog } from "@/components/pv/ReserveLiftWorkflowDialog";
@@ -40,6 +41,8 @@ import { getReserveCounters } from "@/lib/reserve-counters";
 
 type Detail = Awaited<ReturnType<typeof getChantierDetail>>;
 type Dossier = Awaited<ReturnType<typeof getChantierDossier>>;
+type ChantierPhotosResult = Awaited<ReturnType<typeof listChantierPhotos>>;
+type ChantierPhoto = ChantierPhotosResult["photos"][number];
 
 function fmt(d: string | null | undefined) {
   if (!d) return "—";
@@ -60,9 +63,11 @@ export function DossierTab({
   companyId, chantierId, detail, onReload,
 }: { companyId: string; chantierId: string; detail: Detail; onReload?: () => void }) {
   const fetchDossier = useServerFn(getChantierDossier);
+  const fetchChantierPhotos = useServerFn(listChantierPhotos);
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
   const exportExpertiseFn = useServerFn(exportReserveLiftExpertise);
   const [dossier, setDossier] = useState<Dossier | null>(null);
+  const [chantierPhotos, setChantierPhotos] = useState<ChantierPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyLiftId, setBusyLiftId] = useState<string | null>(null);
 
@@ -101,8 +106,12 @@ export function DossierTab({
 
   const loadDossier = useCallback(() => {
     setLoading(true);
-    return fetchDossier({ data: { companyId, chantierId } })
-      .then((r) => setDossier(r))
+    return Promise.all([
+      fetchDossier({ data: { companyId, chantierId } }).then((r) => setDossier(r)),
+      fetchChantierPhotos({ data: { companyId, chantierId } })
+        .then((r) => setChantierPhotos(r.photos as ChantierPhoto[]))
+        .catch(() => setChantierPhotos([])),
+    ])
       .catch((e) => toast.error(e instanceof Error ? e.message : "Dossier indisponible"))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,8 +120,12 @@ export function DossierTab({
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    fetchDossier({ data: { companyId, chantierId } })
-      .then((r) => { if (alive) setDossier(r); })
+    Promise.all([
+      fetchDossier({ data: { companyId, chantierId } }).then((r) => { if (alive) setDossier(r); }),
+      fetchChantierPhotos({ data: { companyId, chantierId } })
+        .then((r) => { if (alive) setChantierPhotos(r.photos as ChantierPhoto[]); })
+        .catch(() => { if (alive) setChantierPhotos([]); }),
+    ])
       .catch((e) => toast.error(e instanceof Error ? e.message : "Dossier indisponible"))
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -146,9 +159,19 @@ export function DossierTab({
     };
   }, [detail.reserves]);
 
-  // Combined lightbox photos (initial + after lift)
+  // Combined lightbox photos (chantier + initial + after lift)
   const allLightboxPhotos: LightboxPhoto[] = useMemo(() => {
     const out: LightboxPhoto[] = [];
+    for (const p of chantierPhotos) {
+      if (!p.signed_url) continue;
+      out.push({
+        id: `chantier-${p.id}`,
+        url: p.signed_url,
+        label: p.label ?? p.caption ?? null,
+        takenAt: p.taken_at ?? p.created_at,
+        photoType: "initial",
+      });
+    }
     for (const p of dossier?.photos ?? []) {
       out.push({
         id: `pv-${p.id}`,
@@ -168,7 +191,7 @@ export function DossierTab({
       });
     }
     return out;
-  }, [dossier]);
+  }, [dossier, chantierPhotos]);
 
   function openLightbox(photoId: string) {
     const idx = allLightboxPhotos.findIndex((p) => p.id === photoId);
@@ -250,15 +273,15 @@ export function DossierTab({
   return (
     <>
       <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
-        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <TabsTrigger value="resume" className="shrink-0">Résumé</TabsTrigger>
-          <TabsTrigger value="pv" className="shrink-0">PV ({detail.pvs.length})</TabsTrigger>
-          <TabsTrigger value="reserves" className="shrink-0">Réserves ({reserveCounts.total})</TabsTrigger>
-          <TabsTrigger value="levees" className="shrink-0">Levées ({dossier?.liftReports.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="photos" className="shrink-0">Photos ({allLightboxPhotos.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="shrink-0">Docs ({detail.documents.length})</TabsTrigger>
-          <TabsTrigger value="emails" className="shrink-0">Emails ({dossier?.emails.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="historique" className="shrink-0">Historique</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
+          <TabsTrigger value="resume" className="text-[11px] sm:text-xs">Résumé</TabsTrigger>
+          <TabsTrigger value="pv" className="text-[11px] sm:text-xs">PV ({detail.pvs.length})</TabsTrigger>
+          <TabsTrigger value="reserves" className="text-[11px] sm:text-xs">Rés. ({reserveCounts.total})</TabsTrigger>
+          <TabsTrigger value="levees" className="text-[11px] sm:text-xs">Lev. ({dossier?.liftReports.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="photos" className="text-[11px] sm:text-xs">Photos ({allLightboxPhotos.length})</TabsTrigger>
+          <TabsTrigger value="documents" className="text-[11px] sm:text-xs">Docs ({detail.documents.length})</TabsTrigger>
+          <TabsTrigger value="emails" className="text-[11px] sm:text-xs">Emails ({dossier?.emails.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="historique" className="text-[11px] sm:text-xs">Hist.</TabsTrigger>
         </TabsList>
 
         {/* Résumé — compact 2 cols mobile */}
@@ -387,6 +410,22 @@ export function DossierTab({
         <TabsContent value="photos" className="mt-3">
           {loading ? <LoadingHint /> : allLightboxPhotos.length === 0 ? <EmptyHint label="Aucune photo." /> : (
             <div className="space-y-4">
+              {chantierPhotos.length > 0 && (
+                <section>
+                  <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Photos chantier</p>
+                  <PhotoGrid
+                    items={chantierPhotos
+                      .filter((p) => !!p.signed_url)
+                      .map((p) => ({
+                        id: `chantier-${p.id}`,
+                        url: p.signed_url as string,
+                        caption: p.label ?? p.caption ?? null,
+                        date: p.taken_at ?? p.created_at,
+                      }))}
+                    onOpen={openLightbox}
+                  />
+                </section>
+              )}
               {(dossier?.photos.length ?? 0) > 0 && (
                 <section>
                   <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Constat initial</p>
