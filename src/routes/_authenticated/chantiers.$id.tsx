@@ -1295,42 +1295,11 @@ function ChantierDetailPage() {
               </label>
             </div>
           )}
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={docsSearch} onChange={(e) => setDocsSearch(e.target.value)} placeholder="Rechercher…" className="h-8 pl-7 text-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={docsCatFilter} onValueChange={(v) => setDocsCatFilter(v as typeof docsCatFilter)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes catégories</SelectItem>
-                  {DOC_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={docsSort} onValueChange={(v) => setDocsSort(v as typeof docsSort)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date_desc">Plus récent</SelectItem>
-                  <SelectItem value="date_asc">Plus ancien</SelectItem>
-                  <SelectItem value="name">Nom (A→Z)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
           <div className="-mx-1 mt-1 flex-1 space-y-2 overflow-y-auto px-1">
             {(() => {
-              const q = docsSearch.trim().toLowerCase();
-              const filtered = d.documents.filter((doc) => {
-                if (docsCatFilter !== "all" && doc.category !== docsCatFilter) return false;
-                if (q && !doc.name.toLowerCase().includes(q)) return false;
-                return true;
-              });
-              const sorted = [...filtered].sort((a, b) => {
-                if (docsSort === "name") return a.name.localeCompare(b.name);
-                const t = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-                return docsSort === "date_asc" ? t : -t;
-              });
+              const sorted = [...d.documents].sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+              );
               if (sorted.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">Aucun document.</p>;
               return sorted.map((doc) => {
                 const ft = (doc as { file_type?: string | null }).file_type ?? "";
