@@ -63,9 +63,11 @@ export function DossierTab({
   companyId, chantierId, detail, onReload,
 }: { companyId: string; chantierId: string; detail: Detail; onReload?: () => void }) {
   const fetchDossier = useServerFn(getChantierDossier);
+  const fetchChantierPhotos = useServerFn(listChantierPhotos);
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
   const exportExpertiseFn = useServerFn(exportReserveLiftExpertise);
   const [dossier, setDossier] = useState<Dossier | null>(null);
+  const [chantierPhotos, setChantierPhotos] = useState<ChantierPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyLiftId, setBusyLiftId] = useState<string | null>(null);
 
