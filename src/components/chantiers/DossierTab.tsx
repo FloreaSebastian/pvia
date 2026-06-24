@@ -27,6 +27,7 @@ import { deriveDisplayStatus, STATUS_LABELS, STATUS_TONES } from "@/lib/reserve-
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { getChantierDossier } from "@/lib/chantier-dossier.functions";
+import { listChantierPhotos } from "@/lib/chantier-photos.functions";
 import type { getChantierDetail } from "@/lib/chantier-detail.functions";
 import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
 import { ReserveLiftWorkflowDialog } from "@/components/pv/ReserveLiftWorkflowDialog";
@@ -40,6 +41,8 @@ import { getReserveCounters } from "@/lib/reserve-counters";
 
 type Detail = Awaited<ReturnType<typeof getChantierDetail>>;
 type Dossier = Awaited<ReturnType<typeof getChantierDossier>>;
+type ChantierPhotosResult = Awaited<ReturnType<typeof listChantierPhotos>>;
+type ChantierPhoto = ChantierPhotosResult["photos"][number];
 
 function fmt(d: string | null | undefined) {
   if (!d) return "—";
