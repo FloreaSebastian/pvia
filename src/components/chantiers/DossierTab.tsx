@@ -273,15 +273,15 @@ export function DossierTab({
   return (
     <>
       <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
-        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <TabsTrigger value="resume" className="shrink-0">Résumé</TabsTrigger>
-          <TabsTrigger value="pv" className="shrink-0">PV ({detail.pvs.length})</TabsTrigger>
-          <TabsTrigger value="reserves" className="shrink-0">Réserves ({reserveCounts.total})</TabsTrigger>
-          <TabsTrigger value="levees" className="shrink-0">Levées ({dossier?.liftReports.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="photos" className="shrink-0">Photos ({allLightboxPhotos.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="shrink-0">Docs ({detail.documents.length})</TabsTrigger>
-          <TabsTrigger value="emails" className="shrink-0">Emails ({dossier?.emails.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="historique" className="shrink-0">Historique</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
+          <TabsTrigger value="resume" className="text-[11px] sm:text-xs">Résumé</TabsTrigger>
+          <TabsTrigger value="pv" className="text-[11px] sm:text-xs">PV ({detail.pvs.length})</TabsTrigger>
+          <TabsTrigger value="reserves" className="text-[11px] sm:text-xs">Rés. ({reserveCounts.total})</TabsTrigger>
+          <TabsTrigger value="levees" className="text-[11px] sm:text-xs">Lev. ({dossier?.liftReports.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="photos" className="text-[11px] sm:text-xs">Photos ({allLightboxPhotos.length})</TabsTrigger>
+          <TabsTrigger value="documents" className="text-[11px] sm:text-xs">Docs ({detail.documents.length})</TabsTrigger>
+          <TabsTrigger value="emails" className="text-[11px] sm:text-xs">Emails ({dossier?.emails.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="historique" className="text-[11px] sm:text-xs">Hist.</TabsTrigger>
         </TabsList>
 
         {/* Résumé — compact 2 cols mobile */}
