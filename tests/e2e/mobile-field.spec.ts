@@ -4,9 +4,8 @@ import { getCreds, login } from "./helpers/auth";
 // Test ciblé sur le mode terrain mobile. Ne s'exécute QUE dans le projet "mobile"
 // (émulation Pixel 7 configurée dans playwright.config.ts).
 test.describe("Mode terrain — Mobile", () => {
-  test.skip(({ }, testInfo) => testInfo.project.name !== "mobile", "Réservé au projet mobile");
-
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "Réservé au projet mobile");
     test.skip(!getCreds("directeur"), "E2E_DIRECTEUR_* manquants");
     await login(page, "directeur");
   });
