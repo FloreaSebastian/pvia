@@ -1026,6 +1026,9 @@ function ChantierDetailPage() {
         <TabsContent value="dossier" className="mt-3 md:mt-4">
           {activeCompanyId && <DossierTab companyId={activeCompanyId} chantierId={id} detail={d} onReload={reload} />}
         </TabsContent>
+        <TabsContent value="photos" className="mt-3 md:mt-4">
+          {activeCompanyId && <ChantierPhotosTab companyId={activeCompanyId} chantierId={id} canWrite={canWrite && !isLocked} />}
+        </TabsContent>
       </Tabs>
 
 
