@@ -518,20 +518,6 @@ function ChantierDetailPage() {
     setTabValue("dossier");
   };
 
-  // Share helpers
-  function share() {
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    const title = ch.name;
-    const text = `Chantier ${ch.name}${ch.address ? " — " + ch.address : ""}`;
-    const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (d: ShareData) => Promise<void> }) : null;
-    if (nav?.share) { nav.share({ title, text, url }).catch(() => { /* noop */ }); return; }
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(() => toast.success("Lien copié")).catch(() => toast.error("Copie impossible"));
-    }
-  }
-  const gpsHref = ch.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ch.address)}` : null;
-  const tel = ch.client?.phone ?? null;
-  const email = ch.client?.email ?? null;
 
   return (
     <div className="space-y-4 md:space-y-6">
