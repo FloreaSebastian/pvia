@@ -400,22 +400,15 @@ function ChantierDetailPage() {
           <ArrowLeft className="h-4 w-4" /> Retour
         </button>
         <div className="mt-2 min-w-0">
-          <h1 className="truncate text-xl font-bold leading-tight">{ch.name}</h1>
-          {surface != null && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{surface} m²</p>
-          )}
+          <h1 className="truncate text-xl font-bold leading-tight">
+            {ch.name}{surface != null && <span className="ml-1 text-sm font-normal text-muted-foreground">{surface}m²</span>}
+          </h1>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <StatusPill tone={statusTone} size="sm" dot>{statusLabel}</StatusPill>
           {ch.type && <StatusPill tone="neutral" size="sm">🏗️ {ch.type}</StatusPill>}
           {isLocked && <StatusPill tone="neutral" size="sm">🔒</StatusPill>}
         </div>
-        {ch.address && (
-          <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 break-words">{ch.address}</span>
-          </p>
-        )}
         {/* Quick actions 3 cols */}
         <div className="mt-3 grid grid-cols-3 gap-2">
           <Button asChild variant="outline" size="sm" className="h-11 flex-col gap-0.5 px-1 text-[11px]">
