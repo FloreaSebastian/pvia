@@ -223,22 +223,27 @@ function ChantiersPage() {
   }, [items, query, statusFilter, clientName]);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Chantiers"
-        description="Tous vos chantiers en un coup d'œil."
-        contained={false}
-        className="border-0 bg-transparent px-0 py-0"
-        actions={
-          <div className="flex items-center gap-2">
+    <div className="space-y-3 overflow-x-hidden">
+      {/* Compact header */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <header className="flex items-center justify-between gap-3 pt-1">
+          <div className="min-w-0">
+            <h1 className="font-display text-xl font-bold tracking-tight sm:text-2xl">Chantiers</h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">
+              {items.length} chantier{items.length > 1 ? "s" : ""} au total
+            </p>
+          </div>
+          {canWrite && (
+            <DialogTrigger asChild>
+              <Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
+                <Plus className="h-4 w-4" />
+                <span className="hidden xs:inline sm:inline">Nouveau</span>
+              </Button>
+            </DialogTrigger>
+          )}
+        </header>
 
-            {canWrite ? (
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={openNew} className="shadow-brand">
-                    <Plus className="h-4 w-4" /> Nouveau chantier
-                  </Button>
-                </DialogTrigger>
+        {canWrite && (
                 <DialogContent className="max-w-lg">
                   <DialogHeader><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
                   <form onSubmit={save} className="space-y-3">
@@ -317,11 +322,8 @@ function ChantiersPage() {
                     <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
                   </form>
                 </DialogContent>
-              </Dialog>
-            ) : null}
-          </div>
-        }
-      />
+        )}
+      </Dialog>
 
       {/* Search bar with embedded view toggle */}
       <div className="relative">
@@ -329,7 +331,7 @@ function ChantiersPage() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un chantier…"
+          placeholder="Rechercher…"
           className="h-11 pl-9 pr-24"
         />
         <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
@@ -370,13 +372,13 @@ function ChantiersPage() {
         </div>
       </div>
 
-      {/* Compact KPIs — horizontal scroll on mobile */}
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:grid sm:grid-cols-4 sm:gap-3">
+      {/* Compact KPIs — 2-col grid on mobile, 4-col on sm+, no horizontal scroll */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {[
-          { key: "actifs", emoji: "🏗️", label: "Actifs", value: dashboard.actifs, filter: "en_cours" as FilterValue, tone: "border-warning/40 bg-warning/5" },
-          { key: "receptionne", emoji: "🏁", label: "Réceptionnés", value: dashboard.receptionne, filter: "receptionne" as FilterValue, tone: "border-info/40 bg-info/5" },
-          { key: "termine", emoji: "✅", label: "Terminés", value: dashboard.termine, filter: "termine" as FilterValue, tone: "border-success/40 bg-success/5" },
-          { key: "retard", emoji: "⚠️", label: "Retard", value: dashboard.enRetard, filter: "retard" as FilterValue, tone: "border-destructive/40 bg-destructive/5" },
+          { key: "actifs", label: "Actifs", value: dashboard.actifs, filter: "en_cours" as FilterValue, tone: "border-warning/40 bg-warning/5" },
+          { key: "termine", label: "Terminés", value: dashboard.termine, filter: "termine" as FilterValue, tone: "border-success/40 bg-success/5" },
+          { key: "receptionne", label: "Réceptionnés", value: dashboard.receptionne, filter: "receptionne" as FilterValue, tone: "border-info/40 bg-info/5" },
+          { key: "retard", label: "Retard", value: dashboard.enRetard, filter: "retard" as FilterValue, tone: "border-destructive/40 bg-destructive/5" },
         ].map((s) => {
           const active = statusFilter === s.filter;
           return (
@@ -385,74 +387,87 @@ function ChantiersPage() {
               type="button"
               onClick={() => setStatusFilter(s.filter)}
               className={cn(
-                "group inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition hover:border-primary/40 sm:flex sm:flex-col sm:items-start sm:gap-1 sm:px-3 sm:py-3",
+                "flex min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition hover:border-primary/40",
                 s.tone,
                 active && "border-primary ring-1 ring-primary/40"
               )}
             >
-              <span className="text-base leading-none sm:hidden">{s.emoji}</span>
-              <span className="text-lg font-semibold tabular-nums leading-none">{s.value}</span>
-              <span className="text-[11px] text-muted-foreground sm:text-xs">{s.label}</span>
+              <span className="truncate text-[11px] font-medium text-muted-foreground sm:text-xs">{s.label}</span>
+              <span className="shrink-0 text-base font-semibold tabular-nums leading-none">{s.value}</span>
             </button>
           );
         })}
       </div>
 
-      {/* "Plus de filtres" — secondary statuses only (KPIs above already act as primary filters) */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Secondary filters + results count */}
+      <div className="flex items-center gap-2">
+        <Sheet open={showMoreFilters} onOpenChange={setShowMoreFilters}>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                statusFilter !== "all" && !["en_cours","termine","receptionne","retard"].includes(statusFilter)
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-dashed border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              )}
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+              {statusFilter !== "all" && !["en_cours","termine","receptionne","retard"].includes(statusFilter)
+                ? (STATUSES.find((s) => s.value === statusFilter)?.label ?? "Filtre")
+                : "Plus de filtres"}
+            </button>
+          </SheetTrigger>
           {statusFilter !== "all" && (
             <button
               type="button"
               onClick={() => setStatusFilter("all")}
               className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
             >
-              <X className="h-3 w-3" /> Tous ({counts.all ?? 0})
+              <X className="h-3 w-3" /> Effacer
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setShowMoreFilters((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
-          >
-            Plus de filtres
-            <ChevronDown className={cn("h-3 w-3 transition-transform", showMoreFilters && "rotate-180")} />
-          </button>
           <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
             {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
           </span>
-        </div>
-        {showMoreFilters && (
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              { value: "preparation" as FilterValue, label: "Préparation" },
-              { value: "planifie" as FilterValue, label: "Planifié" },
-              { value: "en_attente" as FilterValue, label: "En attente" },
-              { value: "archive" as FilterValue, label: "Archivé" },
-            ].map((f) => {
-              const active = statusFilter === f.value;
-              return (
-                <button
-                  key={f.value}
-                  type="button"
-                  onClick={() => setStatusFilter(f.value)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground shadow-brand"
-                      : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  )}
-                >
-                  {f.label}
-                  <span className={cn("rounded-full px-1.5 text-[10px] tabular-nums", active ? "bg-primary-foreground/20" : "bg-muted")}>
-                    {counts[f.value] ?? 0}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+          <SheetContent side="bottom" className="rounded-t-2xl">
+            <SheetHeader>
+              <SheetTitle>Filtrer par statut</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {[
+                { value: "all" as FilterValue, label: "Tous" },
+                { value: "preparation" as FilterValue, label: "Préparation" },
+                { value: "planifie" as FilterValue, label: "Planifié" },
+                { value: "en_attente" as FilterValue, label: "En attente" },
+                { value: "archive" as FilterValue, label: "Archivé" },
+              ].map((f) => {
+                const active = statusFilter === f.value;
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => { setStatusFilter(f.value); setShowMoreFilters(false); }}
+                    className={cn(
+                      "flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-foreground hover:border-primary/40"
+                    )}
+                  >
+                    <span>{f.label}</span>
+                    <span className={cn("rounded-full px-1.5 text-[10px] tabular-nums", active ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground")}>
+                      {counts[f.value] ?? 0}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
+
+
 
 
 
