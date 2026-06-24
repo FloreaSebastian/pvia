@@ -383,292 +383,478 @@ function ChantierDetailPage() {
     : chClosureOrigin === "manual" ? "Clôture manuelle"
     : null;
 
+  const reservesCount = ((d as { reserves?: unknown[] }).reserves ?? []).length;
+  const pvCount = d.pvs.length;
+  const eventsCount = userEvents.length;
+  const docsCount = d.documents.length;
+  const surface = (ch as { surface_m2?: number | null }).surface_m2 ?? null;
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={ch.name}
-        description={ch.type ?? "Chantier"}
-        contained={false}
-        className="border-0 bg-transparent px-0 py-0"
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/chantiers" })}>
-              <ArrowLeft className="h-4 w-4" /> Retour
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /> Calendrier</Link>
-            </Button>
-            {canWrite && !isLocked && (
-              <Button variant="outline" size="sm" onClick={() => runAutoPlanning(false)} disabled={autoPlanLoading}>
-                <Sparkles className="h-4 w-4" /> {autoPlanLoading ? "Création…" : "Planning auto"}
-              </Button>
-            )}
-            {isLocked && isAdmin && (
-              <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopenLoading}>
-                {reopenLoading ? "Réouverture…" : "Réouvrir le chantier"}
-              </Button>
-            )}
-            {canWrite && !isLocked && (
-              <Button onClick={openNewEvt} className="shadow-brand">
-                <Plus className="h-4 w-4" /> Nouvel événement
-              </Button>
-            )}
-          </div>
-        }
-      />
-
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList>
-          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="dossier">Dossier chantier</TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview" className="mt-4 space-y-6">
-      {/* Résumé */}
-      <Card className="grid gap-6 p-6 md:grid-cols-3">
-        <div className="space-y-3 md:col-span-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {chColor && <span aria-hidden className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: chColor }} title="Couleur du chantier" />}
-            <StatusPill tone={statusTone} dot>{statusLabel}</StatusPill>
-            {ch.type && <StatusPill tone="neutral">{ch.type}</StatusPill>}
-            {isLocked && <StatusPill tone="neutral">🔒 Verrouillé</StatusPill>}
-          </div>
-          {(chReceivedAt || chClosedAt || closureOriginLabel) && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              {chReceivedAt && <span>Réception : <strong className="text-foreground">{fmtDateTime(chReceivedAt)}</strong></span>}
-              {chClosedAt && <span>Clôture : <strong className="text-foreground">{fmtDateTime(chClosedAt)}</strong></span>}
-              {closureOriginLabel && <span>Origine : <strong className="text-foreground">{closureOriginLabel}</strong></span>}
-            </div>
-          )}
-          {ch.address && (
-            <p className="flex items-start gap-2 text-sm text-muted-foreground">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0" /> {ch.address}
-            </p>
-          )}
-          {ch.client && (
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="inline-flex items-center gap-1 text-muted-foreground"><User className="h-3.5 w-3.5" /> {ch.client.name}</span>
-              {ch.client.email && <a href={`mailto:${ch.client.email}`} className="inline-flex items-center gap-1 text-primary hover:underline"><Mail className="h-3.5 w-3.5" /> {ch.client.email}</a>}
-              {ch.client.phone && <a href={`tel:${ch.client.phone}`} className="inline-flex items-center gap-1 text-primary hover:underline"><Phone className="h-3.5 w-3.5" /> {ch.client.phone}</a>}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-4 text-sm">
-            <span><span className="text-muted-foreground">Début : </span><strong>{fmtDate(ch.start_date) ?? "—"}</strong></span>
-            <span><span className="text-muted-foreground">Fin prévue : </span><strong>{fmtDate(ch.end_date) ?? "—"}</strong></span>
-          </div>
-          {ch.description && <p className="text-sm text-muted-foreground">{ch.description}</p>}
-        </div>
-        <div className="space-y-4">
-          <div>
-            <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Avancement chantier</span><span className="tabular-nums">{chProgress}%</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, Math.min(100, chProgress))}%`, backgroundColor: chColor || "hsl(var(--primary))" }} />
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">Événements terminés : {stats.done} / {stats.total} ({stats.progress}%)</p>
-            <div className="mt-2"><Progress value={stats.progress} /></div>
-          </div>
-          {stats.upcoming && (
-            <div className="rounded-lg border border-border bg-card p-3 text-xs">
-              <p className="font-semibold text-primary">Prochain</p>
-              <p className="mt-1">{stats.upcoming.title}</p>
-              <p className="text-muted-foreground">{fmtDateTime(stats.upcoming.start_at)}</p>
-            </div>
-          )}
-          {stats.last && (
-            <div className="rounded-lg border border-border bg-card p-3 text-xs">
-              <p className="font-semibold">Dernier</p>
-              <p className="mt-1">{stats.last.title}</p>
-              <p className="text-muted-foreground">{fmtDateTime(stats.last.start_at)}</p>
-            </div>
+    <div className="space-y-4 md:space-y-6">
+      {/* ====== MOBILE HEADER ====== */}
+      <div className="md:hidden">
+        <button
+          onClick={() => navigate({ to: "/chantiers" })}
+          className="-ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> Retour
+        </button>
+        <div className="mt-2 min-w-0">
+          <h1 className="truncate text-xl font-bold leading-tight">{ch.name}</h1>
+          {surface != null && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{surface} m²</p>
           )}
         </div>
-      </Card>
-
-      {/* Grid: Timeline + side (notes, docs, history) */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Timeline</h2>
-            {canWrite && <Button size="sm" variant="outline" onClick={openNewEvt}><Plus className="h-3.5 w-3.5" /> Ajouter</Button>}
-          </div>
-          {userEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun événement encore. Crée la première étape du chantier.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <StatusPill tone={statusTone} size="sm" dot>{statusLabel}</StatusPill>
+          {ch.type && <StatusPill tone="neutral" size="sm">🏗️ {ch.type}</StatusPill>}
+          {isLocked && <StatusPill tone="neutral" size="sm">🔒</StatusPill>}
+        </div>
+        {ch.address && (
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 break-words">{ch.address}</span>
+          </p>
+        )}
+        {/* Quick actions 3 cols */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Button asChild variant="outline" size="sm" className="h-11 flex-col gap-0.5 px-1 text-[11px]">
+            <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /><span>Calendrier</span></Link>
+          </Button>
+          {canWrite && !isLocked ? (
+            <Button variant="default" size="sm" className="h-11 flex-col gap-0.5 px-1 text-[11px]" onClick={openNewEvt}>
+              <Plus className="h-4 w-4" /><span>Événement</span>
+            </Button>
           ) : (
-            <ol className="relative space-y-4 border-l border-border pl-5">
-              {userEvents.map((e) => (
-                <li key={e.id} className="relative">
-                  <span className="absolute -left-[27px] grid h-5 w-5 place-items-center rounded-full border border-border bg-card">
-                    {e.status === "termine" ? <CheckCircle2 className="h-3 w-3 text-success" /> :
-                     e.status === "annule" ? <AlertCircle className="h-3 w-3 text-destructive" /> :
-                     <Clock className="h-3 w-3 text-primary" />}
-                  </span>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium leading-tight">{e.title}</p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <StatusPill tone="neutral">{evtLabel(e.event_type)}</StatusPill>
-                        <span>{fmtDateTime(e.start_at)}</span>
-                        {e.location && <span>· {e.location}</span>}
-                        {(e as { assigned_to?: string | null }).assigned_to && (
-                          <span className="inline-flex items-center gap-1">· <User className="h-3 w-3" /> {membersById.get((e as { assigned_to: string }).assigned_to)?.name ?? "—"}</span>
-                        )}
-                        {(e as { reminder_at?: string | null }).reminder_at && (
-                          <span className="inline-flex items-center gap-1">· <Clock className="h-3 w-3" /> Rappel {fmtDateTime((e as { reminder_at: string }).reminder_at)}</span>
-                        )}
-                      </p>
-                      {e.description && <p className="mt-1 text-sm text-muted-foreground">{e.description}</p>}
-                    </div>
-                    {canWrite && (
-                      <div className="flex shrink-0 gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => openEditEvt(e)} aria-label="Modifier"><FileText className="h-3.5 w-3.5" /></Button>
-                        {isAdmin && <Button size="icon" variant="ghost" onClick={() => removeEvt(e.id)} aria-label="Supprimer"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
-                      </div>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <Button variant="outline" size="sm" disabled className="h-11 flex-col gap-0.5 px-1 text-[11px]">
+              <Plus className="h-4 w-4" /><span>Événement</span>
+            </Button>
           )}
-        </Card>
-
-        <div className="space-y-6">
-          {/* Notes */}
-          <Card className="p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="inline-flex items-center gap-2 text-base font-semibold"><StickyNote className="h-4 w-4" /> Notes</h2>
-              {canWrite && (
-                <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
-                  <DialogTrigger asChild><Button size="sm" variant="outline"><Plus className="h-3.5 w-3.5" /></Button></DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Nouvelle note</DialogTitle></DialogHeader>
-                    <form onSubmit={saveNote} className="space-y-3">
-                      <Textarea required placeholder="Votre note…" value={noteForm.note} onChange={(e) => setNoteForm({ ...noteForm, note: e.target.value })} />
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>Visibilité</Label>
-                          <Select value={noteForm.visibility} onValueChange={(v) => setNoteForm({ ...noteForm, visibility: v as "internal" | "client" })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="internal">Interne</SelectItem>
-                              <SelectItem value="client">Visible client</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Priorité</Label>
-                          <Select value={noteForm.priority} onValueChange={(v) => setNoteForm({ ...noteForm, priority: v as "low" | "normal" | "high" })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="low">Basse</SelectItem>
-                              <SelectItem value="normal">Normale</SelectItem>
-                              <SelectItem value="high">Haute</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Rappel (optionnel)</Label>
-                        <Input type="datetime-local" value={noteForm.reminder_at} onChange={(e) => setNoteForm({ ...noteForm, reminder_at: e.target.value })} />
-                      </div>
-                      <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-            {d.notes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucune note.</p>
-            ) : (
-              <ul className="space-y-3">
-                {d.notes.map((n) => (
-                  <li key={n.id} className="rounded-lg border border-border bg-card p-3">
-                    <div className="mb-1 flex items-center gap-2 text-xs">
-                      <StatusPill tone={n.priority === "high" ? "warning" : n.priority === "low" ? "neutral" : "info"}>{n.priority}</StatusPill>
-                      <StatusPill tone={n.visibility === "client" ? "success" : "neutral"}>{n.visibility === "client" ? "Client" : "Interne"}</StatusPill>
-                      <span className="ml-auto text-muted-foreground">{fmtDateTime(n.created_at)}</span>
-                    </div>
-                    <p className="whitespace-pre-wrap text-sm">{n.note}</p>
-                    {isAdmin && (
-                      <button onClick={() => removeNote(n.id)} className="mt-1 text-xs text-destructive hover:underline">Supprimer</button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          {/* Documents */}
-          <Card className="p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="inline-flex items-center gap-2 text-base font-semibold"><Paperclip className="h-4 w-4" /> Documents</h2>
-            </div>
-            {canWrite && (
-              <div className="mb-3 space-y-2">
-                <Select value={docCategory} onValueChange={(v) => setDocCategory(v as typeof docCategory)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{DOC_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
-                </Select>
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-3 text-sm text-muted-foreground hover:border-primary hover:text-foreground">
-                  <Upload className="h-4 w-4" /> {uploading ? "Envoi…" : "Ajouter un fichier"}
-                  <input type="file" className="hidden" disabled={uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFileUpload(f); e.target.value = ""; }} />
-                </label>
-              </div>
-            )}
-            {d.documents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun document.</p>
-            ) : (
-              <ul className="space-y-2">
-                {d.documents.map((doc) => (
-                  <li key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 text-sm">
-                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{doc.name}</p>
-                      <p className="text-xs text-muted-foreground">{DOC_CATEGORIES.find((c) => c.value === doc.category)?.label ?? doc.category}</p>
-                    </div>
-                    <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline"><ExternalLink className="h-4 w-4" /></a>
-                    {isAdmin && <button onClick={() => removeDoc(doc.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></button>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          {/* Activité — timeline unifiée (P2.6) */}
-          <Card className="p-5">
-            <h2 className="mb-3 inline-flex items-center gap-2 text-base font-semibold"><Building2 className="h-4 w-4" /> Activité</h2>
-            {unifiedTimeline.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucune activité.</p>
-            ) : (
-              <ol className="space-y-3">
-                {unifiedTimeline.slice(0, 50).map((it) => (
-                  <li key={it.id} className="flex items-start gap-2 text-xs">
-                    <span className={
-                      "mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full " +
-                      (it.tone === "success" ? "bg-success" :
-                       it.tone === "warning" ? "bg-warning" :
-                       it.tone === "danger" ? "bg-destructive" :
-                       it.tone === "info" ? "bg-primary" : "bg-muted-foreground")
-                    } />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-foreground">{it.title}</p>
-                      <p className="text-muted-foreground">
-                        {fmtDateTime(it.date)}
-                        {it.subtitle && <span> · {it.subtitle}</span>}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Card>
+          {canWrite && !isLocked ? (
+            <Button variant="outline" size="sm" className="h-11 flex-col gap-0.5 px-1 text-[11px]" onClick={() => runAutoPlanning(false)} disabled={autoPlanLoading}>
+              <Sparkles className="h-4 w-4" /><span>{autoPlanLoading ? "…" : "Planning"}</span>
+            </Button>
+          ) : isLocked && isAdmin ? (
+            <Button variant="outline" size="sm" className="h-11 flex-col gap-0.5 px-1 text-[11px]" onClick={handleReopen} disabled={reopenLoading}>
+              <Sparkles className="h-4 w-4" /><span>{reopenLoading ? "…" : "Réouvrir"}</span>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled className="h-11 flex-col gap-0.5 px-1 text-[11px]">
+              <Sparkles className="h-4 w-4" /><span>Planning</span>
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* ====== DESKTOP HEADER ====== */}
+      <div className="hidden md:block">
+        <PageHeader
+          title={ch.name}
+          description={ch.type ?? "Chantier"}
+          contained={false}
+          className="border-0 bg-transparent px-0 py-0"
+          actions={
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/chantiers" })}>
+                <ArrowLeft className="h-4 w-4" /> Retour
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /> Calendrier</Link>
+              </Button>
+              {canWrite && !isLocked && (
+                <Button variant="outline" size="sm" onClick={() => runAutoPlanning(false)} disabled={autoPlanLoading}>
+                  <Sparkles className="h-4 w-4" /> {autoPlanLoading ? "Création…" : "Planning auto"}
+                </Button>
+              )}
+              {isLocked && isAdmin && (
+                <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopenLoading}>
+                  {reopenLoading ? "Réouverture…" : "Réouvrir le chantier"}
+                </Button>
+              )}
+              {canWrite && !isLocked && (
+                <Button onClick={openNewEvt} className="shadow-brand">
+                  <Plus className="h-4 w-4" /> Nouvel événement
+                </Button>
+              )}
+            </div>
+          }
+        />
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="sticky top-0 z-20 grid w-full grid-cols-2 bg-muted/95 backdrop-blur md:static md:inline-flex md:w-auto md:bg-muted">
+          <TabsTrigger value="overview">Vue</TabsTrigger>
+          <TabsTrigger value="dossier">Dossier</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-3 md:mt-4">
+          {/* ====== MOBILE OVERVIEW ====== */}
+          <div className="space-y-3 md:hidden">
+            {/* Informations */}
+            <Card className="p-3 text-sm">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations</h3>
+              <div className="space-y-2">
+                {ch.address && (
+                  <p className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><span className="min-w-0 break-words">{ch.address}</span></p>
+                )}
+                {ch.client && (
+                  <>
+                    <p className="flex items-center gap-2"><User className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="truncate">{ch.client.name}</span></p>
+                    {ch.client.email && (
+                      <a href={`mailto:${ch.client.email}`} className="flex items-center gap-2 text-primary"><Mail className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.email}</span></a>
+                    )}
+                    {ch.client.phone && (
+                      <a href={`tel:${ch.client.phone}`} className="flex items-center gap-2 text-primary"><Phone className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.phone}</span></a>
+                    )}
+                  </>
+                )}
+              </div>
+            </Card>
+
+            {/* Planning — 2 cols */}
+            <div className="grid grid-cols-2 gap-2">
+              <Card className="p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Début</p>
+                <p className="mt-1 text-sm font-semibold">{fmtDate(ch.start_date) ?? "—"}</p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Fin prévue</p>
+                <p className="mt-1 text-sm font-semibold">{fmtDate(ch.end_date) ?? "—"}</p>
+              </Card>
+            </div>
+
+            {/* KPI 2x2 */}
+            <div className="grid grid-cols-2 gap-2">
+              <Card className="p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Avancement</p>
+                <p className="mt-1 text-xl font-bold tabular-nums">{chProgress}%</p>
+              </Card>
+              <button type="button" onClick={() => navigate({ to: "/reserves" })} className="text-left">
+                <Card className="p-3 transition active:scale-[0.98]">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réserves</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{reservesCount}</p>
+                </Card>
+              </button>
+              <button type="button" onClick={() => navigate({ to: "/pv" })} className="text-left">
+                <Card className="p-3 transition active:scale-[0.98]">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">PV</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{pvCount}</p>
+                </Card>
+              </button>
+              <Card className="p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Événements</p>
+                <p className="mt-1 text-xl font-bold tabular-nums">{eventsCount}</p>
+              </Card>
+            </div>
+
+            {/* Avancement bar */}
+            <Card className="p-3">
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span className="font-medium">Avancement</span>
+                <span className="tabular-nums font-semibold">{chProgress}%</span>
+              </div>
+              <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.max(0, Math.min(100, chProgress))}%`, backgroundColor: chColor || "hsl(var(--primary))" }}
+                />
+              </div>
+              <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
+                <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+              </div>
+            </Card>
+
+            {/* Timeline (mobile) */}
+            <Card className="p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><CalendarIcon className="h-4 w-4" /> Timeline</h3>
+                {canWrite && userEvents.length > 0 && (
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={openNewEvt}><Plus className="h-3.5 w-3.5" /></Button>
+                )}
+              </div>
+              {userEvents.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-4 text-center">
+                  <p className="text-sm text-muted-foreground">📅 Aucun événement</p>
+                  <p className="text-xs text-muted-foreground">Créez votre premier événement</p>
+                  {canWrite && (
+                    <Button size="sm" onClick={openNewEvt} className="mt-1"><Plus className="h-3.5 w-3.5" /> Ajouter un événement</Button>
+                  )}
+                </div>
+              ) : (
+                <ol className="space-y-2">
+                  {userEvents.slice(0, 5).map((e) => (
+                    <li key={e.id} className="flex items-start gap-2 rounded-lg border border-border bg-card/60 p-2">
+                      <span className="mt-0.5">
+                        {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
+                         e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
+                         <Clock className="h-4 w-4 text-primary" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{e.title}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Card>
+
+            {/* Notes (mobile) */}
+            <Card className="p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><StickyNote className="h-4 w-4" /> Notes</h3>
+                {canWrite && d.notes.length > 0 && (
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setNoteOpen(true)}><Plus className="h-3.5 w-3.5" /></Button>
+                )}
+              </div>
+              {d.notes.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-4 text-center">
+                  <p className="text-sm text-muted-foreground">📝 Aucune note</p>
+                  <p className="text-xs text-muted-foreground">Ajoutez une note chantier</p>
+                  {canWrite && (
+                    <Button size="sm" onClick={() => setNoteOpen(true)} className="mt-1"><Plus className="h-3.5 w-3.5" /> Ajouter une note</Button>
+                  )}
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {d.notes.slice(0, 3).map((n) => (
+                    <li key={n.id} className="rounded-lg border border-border bg-card/60 p-2 text-sm">
+                      <p className="whitespace-pre-wrap break-words">{n.note}</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{fmtDateTime(n.created_at)}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            {/* Documents (mobile) — compact tile */}
+            <Card className="p-3">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-muted">
+                  <Paperclip className="h-5 w-5 text-muted-foreground" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">Documents</p>
+                  <p className="text-xs text-muted-foreground">{docsCount} fichier{docsCount > 1 ? "s" : ""}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* ====== DESKTOP OVERVIEW ====== */}
+          <div className="hidden space-y-6 md:block">
+            {/* Résumé */}
+            <Card className="grid gap-6 p-6 md:grid-cols-3">
+              <div className="space-y-3 md:col-span-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {chColor && <span aria-hidden className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: chColor }} title="Couleur du chantier" />}
+                  <StatusPill tone={statusTone} dot>{statusLabel}</StatusPill>
+                  {ch.type && <StatusPill tone="neutral">{ch.type}</StatusPill>}
+                  {isLocked && <StatusPill tone="neutral">🔒 Verrouillé</StatusPill>}
+                </div>
+                {(chReceivedAt || chClosedAt || closureOriginLabel) && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    {chReceivedAt && <span>Réception : <strong className="text-foreground">{fmtDateTime(chReceivedAt)}</strong></span>}
+                    {chClosedAt && <span>Clôture : <strong className="text-foreground">{fmtDateTime(chClosedAt)}</strong></span>}
+                    {closureOriginLabel && <span>Origine : <strong className="text-foreground">{closureOriginLabel}</strong></span>}
+                  </div>
+                )}
+                {ch.address && (
+                  <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0" /> {ch.address}
+                  </p>
+                )}
+                {ch.client && (
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="inline-flex items-center gap-1 text-muted-foreground"><User className="h-3.5 w-3.5" /> {ch.client.name}</span>
+                    {ch.client.email && <a href={`mailto:${ch.client.email}`} className="inline-flex items-center gap-1 text-primary hover:underline"><Mail className="h-3.5 w-3.5" /> {ch.client.email}</a>}
+                    {ch.client.phone && <a href={`tel:${ch.client.phone}`} className="inline-flex items-center gap-1 text-primary hover:underline"><Phone className="h-3.5 w-3.5" /> {ch.client.phone}</a>}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <span><span className="text-muted-foreground">Début : </span><strong>{fmtDate(ch.start_date) ?? "—"}</strong></span>
+                  <span><span className="text-muted-foreground">Fin prévue : </span><strong>{fmtDate(ch.end_date) ?? "—"}</strong></span>
+                </div>
+                {ch.description && <p className="text-sm text-muted-foreground">{ch.description}</p>}
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Avancement chantier</span><span className="tabular-nums">{chProgress}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(0, Math.min(100, chProgress))}%`, backgroundColor: chColor || "hsl(var(--primary))" }} />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">Événements terminés : {stats.done} / {stats.total} ({stats.progress}%)</p>
+                  <div className="mt-2"><Progress value={stats.progress} /></div>
+                </div>
+                {stats.upcoming && (
+                  <div className="rounded-lg border border-border bg-card p-3 text-xs">
+                    <p className="font-semibold text-primary">Prochain</p>
+                    <p className="mt-1">{stats.upcoming.title}</p>
+                    <p className="text-muted-foreground">{fmtDateTime(stats.upcoming.start_at)}</p>
+                  </div>
+                )}
+                {stats.last && (
+                  <div className="rounded-lg border border-border bg-card p-3 text-xs">
+                    <p className="font-semibold">Dernier</p>
+                    <p className="mt-1">{stats.last.title}</p>
+                    <p className="text-muted-foreground">{fmtDateTime(stats.last.start_at)}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Grid: Timeline + side (notes, docs, history) */}
+            <div className="grid gap-6 lg:grid-cols-3">
+              <Card className="p-5 lg:col-span-2">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-base font-semibold">Timeline</h2>
+                  {canWrite && <Button size="sm" variant="outline" onClick={openNewEvt}><Plus className="h-3.5 w-3.5" /> Ajouter</Button>}
+                </div>
+                {userEvents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucun événement encore. Crée la première étape du chantier.</p>
+                ) : (
+                  <ol className="relative space-y-4 border-l border-border pl-5">
+                    {userEvents.map((e) => (
+                      <li key={e.id} className="relative">
+                        <span className="absolute -left-[27px] grid h-5 w-5 place-items-center rounded-full border border-border bg-card">
+                          {e.status === "termine" ? <CheckCircle2 className="h-3 w-3 text-success" /> :
+                           e.status === "annule" ? <AlertCircle className="h-3 w-3 text-destructive" /> :
+                           <Clock className="h-3 w-3 text-primary" />}
+                        </span>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium leading-tight">{e.title}</p>
+                            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <StatusPill tone="neutral">{evtLabel(e.event_type)}</StatusPill>
+                              <span>{fmtDateTime(e.start_at)}</span>
+                              {e.location && <span>· {e.location}</span>}
+                              {(e as { assigned_to?: string | null }).assigned_to && (
+                                <span className="inline-flex items-center gap-1">· <User className="h-3 w-3" /> {membersById.get((e as { assigned_to: string }).assigned_to)?.name ?? "—"}</span>
+                              )}
+                              {(e as { reminder_at?: string | null }).reminder_at && (
+                                <span className="inline-flex items-center gap-1">· <Clock className="h-3 w-3" /> Rappel {fmtDateTime((e as { reminder_at: string }).reminder_at)}</span>
+                              )}
+                            </p>
+                            {e.description && <p className="mt-1 text-sm text-muted-foreground">{e.description}</p>}
+                          </div>
+                          {canWrite && (
+                            <div className="flex shrink-0 gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => openEditEvt(e)} aria-label="Modifier"><FileText className="h-3.5 w-3.5" /></Button>
+                              {isAdmin && <Button size="icon" variant="ghost" onClick={() => removeEvt(e.id)} aria-label="Supprimer"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </Card>
+
+              <div className="space-y-6">
+                {/* Notes */}
+                <Card className="p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="inline-flex items-center gap-2 text-base font-semibold"><StickyNote className="h-4 w-4" /> Notes</h2>
+                    {canWrite && (
+                      <Button size="sm" variant="outline" onClick={() => setNoteOpen(true)}><Plus className="h-3.5 w-3.5" /></Button>
+                    )}
+                  </div>
+                  {d.notes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Aucune note.</p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {d.notes.map((n) => (
+                        <li key={n.id} className="rounded-lg border border-border bg-card p-3">
+                          <div className="mb-1 flex items-center gap-2 text-xs">
+                            <StatusPill tone={n.priority === "high" ? "warning" : n.priority === "low" ? "neutral" : "info"}>{n.priority}</StatusPill>
+                            <StatusPill tone={n.visibility === "client" ? "success" : "neutral"}>{n.visibility === "client" ? "Client" : "Interne"}</StatusPill>
+                            <span className="ml-auto text-muted-foreground">{fmtDateTime(n.created_at)}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap text-sm">{n.note}</p>
+                          {isAdmin && (
+                            <button onClick={() => removeNote(n.id)} className="mt-1 text-xs text-destructive hover:underline">Supprimer</button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Card>
+
+                {/* Documents */}
+                <Card className="p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="inline-flex items-center gap-2 text-base font-semibold"><Paperclip className="h-4 w-4" /> Documents</h2>
+                  </div>
+                  {canWrite && (
+                    <div className="mb-3 space-y-2">
+                      <Select value={docCategory} onValueChange={(v) => setDocCategory(v as typeof docCategory)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{DOC_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-3 text-sm text-muted-foreground hover:border-primary hover:text-foreground">
+                        <Upload className="h-4 w-4" /> {uploading ? "Envoi…" : "Ajouter un fichier"}
+                        <input type="file" className="hidden" disabled={uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFileUpload(f); e.target.value = ""; }} />
+                      </label>
+                    </div>
+                  )}
+                  {d.documents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Aucun document.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {d.documents.map((doc) => (
+                        <li key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 text-sm">
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{doc.name}</p>
+                            <p className="text-xs text-muted-foreground">{DOC_CATEGORIES.find((c) => c.value === doc.category)?.label ?? doc.category}</p>
+                          </div>
+                          <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-primary hover:underline"><ExternalLink className="h-4 w-4" /></a>
+                          {isAdmin && <button onClick={() => removeDoc(doc.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></button>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Card>
+
+                {/* Activité — timeline unifiée (P2.6) */}
+                <Card className="p-5">
+                  <h2 className="mb-3 inline-flex items-center gap-2 text-base font-semibold"><Building2 className="h-4 w-4" /> Activité</h2>
+                  {unifiedTimeline.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Aucune activité.</p>
+                  ) : (
+                    <ol className="space-y-3">
+                      {unifiedTimeline.slice(0, 50).map((it) => (
+                        <li key={it.id} className="flex items-start gap-2 text-xs">
+                          <span className={
+                            "mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full " +
+                            (it.tone === "success" ? "bg-success" :
+                             it.tone === "warning" ? "bg-warning" :
+                             it.tone === "danger" ? "bg-destructive" :
+                             it.tone === "info" ? "bg-primary" : "bg-muted-foreground")
+                          } />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-foreground">{it.title}</p>
+                            <p className="text-muted-foreground">
+                              {fmtDateTime(it.date)}
+                              {it.subtitle && <span> · {it.subtitle}</span>}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </Card>
+              </div>
+            </div>
+          </div>
         </TabsContent>
-        <TabsContent value="dossier" className="mt-4">
+        <TabsContent value="dossier" className="mt-3 md:mt-4">
           {activeCompanyId && <DossierTab companyId={activeCompanyId} chantierId={id} detail={d} onReload={reload} />}
         </TabsContent>
       </Tabs>
+
 
       {/* Event dialog */}
       <Dialog open={evtOpen} onOpenChange={setEvtOpen}>
