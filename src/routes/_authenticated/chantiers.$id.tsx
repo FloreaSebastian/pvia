@@ -400,22 +400,15 @@ function ChantierDetailPage() {
           <ArrowLeft className="h-4 w-4" /> Retour
         </button>
         <div className="mt-2 min-w-0">
-          <h1 className="truncate text-xl font-bold leading-tight">{ch.name}</h1>
-          {surface != null && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{surface} m²</p>
-          )}
+          <h1 className="truncate text-xl font-bold leading-tight">
+            {ch.name}{surface != null && <span className="ml-1 text-sm font-normal text-muted-foreground">{surface}m²</span>}
+          </h1>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <StatusPill tone={statusTone} size="sm" dot>{statusLabel}</StatusPill>
           {ch.type && <StatusPill tone="neutral" size="sm">🏗️ {ch.type}</StatusPill>}
           {isLocked && <StatusPill tone="neutral" size="sm">🔒</StatusPill>}
         </div>
-        {ch.address && (
-          <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 break-words">{ch.address}</span>
-          </p>
-        )}
         {/* Quick actions 3 cols */}
         <div className="mt-3 grid grid-cols-3 gap-2">
           <Button asChild variant="outline" size="sm" className="h-11 flex-col gap-0.5 px-1 text-[11px]">
@@ -482,7 +475,7 @@ function ChantierDetailPage() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="sticky top-0 z-20 grid w-full grid-cols-2 bg-muted/95 backdrop-blur md:static md:inline-flex md:w-auto md:bg-muted">
+        <TabsList className="sticky top-0 z-30 grid w-full grid-cols-2 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
           <TabsTrigger value="overview">Vue</TabsTrigger>
           <TabsTrigger value="dossier">Dossier</TabsTrigger>
         </TabsList>
@@ -523,12 +516,8 @@ function ChantierDetailPage() {
               </Card>
             </div>
 
-            {/* KPI 2x2 */}
+            {/* KPI 2x2 — Réserves / PV / Événements / Documents */}
             <div className="grid grid-cols-2 gap-2">
-              <Card className="p-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Avancement</p>
-                <p className="mt-1 text-xl font-bold tabular-nums">{chProgress}%</p>
-              </Card>
               <button type="button" onClick={() => navigate({ to: "/reserves" })} className="text-left">
                 <Card className="p-3 transition active:scale-[0.98]">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réserves</p>
@@ -544,6 +533,10 @@ function ChantierDetailPage() {
               <Card className="p-3">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Événements</p>
                 <p className="mt-1 text-xl font-bold tabular-nums">{eventsCount}</p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Documents</p>
+                <p className="mt-1 text-xl font-bold tabular-nums">{docsCount}</p>
               </Card>
             </div>
 
@@ -581,41 +574,53 @@ function ChantierDetailPage() {
                   )}
                 </div>
               ) : (
-                <ol className="space-y-2">
-                  {userEvents.slice(0, 5).map((e) => (
-                    <li key={e.id} className="flex items-start gap-2 rounded-lg border border-border bg-card/60 p-2">
-                      <span className="mt-0.5">
-                        {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
-                         e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
-                         <Clock className="h-4 w-4 text-primary" />}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{e.title}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+                <>
+                  <ol className="space-y-2">
+                    {userEvents.slice(0, 3).map((e) => (
+                      <li key={e.id} className="flex items-start gap-2 rounded-lg border border-border bg-card/60 p-2">
+                        <span className="mt-0.5">
+                          {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
+                           e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
+                           <Clock className="h-4 w-4 text-primary" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{e.title}</p>
+                          <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                  {userEvents.length > 3 && (
+                    <Button asChild variant="ghost" size="sm" className="mt-2 h-8 w-full text-xs">
+                      <Link to="/chantiers/calendrier">Voir toute la timeline ({userEvents.length})</Link>
+                    </Button>
+                  )}
+                </>
               )}
             </Card>
 
-            {/* Notes (mobile) */}
-            <Card className="p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><StickyNote className="h-4 w-4" /> Notes</h3>
-                {canWrite && d.notes.length > 0 && (
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setNoteOpen(true)}><Plus className="h-3.5 w-3.5" /></Button>
+            {/* Notes (mobile) — compact */}
+            {d.notes.length === 0 ? (
+              <Card className="flex items-center gap-3 p-3">
+                <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">Notes</p>
+                  <p className="text-xs text-muted-foreground">Aucune note</p>
+                </div>
+                {canWrite && (
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setNoteOpen(true)} aria-label="Ajouter une note">
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 )}
-              </div>
-              {d.notes.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-4 text-center">
-                  <p className="text-sm text-muted-foreground">📝 Aucune note</p>
-                  <p className="text-xs text-muted-foreground">Ajoutez une note chantier</p>
+              </Card>
+            ) : (
+              <Card className="p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><StickyNote className="h-4 w-4" /> Notes</h3>
                   {canWrite && (
-                    <Button size="sm" onClick={() => setNoteOpen(true)} className="mt-1"><Plus className="h-3.5 w-3.5" /> Ajouter une note</Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setNoteOpen(true)}><Plus className="h-3.5 w-3.5" /></Button>
                   )}
                 </div>
-              ) : (
                 <ul className="space-y-2">
                   {d.notes.slice(0, 3).map((n) => (
                     <li key={n.id} className="rounded-lg border border-border bg-card/60 p-2 text-sm">
@@ -624,21 +629,27 @@ function ChantierDetailPage() {
                     </li>
                   ))}
                 </ul>
-              )}
-            </Card>
+              </Card>
+            )}
 
-            {/* Documents (mobile) — compact tile */}
-            <Card className="p-3">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-muted">
-                  <Paperclip className="h-5 w-5 text-muted-foreground" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">Documents</p>
-                  <p className="text-xs text-muted-foreground">{docsCount} fichier{docsCount > 1 ? "s" : ""}</p>
+            {/* Documents (mobile) — only if files */}
+            {docsCount > 0 && (
+              <Card className="p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><Paperclip className="h-4 w-4" /> Documents</h3>
+                  <span className="text-xs text-muted-foreground">{docsCount}</span>
                 </div>
-              </div>
-            </Card>
+                <ul className="space-y-1.5">
+                  {d.documents.slice(0, 5).map((doc) => (
+                    <li key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card/60 p-2 text-sm">
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <a href={doc.file_url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-primary">{doc.name}</a>
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
           </div>
 
           {/* ====== DESKTOP OVERVIEW ====== */}
