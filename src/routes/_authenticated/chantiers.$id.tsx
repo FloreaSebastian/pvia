@@ -260,6 +260,10 @@ function ChantierDetailPage() {
   // documents bottom-sheet
   const [docsOpen, setDocsOpen] = useState(false);
 
+  // tabs (controlled to allow KPI deep-link)
+  const [tabValue, setTabValue] = useState<"overview" | "dossier">("overview");
+
+
   // progress dialog
   const [progressOpen, setProgressOpen] = useState(false);
   const [progressValue, setProgressValue] = useState<number>(0);
