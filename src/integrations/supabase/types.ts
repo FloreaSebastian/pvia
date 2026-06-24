@@ -410,6 +410,90 @@ export type Database = {
           },
         ]
       }
+      chantier_photos: {
+        Row: {
+          accuracy: number | null
+          caption: string | null
+          chantier_id: string
+          company_id: string
+          created_at: string
+          device_info: Json | null
+          exif_metadata: Json | null
+          file_hash: string | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          label: string | null
+          latitude: number | null
+          longitude: number | null
+          photo_type: string
+          photo_url: string | null
+          storage_path: string
+          taken_at: string | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          accuracy?: number | null
+          caption?: string | null
+          chantier_id: string
+          company_id: string
+          created_at?: string
+          device_info?: Json | null
+          exif_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          label?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          photo_type: string
+          photo_url?: string | null
+          storage_path: string
+          taken_at?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          accuracy?: number | null
+          caption?: string | null
+          chantier_id?: string
+          company_id?: string
+          created_at?: string
+          device_info?: Json | null
+          exif_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          label?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          photo_type?: string
+          photo_url?: string | null
+          storage_path?: string
+          taken_at?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chantier_photos_chantier_id_fkey"
+            columns: ["chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chantier_photos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chantiers: {
         Row: {
           address: string | null
