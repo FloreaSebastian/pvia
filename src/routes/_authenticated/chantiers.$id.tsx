@@ -183,9 +183,12 @@ function ChantierDetailPage() {
     });
     setEvtOpen(true);
   }
+  const [savingEvt, setSavingEvt] = useState(false);
+  const [deletingEvtId, setDeletingEvtId] = useState<string | null>(null);
   async function saveEvt(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || savingEvt) return;
+    setSavingEvt(true);
     try {
       const payload = {
         title: evtForm.title, description: evtForm.description,
@@ -207,12 +210,15 @@ function ChantierDetailPage() {
       await reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Échec");
-    }
+    } finally { setSavingEvt(false); }
   }
   async function removeEvt(eid: string) {
-    if (!activeCompanyId || !confirm("Supprimer cet événement ?")) return;
+    if (!activeCompanyId || deletingEvtId) return;
+    if (!confirm("Supprimer cet événement ?")) return;
+    setDeletingEvtId(eid);
     try { await deleteEvtFn({ data: { companyId: activeCompanyId, id: eid } }); toast.success("Supprimé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setDeletingEvtId(null); }
   }
 
   // note dialog (create + edit)
