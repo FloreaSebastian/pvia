@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles, Pencil, Info, X, Copy, Pin, PinOff, Search, Share2, Navigation, Download } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles, Pencil, Info, Copy, Pin, PinOff, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -183,9 +183,12 @@ function ChantierDetailPage() {
     });
     setEvtOpen(true);
   }
+  const [savingEvt, setSavingEvt] = useState(false);
+  const [deletingEvtId, setDeletingEvtId] = useState<string | null>(null);
   async function saveEvt(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || savingEvt) return;
+    setSavingEvt(true);
     try {
       const payload = {
         title: evtForm.title, description: evtForm.description,
@@ -207,18 +210,23 @@ function ChantierDetailPage() {
       await reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Échec");
-    }
+    } finally { setSavingEvt(false); }
   }
   async function removeEvt(eid: string) {
-    if (!activeCompanyId || !confirm("Supprimer cet événement ?")) return;
+    if (!activeCompanyId || deletingEvtId) return;
+    if (!confirm("Supprimer cet événement ?")) return;
+    setDeletingEvtId(eid);
     try { await deleteEvtFn({ data: { companyId: activeCompanyId, id: eid } }); toast.success("Supprimé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setDeletingEvtId(null); }
   }
 
   // note dialog (create + edit)
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteEditing, setNoteEditing] = useState<string | null>(null);
   const [notesListOpen, setNotesListOpen] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const emptyNote = { note: "", visibility: "internal" as "internal" | "client", priority: "normal" as "low" | "normal" | "high", reminder_at: "" };
   const [noteForm, setNoteForm] = useState(emptyNote);
   function openNewNote() { setNoteEditing(null); setNoteForm(emptyNote); setNoteOpen(true); }
@@ -234,7 +242,8 @@ function ChantierDetailPage() {
   }
   async function saveNote(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || savingNote) return;
+    setSavingNote(true);
     try {
       const payload = {
         note: noteForm.note, visibility: noteForm.visibility, priority: noteForm.priority,
@@ -252,11 +261,15 @@ function ChantierDetailPage() {
       setNoteForm(emptyNote);
       await reload();
     } catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setSavingNote(false); }
   }
   async function removeNote(nid: string) {
-    if (!activeCompanyId || !confirm("Supprimer cette note ?")) return;
+    if (!activeCompanyId || deletingNoteId) return;
+    if (!confirm("Supprimer cette note ?")) return;
+    setDeletingNoteId(nid);
     try { await deleteNoteFn({ data: { companyId: activeCompanyId, id: nid } }); toast.success("Supprimé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setDeletingNoteId(null); }
   }
 
   // event detail dialog
@@ -272,26 +285,31 @@ function ChantierDetailPage() {
   // progress dialog
   const [progressOpen, setProgressOpen] = useState(false);
   const [progressValue, setProgressValue] = useState<number>(0);
-  async function saveProgress() {
-    if (!activeCompanyId) return;
+  const [savingProgress, setSavingProgress] = useState(false);
+  async function saveProgress(value?: number) {
+    if (!activeCompanyId || savingProgress) return;
+    setSavingProgress(true);
     try {
-      await updateProgressFn({ data: { companyId: activeCompanyId, id, progress_percent: progressValue } });
+      await updateProgressFn({ data: { companyId: activeCompanyId, id, progress_percent: value ?? progressValue } });
       toast.success("Avancement mis à jour");
       setProgressOpen(false);
       await reload();
     } catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setSavingProgress(false); }
   }
 
 
   // upload doc
   const [uploading, setUploading] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [docCategory, setDocCategory] = useState<typeof DOC_CATEGORIES[number]["value"]>("autre");
   async function handleFileUpload(file: File) {
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || uploading) return;
     setUploading(true);
     try {
-      const path = `chantiers/${id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
-      const { error: upErr } = await supabase.storage.from("pv-assets").upload(path, file, { upsert: false });
+      const safeName = file.name.replace(/[^\w.-]/g, "_");
+      const path = `${activeCompanyId}/chantiers/${id}/documents/${Date.now()}-${safeName}`;
+      const { error: upErr } = await supabase.storage.from("pv-assets").upload(path, file, { upsert: false, contentType: file.type || undefined });
       if (upErr) throw upErr;
       const { data: signed } = await supabase.storage.from("pv-assets").createSignedUrl(path, 60 * 60 * 24 * 7);
       const url = signed?.signedUrl ?? "";
@@ -305,13 +323,15 @@ function ChantierDetailPage() {
     } finally { setUploading(false); }
   }
   async function removeDoc(did: string) {
-    if (!activeCompanyId || !confirm("Supprimer ce document ?")) return;
+    if (!activeCompanyId || deletingDocId) return;
+    if (!confirm("Supprimer ce document ?")) return;
+    setDeletingDocId(did);
     try { await deleteDocFn({ data: { companyId: activeCompanyId, id: did } }); toast.success("Supprimé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setDeletingDocId(null); }
   }
 
   // Notes filters & actions
-  const [notesSearch, setNotesSearch] = useState("");
   const [notesPrio, setNotesPrio] = useState<"all" | "low" | "normal" | "high">("all");
   const [notesVis, setNotesVis] = useState<"all" | "internal" | "client">("all");
   async function togglePin(nid: string, pinned: boolean) {
@@ -320,10 +340,9 @@ function ChantierDetailPage() {
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
   }
 
-  // Documents filters
-  const [docsSearch, setDocsSearch] = useState("");
-  const [docsCatFilter, setDocsCatFilter] = useState<"all" | typeof DOC_CATEGORIES[number]["value"]>("all");
-  const [docsSort, setDocsSort] = useState<"date_desc" | "date_asc" | "name">("date_desc");
+  // Timeline-all dialog
+  const [timelineAllOpen, setTimelineAllOpen] = useState(false);
+
   async function renameDoc(did: string, current: string) {
     if (!activeCompanyId) return;
     const next = window.prompt("Nouveau nom du document", current);
@@ -502,20 +521,6 @@ function ChantierDetailPage() {
     setTabValue("dossier");
   };
 
-  // Share helpers
-  function share() {
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    const title = ch.name;
-    const text = `Chantier ${ch.name}${ch.address ? " — " + ch.address : ""}`;
-    const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (d: ShareData) => Promise<void> }) : null;
-    if (nav?.share) { nav.share({ title, text, url }).catch(() => { /* noop */ }); return; }
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(() => toast.success("Lien copié")).catch(() => toast.error("Copie impossible"));
-    }
-  }
-  const gpsHref = ch.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ch.address)}` : null;
-  const tel = ch.client?.phone ?? null;
-  const email = ch.client?.email ?? null;
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -564,25 +569,6 @@ function ChantierDetailPage() {
               <Sparkles className="h-4 w-4" /><span>Planning</span>
             </Button>
           )}
-        </div>
-        {/* Sticky contact bar — Appeler / Email / GPS / Partager */}
-        <div className="sticky top-0 z-40 -mx-4 mt-3 flex items-center gap-1 border-y border-border bg-background/95 px-2 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          <a href={tel ? `tel:${tel}` : undefined} aria-disabled={!tel}
-            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${tel ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
-            <Phone className="h-4 w-4" /> Appeler
-          </a>
-          <a href={email ? `mailto:${email}` : undefined} aria-disabled={!email}
-            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${email ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
-            <Mail className="h-4 w-4" /> Email
-          </a>
-          <a href={gpsHref ?? undefined} target="_blank" rel="noreferrer" aria-disabled={!gpsHref}
-            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${gpsHref ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
-            <Navigation className="h-4 w-4" /> GPS
-          </a>
-          <button type="button" onClick={share}
-            className="flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium text-foreground hover:bg-accent">
-            <Share2 className="h-4 w-4" /> Partager
-          </button>
         </div>
       </div>
 
@@ -716,14 +702,15 @@ function ChantierDetailPage() {
               <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
                 <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
               </div>
-              <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
+              <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
                 <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium ${isManualProgress ? "bg-warning/15 text-warning" : "bg-primary/10 text-primary"}`}>
                   {isManualProgress ? <Pencil className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-                  {isManualProgress ? "Mode manuel" : "Mode automatique"}
+                  {isManualProgress ? "Mode manuel" : "Mode auto"}
                 </span>
-                <span className="text-muted-foreground">
-                  Auto : 25% créé · 50% travaux · 75% contrôle · 100% réception ({autoProgress}%)
-                </span>
+                <button type="button" onClick={() => { setProgressValue(chProgress); setProgressOpen(true); }}
+                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                  <Info className="h-3 w-3" /> Comment ça marche
+                </button>
               </div>
             </Card>
 
@@ -764,8 +751,8 @@ function ChantierDetailPage() {
                     ))}
                   </ol>
                   {userEvents.length > 3 && (
-                    <Button asChild variant="ghost" size="sm" className="mt-2 h-8 w-full text-xs">
-                      <Link to="/chantiers/calendrier">Voir toute la timeline ({userEvents.length})</Link>
+                    <Button variant="ghost" size="sm" className="mt-2 h-8 w-full text-xs" onClick={() => setTimelineAllOpen(true)}>
+                      Voir toute la timeline ({userEvents.length})
                     </Button>
                   )}
                 </>
@@ -1081,7 +1068,7 @@ function ChantierDetailPage() {
             </div>
             <div><Label>Lieu</Label><Input value={evtForm.location} onChange={(e) => setEvtForm({ ...evtForm, location: e.target.value })} /></div>
             <div><Label>Description</Label><Textarea value={evtForm.description} onChange={(e) => setEvtForm({ ...evtForm, description: e.target.value })} /></div>
-            <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
+            <DialogFooter><Button type="submit" className="shadow-brand" disabled={savingEvt}>{savingEvt ? "Enregistrement…" : "Enregistrer"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -1119,7 +1106,7 @@ function ChantierDetailPage() {
               <Label>Rappel (optionnel)</Label>
               <Input type="datetime-local" value={noteForm.reminder_at} onChange={(e) => setNoteForm({ ...noteForm, reminder_at: e.target.value })} />
             </div>
-            <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
+            <DialogFooter><Button type="submit" className="shadow-brand" disabled={savingNote}>{savingNote ? "Enregistrement…" : "Enregistrer"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -1131,38 +1118,30 @@ function ChantierDetailPage() {
             <DialogTitle className="flex items-center gap-2"><StickyNote className="h-4 w-4" /> Notes ({d.notes.length})</DialogTitle>
           </DialogHeader>
           {/* Filters */}
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={notesSearch} onChange={(e) => setNotesSearch(e.target.value)} placeholder="Rechercher…" className="h-8 pl-7 text-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={notesPrio} onValueChange={(v) => setNotesPrio(v as typeof notesPrio)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes priorités</SelectItem>
-                  <SelectItem value="high">Haute</SelectItem>
-                  <SelectItem value="normal">Normale</SelectItem>
-                  <SelectItem value="low">Basse</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={notesVis} onValueChange={(v) => setNotesVis(v as typeof notesVis)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes visibilités</SelectItem>
-                  <SelectItem value="internal">Interne</SelectItem>
-                  <SelectItem value="client">Client</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={notesPrio} onValueChange={(v) => setNotesPrio(v as typeof notesPrio)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes priorités</SelectItem>
+                <SelectItem value="high">Haute</SelectItem>
+                <SelectItem value="normal">Normale</SelectItem>
+                <SelectItem value="low">Basse</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={notesVis} onValueChange={(v) => setNotesVis(v as typeof notesVis)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes visibilités</SelectItem>
+                <SelectItem value="internal">Interne</SelectItem>
+                <SelectItem value="client">Client</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="-mx-1 mt-2 flex-1 space-y-2 overflow-y-auto px-1">
             {(() => {
-              const q = notesSearch.trim().toLowerCase();
               const filtered = d.notes.filter((n) => {
                 if (notesPrio !== "all" && n.priority !== notesPrio) return false;
                 if (notesVis !== "all" && n.visibility !== notesVis) return false;
-                if (q && !n.note.toLowerCase().includes(q)) return false;
                 return true;
               });
               const sorted = [...filtered].sort((a, b) => {
@@ -1320,42 +1299,11 @@ function ChantierDetailPage() {
               </label>
             </div>
           )}
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={docsSearch} onChange={(e) => setDocsSearch(e.target.value)} placeholder="Rechercher…" className="h-8 pl-7 text-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={docsCatFilter} onValueChange={(v) => setDocsCatFilter(v as typeof docsCatFilter)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes catégories</SelectItem>
-                  {DOC_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={docsSort} onValueChange={(v) => setDocsSort(v as typeof docsSort)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date_desc">Plus récent</SelectItem>
-                  <SelectItem value="date_asc">Plus ancien</SelectItem>
-                  <SelectItem value="name">Nom (A→Z)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
           <div className="-mx-1 mt-1 flex-1 space-y-2 overflow-y-auto px-1">
             {(() => {
-              const q = docsSearch.trim().toLowerCase();
-              const filtered = d.documents.filter((doc) => {
-                if (docsCatFilter !== "all" && doc.category !== docsCatFilter) return false;
-                if (q && !doc.name.toLowerCase().includes(q)) return false;
-                return true;
-              });
-              const sorted = [...filtered].sort((a, b) => {
-                if (docsSort === "name") return a.name.localeCompare(b.name);
-                const t = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-                return docsSort === "date_asc" ? t : -t;
-              });
+              const sorted = [...d.documents].sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+              );
               if (sorted.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">Aucun document.</p>;
               return sorted.map((doc) => {
                 const ft = (doc as { file_type?: string | null }).file_type ?? "";
@@ -1413,12 +1361,18 @@ function ChantierDetailPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Avancement chantier</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <p className="flex items-start gap-2 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>Auto : {stats.done}/{stats.total} événements terminés ({stats.progress}%). Vous pouvez forcer manuellement.</span>
-            </p>
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+              <p className="mb-1 font-medium text-foreground">Calcul automatique</p>
+              <ul className="list-disc space-y-0.5 pl-4">
+                <li>Chantier créé : <strong>25%</strong></li>
+                <li>Début travaux terminé : <strong>50%</strong></li>
+                <li>Contrôle qualité terminé : <strong>75%</strong></li>
+                <li>Réception terminée : <strong>100%</strong></li>
+              </ul>
+              <p className="mt-2">Valeur auto actuelle : <strong className="text-foreground">{autoProgress}%</strong></p>
+            </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Avancement manuel</span>
+              <span className="font-medium">{isManualProgress ? "Avancement manuel" : "Avancement"}</span>
               <span className="tabular-nums text-lg font-bold">{progressValue}%</span>
             </div>
             <Slider value={[progressValue]} min={0} max={100} step={1} onValueChange={(v) => setProgressValue(v[0] ?? 0)} />
@@ -1427,11 +1381,49 @@ function ChantierDetailPage() {
             </div>
           </div>
           <DialogFooter className="flex-row gap-2 sm:justify-end">
-            <Button variant="outline" onClick={() => setProgressValue(stats.progress)}>
-              <Sparkles className="h-4 w-4" /> Auto ({stats.progress}%)
+            <Button variant="outline" disabled={savingProgress} onClick={() => { void saveProgress(autoProgress); }}>
+              <Sparkles className="h-4 w-4" /> Repasser en auto ({autoProgress}%)
             </Button>
-            <Button onClick={saveProgress} className="shadow-brand">Enregistrer</Button>
+            <Button onClick={() => { void saveProgress(); }} disabled={savingProgress} className="shadow-brand">
+              {savingProgress ? "…" : "Enregistrer"}
+            </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Timeline-all dialog (bottom sheet feel) */}
+      <Dialog open={timelineAllOpen} onOpenChange={setTimelineAllOpen}>
+        <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-md flex-col p-0">
+          <DialogHeader className="border-b border-border px-4 py-3">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <CalendarIcon className="h-4 w-4" /> Timeline complète ({userEvents.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
+            {userEvents.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Aucun événement.</p>
+            ) : (
+              <ol className="space-y-2">
+                {userEvents.map((e) => (
+                  <li key={e.id}>
+                    <button type="button" onClick={() => { setTimelineAllOpen(false); setEvtDetailId(e.id); }}
+                      className="flex w-full items-start gap-2 rounded-lg border border-border bg-card/60 p-2 text-left transition active:scale-[0.99]">
+                      <span className="mt-0.5">
+                        {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
+                         e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
+                         e.status === "en_cours" ? <Clock className="h-4 w-4 text-warning" /> :
+                         <Clock className="h-4 w-4 text-primary" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{e.title}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
