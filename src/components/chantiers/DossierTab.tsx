@@ -410,6 +410,23 @@ export function DossierTab({
         <TabsContent value="photos" className="mt-3">
           {loading ? <LoadingHint /> : allLightboxPhotos.length === 0 ? <EmptyHint label="Aucune photo." /> : (
             <div className="space-y-4">
+              {chantierPhotos.length > 0 && (
+                <section>
+                  <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Photos chantier</p>
+                  <PhotoGrid
+                    items={chantierPhotos
+                      .filter((p) => !!p.signed_url)
+                      .map((p) => ({
+                        id: `chantier-${p.id}`,
+                        url: p.signed_url as string,
+                        caption: p.label ?? p.caption ?? null,
+                        date: p.taken_at ?? p.created_at,
+                      }))}
+                    onOpen={openLightbox}
+                  />
+                </section>
+              )}
+            <div className="space-y-4">
               {(dossier?.photos.length ?? 0) > 0 && (
                 <section>
                   <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Constat initial</p>
