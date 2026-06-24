@@ -636,3 +636,113 @@ function EmptyHint({ label }: { label: string }) {
 function LoadingHint() {
   return <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Chargement…</p>;
 }
+
+function ResumeSynthese({
+  detail, dossier, chantierPhotosCount, reserveCounts, onGoToSubTab,
+}: {
+  detail: Detail;
+  dossier: Dossier | null;
+  chantierPhotosCount: number;
+  reserveCounts: { total: number; open: number; lifted: number; validated: number; rejected: number };
+  onGoToSubTab: (v: string) => void;
+}) {
+  const c: any = detail.chantier;
+  const statusLabel = (() => {
+    const s = (c?.status ?? "").toString();
+    const map: Record<string, string> = {
+      en_cours: "En cours", planifie: "Planifié", prevu: "Prévu",
+      termine: "Terminé", archive: "Archivé", preparation: "En préparation",
+      en_attente: "En attente",
+    };
+    return map[s] ?? (s || "—");
+  })();
+  const statusTone: "success" | "info" | "warning" | "neutral" =
+    c?.status === "termine" ? "success"
+    : c?.status === "en_cours" ? "info"
+    : c?.status === "en_attente" ? "warning"
+    : "neutral";
+  const reception = c?.start_date ?? null;
+  const cloture = c?.end_date ?? null;
+  const bloquantes = detail.reserves.filter(
+    (r) => r.severity === "majeure" && r.status !== "validee" && r.status !== "levee",
+  ).length;
+  const nowMs = Date.now();
+  const nextEvent = (detail.events ?? [])
+    .filter((e: any) => e.start_at && new Date(e.start_at).getTime() >= nowMs && e.status !== "annule")
+    .sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0];
+  const lastAudit = detail.auditLogs?.[0];
+  const lastActivity = lastAudit ? `${lastAudit.action} · ${fmt(lastAudit.created_at)}` : "—";
+  const chantierId = c?.id as string;
+
+  return (
+    <div className="space-y-3">
+      <Card className="space-y-2.5 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Dossier chantier</span>
+          <StatusPill tone={statusTone} size="sm">{statusLabel}</StatusPill>
+        </div>
+        <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+          <Row label="Réception" value={reception ? fmtDay(reception) : "non réalisée"} />
+          <Row label="Clôture" value={cloture ? fmtDay(cloture) : "—"} />
+          <Row
+            label="Réserves"
+            value={
+              reserveCounts.total === 0
+                ? "aucune réserve"
+                : `${reserveCounts.open} ouverte${reserveCounts.open > 1 ? "s" : ""} / ${reserveCounts.total} total`
+            }
+          />
+          <Row
+            label="Bloquantes"
+            value={bloquantes === 0 ? "aucune" : `${bloquantes}`}
+            tone={bloquantes > 0 ? "destructive" : undefined}
+          />
+          <Row label="Dernière activité" value={lastActivity} />
+          <Row
+            label="Prochaine échéance"
+            value={nextEvent ? `${nextEvent.title ?? nextEvent.event_type ?? "Événement"} · ${fmt(nextEvent.start_at)}` : "aucune"}
+          />
+        </dl>
+      </Card>
+
+      <Card className="p-3">
+        <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Actions rapides</p>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="default" className="h-9 gap-1.5">
+            <Link to="/pv/new" search={{ chantierId } as any}>
+              <FileText className="h-4 w-4" /> Créer PV
+            </Link>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 gap-1.5"
+            onClick={() => {
+              // Switch main tab to "photos" (sibling tab) if listener exists, else fallback to dossier > photos
+              try { window.dispatchEvent(new CustomEvent("chantier-main-tab", { detail: "photos" })); } catch { /* noop */ }
+              onGoToSubTab("photos");
+            }}
+          >
+            <ImageIcon className="h-4 w-4" /> Ajouter photo
+          </Button>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => onGoToSubTab("documents")}>
+            <Paperclip className="h-4 w-4" /> Ajouter document
+          </Button>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {chantierPhotosCount} photo{chantierPhotosCount > 1 ? "s" : ""} chantier · {(dossier?.emails ?? []).filter((e) => e.status === "sent").length} email{(dossier?.emails ?? []).filter((e) => e.status === "sent").length > 1 ? "s" : ""} envoyé{(dossier?.emails ?? []).filter((e) => e.status === "sent").length > 1 ? "s" : ""}
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+function Row({ label, value, tone }: { label: string; value: string; tone?: "destructive" }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1 last:border-b-0 sm:border-b-0">
+      <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className={`text-right text-sm font-medium ${tone === "destructive" ? "text-destructive" : ""}`}>{value}</dd>
+    </div>
+  );
+}
+
