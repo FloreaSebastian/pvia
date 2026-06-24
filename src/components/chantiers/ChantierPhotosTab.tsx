@@ -209,9 +209,21 @@ export function ChantierPhotosTab({
         onClose={() => setLightbox(null)}
         onDelete={canWrite ? handleDelete : undefined}
       />
+
+      {canWrite && (
+        <button
+          type="button"
+          onClick={() => openUpload("during")}
+          aria-label="Ajouter une photo"
+          className="fixed bottom-20 right-4 z-30 inline-flex h-14 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 active:scale-95 transition md:bottom-6"
+        >
+          <Plus className="h-5 w-5" /> Ajouter photo
+        </button>
+      )}
     </div>
   );
 }
+
 
 function UploadSheet({
   open, onOpenChange, defaultType, companyId, chantierId, onUploaded, createFn,
