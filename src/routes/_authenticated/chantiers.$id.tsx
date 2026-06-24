@@ -285,14 +285,17 @@ function ChantierDetailPage() {
   // progress dialog
   const [progressOpen, setProgressOpen] = useState(false);
   const [progressValue, setProgressValue] = useState<number>(0);
-  async function saveProgress() {
-    if (!activeCompanyId) return;
+  const [savingProgress, setSavingProgress] = useState(false);
+  async function saveProgress(value?: number) {
+    if (!activeCompanyId || savingProgress) return;
+    setSavingProgress(true);
     try {
-      await updateProgressFn({ data: { companyId: activeCompanyId, id, progress_percent: progressValue } });
+      await updateProgressFn({ data: { companyId: activeCompanyId, id, progress_percent: value ?? progressValue } });
       toast.success("Avancement mis à jour");
       setProgressOpen(false);
       await reload();
     } catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setSavingProgress(false); }
   }
 
 
