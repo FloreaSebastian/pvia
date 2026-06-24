@@ -284,19 +284,17 @@ export function DossierTab({
           <TabsTrigger value="historique" className="text-[11px] sm:text-xs">Hist.</TabsTrigger>
         </TabsList>
 
-        {/* Résumé — compact 2 cols mobile */}
+        {/* Résumé — synthèse métier (pas de doublons avec onglets) */}
         <TabsContent value="resume" className="mt-3">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            <StatCard icon={<FileText className="h-4 w-4" />} label="PV" value={detail.pvs.length} />
-            <StatCard icon={<AlertTriangle className="h-4 w-4 text-warning" />} label="Ouvertes" value={reserveCounts.open} />
-            <StatCard icon={<CheckCircle2 className="h-4 w-4 text-success" />} label="Validées" value={reserveCounts.validated} />
-            <StatCard icon={<History className="h-4 w-4" />} label="Levées" value={dossier?.liftReports.length ?? 0} />
-            <StatCard icon={<ImageIcon className="h-4 w-4" />} label="Photos" value={allLightboxPhotos.length} />
-            <StatCard icon={<Paperclip className="h-4 w-4" />} label="Documents" value={detail.documents.length} />
-            <StatCard icon={<Mail className="h-4 w-4" />} label="Emails" value={(dossier?.emails ?? []).filter((e) => e.status === "sent").length} />
-            <StatCard icon={<AlertTriangle className="h-4 w-4 text-destructive" />} label="Rejetées" value={reserveCounts.rejected} />
-          </div>
+          <ResumeSynthese
+            detail={detail}
+            dossier={dossier}
+            chantierPhotosCount={chantierPhotos.length}
+            reserveCounts={reserveCounts}
+            onGoToSubTab={setSubTab}
+          />
         </TabsContent>
+
 
         {/* PV */}
         <TabsContent value="pv" className="mt-3">
