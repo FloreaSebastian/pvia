@@ -748,8 +748,8 @@ function ChantierDetailPage() {
                     ))}
                   </ol>
                   {userEvents.length > 3 && (
-                    <Button asChild variant="ghost" size="sm" className="mt-2 h-8 w-full text-xs">
-                      <Link to="/chantiers/calendrier">Voir toute la timeline ({userEvents.length})</Link>
+                    <Button variant="ghost" size="sm" className="mt-2 h-8 w-full text-xs" onClick={() => setTimelineAllOpen(true)}>
+                      Voir toute la timeline ({userEvents.length})
                     </Button>
                   )}
                 </>
