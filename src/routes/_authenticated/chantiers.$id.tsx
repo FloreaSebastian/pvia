@@ -699,14 +699,15 @@ function ChantierDetailPage() {
               <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
                 <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
               </div>
-              <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
+              <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
                 <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium ${isManualProgress ? "bg-warning/15 text-warning" : "bg-primary/10 text-primary"}`}>
                   {isManualProgress ? <Pencil className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-                  {isManualProgress ? "Mode manuel" : "Mode automatique"}
+                  {isManualProgress ? "Mode manuel" : "Mode auto"}
                 </span>
-                <span className="text-muted-foreground">
-                  Auto : 25% créé · 50% travaux · 75% contrôle · 100% réception ({autoProgress}%)
-                </span>
+                <button type="button" onClick={() => { setProgressValue(chProgress); setProgressOpen(true); }}
+                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                  <Info className="h-3 w-3" /> Comment ça marche
+                </button>
               </div>
             </Card>
 
