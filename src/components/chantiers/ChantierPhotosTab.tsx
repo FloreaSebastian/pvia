@@ -148,12 +148,17 @@ export function ChantierPhotosTab({
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                   {items.map((p) => {
                     const hasGps = p.latitude !== null && p.longitude !== null;
+                    const phaseLabel = p.photo_type === "before" ? "Avant" : p.photo_type === "during" ? "Pendant" : "Fin";
+                    const phaseTone =
+                      p.photo_type === "before" ? "bg-blue-600/90"
+                      : p.photo_type === "during" ? "bg-orange-600/90"
+                      : "bg-emerald-600/90";
                     return (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => setLightbox(p)}
-                        className="group relative aspect-square overflow-hidden rounded-md border border-border bg-muted/30 text-left active:scale-[0.98] transition"
+                        className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted/30 text-left shadow-sm active:scale-[0.98] transition"
                       >
                         {p.signed_url ? (
                           <img src={p.signed_url} alt={p.label ?? ""} loading="lazy" className="h-full w-full object-cover" />
@@ -162,9 +167,12 @@ export function ChantierPhotosTab({
                         )}
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 text-[10px] text-white">
                           <div className="flex items-center justify-between gap-1">
-                            <span className="truncate font-mono">{p.label ?? "—"}</span>
+                            <span className="truncate font-mono">{p.label ?? "Photo"}</span>
                             <span className="shrink-0">{fmtShort(p.taken_at ?? p.created_at)}</span>
                           </div>
+                        </div>
+                        <div className="absolute left-1 top-1">
+                          <span className={`inline-flex items-center rounded px-1 py-0.5 text-[9px] font-semibold text-white ${phaseTone}`}>{phaseLabel}</span>
                         </div>
                         <div className="absolute right-1 top-1">
                           {hasGps ? (
@@ -178,6 +186,7 @@ export function ChantierPhotosTab({
                   })}
                 </div>
               )}
+
             </section>
           );
         })
