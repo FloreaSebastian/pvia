@@ -159,9 +159,19 @@ export function DossierTab({
     };
   }, [detail.reserves]);
 
-  // Combined lightbox photos (initial + after lift)
+  // Combined lightbox photos (chantier + initial + after lift)
   const allLightboxPhotos: LightboxPhoto[] = useMemo(() => {
     const out: LightboxPhoto[] = [];
+    for (const p of chantierPhotos) {
+      if (!p.signed_url) continue;
+      out.push({
+        id: `chantier-${p.id}`,
+        url: p.signed_url,
+        label: p.label ?? p.caption ?? null,
+        takenAt: p.taken_at ?? p.created_at,
+        photoType: "initial",
+      });
+    }
     for (const p of dossier?.photos ?? []) {
       out.push({
         id: `pv-${p.id}`,
@@ -181,7 +191,7 @@ export function DossierTab({
       });
     }
     return out;
-  }, [dossier]);
+  }, [dossier, chantierPhotos]);
 
   function openLightbox(photoId: string) {
     const idx = allLightboxPhotos.findIndex((p) => p.id === photoId);
