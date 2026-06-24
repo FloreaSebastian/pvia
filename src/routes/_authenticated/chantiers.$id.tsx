@@ -26,6 +26,7 @@ import {
 import { reopenChantier } from "@/lib/chantiers.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DossierTab } from "@/components/chantiers/DossierTab";
+import { ChantierPhotosTab } from "@/components/chantiers/ChantierPhotosTab";
 
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
@@ -279,7 +280,7 @@ function ChantierDetailPage() {
   const [docsOpen, setDocsOpen] = useState(false);
 
   // tabs (controlled to allow KPI deep-link)
-  const [tabValue, setTabValue] = useState<"overview" | "dossier">("overview");
+  const [tabValue, setTabValue] = useState<"overview" | "dossier" | "photos">("overview");
 
 
   // progress dialog
@@ -608,10 +609,11 @@ function ChantierDetailPage() {
         />
       </div>
 
-      <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier")} className="w-full">
-        <TabsList className="sticky top-12 z-30 grid w-full grid-cols-2 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
+      <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier" | "photos")} className="w-full">
+        <TabsList className="sticky top-12 z-30 grid w-full grid-cols-3 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
           <TabsTrigger value="overview">Vue</TabsTrigger>
           <TabsTrigger value="dossier">Dossier</TabsTrigger>
+          <TabsTrigger value="photos">Photos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-3 md:mt-4">
@@ -1023,6 +1025,9 @@ function ChantierDetailPage() {
         </TabsContent>
         <TabsContent value="dossier" className="mt-3 md:mt-4">
           {activeCompanyId && <DossierTab companyId={activeCompanyId} chantierId={id} detail={d} onReload={reload} />}
+        </TabsContent>
+        <TabsContent value="photos" className="mt-3 md:mt-4">
+          {activeCompanyId && <ChantierPhotosTab companyId={activeCompanyId} chantierId={id} canWrite={canWrite && !isLocked} />}
         </TabsContent>
       </Tabs>
 
