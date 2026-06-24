@@ -106,8 +106,12 @@ export function DossierTab({
 
   const loadDossier = useCallback(() => {
     setLoading(true);
-    return fetchDossier({ data: { companyId, chantierId } })
-      .then((r) => setDossier(r))
+    return Promise.all([
+      fetchDossier({ data: { companyId, chantierId } }).then((r) => setDossier(r)),
+      fetchChantierPhotos({ data: { companyId, chantierId } })
+        .then((r) => setChantierPhotos(r.photos as ChantierPhoto[]))
+        .catch(() => setChantierPhotos([])),
+    ])
       .catch((e) => toast.error(e instanceof Error ? e.message : "Dossier indisponible"))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,8 +120,12 @@ export function DossierTab({
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    fetchDossier({ data: { companyId, chantierId } })
-      .then((r) => { if (alive) setDossier(r); })
+    Promise.all([
+      fetchDossier({ data: { companyId, chantierId } }).then((r) => { if (alive) setDossier(r); }),
+      fetchChantierPhotos({ data: { companyId, chantierId } })
+        .then((r) => { if (alive) setChantierPhotos(r.photos as ChantierPhoto[]); })
+        .catch(() => { if (alive) setChantierPhotos([]); }),
+    ])
       .catch((e) => toast.error(e instanceof Error ? e.message : "Dossier indisponible"))
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
