@@ -220,8 +220,19 @@ function UploadSheet({
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (open) { setType(defaultType); setCaption(""); setFiles([]); setProgress(0); } }, [open, defaultType]);
+
+  function appendFiles(list: FileList | null) {
+    if (!list || list.length === 0) return;
+    setFiles((prev) => [...prev, ...Array.from(list)]);
+  }
+  function removeFile(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
