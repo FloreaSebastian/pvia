@@ -977,10 +977,10 @@ function ChantierDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Note dialog */}
-      <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Nouvelle note</DialogTitle></DialogHeader>
+      {/* Note dialog (create + edit) */}
+      <Dialog open={noteOpen} onOpenChange={(o) => { setNoteOpen(o); if (!o) { setNoteEditing(null); setNoteForm(emptyNote); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{noteEditing ? "Modifier la note" : "Nouvelle note"}</DialogTitle></DialogHeader>
           <form onSubmit={saveNote} className="space-y-3">
             <Textarea required placeholder="Votre note…" value={noteForm.note} onChange={(e) => setNoteForm({ ...noteForm, note: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
@@ -1014,6 +1014,176 @@ function ChantierDetailPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Notes list dialog */}
+      <Dialog open={notesListOpen} onOpenChange={setNotesListOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><StickyNote className="h-4 w-4" /> Notes ({d.notes.length})</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+            {d.notes.map((n) => (
+              <div key={n.id} className="rounded-lg border border-border bg-card p-3">
+                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <StatusPill size="sm" tone={n.priority === "high" ? "warning" : n.priority === "low" ? "neutral" : "info"}>{n.priority}</StatusPill>
+                  <StatusPill size="sm" tone={n.visibility === "client" ? "success" : "neutral"}>{n.visibility === "client" ? "Client" : "Interne"}</StatusPill>
+                  <span className="ml-auto text-muted-foreground">{fmtDateTime(n.created_at)}</span>
+                </div>
+                <p className="whitespace-pre-wrap break-words text-sm">{n.note}</p>
+                {canWrite && (
+                  <div className="mt-2 flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setNotesListOpen(false); openEditNote(n as { id: string; note: string; visibility: string; priority: string; reminder_at: string | null }); }}>
+                      <Pencil className="h-3.5 w-3.5" /> Modifier
+                    </Button>
+                    {isAdmin && (
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => removeNote(n.id)}>
+                        <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            {canWrite && (
+              <Button onClick={() => { setNotesListOpen(false); openNewNote(); }} className="shadow-brand">
+                <Plus className="h-4 w-4" /> Ajouter une note
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Event detail dialog */}
+      <Dialog open={evtDetailId !== null} onOpenChange={(o) => { if (!o) setEvtDetailId(null); }}>
+        <DialogContent className="max-w-md">
+          {(() => {
+            const e = userEvents.find((x) => x.id === evtDetailId);
+            if (!e) return null;
+            const assignedId = (e as { assigned_to?: string | null }).assigned_to ?? null;
+            const reminderAt = (e as { reminder_at?: string | null }).reminder_at ?? null;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="pr-6">{e.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <StatusPill tone="neutral" size="sm">{evtLabel(e.event_type)}</StatusPill>
+                    <StatusPill size="sm" tone={e.status === "termine" ? "success" : e.status === "annule" ? "danger" : e.status === "en_cours" ? "warning" : "info"}>
+                      {EVENT_STATUSES.find((s) => s.value === e.status)?.label ?? e.status}
+                    </StatusPill>
+                  </div>
+                  <div className="grid gap-1.5 text-xs">
+                    <p className="flex items-center gap-2"><CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" /> Début : <strong className="font-medium text-foreground">{fmtDateTime(e.start_at)}</strong></p>
+                    {e.end_at && <p className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-muted-foreground" /> Fin : <strong className="font-medium text-foreground">{fmtDateTime(e.end_at)}</strong></p>}
+                    {e.location && <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> {e.location}</p>}
+                    {assignedId && (
+                      <p className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" /> {membersById.get(assignedId)?.name ?? "—"}</p>
+                    )}
+                    {reminderAt && (
+                      <p className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-muted-foreground" /> Rappel : {fmtDateTime(reminderAt)}</p>
+                    )}
+                    <p className="flex items-center gap-2 text-muted-foreground"><Building2 className="h-3.5 w-3.5" /> {ch.name}</p>
+                  </div>
+                  {e.description && (
+                    <div className="rounded-md border border-border bg-card/50 p-2 text-sm">
+                      <p className="whitespace-pre-wrap break-words">{e.description}</p>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">
+                  {canWrite && !isLocked && (
+                    <>
+                      <Button variant="outline" onClick={() => { setEvtDetailId(null); openEditEvt(e); }}>
+                        <Pencil className="h-4 w-4" /> Modifier
+                      </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" className="text-destructive" onClick={async () => { const eid = e.id; setEvtDetailId(null); await removeEvt(eid); }}>
+                          <Trash2 className="h-4 w-4" /> Supprimer
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Documents bottom-sheet dialog */}
+      <Dialog open={docsOpen} onOpenChange={setDocsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Paperclip className="h-4 w-4" /> Documents ({docsCount})</DialogTitle>
+          </DialogHeader>
+          {canWrite && !isLocked && (
+            <div className="space-y-2">
+              <Select value={docCategory} onValueChange={(v) => setDocCategory(v as typeof docCategory)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{DOC_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-3 text-sm text-muted-foreground hover:border-primary hover:text-foreground">
+                <Upload className="h-4 w-4" /> {uploading ? "Envoi…" : "Ajouter un document"}
+                <input type="file" className="hidden" disabled={uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFileUpload(f); e.target.value = ""; }} />
+              </label>
+            </div>
+          )}
+          <div className="max-h-[50vh] space-y-2 overflow-y-auto">
+            {d.documents.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">Aucun document.</p>
+            ) : (
+              d.documents.map((doc) => (
+                <div key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 text-sm">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{doc.name}</p>
+                    <p className="text-xs text-muted-foreground">{DOC_CATEGORIES.find((c) => c.value === doc.category)?.label ?? doc.category}</p>
+                  </div>
+                  <a href={doc.file_url} target="_blank" rel="noreferrer" aria-label="Ouvrir" className="grid h-8 w-8 place-items-center rounded-md text-primary hover:bg-accent">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                  {isAdmin && (
+                    <button onClick={() => removeDoc(doc.id)} aria-label="Supprimer" className="grid h-8 w-8 place-items-center rounded-md text-destructive hover:bg-accent">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Progress dialog */}
+      <Dialog open={progressOpen} onOpenChange={setProgressOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Avancement chantier</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>Auto : {stats.done}/{stats.total} événements terminés ({stats.progress}%). Vous pouvez forcer manuellement.</span>
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Avancement manuel</span>
+              <span className="tabular-nums text-lg font-bold">{progressValue}%</span>
+            </div>
+            <Slider value={[progressValue]} min={0} max={100} step={1} onValueChange={(v) => setProgressValue(v[0] ?? 0)} />
+            <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+              <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+            </div>
+          </div>
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setProgressValue(stats.progress)}>
+              <Sparkles className="h-4 w-4" /> Auto ({stats.progress}%)
+            </Button>
+            <Button onClick={saveProgress} className="shadow-brand">Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
