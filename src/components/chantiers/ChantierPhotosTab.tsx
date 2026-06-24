@@ -307,29 +307,6 @@ function UploadSheet({
         <SheetHeader><SheetTitle>Ajouter des photos chantier</SheetTitle></SheetHeader>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <Label>Type de photo</Label>
-            <Select value={type} onValueChange={(v) => setType(v as PhotoType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="before">Avant travaux</SelectItem>
-                <SelectItem value="during">Pendant travaux</SelectItem>
-                <SelectItem value="after">Fin de chantier</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Photos *</Label>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-              className="block w-full text-sm file:mr-2 file:rounded file:border-0 file:bg-primary file:px-3 file:py-2 file:text-primary-foreground"
-            />
-            {files.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{files.length} fichier(s) sélectionné(s)</p>}
-          </div>
-          <div>
             <Label>1. Type de photo</Label>
             <Select value={type} onValueChange={(v) => setType(v as PhotoType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
