@@ -107,6 +107,21 @@ export function ChantierPhotosTab({
         <Card className="p-6 text-center text-sm text-muted-foreground">
           <Loader2 className="mx-auto h-5 w-5 animate-spin" />
         </Card>
+      ) : photos.length === 0 ? (
+        <Card className="flex flex-col items-center gap-3 p-8 text-center">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-muted">
+            <Camera className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Aucune photo chantier</p>
+            <p className="mt-1 text-xs text-muted-foreground">Ajoutez des photos avant, pendant ou en fin de chantier.</p>
+          </div>
+          {canWrite && (
+            <Button size="sm" onClick={() => openUpload("during")}>
+              <Plus className="h-4 w-4" /> Ajouter des photos
+            </Button>
+          )}
+        </Card>
       ) : (
         SECTIONS.map((s) => {
           const items = photos.filter((p) => p.photo_type === s.type);
