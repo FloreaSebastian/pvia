@@ -15,7 +15,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { createChantier as createChantierFn, updateChantier as updateChantierFn, deleteChantier as deleteChantierFn } from "@/lib/chantiers.functions";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
-import { PageHeader } from "@/components/app/PageHeader";
+
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
