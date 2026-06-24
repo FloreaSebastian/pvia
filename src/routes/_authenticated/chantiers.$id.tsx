@@ -475,7 +475,7 @@ function ChantierDetailPage() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="sticky top-0 z-20 grid w-full grid-cols-2 bg-muted/95 backdrop-blur md:static md:inline-flex md:w-auto md:bg-muted">
+        <TabsList className="sticky top-0 z-30 grid w-full grid-cols-2 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
           <TabsTrigger value="overview">Vue</TabsTrigger>
           <TabsTrigger value="dossier">Dossier</TabsTrigger>
         </TabsList>
