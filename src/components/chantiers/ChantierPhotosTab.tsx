@@ -330,7 +330,52 @@ function UploadSheet({
             {files.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{files.length} fichier(s) sélectionné(s)</p>}
           </div>
           <div>
-            <Label>Commentaire (optionnel)</Label>
+            <Label>1. Type de photo</Label>
+            <Select value={type} onValueChange={(v) => setType(v as PhotoType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="before">Avant travaux</SelectItem>
+                <SelectItem value="during">Pendant travaux</SelectItem>
+                <SelectItem value="after">Fin de chantier</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>2. Source des photos</Label>
+            <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button type="button" variant="outline" className="h-auto justify-start gap-2 py-3" onClick={() => cameraRef.current?.click()} disabled={uploading}>
+                <Camera className="h-4 w-4" />
+                <span className="text-left text-xs leading-tight">Prendre<br />une photo</span>
+              </Button>
+              <Button type="button" variant="outline" className="h-auto justify-start gap-2 py-3" onClick={() => galleryRef.current?.click()} disabled={uploading}>
+                <ImageIcon className="h-4 w-4" />
+                <span className="text-left text-xs leading-tight">Choisir depuis<br />la galerie</span>
+              </Button>
+              <Button type="button" variant="outline" className="h-auto justify-start gap-2 py-3" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                <FolderOpen className="h-4 w-4" />
+                <span className="text-left text-xs leading-tight">Choisir un<br />fichier image</span>
+              </Button>
+            </div>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { appendFiles(e.target.files); e.target.value = ""; }} />
+            <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { appendFiles(e.target.files); e.target.value = ""; }} />
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { appendFiles(e.target.files); e.target.value = ""; }} />
+            {files.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {files.map((f, i) => (
+                  <li key={`${f.name}-${i}`} className="flex items-center gap-2 rounded border border-border bg-muted/30 p-1.5 text-xs">
+                    <ImageIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate flex-1">{f.name}</span>
+                    <span className="text-muted-foreground">{Math.round(f.size / 1024)} Ko</span>
+                    <button type="button" onClick={() => removeFile(i)} disabled={uploading} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <Label>3. Commentaire (optionnel)</Label>
             <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={2000} rows={3} placeholder="Description, contexte, etc." />
           </div>
           {uploading && (
@@ -339,7 +384,7 @@ function UploadSheet({
           <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>Annuler</Button>
             <Button type="submit" disabled={uploading || files.length === 0}>
-              {uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Upload…</> : <><Upload className="h-4 w-4" /> Uploader</>}
+              {uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Upload…</> : <><Upload className="h-4 w-4" /> Uploader {files.length > 0 ? `(${files.length})` : ""}</>}
             </Button>
           </DialogFooter>
         </form>
