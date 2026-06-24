@@ -563,33 +563,45 @@ function ChantierDetailPage() {
 
             {/* KPI 2x2 — Réserves / PV / Événements / Documents */}
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => navigate({ to: "/reserves" })} className="text-left">
+              <button type="button" onClick={() => navigate({ to: "/chantiers/$id", params: { id }, hash: "dossier-reserves" })} className="text-left">
                 <Card className="p-3 transition active:scale-[0.98]">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réserves</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{reservesCount}</p>
                 </Card>
               </button>
-              <button type="button" onClick={() => navigate({ to: "/pv" })} className="text-left">
+              <button type="button" onClick={() => navigate({ to: "/chantiers/$id", params: { id }, hash: "dossier-pv" })} className="text-left">
                 <Card className="p-3 transition active:scale-[0.98]">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">PV</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{pvCount}</p>
                 </Card>
               </button>
-              <Card className="p-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Événements</p>
-                <p className="mt-1 text-xl font-bold tabular-nums">{eventsCount}</p>
-              </Card>
-              <Card className="p-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Documents</p>
-                <p className="mt-1 text-xl font-bold tabular-nums">{docsCount}</p>
-              </Card>
+              <button type="button" onClick={() => navigate({ to: "/chantiers/calendrier" })} className="text-left">
+                <Card className="p-3 transition active:scale-[0.98]">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Événements</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{eventsCount}</p>
+                </Card>
+              </button>
+              <button type="button" onClick={() => setDocsOpen(true)} className="text-left">
+                <Card className="p-3 transition active:scale-[0.98]">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Documents</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{docsCount}</p>
+                </Card>
+              </button>
             </div>
 
             {/* Avancement bar */}
             <Card className="p-3">
               <div className="mb-1.5 flex items-center justify-between text-xs">
                 <span className="font-medium">Avancement</span>
-                <span className="tabular-nums font-semibold">{chProgress}%</span>
+                <div className="flex items-center gap-2">
+                  <span className="tabular-nums font-semibold">{chProgress}%</span>
+                  {canWrite && !isLocked && (
+                    <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Modifier l'avancement"
+                      onClick={() => { setProgressValue(chProgress); setProgressOpen(true); }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
                 <div
@@ -600,13 +612,17 @@ function ChantierDetailPage() {
               <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
                 <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
               </div>
+              <p className="mt-2 flex items-start gap-1 text-[10px] text-muted-foreground">
+                <Info className="mt-0.5 h-3 w-3 shrink-0" />
+                <span>Auto : {stats.done}/{stats.total} événements terminés ({stats.progress}%). Modifiable manuellement.</span>
+              </p>
             </Card>
 
             {/* Timeline (mobile) */}
             <Card className="p-3">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><CalendarIcon className="h-4 w-4" /> Timeline</h3>
-                {canWrite && userEvents.length > 0 && (
+                {canWrite && !isLocked && userEvents.length > 0 && (
                   <Button size="sm" variant="ghost" className="h-7 px-2" onClick={openNewEvt}><Plus className="h-3.5 w-3.5" /></Button>
                 )}
               </div>
@@ -614,7 +630,7 @@ function ChantierDetailPage() {
                 <div className="flex flex-col items-center gap-2 py-4 text-center">
                   <p className="text-sm text-muted-foreground">📅 Aucun événement</p>
                   <p className="text-xs text-muted-foreground">Créez votre premier événement</p>
-                  {canWrite && (
+                  {canWrite && !isLocked && (
                     <Button size="sm" onClick={openNewEvt} className="mt-1"><Plus className="h-3.5 w-3.5" /> Ajouter un événement</Button>
                   )}
                 </div>
@@ -622,16 +638,19 @@ function ChantierDetailPage() {
                 <>
                   <ol className="space-y-2">
                     {userEvents.slice(0, 3).map((e) => (
-                      <li key={e.id} className="flex items-start gap-2 rounded-lg border border-border bg-card/60 p-2">
-                        <span className="mt-0.5">
-                          {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
-                           e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
-                           <Clock className="h-4 w-4 text-primary" />}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{e.title}</p>
-                          <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
-                        </div>
+                      <li key={e.id}>
+                        <button type="button" onClick={() => setEvtDetailId(e.id)}
+                          className="flex w-full items-start gap-2 rounded-lg border border-border bg-card/60 p-2 text-left transition active:scale-[0.99]">
+                          <span className="mt-0.5">
+                            {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
+                             e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
+                             <Clock className="h-4 w-4 text-primary" />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{e.title}</p>
+                            <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
+                          </div>
+                        </button>
                       </li>
                     ))}
                   </ol>
@@ -644,58 +663,58 @@ function ChantierDetailPage() {
               )}
             </Card>
 
-            {/* Notes (mobile) — compact */}
-            {d.notes.length === 0 ? (
-              <Card className="flex items-center gap-3 p-3">
+            {/* Notes (mobile) — tap card */}
+            <Card className="p-0">
+              <button type="button"
+                onClick={() => { if (d.notes.length === 0) { openNewNote(); } else { setNotesListOpen(true); } }}
+                className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.99]">
                 <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">Notes</p>
-                  <p className="text-xs text-muted-foreground">Aucune note</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {d.notes.length === 0 ? "Aucune note — Ajouter" : `${d.notes.length} note${d.notes.length > 1 ? "s" : ""}`}
+                  </p>
                 </div>
                 {canWrite && (
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setNoteOpen(true)} aria-label="Ajouter une note">
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  <span className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground"><Plus className="h-4 w-4" /></span>
                 )}
-              </Card>
-            ) : (
-              <Card className="p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><StickyNote className="h-4 w-4" /> Notes</h3>
-                  {canWrite && (
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setNoteOpen(true)}><Plus className="h-3.5 w-3.5" /></Button>
-                  )}
-                </div>
-                <ul className="space-y-2">
-                  {d.notes.slice(0, 3).map((n) => (
+              </button>
+              {d.notes.length > 0 && (
+                <ul className="space-y-2 px-3 pb-3">
+                  {d.notes.slice(0, 2).map((n) => (
                     <li key={n.id} className="rounded-lg border border-border bg-card/60 p-2 text-sm">
-                      <p className="whitespace-pre-wrap break-words">{n.note}</p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">{fmtDateTime(n.created_at)}</p>
+                      <p className="line-clamp-2 whitespace-pre-wrap break-words">{n.note}</p>
                     </li>
                   ))}
                 </ul>
-              </Card>
-            )}
+              )}
+            </Card>
 
-            {/* Documents (mobile) — only if files */}
-            {docsCount > 0 && (
-              <Card className="p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><Paperclip className="h-4 w-4" /> Documents</h3>
-                  <span className="text-xs text-muted-foreground">{docsCount}</span>
+            {/* Documents (mobile) — always actionable */}
+            <Card className="p-0">
+              <button type="button" onClick={() => setDocsOpen(true)}
+                className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.99]">
+                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">Documents</p>
+                  <p className="text-xs text-muted-foreground">{docsCount} fichier{docsCount > 1 ? "s" : ""}</p>
                 </div>
-                <ul className="space-y-1.5">
-                  {d.documents.slice(0, 5).map((doc) => (
+                <span className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground"><Plus className="h-4 w-4" /></span>
+              </button>
+              {docsCount > 0 && (
+                <ul className="space-y-1.5 px-3 pb-3">
+                  {d.documents.slice(0, 3).map((doc) => (
                     <li key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card/60 p-2 text-sm">
                       <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <a href={doc.file_url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-primary">{doc.name}</a>
+                      <a href={doc.file_url} target="_blank" rel="noreferrer" onClick={(ev) => ev.stopPropagation()} className="min-w-0 flex-1 truncate text-primary">{doc.name}</a>
                       <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     </li>
                   ))}
                 </ul>
-              </Card>
-            )}
+              )}
+            </Card>
           </div>
+
 
           {/* ====== DESKTOP OVERVIEW ====== */}
           <div className="hidden space-y-6 md:block">
