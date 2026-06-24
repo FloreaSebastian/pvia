@@ -426,7 +426,6 @@ export function DossierTab({
                   />
                 </section>
               )}
-            <div className="space-y-4">
               {(dossier?.photos.length ?? 0) > 0 && (
                 <section>
                   <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Constat initial</p>
