@@ -609,10 +609,11 @@ function ChantierDetailPage() {
         />
       </div>
 
-      <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier")} className="w-full">
-        <TabsList className="sticky top-12 z-30 grid w-full grid-cols-2 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
+      <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier" | "photos")} className="w-full">
+        <TabsList className="sticky top-12 z-30 grid w-full grid-cols-3 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
           <TabsTrigger value="overview">Vue</TabsTrigger>
           <TabsTrigger value="dossier">Dossier</TabsTrigger>
+          <TabsTrigger value="photos">Photos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-3 md:mt-4">
