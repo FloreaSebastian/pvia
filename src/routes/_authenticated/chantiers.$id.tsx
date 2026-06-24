@@ -1103,7 +1103,7 @@ function ChantierDetailPage() {
               <Label>Rappel (optionnel)</Label>
               <Input type="datetime-local" value={noteForm.reminder_at} onChange={(e) => setNoteForm({ ...noteForm, reminder_at: e.target.value })} />
             </div>
-            <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
+            <DialogFooter><Button type="submit" className="shadow-brand" disabled={savingNote}>{savingNote ? "Enregistrement…" : "Enregistrer"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
