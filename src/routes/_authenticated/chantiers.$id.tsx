@@ -1114,38 +1114,30 @@ function ChantierDetailPage() {
             <DialogTitle className="flex items-center gap-2"><StickyNote className="h-4 w-4" /> Notes ({d.notes.length})</DialogTitle>
           </DialogHeader>
           {/* Filters */}
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={notesSearch} onChange={(e) => setNotesSearch(e.target.value)} placeholder="Rechercher…" className="h-8 pl-7 text-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={notesPrio} onValueChange={(v) => setNotesPrio(v as typeof notesPrio)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes priorités</SelectItem>
-                  <SelectItem value="high">Haute</SelectItem>
-                  <SelectItem value="normal">Normale</SelectItem>
-                  <SelectItem value="low">Basse</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={notesVis} onValueChange={(v) => setNotesVis(v as typeof notesVis)}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes visibilités</SelectItem>
-                  <SelectItem value="internal">Interne</SelectItem>
-                  <SelectItem value="client">Client</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={notesPrio} onValueChange={(v) => setNotesPrio(v as typeof notesPrio)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes priorités</SelectItem>
+                <SelectItem value="high">Haute</SelectItem>
+                <SelectItem value="normal">Normale</SelectItem>
+                <SelectItem value="low">Basse</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={notesVis} onValueChange={(v) => setNotesVis(v as typeof notesVis)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes visibilités</SelectItem>
+                <SelectItem value="internal">Interne</SelectItem>
+                <SelectItem value="client">Client</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="-mx-1 mt-2 flex-1 space-y-2 overflow-y-auto px-1">
             {(() => {
-              const q = notesSearch.trim().toLowerCase();
               const filtered = d.notes.filter((n) => {
                 if (notesPrio !== "all" && n.priority !== notesPrio) return false;
                 if (notesVis !== "all" && n.visibility !== notesVis) return false;
-                if (q && !n.note.toLowerCase().includes(q)) return false;
                 return true;
               });
               const sorted = [...filtered].sort((a, b) => {
