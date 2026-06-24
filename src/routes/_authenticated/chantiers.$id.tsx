@@ -210,20 +210,40 @@ function ChantierDetailPage() {
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
   }
 
-  // note dialog
+  // note dialog (create + edit)
   const [noteOpen, setNoteOpen] = useState(false);
+  const [noteEditing, setNoteEditing] = useState<string | null>(null);
+  const [notesListOpen, setNotesListOpen] = useState(false);
   const emptyNote = { note: "", visibility: "internal" as "internal" | "client", priority: "normal" as "low" | "normal" | "high", reminder_at: "" };
   const [noteForm, setNoteForm] = useState(emptyNote);
+  function openNewNote() { setNoteEditing(null); setNoteForm(emptyNote); setNoteOpen(true); }
+  function openEditNote(n: { id: string; note: string; visibility: string; priority: string; reminder_at: string | null }) {
+    setNoteEditing(n.id);
+    setNoteForm({
+      note: n.note,
+      visibility: (n.visibility === "client" ? "client" : "internal"),
+      priority: (n.priority === "high" ? "high" : n.priority === "low" ? "low" : "normal"),
+      reminder_at: n.reminder_at ? n.reminder_at.slice(0, 16) : "",
+    });
+    setNoteOpen(true);
+  }
   async function saveNote(e: React.FormEvent) {
     e.preventDefault();
     if (!activeCompanyId) return;
     try {
-      await createNoteFn({ data: { companyId: activeCompanyId, chantierId: id, data: {
+      const payload = {
         note: noteForm.note, visibility: noteForm.visibility, priority: noteForm.priority,
         reminder_at: noteForm.reminder_at ? new Date(noteForm.reminder_at).toISOString() : null,
-      } } });
-      toast.success("Note ajoutée");
+      };
+      if (noteEditing) {
+        await updateNoteFn({ data: { companyId: activeCompanyId, id: noteEditing, data: payload } });
+        toast.success("Note modifiée");
+      } else {
+        await createNoteFn({ data: { companyId: activeCompanyId, chantierId: id, data: payload } });
+        toast.success("Note ajoutée");
+      }
       setNoteOpen(false);
+      setNoteEditing(null);
       setNoteForm(emptyNote);
       await reload();
     } catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
@@ -233,6 +253,26 @@ function ChantierDetailPage() {
     try { await deleteNoteFn({ data: { companyId: activeCompanyId, id: nid } }); toast.success("Supprimé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
   }
+
+  // event detail dialog
+  const [evtDetailId, setEvtDetailId] = useState<string | null>(null);
+
+  // documents bottom-sheet
+  const [docsOpen, setDocsOpen] = useState(false);
+
+  // progress dialog
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [progressValue, setProgressValue] = useState<number>(0);
+  async function saveProgress() {
+    if (!activeCompanyId) return;
+    try {
+      await updateProgressFn({ data: { companyId: activeCompanyId, id, progress_percent: progressValue } });
+      toast.success("Avancement mis à jour");
+      setProgressOpen(false);
+      await reload();
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+  }
+
 
   // upload doc
   const [uploading, setUploading] = useState(false);
