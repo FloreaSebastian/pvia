@@ -1361,12 +1361,18 @@ function ChantierDetailPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Avancement chantier</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <p className="flex items-start gap-2 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>Auto : {stats.done}/{stats.total} événements terminés ({stats.progress}%). Vous pouvez forcer manuellement.</span>
-            </p>
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+              <p className="mb-1 font-medium text-foreground">Calcul automatique</p>
+              <ul className="list-disc space-y-0.5 pl-4">
+                <li>Chantier créé : <strong>25%</strong></li>
+                <li>Début travaux terminé : <strong>50%</strong></li>
+                <li>Contrôle qualité terminé : <strong>75%</strong></li>
+                <li>Réception terminée : <strong>100%</strong></li>
+              </ul>
+              <p className="mt-2">Valeur auto actuelle : <strong className="text-foreground">{autoProgress}%</strong></p>
+            </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Avancement manuel</span>
+              <span className="font-medium">{isManualProgress ? "Avancement manuel" : "Avancement"}</span>
               <span className="tabular-nums text-lg font-bold">{progressValue}%</span>
             </div>
             <Slider value={[progressValue]} min={0} max={100} step={1} onValueChange={(v) => setProgressValue(v[0] ?? 0)} />
@@ -1375,11 +1381,49 @@ function ChantierDetailPage() {
             </div>
           </div>
           <DialogFooter className="flex-row gap-2 sm:justify-end">
-            <Button variant="outline" onClick={() => setProgressValue(stats.progress)}>
-              <Sparkles className="h-4 w-4" /> Auto ({stats.progress}%)
+            <Button variant="outline" disabled={savingProgress} onClick={() => { void saveProgress(autoProgress); }}>
+              <Sparkles className="h-4 w-4" /> Repasser en auto ({autoProgress}%)
             </Button>
-            <Button onClick={saveProgress} className="shadow-brand">Enregistrer</Button>
+            <Button onClick={() => { void saveProgress(); }} disabled={savingProgress} className="shadow-brand">
+              {savingProgress ? "…" : "Enregistrer"}
+            </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Timeline-all dialog (bottom sheet feel) */}
+      <Dialog open={timelineAllOpen} onOpenChange={setTimelineAllOpen}>
+        <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-md flex-col p-0">
+          <DialogHeader className="border-b border-border px-4 py-3">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <CalendarIcon className="h-4 w-4" /> Timeline complète ({userEvents.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
+            {userEvents.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Aucun événement.</p>
+            ) : (
+              <ol className="space-y-2">
+                {userEvents.map((e) => (
+                  <li key={e.id}>
+                    <button type="button" onClick={() => { setTimelineAllOpen(false); setEvtDetailId(e.id); }}
+                      className="flex w-full items-start gap-2 rounded-lg border border-border bg-card/60 p-2 text-left transition active:scale-[0.99]">
+                      <span className="mt-0.5">
+                        {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
+                         e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
+                         e.status === "en_cours" ? <Clock className="h-4 w-4 text-warning" /> :
+                         <Clock className="h-4 w-4 text-primary" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{e.title}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
