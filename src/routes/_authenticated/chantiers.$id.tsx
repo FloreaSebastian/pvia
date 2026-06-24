@@ -492,9 +492,13 @@ function ChantierDetailPage() {
   const isManualProgress = typeof (ch as { progress_percent?: number | null }).progress_percent === "number" && chProgress !== autoProgress;
 
   // Open dossier with target sub-tab (memorized in localStorage)
+  // Open dossier with target sub-tab (memorized in localStorage)
   const dossierSubKey = `chantier-dossier-tab:${id}`;
   const openDossier = (sub?: string) => {
-    if (sub) { try { localStorage.setItem(dossierSubKey, sub); } catch { /* noop */ } }
+    if (sub) {
+      try { localStorage.setItem(dossierSubKey, sub); } catch { /* noop */ }
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("chantier-dossier-subtab"));
+    }
     setTabValue("dossier");
   };
 
