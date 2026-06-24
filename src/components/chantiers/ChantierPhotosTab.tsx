@@ -397,69 +397,81 @@ function LightboxDialog({
   if (!photo) return null;
   const hasGps = photo.latitude !== null && photo.longitude !== null;
   const typeLabel = photo.photo_type === "before" ? "Avant travaux" : photo.photo_type === "during" ? "Pendant travaux" : "Fin de chantier";
+  const phaseTone =
+    photo.photo_type === "before" ? "bg-blue-600"
+    : photo.photo_type === "during" ? "bg-orange-600"
+    : "bg-emerald-600";
+  const displayLabel = photo.label ?? "Photo chantier";
   return (
-    <Dialog open={!!photo} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-3xl p-0">
-        <DialogHeader className="px-4 pt-4">
-          <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
-            <span>{typeLabel}</span>
-            {photo.label && <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{photo.label}</span>}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-3 p-3 md:grid-cols-[1fr_240px]">
-          <div className="flex items-center justify-center rounded bg-black/95 min-h-[260px]">
+    <Sheet open={!!photo} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent side="bottom" className="h-[100dvh] max-h-[100dvh] w-full overflow-y-auto p-0 sm:h-auto sm:max-h-[92vh] sm:max-w-3xl sm:rounded-lg">
+        <SheetHeader className="border-b border-border px-4 py-3">
+          <SheetTitle className="flex flex-wrap items-center gap-2 text-base">
+            <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white ${phaseTone}`}>{typeLabel}</span>
+            <span className="font-mono text-sm">{displayLabel}</span>
+          </SheetTitle>
+        </SheetHeader>
+        <div className="space-y-3 p-3">
+          <div className="flex items-center justify-center overflow-hidden rounded-lg bg-black">
             {photo.signed_url ? (
-              <img src={photo.signed_url} alt={photo.label ?? ""} className="max-h-[70vh] w-full object-contain" />
-            ) : <span className="text-xs text-muted-foreground">Image indisponible</span>}
+              <img src={photo.signed_url} alt={displayLabel} className="max-h-[60vh] w-full object-contain" />
+            ) : <span className="p-6 text-xs text-muted-foreground">Image indisponible</span>}
           </div>
-          <aside className="space-y-2 text-xs">
-            <div className="rounded border border-border p-2">
-              <div className="text-[10px] font-medium uppercase text-muted-foreground">Photo</div>
-              {photo.file_name && <div className="break-all text-[11px] text-muted-foreground">{photo.file_name}</div>}
-              <div>Prise : {fmtFull(photo.taken_at)}</div>
-              <div className="text-muted-foreground">Upload : {fmtFull(photo.created_at)}</div>
-              {photo.uploader_name && <div className="text-muted-foreground">Par : {photo.uploader_name}</div>}
+          <div className="space-y-1.5 rounded-lg border border-border bg-card p-3 text-sm">
+            <div className="flex items-center gap-2 text-foreground">
+              <span>📅</span><span>{fmtFull(photo.taken_at ?? photo.created_at)}</span>
             </div>
-            {photo.caption && (
-              <div className="rounded border border-border p-2">
-                <div className="text-[10px] font-medium uppercase text-muted-foreground">Commentaire</div>
-                <p className="whitespace-pre-wrap">{photo.caption}</p>
+            {photo.uploader_name && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span>👤</span><span>{photo.uploader_name}</span>
               </div>
             )}
-            <div className="rounded border border-border p-2">
-              <div className="text-[10px] font-medium uppercase text-muted-foreground">Géolocalisation</div>
+            <div className="flex items-center gap-2">
               {hasGps ? (
-                <>
-                  <div className="flex items-center gap-1 text-emerald-700"><MapPin className="h-3 w-3" /> Géolocalisée{photo.accuracy != null && <span className="text-muted-foreground"> ±{Math.round(photo.accuracy)}m</span>}</div>
-                  <div className="font-mono text-[11px]">{photo.latitude!.toFixed(6)}, {photo.longitude!.toFixed(6)}</div>
-                  <Button asChild size="sm" variant="outline" className="mt-1 h-7 px-2">
-                    <a href={`https://www.google.com/maps?q=${photo.latitude},${photo.longitude}`} target="_blank" rel="noopener noreferrer">Voir sur la carte</a>
-                  </Button>
-                </>
+                <span className="inline-flex items-center gap-1 text-emerald-700">
+                  <MapPin className="h-3.5 w-3.5" /> Géolocalisée
+                  {photo.accuracy != null && <span className="text-muted-foreground">(±{Math.round(photo.accuracy)} m)</span>}
+                </span>
               ) : (
-                <div className="flex items-center gap-1 text-amber-700"><MapPinOff className="h-3 w-3" /> Non géolocalisée</div>
+                <span className="inline-flex items-center gap-1 text-amber-700">
+                  <MapPinOff className="h-3.5 w-3.5" /> Non géolocalisée
+                </span>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {photo.signed_url && (
-                <Button asChild size="sm" variant="outline" className="h-8 gap-1">
-                  <a href={photo.signed_url} download={photo.file_name ?? photo.label ?? "photo.jpg"} target="_blank" rel="noopener noreferrer">
-                    <Download className="h-3.5 w-3.5" /> Télécharger
-                  </a>
-                </Button>
-              )}
-              {onDelete && (
-                <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={() => onDelete(photo)}>
-                  <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" className="h-8 gap-1" onClick={onClose}>
-                <X className="h-3.5 w-3.5" /> Fermer
+          </div>
+          {photo.caption && (
+            <div className="rounded-lg border border-border bg-card p-3 text-sm">
+              <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Commentaire</div>
+              <p className="whitespace-pre-wrap">{photo.caption}</p>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {hasGps && (
+              <Button asChild size="sm" variant="outline" className="h-9 gap-1.5">
+                <a href={`https://www.google.com/maps?q=${photo.latitude},${photo.longitude}`} target="_blank" rel="noopener noreferrer">
+                  <MapPin className="h-4 w-4" /> Voir sur la carte
+                </a>
               </Button>
-            </div>
-          </aside>
+            )}
+            {photo.signed_url && (
+              <Button asChild size="sm" variant="outline" className="h-9 gap-1.5">
+                <a href={photo.signed_url} download={displayLabel} target="_blank" rel="noopener noreferrer">
+                  <Download className="h-4 w-4" /> Télécharger
+                </a>
+              </Button>
+            )}
+            {onDelete && (
+              <Button size="sm" variant="destructive" className="h-9 gap-1.5" onClick={() => onDelete(photo)}>
+                <Trash2 className="h-4 w-4" /> Supprimer
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" className="ml-auto h-9 gap-1.5" onClick={onClose}>
+              <X className="h-4 w-4" /> Fermer
+            </Button>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
+
