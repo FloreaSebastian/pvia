@@ -901,6 +901,44 @@ function ChantierDetailPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Note dialog */}
+      <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Nouvelle note</DialogTitle></DialogHeader>
+          <form onSubmit={saveNote} className="space-y-3">
+            <Textarea required placeholder="Votre note…" value={noteForm.note} onChange={(e) => setNoteForm({ ...noteForm, note: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Visibilité</Label>
+                <Select value={noteForm.visibility} onValueChange={(v) => setNoteForm({ ...noteForm, visibility: v as "internal" | "client" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="internal">Interne</SelectItem>
+                    <SelectItem value="client">Visible client</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Priorité</Label>
+                <Select value={noteForm.priority} onValueChange={(v) => setNoteForm({ ...noteForm, priority: v as "low" | "normal" | "high" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Basse</SelectItem>
+                    <SelectItem value="normal">Normale</SelectItem>
+                    <SelectItem value="high">Haute</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Rappel (optionnel)</Label>
+              <Input type="datetime-local" value={noteForm.reminder_at} onChange={(e) => setNoteForm({ ...noteForm, reminder_at: e.target.value })} />
+            </div>
+            <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
