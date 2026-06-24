@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles, Pencil, Info, X } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles, Pencil, Info, X, Copy, Pin, PinOff, Search, Share2, Navigation, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
   createChantierNote, updateChantierNote, deleteChantierNote,
   createChantierDocument, deleteChantierDocument,
   listCompanyMembers, createChantierAutoPlanning, updateChantierProgress,
+  togglePinChantierNote, renameChantierDocument, duplicateChantierEvent, completeChantierEvent,
 } from "@/lib/chantier-detail.functions";
 import { reopenChantier } from "@/lib/chantiers.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -98,6 +99,10 @@ function ChantierDetailPage() {
   const autoPlanFn = useServerFn(createChantierAutoPlanning);
   const reopenFn = useServerFn(reopenChantier);
   const updateProgressFn = useServerFn(updateChantierProgress);
+  const togglePinFn = useServerFn(togglePinChantierNote);
+  const renameDocFn = useServerFn(renameChantierDocument);
+  const duplicateEvtFn = useServerFn(duplicateChantierEvent);
+  const completeEvtFn = useServerFn(completeChantierEvent);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
   const [reopenLoading, setReopenLoading] = useState(false);
 
@@ -305,6 +310,41 @@ function ChantierDetailPage() {
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
   }
 
+  // Notes filters & actions
+  const [notesSearch, setNotesSearch] = useState("");
+  const [notesPrio, setNotesPrio] = useState<"all" | "low" | "normal" | "high">("all");
+  const [notesVis, setNotesVis] = useState<"all" | "internal" | "client">("all");
+  async function togglePin(nid: string, pinned: boolean) {
+    if (!activeCompanyId) return;
+    try { await togglePinFn({ data: { companyId: activeCompanyId, id: nid, pinned: !pinned } }); await reload(); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+  }
+
+  // Documents filters
+  const [docsSearch, setDocsSearch] = useState("");
+  const [docsCatFilter, setDocsCatFilter] = useState<"all" | typeof DOC_CATEGORIES[number]["value"]>("all");
+  const [docsSort, setDocsSort] = useState<"date_desc" | "date_asc" | "name">("date_desc");
+  async function renameDoc(did: string, current: string) {
+    if (!activeCompanyId) return;
+    const next = window.prompt("Nouveau nom du document", current);
+    if (!next || next.trim() === current.trim()) return;
+    try { await renameDocFn({ data: { companyId: activeCompanyId, id: did, name: next.trim() } }); toast.success("Renommé"); await reload(); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+  }
+
+  // Event detail actions
+  async function duplicateEvt(eid: string) {
+    if (!activeCompanyId) return;
+    try { await duplicateEvtFn({ data: { companyId: activeCompanyId, id: eid } }); toast.success("Événement dupliqué"); await reload(); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+  }
+  async function completeEvt(eid: string) {
+    if (!activeCompanyId) return;
+    try { await completeEvtFn({ data: { companyId: activeCompanyId, id: eid } }); toast.success("Marqué terminé"); await reload(); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+  }
+
+
   const timeline = useMemo(() => d?.events ?? [], [d]);
   
   const userEvents = useMemo(() => timeline.filter((e) => !e.event_type.startsWith("system_")), [timeline]);
@@ -438,6 +478,45 @@ function ChantierDetailPage() {
   const docsCount = d.documents.length;
   const surface = (ch as { surface_m2?: number | null }).surface_m2 ?? null;
 
+  // Smart auto-progress based on milestones (25/50/75/100)
+  const hasType = (t: string) => userEvents.some((e) => e.event_type === t && e.status === "termine");
+  const milestonePct = (() => {
+    let p = 0;
+    if (d.chantier.created_at) p = Math.max(p, 25);
+    if (hasType("debut_travaux") || userEvents.some((e) => e.status === "en_cours")) p = Math.max(p, 50);
+    if (hasType("controle_qualite")) p = Math.max(p, 75);
+    if (hasType("reception") || ch.status === "receptionne" || ch.status === "termine") p = 100;
+    return p;
+  })();
+  const autoProgress = milestonePct > 0 ? milestonePct : stats.progress;
+  const isManualProgress = typeof (ch as { progress_percent?: number | null }).progress_percent === "number" && chProgress !== autoProgress;
+
+  // Open dossier with target sub-tab (memorized in localStorage)
+  // Open dossier with target sub-tab (memorized in localStorage)
+  const dossierSubKey = `chantier-dossier-tab:${id}`;
+  const openDossier = (sub?: string) => {
+    if (sub) {
+      try { localStorage.setItem(dossierSubKey, sub); } catch { /* noop */ }
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("chantier-dossier-subtab"));
+    }
+    setTabValue("dossier");
+  };
+
+  // Share helpers
+  function share() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const title = ch.name;
+    const text = `Chantier ${ch.name}${ch.address ? " — " + ch.address : ""}`;
+    const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { share?: (d: ShareData) => Promise<void> }) : null;
+    if (nav?.share) { nav.share({ title, text, url }).catch(() => { /* noop */ }); return; }
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => toast.success("Lien copié")).catch(() => toast.error("Copie impossible"));
+    }
+  }
+  const gpsHref = ch.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ch.address)}` : null;
+  const tel = ch.client?.phone ?? null;
+  const email = ch.client?.email ?? null;
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* ====== MOBILE HEADER ====== */}
@@ -486,7 +565,27 @@ function ChantierDetailPage() {
             </Button>
           )}
         </div>
+        {/* Sticky contact bar — Appeler / Email / GPS / Partager */}
+        <div className="sticky top-0 z-40 -mx-4 mt-3 flex items-center gap-1 border-y border-border bg-background/95 px-2 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <a href={tel ? `tel:${tel}` : undefined} aria-disabled={!tel}
+            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${tel ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
+            <Phone className="h-4 w-4" /> Appeler
+          </a>
+          <a href={email ? `mailto:${email}` : undefined} aria-disabled={!email}
+            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${email ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
+            <Mail className="h-4 w-4" /> Email
+          </a>
+          <a href={gpsHref ?? undefined} target="_blank" rel="noreferrer" aria-disabled={!gpsHref}
+            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${gpsHref ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
+            <Navigation className="h-4 w-4" /> GPS
+          </a>
+          <button type="button" onClick={share}
+            className="flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium text-foreground hover:bg-accent">
+            <Share2 className="h-4 w-4" /> Partager
+          </button>
+        </div>
       </div>
+
 
       {/* ====== DESKTOP HEADER ====== */}
       <div className="hidden md:block">
@@ -524,7 +623,7 @@ function ChantierDetailPage() {
       </div>
 
       <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier")} className="w-full">
-        <TabsList className="sticky top-0 z-30 grid w-full grid-cols-2 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
+        <TabsList className="sticky top-12 z-30 grid w-full grid-cols-2 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
           <TabsTrigger value="overview">Vue</TabsTrigger>
           <TabsTrigger value="dossier">Dossier</TabsTrigger>
         </TabsList>
@@ -565,34 +664,34 @@ function ChantierDetailPage() {
               </Card>
             </div>
 
-            {/* KPI 2x2 — Réserves / PV / Événements / Documents */}
+            {/* KPI 2x2 — Réserves / PV / Événements / Documents (interactifs) */}
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setTabValue("dossier")} className="text-left">
-                <Card className="p-3 transition active:scale-[0.98]">
+              <button type="button" onClick={() => openDossier("reserves")} className="text-left transition active:scale-[0.97]">
+                <Card className="p-3">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réserves</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{reservesCount}</p>
                 </Card>
               </button>
-              <button type="button" onClick={() => setTabValue("dossier")} className="text-left">
-
-                <Card className="p-3 transition active:scale-[0.98]">
+              <button type="button" onClick={() => openDossier("pv")} className="text-left transition active:scale-[0.97]">
+                <Card className="p-3">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">PV</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{pvCount}</p>
                 </Card>
               </button>
-              <button type="button" onClick={() => navigate({ to: "/chantiers/calendrier" })} className="text-left">
-                <Card className="p-3 transition active:scale-[0.98]">
+              <button type="button" onClick={() => navigate({ to: "/chantiers/calendrier" })} className="text-left transition active:scale-[0.97]">
+                <Card className="p-3">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Événements</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{eventsCount}</p>
                 </Card>
               </button>
-              <button type="button" onClick={() => setDocsOpen(true)} className="text-left">
-                <Card className="p-3 transition active:scale-[0.98]">
+              <button type="button" onClick={() => setDocsOpen(true)} className="text-left transition active:scale-[0.97]">
+                <Card className="p-3">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Documents</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{docsCount}</p>
                 </Card>
               </button>
             </div>
+
 
             {/* Avancement bar */}
             <Card className="p-3">
@@ -617,10 +716,15 @@ function ChantierDetailPage() {
               <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
                 <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
               </div>
-              <p className="mt-2 flex items-start gap-1 text-[10px] text-muted-foreground">
-                <Info className="mt-0.5 h-3 w-3 shrink-0" />
-                <span>Auto : {stats.done}/{stats.total} événements terminés ({stats.progress}%). Modifiable manuellement.</span>
-              </p>
+              <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
+                <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium ${isManualProgress ? "bg-warning/15 text-warning" : "bg-primary/10 text-primary"}`}>
+                  {isManualProgress ? <Pencil className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                  {isManualProgress ? "Mode manuel" : "Mode automatique"}
+                </span>
+                <span className="text-muted-foreground">
+                  Auto : 25% créé · 50% travaux · 75% contrôle · 100% réception ({autoProgress}%)
+                </span>
+              </div>
             </Card>
 
             {/* Timeline (mobile) */}
@@ -1022,33 +1126,87 @@ function ChantierDetailPage() {
 
       {/* Notes list dialog */}
       <Dialog open={notesListOpen} onOpenChange={setNotesListOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-md flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><StickyNote className="h-4 w-4" /> Notes ({d.notes.length})</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-            {d.notes.map((n) => (
-              <div key={n.id} className="rounded-lg border border-border bg-card p-3">
-                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px]">
-                  <StatusPill size="sm" tone={n.priority === "high" ? "warning" : n.priority === "low" ? "neutral" : "info"}>{n.priority}</StatusPill>
-                  <StatusPill size="sm" tone={n.visibility === "client" ? "success" : "neutral"}>{n.visibility === "client" ? "Client" : "Interne"}</StatusPill>
-                  <span className="ml-auto text-muted-foreground">{fmtDateTime(n.created_at)}</span>
-                </div>
-                <p className="whitespace-pre-wrap break-words text-sm">{n.note}</p>
-                {canWrite && (
-                  <div className="mt-2 flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setNotesListOpen(false); openEditNote(n as { id: string; note: string; visibility: string; priority: string; reminder_at: string | null }); }}>
-                      <Pencil className="h-3.5 w-3.5" /> Modifier
-                    </Button>
-                    {isAdmin && (
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => removeNote(n.id)}>
-                        <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                      </Button>
+          {/* Filters */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input value={notesSearch} onChange={(e) => setNotesSearch(e.target.value)} placeholder="Rechercher…" className="h-8 pl-7 text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={notesPrio} onValueChange={(v) => setNotesPrio(v as typeof notesPrio)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes priorités</SelectItem>
+                  <SelectItem value="high">Haute</SelectItem>
+                  <SelectItem value="normal">Normale</SelectItem>
+                  <SelectItem value="low">Basse</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={notesVis} onValueChange={(v) => setNotesVis(v as typeof notesVis)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes visibilités</SelectItem>
+                  <SelectItem value="internal">Interne</SelectItem>
+                  <SelectItem value="client">Client</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="-mx-1 mt-2 flex-1 space-y-2 overflow-y-auto px-1">
+            {(() => {
+              const q = notesSearch.trim().toLowerCase();
+              const filtered = d.notes.filter((n) => {
+                if (notesPrio !== "all" && n.priority !== notesPrio) return false;
+                if (notesVis !== "all" && n.visibility !== notesVis) return false;
+                if (q && !n.note.toLowerCase().includes(q)) return false;
+                return true;
+              });
+              const sorted = [...filtered].sort((a, b) => {
+                const ap = (a as { pinned?: boolean }).pinned ? 1 : 0;
+                const bp = (b as { pinned?: boolean }).pinned ? 1 : 0;
+                if (ap !== bp) return bp - ap;
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              });
+              if (sorted.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">Aucune note.</p>;
+              return sorted.map((n) => {
+                const pinned = !!(n as { pinned?: boolean }).pinned;
+                const isHigh = n.priority === "high";
+                const authorId = (n as { created_by?: string | null }).created_by ?? null;
+                const authorName = authorId ? (membersById.get(authorId)?.name ?? null) : null;
+                return (
+                  <div key={n.id} className={`rounded-lg border p-3 ${isHigh ? "border-warning/40 bg-warning/5" : "border-border bg-card"}`}>
+                    <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                      {pinned && <StatusPill size="sm" tone="primary">📌 Épinglée</StatusPill>}
+                      {isHigh && <StatusPill size="sm" tone="warning">⚠️ Importante</StatusPill>}
+                      <StatusPill size="sm" tone={n.priority === "high" ? "warning" : n.priority === "low" ? "neutral" : "info"}>{n.priority}</StatusPill>
+                      <StatusPill size="sm" tone={n.visibility === "client" ? "success" : "neutral"}>{n.visibility === "client" ? "Client" : "Interne"}</StatusPill>
+                      <span className="ml-auto text-muted-foreground">{fmtDateTime(n.created_at)}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap break-words text-sm">{n.note}</p>
+                    {authorName && <p className="mt-1 text-[10px] text-muted-foreground">Par {authorName}</p>}
+                    {canWrite && (
+                      <div className="mt-2 flex flex-wrap justify-end gap-1">
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => togglePin(n.id, pinned)}>
+                          {pinned ? <><PinOff className="h-3.5 w-3.5" /> Désépingler</> : <><Pin className="h-3.5 w-3.5" /> Épingler</>}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setNotesListOpen(false); openEditNote(n as { id: string; note: string; visibility: string; priority: string; reminder_at: string | null }); }}>
+                          <Pencil className="h-3.5 w-3.5" /> Modifier
+                        </Button>
+                        {isAdmin && (
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => removeNote(n.id)}>
+                            <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            ))}
+                );
+              });
+            })()}
           </div>
           <DialogFooter>
             {canWrite && (
@@ -1060,32 +1218,45 @@ function ChantierDetailPage() {
         </DialogContent>
       </Dialog>
 
+
       {/* Event detail dialog */}
       <Dialog open={evtDetailId !== null} onOpenChange={(o) => { if (!o) setEvtDetailId(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-md flex-col p-0">
           {(() => {
             const e = userEvents.find((x) => x.id === evtDetailId);
             if (!e) return null;
             const assignedId = (e as { assigned_to?: string | null }).assigned_to ?? null;
             const reminderAt = (e as { reminder_at?: string | null }).reminder_at ?? null;
+            const createdBy = (e as { created_by?: string | null }).created_by ?? null;
+            const updatedAt = (e as { updated_at?: string | null }).updated_at ?? null;
+            const createdAt = (e as { created_at?: string | null }).created_at ?? null;
+            const statusBg =
+              e.status === "termine" ? "bg-success/10 border-success/40"
+              : e.status === "en_cours" ? "bg-warning/10 border-warning/40"
+              : e.status === "annule" ? "bg-destructive/10 border-destructive/40"
+              : "bg-primary/10 border-primary/40";
+            const statusTone: "success" | "warning" | "destructive" | "info" =
+              e.status === "termine" ? "success" : e.status === "en_cours" ? "warning"
+              : e.status === "annule" ? "destructive" : "info";
+            const isDone = e.status === "termine";
             return (
               <>
-                <DialogHeader>
-                  <DialogTitle className="pr-6">{e.title}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3 text-sm">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                <DialogHeader className={`border-l-4 px-4 pt-4 pb-3 ${statusBg}`}>
+                  <DialogTitle className="pr-6 text-base">{e.title}</DialogTitle>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <StatusPill tone="neutral" size="sm">{evtLabel(e.event_type)}</StatusPill>
-                    <StatusPill size="sm" tone={e.status === "termine" ? "success" : e.status === "annule" ? "destructive" : e.status === "en_cours" ? "warning" : "info"}>
+                    <StatusPill size="sm" tone={statusTone} dot>
                       {EVENT_STATUSES.find((s) => s.value === e.status)?.label ?? e.status}
                     </StatusPill>
                   </div>
+                </DialogHeader>
+                <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-3 text-sm">
                   <div className="grid gap-1.5 text-xs">
                     <p className="flex items-center gap-2"><CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" /> Début : <strong className="font-medium text-foreground">{fmtDateTime(e.start_at)}</strong></p>
                     {e.end_at && <p className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-muted-foreground" /> Fin : <strong className="font-medium text-foreground">{fmtDateTime(e.end_at)}</strong></p>}
                     {e.location && <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> {e.location}</p>}
                     {assignedId && (
-                      <p className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" /> {membersById.get(assignedId)?.name ?? "—"}</p>
+                      <p className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" /> Assigné : {membersById.get(assignedId)?.name ?? "—"}</p>
                     )}
                     {reminderAt && (
                       <p className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-muted-foreground" /> Rappel : {fmtDateTime(reminderAt)}</p>
@@ -1097,37 +1268,50 @@ function ChantierDetailPage() {
                       <p className="whitespace-pre-wrap break-words">{e.description}</p>
                     </div>
                   )}
-                </div>
-                <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">
+                  <div className="rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
+                    <p>Créé {createdAt ? `le ${fmtDateTime(createdAt)}` : ""}{createdBy ? ` par ${membersById.get(createdBy)?.name ?? "—"}` : ""}</p>
+                    {updatedAt && updatedAt !== createdAt && <p>Modifié le {fmtDateTime(updatedAt)}</p>}
+                  </div>
                   {canWrite && !isLocked && (
-                    <>
-                      <Button variant="outline" onClick={() => { setEvtDetailId(null); openEditEvt(e); }}>
-                        <Pencil className="h-4 w-4" /> Modifier
-                      </Button>
-                      {isAdmin && (
-                        <Button variant="ghost" className="text-destructive" onClick={async () => { const eid = e.id; setEvtDetailId(null); await removeEvt(eid); }}>
-                          <Trash2 className="h-4 w-4" /> Supprimer
-                        </Button>
-                      )}
-                    </>
+                    <Button variant="outline" size="sm" className="w-full" onClick={async () => { const eid = e.id; setEvtDetailId(null); await duplicateEvt(eid); }}>
+                      <Copy className="h-4 w-4" /> Dupliquer l&apos;événement
+                    </Button>
                   )}
-                </DialogFooter>
+                </div>
+                {canWrite && !isLocked && (
+                  <div className="sticky bottom-0 flex gap-2 border-t border-border bg-background p-3">
+                    <Button variant="outline" className="flex-1" onClick={() => { setEvtDetailId(null); openEditEvt(e); }}>
+                      <Pencil className="h-4 w-4" /> Modifier
+                    </Button>
+                    <Button variant={isDone ? "outline" : "default"} className="flex-1" disabled={isDone}
+                      onClick={async () => { const eid = e.id; setEvtDetailId(null); await completeEvt(eid); }}>
+                      <CheckCircle2 className="h-4 w-4" /> {isDone ? "Terminé" : "Terminer"}
+                    </Button>
+                    {isAdmin && (
+                      <Button variant="ghost" size="icon" className="text-destructive" aria-label="Supprimer"
+                        onClick={async () => { const eid = e.id; setEvtDetailId(null); await removeEvt(eid); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                )}
               </>
             );
           })()}
         </DialogContent>
       </Dialog>
 
+
       {/* Documents bottom-sheet dialog */}
       <Dialog open={docsOpen} onOpenChange={setDocsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-md flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Paperclip className="h-4 w-4" /> Documents ({docsCount})</DialogTitle>
           </DialogHeader>
           {canWrite && !isLocked && (
             <div className="space-y-2">
               <Select value={docCategory} onValueChange={(v) => setDocCategory(v as typeof docCategory)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>{DOC_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
               </Select>
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-3 text-sm text-muted-foreground hover:border-primary hover:text-foreground">
@@ -1136,31 +1320,93 @@ function ChantierDetailPage() {
               </label>
             </div>
           )}
-          <div className="max-h-[50vh] space-y-2 overflow-y-auto">
-            {d.documents.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">Aucun document.</p>
-            ) : (
-              d.documents.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 text-sm">
-                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{doc.name}</p>
-                    <p className="text-xs text-muted-foreground">{DOC_CATEGORIES.find((c) => c.value === doc.category)?.label ?? doc.category}</p>
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input value={docsSearch} onChange={(e) => setDocsSearch(e.target.value)} placeholder="Rechercher…" className="h-8 pl-7 text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={docsCatFilter} onValueChange={(v) => setDocsCatFilter(v as typeof docsCatFilter)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes catégories</SelectItem>
+                  {DOC_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={docsSort} onValueChange={(v) => setDocsSort(v as typeof docsSort)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">Plus récent</SelectItem>
+                  <SelectItem value="date_asc">Plus ancien</SelectItem>
+                  <SelectItem value="name">Nom (A→Z)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="-mx-1 mt-1 flex-1 space-y-2 overflow-y-auto px-1">
+            {(() => {
+              const q = docsSearch.trim().toLowerCase();
+              const filtered = d.documents.filter((doc) => {
+                if (docsCatFilter !== "all" && doc.category !== docsCatFilter) return false;
+                if (q && !doc.name.toLowerCase().includes(q)) return false;
+                return true;
+              });
+              const sorted = [...filtered].sort((a, b) => {
+                if (docsSort === "name") return a.name.localeCompare(b.name);
+                const t = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                return docsSort === "date_asc" ? t : -t;
+              });
+              if (sorted.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">Aucun document.</p>;
+              return sorted.map((doc) => {
+                const ft = (doc as { file_type?: string | null }).file_type ?? "";
+                const isImage = ft.startsWith("image/");
+                const isPdf = ft.includes("pdf") || doc.name.toLowerCase().endsWith(".pdf");
+                const authorId = (doc as { created_by?: string | null }).created_by ?? null;
+                const authorName = authorId ? (membersById.get(authorId)?.name ?? null) : null;
+                return (
+                  <div key={doc.id} className="flex gap-2 rounded-lg border border-border bg-card p-2 text-sm">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
+                      {isImage ? (
+                        <img src={doc.file_url} alt={doc.name} loading="lazy" className="h-full w-full object-cover" />
+                      ) : isPdf ? (
+                        <span className="text-[10px] font-bold text-destructive">PDF</span>
+                      ) : (
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">📄 {doc.name}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        📁 {DOC_CATEGORIES.find((c) => c.value === doc.category)?.label ?? doc.category} · 📅 {fmtDate(doc.created_at) ?? "—"}
+                      </p>
+                      {authorName && <p className="truncate text-[11px] text-muted-foreground">👤 {authorName}</p>}
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <a href={doc.file_url} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center gap-1 rounded px-2 text-[11px] text-primary hover:bg-accent">
+                          <ExternalLink className="h-3 w-3" /> Ouvrir
+                        </a>
+                        <a href={doc.file_url} download={doc.name} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[11px] hover:bg-accent">
+                          <Download className="h-3 w-3" /> Télécharger
+                        </a>
+                        {canWrite && (
+                          <button onClick={() => renameDoc(doc.id, doc.name)} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[11px] hover:bg-accent">
+                            <Pencil className="h-3 w-3" /> Renommer
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button onClick={() => removeDoc(doc.id)} className="inline-flex h-7 items-center gap-1 rounded px-2 text-[11px] text-destructive hover:bg-accent">
+                            <Trash2 className="h-3 w-3" /> Supprimer
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <a href={doc.file_url} target="_blank" rel="noreferrer" aria-label="Ouvrir" className="grid h-8 w-8 place-items-center rounded-md text-primary hover:bg-accent">
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                  {isAdmin && (
-                    <button onClick={() => removeDoc(doc.id)} aria-label="Supprimer" className="grid h-8 w-8 place-items-center rounded-md text-destructive hover:bg-accent">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
+                );
+              });
+            })()}
           </div>
         </DialogContent>
       </Dialog>
+
 
       {/* Progress dialog */}
       <Dialog open={progressOpen} onOpenChange={setProgressOpen}>

@@ -66,6 +66,34 @@ export function DossierTab({
   const [loading, setLoading] = useState(true);
   const [busyLiftId, setBusyLiftId] = useState<string | null>(null);
 
+  // Sub-tab memorized in localStorage
+  const subTabKey = `chantier-dossier-tab:${chantierId}`;
+  const [subTab, setSubTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "resume";
+    try { return localStorage.getItem(subTabKey) ?? "resume"; } catch { return "resume"; }
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { localStorage.setItem(subTabKey, subTab); } catch { /* noop */ }
+  }, [subTab, subTabKey]);
+  // Re-read on remount (KPI deep-link sets the key before switching tab)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      try {
+        const v = localStorage.getItem(subTabKey);
+        if (v && v !== subTab) setSubTab(v);
+      } catch { /* noop */ }
+    };
+    window.addEventListener("storage", handler);
+    window.addEventListener("chantier-dossier-subtab", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      window.removeEventListener("chantier-dossier-subtab", handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTabKey]);
+
   // Dialogs
   const [activeReserve, setActiveReserve] = useState<ReserveDetail | null>(null);
   const [liftCtx, setLiftCtx] = useState<{ pvId: string; pvNumero: string; preselectedReserveId: string | null } | null>(null);
@@ -221,7 +249,7 @@ export function DossierTab({
 
   return (
     <>
-      <Tabs defaultValue="resume" className="w-full">
+      <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
         <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <TabsTrigger value="resume" className="shrink-0">Résumé</TabsTrigger>
           <TabsTrigger value="pv" className="shrink-0">PV ({detail.pvs.length})</TabsTrigger>
