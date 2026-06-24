@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles, Pencil, Info, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -17,13 +18,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   getChantierDetail, createChantierEvent, updateChantierEvent, deleteChantierEvent,
-  createChantierNote, deleteChantierNote,
+  createChantierNote, updateChantierNote, deleteChantierNote,
   createChantierDocument, deleteChantierDocument,
-  listCompanyMembers, createChantierAutoPlanning,
+  listCompanyMembers, createChantierAutoPlanning, updateChantierProgress,
 } from "@/lib/chantier-detail.functions";
 import { reopenChantier } from "@/lib/chantiers.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DossierTab } from "@/components/chantiers/DossierTab";
+
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
   component: ChantierDetailPage,
@@ -88,14 +90,17 @@ function ChantierDetailPage() {
   const updateEvtFn = useServerFn(updateChantierEvent);
   const deleteEvtFn = useServerFn(deleteChantierEvent);
   const createNoteFn = useServerFn(createChantierNote);
+  const updateNoteFn = useServerFn(updateChantierNote);
   const deleteNoteFn = useServerFn(deleteChantierNote);
   const createDocFn = useServerFn(createChantierDocument);
   const deleteDocFn = useServerFn(deleteChantierDocument);
   const fetchMembers = useServerFn(listCompanyMembers);
   const autoPlanFn = useServerFn(createChantierAutoPlanning);
   const reopenFn = useServerFn(reopenChantier);
+  const updateProgressFn = useServerFn(updateChantierProgress);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
   const [reopenLoading, setReopenLoading] = useState(false);
+
 
   async function handleReopen() {
     if (!activeCompanyId) return;
@@ -205,20 +210,40 @@ function ChantierDetailPage() {
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
   }
 
-  // note dialog
+  // note dialog (create + edit)
   const [noteOpen, setNoteOpen] = useState(false);
+  const [noteEditing, setNoteEditing] = useState<string | null>(null);
+  const [notesListOpen, setNotesListOpen] = useState(false);
   const emptyNote = { note: "", visibility: "internal" as "internal" | "client", priority: "normal" as "low" | "normal" | "high", reminder_at: "" };
   const [noteForm, setNoteForm] = useState(emptyNote);
+  function openNewNote() { setNoteEditing(null); setNoteForm(emptyNote); setNoteOpen(true); }
+  function openEditNote(n: { id: string; note: string; visibility: string; priority: string; reminder_at: string | null }) {
+    setNoteEditing(n.id);
+    setNoteForm({
+      note: n.note,
+      visibility: (n.visibility === "client" ? "client" : "internal"),
+      priority: (n.priority === "high" ? "high" : n.priority === "low" ? "low" : "normal"),
+      reminder_at: n.reminder_at ? n.reminder_at.slice(0, 16) : "",
+    });
+    setNoteOpen(true);
+  }
   async function saveNote(e: React.FormEvent) {
     e.preventDefault();
     if (!activeCompanyId) return;
     try {
-      await createNoteFn({ data: { companyId: activeCompanyId, chantierId: id, data: {
+      const payload = {
         note: noteForm.note, visibility: noteForm.visibility, priority: noteForm.priority,
         reminder_at: noteForm.reminder_at ? new Date(noteForm.reminder_at).toISOString() : null,
-      } } });
-      toast.success("Note ajoutée");
+      };
+      if (noteEditing) {
+        await updateNoteFn({ data: { companyId: activeCompanyId, id: noteEditing, data: payload } });
+        toast.success("Note modifiée");
+      } else {
+        await createNoteFn({ data: { companyId: activeCompanyId, chantierId: id, data: payload } });
+        toast.success("Note ajoutée");
+      }
       setNoteOpen(false);
+      setNoteEditing(null);
       setNoteForm(emptyNote);
       await reload();
     } catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
@@ -228,6 +253,30 @@ function ChantierDetailPage() {
     try { await deleteNoteFn({ data: { companyId: activeCompanyId, id: nid } }); toast.success("Supprimé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
   }
+
+  // event detail dialog
+  const [evtDetailId, setEvtDetailId] = useState<string | null>(null);
+
+  // documents bottom-sheet
+  const [docsOpen, setDocsOpen] = useState(false);
+
+  // tabs (controlled to allow KPI deep-link)
+  const [tabValue, setTabValue] = useState<"overview" | "dossier">("overview");
+
+
+  // progress dialog
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [progressValue, setProgressValue] = useState<number>(0);
+  async function saveProgress() {
+    if (!activeCompanyId) return;
+    try {
+      await updateProgressFn({ data: { companyId: activeCompanyId, id, progress_percent: progressValue } });
+      toast.success("Avancement mis à jour");
+      setProgressOpen(false);
+      await reload();
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+  }
+
 
   // upload doc
   const [uploading, setUploading] = useState(false);
@@ -474,7 +523,7 @@ function ChantierDetailPage() {
         />
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier")} className="w-full">
         <TabsList className="sticky top-0 z-30 grid w-full grid-cols-2 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
           <TabsTrigger value="overview">Vue</TabsTrigger>
           <TabsTrigger value="dossier">Dossier</TabsTrigger>
@@ -518,33 +567,46 @@ function ChantierDetailPage() {
 
             {/* KPI 2x2 — Réserves / PV / Événements / Documents */}
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => navigate({ to: "/reserves" })} className="text-left">
+              <button type="button" onClick={() => setTabValue("dossier")} className="text-left">
                 <Card className="p-3 transition active:scale-[0.98]">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réserves</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{reservesCount}</p>
                 </Card>
               </button>
-              <button type="button" onClick={() => navigate({ to: "/pv" })} className="text-left">
+              <button type="button" onClick={() => setTabValue("dossier")} className="text-left">
+
                 <Card className="p-3 transition active:scale-[0.98]">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">PV</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{pvCount}</p>
                 </Card>
               </button>
-              <Card className="p-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Événements</p>
-                <p className="mt-1 text-xl font-bold tabular-nums">{eventsCount}</p>
-              </Card>
-              <Card className="p-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Documents</p>
-                <p className="mt-1 text-xl font-bold tabular-nums">{docsCount}</p>
-              </Card>
+              <button type="button" onClick={() => navigate({ to: "/chantiers/calendrier" })} className="text-left">
+                <Card className="p-3 transition active:scale-[0.98]">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Événements</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{eventsCount}</p>
+                </Card>
+              </button>
+              <button type="button" onClick={() => setDocsOpen(true)} className="text-left">
+                <Card className="p-3 transition active:scale-[0.98]">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Documents</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{docsCount}</p>
+                </Card>
+              </button>
             </div>
 
             {/* Avancement bar */}
             <Card className="p-3">
               <div className="mb-1.5 flex items-center justify-between text-xs">
                 <span className="font-medium">Avancement</span>
-                <span className="tabular-nums font-semibold">{chProgress}%</span>
+                <div className="flex items-center gap-2">
+                  <span className="tabular-nums font-semibold">{chProgress}%</span>
+                  {canWrite && !isLocked && (
+                    <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Modifier l'avancement"
+                      onClick={() => { setProgressValue(chProgress); setProgressOpen(true); }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
                 <div
@@ -555,13 +617,17 @@ function ChantierDetailPage() {
               <div className="mt-1 flex justify-between text-[10px] text-muted-foreground tabular-nums">
                 <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
               </div>
+              <p className="mt-2 flex items-start gap-1 text-[10px] text-muted-foreground">
+                <Info className="mt-0.5 h-3 w-3 shrink-0" />
+                <span>Auto : {stats.done}/{stats.total} événements terminés ({stats.progress}%). Modifiable manuellement.</span>
+              </p>
             </Card>
 
             {/* Timeline (mobile) */}
             <Card className="p-3">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><CalendarIcon className="h-4 w-4" /> Timeline</h3>
-                {canWrite && userEvents.length > 0 && (
+                {canWrite && !isLocked && userEvents.length > 0 && (
                   <Button size="sm" variant="ghost" className="h-7 px-2" onClick={openNewEvt}><Plus className="h-3.5 w-3.5" /></Button>
                 )}
               </div>
@@ -569,7 +635,7 @@ function ChantierDetailPage() {
                 <div className="flex flex-col items-center gap-2 py-4 text-center">
                   <p className="text-sm text-muted-foreground">📅 Aucun événement</p>
                   <p className="text-xs text-muted-foreground">Créez votre premier événement</p>
-                  {canWrite && (
+                  {canWrite && !isLocked && (
                     <Button size="sm" onClick={openNewEvt} className="mt-1"><Plus className="h-3.5 w-3.5" /> Ajouter un événement</Button>
                   )}
                 </div>
@@ -577,16 +643,19 @@ function ChantierDetailPage() {
                 <>
                   <ol className="space-y-2">
                     {userEvents.slice(0, 3).map((e) => (
-                      <li key={e.id} className="flex items-start gap-2 rounded-lg border border-border bg-card/60 p-2">
-                        <span className="mt-0.5">
-                          {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
-                           e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
-                           <Clock className="h-4 w-4 text-primary" />}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{e.title}</p>
-                          <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
-                        </div>
+                      <li key={e.id}>
+                        <button type="button" onClick={() => setEvtDetailId(e.id)}
+                          className="flex w-full items-start gap-2 rounded-lg border border-border bg-card/60 p-2 text-left transition active:scale-[0.99]">
+                          <span className="mt-0.5">
+                            {e.status === "termine" ? <CheckCircle2 className="h-4 w-4 text-success" /> :
+                             e.status === "annule" ? <AlertCircle className="h-4 w-4 text-destructive" /> :
+                             <Clock className="h-4 w-4 text-primary" />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{e.title}</p>
+                            <p className="truncate text-[11px] text-muted-foreground">{evtLabel(e.event_type)} · {fmtDateTime(e.start_at)}</p>
+                          </div>
+                        </button>
                       </li>
                     ))}
                   </ol>
@@ -599,58 +668,58 @@ function ChantierDetailPage() {
               )}
             </Card>
 
-            {/* Notes (mobile) — compact */}
-            {d.notes.length === 0 ? (
-              <Card className="flex items-center gap-3 p-3">
+            {/* Notes (mobile) — tap card */}
+            <Card className="p-0">
+              <button type="button"
+                onClick={() => { if (d.notes.length === 0) { openNewNote(); } else { setNotesListOpen(true); } }}
+                className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.99]">
                 <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">Notes</p>
-                  <p className="text-xs text-muted-foreground">Aucune note</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {d.notes.length === 0 ? "Aucune note — Ajouter" : `${d.notes.length} note${d.notes.length > 1 ? "s" : ""}`}
+                  </p>
                 </div>
                 {canWrite && (
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setNoteOpen(true)} aria-label="Ajouter une note">
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  <span className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground"><Plus className="h-4 w-4" /></span>
                 )}
-              </Card>
-            ) : (
-              <Card className="p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><StickyNote className="h-4 w-4" /> Notes</h3>
-                  {canWrite && (
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setNoteOpen(true)}><Plus className="h-3.5 w-3.5" /></Button>
-                  )}
-                </div>
-                <ul className="space-y-2">
-                  {d.notes.slice(0, 3).map((n) => (
+              </button>
+              {d.notes.length > 0 && (
+                <ul className="space-y-2 px-3 pb-3">
+                  {d.notes.slice(0, 2).map((n) => (
                     <li key={n.id} className="rounded-lg border border-border bg-card/60 p-2 text-sm">
-                      <p className="whitespace-pre-wrap break-words">{n.note}</p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">{fmtDateTime(n.created_at)}</p>
+                      <p className="line-clamp-2 whitespace-pre-wrap break-words">{n.note}</p>
                     </li>
                   ))}
                 </ul>
-              </Card>
-            )}
+              )}
+            </Card>
 
-            {/* Documents (mobile) — only if files */}
-            {docsCount > 0 && (
-              <Card className="p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="inline-flex items-center gap-2 text-sm font-semibold"><Paperclip className="h-4 w-4" /> Documents</h3>
-                  <span className="text-xs text-muted-foreground">{docsCount}</span>
+            {/* Documents (mobile) — always actionable */}
+            <Card className="p-0">
+              <button type="button" onClick={() => setDocsOpen(true)}
+                className="flex w-full items-center gap-3 p-3 text-left transition active:scale-[0.99]">
+                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">Documents</p>
+                  <p className="text-xs text-muted-foreground">{docsCount} fichier{docsCount > 1 ? "s" : ""}</p>
                 </div>
-                <ul className="space-y-1.5">
-                  {d.documents.slice(0, 5).map((doc) => (
+                <span className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground"><Plus className="h-4 w-4" /></span>
+              </button>
+              {docsCount > 0 && (
+                <ul className="space-y-1.5 px-3 pb-3">
+                  {d.documents.slice(0, 3).map((doc) => (
                     <li key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card/60 p-2 text-sm">
                       <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <a href={doc.file_url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-primary">{doc.name}</a>
+                      <a href={doc.file_url} target="_blank" rel="noreferrer" onClick={(ev) => ev.stopPropagation()} className="min-w-0 flex-1 truncate text-primary">{doc.name}</a>
                       <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     </li>
                   ))}
                 </ul>
-              </Card>
-            )}
+              )}
+            </Card>
           </div>
+
 
           {/* ====== DESKTOP OVERVIEW ====== */}
           <div className="hidden space-y-6 md:block">
@@ -913,10 +982,10 @@ function ChantierDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Note dialog */}
-      <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Nouvelle note</DialogTitle></DialogHeader>
+      {/* Note dialog (create + edit) */}
+      <Dialog open={noteOpen} onOpenChange={(o) => { setNoteOpen(o); if (!o) { setNoteEditing(null); setNoteForm(emptyNote); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{noteEditing ? "Modifier la note" : "Nouvelle note"}</DialogTitle></DialogHeader>
           <form onSubmit={saveNote} className="space-y-3">
             <Textarea required placeholder="Votre note…" value={noteForm.note} onChange={(e) => setNoteForm({ ...noteForm, note: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
@@ -950,6 +1019,176 @@ function ChantierDetailPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Notes list dialog */}
+      <Dialog open={notesListOpen} onOpenChange={setNotesListOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><StickyNote className="h-4 w-4" /> Notes ({d.notes.length})</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+            {d.notes.map((n) => (
+              <div key={n.id} className="rounded-lg border border-border bg-card p-3">
+                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <StatusPill size="sm" tone={n.priority === "high" ? "warning" : n.priority === "low" ? "neutral" : "info"}>{n.priority}</StatusPill>
+                  <StatusPill size="sm" tone={n.visibility === "client" ? "success" : "neutral"}>{n.visibility === "client" ? "Client" : "Interne"}</StatusPill>
+                  <span className="ml-auto text-muted-foreground">{fmtDateTime(n.created_at)}</span>
+                </div>
+                <p className="whitespace-pre-wrap break-words text-sm">{n.note}</p>
+                {canWrite && (
+                  <div className="mt-2 flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setNotesListOpen(false); openEditNote(n as { id: string; note: string; visibility: string; priority: string; reminder_at: string | null }); }}>
+                      <Pencil className="h-3.5 w-3.5" /> Modifier
+                    </Button>
+                    {isAdmin && (
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => removeNote(n.id)}>
+                        <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            {canWrite && (
+              <Button onClick={() => { setNotesListOpen(false); openNewNote(); }} className="shadow-brand">
+                <Plus className="h-4 w-4" /> Ajouter une note
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Event detail dialog */}
+      <Dialog open={evtDetailId !== null} onOpenChange={(o) => { if (!o) setEvtDetailId(null); }}>
+        <DialogContent className="max-w-md">
+          {(() => {
+            const e = userEvents.find((x) => x.id === evtDetailId);
+            if (!e) return null;
+            const assignedId = (e as { assigned_to?: string | null }).assigned_to ?? null;
+            const reminderAt = (e as { reminder_at?: string | null }).reminder_at ?? null;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="pr-6">{e.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <StatusPill tone="neutral" size="sm">{evtLabel(e.event_type)}</StatusPill>
+                    <StatusPill size="sm" tone={e.status === "termine" ? "success" : e.status === "annule" ? "destructive" : e.status === "en_cours" ? "warning" : "info"}>
+                      {EVENT_STATUSES.find((s) => s.value === e.status)?.label ?? e.status}
+                    </StatusPill>
+                  </div>
+                  <div className="grid gap-1.5 text-xs">
+                    <p className="flex items-center gap-2"><CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" /> Début : <strong className="font-medium text-foreground">{fmtDateTime(e.start_at)}</strong></p>
+                    {e.end_at && <p className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-muted-foreground" /> Fin : <strong className="font-medium text-foreground">{fmtDateTime(e.end_at)}</strong></p>}
+                    {e.location && <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /> {e.location}</p>}
+                    {assignedId && (
+                      <p className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" /> {membersById.get(assignedId)?.name ?? "—"}</p>
+                    )}
+                    {reminderAt && (
+                      <p className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-muted-foreground" /> Rappel : {fmtDateTime(reminderAt)}</p>
+                    )}
+                    <p className="flex items-center gap-2 text-muted-foreground"><Building2 className="h-3.5 w-3.5" /> {ch.name}</p>
+                  </div>
+                  {e.description && (
+                    <div className="rounded-md border border-border bg-card/50 p-2 text-sm">
+                      <p className="whitespace-pre-wrap break-words">{e.description}</p>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">
+                  {canWrite && !isLocked && (
+                    <>
+                      <Button variant="outline" onClick={() => { setEvtDetailId(null); openEditEvt(e); }}>
+                        <Pencil className="h-4 w-4" /> Modifier
+                      </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" className="text-destructive" onClick={async () => { const eid = e.id; setEvtDetailId(null); await removeEvt(eid); }}>
+                          <Trash2 className="h-4 w-4" /> Supprimer
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Documents bottom-sheet dialog */}
+      <Dialog open={docsOpen} onOpenChange={setDocsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Paperclip className="h-4 w-4" /> Documents ({docsCount})</DialogTitle>
+          </DialogHeader>
+          {canWrite && !isLocked && (
+            <div className="space-y-2">
+              <Select value={docCategory} onValueChange={(v) => setDocCategory(v as typeof docCategory)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{DOC_CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-3 text-sm text-muted-foreground hover:border-primary hover:text-foreground">
+                <Upload className="h-4 w-4" /> {uploading ? "Envoi…" : "Ajouter un document"}
+                <input type="file" className="hidden" disabled={uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFileUpload(f); e.target.value = ""; }} />
+              </label>
+            </div>
+          )}
+          <div className="max-h-[50vh] space-y-2 overflow-y-auto">
+            {d.documents.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">Aucun document.</p>
+            ) : (
+              d.documents.map((doc) => (
+                <div key={doc.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2 text-sm">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{doc.name}</p>
+                    <p className="text-xs text-muted-foreground">{DOC_CATEGORIES.find((c) => c.value === doc.category)?.label ?? doc.category}</p>
+                  </div>
+                  <a href={doc.file_url} target="_blank" rel="noreferrer" aria-label="Ouvrir" className="grid h-8 w-8 place-items-center rounded-md text-primary hover:bg-accent">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                  {isAdmin && (
+                    <button onClick={() => removeDoc(doc.id)} aria-label="Supprimer" className="grid h-8 w-8 place-items-center rounded-md text-destructive hover:bg-accent">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Progress dialog */}
+      <Dialog open={progressOpen} onOpenChange={setProgressOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Avancement chantier</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>Auto : {stats.done}/{stats.total} événements terminés ({stats.progress}%). Vous pouvez forcer manuellement.</span>
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Avancement manuel</span>
+              <span className="tabular-nums text-lg font-bold">{progressValue}%</span>
+            </div>
+            <Slider value={[progressValue]} min={0} max={100} step={1} onValueChange={(v) => setProgressValue(v[0] ?? 0)} />
+            <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+              <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+            </div>
+          </div>
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setProgressValue(stats.progress)}>
+              <Sparkles className="h-4 w-4" /> Auto ({stats.progress}%)
+            </Button>
+            <Button onClick={saveProgress} className="shadow-brand">Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }

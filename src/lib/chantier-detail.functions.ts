@@ -272,6 +272,35 @@ export const deleteChantierDocument = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---------- progression (manual override) ----------
+export const updateChantierProgress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    companyId: z.string().uuid(),
+    id: z.string().uuid(),
+    progress_percent: z.number().int().min(0).max(100),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { data: prev } = await supabase.from("chantiers")
+      .select("progress_percent,company_id").eq("id", data.id).maybeSingle();
+    if (!prev || prev.company_id !== data.companyId) throw new Error("Chantier introuvable.");
+    const { error } = await supabase.from("chantiers")
+      .update({ progress_percent: data.progress_percent })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId, entityType: "chantier", entityId: data.id,
+      action: "chantier.update",
+      oldValues: { progress_percent: prev.progress_percent },
+      newValues: { progress_percent: data.progress_percent },
+    });
+    return { ok: true };
+  });
+
+
+
 // ---------- list events (calendar) ----------
 export const listChantierEvents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
