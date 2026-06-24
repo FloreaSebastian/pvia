@@ -567,25 +567,6 @@ function ChantierDetailPage() {
             </Button>
           )}
         </div>
-        {/* Sticky contact bar — Appeler / Email / GPS / Partager */}
-        <div className="sticky top-0 z-40 -mx-4 mt-3 flex items-center gap-1 border-y border-border bg-background/95 px-2 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          <a href={tel ? `tel:${tel}` : undefined} aria-disabled={!tel}
-            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${tel ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
-            <Phone className="h-4 w-4" /> Appeler
-          </a>
-          <a href={email ? `mailto:${email}` : undefined} aria-disabled={!email}
-            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${email ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
-            <Mail className="h-4 w-4" /> Email
-          </a>
-          <a href={gpsHref ?? undefined} target="_blank" rel="noreferrer" aria-disabled={!gpsHref}
-            className={`flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium ${gpsHref ? "text-foreground hover:bg-accent" : "pointer-events-none text-muted-foreground/50"}`}>
-            <Navigation className="h-4 w-4" /> GPS
-          </a>
-          <button type="button" onClick={share}
-            className="flex h-9 flex-1 items-center justify-center gap-1 rounded-md text-[11px] font-medium text-foreground hover:bg-accent">
-            <Share2 className="h-4 w-4" /> Partager
-          </button>
-        </div>
       </div>
 
 
