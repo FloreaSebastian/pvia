@@ -245,7 +245,7 @@ export function DossierTab({
 
   return (
     <>
-      <Tabs defaultValue="resume" className="w-full">
+      <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
         <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <TabsTrigger value="resume" className="shrink-0">Résumé</TabsTrigger>
           <TabsTrigger value="pv" className="shrink-0">PV ({detail.pvs.length})</TabsTrigger>
