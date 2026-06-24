@@ -1065,7 +1065,7 @@ function ChantierDetailPage() {
             </div>
             <div><Label>Lieu</Label><Input value={evtForm.location} onChange={(e) => setEvtForm({ ...evtForm, location: e.target.value })} /></div>
             <div><Label>Description</Label><Textarea value={evtForm.description} onChange={(e) => setEvtForm({ ...evtForm, description: e.target.value })} /></div>
-            <DialogFooter><Button type="submit" className="shadow-brand">Enregistrer</Button></DialogFooter>
+            <DialogFooter><Button type="submit" className="shadow-brand" disabled={savingEvt}>{savingEvt ? "Enregistrement…" : "Enregistrer"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
