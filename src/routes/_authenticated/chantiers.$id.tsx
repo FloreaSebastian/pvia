@@ -1071,7 +1071,7 @@ function ChantierDetailPage() {
                 <div className="space-y-3 text-sm">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <StatusPill tone="neutral" size="sm">{evtLabel(e.event_type)}</StatusPill>
-                    <StatusPill size="sm" tone={e.status === "termine" ? "success" : e.status === "annule" ? "danger" : e.status === "en_cours" ? "warning" : "info"}>
+                    <StatusPill size="sm" tone={e.status === "termine" ? "success" : e.status === "annule" ? "destructive" : e.status === "en_cours" ? "warning" : "info"}>
                       {EVENT_STATUSES.find((s) => s.value === e.status)?.label ?? e.status}
                     </StatusPill>
                   </div>
