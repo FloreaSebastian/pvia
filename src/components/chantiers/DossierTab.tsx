@@ -86,7 +86,11 @@ export function DossierTab({
       } catch { /* noop */ }
     };
     window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    window.addEventListener("chantier-dossier-subtab", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      window.removeEventListener("chantier-dossier-subtab", handler);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTabKey]);
 
