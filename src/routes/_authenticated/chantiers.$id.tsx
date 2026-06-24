@@ -516,12 +516,8 @@ function ChantierDetailPage() {
               </Card>
             </div>
 
-            {/* KPI 2x2 */}
+            {/* KPI 2x2 — Réserves / PV / Événements / Documents */}
             <div className="grid grid-cols-2 gap-2">
-              <Card className="p-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Avancement</p>
-                <p className="mt-1 text-xl font-bold tabular-nums">{chProgress}%</p>
-              </Card>
               <button type="button" onClick={() => navigate({ to: "/reserves" })} className="text-left">
                 <Card className="p-3 transition active:scale-[0.98]">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réserves</p>
@@ -537,6 +533,10 @@ function ChantierDetailPage() {
               <Card className="p-3">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Événements</p>
                 <p className="mt-1 text-xl font-bold tabular-nums">{eventsCount}</p>
+              </Card>
+              <Card className="p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Documents</p>
+                <p className="mt-1 text-xl font-bold tabular-nums">{docsCount}</p>
               </Card>
             </div>
 
