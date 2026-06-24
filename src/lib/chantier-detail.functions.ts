@@ -699,4 +699,49 @@ export const createChantierAutoPlanning = createServerFn({ method: "POST" })
   });
 
 
+// ---------- note: toggle pin ----------
+export const togglePinChantierNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid(), pinned: z.boolean() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { error } = await supabase.from("chantier_notes")
+      .update({ pinned: data.pinned })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_note", entityId: data.id, action: data.pinned ? "chantier_note.pin" : "chantier_note.unpin" });
+    return { ok: true };
+  });
+
+// ---------- document: rename ----------
+export const renameChantierDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid(), name: z.string().trim().min(1).max(300) }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { error } = await supabase.from("chantier_documents")
+      .update({ name: data.name.trim() })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_document", entityId: data.id, action: "chantier_document.rename", newValues: { name: data.name } });
+    return { ok: true };
+  });
+
+
+// ---------- event: quick complete ----------
+export const completeChantierEvent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { error } = await supabase.from("chantier_events")
+      .update({ status: "termine" })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_event", entityId: data.id, action: "chantier_event.complete" });
+    return { ok: true };
+  });
 

@@ -1,0 +1,2 @@
+ALTER TABLE public.chantier_notes ADD COLUMN IF NOT EXISTS pinned boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS chantier_notes_chantier_pinned_idx ON public.chantier_notes (chantier_id, pinned DESC, created_at DESC);

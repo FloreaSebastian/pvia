@@ -66,6 +66,30 @@ export function DossierTab({
   const [loading, setLoading] = useState(true);
   const [busyLiftId, setBusyLiftId] = useState<string | null>(null);
 
+  // Sub-tab memorized in localStorage
+  const subTabKey = `chantier-dossier-tab:${chantierId}`;
+  const [subTab, setSubTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "resume";
+    try { return localStorage.getItem(subTabKey) ?? "resume"; } catch { return "resume"; }
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { localStorage.setItem(subTabKey, subTab); } catch { /* noop */ }
+  }, [subTab, subTabKey]);
+  // Re-read on remount (KPI deep-link sets the key before switching tab)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      try {
+        const v = localStorage.getItem(subTabKey);
+        if (v && v !== subTab) setSubTab(v);
+      } catch { /* noop */ }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTabKey]);
+
   // Dialogs
   const [activeReserve, setActiveReserve] = useState<ReserveDetail | null>(null);
   const [liftCtx, setLiftCtx] = useState<{ pvId: string; pvNumero: string; preselectedReserveId: string | null } | null>(null);

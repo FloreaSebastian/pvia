@@ -361,6 +361,7 @@ export type Database = {
           created_by: string | null
           id: string
           note: string
+          pinned: boolean
           priority: string
           reminder_at: string | null
           updated_at: string
@@ -373,6 +374,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           note: string
+          pinned?: boolean
           priority?: string
           reminder_at?: string | null
           updated_at?: string
@@ -385,6 +387,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string
+          pinned?: boolean
           priority?: string
           reminder_at?: string | null
           updated_at?: string
