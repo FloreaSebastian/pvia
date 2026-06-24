@@ -237,7 +237,7 @@ function ChantiersPage() {
             <DialogTrigger asChild>
               <Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
                 <Plus className="h-4 w-4" />
-                <span className="hidden xs:inline sm:inline">Nouveau</span>
+                <span>Nouveau</span>
               </Button>
             </DialogTrigger>
           )}
