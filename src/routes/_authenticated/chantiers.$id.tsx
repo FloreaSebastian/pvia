@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles, Pencil, Info, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -17,13 +18,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   getChantierDetail, createChantierEvent, updateChantierEvent, deleteChantierEvent,
-  createChantierNote, deleteChantierNote,
+  createChantierNote, updateChantierNote, deleteChantierNote,
   createChantierDocument, deleteChantierDocument,
-  listCompanyMembers, createChantierAutoPlanning,
+  listCompanyMembers, createChantierAutoPlanning, updateChantierProgress,
 } from "@/lib/chantier-detail.functions";
 import { reopenChantier } from "@/lib/chantiers.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DossierTab } from "@/components/chantiers/DossierTab";
+
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
   component: ChantierDetailPage,
