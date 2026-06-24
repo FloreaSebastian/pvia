@@ -26,6 +26,7 @@ import {
 import { reopenChantier } from "@/lib/chantiers.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DossierTab } from "@/components/chantiers/DossierTab";
+import { ChantierPhotosTab } from "@/components/chantiers/ChantierPhotosTab";
 
 
 export const Route = createFileRoute("/_authenticated/chantiers/$id")({
