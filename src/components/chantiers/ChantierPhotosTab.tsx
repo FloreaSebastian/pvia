@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Camera, MapPin, MapPinOff, Plus, Trash2, Upload, Download, X, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Camera, MapPin, MapPinOff, Plus, Trash2, Upload, Download, X, Loader2, Image as ImageIcon, FolderOpen } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
