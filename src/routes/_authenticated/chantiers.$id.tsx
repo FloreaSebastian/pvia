@@ -298,13 +298,15 @@ function ChantierDetailPage() {
 
   // upload doc
   const [uploading, setUploading] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [docCategory, setDocCategory] = useState<typeof DOC_CATEGORIES[number]["value"]>("autre");
   async function handleFileUpload(file: File) {
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || uploading) return;
     setUploading(true);
     try {
-      const path = `chantiers/${id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "_")}`;
-      const { error: upErr } = await supabase.storage.from("pv-assets").upload(path, file, { upsert: false });
+      const safeName = file.name.replace(/[^\w.-]/g, "_");
+      const path = `${activeCompanyId}/chantiers/${id}/documents/${Date.now()}-${safeName}`;
+      const { error: upErr } = await supabase.storage.from("pv-assets").upload(path, file, { upsert: false, contentType: file.type || undefined });
       if (upErr) throw upErr;
       const { data: signed } = await supabase.storage.from("pv-assets").createSignedUrl(path, 60 * 60 * 24 * 7);
       const url = signed?.signedUrl ?? "";
@@ -318,13 +320,15 @@ function ChantierDetailPage() {
     } finally { setUploading(false); }
   }
   async function removeDoc(did: string) {
-    if (!activeCompanyId || !confirm("Supprimer ce document ?")) return;
+    if (!activeCompanyId || deletingDocId) return;
+    if (!confirm("Supprimer ce document ?")) return;
+    setDeletingDocId(did);
     try { await deleteDocFn({ data: { companyId: activeCompanyId, id: did } }); toast.success("Supprimé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setDeletingDocId(null); }
   }
 
   // Notes filters & actions
-  const [notesSearch, setNotesSearch] = useState("");
   const [notesPrio, setNotesPrio] = useState<"all" | "low" | "normal" | "high">("all");
   const [notesVis, setNotesVis] = useState<"all" | "internal" | "client">("all");
   async function togglePin(nid: string, pinned: boolean) {
@@ -333,10 +337,9 @@ function ChantierDetailPage() {
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
   }
 
-  // Documents filters
-  const [docsSearch, setDocsSearch] = useState("");
-  const [docsCatFilter, setDocsCatFilter] = useState<"all" | typeof DOC_CATEGORIES[number]["value"]>("all");
-  const [docsSort, setDocsSort] = useState<"date_desc" | "date_asc" | "name">("date_desc");
+  // Timeline-all dialog
+  const [timelineAllOpen, setTimelineAllOpen] = useState(false);
+
   async function renameDoc(did: string, current: string) {
     if (!activeCompanyId) return;
     const next = window.prompt("Nouveau nom du document", current);
