@@ -219,6 +219,8 @@ function ChantierDetailPage() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteEditing, setNoteEditing] = useState<string | null>(null);
   const [notesListOpen, setNotesListOpen] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const emptyNote = { note: "", visibility: "internal" as "internal" | "client", priority: "normal" as "low" | "normal" | "high", reminder_at: "" };
   const [noteForm, setNoteForm] = useState(emptyNote);
   function openNewNote() { setNoteEditing(null); setNoteForm(emptyNote); setNoteOpen(true); }
@@ -234,7 +236,8 @@ function ChantierDetailPage() {
   }
   async function saveNote(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || savingNote) return;
+    setSavingNote(true);
     try {
       const payload = {
         note: noteForm.note, visibility: noteForm.visibility, priority: noteForm.priority,
@@ -252,11 +255,15 @@ function ChantierDetailPage() {
       setNoteForm(emptyNote);
       await reload();
     } catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setSavingNote(false); }
   }
   async function removeNote(nid: string) {
-    if (!activeCompanyId || !confirm("Supprimer cette note ?")) return;
+    if (!activeCompanyId || deletingNoteId) return;
+    if (!confirm("Supprimer cette note ?")) return;
+    setDeletingNoteId(nid);
     try { await deleteNoteFn({ data: { companyId: activeCompanyId, id: nid } }); toast.success("Supprimé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
+    finally { setDeletingNoteId(null); }
   }
 
   // event detail dialog
