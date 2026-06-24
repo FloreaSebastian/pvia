@@ -90,14 +90,17 @@ function ChantierDetailPage() {
   const updateEvtFn = useServerFn(updateChantierEvent);
   const deleteEvtFn = useServerFn(deleteChantierEvent);
   const createNoteFn = useServerFn(createChantierNote);
+  const updateNoteFn = useServerFn(updateChantierNote);
   const deleteNoteFn = useServerFn(deleteChantierNote);
   const createDocFn = useServerFn(createChantierDocument);
   const deleteDocFn = useServerFn(deleteChantierDocument);
   const fetchMembers = useServerFn(listCompanyMembers);
   const autoPlanFn = useServerFn(createChantierAutoPlanning);
   const reopenFn = useServerFn(reopenChantier);
+  const updateProgressFn = useServerFn(updateChantierProgress);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
   const [reopenLoading, setReopenLoading] = useState(false);
+
 
   async function handleReopen() {
     if (!activeCompanyId) return;
