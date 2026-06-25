@@ -7,10 +7,12 @@ type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
 type Chantier = {
   name?: string | null;
+  reference?: string | null;
   address?: string | null;
   start_date?: string | null;
   end_date?: string | null;
 } | undefined;
+
 type Reserve = {
   description: string;
   severity: string;
