@@ -102,7 +102,7 @@ export const lookupCompanyBySirenOrSiret = createServerFn({ method: "POST" })
  * ───────────────────────────────────────────────────────────────────────── */
 
 const SearchSchema = z.object({
-  query: z.string().trim().min(2).max(120),
+  query: z.string().trim().min(3).max(120),
 });
 
 export type FrenchCompanyHit = {
@@ -120,7 +120,7 @@ export type FrenchCompanyHit = {
 
 export type FrenchCompanySearchResult =
   | { ok: true; hits: FrenchCompanyHit[] }
-  | { ok: false; error: string };
+  | { ok: false; error: string; fallback?: boolean };
 
 function computeFrenchVat(siren: string): string | null {
   if (!/^\d{9}$/.test(siren)) return null;
@@ -135,7 +135,9 @@ export const searchFrenchCompanies = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<FrenchCompanySearchResult> => {
     const raw = data.query.trim();
     const cleaned = raw.replace(/\s+/g, "");
-    const isNumeric = /^\d{9}$|^\d{14}$/.test(cleaned);
+    const isSiret = /^\d{14}$/.test(cleaned);
+    const isSiren = /^\d{9}$/.test(cleaned);
+    const isNumeric = /^\d+$/.test(cleaned);
 
     try {
       const req = getRequest();
@@ -145,18 +147,34 @@ export const searchFrenchCompanies = createServerFn({ method: "POST" })
       if ((e as { name?: string })?.name === "RateLimitError") {
         return { ok: false, error: (e as Error).message };
       }
+      // swallow other rate-limit failures (e.g. table missing) and continue
     }
 
-    const q = isNumeric ? (cleaned.length === 14 ? cleaned.slice(0, 9) : cleaned) : raw;
+    // Use SIREN slice when full SIRET is given; otherwise raw query
+    const q = isSiret ? cleaned.slice(0, 9) : isSiren ? cleaned : raw;
     const url = `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(q)}&page=1&per_page=10`;
 
     let payload: any = null;
     try {
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!res.ok) return { ok: false, error: "Service de recherche indisponible." };
+      const res = await fetch(url, {
+        headers: { Accept: "application/json", "User-Agent": "PVIA/1.0 (+https://pvia.fr)" },
+      });
+      if (!res.ok) {
+        console.warn("[searchFrenchCompanies] API error", res.status, await res.text().catch(() => ""));
+        return {
+          ok: false,
+          fallback: true,
+          error: `Recherche officielle indisponible (code ${res.status}). Vous pouvez saisir l'entreprise manuellement.`,
+        };
+      }
       payload = await res.json();
-    } catch {
-      return { ok: false, error: "Impossible de joindre le service de recherche." };
+    } catch (err) {
+      console.warn("[searchFrenchCompanies] fetch failed", err);
+      return {
+        ok: false,
+        fallback: true,
+        error: "Recherche officielle indisponible pour le moment. Vous pouvez saisir l'entreprise manuellement.",
+      };
     }
 
     const results: any[] = Array.isArray(payload?.results) ? payload.results : [];
@@ -165,10 +183,13 @@ export const searchFrenchCompanies = createServerFn({ method: "POST" })
       const siren: string = r.siren ?? siege.siren ?? "";
       let siret: string | null = siege.siret ?? null;
       let addr = siege;
-      if (isNumeric && cleaned.length === 14) {
+      if (isSiret) {
         const m = (r.matching_etablissements ?? []).find((e: any) => e.siret === cleaned);
         if (m) { siret = cleaned; addr = m; }
       }
+      const postal = addr?.code_postal || null;
+      const city = addr?.libelle_commune || addr?.libelle_commune_etranger || null;
+      const street = addr?.adresse || null;
       return {
         name: r.nom_complet || r.nom_raison_sociale || "",
         siren,
@@ -177,11 +198,15 @@ export const searchFrenchCompanies = createServerFn({ method: "POST" })
         vat_number: computeFrenchVat(siren),
         naf_code: r.activite_principale || null,
         naf_label: r.activite_principale_libelle || r.libelle_activite_principale || null,
-        address_line1: addr?.adresse || null,
-        postal_code: addr?.code_postal || null,
-        city: addr?.libelle_commune || null,
+        address_line1: street,
+        postal_code: postal,
+        city,
       };
     });
 
+    // Suppress unused-isNumeric warning if branch above changes later
+    void isNumeric;
+
     return { ok: true, hits };
   });
+
