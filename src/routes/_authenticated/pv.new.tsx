@@ -44,6 +44,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
@@ -178,6 +179,9 @@ function NewPv() {
     id: string; name: string; email: string | null; phone: string | null;
     address: string | null; address_line1: string | null;
     postal_code: string | null; city: string | null;
+    client_type?: "entreprise" | "particulier" | null;
+    company_name?: string | null;
+    siret?: string | null; siren?: string | null; contact_name?: string | null;
   }[]>([]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -238,6 +242,20 @@ function NewPv() {
   const [savingNewClient, setSavingNewClient] = useState(false);
   const [chantierSearch, setChantierSearch] = useState("");
   const [creatingChantier, setCreatingChantier] = useState(false);
+  const [usedChantierIds, setUsedChantierIds] = useState<Set<string>>(() => new Set());
+  const [newChantierSheetOpen, setNewChantierSheetOpen] = useState(false);
+  const [newChantier, setNewChantier] = useState({
+    name: "",
+    type: "",
+    client_id: "",
+    address: "",
+    postal_code: "",
+    city: "",
+    start_date: "",
+    end_date: "",
+    status: "planifie" as "preparation" | "planifie" | "en_cours" | "en_attente" | "receptionne" | "termine",
+    description: "",
+  });
 
   // Draft prompt dialog
   const [draftPrompt, setDraftPrompt] = useState<{ open: boolean; savedAt: string | null }>({ open: false, savedAt: null });
@@ -276,12 +294,21 @@ function NewPv() {
   const currentStep = STEPS[stepIdx] ?? STEPS[0];
 
   async function reloadLists() {
-    const [c, cl] = await Promise.all([
+    const companyFilter = activeCompanyId;
+    const [c, cl, pvs] = await Promise.all([
       supabase.from("chantiers").select("id,name,reference,client_id,address,postal_code,city,start_date,end_date,status,progress_percent").order("name"),
       supabase.from("clients").select("id,name,email,phone,address,address_line1,postal_code,city,client_type,company_name,siret,siren,contact_name").order("name"),
+      companyFilter
+        ? supabase.from("pv").select("chantier_id").eq("company_id", companyFilter).not("chantier_id", "is", null)
+        : Promise.resolve({ data: [] as { chantier_id: string | null }[] }),
     ]);
     setChantiers((c.data as any) ?? []);
     setClients((cl.data as any) ?? []);
+    const ids = new Set<string>();
+    for (const row of ((pvs as any).data ?? []) as { chantier_id: string | null }[]) {
+      if (row.chantier_id) ids.add(row.chantier_id);
+    }
+    setUsedChantierIds(ids);
   }
 
   function restoreDraft() {
@@ -377,6 +404,16 @@ function NewPv() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-fetch lists when the active company becomes known (or changes), so
+  // we know which chantiers already have a PV without doing it at mount only.
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    void reloadLists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId]);
+
+
+
 
   // Branding
   useEffect(() => {
@@ -443,6 +480,15 @@ function NewPv() {
       }
     }
   }, [form.chantier_id, chantiers]);
+
+  // Si le chantier sélectionné possède déjà un PV → on l'écarte et on prévient l'utilisateur.
+  useEffect(() => {
+    if (form.chantier_id && usedChantierIds.has(form.chantier_id)) {
+      toast.error("Ce chantier possède déjà un PV. Un seul PV peut être créé par chantier.");
+      setForm((f) => ({ ...f, chantier_id: "" }));
+    }
+  }, [form.chantier_id, usedChantierIds]);
+
 
   // Reset OTP and prefill onsite email when client changes
   useEffect(() => {
@@ -837,6 +883,12 @@ function NewPv() {
         const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
         if (idx >= 0) setStepIdx(idx);
 
+      } else if (e?.code === "CHANTIER_ALREADY_HAS_PV" || /CHANTIER_ALREADY_HAS_PV|déjà un PV/i.test(e?.message ?? "")) {
+        toast.error(e?.message || "Ce chantier possède déjà un PV. Un seul PV peut être créé par chantier.");
+        await reloadLists();
+        setForm((f) => ({ ...f, chantier_id: "" }));
+        const idx = STEPS.findIndex((s) => s.id === ID_CHANTIER);
+        if (idx >= 0) setStepIdx(idx);
       } else {
         toast.error(e?.message || "Échec de la création.");
       }
@@ -1046,6 +1098,160 @@ function NewPv() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bottom sheet — Création rapide d'un nouveau chantier depuis le PV */}
+      <Sheet open={newChantierSheetOpen} onOpenChange={(o) => { if (!creatingChantier) setNewChantierSheetOpen(o); }}>
+        <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto sm:max-w-xl sm:mx-auto">
+          <SheetHeader className="text-left">
+            <SheetTitle>Nouveau chantier</SheetTitle>
+            <SheetDescription>
+              Créez un chantier qui sera immédiatement sélectionné pour ce PV. La référence est générée automatiquement.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-3 space-y-3">
+            <Field label="Nom du chantier *">
+              <Input
+                value={newChantier.name}
+                onChange={(e) => setNewChantier({ ...newChantier, name: e.target.value })}
+                placeholder="Villa des Pins — réception lot peinture"
+              />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Client associé">
+                <Select value={newChantier.client_id || "__none"} onValueChange={(v) => setNewChantier({ ...newChantier, client_id: v === "__none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">— Aucun —</SelectItem>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.client_type === "entreprise" ? (c.company_name || c.name) : c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Type de chantier">
+                <Input
+                  value={newChantier.type}
+                  onChange={(e) => setNewChantier({ ...newChantier, type: e.target.value })}
+                  placeholder="Rénovation, neuf, extension…"
+                />
+              </Field>
+            </div>
+            <Field label="Adresse">
+              <AddressAutocomplete
+                value={newChantier.address}
+                onChange={(v) => setNewChantier({ ...newChantier, address: v })}
+                onSelect={(a) => setNewChantier({
+                  ...newChantier,
+                  address: a.address,
+                  postal_code: a.postalCode,
+                  city: a.city,
+                })}
+                placeholder="12 chemin des Pins, Cannes…"
+              />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Code postal">
+                <Input
+                  value={newChantier.postal_code}
+                  onChange={(e) => setNewChantier({ ...newChantier, postal_code: e.target.value })}
+                  placeholder="06400"
+                  inputMode="numeric"
+                />
+              </Field>
+              <Field label="Ville">
+                <Input
+                  value={newChantier.city}
+                  onChange={(e) => setNewChantier({ ...newChantier, city: e.target.value })}
+                  placeholder="Cannes"
+                />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Date de début prévue">
+                <Input type="date" value={newChantier.start_date} onChange={(e) => setNewChantier({ ...newChantier, start_date: e.target.value })} />
+              </Field>
+              <Field label="Date de fin prévue">
+                <Input type="date" value={newChantier.end_date} onChange={(e) => setNewChantier({ ...newChantier, end_date: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="Statut">
+              <Select value={newChantier.status} onValueChange={(v) => setNewChantier({ ...newChantier, status: v as typeof newChantier.status })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="preparation">Préparation</SelectItem>
+                  <SelectItem value="planifie">Planifié</SelectItem>
+                  <SelectItem value="en_cours">En cours</SelectItem>
+                  <SelectItem value="en_attente">En attente</SelectItem>
+                  <SelectItem value="receptionne">Réceptionné</SelectItem>
+                  <SelectItem value="termine">Terminé</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Description / notes">
+              <Textarea
+                rows={3}
+                value={newChantier.description}
+                onChange={(e) => setNewChantier({ ...newChantier, description: e.target.value })}
+                placeholder="Précisions internes (facultatif)"
+              />
+            </Field>
+          </div>
+          <SheetFooter className="mt-4 flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button variant="ghost" disabled={creatingChantier} onClick={() => setNewChantierSheetOpen(false)}>Annuler</Button>
+            <Button
+              disabled={creatingChantier || !newChantier.name.trim()}
+              onClick={async () => {
+                if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
+                setCreatingChantier(true);
+                try {
+                  const res = await createChantierFnSrv({
+                    data: {
+                      companyId: activeCompanyId,
+                      data: {
+                        name: newChantier.name.trim(),
+                        type: newChantier.type.trim() || undefined,
+                        address_line1: newChantier.address.trim() || undefined,
+                        postal_code: newChantier.postal_code.trim() || undefined,
+                        city: newChantier.city.trim() || undefined,
+                        status: newChantier.status,
+                        client_id: newChantier.client_id || null,
+                        start_date: newChantier.start_date || null,
+                        end_date: newChantier.end_date || null,
+                        description: newChantier.description.trim() || undefined,
+                      } as any,
+                    },
+                  });
+                  await reloadLists();
+                  setForm((f: any) => ({
+                    ...f,
+                    chantier_id: res.id,
+                    chantier_address: newChantier.address || f.chantier_address,
+                    chantier_postal_code: newChantier.postal_code || f.chantier_postal_code,
+                    chantier_city: newChantier.city || f.chantier_city,
+                    client_id: newChantier.client_id || f.client_id,
+                  }));
+                  toast.success(`Chantier créé (${res.reference}). Sélectionné pour ce PV.`);
+                  setNewChantierSheetOpen(false);
+                  setNewChantier({
+                    name: "", type: "", client_id: "", address: "", postal_code: "", city: "",
+                    start_date: "", end_date: "", status: "planifie", description: "",
+                  });
+                } catch (e: any) {
+                  toast.error(e?.message || "Création du chantier impossible.");
+                } finally {
+                  setCreatingChantier(false);
+                }
+              }}
+            >
+              {creatingChantier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Créer et sélectionner
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
 
       <Card className="overflow-visible p-0">
         <div className="border-b border-border bg-gradient-to-b from-muted/40 to-muted/10 px-4 py-3 sm:px-5">
@@ -1319,45 +1525,29 @@ function NewPv() {
               {currentStep.id === ID_CHANTIER && (
                 <ChantierStep
                   chantiers={chantiers}
+                  usedChantierIds={usedChantierIds}
                   chantierObj={chantierObj ?? null}
                   clients={clients}
                   form={form}
                   setForm={setForm}
                   chantierSearch={chantierSearch}
                   setChantierSearch={setChantierSearch}
-                  creatingChantier={creatingChantier}
-                  onCreateChantierFromAddress={async () => {
-                    if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
-                    if (!form.chantier_address.trim()) { toast.error("L'adresse du chantier est requise."); return; }
-                    setCreatingChantier(true);
-                    try {
-                      const res = await createChantierFnSrv({
-                        data: {
-                          companyId: activeCompanyId,
-                          data: {
-                            name: form.chantier_address.trim().slice(0, 200),
-                            address_line1: form.chantier_address.trim(),
-                            postal_code: form.chantier_postal_code.trim(),
-                            city: form.chantier_city.trim(),
-                            latitude: form.latitude,
-                            longitude: form.longitude,
-                            status: "en_cours",
-                            client_id: form.client_id || null,
-                            start_date: form.reception_date || null,
-                          },
-                        },
-                      });
-                      await reloadLists();
-                      setForm((f) => ({ ...f, chantier_id: res.id }));
-                      toast.success(`Chantier créé (${res.reference}).`);
-                    } catch (e: any) {
-                      toast.error(e?.message || "Création du chantier impossible.");
-                    } finally {
-                      setCreatingChantier(false);
-                    }
+                  onOpenNewChantier={() => {
+                    // Pré-remplir intelligemment avec ce qui a déjà été saisi.
+                    setNewChantier((n) => ({
+                      ...n,
+                      name: n.name || form.chantier_address.split(",")[0]?.trim() || "",
+                      client_id: n.client_id || form.client_id || "",
+                      address: n.address || form.chantier_address || "",
+                      postal_code: n.postal_code || form.chantier_postal_code || "",
+                      city: n.city || form.chantier_city || "",
+                      start_date: n.start_date || form.reception_date || "",
+                    }));
+                    setNewChantierSheetOpen(true);
                   }}
                 />
               )}
+
 
 
               {currentStep.id === ID_TRAVAUX && (
@@ -2881,25 +3071,32 @@ function ClientStep(props: {
 
 function ChantierStep(props: {
   chantiers: ChantierRow[];
+  usedChantierIds: Set<string>;
   chantierObj: ChantierRow | null;
   clients: ClientRow[];
   form: any;
   setForm: React.Dispatch<React.SetStateAction<any>>;
   chantierSearch: string;
   setChantierSearch: (s: string) => void;
-  creatingChantier: boolean;
-  onCreateChantierFromAddress: () => void;
+  onOpenNewChantier: () => void;
 }) {
-  const { chantiers, chantierObj, clients, form, setForm, chantierSearch, setChantierSearch, creatingChantier, onCreateChantierFromAddress } = props;
+  const { chantiers, usedChantierIds, chantierObj, clients, form, setForm, chantierSearch, setChantierSearch, onOpenNewChantier } = props;
   const q = chantierSearch.trim().toLowerCase();
   const clientName = (id: string | null) => {
     const c = clients.find((cl) => cl.id === id);
     if (!c) return "";
     return c.client_type === "entreprise" ? (c.company_name || c.name) : c.name;
   };
+
+  // Seuls les chantiers qui n'ont pas encore de PV sont sélectionnables.
+  const available = useMemo(
+    () => chantiers.filter((c) => !usedChantierIds.has(c.id)),
+    [chantiers, usedChantierIds],
+  );
+
   const filtered = useMemo(() => {
-    if (!q || q.length < 2) return chantiers.slice(0, 50);
-    return chantiers.filter((c) =>
+    if (!q || q.length < 2) return available.slice(0, 50);
+    return available.filter((c) =>
       c.name.toLowerCase().includes(q) ||
       (c.reference ?? "").toLowerCase().includes(q) ||
       (c.address ?? "").toLowerCase().includes(q) ||
@@ -2907,7 +3104,7 @@ function ChantierStep(props: {
       (c.status ?? "").toLowerCase().includes(q) ||
       clientName(c.client_id).toLowerCase().includes(q),
     ).slice(0, 50);
-  }, [chantiers, clients, q]);
+  }, [available, clients, q]);
 
   const hasChantier = !!chantierObj;
   const cpInvalid = form.chantier_postal_code && !/^\d{5}$/.test(form.chantier_postal_code.trim());
@@ -2917,6 +3114,9 @@ function ChantierStep(props: {
       <div>
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Étape 3/7 · Chantier</div>
         <h2 className="mt-1 text-lg font-semibold tracking-tight">Lieu de réception des travaux</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          1 chantier = 1 seul PV. Seuls les chantiers sans PV sont affichés.
+        </p>
       </div>
 
       {hasChantier ? (
@@ -2964,31 +3164,50 @@ function ChantierStep(props: {
           </div>
         </Card>
       ) : (
-        <Card className="border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-          Aucun chantier sélectionné — sélectionnez un chantier existant ou créez-en un nouveau.
-        </Card>
-      )}
-
-      {!hasChantier && (
         <div className="space-y-3">
           <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 py-1 backdrop-blur">
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={chantierSearch}
-                onChange={(e) => setChantierSearch(e.target.value)}
-                placeholder="Rechercher : référence, nom, adresse, client..."
-                className="pl-9"
-                inputMode="search"
-                autoComplete="off"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={chantierSearch}
+                  onChange={(e) => setChantierSearch(e.target.value)}
+                  placeholder="Rechercher un chantier…"
+                  className="pl-9"
+                  inputMode="search"
+                  autoComplete="off"
+                  aria-label="Rechercher un chantier"
+                />
+              </div>
+              <Button type="button" onClick={onOpenNewChantier} className="shrink-0">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nouveau chantier</span>
+              </Button>
             </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Recherche par référence, nom, adresse, ville ou client.
+            </p>
           </div>
 
           <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-0.5">
             {filtered.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted-foreground">
-                Aucun chantier trouvé.
+              <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center">
+                <div className="mb-1 text-sm font-medium">Aucun chantier disponible trouvé</div>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {available.length === 0
+                    ? "Tous vos chantiers ont déjà un PV — ou aucun n'a été créé."
+                    : "Aucun résultat pour cette recherche."}
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {chantierSearch && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setChantierSearch("")}>
+                      Modifier la recherche
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" onClick={onOpenNewChantier}>
+                    <Plus className="h-4 w-4" /> Créer un nouveau chantier
+                  </Button>
+                </div>
               </div>
             ) : (
               <AnimatePresence initial={false}>
@@ -3005,6 +3224,7 @@ function ChantierStep(props: {
                       toast.success("Chantier sélectionné");
                     }}
                     className="block w-full rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
+                    data-testid="chantier-card"
                   >
                     <div className="flex items-start gap-2.5">
                       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -3016,9 +3236,14 @@ function ChantierStep(props: {
                           <span className="min-w-0 break-words text-sm font-semibold">{c.name}</span>
                           {c.status && <Badge variant="secondary" className="shrink-0 text-[10px]">{c.status}</Badge>}
                         </div>
-                        {(c.city || c.client_id) && (
+                        {(c.address || c.city || c.postal_code) && (
                           <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                            {[c.city, clientName(c.client_id) && `Client : ${clientName(c.client_id)}`].filter(Boolean).join(" · ")}
+                            {[c.address, [c.postal_code, c.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}
+                          </div>
+                        )}
+                        {c.client_id && (
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            Client : {clientName(c.client_id)}
                           </div>
                         )}
                         {(c.start_date || c.end_date) && (
@@ -3079,22 +3304,11 @@ function ChantierStep(props: {
             Cette adresse n'est utilisée que pour ce PV. Pour modifier la fiche chantier, ouvrez-la et utilisez « Modifier ».
           </p>
         )}
-        {!hasChantier && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCreateChantierFromAddress}
-            disabled={creatingChantier || !form.chantier_address.trim()}
-            className="w-full sm:w-auto"
-          >
-            {creatingChantier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Créer un chantier avec ces informations
-          </Button>
-        )}
       </div>
     </div>
   );
 }
+
 
 
 
