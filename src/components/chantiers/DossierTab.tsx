@@ -11,7 +11,7 @@
  * - PhotoLightboxDialog pour toutes les photos (jamais d'ouverture d'onglet).
  * - Levées : actions PDF client / PDF interne / export expertise.
  */
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -19,12 +19,13 @@ import {
   Paperclip, Mail, History, ExternalLink, ChevronRight, Clock,
   FileCheck2, FileLock2, Package, ChevronDown,
 } from "lucide-react";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { deriveDisplayStatus, STATUS_LABELS, STATUS_TONES } from "@/lib/reserve-lift-status";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { getChantierDossier } from "@/lib/chantier-dossier.functions";
 import { listChantierPhotos } from "@/lib/chantier-photos.functions";
 import type { getChantierDetail } from "@/lib/chantier-detail.functions";
@@ -44,6 +45,36 @@ type Detail = Awaited<ReturnType<typeof getChantierDetail>>;
 type Dossier = Awaited<ReturnType<typeof getChantierDossier>>;
 type ChantierPhotosResult = Awaited<ReturnType<typeof listChantierPhotos>>;
 type ChantierPhoto = ChantierPhotosResult["photos"][number];
+
+type SectionKey = "pv" | "reserves" | "levees" | "photos" | "documents" | "emails" | "historique";
+
+type SectionMeta = {
+  key: SectionKey;
+  label: string;
+  title: string;
+  subtitle: string;
+  emoji: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  /** Tailwind tokens (no hardcoded hex). Each tone maps to one métier color. */
+  iconClass: string;
+  bgClass: string;
+  ringClass: string;
+  activeBgClass: string;
+  activeBorderClass: string;
+};
+
+const SECTIONS: Record<SectionKey, SectionMeta> = {
+  pv:         { key: "pv",         label: "PV",         title: "Procès-verbaux",  subtitle: "Liste des PV du chantier",       emoji: "📄", Icon: FileText,      iconClass: "text-blue-600 dark:text-blue-400",       bgClass: "bg-blue-50 dark:bg-blue-950/30",      ringClass: "ring-blue-200/60 dark:ring-blue-900/40",       activeBgClass: "bg-blue-50/60 dark:bg-blue-950/40",      activeBorderClass: "border-blue-500" },
+  reserves:   { key: "reserves",   label: "Réserves",   title: "Réserves",        subtitle: "Réserves ouvertes et validées",  emoji: "⚠️", Icon: AlertTriangle, iconClass: "text-amber-600 dark:text-amber-400",     bgClass: "bg-amber-50 dark:bg-amber-950/30",    ringClass: "ring-amber-200/60 dark:ring-amber-900/40",     activeBgClass: "bg-amber-50/60 dark:bg-amber-950/40",    activeBorderClass: "border-amber-500" },
+  levees:     { key: "levees",     label: "Levées",     title: "Levées",          subtitle: "Levées de réserves émises",       emoji: "✅", Icon: CheckCircle2,  iconClass: "text-emerald-600 dark:text-emerald-400", bgClass: "bg-emerald-50 dark:bg-emerald-950/30", ringClass: "ring-emerald-200/60 dark:ring-emerald-900/40", activeBgClass: "bg-emerald-50/60 dark:bg-emerald-950/40", activeBorderClass: "border-emerald-500" },
+  photos:     { key: "photos",     label: "Photos",     title: "Photos chantier", subtitle: "Galerie photos du chantier",      emoji: "📷", Icon: ImageIcon,     iconClass: "text-violet-600 dark:text-violet-400",   bgClass: "bg-violet-50 dark:bg-violet-950/30",  ringClass: "ring-violet-200/60 dark:ring-violet-900/40",   activeBgClass: "bg-violet-50/60 dark:bg-violet-950/40",  activeBorderClass: "border-violet-500" },
+  documents:  { key: "documents",  label: "Documents",  title: "Documents",       subtitle: "Fichiers du dossier chantier",    emoji: "📎", Icon: Paperclip,     iconClass: "text-slate-600 dark:text-slate-300",     bgClass: "bg-slate-100 dark:bg-slate-800/40",   ringClass: "ring-slate-200/60 dark:ring-slate-700/50",     activeBgClass: "bg-slate-100/70 dark:bg-slate-800/50",   activeBorderClass: "border-slate-500" },
+  emails:     { key: "emails",     label: "Emails",     title: "Emails",          subtitle: "Emails envoyés",                  emoji: "✉️", Icon: Mail,          iconClass: "text-sky-600 dark:text-sky-400",         bgClass: "bg-sky-50 dark:bg-sky-950/30",        ringClass: "ring-sky-200/60 dark:ring-sky-900/40",         activeBgClass: "bg-sky-50/60 dark:bg-sky-950/40",        activeBorderClass: "border-sky-500" },
+  historique: { key: "historique", label: "Historique", title: "Historique",      subtitle: "Journal d'activité",              emoji: "🕓", Icon: History,       iconClass: "text-zinc-700 dark:text-zinc-300",       bgClass: "bg-zinc-100 dark:bg-zinc-800/40",     ringClass: "ring-zinc-200/60 dark:ring-zinc-700/50",       activeBgClass: "bg-zinc-100/70 dark:bg-zinc-800/50",     activeBorderClass: "border-zinc-500" },
+};
+
+const SECTION_ORDER: SectionKey[] = ["pv", "reserves", "levees", "photos", "documents", "emails", "historique"];
+
 
 function fmt(d: string | null | undefined) {
   if (!d) return "—";
