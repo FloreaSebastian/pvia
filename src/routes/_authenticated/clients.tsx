@@ -228,29 +228,9 @@ function ClientsPage() {
             <h1 className="truncate text-xl font-semibold tracking-tight">Clients</h1>
             <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">{filtered.length} client{filtered.length > 1 ? "s" : ""}</p>
           </div>
-          {canWrite && (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button size="icon" onClick={openNew} className="h-9 w-9 shrink-0 shadow-brand" aria-label="Nouveau client" data-testid="clients-new-button">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-                <DialogHeader><DialogTitle>{editing ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
-                <form onSubmit={save} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Type de client</Label>
-                    <ClientTypeSelector value={form.client_type} onChange={(v) => setForm({ ...form, client_type: v })} disabled={!!editing} />
-                  </div>
-                  <ClientFormFields form={form} setForm={setForm} />
-                  <div><Label>Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          )}
         </div>
       </div>
+
 
       {/* Desktop header */}
       <div className="hidden sm:block">
@@ -369,7 +349,61 @@ function ClientsPage() {
         </div>
       </div>
 
-      {/* Mobile filters — single scrollable row */}
+      {/* Mobile action row — always visible, no horizontal scroll */}
+      <div className="grid grid-cols-3 gap-2 sm:hidden" data-testid="clients-actions-mobile">
+        {canWrite ? (
+          <Button
+            size="sm"
+            onClick={openNew}
+            className="h-10 w-full gap-1.5 shadow-brand"
+            data-testid="clients-new-button"
+          >
+            <Plus className="h-4 w-4" /> Nouveau
+          </Button>
+        ) : <span />}
+        {canWrite ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+            className="h-10 w-full gap-1.5"
+            data-testid="clients-import-button"
+            aria-label="Importer des clients avec l'IA"
+          >
+            <Sparkles className="h-4 w-4" /> Import
+          </Button>
+        ) : <span />}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 w-full gap-1.5"
+              data-testid="clients-export-button"
+              aria-label="Exporter les clients"
+            >
+              <Download className="h-4 w-4" /> Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Exporter en CSV</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => exportCsv("filtered")}>
+              Vue actuelle ({filtered.length})
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => exportCsv("active")}>
+              Tous les clients actifs
+            </DropdownMenuItem>
+            {(canAdmin || archivedCount > 0) && (
+              <DropdownMenuItem onSelect={() => exportCsv("archived")}>
+                Clients archivés ({archivedCount})
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Mobile filters — single scrollable row (filters only) */}
       <div className="-mx-4 px-4 sm:hidden" data-testid="clients-filters-mobile">
         <div
           className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -392,7 +426,6 @@ function ClientsPage() {
               {Ic ? <Ic className="h-3.5 w-3.5" /> : null} {l}
             </button>
           ))}
-          <span className="mx-1 my-auto h-5 w-px shrink-0 bg-border" aria-hidden />
           {([
             { v: "all" as const, l: "Tous" },
             { v: "particulier" as const, l: "Particuliers" },
@@ -411,18 +444,9 @@ function ClientsPage() {
               {l}
             </button>
           ))}
-          {canWrite && (
-            <button
-              type="button"
-              onClick={() => setImportOpen(true)}
-              className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-card px-3 text-xs font-medium text-muted-foreground transition active:scale-95"
-              aria-label="Import IA"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Import IA
-            </button>
-          )}
         </div>
       </div>
+
 
 
       {filtered.length === 0 && (
