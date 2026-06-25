@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Building2, Save, Loader2, Lock, RefreshCw, ShieldCheck, Upload, Trash2,
@@ -13,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -24,6 +26,7 @@ import { uploadCompanyLogo, deleteCompanyVisual } from "@/lib/company-logo.funct
 import { lookupCompanyBySirenOrSiret, type SirenLookupResult } from "@/lib/siren.functions";
 import { getCompanyHistory, requestCompanyChange, type CompanyHistoryEntry } from "@/lib/company-page.functions";
 import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
+import { getCompanyVisualIdentity } from "@/lib/company-visual";
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 import { ADMIN_ROLES } from "@/lib/roles";
 
@@ -69,6 +72,19 @@ const emptyCompany: CompanyData = {
   created_at: null, company_verified: false, company_verified_at: null, company_verification_source: null,
 };
 
+type VisualKind = "logo" | "icon";
+
+type CropState = {
+  file: File;
+  kind: VisualKind;
+  objectUrl: string;
+  naturalWidth: number;
+  naturalHeight: number;
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
+};
+
 /* ─────────────── Locked field display ─────────────── */
 function LockedField({ label, value }: { label: string; value: string }) {
   return (
@@ -87,6 +103,7 @@ function LockedField({ label, value }: { label: string; value: string }) {
 /* ─────────────── Page ─────────────── */
 function CompanyPage() {
   const { activeCompanyId, can, refresh } = useCompany();
+  const queryClient = useQueryClient();
   const editable = can("admin");
 
   const [loading, setLoading] = useState(true);
@@ -96,6 +113,8 @@ function CompanyPage() {
   });
   const [savingContact, setSavingContact] = useState(false);
   const [history, setHistory] = useState<CompanyHistoryEntry[]>([]);
+  const [cropState, setCropState] = useState<CropState | null>(null);
+  const [visualBusy, setVisualBusy] = useState<VisualKind | null>(null);
 
   // Sync wizard
   const [syncOpen, setSyncOpen] = useState(false);
@@ -117,6 +136,16 @@ function CompanyPage() {
   const lookupFn = useServerFn(lookupCompanyBySirenOrSiret);
   const historyFn = useServerFn(getCompanyHistory);
   const changeFn = useServerFn(requestCompanyChange);
+  const visualIdentity = useMemo(() => getCompanyVisualIdentity(company), [company.logo_url, company.icon_url]);
+
+  async function refreshCompanyCaches() {
+    await Promise.all([
+      refresh(),
+      queryClient.invalidateQueries({ queryKey: ["company"] }),
+      queryClient.invalidateQueries({ queryKey: ["branding"] }),
+      queryClient.invalidateQueries({ queryKey: ["onboarding-status"] }),
+    ]);
+  }
 
   async function reload() {
     if (!activeCompanyId) return;
@@ -179,11 +208,12 @@ function CompanyPage() {
           address_line2: contact.address_line2, country: contact.country,
           phone: contact.phone, email: contact.email, website: contact.website,
           logo_url: company.logo_url,
+          icon_url: company.icon_url,
         } as any,
       });
       toast.success("Coordonnées enregistrées.");
       await reload();
-      refresh();
+      await refreshCompanyCaches();
     } catch (e: any) {
       toast.error(e?.message || "Échec de l'enregistrement.");
     } finally {
@@ -191,45 +221,168 @@ function CompanyPage() {
     }
   }
 
-  /* ── Identité visuelle (icône + logo) ── */
-  async function uploadVisual(file: File, kind: "logo" | "icon") {
+  useEffect(() => () => {
+    if (cropState?.objectUrl) URL.revokeObjectURL(cropState.objectUrl);
+  }, [cropState?.objectUrl]);
+
+  async function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      const loaded = new Promise<{ width: number; height: number }>((resolve, reject) => {
+        img.onload = () => resolve({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+        img.onerror = () => reject(new Error("Image illisible."));
+      });
+      img.src = objectUrl;
+      return await loaded;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function prepareVisualUpload(file: File, kind: VisualKind) {
     if (!activeCompanyId) return;
     const err = validateLogoFile(file);
     if (err) return toast.error(err);
     try {
-      const base64 = await fileToBase64(file);
-      const res = await uploadFn({
-        data: { companyId: activeCompanyId, fileName: file.name, mimeType: file.type, base64, kind },
-      });
-      // Warning ergonomique si ratio inattendu (non bloquant).
-      try {
-        const img = new Image();
-        img.onload = () => {
-          const r = img.width / img.height;
-          if (kind === "icon" && (r < 0.75 || r > 1.33)) {
-            toast.warning("Une image carrée est recommandée pour l'icône.");
-          } else if (kind === "logo" && r > 0 && r < 1.2) {
-            toast.warning("Un visuel horizontal est recommandé pour le logo principal.");
-          }
+      const { width, height } = await readImageDimensions(file);
+      if (!width || !height) return toast.error("Image illisible.");
+      setCropState((prev) => {
+        if (prev?.objectUrl) URL.revokeObjectURL(prev.objectUrl);
+        return {
+          file,
+          kind,
+          objectUrl: URL.createObjectURL(file),
+          naturalWidth: width,
+          naturalHeight: height,
+          zoom: 1,
+          offsetX: 0,
+          offsetY: 0,
         };
-        img.src = res.url;
-      } catch { /* ignore */ }
-      setCompany((c) => kind === "icon" ? { ...c, icon_url: res.url } : { ...c, logo_url: res.url });
-      toast.success(kind === "icon" ? "Icône mise à jour." : "Logo mis à jour.");
-      refresh();
+      });
     } catch (e: any) {
-      toast.error(e?.message || "Échec de l'upload.");
+      toast.error(e?.message || "Image illisible.");
     }
   }
 
-  async function removeVisual(kind: "logo" | "icon") {
+  function closeCropDialog() {
+    setCropState((prev) => {
+      if (prev?.objectUrl) URL.revokeObjectURL(prev.objectUrl);
+      return null;
+    });
+  }
+
+  async function createCroppedVisualFile(state: CropState): Promise<File> {
+    const img = new Image();
+    img.src = state.objectUrl;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Image illisible."));
+    });
+
+    const aspect = state.kind === "icon" ? 1 : Math.max(0.35, state.naturalWidth / state.naturalHeight);
+    const previewW = state.kind === "icon" ? 220 : 320;
+    const previewH = state.kind === "icon" ? 220 : Math.max(110, Math.min(220, previewW / aspect));
+    const scale = Math.max(previewW / state.naturalWidth, previewH / state.naturalHeight) * state.zoom;
+    const displayW = state.naturalWidth * scale;
+    const displayH = state.naturalHeight * scale;
+    const sx = Math.max(0, Math.min(state.naturalWidth - previewW / scale, (displayW - previewW) / 2 / scale - state.offsetX / scale));
+    const sy = Math.max(0, Math.min(state.naturalHeight - previewH / scale, (displayH - previewH) / 2 / scale - state.offsetY / scale));
+    const sw = Math.min(state.naturalWidth - sx, previewW / scale);
+    const sh = Math.min(state.naturalHeight - sy, previewH / scale);
+    const targetW = state.kind === "icon" ? 512 : Math.min(1400, Math.max(320, Math.round(sw)));
+    const targetH = state.kind === "icon" ? 512 : Math.round(targetW * (sh / sw));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Recadrage indisponible.");
+    ctx.clearRect(0, 0, targetW, targetH);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Recadrage impossible.")), "image/png", 0.92);
+    });
+    return new File([blob], `${state.kind}-${Date.now()}.png`, { type: "image/png" });
+  }
+
+  async function resizePng(file: File, width: number, height: number, name: string): Promise<File> {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Image illisible."));
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Redimensionnement indisponible.");
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Variante impossible.")), "image/png", 0.9);
+      });
+      return new File([blob], `${name}.png`, { type: "image/png" });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async function buildVisualVariants(file: File, kind: VisualKind) {
+    const variants = kind === "icon"
+      ? await Promise.all([32, 64, 128, 256, 512].map(async (size) => {
+          const v = await resizePng(file, size, size, `icon-${size}`);
+          return { name: `icon-${size}`, mimeType: v.type, base64: await fileToBase64(v) };
+        }))
+      : [await (async () => {
+          const dims = await readImageDimensions(file);
+          const width = 320;
+          const height = Math.max(48, Math.round(width / Math.max(1, dims.width / dims.height)));
+          const v = await resizePng(file, width, height, "logo-thumb");
+          return { name: "logo-thumb", mimeType: v.type, base64: await fileToBase64(v) };
+        })()];
+    return variants;
+  }
+
+  /* ── Identité visuelle (icône + logo) ── */
+  async function uploadVisualFromCrop() {
+    const state = cropState;
+    if (!state || !activeCompanyId) return;
+    setVisualBusy(state.kind);
+    try {
+      const cropped = await createCroppedVisualFile(state);
+      const base64 = await fileToBase64(cropped);
+      const variants = await buildVisualVariants(cropped, state.kind);
+      const res = await uploadFn({
+        data: { companyId: activeCompanyId, fileName: cropped.name, mimeType: cropped.type, base64, kind: state.kind, variants },
+      });
+      setCompany((c) => state.kind === "icon" ? { ...c, icon_url: res.url } : { ...c, logo_url: res.url });
+      toast.success(state.kind === "icon" ? "Icône mise à jour." : "Logo mis à jour.");
+      closeCropDialog();
+      await reload();
+      await refreshCompanyCaches();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'upload.");
+    } finally {
+      setVisualBusy(null);
+    }
+  }
+
+  async function removeVisual(kind: VisualKind) {
     if (!activeCompanyId) return;
     try {
+      setVisualBusy(kind);
       await deleteFn({ data: { companyId: activeCompanyId, kind } });
       setCompany((c) => kind === "icon" ? { ...c, icon_url: "" } : { ...c, logo_url: "" });
       toast.success(kind === "icon" ? "Icône supprimée." : "Logo supprimé.");
-      refresh();
+      await reload();
+      await refreshCompanyCaches();
     } catch (e: any) { toast.error(e?.message || "Suppression impossible."); }
+    finally { setVisualBusy(null); }
   }
 
 
@@ -300,6 +453,20 @@ function CompanyPage() {
   }
 
   const sirenSiretLocked = !!(company.siret || company.siren);
+  const cropRatio = cropState ? cropState.naturalWidth / Math.max(1, cropState.naturalHeight) : 1;
+  const cropWarning = cropState?.kind === "icon" && (cropRatio < 0.75 || cropRatio > 1.33)
+    ? "Cette image est peu adaptée à une icône."
+    : cropState?.kind === "logo" && cropRatio < 1.25
+      ? "Cette image est plutôt adaptée à une icône."
+      : null;
+  const cropPreviewAspect = cropState?.kind === "icon" ? 1 : cropRatio;
+  const cropPreviewW = cropState?.kind === "icon" ? 220 : 320;
+  const cropPreviewH = cropState?.kind === "icon" ? 220 : Math.max(110, Math.min(220, cropPreviewW / cropPreviewAspect));
+  const cropScale = cropState
+    ? Math.max(cropPreviewW / cropState.naturalWidth, cropPreviewH / cropState.naturalHeight) * cropState.zoom
+    : 1;
+  const cropDisplayW = cropState ? cropState.naturalWidth * cropScale : 0;
+  const cropDisplayH = cropState ? cropState.naturalHeight * cropScale : 0;
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 pb-24">
@@ -348,8 +515,8 @@ function CompanyPage() {
             <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5">
               <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
                 <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-border bg-background shadow-sm sm:h-20 sm:w-20">
-                  {company.logo_url
-                    ? <img src={company.logo_url} alt="logo" className="h-full w-full object-contain" />
+                  {visualIdentity.displayIconUrl
+                    ? <img src={visualIdentity.displayIconUrl} alt="icône entreprise" className="h-full w-full object-cover" />
                     : <Building2 className="h-7 w-7 text-muted-foreground" />}
                 </div>
                 <div className="min-w-0">
@@ -399,26 +566,28 @@ function CompanyPage() {
                 title="Icône"
                 description="Utilisée pour l'application, les notifications et les petits espaces."
                 hint="Carré recommandé · 512×512 · PNG/JPG/WEBP · 2 Mo max."
-                url={company.icon_url}
+                url={visualIdentity.iconUrl || ""}
                 placeholder={<Building2 className="h-9 w-9 text-muted-foreground" />}
                 previewClass="h-24 w-24 rounded-xl"
                 editable={editable}
-                onUpload={(f) => uploadVisual(f, "icon")}
+                busy={visualBusy === "icon"}
+                onUpload={(f) => prepareVisualUpload(f, "icon")}
                 onRemove={() => removeVisual("icon")}
               />
               <VisualBlock
                 title="Logo principal"
                 description="Utilisé sur les PDF, emails, PV et documents officiels."
                 hint="Horizontal recommandé · PNG/JPG/WEBP · 2 Mo max."
-                url={company.logo_url}
+                url={visualIdentity.logoUrl || ""}
                 placeholder={<Building2 className="h-9 w-9 text-muted-foreground" />}
                 previewClass="h-24 w-full max-w-[220px] rounded-xl"
                 editable={editable}
-                onUpload={(f) => uploadVisual(f, "logo")}
+                busy={visualBusy === "logo"}
+                onUpload={(f) => prepareVisualUpload(f, "logo")}
                 onRemove={() => removeVisual("logo")}
               />
             </div>
-            {!company.logo_url && company.icon_url && (
+            {!visualIdentity.logoUrl && visualIdentity.iconUrl && (
               <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted-foreground">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
                 Aucun logo principal — l'icône sera utilisée en repli sur les PDF et emails.
@@ -593,6 +762,95 @@ function CompanyPage() {
         </div>
       </div>
 
+      {/* ────── Recadrage identité visuelle ────── */}
+      <Dialog open={!!cropState} onOpenChange={(open) => { if (!open) closeCropDialog(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Recadrer {cropState?.kind === "icon" ? "l'icône" : "le logo principal"}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {cropState?.kind === "icon"
+                ? "Prévisualisation carrée avec variantes automatiques 32, 64, 128, 256 et 512 px."
+                : "Prévisualisation horizontale avec création automatique d'une miniature."}
+            </DialogDescription>
+          </DialogHeader>
+          {cropState && (
+            <div className="space-y-4">
+              {cropWarning && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{cropWarning}</span>
+                </div>
+              )}
+              <div className="grid place-items-center rounded-xl border border-border bg-muted/30 p-4">
+                <div
+                  className={`relative overflow-hidden border border-border bg-background shadow-inner ${cropState.kind === "icon" ? "rounded-2xl" : "rounded-lg"}`}
+                  style={{ width: cropPreviewW, height: cropPreviewH }}
+                >
+                  <img
+                    src={cropState.objectUrl}
+                    alt="Prévisualisation recadrage"
+                    className="absolute max-w-none select-none"
+                    style={{
+                      width: cropDisplayW,
+                      height: cropDisplayH,
+                      left: (cropPreviewW - cropDisplayW) / 2 + cropState.offsetX,
+                      top: (cropPreviewH - cropDisplayH) / 2 + cropState.offsetY,
+                    }}
+                    draggable={false}
+                  />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">Zoom</Label>
+                  <Slider
+                    className="mt-2"
+                    min={1}
+                    max={3}
+                    step={0.05}
+                    value={[cropState.zoom]}
+                    onValueChange={([zoom]) => setCropState((s) => s ? { ...s, zoom } : s)}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Déplacement horizontal</Label>
+                    <Slider
+                      className="mt-2"
+                      min={-160}
+                      max={160}
+                      step={1}
+                      value={[cropState.offsetX]}
+                      onValueChange={([offsetX]) => setCropState((s) => s ? { ...s, offsetX } : s)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Déplacement vertical</Label>
+                    <Slider
+                      className="mt-2"
+                      min={-160}
+                      max={160}
+                      step={1}
+                      value={[cropState.offsetY]}
+                      onValueChange={([offsetY]) => setCropState((s) => s ? { ...s, offsetY } : s)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={closeCropDialog} disabled={!!visualBusy}>Annuler</Button>
+            <Button onClick={uploadVisualFromCrop} disabled={!!visualBusy || !cropState}>
+              {visualBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ────── Sync wizard ────── */}
       <Dialog open={syncOpen} onOpenChange={setSyncOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -763,7 +1021,7 @@ function Diff({ label, value, highlight }: { label: string; value: string; highl
 }
 
 function VisualBlock({
-  title, description, hint, url, placeholder, previewClass, editable, onUpload, onRemove,
+  title, description, hint, url, placeholder, previewClass, editable, busy = false, onUpload, onRemove,
 }: {
   title: string;
   description: string;
@@ -772,8 +1030,9 @@ function VisualBlock({
   placeholder: ReactNode;
   previewClass: string;
   editable: boolean;
-  onUpload: (f: File) => void;
-  onRemove: () => void;
+  busy?: boolean;
+  onUpload: (f: File) => void | Promise<unknown>;
+  onRemove: () => void | Promise<unknown>;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
@@ -787,9 +1046,9 @@ function VisualBlock({
           : placeholder}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline" disabled={!editable}>
+        <Button asChild size="sm" variant="outline" disabled={!editable || busy}>
           <label className="cursor-pointer">
-            <Upload className="h-3.5 w-3.5" /> {url ? "Changer" : "Ajouter"}
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} {url ? "Changer" : "Ajouter"}
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -799,7 +1058,7 @@ function VisualBlock({
           </label>
         </Button>
         {url && editable && (
-          <Button size="sm" variant="ghost" onClick={onRemove} className="text-destructive hover:text-destructive">
+          <Button size="sm" variant="ghost" onClick={onRemove} disabled={busy} className="text-destructive hover:text-destructive">
             <Trash2 className="h-3.5 w-3.5" /> Supprimer
           </Button>
         )}

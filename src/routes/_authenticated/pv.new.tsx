@@ -59,6 +59,7 @@ import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import { tryGetGps, readExif, sanitizeExifForUpload } from "@/lib/photo-exif";
 import { ClientTypeSelector, ClientFormFields, EMPTY_CLIENT_FORM, type ClientFormState } from "@/components/clients/ClientTypeForm";
+import { getCompanyVisualIdentity } from "@/lib/company-visual";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -79,6 +80,7 @@ type Branding = {
   email: string | null;
   phone: string | null;
   logo_url: string | null;
+  icon_url?: string | null;
 };
 
 const PvNewSearchSchema = z.object({
@@ -1184,11 +1186,11 @@ function NewPv() {
                       className="rounded-xl border border-border bg-card p-3"
                     >
                       <div className="flex items-start gap-2.5">
-                        {branding?.logo_url ? (
+                        {getCompanyVisualIdentity(branding).displayIconUrl ? (
                           <img
-                            src={branding.logo_url}
-                            alt={branding.name}
-                            className="h-9 w-9 shrink-0 rounded-md border border-border bg-background object-contain"
+                            src={getCompanyVisualIdentity(branding).displayIconUrl!}
+                            alt={branding?.name ?? "Entreprise"}
+                            className="h-9 w-9 shrink-0 rounded-md border border-border bg-background object-cover"
                           />
                         ) : (
                           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-border bg-background text-muted-foreground">

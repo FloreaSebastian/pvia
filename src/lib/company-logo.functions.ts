@@ -32,6 +32,11 @@ const InputSchema = z.object({
   mimeType: z.string().trim().min(1).max(100),
   base64: z.string().min(1).max(3_500_000),
   kind: z.enum(["logo", "icon"]).optional().default("logo"),
+  variants: z.array(z.object({
+    name: z.string().trim().min(1).max(80),
+    mimeType: z.string().trim().min(1).max(100),
+    base64: z.string().min(1).max(3_500_000),
+  })).max(6).optional(),
 });
 
 async function assertAdmin(companyId: string, userId: string) {
@@ -56,6 +61,54 @@ function extractStoragePath(url: string | null | undefined): string | null {
   return p || null;
 }
 
+function decodeAndValidateImage(base64: string, mimeType: string): { bytes: Uint8Array; mime: string; ext: string } {
+  const declared = mimeType.toLowerCase();
+  if (!ALLOWED.has(declared)) {
+    throw new Error("Format non supporté (PNG, JPEG ou WebP).");
+  }
+  let bytes: Uint8Array;
+  try {
+    const buf = Buffer.from(base64, "base64");
+    bytes = new Uint8Array(buf);
+  } catch {
+    throw new Error("Fichier invalide.");
+  }
+  if (bytes.length === 0) throw new Error("Fichier vide.");
+  if (bytes.length > MAX_BYTES) throw new Error("Fichier trop volumineux (max 2 Mo).");
+  const sniffed = sniffMime(bytes);
+  if (!sniffed) throw new Error("Contenu non reconnu comme image.");
+  const norm = (s: string) => (s === "image/jpg" ? "image/jpeg" : s);
+  if (norm(sniffed) !== norm(declared)) {
+    throw new Error("Le contenu du fichier ne correspond pas au type déclaré.");
+  }
+  return { bytes, mime: norm(declared), ext: EXT[declared] ?? "bin" };
+}
+
+async function uploadStorageImage(path: string, bytes: Uint8Array, mime: string) {
+  const { error } = await supabaseAdmin
+    .storage
+    .from(BUCKET)
+    .upload(path, bytes, {
+      contentType: mime,
+      upsert: false,
+      cacheControl: "31536000",
+    });
+  if (error) throw new Error(error.message);
+}
+
+async function cleanupOldBrandingFiles(companyId: string, kind: "logo" | "icon", keep: Set<string>) {
+  const { data } = await supabaseAdmin.storage.from(BUCKET).list(`${companyId}/branding`, { limit: 1000 });
+  if (!data?.length) return;
+  const prefixes = kind === "icon" ? ["icon-"] : ["logo-", "logo-thumb-"];
+  const paths = data
+    .map((f) => `${companyId}/branding/${f.name}`)
+    .filter((p) => prefixes.some((prefix) => p.split("/").pop()?.startsWith(prefix)))
+    .filter((p) => !keep.has(p));
+  if (paths.length) {
+    try { await supabaseAdmin.storage.from(BUCKET).remove(paths); } catch { /* ignore */ }
+  }
+}
+
 /**
  * Upload du logo OU de l'icône d'entreprise.
  * Le champ `kind` détermine la colonne mise à jour (`logo_url` / `icon_url`)
@@ -72,40 +125,20 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
     const { assertSubscriptionUsable } = await import("./plan-guard.server");
     await assertSubscriptionUsable(data.companyId, userId);
 
-    const declared = data.mimeType.toLowerCase();
-    if (!ALLOWED.has(declared)) {
-      throw new Error("Format non supporté (PNG, JPEG ou WebP).");
+    const main = decodeAndValidateImage(data.base64, data.mimeType);
+    const ts = Date.now();
+    const path = `${data.companyId}/branding/${kind}-${ts}.${main.ext}`;
+    await uploadStorageImage(path, main.bytes, main.mime);
+
+    const uploadedPaths = new Set<string>([path]);
+    for (const variant of data.variants ?? []) {
+      const safeName = variant.name.replace(/[^a-z0-9_-]/gi, "").slice(0, 60);
+      if (!safeName) continue;
+      const v = decodeAndValidateImage(variant.base64, variant.mimeType);
+      const vPath = `${data.companyId}/branding/${safeName}-${ts}.${v.ext}`;
+      await uploadStorageImage(vPath, v.bytes, v.mime);
+      uploadedPaths.add(vPath);
     }
-
-    let bytes: Uint8Array;
-    try {
-      const buf = Buffer.from(data.base64, "base64");
-      bytes = new Uint8Array(buf);
-    } catch {
-      throw new Error("Fichier invalide.");
-    }
-    if (bytes.length === 0) throw new Error("Fichier vide.");
-    if (bytes.length > MAX_BYTES) throw new Error("Fichier trop volumineux (max 2 Mo).");
-
-    const sniffed = sniffMime(bytes);
-    if (!sniffed) throw new Error("Contenu non reconnu comme image.");
-    const norm = (s: string) => (s === "image/jpg" ? "image/jpeg" : s);
-    if (norm(sniffed) !== norm(declared)) {
-      throw new Error("Le contenu du fichier ne correspond pas au type déclaré.");
-    }
-
-    const ext = EXT[declared] ?? "bin";
-    const path = `${data.companyId}/branding/${kind}-${Date.now()}.${ext}`;
-
-    const { error: upErr } = await supabaseAdmin
-      .storage
-      .from(BUCKET)
-      .upload(path, bytes, {
-        contentType: norm(declared),
-        upsert: false,
-        cacheControl: "31536000",
-      });
-    if (upErr) throw new Error(upErr.message);
 
     const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
     const publicUrl = pub.publicUrl;
@@ -123,7 +156,10 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
       .from("companies")
       .update(updatePayload)
       .eq("id", data.companyId);
-    if (updErr) throw new Error(updErr.message);
+    if (updErr) {
+      try { await supabaseAdmin.storage.from(BUCKET).remove(Array.from(uploadedPaths)); } catch { /* ignore rollback cleanup */ }
+      throw new Error(updErr.message);
+    }
 
     // Best-effort cleanup of previous file (only if hosted in our bucket).
     const prevUrl = (prev as any)?.[column] as string | null | undefined;
@@ -133,17 +169,18 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
         await supabaseAdmin.storage.from(BUCKET).remove([prevPath]);
       } catch { /* ignore */ }
     }
+    await cleanupOldBrandingFiles(data.companyId, kind, uploadedPaths);
 
     await writeAuditLog({
       companyId: data.companyId,
       userId,
       entityType: "auth",
       action: kind === "icon" ? "company.icon_updated" : "company.logo_updated",
-      metadata: { has_value: true, size: bytes.length, mime: norm(declared), kind },
+      metadata: { has_value: true, size: main.bytes.length, mime: main.mime, kind, variants: uploadedPaths.size - 1 },
       actor: "user",
     });
 
-    return { url: publicUrl, kind };
+    return { url: publicUrl, kind, variants: Array.from(uploadedPaths).filter((p) => p !== path) };
   });
 
 /** Suppression du logo ou de l'icône. */
@@ -179,6 +216,7 @@ export const deleteCompanyVisual = createServerFn({ method: "POST" })
         await supabaseAdmin.storage.from(BUCKET).remove([prevPath]);
       } catch { /* ignore */ }
     }
+    await cleanupOldBrandingFiles(data.companyId, data.kind, new Set());
 
     await writeAuditLog({
       companyId: data.companyId,
