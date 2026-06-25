@@ -40,7 +40,12 @@ const UpdateSchema = z.object({
   phone: z.string().trim().max(30).regex(/^[\d\s+().-]*$/, "Téléphone invalide").optional().nullable().or(z.literal("")),
   email: z.string().trim().email("Email invalide").max(200).optional().nullable().or(z.literal("")),
   website: z.string().trim().url("URL invalide").max(300).optional().nullable().or(z.literal("")),
-  logo_url: z
+  logo_url: brandingUrlSchema(),
+  icon_url: brandingUrlSchema(),
+});
+
+function brandingUrlSchema() {
+  return z
     .string()
     .trim()
     .max(2000)
@@ -50,7 +55,6 @@ const UpdateSchema = z.object({
         try {
           const u = new URL(v);
           if (u.protocol !== "https:") return false;
-          // Only allow the project's Supabase public storage host for company-logos
           const supaUrl = process.env.SUPABASE_URL;
           if (!supaUrl) return false;
           const supaHost = new URL(supaUrl).host;
@@ -62,12 +66,12 @@ const UpdateSchema = z.object({
           return false;
         }
       },
-      { message: "URL de logo non autorisée." },
+      { message: "URL d'image non autorisée." },
     )
     .optional()
     .nullable()
-    .or(z.literal("")),
-});
+    .or(z.literal(""));
+}
 
 const empty = (v: string | null | undefined) => (v && v.length > 0 ? v : null);
 
@@ -143,6 +147,7 @@ export const updateCompanyBranding = createServerFn({ method: "POST" })
       email: empty(data.email),
       website: empty(data.website),
       logo_url: empty(data.logo_url),
+      icon_url: empty((data as any).icon_url),
     };
 
     const { error } = await supabaseAdmin.from("companies").update(update).eq("id", data.companyId);

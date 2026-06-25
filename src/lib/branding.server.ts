@@ -17,6 +17,7 @@ export type CompanyBranding = {
   phone: string | null;
   website: string | null;
   logo_url: string | null;
+  icon_url: string | null;
 };
 
 /**
@@ -28,7 +29,7 @@ export async function getCompanyBranding(companyId: string): Promise<CompanyBran
   const { data, error } = await supabaseAdmin
     .from("companies")
     .select(
-      "id,name,legal_form,siren,siret,vat_number,address,address_line1,address_line2,postal_code,city,country,email,phone,website,logo_url",
+      "id,name,legal_form,siren,siret,vat_number,address,address_line1,address_line2,postal_code,city,country,email,phone,website,logo_url,icon_url",
     )
     .eq("id", companyId)
     .maybeSingle();

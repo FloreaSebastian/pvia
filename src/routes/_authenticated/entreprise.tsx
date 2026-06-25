@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Building2, Save, Loader2, Lock, RefreshCw, ShieldCheck, Upload, Trash2,
@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { updateCompanyBranding, syncCompanyFromSiren } from "@/lib/branding.functions";
-import { uploadCompanyLogo } from "@/lib/company-logo.functions";
+import { uploadCompanyLogo, deleteCompanyVisual } from "@/lib/company-logo.functions";
 import { lookupCompanyBySirenOrSiret, type SirenLookupResult } from "@/lib/siren.functions";
 import { getCompanyHistory, requestCompanyChange, type CompanyHistoryEntry } from "@/lib/company-page.functions";
 import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
@@ -55,6 +55,7 @@ type CompanyData = {
   email: string;
   website: string;
   logo_url: string;
+  icon_url: string;
   created_at: string | null;
   company_verified: boolean;
   company_verified_at: string | null;
@@ -64,7 +65,7 @@ type CompanyData = {
 const emptyCompany: CompanyData = {
   name: "", legal_form: "", siren: "", siret: "", vat_number: "",
   address_line1: "", address_line2: "", postal_code: "", city: "", country: "FR",
-  phone: "", email: "", website: "", logo_url: "",
+  phone: "", email: "", website: "", logo_url: "", icon_url: "",
   created_at: null, company_verified: false, company_verified_at: null, company_verification_source: null,
 };
 
@@ -111,6 +112,7 @@ function CompanyPage() {
 
   const saveFn = useServerFn(updateCompanyBranding);
   const uploadFn = useServerFn(uploadCompanyLogo);
+  const deleteFn = useServerFn(deleteCompanyVisual);
   const syncFn = useServerFn(syncCompanyFromSiren);
   const lookupFn = useServerFn(lookupCompanyBySirenOrSiret);
   const historyFn = useServerFn(getCompanyHistory);
@@ -120,7 +122,7 @@ function CompanyPage() {
     if (!activeCompanyId) return;
     const { data } = await supabase
       .from("companies")
-      .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url,created_at,company_verified,company_verified_at,company_verification_source")
+      .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url,icon_url,created_at,company_verified,company_verified_at,company_verification_source")
       .eq("id", activeCompanyId)
       .single();
     if (data) {
@@ -130,7 +132,8 @@ function CompanyPage() {
         siren: d.siren ?? "", siret: d.siret ?? "", vat_number: d.vat_number ?? "",
         address_line1: d.address_line1 ?? "", address_line2: d.address_line2 ?? "",
         postal_code: d.postal_code ?? "", city: d.city ?? "", country: d.country ?? "FR",
-        phone: d.phone ?? "", email: d.email ?? "", website: d.website ?? "", logo_url: d.logo_url ?? "",
+        phone: d.phone ?? "", email: d.email ?? "", website: d.website ?? "",
+        logo_url: d.logo_url ?? "", icon_url: d.icon_url ?? "",
         created_at: d.created_at ?? null,
         company_verified: !!d.company_verified,
         company_verified_at: d.company_verified_at ?? null,
@@ -188,43 +191,47 @@ function CompanyPage() {
     }
   }
 
-  /* ── Logo ── */
-  async function uploadLogo(file: File) {
+  /* ── Identité visuelle (icône + logo) ── */
+  async function uploadVisual(file: File, kind: "logo" | "icon") {
     if (!activeCompanyId) return;
     const err = validateLogoFile(file);
     if (err) return toast.error(err);
     try {
       const base64 = await fileToBase64(file);
       const res = await uploadFn({
-        data: { companyId: activeCompanyId, fileName: file.name, mimeType: file.type, base64 },
+        data: { companyId: activeCompanyId, fileName: file.name, mimeType: file.type, base64, kind },
       });
-      setCompany((c) => ({ ...c, logo_url: res.url }));
-      toast.success("Logo mis à jour.");
+      // Warning ergonomique si ratio inattendu (non bloquant).
+      try {
+        const img = new Image();
+        img.onload = () => {
+          const r = img.width / img.height;
+          if (kind === "icon" && (r < 0.75 || r > 1.33)) {
+            toast.warning("Une image carrée est recommandée pour l'icône.");
+          } else if (kind === "logo" && r > 0 && r < 1.2) {
+            toast.warning("Un visuel horizontal est recommandé pour le logo principal.");
+          }
+        };
+        img.src = res.url;
+      } catch { /* ignore */ }
+      setCompany((c) => kind === "icon" ? { ...c, icon_url: res.url } : { ...c, logo_url: res.url });
+      toast.success(kind === "icon" ? "Icône mise à jour." : "Logo mis à jour.");
       refresh();
     } catch (e: any) {
       toast.error(e?.message || "Échec de l'upload.");
     }
   }
 
-  async function removeLogo() {
+  async function removeVisual(kind: "logo" | "icon") {
     if (!activeCompanyId) return;
     try {
-      await saveFn({
-        data: {
-          companyId: activeCompanyId,
-          name: company.name, legal_form: company.legal_form, siren: company.siren,
-          siret: company.siret, vat_number: company.vat_number,
-          address_line1: company.address_line1, postal_code: company.postal_code, city: company.city,
-          address_line2: contact.address_line2, country: contact.country,
-          phone: contact.phone, email: contact.email, website: contact.website,
-          logo_url: "",
-        } as any,
-      });
-      setCompany((c) => ({ ...c, logo_url: "" }));
-      toast.success("Logo supprimé.");
+      await deleteFn({ data: { companyId: activeCompanyId, kind } });
+      setCompany((c) => kind === "icon" ? { ...c, icon_url: "" } : { ...c, logo_url: "" });
+      toast.success(kind === "icon" ? "Icône supprimée." : "Logo supprimé.");
       refresh();
     } catch (e: any) { toast.error(e?.message || "Suppression impossible."); }
   }
+
 
   /* ── Sync wizard ── */
   function openSync() {
@@ -377,38 +384,48 @@ function CompanyPage() {
             </div>
           </Card>
 
-          {/* Logo */}
+          {/* Identité visuelle — Icône + Logo principal */}
           <Card className="p-5">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-1 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                <Upload className="h-4 w-4" /> Logo
+                <Upload className="h-4 w-4" /> Identité visuelle
               </h2>
             </div>
-            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
-              <div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-muted/40">
-                {company.logo_url
-                  ? <img src={company.logo_url} alt="logo" className="h-full w-full object-contain" />
-                  : <Building2 className="h-9 w-9 text-muted-foreground" />}
-              </div>
-              <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild size="sm" variant="outline" disabled={!editable}>
-                    <label className="cursor-pointer">
-                      <Upload className="h-3.5 w-3.5" /> Changer
-                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                        onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
-                    </label>
-                  </Button>
-                  {company.logo_url && editable && (
-                    <Button size="sm" variant="ghost" onClick={removeLogo} className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                    </Button>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground">PNG, JPG ou WEBP — 2 Mo max. Affiché sur PV, emails et factures.</p>
-              </div>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Deux visuels distincts, utilisés automatiquement selon le contexte.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <VisualBlock
+                title="Icône"
+                description="Utilisée pour l'application, les notifications et les petits espaces."
+                hint="Carré recommandé · 512×512 · PNG/JPG/WEBP · 2 Mo max."
+                url={company.icon_url}
+                placeholder={<Building2 className="h-9 w-9 text-muted-foreground" />}
+                previewClass="h-24 w-24 rounded-xl"
+                editable={editable}
+                onUpload={(f) => uploadVisual(f, "icon")}
+                onRemove={() => removeVisual("icon")}
+              />
+              <VisualBlock
+                title="Logo principal"
+                description="Utilisé sur les PDF, emails, PV et documents officiels."
+                hint="Horizontal recommandé · PNG/JPG/WEBP · 2 Mo max."
+                url={company.logo_url}
+                placeholder={<Building2 className="h-9 w-9 text-muted-foreground" />}
+                previewClass="h-24 w-full max-w-[220px] rounded-xl"
+                editable={editable}
+                onUpload={(f) => uploadVisual(f, "logo")}
+                onRemove={() => removeVisual("logo")}
+              />
             </div>
+            {!company.logo_url && company.icon_url && (
+              <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
+                Aucun logo principal — l'icône sera utilisée en repli sur les PDF et emails.
+              </p>
+            )}
           </Card>
+
 
           {/* Informations officielles */}
           <Card className="p-5">
@@ -745,12 +762,63 @@ function Diff({ label, value, highlight }: { label: string; value: string; highl
   );
 }
 
+function VisualBlock({
+  title, description, hint, url, placeholder, previewClass, editable, onUpload, onRemove,
+}: {
+  title: string;
+  description: string;
+  hint: string;
+  url: string;
+  placeholder: ReactNode;
+  previewClass: string;
+  editable: boolean;
+  onUpload: (f: File) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold">{title}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{description}</p>
+      </div>
+      <div className={`grid place-items-center self-start overflow-hidden border border-border bg-background ${previewClass}`}>
+        {url
+          ? <img src={url} alt={title} className="h-full w-full object-contain" />
+          : placeholder}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="outline" disabled={!editable}>
+          <label className="cursor-pointer">
+            <Upload className="h-3.5 w-3.5" /> {url ? "Changer" : "Ajouter"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
+            />
+          </label>
+        </Button>
+        {url && editable && (
+          <Button size="sm" variant="ghost" onClick={onRemove} className="text-destructive hover:text-destructive">
+            <Trash2 className="h-3.5 w-3.5" /> Supprimer
+          </Button>
+        )}
+      </div>
+      <p className="text-[10.5px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+
 function labelFor(action: string): string {
   switch (action) {
     case "company.created": return "Entreprise créée";
     case "company.verified": return "Entreprise validée";
     case "company.synced_from_siren": return "Synchronisation officielle (SIRENE)";
-    case "company.logo_updated": return "Logo modifié";
+    case "company.logo_updated": return "Logo principal modifié";
+    case "company.logo_deleted": return "Logo principal supprimé";
+    case "company.icon_updated": return "Icône modifiée";
+    case "company.icon_deleted": return "Icône supprimée";
     case "company.contact_updated": return "Coordonnées modifiées";
     case "company.legal_info_updated": return "Informations légales modifiées";
     case "company.official_fields_update_denied": return "Tentative de modification refusée";

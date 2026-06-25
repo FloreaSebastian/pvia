@@ -763,6 +763,7 @@ export type Database = {
           country: string | null
           created_at: string
           email: string | null
+          icon_url: string | null
           id: string
           legal_form: string | null
           logo_url: string | null
@@ -791,6 +792,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           email?: string | null
+          icon_url?: string | null
           id?: string
           legal_form?: string | null
           logo_url?: string | null
@@ -819,6 +821,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           email?: string | null
+          icon_url?: string | null
           id?: string
           legal_form?: string | null
           logo_url?: string | null

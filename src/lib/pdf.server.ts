@@ -282,9 +282,11 @@ export async function generatePvPdfBytes(input: {
   page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
 
   // Logo
-  if (company?.logo_url) {
+  // Documents officiels → logo principal, fallback icône (cf. company-visual).
+  const pdfVisual = company?.logo_url || company?.icon_url;
+  if (pdfVisual) {
     try {
-      const res = await fetch(company.logo_url);
+      const res = await fetch(pdfVisual);
       if (res.ok) {
         const ab = await res.arrayBuffer();
         const u8 = new Uint8Array(ab);

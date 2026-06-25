@@ -266,7 +266,8 @@ function CompanyMenu({
   const { isPlatformAdmin } = useIsPlatformAdmin();
   const active = memberships.find((m) => m.company_id === activeCompanyId);
   const companyName = active?.company.name ?? "Entreprise";
-  const logoUrl = active?.company.logo_url ?? null;
+  // UI compacte → icône, fallback logo (cf. getCompanyVisualIdentity).
+  const logoUrl = active?.company.icon_url ?? active?.company.logo_url ?? null;
 
   return (
     <DropdownMenu>
