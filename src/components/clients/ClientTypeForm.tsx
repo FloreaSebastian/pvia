@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Loader2, Building2, User, Check, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Search, Loader2, Building2, User, Check, X, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { searchFrenchCompanies, type FrenchCompanyHit } from "@/lib/siren.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
 
 export type ClientFormState = {
   client_type: "particulier" | "entreprise";
