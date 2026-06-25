@@ -294,6 +294,27 @@ export const createPv = createServerFn({ method: "POST" })
       throw err;
     }
 
+    // 5b. Anti-doublon: un chantier ne peut être lié qu'à un seul PV.
+    if (data.chantier_id) {
+      const { data: existingPv, error: existingErr } = await supabaseAdmin
+        .from("pv")
+        .select("id,numero")
+        .eq("company_id", data.companyId)
+        .eq("chantier_id", data.chantier_id)
+        .limit(1)
+        .maybeSingle();
+      if (existingErr) throw new Error(existingErr.message);
+      if (existingPv) {
+        const err = new Error(
+          `Ce chantier possède déjà un PV (${existingPv.numero}). Un seul PV peut être créé par chantier.`,
+        );
+        (err as { code?: string }).code = "CHANTIER_ALREADY_HAS_PV";
+        throw err;
+      }
+    }
+
+
+
     // 6. Resolve / create client
     let clientId = data.client_id || null;
     if (!clientId && data.new_client_name.trim()) {
