@@ -91,7 +91,8 @@ export function DossierTab({
     if (typeof window === "undefined") return;
     const handler = () => {
       try {
-        const v = localStorage.getItem(subTabKey);
+        let v = localStorage.getItem(subTabKey);
+        if (v === "resume") v = "pv";
         if (v && v !== subTab) setSubTab(v);
       } catch { /* noop */ }
     };
