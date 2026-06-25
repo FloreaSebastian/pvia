@@ -847,14 +847,12 @@ function NewPv() {
     let clientError: string | null = null;
     if (!clientName) clientError = "Veuillez sélectionner ou créer un client avant de continuer.";
     else if (signatureMode === "remote" && !clientEmail) clientError = "Email du client requis pour la signature à distance.";
-    const clientOk = clientError === null;
 
     const cp = form.chantier_postal_code.trim();
     const cpInvalid = cp.length > 0 && !/^\d{4,5}$/.test(cp);
     let chantierError: string | null = null;
     if (!form.chantier_address.trim() || !form.reception_date) chantierError = "Veuillez renseigner l’adresse et la date de réception du chantier.";
     else if (cpInvalid) chantierError = "Code postal invalide.";
-    const chantierOk = chantierError === null;
     const travauxOk = form.description.trim().length > 0;
     const decisionOk = withReserves !== null;
     const reservesAllHaveContent = reserves.every((r) => (r.description.trim() || r.nature.trim()));
