@@ -75,16 +75,17 @@ function CompanyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<CompanyForm>(empty);
+  const [verified, setVerified] = useState(false);
+  const [verificationSource, setVerificationSource] = useState<string | null>(null);
   const editable = can("admin");
   const save = useServerFn(updateCompanyBranding);
   const uploadLogoFn = useServerFn(uploadCompanyLogo);
-  const lookupFn = useServerFn(lookupCompanyBySirenOrSiret);
+  const syncFn = useServerFn(syncCompanyFromSiren);
 
-  // SIRET sync dialog
+  // Synchronisation SIRET — un seul clic « Confirmer » fait tout côté serveur
   const [syncOpen, setSyncOpen] = useState(false);
   const [syncQuery, setSyncQuery] = useState("");
   const [syncBusy, setSyncBusy] = useState(false);
-  const [syncResult, setSyncResult] = useState<SirenLookupResult | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -92,7 +93,7 @@ function CompanyPage() {
       setLoading(true);
       const { data } = await supabase
         .from("companies")
-        .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url")
+        .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url,company_verified,company_verification_source")
         .eq("id", activeCompanyId)
         .single();
       if (data) {
@@ -112,6 +113,8 @@ function CompanyPage() {
           website: data.website ?? "",
           logo_url: data.logo_url ?? "",
         });
+        setVerified(!!(data as any).company_verified);
+        setVerificationSource(((data as any).company_verification_source ?? null) as string | null);
       }
       setLoading(false);
     })();
@@ -155,50 +158,35 @@ function CompanyPage() {
   }
 
   async function runSync() {
+    if (!activeCompanyId) return;
     const q = syncQuery.replace(/\s+/g, "");
     if (!/^\d{9}$|^\d{14}$/.test(q)) {
       toast.error("Saisissez un SIREN (9 chiffres) ou SIRET (14 chiffres).");
       return;
     }
     setSyncBusy(true);
-    setSyncResult(null);
     try {
-      const res = await lookupFn({ data: { query: q } });
-      setSyncResult(res);
-      if (!res.found) toast.error(res.error);
-    } catch (e: any) {
-      toast.error(e?.message || "Recherche impossible.");
-    } finally {
-      setSyncBusy(false);
-    }
-  }
-
-  async function confirmSync() {
-    if (!activeCompanyId || !syncResult || !syncResult.found) return;
-    const r = syncResult;
-    const next: CompanyForm = {
-      ...form,
-      name: r.name || form.name,
-      legal_form: r.legal_form || form.legal_form,
-      siren: r.siren || form.siren,
-      siret: r.siret || form.siret,
-      address_line1: r.address_line1 || form.address_line1,
-      postal_code: r.postal_code || form.postal_code,
-      city: r.city || form.city,
-    };
-    setSaving(true);
-    try {
-      await save({ data: { companyId: activeCompanyId, ...next } as any });
-      setForm(next);
-      toast.success("Informations officielles synchronisées.");
+      const res = await syncFn({ data: { companyId: activeCompanyId, query: q } });
+      setForm((f) => ({
+        ...f,
+        name: res.name || f.name,
+        legal_form: res.legal_form || f.legal_form,
+        siren: res.siren || f.siren,
+        siret: res.siret || f.siret,
+        address_line1: res.address_line1 || f.address_line1,
+        postal_code: res.postal_code || f.postal_code,
+        city: res.city || f.city,
+      }));
+      setVerified(true);
+      setVerificationSource("siret_sync");
+      toast.success("Entreprise validée depuis le registre officiel.");
       setSyncOpen(false);
       setSyncQuery("");
-      setSyncResult(null);
       refresh();
     } catch (e: any) {
-      toast.error(e?.message || "Mise à jour impossible.");
+      toast.error(e?.message || "Synchronisation impossible.");
     } finally {
-      setSaving(false);
+      setSyncBusy(false);
     }
   }
 
@@ -209,6 +197,7 @@ function CompanyPage() {
       </div>
     );
   }
+
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
