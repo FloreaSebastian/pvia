@@ -255,38 +255,43 @@ function ClientsPage() {
       )}
 
       {filtered.length > 0 && view === "grid" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((c) => (
-            <Card key={c.id} className="group relative flex flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:shadow-brand">
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          {filtered.map((c) => {
+            const isEnt = c.client_type === "entreprise";
+            const Icon = isEnt ? Building2 : User;
+            return (
+            <Card key={c.id} className="group relative flex flex-col gap-2.5 p-4 transition hover:-translate-y-0.5 hover:shadow-brand sm:gap-3 sm:p-5">
               <div className="flex items-start gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-gradient text-sm font-semibold text-primary-foreground shadow-brand">
-                  {initials(c.name) || "?"}
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-primary-foreground shadow-brand sm:h-11 sm:w-11">
+                  <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2"><p className="truncate font-semibold leading-tight">{c.name}</p></div>
+                  <p className="truncate text-sm font-semibold leading-tight sm:text-base">{c.name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <TypeBadge type={c.client_type} />
-                    {c.siret && <Badge variant="outline" className="font-mono text-[10px]">SIRET {c.siret}</Badge>}
                   </div>
-                  {c.contact_name && <p className="mt-1 text-xs text-muted-foreground">Contact : {c.contact_name}</p>}
-                  {c.address && (<p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3 w-3 shrink-0" /> {c.address}</p>)}
+                  {isEnt && c.siret && <p className="mt-1 font-mono text-[11px] text-muted-foreground">SIRET {c.siret}</p>}
+                  {isEnt && c.contact_name && <p className="mt-0.5 text-xs text-muted-foreground truncate">Contact : {c.contact_name}</p>}
                 </div>
+                {canWrite && (
+                  <div className="-mr-1 -mt-1 flex shrink-0 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(c)} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(c.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </div>
+                )}
               </div>
-              <div className="space-y-1.5 text-sm">
+              <div className="space-y-1 text-xs sm:text-sm">
                 {c.email && (<a href={`mailto:${c.email}`} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.email}</span></a>)}
                 {c.phone && (<a href={`tel:${c.phone}`} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.phone}</span></a>)}
-                {!c.email && !c.phone && (<p className="text-xs italic text-muted-foreground">Aucun contact renseigné</p>)}
+                {c.city && (<p className="flex items-center gap-2 truncate text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.city}</span></p>)}
+                {!c.email && !c.phone && !c.city && (<p className="text-xs italic text-muted-foreground">Aucun contact renseigné</p>)}
               </div>
-              {canWrite && (
-                <div className="mt-auto flex justify-end gap-1 opacity-0 transition group-hover:opacity-100">
-                  <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                </div>
-              )}
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
+
 
       {filtered.length > 0 && view === "list" && (
         <Card className="overflow-hidden p-0">
