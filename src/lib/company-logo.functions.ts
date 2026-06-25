@@ -166,9 +166,10 @@ export const deleteCompanyVisual = createServerFn({ method: "POST" })
       .eq("id", data.companyId)
       .maybeSingle();
 
+    const clearPayload = data.kind === "icon" ? { icon_url: null } : { logo_url: null };
     const { error } = await supabaseAdmin
       .from("companies")
-      .update({ [column]: null })
+      .update(clearPayload)
       .eq("id", data.companyId);
     if (error) throw new Error(error.message);
 
