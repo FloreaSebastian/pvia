@@ -769,7 +769,7 @@ function VisualBlock({
   description: string;
   hint: string;
   url: string;
-  placeholder: React.ReactNode;
+  placeholder: ReactNode;
   previewClass: string;
   editable: boolean;
   onUpload: (f: File) => void;
