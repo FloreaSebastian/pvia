@@ -155,8 +155,6 @@ function NewPv() {
   const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
   const extractWorkRefFn = useServerFn(extractWorkReferenceDoc);
 
-  // Clef stable côté brouillon pour rattacher les documents importés avant création du PV.
-  const [draftKey] = useState(() => `draft-${crypto.randomUUID()}`);
 
   const search = Route.useSearch();
   const createClientFnSrv = useServerFn(createClientFn);
