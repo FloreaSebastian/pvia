@@ -1045,7 +1045,7 @@ function NewPv() {
         </DialogContent>
       </Dialog>
 
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-visible p-0">
         <div className="border-b border-border bg-gradient-to-b from-muted/40 to-muted/10 px-4 py-3 sm:px-5">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
