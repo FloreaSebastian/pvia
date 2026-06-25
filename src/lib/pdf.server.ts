@@ -4,7 +4,7 @@ import { sha256OfBytes, shortUA, EIDAS_MENTIONS } from "./signature-proof.server
 import { RESERVE_STATUS_LABEL, RESERVE_PRIORITY_LABEL, RESERVE_SEVERITY_LABEL, isReserveOverdue, type ReserveStatusValue } from "./reserve-status";
 
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
-type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
+type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null; client_type?: string | null; company_name?: string | null; siret?: string | null; siren?: string | null; vat_number?: string | null; naf_code?: string | null; contact_name?: string | null } | undefined;
 type Chantier = {
   name?: string | null;
   reference?: string | null;
