@@ -1136,22 +1136,18 @@ function NewPv() {
               className="space-y-4"
             >
               {currentStep.id === ID_ENTREPRISE && (
-                <>
-                  <SectionHeader icon={Building2} title="Informations entreprise" desc="Issues de votre fiche entreprise — verrouillées." />
-                  <div className="rounded-xl border border-border bg-muted/10 px-5 py-3">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-                      <div className="font-mono text-base font-semibold tracking-tight text-foreground">
-                        N° {numeroPreview ?? "attribué à l'enregistrement"}
-                        {numeroPreview && <span className="ml-2 text-[11px] font-sans font-normal text-muted-foreground">(aperçu)</span>}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        <span className="text-foreground">Document :</span> Procès-verbal de réception de travaux
-                      </div>
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-border bg-muted/20 px-3 py-2.5">
+                    <div className="font-mono text-sm font-semibold tracking-tight text-foreground sm:text-base">
+                      {numeroPreview ?? "N° attribué à l'enregistrement"}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      Procès-verbal de réception de travaux
                     </div>
                   </div>
 
                   {brandingLoading ? (
-                    <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
                     </div>
                   ) : !brandingComplete ? (
@@ -1164,39 +1160,65 @@ function NewPv() {
                       </AlertDescription>
                     </Alert>
                   ) : (
-                    <div className="rounded-xl border border-border bg-gradient-to-br from-muted/30 to-background p-5">
-                      <div className="flex items-start gap-4">
+                    <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Entreprise utilisée pour le PV
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          <Lock className="h-2.5 w-2.5" /> Verrouillé
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-3">
                         {branding?.logo_url ? (
-                          <img src={branding.logo_url} alt={branding.name} className="h-16 w-16 shrink-0 rounded-lg border border-border object-contain bg-background" />
+                          <img
+                            src={branding.logo_url}
+                            alt={branding.name}
+                            className="h-10 w-10 shrink-0 rounded-md border border-border bg-background object-contain sm:h-12 sm:w-12"
+                          />
                         ) : (
-                          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg border border-border bg-background text-muted-foreground">
-                            <Building2 className="h-7 w-7" />
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-border bg-background text-muted-foreground sm:h-12 sm:w-12">
+                            <Building2 className="h-5 w-5" />
                           </div>
                         )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="truncate text-lg font-semibold">{branding?.name}</h4>
-                            <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Verrouillé</Badge>
-                          </div>
-                          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                            <ReadOnlyRow label="SIRET" value={branding?.siret} />
-                            <ReadOnlyRow label="SIREN" value={branding?.siren} />
-                            <ReadOnlyRow label="Email" value={branding?.email} />
-                            <ReadOnlyRow label="Téléphone" value={branding?.phone} />
-                            <div className="sm:col-span-2">
-                              <ReadOnlyRow label="Adresse" value={
-                                branding?.address_line1
-                                  ? [branding.address_line1, branding.address_line2, [branding.postal_code, branding.city].filter(Boolean).join(" "), branding.country].filter(Boolean).join(", ")
-                                  : branding?.address
-                              } />
-                            </div>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <h4 className="break-words text-base font-semibold leading-tight">
+                            {branding?.name}
+                          </h4>
+                          <div className="space-y-0.5 text-xs text-muted-foreground">
+                            {branding?.siret && <div className="font-mono">SIRET {branding.siret}</div>}
+                            {branding?.siren && <div className="font-mono">SIREN {branding.siren}</div>}
+                            {branding?.email
+                              ? <div className="break-all">{branding.email}</div>
+                              : <div className="text-muted-foreground/70">Email non renseigné</div>}
+                            {branding?.phone
+                              ? <div>{branding.phone}</div>
+                              : <div className="text-muted-foreground/70">Téléphone non renseigné</div>}
                           </div>
                         </div>
                       </div>
+
+                      {(branding?.address_line1 || branding?.address) && (
+                        <div className="mt-3 whitespace-normal break-words rounded-lg bg-muted/30 px-3 py-2 text-xs leading-relaxed text-foreground">
+                          {branding.address_line1 ? (
+                            <>
+                              <div>{branding.address_line1}</div>
+                              {branding.address_line2 && <div>{branding.address_line2}</div>}
+                              <div>
+                                {[branding.postal_code, branding.city].filter(Boolean).join(" ")}
+                                {branding.country ? ` · ${branding.country}` : ""}
+                              </div>
+                            </>
+                          ) : (
+                            <div>{branding.address}</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
-                </>
+                </div>
               )}
+
 
               {currentStep.id === ID_CLIENT && (
                 <ClientStep
