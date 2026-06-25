@@ -2540,3 +2540,343 @@ function WorkReferenceImport(props: {
 }
 
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Sous-étape — Client signataire                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+type ClientRow = {
+  id: string; name: string; email: string | null; phone: string | null;
+  address: string | null; address_line1: string | null;
+  postal_code: string | null; city: string | null;
+};
+
+type ChantierRow = {
+  id: string; name: string; reference: string | null; client_id: string | null;
+  address: string | null; postal_code: string | null; city: string | null;
+  start_date: string | null; end_date: string | null;
+  status: string | null; progress_percent: number | null;
+};
+
+function ClientStep(props: {
+  clients: ClientRow[];
+  clientObj: ClientRow | null;
+  form: any;
+  setForm: React.Dispatch<React.SetStateAction<any>>;
+  clientSearch: string;
+  setClientSearch: (s: string) => void;
+  showNewClientForm: boolean;
+  setShowNewClientForm: (b: boolean) => void;
+  savingNewClient: boolean;
+  onCreateClient: () => void;
+}) {
+  const { clients, clientObj, form, setForm, clientSearch, setClientSearch, showNewClientForm, setShowNewClientForm, savingNewClient, onCreateClient } = props;
+  const q = clientSearch.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!q) return clients.slice(0, 50);
+    return clients.filter((c) =>
+      c.name.toLowerCase().includes(q) ||
+      (c.email ?? "").toLowerCase().includes(q) ||
+      (c.phone ?? "").toLowerCase().includes(q) ||
+      (c.city ?? "").toLowerCase().includes(q),
+    ).slice(0, 50);
+  }, [clients, q]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Client signataire</h2>
+        <p className="text-sm text-muted-foreground">
+          Sélectionnez le client qui signera le procès-verbal ou créez-en un nouveau.
+        </p>
+      </div>
+
+      {clientObj ? (
+        <Card className="border-primary/40 bg-primary/5 p-3 sm:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" />
+                <span className="truncate text-base font-semibold">{clientObj.name}</span>
+              </div>
+              {clientObj.email && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientObj.email}</span>
+                </div>
+              )}
+              {clientObj.phone && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientObj.phone}</span>
+                </div>
+              )}
+              {(clientObj.address || clientObj.address_line1) && (
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {[clientObj.address_line1 || clientObj.address, [clientObj.postal_code, clientObj.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}
+                  </span>
+                </div>
+              )}
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setForm((f: any) => ({ ...f, client_id: "" }))}>
+              <X className="h-4 w-4" /> Changer
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              placeholder="Rechercher un client (nom, email, ville…)"
+              className="pl-9"
+            />
+          </div>
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-background">
+            {filtered.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">Aucun client trouvé.</div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {filtered.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f: any) => ({ ...f, client_id: c.id }))}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-muted/50"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{c.name}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {[c.email, c.city].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <Button
+            type="button"
+            variant={showNewClientForm ? "outline" : "default"}
+            onClick={() => setShowNewClientForm(!showNewClientForm)}
+            className="w-full sm:w-auto"
+          >
+            <UserPlus className="h-4 w-4" />
+            {showNewClientForm ? "Annuler" : "Créer un nouveau client"}
+          </Button>
+
+          {showNewClientForm && (
+            <div className="space-y-3 rounded-xl border border-dashed border-border bg-muted/20 p-3 sm:p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Nom / Société *">
+                  <Input value={form.new_client_name} onChange={(e) => setForm({ ...form, new_client_name: e.target.value })} placeholder="M. et Mme Mercier" />
+                </Field>
+                <Field label="Email">
+                  <Input type="email" value={form.new_client_email} onChange={(e) => setForm({ ...form, new_client_email: e.target.value })} placeholder="client@email.com" />
+                </Field>
+                <Field label="Téléphone">
+                  <Input value={form.new_client_phone} onChange={(e) => setForm({ ...form, new_client_phone: e.target.value })} placeholder="06 12 34 56 78" />
+                </Field>
+                <Field label="Adresse">
+                  <Input value={form.new_client_address} onChange={(e) => setForm({ ...form, new_client_address: e.target.value })} placeholder="12 rue des Lilas" />
+                </Field>
+                <Field label="Code postal">
+                  <Input value={form.new_client_postal_code} onChange={(e) => setForm({ ...form, new_client_postal_code: e.target.value })} placeholder="06400" />
+                </Field>
+                <Field label="Ville">
+                  <Input value={form.new_client_city} onChange={(e) => setForm({ ...form, new_client_city: e.target.value })} placeholder="Cannes" />
+                </Field>
+              </div>
+              <Button
+                type="button"
+                onClick={onCreateClient}
+                disabled={savingNewClient || !form.new_client_name.trim()}
+                className="w-full sm:w-auto"
+              >
+                {savingNewClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                Enregistrer et sélectionner ce client
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Sous-étape — Chantier concerné                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function ChantierStep(props: {
+  chantiers: ChantierRow[];
+  chantierObj: ChantierRow | null;
+  clients: ClientRow[];
+  form: any;
+  setForm: React.Dispatch<React.SetStateAction<any>>;
+  chantierSearch: string;
+  setChantierSearch: (s: string) => void;
+  creatingChantier: boolean;
+  onCreateChantierFromAddress: () => void;
+}) {
+  const { chantiers, chantierObj, clients, form, setForm, chantierSearch, setChantierSearch, creatingChantier, onCreateChantierFromAddress } = props;
+  const q = chantierSearch.trim().toLowerCase();
+  const clientName = (id: string | null) => clients.find((c) => c.id === id)?.name ?? "";
+  const filtered = useMemo(() => {
+    if (!q) return chantiers.slice(0, 50);
+    return chantiers.filter((c) =>
+      c.name.toLowerCase().includes(q) ||
+      (c.reference ?? "").toLowerCase().includes(q) ||
+      (c.address ?? "").toLowerCase().includes(q) ||
+      (c.city ?? "").toLowerCase().includes(q) ||
+      clientName(c.client_id).toLowerCase().includes(q),
+    ).slice(0, 50);
+  }, [chantiers, clients, q]);
+
+  const hasChantier = !!chantierObj;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Chantier concerné</h2>
+        <p className="text-sm text-muted-foreground">
+          Associez ce PV à un chantier existant ou renseignez l’adresse de réception.
+        </p>
+      </div>
+
+      {hasChantier ? (
+        <Card className="border-primary/40 bg-primary/5 p-3 sm:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Hammer className="h-4 w-4 text-primary" />
+                {chantierObj!.reference && (
+                  <Badge variant="outline" className="font-mono text-xs">{chantierObj!.reference}</Badge>
+                )}
+                <span className="truncate text-base font-semibold">{chantierObj!.name}</span>
+              </div>
+              {chantierObj!.address && (
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{[chantierObj!.address, [chantierObj!.postal_code, chantierObj!.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}</span>
+                </div>
+              )}
+              {chantierObj!.client_id && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientName(chantierObj!.client_id)}</span>
+                </div>
+              )}
+              {(chantierObj!.start_date || chantierObj!.end_date) && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {chantierObj!.start_date ?? "—"} → {chantierObj!.end_date ?? "—"}
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {chantierObj!.status && <Badge variant="secondary" className="text-xs">{chantierObj!.status}</Badge>}
+                {typeof chantierObj!.progress_percent === "number" && (
+                  <Badge variant="outline" className="text-xs">Avancement {chantierObj!.progress_percent}%</Badge>
+                )}
+              </div>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setForm((f: any) => ({ ...f, chantier_id: "" }))}>
+              <X className="h-4 w-4" /> Changer
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={chantierSearch}
+              onChange={(e) => setChantierSearch(e.target.value)}
+              placeholder="Rechercher (référence, nom, adresse, client…)"
+              className="pl-9"
+            />
+          </div>
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-background">
+            {filtered.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">Aucun chantier trouvé.</div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {filtered.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f: any) => ({ ...f, chantier_id: c.id }))}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-muted/50"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          {c.reference && <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{c.reference}</span>}
+                          <span className="truncate text-sm font-medium">{c.name}</span>
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {[c.city, clientName(c.client_id)].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Adresse de réception (toujours visible — pré-remplie depuis le chantier, modifiable pour le PV) */}
+      <div className="space-y-3 rounded-xl border border-border bg-muted/10 p-3 sm:p-4">
+        <div className="text-sm font-medium">Adresse & date de réception</div>
+        <Field label="Adresse du chantier *">
+          <AddressAutocomplete
+            value={form.chantier_address}
+            onChange={(v) => setForm((f: any) => ({ ...f, chantier_address: v }))}
+            onSelect={(a: AddressValue) => setForm((f: any) => ({
+              ...f,
+              chantier_address: a.address,
+              chantier_postal_code: a.postalCode,
+              chantier_city: a.city,
+              latitude: a.latitude,
+              longitude: a.longitude,
+            }))}
+            placeholder="12 chemin des Pins, Cannes…"
+          />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Code postal">
+            <Input value={form.chantier_postal_code} onChange={(e) => setForm({ ...form, chantier_postal_code: e.target.value })} placeholder="06400" />
+          </Field>
+          <Field label="Ville">
+            <Input value={form.chantier_city} onChange={(e) => setForm({ ...form, chantier_city: e.target.value })} placeholder="Cannes" />
+          </Field>
+          <Field label="Date de réception *">
+            <Input type="date" value={form.reception_date} onChange={(e) => setForm({ ...form, reception_date: e.target.value })} />
+          </Field>
+        </div>
+        {!hasChantier && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCreateChantierFromAddress}
+            disabled={creatingChantier || !form.chantier_address.trim()}
+            className="w-full sm:w-auto"
+          >
+            {creatingChantier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Créer un chantier avec ces informations
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
