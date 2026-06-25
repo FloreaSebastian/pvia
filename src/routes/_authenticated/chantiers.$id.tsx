@@ -704,6 +704,24 @@ function ChantierDetailPage() {
               <Button asChild variant="outline" size="sm">
                 <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /> Calendrier</Link>
               </Button>
+              {canWrite && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button variant="outline" size="sm" onClick={openEditChantier} disabled={isLocked}>
+                          <Pencil className="h-4 w-4" /> Modifier
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {isLocked && (
+                      <TooltipContent side="bottom" className="text-xs">
+                        Chantier verrouillé. Réouvrir pour modifier.
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {canWrite && !isLocked && (
                 <Button variant="outline" size="sm" onClick={() => runAutoPlanning(false)} disabled={autoPlanLoading}>
                   <Sparkles className="h-4 w-4" /> {autoPlanLoading ? "Création…" : "Planning auto"}
