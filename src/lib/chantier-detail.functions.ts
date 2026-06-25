@@ -245,9 +245,19 @@ export const createChantierDocument = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
     const p = data.data;
+    const { data: chRef } = await supabase
+      .from("chantiers")
+      .select("reference")
+      .eq("id", data.chantierId)
+      .maybeSingle();
+    const refPart = (chRef as { reference?: string } | null)?.reference ?? "";
+    const baseName = p.name.trim();
+    const displayName = refPart && !baseName.startsWith(refPart)
+      ? `${refPart} - ${baseName}`
+      : baseName;
     const { data: row, error } = await supabase.from("chantier_documents").insert({
       company_id: data.companyId, chantier_id: data.chantierId, created_by: userId,
-      name: p.name.trim(), file_url: p.file_url.trim(),
+      name: displayName, file_url: p.file_url.trim(),
       storage_path: p.storage_path.trim() || null, file_type: p.file_type.trim() || null,
       category: p.category,
     }).select("id").single();
@@ -255,6 +265,7 @@ export const createChantierDocument = createServerFn({ method: "POST" })
     await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_document", entityId: row.id, action: "chantier_document.create" });
     return { ok: true, id: row.id as string };
   });
+
 
 export const deleteChantierDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
