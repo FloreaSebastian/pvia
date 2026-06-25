@@ -757,6 +757,9 @@ export type Database = {
           address_line1: string | null
           address_line2: string | null
           city: string | null
+          company_verification_source: string | null
+          company_verified: boolean
+          company_verified_at: string | null
           country: string | null
           created_at: string
           email: string | null
@@ -782,6 +785,9 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           city?: string | null
+          company_verification_source?: string | null
+          company_verified?: boolean
+          company_verified_at?: string | null
           country?: string | null
           created_at?: string
           email?: string | null
@@ -807,6 +813,9 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           city?: string | null
+          company_verification_source?: string | null
+          company_verified?: boolean
+          company_verified_at?: string | null
           country?: string | null
           created_at?: string
           email?: string | null
