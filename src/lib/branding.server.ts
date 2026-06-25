@@ -17,6 +17,7 @@ export type CompanyBranding = {
   phone: string | null;
   website: string | null;
   logo_url: string | null;
+  icon_url: string | null;
 };
 
 /**
