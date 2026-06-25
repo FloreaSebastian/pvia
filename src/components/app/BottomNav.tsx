@@ -89,7 +89,7 @@ export function BottomNav() {
               key={idx}
               type="button"
               aria-label="Créer un nouveau PV"
-              onClick={() => { vibrate([10, 20, 15]); navigate({ to: it.to }); }}
+              onClick={() => { vibrate([10, 20, 15]); navigate({ to: it.to, search: { fresh: 1 } }); }}
               className="relative flex min-h-[44px] flex-col items-center justify-end pb-2"
             >
               <motion.span
