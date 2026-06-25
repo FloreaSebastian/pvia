@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,13 +11,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { createClient as createClientFn, updateClient as updateClientFn, deleteClient as deleteClientFn } from "@/lib/clients.functions";
+import { createClient as createClientFn, updateClient as updateClientFn, archiveClient as archiveClientFn, restoreClient as restoreClientFn } from "@/lib/clients.functions";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
 import { cn } from "@/lib/utils";
 import { ClientTypeSelector, ClientFormFields, EMPTY_CLIENT_FORM, type ClientFormState } from "@/components/clients/ClientTypeForm";
 import { ClientDetailDialog } from "@/components/clients/ClientDetailDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { downloadClientsCsv } from "@/lib/clients-export";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   component: ClientsPage,
@@ -31,6 +33,7 @@ type Client = {
   notes: string | null; client_type: "particulier" | "entreprise" | null;
   company_name: string | null; siret: string | null; siren: string | null;
   vat_number: string | null; naf_code: string | null; contact_name: string | null;
+  archived_at: string | null; archived_by: string | null; archive_reason: string | null;
 };
 
 function initials(name: string) {
@@ -47,14 +50,20 @@ function ClientsPage() {
   const [form, setForm] = useState<ClientFormState>(EMPTY_CLIENT_FORM);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "particulier" | "entreprise">("all");
+  const [scope, setScope] = useState<"active" | "archived">("active");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
   const [detailClient, setDetailClient] = useState<Client | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<Client | null>(null);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [archiving, setArchiving] = useState(false);
   const canWrite = can("manage");
+  const canAdmin = can("admin");
   const createFn = useServerFn(createClientFn);
   const updateFn = useServerFn(updateClientFn);
-  const deleteFn = useServerFn(deleteClientFn);
+  const archiveFn = useServerFn(archiveClientFn);
+  const restoreFn = useServerFn(restoreClientFn);
 
   function openDetail(c: Client) {
     setDetailClient(c);
@@ -66,7 +75,8 @@ function ClientsPage() {
   }
   function handleDeleteFromDetail(id: string) {
     setDetailOpen(false);
-    remove(id);
+    const target = items.find((c) => c.id === id) ?? null;
+    if (target) askArchive(target);
   }
 
   async function load() {
@@ -120,21 +130,67 @@ function ClientsPage() {
       setSaving(false);
     }
   }
-  async function remove(id: string) {
-    if (!activeCompanyId) return;
-    if (!confirm("Supprimer ce client ?")) return;
+  function askArchive(c: Client) {
+    setArchiveTarget(c);
+    setArchiveReason("");
+  }
+  async function confirmArchive() {
+    if (!activeCompanyId || !archiveTarget || archiving) return;
+    setArchiving(true);
     try {
-      await deleteFn({ data: { companyId: activeCompanyId, id } });
-      toast.success("Supprimé");
+      await archiveFn({ data: { companyId: activeCompanyId, id: archiveTarget.id, reason: archiveReason.trim() || undefined } });
+      toast.success("Client archivé");
+      setArchiveTarget(null);
+      setArchiveReason("");
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Suppression impossible");
+      toast.error(err instanceof Error ? err.message : "Archivage impossible");
+    } finally {
+      setArchiving(false);
     }
   }
+  async function restore(c: Client) {
+    if (!activeCompanyId) return;
+    try {
+      await restoreFn({ data: { companyId: activeCompanyId, id: c.id } });
+      toast.success("Client restauré");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Restauration impossible");
+    }
+  }
+
+  function exportCsv(target: "filtered" | "active" | "archived") {
+    const today = new Date().toISOString().slice(0, 10);
+    let rows: Client[];
+    let name: string;
+    if (target === "filtered") {
+      rows = filtered;
+      name = `clients-${scope}-${today}.csv`;
+    } else if (target === "active") {
+      rows = items.filter((c) => !c.archived_at);
+      name = `clients-actifs-${today}.csv`;
+    } else {
+      rows = items.filter((c) => !!c.archived_at);
+      name = `clients-archives-${today}.csv`;
+    }
+    if (rows.length === 0) {
+      toast.info("Aucun client à exporter");
+      return;
+    }
+    downloadClientsCsv(rows, name);
+    toast.success(`Export de ${rows.length} client${rows.length > 1 ? "s" : ""}`);
+  }
+
+
+
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((c) => {
+      const isArchived = !!c.archived_at;
+      if (scope === "active" && isArchived) return false;
+      if (scope === "archived" && !isArchived) return false;
       if (typeFilter !== "all" && (c.client_type ?? "particulier") !== typeFilter) return false;
       if (!q) return true;
       return (
@@ -148,7 +204,8 @@ function ClientsPage() {
         (c.siren ?? "").toLowerCase().includes(q)
       );
     });
-  }, [items, query, typeFilter]);
+  }, [items, query, typeFilter, scope]);
+  const archivedCount = useMemo(() => items.filter((c) => !!c.archived_at).length, [items]);
 
   function TypeBadge({ type }: { type: Client["client_type"] }) {
     const isEnt = type === "entreprise";
@@ -233,6 +290,27 @@ function ClientsPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {(canAdmin || archivedCount > 0) && (
+            <div className="inline-flex rounded-lg border border-border bg-card p-1">
+              {([
+                { v: "active" as const, l: "Actifs" },
+                { v: "archived" as const, l: `Archives${archivedCount ? ` (${archivedCount})` : ""}` },
+              ]).map(({ v, l }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setScope(v)}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition",
+                    scope === v ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
+                  aria-pressed={scope === v}
+                >
+                  {v === "archived" && <Archive className="h-3.5 w-3.5" />} {l}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="inline-flex w-full rounded-lg border border-border bg-card p-1 sm:w-auto">
             {([
               { v: "all" as const, l: "Tous" },
@@ -247,6 +325,28 @@ function ClientsPage() {
             ))}
           </div>
           <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">{filtered.length}</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" aria-label="Exporter les clients">
+                <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Exporter</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Exporter en CSV</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => exportCsv("filtered")}>
+                Vue actuelle ({filtered.length})
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => exportCsv("active")}>
+                Tous les clients actifs
+              </DropdownMenuItem>
+              {(canAdmin || archivedCount > 0) && (
+                <DropdownMenuItem onSelect={() => exportCsv("archived")}>
+                  Clients archivés ({archivedCount})
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className="hidden rounded-lg border border-border bg-card p-1 sm:inline-flex">
             <button type="button" onClick={() => setView("grid")} className={cn("inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition", view === "grid" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} aria-label="Vue grille">
               <LayoutGrid className="h-3.5 w-3.5" />
@@ -293,8 +393,16 @@ function ClientsPage() {
                 </div>
                 {canWrite && (
                   <div className="-mr-1 -mt-1 flex shrink-0 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); remove(c.id); }} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    {c.archived_at ? (
+                      canAdmin && (
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); restore(c); }} aria-label="Restaurer"><ArchiveRestore className="h-4 w-4 text-primary" /></Button>
+                      )
+                    ) : (
+                      <>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); askArchive(c); }} aria-label="Archiver"><Archive className="h-4 w-4 text-destructive" /></Button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -342,8 +450,16 @@ function ClientsPage() {
                   <TableCell className="text-right">
                     {canWrite && (
                       <div className="inline-flex opacity-60 transition group-hover:opacity-100">
-                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); remove(c.id); }} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        {c.archived_at ? (
+                          canAdmin && (
+                            <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); restore(c); }} aria-label="Restaurer"><ArchiveRestore className="h-4 w-4 text-primary" /></Button>
+                          )
+                        ) : (
+                          <>
+                            <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
+                            <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); askArchive(c); }} aria-label="Archiver"><Archive className="h-4 w-4 text-destructive" /></Button>
+                          </>
+                        )}
                       </div>
                     )}
                   </TableCell>
@@ -361,6 +477,37 @@ function ClientsPage() {
         onEdit={handleEditFromDetail}
         onDelete={handleDeleteFromDetail}
       />
+
+      <Dialog open={!!archiveTarget} onOpenChange={(v) => { if (!v) { setArchiveTarget(null); setArchiveReason(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Archiver ce client ?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              <span className="font-medium text-foreground">{archiveTarget?.name}</span> ne sera plus visible dans la liste principale.
+              Tous les PV, chantiers, réserves et documents liés sont conservés. Un administrateur pourra le restaurer à tout moment.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="archive-reason">Motif (optionnel)</Label>
+              <Textarea
+                id="archive-reason"
+                rows={3}
+                maxLength={500}
+                value={archiveReason}
+                onChange={(e) => setArchiveReason(e.target.value)}
+                placeholder="Ex. Doublon, client inactif, fin de contrat…"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setArchiveTarget(null); setArchiveReason(""); }} disabled={archiving}>Annuler</Button>
+            <Button variant="destructive" onClick={confirmArchive} disabled={archiving}>
+              <Archive className="h-4 w-4" /> {archiving ? "Archivage…" : "Archiver"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

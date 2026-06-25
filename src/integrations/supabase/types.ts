@@ -672,6 +672,9 @@ export type Database = {
         Row: {
           address: string | null
           address_line1: string | null
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           city: string | null
           client_type: string
           company_id: string | null
@@ -696,6 +699,9 @@ export type Database = {
         Insert: {
           address?: string | null
           address_line1?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           city?: string | null
           client_type?: string
           company_id?: string | null
@@ -720,6 +726,9 @@ export type Database = {
         Update: {
           address?: string | null
           address_line1?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           city?: string | null
           client_type?: string
           company_id?: string | null

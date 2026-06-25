@@ -46,6 +46,12 @@ const ClientPayloadSchema = z.object({
 const CreateInput = z.object({ companyId: z.string().uuid(), data: ClientPayloadSchema });
 const UpdateInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid(), data: ClientPayloadSchema });
 const DeleteInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid() });
+const ArchiveInput = z.object({
+  companyId: z.string().uuid(),
+  id: z.string().uuid(),
+  reason: z.string().trim().max(500).optional().default(""),
+});
+const RestoreInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid() });
 
 
 async function assertCanManage(
@@ -154,31 +160,92 @@ export const updateClient = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+async function assertCanAdmin(
+  supabase: import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>,
+  companyId: string,
+  userId: string,
+) {
+  const { data, error } = await supabase.rpc("is_company_admin", { _company_id: companyId, _user_id: userId });
+  if (error) throw new Error("Vérification des droits impossible.");
+  if (data !== true) throw new Error("Droits administrateur requis.");
+}
+
+/**
+ * Archive a client (soft-delete). Preserves all relations (PV, chantiers,
+ * réserves, documents, signatures). Any manager can archive; archived clients
+ * are hidden from the default list and visible to admins via the archives tab.
+ */
+export const archiveClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ArchiveInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+    const { data: prev } = await supabase
+      .from("clients").select("id,name,company_id,archived_at").eq("id", data.id).maybeSingle();
+    if (!prev || prev.company_id !== data.companyId) throw new Error("Client introuvable.");
+    if ((prev as { archived_at: string | null }).archived_at) {
+      return { ok: true, alreadyArchived: true };
+    }
+    const reason = (data.reason ?? "").trim() || null;
+    const { error } = await supabase
+      .from("clients")
+      .update({ archived_at: new Date().toISOString(), archived_by: userId, archive_reason: reason })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId, entityType: "client", entityId: data.id,
+      action: "client.archive", metadata: { reason },
+    });
+    return { ok: true };
+  });
+
+/**
+ * Restore an archived client. Admin-only (directeur / responsable_exploitation).
+ */
+export const restoreClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => RestoreInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanAdmin(supabase, data.companyId, userId);
+    const { data: prev } = await supabase
+      .from("clients").select("id,company_id,archived_at").eq("id", data.id).maybeSingle();
+    if (!prev || prev.company_id !== data.companyId) throw new Error("Client introuvable.");
+    const { error } = await supabase
+      .from("clients")
+      .update({ archived_at: null, archived_by: null, archive_reason: null })
+      .eq("id", data.id).eq("company_id", data.companyId);
+    if (error) throw new Error(error.message);
+    await writeAuditLog({
+      companyId: data.companyId, userId, entityType: "client", entityId: data.id,
+      action: "client.restore",
+    });
+    return { ok: true };
+  });
+
+/**
+ * @deprecated Hard-delete is disabled. Kept as an alias of `archiveClient` to
+ * avoid breaking existing imports — clients are now archived (soft-deleted).
+ */
 export const deleteClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => DeleteInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
-    const { count, error: cErr } = await supabase
-      .from("pv").select("id", { count: "exact", head: true })
-      .eq("company_id", data.companyId).eq("client_id", data.id).eq("status", "signe");
-    if (cErr) throw new Error(cErr.message);
-    if ((count ?? 0) > 0) {
-      await writeAuditLog({
-        companyId: data.companyId, userId, entityType: "client", entityId: data.id,
-        action: "client.delete_blocked_signed_pv", metadata: { signed_pv_count: count ?? 0 },
-      });
-      throw new Error("Suppression impossible : ce client est lié à au moins un PV signé.");
-    }
     const { data: prev } = await supabase
-      .from("clients").select("name,email,phone,address,company_id").eq("id", data.id).maybeSingle();
+      .from("clients").select("id,company_id,archived_at").eq("id", data.id).maybeSingle();
     if (!prev || prev.company_id !== data.companyId) throw new Error("Client introuvable.");
-    const { error } = await supabase.from("clients").delete().eq("id", data.id).eq("company_id", data.companyId);
+    if ((prev as { archived_at: string | null }).archived_at) return { ok: true };
+    const { error } = await supabase
+      .from("clients")
+      .update({ archived_at: new Date().toISOString(), archived_by: userId })
+      .eq("id", data.id).eq("company_id", data.companyId);
     if (error) throw new Error(error.message);
     await writeAuditLog({
       companyId: data.companyId, userId, entityType: "client", entityId: data.id,
-      action: "client.delete", oldValues: prev as Record<string, unknown>,
+      action: "client.archive", metadata: { via: "deleteClient_alias" },
     });
     return { ok: true };
   });
