@@ -76,11 +76,11 @@ export function DossierTab({
   const [loading, setLoading] = useState(true);
   const [busyLiftId, setBusyLiftId] = useState<string | null>(null);
 
-  // Sub-tab memorized in localStorage
+  // Sub-tab memorized in localStorage (default PV now that the Résumé tab is removed)
   const subTabKey = `chantier-dossier-tab:${chantierId}`;
   const [subTab, setSubTab] = useState<string>(() => {
-    if (typeof window === "undefined") return "resume";
-    try { return localStorage.getItem(subTabKey) ?? "resume"; } catch { return "resume"; }
+    if (typeof window === "undefined") return "pv";
+    try { return localStorage.getItem(subTabKey) ?? "pv"; } catch { return "pv"; }
   });
   useEffect(() => {
     if (typeof window === "undefined") return;
