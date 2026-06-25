@@ -1280,6 +1280,7 @@ function NewPv() {
                   savingNewClient={savingNewClient}
                   newClient={newClient}
                   setNewClient={setNewClient}
+                  signatureMode={signatureMode}
                   onCreateClient={async () => {
                     if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
                     const isEnt = newClient.client_type === "entreprise";
@@ -1302,7 +1303,7 @@ function NewPv() {
                       }));
                       setNewClient(EMPTY_CLIENT_FORM);
                       setShowNewClientForm(false);
-                      toast.success("Client créé et sélectionné.");
+                      toast.success("Client créé et sélectionné");
                     } catch (e: any) {
                       toast.error(e?.message || "Création du client impossible.");
                     } finally {
