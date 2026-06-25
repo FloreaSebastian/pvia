@@ -74,48 +74,45 @@ export const createChantierPhoto = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
 
-    // Génération transactionnelle du label (verrou sur la ligne chantier + unique index)
-    // Retry en cas de collision (uploads simultanés) — l'index unique partiel garantit l'intégrité.
+    // Génération transactionnelle du label + insert avec retry sur collision unique (23505).
     let label = "";
-    let attempt = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      attempt += 1;
+    let row: { id: string } | null = null;
+    let lastErr: string | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
       const { data: lbl, error: lblErr } = await supabase.rpc("next_chantier_photo_label", {
         _chantier_id: data.chantierId,
         _photo_type: data.photo_type,
       });
       if (lblErr || !lbl) throw new Error(lblErr?.message ?? "Génération du libellé impossible.");
       label = lbl as unknown as string;
-      // sortie de boucle au prochain insert ; en cas d'erreur 23505, on relance.
-      break;
+      const ins = await supabase.from("chantier_photos").insert({
+        company_id: data.companyId,
+        chantier_id: data.chantierId,
+        uploaded_by: userId,
+        photo_type: data.photo_type,
+        storage_path: data.storage_path,
+        label,
+        caption: data.caption ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        accuracy: data.accuracy ?? null,
+        taken_at: data.taken_at ?? null,
+        file_name: data.file_name ?? null,
+        file_size: data.file_size ?? null,
+        file_hash: data.file_hash ?? null,
+        device_info: data.device_info ?? null,
+        exif_metadata: data.exif_metadata ?? null,
+      }).select("id").single();
+      if (!ins.error && ins.data) { row = ins.data as { id: string }; break; }
+      lastErr = ins.error?.message ?? null;
+      // 23505 = unique_violation → autre upload simultané a pris ce numéro, on rejoue.
+      if ((ins.error as { code?: string } | null)?.code !== "23505") break;
     }
-    void attempt;
-
-
-
-    const { data: row, error } = await supabase.from("chantier_photos").insert({
-      company_id: data.companyId,
-      chantier_id: data.chantierId,
-      uploaded_by: userId,
-      photo_type: data.photo_type,
-      storage_path: data.storage_path,
-      label,
-      caption: data.caption ?? null,
-      latitude: data.latitude ?? null,
-      longitude: data.longitude ?? null,
-      accuracy: data.accuracy ?? null,
-      taken_at: data.taken_at ?? null,
-      file_name: data.file_name ?? null,
-      file_size: data.file_size ?? null,
-      file_hash: data.file_hash ?? null,
-      device_info: data.device_info ?? null,
-      exif_metadata: data.exif_metadata ?? null,
-    }).select("id").single();
-    if (error || !row) throw new Error(error?.message ?? "Création impossible.");
+    if (!row) throw new Error(lastErr ?? "Création impossible.");
     await writeAuditLog({ companyId: data.companyId, userId, entityType: "chantier_photo", entityId: row.id, action: "chantier_photo.create", newValues: { photo_type: data.photo_type, label } });
-    return { ok: true, id: row.id as string, label };
+    return { ok: true, id: row.id, label };
   });
+
 
 export const deleteChantierPhoto = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
