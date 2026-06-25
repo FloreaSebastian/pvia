@@ -2580,6 +2580,10 @@ export type Database = {
         Returns: boolean
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      next_chantier_photo_label: {
+        Args: { _chantier_id: string; _photo_type: string }
+        Returns: string
+      }
       reserve_lift_is_locked: {
         Args: {
           _report: Database["public"]["Tables"]["reserve_lift_reports"]["Row"]
