@@ -384,38 +384,48 @@ function CompanyPage() {
             </div>
           </Card>
 
-          {/* Logo */}
+          {/* Identité visuelle — Icône + Logo principal */}
           <Card className="p-5">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-1 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                <Upload className="h-4 w-4" /> Logo
+                <Upload className="h-4 w-4" /> Identité visuelle
               </h2>
             </div>
-            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
-              <div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-muted/40">
-                {company.logo_url
-                  ? <img src={company.logo_url} alt="logo" className="h-full w-full object-contain" />
-                  : <Building2 className="h-9 w-9 text-muted-foreground" />}
-              </div>
-              <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild size="sm" variant="outline" disabled={!editable}>
-                    <label className="cursor-pointer">
-                      <Upload className="h-3.5 w-3.5" /> Changer
-                      <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                        onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
-                    </label>
-                  </Button>
-                  {company.logo_url && editable && (
-                    <Button size="sm" variant="ghost" onClick={removeLogo} className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                    </Button>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground">PNG, JPG ou WEBP — 2 Mo max. Affiché sur PV, emails et factures.</p>
-              </div>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Deux visuels distincts, utilisés automatiquement selon le contexte.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <VisualBlock
+                title="Icône"
+                description="Utilisée pour l'application, les notifications et les petits espaces."
+                hint="Carré recommandé · 512×512 · PNG/JPG/WEBP · 2 Mo max."
+                url={company.icon_url}
+                placeholder={<Building2 className="h-9 w-9 text-muted-foreground" />}
+                previewClass="h-24 w-24 rounded-xl"
+                editable={editable}
+                onUpload={(f) => uploadVisual(f, "icon")}
+                onRemove={() => removeVisual("icon")}
+              />
+              <VisualBlock
+                title="Logo principal"
+                description="Utilisé sur les PDF, emails, PV et documents officiels."
+                hint="Horizontal recommandé · PNG/JPG/WEBP · 2 Mo max."
+                url={company.logo_url}
+                placeholder={<Building2 className="h-9 w-9 text-muted-foreground" />}
+                previewClass="h-24 w-full max-w-[220px] rounded-xl"
+                editable={editable}
+                onUpload={(f) => uploadVisual(f, "logo")}
+                onRemove={() => removeVisual("logo")}
+              />
             </div>
+            {!company.logo_url && company.icon_url && (
+              <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
+                Aucun logo principal — l'icône sera utilisée en repli sur les PDF et emails.
+              </p>
+            )}
           </Card>
+
 
           {/* Informations officielles */}
           <Card className="p-5">
