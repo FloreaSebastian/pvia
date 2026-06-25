@@ -23,8 +23,11 @@ import {
   listCompanyMembers, createChantierAutoPlanning, updateChantierProgress,
   togglePinChantierNote, renameChantierDocument, duplicateChantierEvent, completeChantierEvent,
 } from "@/lib/chantier-detail.functions";
-import { reopenChantier } from "@/lib/chantiers.functions";
+import { reopenChantier, updateChantier, CHANTIER_STATUSES } from "@/lib/chantiers.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import { DossierTab } from "@/components/chantiers/DossierTab";
 import { ChantierPhotosTab } from "@/components/chantiers/ChantierPhotosTab";
 
@@ -106,6 +109,77 @@ function ChantierDetailPage() {
   const completeEvtFn = useServerFn(completeChantierEvent);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
   const [reopenLoading, setReopenLoading] = useState(false);
+
+  // — Edit chantier sheet —
+  const updateChantierFn = useServerFn(updateChantier);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "", type: "", status: "planifie",
+    client_id: "",
+    address_line1: "", postal_code: "", city: "",
+    start_date: "", end_date: "", description: "",
+  });
+  const [editClients, setEditClients] = useState<{ id: string; name: string; company_name: string | null; client_type: string | null }[]>([]);
+
+  function openEditChantier() {
+    if (!d) return;
+    const c = d.chantier as any;
+    setEditForm({
+      name: c.name ?? "",
+      type: c.type ?? "",
+      status: c.status ?? "planifie",
+      client_id: c.client_id ?? "",
+      address_line1: c.address_line1 ?? c.address ?? "",
+      postal_code: c.postal_code ?? "",
+      city: c.city ?? "",
+      start_date: c.start_date ?? "",
+      end_date: c.end_date ?? "",
+      description: c.description ?? "",
+    });
+    setEditOpen(true);
+    if (activeCompanyId && editClients.length === 0) {
+      supabase
+        .from("clients")
+        .select("id,name,company_name,client_type")
+        .eq("company_id", activeCompanyId)
+        .order("name")
+        .then(({ data }) => setEditClients((data as any) ?? []));
+    }
+  }
+
+  async function saveEditChantier() {
+    if (!activeCompanyId || !d) return;
+    if (!editForm.name.trim()) { toast.error("Le nom du chantier est obligatoire."); return; }
+    setEditSaving(true);
+    try {
+      await updateChantierFn({
+        data: {
+          companyId: activeCompanyId,
+          id: d.chantier.id,
+          data: {
+            name: editForm.name,
+            address_line1: editForm.address_line1,
+            postal_code: editForm.postal_code,
+            city: editForm.city,
+            type: editForm.type,
+            status: editForm.status as (typeof CHANTIER_STATUSES)[number],
+            client_id: editForm.client_id || null,
+            start_date: editForm.start_date || null,
+            end_date: editForm.end_date || null,
+            description: editForm.description,
+          },
+        },
+      });
+      toast.success("Chantier mis à jour");
+      setEditOpen(false);
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Mise à jour impossible.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
 
   async function handleReopen() {
@@ -550,9 +624,34 @@ function ChantierDetailPage() {
               {(ch as { reference: string }).reference}
             </button>
           )}
-          <h1 className="truncate text-xl font-bold leading-tight">
-            {ch.name}{surface != null && <span className="ml-1 text-sm font-normal text-muted-foreground">{surface}m²</span>}
-          </h1>
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="truncate text-xl font-bold leading-tight">
+              {ch.name}{surface != null && <span className="ml-1 text-sm font-normal text-muted-foreground">{surface}m²</span>}
+            </h1>
+            {canWrite && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0"
+                      onClick={openEditChantier}
+                      disabled={isLocked}
+                      aria-label="Modifier le chantier"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  {isLocked && (
+                    <TooltipContent side="left" className="text-xs">
+                      Chantier verrouillé. Réouvrir pour modifier.
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <StatusPill tone={statusTone} size="sm" dot>{statusLabel}</StatusPill>
@@ -605,6 +704,24 @@ function ChantierDetailPage() {
               <Button asChild variant="outline" size="sm">
                 <Link to="/chantiers/calendrier"><CalendarIcon className="h-4 w-4" /> Calendrier</Link>
               </Button>
+              {canWrite && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button variant="outline" size="sm" onClick={openEditChantier} disabled={isLocked}>
+                          <Pencil className="h-4 w-4" /> Modifier
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {isLocked && (
+                      <TooltipContent side="bottom" className="text-xs">
+                        Chantier verrouillé. Réouvrir pour modifier.
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {canWrite && !isLocked && (
                 <Button variant="outline" size="sm" onClick={() => runAutoPlanning(false)} disabled={autoPlanLoading}>
                   <Sparkles className="h-4 w-4" /> {autoPlanLoading ? "Création…" : "Planning auto"}
@@ -1447,6 +1564,103 @@ function ChantierDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ===== Edit chantier — Bottom Sheet ===== */}
+      <Sheet open={editOpen} onOpenChange={setEditOpen}>
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl p-0">
+          <div className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
+            <SheetHeader className="space-y-1 text-left">
+              <SheetTitle className="text-base">Modifier le chantier</SheetTitle>
+              <SheetDescription className="flex items-center gap-2 text-xs">
+                {(ch as { reference?: string }).reference && (
+                  <Badge variant="outline" className="font-mono text-[10px]">{(ch as { reference: string }).reference}</Badge>
+                )}
+                <span>Référence non modifiable</span>
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+
+          <div className="space-y-3 px-4 py-4">
+            <div>
+              <Label className="text-xs">Nom du chantier *</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Type</Label>
+                <Input value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })} placeholder="BTP, rénovation..." />
+              </div>
+              <div>
+                <Label className="text-xs">Statut</Label>
+                <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CHANTIER_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Client lié</Label>
+              <Select value={editForm.client_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, client_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun</SelectItem>
+                  {editClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.client_type === "entreprise" ? (c.company_name || c.name) : c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Adresse</Label>
+              <Input value={editForm.address_line1} onChange={(e) => setEditForm({ ...editForm, address_line1: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">CP</Label>
+                <Input value={editForm.postal_code} onChange={(e) => setEditForm({ ...editForm, postal_code: e.target.value })} inputMode="numeric" />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs">Ville</Label>
+                <Input value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Début</Label>
+                <Input type="date" value={editForm.start_date} onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Fin prévue</Label>
+                <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value })} />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Textarea rows={3} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+            </div>
+          </div>
+
+          <SheetFooter className="sticky bottom-0 flex-row gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur">
+            <Button variant="outline" className="flex-1" onClick={() => setEditOpen(false)} disabled={editSaving}>
+              Annuler
+            </Button>
+            <Button className="flex-1" onClick={saveEditChantier} disabled={editSaving || !editForm.name.trim()}>
+              {editSaving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
 
   );
