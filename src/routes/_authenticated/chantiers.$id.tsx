@@ -110,6 +110,77 @@ function ChantierDetailPage() {
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
   const [reopenLoading, setReopenLoading] = useState(false);
 
+  // — Edit chantier sheet —
+  const updateChantierFn = useServerFn(updateChantier);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "", type: "", status: "planifie",
+    client_id: "",
+    address_line1: "", postal_code: "", city: "",
+    start_date: "", end_date: "", description: "",
+  });
+  const [editClients, setEditClients] = useState<{ id: string; name: string; company_name: string | null; client_type: string | null }[]>([]);
+
+  function openEditChantier() {
+    if (!d) return;
+    const c = d.chantier as any;
+    setEditForm({
+      name: c.name ?? "",
+      type: c.type ?? "",
+      status: c.status ?? "planifie",
+      client_id: c.client_id ?? "",
+      address_line1: c.address_line1 ?? c.address ?? "",
+      postal_code: c.postal_code ?? "",
+      city: c.city ?? "",
+      start_date: c.start_date ?? "",
+      end_date: c.end_date ?? "",
+      description: c.description ?? "",
+    });
+    setEditOpen(true);
+    if (activeCompanyId && editClients.length === 0) {
+      supabase
+        .from("clients")
+        .select("id,name,company_name,client_type")
+        .eq("company_id", activeCompanyId)
+        .order("name")
+        .then(({ data }) => setEditClients((data as any) ?? []));
+    }
+  }
+
+  async function saveEditChantier() {
+    if (!activeCompanyId || !d) return;
+    if (!editForm.name.trim()) { toast.error("Le nom du chantier est obligatoire."); return; }
+    setEditSaving(true);
+    try {
+      await updateChantierFn({
+        data: {
+          companyId: activeCompanyId,
+          id: d.chantier.id,
+          data: {
+            name: editForm.name,
+            address_line1: editForm.address_line1,
+            postal_code: editForm.postal_code,
+            city: editForm.city,
+            type: editForm.type,
+            status: editForm.status as (typeof CHANTIER_STATUSES)[number],
+            client_id: editForm.client_id || null,
+            start_date: editForm.start_date || null,
+            end_date: editForm.end_date || null,
+            description: editForm.description,
+          },
+        },
+      });
+      toast.success("Chantier mis à jour");
+      setEditOpen(false);
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Mise à jour impossible.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
 
   async function handleReopen() {
     if (!activeCompanyId) return;
