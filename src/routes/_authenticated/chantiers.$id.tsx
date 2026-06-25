@@ -583,7 +583,7 @@ function ChantierDetailPage() {
       <div className="hidden md:block">
         <PageHeader
           title={ch.name}
-          description={ch.type ?? "Chantier"}
+          description={`${(ch as { reference?: string }).reference ?? ""}${(ch as { reference?: string }).reference && ch.type ? " · " : ""}${ch.type ?? ""}`.trim() || "Chantier"}
           contained={false}
           className="border-0 bg-transparent px-0 py-0"
           actions={
