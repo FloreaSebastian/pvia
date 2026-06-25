@@ -2588,9 +2588,12 @@ function ClientStep(props: {
   showNewClientForm: boolean;
   setShowNewClientForm: (b: boolean) => void;
   savingNewClient: boolean;
+  newClient: ClientFormState;
+  setNewClient: React.Dispatch<React.SetStateAction<ClientFormState>>;
   onCreateClient: () => void;
 }) {
-  const { clients, clientObj, form, setForm, clientSearch, setClientSearch, showNewClientForm, setShowNewClientForm, savingNewClient, onCreateClient } = props;
+  const { clients, clientObj, form, setForm, clientSearch, setClientSearch, showNewClientForm, setShowNewClientForm, savingNewClient, newClient, setNewClient, onCreateClient } = props;
+
   const q = clientSearch.trim().toLowerCase();
   const filtered = useMemo(() => {
     if (!q) return clients.slice(0, 50);
