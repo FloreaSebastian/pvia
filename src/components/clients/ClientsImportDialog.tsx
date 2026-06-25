@@ -135,7 +135,8 @@ export function ClientsImportDialog({
     if (analyzing) return;
     setAnalyzing(true);
     try {
-      let payload: Parameters<typeof extract>[0]["data"];
+      type ExtractPayload = Parameters<typeof extractFn>[0]["data"];
+      let payload: ExtractPayload;
       if (tab === "scan") {
         if (!scanFile) {
           toast.error("Sélectionnez un PDF ou une image.");
