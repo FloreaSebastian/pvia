@@ -34,7 +34,7 @@ type Pv = {
   reception_with_reserves: boolean | null;
   chantier_id: string | null;
   client_id: string | null;
-  chantiers?: { name: string | null } | null;
+  chantiers?: { name: string | null; reference: string | null } | null;
   clients?: { name: string | null } | null;
   pv_reserves?: { count: number }[] | null;
 };
