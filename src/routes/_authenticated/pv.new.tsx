@@ -1137,13 +1137,30 @@ function NewPv() {
             >
               {currentStep.id === ID_ENTREPRISE && (
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-border bg-muted/20 px-3 py-2.5">
-                    <div className="font-mono text-sm font-semibold tracking-tight text-foreground sm:text-base">
-                      {numeroPreview ?? "N° attribué à l'enregistrement"}
+                  {/* PV reference — compact, with copy */}
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-mono text-sm font-semibold tracking-tight text-foreground sm:text-base">
+                        {numeroPreview ?? "N° à l'enregistrement"}
+                      </span>
+                      <Badge variant="outline" className="shrink-0 border-border/60 px-1.5 py-0 text-[10px] font-normal text-muted-foreground">
+                        Prévisualisation
+                      </Badge>
                     </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      Procès-verbal de réception de travaux
-                    </div>
+                    {numeroPreview && (
+                      <Button
+                        type="button" size="sm" variant="ghost"
+                        className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(numeroPreview);
+                            toast.success("Référence copiée");
+                          } catch { toast.error("Copie impossible"); }
+                        }}
+                      >
+                        <Check className="h-3.5 w-3.5" /> Copier
+                      </Button>
+                    )}
                   </div>
 
                   {brandingLoading ? (
@@ -1160,61 +1177,91 @@ function NewPv() {
                       </AlertDescription>
                     </Alert>
                   ) : (
-                    <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          Entreprise utilisée pour le PV
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                          <Lock className="h-2.5 w-2.5" /> Verrouillé
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-3">
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="rounded-xl border border-border bg-card p-3"
+                    >
+                      <div className="flex items-start gap-2.5">
                         {branding?.logo_url ? (
                           <img
                             src={branding.logo_url}
                             alt={branding.name}
-                            className="h-10 w-10 shrink-0 rounded-md border border-border bg-background object-contain sm:h-12 sm:w-12"
+                            className="h-9 w-9 shrink-0 rounded-md border border-border bg-background object-contain"
                           />
                         ) : (
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-border bg-background text-muted-foreground sm:h-12 sm:w-12">
-                            <Building2 className="h-5 w-5" />
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-border bg-background text-muted-foreground">
+                            <Building2 className="h-4 w-4" />
                           </div>
                         )}
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <h4 className="break-words text-base font-semibold leading-tight">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="break-words text-[15px] font-semibold leading-tight">
                             {branding?.name}
                           </h4>
-                          <div className="space-y-0.5 text-xs text-muted-foreground">
-                            {branding?.siret && <div className="font-mono">SIRET {branding.siret}</div>}
-                            {branding?.siren && <div className="font-mono">SIREN {branding.siren}</div>}
-                            {branding?.email
-                              ? <div className="break-all">{branding.email}</div>
-                              : <div className="text-muted-foreground/70">Email non renseigné</div>}
-                            {branding?.phone
-                              ? <div>{branding.phone}</div>
-                              : <div className="text-muted-foreground/70">Téléphone non renseigné</div>}
+                          <div className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                            <ShieldCheck className="h-3 w-3" /> Entreprise vérifiée
                           </div>
                         </div>
                       </div>
 
-                      {(branding?.address_line1 || branding?.address) && (
-                        <div className="mt-3 whitespace-normal break-words rounded-lg bg-muted/30 px-3 py-2 text-xs leading-relaxed text-foreground">
-                          {branding.address_line1 ? (
-                            <>
-                              <div>{branding.address_line1}</div>
-                              {branding.address_line2 && <div>{branding.address_line2}</div>}
-                              <div>
-                                {[branding.postal_code, branding.city].filter(Boolean).join(" ")}
-                                {branding.country ? ` · ${branding.country}` : ""}
-                              </div>
-                            </>
-                          ) : (
-                            <div>{branding.address}</div>
+                      {/* Identifiants */}
+                      {(branding?.siret || branding?.siren) && (
+                        <div className="mt-2.5 grid grid-cols-2 gap-1.5 text-[11px]">
+                          {branding?.siret && (
+                            <div className="rounded-md bg-muted/40 px-2 py-1">
+                              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">SIRET</div>
+                              <div className="font-mono">{branding.siret}</div>
+                            </div>
+                          )}
+                          {branding?.siren && (
+                            <div className="rounded-md bg-muted/40 px-2 py-1">
+                              <div className="text-[9px] uppercase tracking-wide text-muted-foreground">SIREN</div>
+                              <div className="font-mono">{branding.siren}</div>
+                            </div>
                           )}
                         </div>
                       )}
-                    </div>
+
+                      {/* Contact */}
+                      <div className="mt-1.5 grid grid-cols-1 gap-0.5 text-[11px] text-muted-foreground sm:grid-cols-2">
+                        {branding?.email && (
+                          <div className="flex items-center gap-1.5 break-all">
+                            <Mail className="h-3 w-3 shrink-0" /> {branding.email}
+                          </div>
+                        )}
+                        {branding?.phone && (
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="h-3 w-3 shrink-0" /> {branding.phone}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Adresse */}
+                      {(branding?.address_line1 || branding?.address) && (
+                        <div className="mt-2 flex items-start gap-1.5 rounded-md bg-muted/30 px-2 py-1.5 text-[11px] leading-snug">
+                          <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0 flex-1 whitespace-normal break-words">
+                            {branding.address_line1 ? (
+                              <>
+                                <div>{branding.address_line1}</div>
+                                {branding.address_line2 && <div>{branding.address_line2}</div>}
+                                <div className="text-muted-foreground">
+                                  {[branding.postal_code, branding.city].filter(Boolean).join(" ")}
+                                  {branding.country ? ` · ${branding.country}` : ""}
+                                </div>
+                              </>
+                            ) : (
+                              <div>{branding.address}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-2 inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Lock className="h-2.5 w-2.5" /> Informations synchronisées
+                      </div>
+                    </motion.div>
                   )}
                 </div>
               )}
