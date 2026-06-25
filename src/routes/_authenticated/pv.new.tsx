@@ -1185,60 +1185,91 @@ function NewPv() {
               )}
 
               {currentStep.id === ID_CLIENT && (
-                <>
-                  <SectionHeader icon={User} title="Informations client" desc="Sélectionnez ou créez le client signataire." />
-                  <Field label="Client existant">
-                    <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
-                      <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Nouveau client —</SelectItem>
-                        {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  {!form.client_id && (
-                    <div className="grid gap-4 rounded-xl border border-dashed border-border bg-muted/20 p-4 sm:grid-cols-2">
-                      <Field label="Nom du client *"><Input value={form.new_client_name} onChange={(e) => setForm({ ...form, new_client_name: e.target.value })} placeholder="M. et Mme Mercier" /></Field>
-                      <Field label="Email"><Input type="email" value={form.new_client_email} onChange={(e) => setForm({ ...form, new_client_email: e.target.value })} placeholder="client@email.com" /></Field>
-                    </div>
-                  )}
-                </>
+                <ClientStep
+                  clients={clients}
+                  clientObj={clientObj ?? null}
+                  form={form}
+                  setForm={setForm}
+                  clientSearch={clientSearch}
+                  setClientSearch={setClientSearch}
+                  showNewClientForm={showNewClientForm}
+                  setShowNewClientForm={setShowNewClientForm}
+                  savingNewClient={savingNewClient}
+                  onCreateClient={async () => {
+                    if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
+                    const name = form.new_client_name.trim();
+                    if (!name) { toast.error("Le nom du client est obligatoire."); return; }
+                    setSavingNewClient(true);
+                    try {
+                      const res = await createClientFnSrv({
+                        data: {
+                          companyId: activeCompanyId,
+                          data: {
+                            name,
+                            email: form.new_client_email.trim(),
+                            phone: form.new_client_phone.trim(),
+                            address_line1: form.new_client_address.trim(),
+                            postal_code: form.new_client_postal_code.trim(),
+                            city: form.new_client_city.trim(),
+                          },
+                        },
+                      });
+                      await reloadLists();
+                      setForm((f) => ({ ...f, client_id: res.id, new_client_name: "", new_client_email: "", new_client_phone: "", new_client_address: "", new_client_postal_code: "", new_client_city: "" }));
+                      setShowNewClientForm(false);
+                      toast.success("Client créé et sélectionné.");
+                    } catch (e: any) {
+                      toast.error(e?.message || "Création du client impossible.");
+                    } finally {
+                      setSavingNewClient(false);
+                    }
+                  }}
+                />
               )}
 
               {currentStep.id === ID_CHANTIER && (
-                <>
-                  <SectionHeader icon={MapPin} title="Chantier" desc="Adresse précise du chantier réceptionné." />
-                  <Field label="Chantier existant (optionnel)">
-                    <Select value={form.chantier_id || "none"} onValueChange={(v) => setForm({ ...form, chantier_id: v === "none" ? "" : v })}>
-                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Aucun chantier lié —</SelectItem>
-                        {chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Adresse du chantier *">
-                    <AddressAutocomplete
-                      value={form.chantier_address}
-                      onChange={(v) => setForm((f) => ({ ...f, chantier_address: v }))}
-                      onSelect={(a: AddressValue) => setForm((f) => ({
-                        ...f,
-                        chantier_address: a.address,
-                        chantier_postal_code: a.postalCode,
-                        chantier_city: a.city,
-                        latitude: a.latitude,
-                        longitude: a.longitude,
-                      }))}
-                      placeholder="12 chemin des Pins, Cannes…"
-                    />
-                  </Field>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <Field label="Code postal"><Input value={form.chantier_postal_code} onChange={(e) => setForm({ ...form, chantier_postal_code: e.target.value })} placeholder="06400" /></Field>
-                    <Field label="Ville"><Input value={form.chantier_city} onChange={(e) => setForm({ ...form, chantier_city: e.target.value })} placeholder="Cannes" /></Field>
-                    <Field label="Date de réception *"><Input type="date" value={form.reception_date} onChange={(e) => setForm({ ...form, reception_date: e.target.value })} /></Field>
-                  </div>
-                </>
+                <ChantierStep
+                  chantiers={chantiers}
+                  chantierObj={chantierObj ?? null}
+                  clients={clients}
+                  form={form}
+                  setForm={setForm}
+                  chantierSearch={chantierSearch}
+                  setChantierSearch={setChantierSearch}
+                  creatingChantier={creatingChantier}
+                  onCreateChantierFromAddress={async () => {
+                    if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
+                    if (!form.chantier_address.trim()) { toast.error("L'adresse du chantier est requise."); return; }
+                    setCreatingChantier(true);
+                    try {
+                      const res = await createChantierFnSrv({
+                        data: {
+                          companyId: activeCompanyId,
+                          data: {
+                            name: form.chantier_address.trim().slice(0, 200),
+                            address_line1: form.chantier_address.trim(),
+                            postal_code: form.chantier_postal_code.trim(),
+                            city: form.chantier_city.trim(),
+                            latitude: form.latitude,
+                            longitude: form.longitude,
+                            status: "en_cours",
+                            client_id: form.client_id || null,
+                            start_date: form.reception_date || null,
+                          },
+                        },
+                      });
+                      await reloadLists();
+                      setForm((f) => ({ ...f, chantier_id: res.id }));
+                      toast.success(`Chantier créé (${res.reference}).`);
+                    } catch (e: any) {
+                      toast.error(e?.message || "Création du chantier impossible.");
+                    } finally {
+                      setCreatingChantier(false);
+                    }
+                  }}
+                />
               )}
+
 
               {currentStep.id === ID_TRAVAUX && (
                 <>
