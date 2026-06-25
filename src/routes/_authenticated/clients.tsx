@@ -17,6 +17,7 @@ import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
 import { cn } from "@/lib/utils";
 import { ClientTypeSelector, ClientFormFields, EMPTY_CLIENT_FORM, type ClientFormState } from "@/components/clients/ClientTypeForm";
+import { ClientDetailDialog } from "@/components/clients/ClientDetailDialog";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   component: ClientsPage,
