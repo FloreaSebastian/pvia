@@ -34,25 +34,37 @@ export function BottomNav() {
   useEffect(() => {
     if (!activeCompanyId) return;
     let cancelled = false;
+
     const load = async () => {
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes.user?.id;
+      if (!userId) { if (!cancelled) setUnread(0); return; }
+
+      // Réserves actionnables = ouvertes / en cours / en attente de validation,
+      // assignées à l'utilisateur (ou non assignées mais ouvertes du périmètre).
+      // Exclut: validee, rejetee, levee, archivée.
+      const actionableStatuses = ["ouverte", "en_cours", "en_attente_validation"];
       const { count } = await supabase
-        .from("notifications")
+        .from("pv_reserves")
         .select("id", { count: "exact", head: true })
         .eq("company_id", activeCompanyId)
-        .eq("read", false);
+        .in("status", actionableStatuses)
+        .or(`assigned_to.eq.${userId},assigned_to.is.null`);
       if (!cancelled) setUnread(count ?? 0);
     };
+
     load();
     const ch = supabase
-      .channel(`bn-${activeCompanyId}`)
+      .channel(`bn-reserves-${activeCompanyId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `company_id=eq.${activeCompanyId}` },
+        { event: "*", schema: "public", table: "pv_reserves", filter: `company_id=eq.${activeCompanyId}` },
         () => load(),
       )
       .subscribe();
     return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [activeCompanyId]);
+
 
   return (
     <nav
