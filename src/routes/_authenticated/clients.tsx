@@ -375,9 +375,9 @@ function ClientsPage() {
           className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {(canAdmin || archivedCount > 0) && ([
-            { v: "active" as const, l: "Actifs", scope: true },
-            { v: "archived" as const, l: archivedCount ? `Archives ${archivedCount}` : "Archives", scope: true, icon: Archive },
-          ] as const).map(({ v, l, icon: Ic }) => (
+            { v: "active" as const, l: "Actifs", icon: undefined as undefined | typeof Archive },
+            { v: "archived" as const, l: archivedCount ? `Archives ${archivedCount}` : "Archives", icon: Archive as typeof Archive | undefined },
+          ]).map(({ v, l, icon: Ic }) => (
             <button
               key={`s-${v}`}
               type="button"
@@ -389,7 +389,7 @@ function ClientsPage() {
               )}
               aria-pressed={scope === v}
             >
-              {Ic && <Ic className="h-3.5 w-3.5" />} {l}
+              {Ic ? <Ic className="h-3.5 w-3.5" /> : null} {l}
             </button>
           ))}
           <span className="mx-1 my-auto h-5 w-px shrink-0 bg-border" aria-hidden />
