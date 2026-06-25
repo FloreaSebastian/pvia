@@ -327,7 +327,7 @@ function ClientsPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((c) => (
-                <TableRow key={c.id} className="group">
+                <TableRow key={c.id} onClick={() => openDetail(c)} className="group cursor-pointer">
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
                       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-gradient text-xs font-semibold text-primary-foreground">{initials(c.name) || "?"}</div>
@@ -342,8 +342,8 @@ function ClientsPage() {
                   <TableCell className="text-right">
                     {canWrite && (
                       <div className="inline-flex opacity-60 transition group-hover:opacity-100">
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); remove(c.id); }} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     )}
                   </TableCell>
