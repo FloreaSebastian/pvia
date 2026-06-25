@@ -27,12 +27,31 @@ function extOf(name: string | null | undefined, fallback = "bin"): string {
   return m ? m[1].toLowerCase() : fallback;
 }
 
+/**
+ * Récupère les octets d'un asset depuis Storage.
+ * Accepte aussi bien un storage_path interne qu'une URL complète (legacy /
+ * signée), pour éviter un échec si une colonne `pdf_url` contient déjà une URL.
+ */
 async function downloadBytes(
   supabaseAdmin: any,
   bucket: string,
-  path: string,
+  pathOrUrl: string,
 ): Promise<Uint8Array | null> {
-  const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
+  if (!pathOrUrl) return null;
+  // URL complète (http[s]) → fetch direct.
+  if (/^https?:\/\//i.test(pathOrUrl)) {
+    try {
+      const r = await fetch(pathOrUrl);
+      if (!r.ok) return null;
+      const ab = await r.arrayBuffer();
+      return new Uint8Array(ab);
+    } catch {
+      return null;
+    }
+  }
+  // Storage path relatif au bucket (cas standard).
+  const cleaned = pathOrUrl.replace(/^\/+/, "");
+  const { data, error } = await supabaseAdmin.storage.from(bucket).download(cleaned);
   if (error || !data) return null;
   const ab = await (data as Blob).arrayBuffer();
   return new Uint8Array(ab);
@@ -41,8 +60,13 @@ async function downloadBytes(
 export const exportChantierDossier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z.object({ companyId: z.string().uuid(), chantierId: z.string().uuid() }).parse(i),
+    z.object({
+      companyId: z.string().uuid(),
+      chantierId: z.string().uuid(),
+      variant: z.enum(["internal", "client"]).default("internal"),
+    }).parse(i),
   )
+
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
@@ -93,10 +117,15 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
 
     // 3) Construction du ZIP — admin client pour téléchargement Storage
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const isClientVariant = data.variant === "client";
     const zip = new JSZip();
     const manifest: Record<string, unknown> = {
       generated_at: new Date().toISOString(),
       generated_by: userId,
+      variant: data.variant,
+      privacy_notice: isClientVariant
+        ? "Variante CLIENT : coordonnées GPS exactes retirées (seul un indicateur is_geolocated est conservé)."
+        : "Variante INTERNE : contient des données sensibles (coordonnées GPS exactes des photos). À ne pas diffuser au client.",
       chantier: {
         id: chantier.id,
         reference: ref,
@@ -110,6 +139,7 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
       photos: [] as Array<Record<string, unknown>>,
       documents: [] as Array<Record<string, unknown>>,
     };
+
 
     // 01-PV
     for (const p of pvs as any[]) {
@@ -168,12 +198,17 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
       const label = ph.label ?? `${ref}-${ph.photo_type}`;
       const name = `03-Photos-Chantier/${folderForType(ph.photo_type)}/${safeName(label)}.${ex}`;
       zip.file(name, bytes);
+      const hasGeo = ph.latitude != null && ph.longitude != null;
       (manifest.photos as any[]).push({
         id: ph.id, type: ph.photo_type, label: ph.label, caption: ph.caption,
-        taken_at: ph.taken_at, latitude: ph.latitude, longitude: ph.longitude,
+        taken_at: ph.taken_at,
+        is_geolocated: hasGeo,
+        // GPS exact uniquement dans la variante interne.
+        ...(isClientVariant ? {} : { latitude: ph.latitude, longitude: ph.longitude }),
         path_in_zip: name,
       });
     }
+
 
     // 04-Documents
     for (const d of (docsRes.data ?? []) as any[]) {
@@ -198,6 +233,10 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
       [
         `Dossier chantier ${ref} - ${chantier.name ?? ""}`,
         `Genere le ${new Date().toISOString()}`,
+        `Variante : ${isClientVariant ? "CLIENT (sans coordonnees GPS exactes)" : "INTERNE (contient les coordonnees GPS des photos)"}`,
+        isClientVariant
+          ? "Cette archive peut etre transmise au client."
+          : "ATTENTION : archive INTERNE. Ne pas diffuser telle quelle au client (donnees de geolocalisation).",
         "",
         "01-PV/                : Proces-verbaux signes (PDF)",
         "02-Levees/            : Rapports de levee de reserves (PDF client + interne)",
@@ -206,6 +245,7 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
         "manifest.json         : Index machine-readable",
       ].join("\n"),
     );
+
 
     const buf = await zip.generateAsync({
       type: "uint8array",

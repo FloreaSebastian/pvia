@@ -259,10 +259,10 @@ export function DossierTab({
     } finally { setBusyLiftId(null); }
   }
 
-  async function downloadDossierZip() {
+  async function downloadDossierZip(variant: "internal" | "client" = "internal") {
     setBusyDossier(true);
     try {
-      const res = await exportDossierFn({ data: { companyId, chantierId } });
+      const res = await exportDossierFn({ data: { companyId, chantierId, variant } });
       const bin = atob(res.base64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -271,11 +271,12 @@ export function DossierTab({
       const a = document.createElement("a");
       a.href = url; a.download = res.fileName; a.click();
       URL.revokeObjectURL(url);
-      toast.success("Dossier exporté");
+      toast.success(variant === "client" ? "Dossier client exporté" : "Dossier interne exporté");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export impossible");
     } finally { setBusyDossier(false); }
   }
+
 
 
   // Build reserves list for the workflow dialog (filtered to current PV)
@@ -296,12 +297,17 @@ export function DossierTab({
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-end">
-        <Button size="sm" variant="outline" onClick={downloadDossierZip} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
+      <div className="mb-2 flex items-center justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={() => downloadDossierZip("client")} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
           <Package className="h-3.5 w-3.5" />
-          {busyDossier ? "Préparation…" : "Exporter le dossier"}
+          Export client
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => downloadDossierZip("internal")} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
+          <Package className="h-3.5 w-3.5" />
+          {busyDossier ? "Préparation…" : "Export interne"}
         </Button>
       </div>
+
       <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
 
         <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
