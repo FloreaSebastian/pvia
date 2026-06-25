@@ -2695,30 +2695,23 @@ function ClientStep(props: {
 
           {showNewClientForm && (
             <div className="space-y-3 rounded-xl border border-dashed border-border bg-muted/20 p-3 sm:p-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Nom / Société *">
-                  <Input value={form.new_client_name} onChange={(e) => setForm({ ...form, new_client_name: e.target.value })} placeholder="M. et Mme Mercier" />
-                </Field>
-                <Field label="Email">
-                  <Input type="email" value={form.new_client_email} onChange={(e) => setForm({ ...form, new_client_email: e.target.value })} placeholder="client@email.com" />
-                </Field>
-                <Field label="Téléphone">
-                  <Input value={form.new_client_phone} onChange={(e) => setForm({ ...form, new_client_phone: e.target.value })} placeholder="06 12 34 56 78" />
-                </Field>
-                <Field label="Adresse">
-                  <Input value={form.new_client_address} onChange={(e) => setForm({ ...form, new_client_address: e.target.value })} placeholder="12 rue des Lilas" />
-                </Field>
-                <Field label="Code postal">
-                  <Input value={form.new_client_postal_code} onChange={(e) => setForm({ ...form, new_client_postal_code: e.target.value })} placeholder="06400" />
-                </Field>
-                <Field label="Ville">
-                  <Input value={form.new_client_city} onChange={(e) => setForm({ ...form, new_client_city: e.target.value })} placeholder="Cannes" />
-                </Field>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase text-muted-foreground">Type de client</Label>
+                <ClientTypeSelector
+                  value={newClient.client_type}
+                  onChange={(v) => setNewClient({ ...newClient, client_type: v })}
+                />
               </div>
+              <ClientFormFields form={newClient} setForm={setNewClient} compact />
               <Button
                 type="button"
                 onClick={onCreateClient}
-                disabled={savingNewClient || !form.new_client_name.trim()}
+                disabled={
+                  savingNewClient ||
+                  (newClient.client_type === "entreprise"
+                    ? !newClient.company_name.trim()
+                    : !newClient.name.trim())
+                }
                 className="w-full sm:w-auto"
               >
                 {savingNewClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -2731,6 +2724,7 @@ function ClientStep(props: {
     </div>
   );
 }
+
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Sous-étape — Chantier concerné                                           */
