@@ -148,7 +148,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
         </div>
 
         <div className="px-3 pt-3">
-          <Link to="/pv/new" onClick={() => setOpen(false)}>
+          <Link to="/pv/new" search={{ fresh: 1 }} onClick={() => setOpen(false)}>
             <Button className="w-full shadow-brand" size="sm">
               <Plus className="h-4 w-4" /> Nouveau PV
             </Button>
