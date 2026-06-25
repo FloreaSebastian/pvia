@@ -278,7 +278,7 @@ function ClientsPage() {
             const isEnt = c.client_type === "entreprise";
             const Icon = isEnt ? Building2 : User;
             return (
-            <Card key={c.id} className="group relative flex flex-col gap-2.5 p-4 transition hover:-translate-y-0.5 hover:shadow-brand sm:gap-3 sm:p-5">
+            <Card key={c.id} onClick={() => openDetail(c)} className="group relative flex cursor-pointer flex-col gap-2.5 p-4 transition duration-150 hover:-translate-y-0.5 hover:shadow-brand active:scale-[0.99] sm:gap-3 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-primary-foreground shadow-brand sm:h-11 sm:w-11">
                   <Icon className="h-5 w-5" />
@@ -293,14 +293,14 @@ function ClientsPage() {
                 </div>
                 {canWrite && (
                   <div className="-mr-1 -mt-1 flex shrink-0 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(c)} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(c.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); remove(c.id); }} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 )}
               </div>
               <div className="space-y-1 text-xs sm:text-sm">
-                {c.email && (<a href={`mailto:${c.email}`} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.email}</span></a>)}
-                {c.phone && (<a href={`tel:${c.phone}`} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.phone}</span></a>)}
+                {c.email && (<a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.email}</span></a>)}
+                {c.phone && (<a href={`tel:${c.phone}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.phone}</span></a>)}
                 {c.city && (<p className="flex items-center gap-2 truncate text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.city}</span></p>)}
                 {!c.email && !c.phone && !c.city && (<p className="text-xs italic text-muted-foreground">Aucun contact renseigné</p>)}
               </div>
