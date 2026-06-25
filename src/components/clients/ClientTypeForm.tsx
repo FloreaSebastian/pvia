@@ -224,46 +224,70 @@ export function ClientFormFields({
           />
         </div>
 
+        {searching && (
+          <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Recherche des entreprises…
+          </div>
+        )}
+
         {searchError && !manualMode && (
-          <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2 text-xs">
+          <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2.5 text-xs">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-              <span className="break-words">{searchError}</span>
+              <div className="break-words leading-snug">
+                <div className="font-medium text-amber-900 dark:text-amber-200">Impossible de joindre le registre des entreprises.</div>
+                <div className="mt-0.5 text-amber-800/80 dark:text-amber-300/80">Vous pouvez continuer en saisissant les informations manuellement.</div>
+              </div>
             </div>
             <Button type="button" size="sm" variant="outline" className="h-7 w-full" onClick={() => setManualMode(true)}>
-              Saisir manuellement
+              Continuer sans recherche
             </Button>
           </div>
         )}
 
         {hits && hits.length > 0 && (
-          <div className="max-h-72 overflow-y-auto rounded-lg border border-border bg-background">
-            <ul className="divide-y divide-border">
-              {hits.map((h, i) => (
-                <li key={`${h.siren}-${h.siret ?? i}`}>
-                  <button
+          <div className="max-h-80 space-y-1.5 overflow-y-auto rounded-lg">
+            <AnimatePresence initial={false}>
+              {hits.map((h, i) => {
+                const isPicked = pickedSiret && (pickedSiret === h.siret || pickedSiret === h.siren);
+                return (
+                  <motion.button
+                    key={`${h.siren}-${h.siret ?? i}`}
                     type="button"
                     onClick={() => pickCompany(h)}
-                    className="block w-full px-3 py-2 text-left hover:bg-muted/50"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0, scale: isPicked ? 1.01 : 1 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18, delay: i * 0.02 }}
+                    className={cn(
+                      "block w-full rounded-lg border bg-card px-3 py-2 text-left transition",
+                      isPicked ? "border-emerald-500/60 bg-emerald-50 dark:bg-emerald-950/30" : "border-border hover:border-primary/40 hover:bg-muted/40",
+                    )}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="break-words text-sm font-medium">{h.name || "—"}</span>
-                      {h.siret && <Badge variant="outline" className="shrink-0 font-mono text-[10px]">{h.siret}</Badge>}
+                      <span className="break-words text-sm font-semibold">{h.name || "—"}</span>
+                      {isPicked ? (
+                        <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+                      ) : h.siret ? (
+                        <Badge variant="outline" className="shrink-0 font-mono text-[10px]">{h.siret}</Badge>
+                      ) : null}
                     </div>
-                    <div className="mt-0.5 break-words text-xs text-muted-foreground">
-                      {[h.address_line1, [h.postal_code, h.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"}
-                      {h.naf_code ? ` · APE ${h.naf_code}` : ""}
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                      {h.city && (
+                        <span className="inline-flex items-center gap-0.5"><MapPin className="h-3 w-3" />{h.city}</span>
+                      )}
+                      {h.naf_code && <span>APE {h.naf_code}</span>}
+                      <span className="inline-flex items-center gap-0.5 text-emerald-600/80"><ShieldCheck className="h-3 w-3" />Siège social</span>
                     </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="flex justify-end p-1">
-              <Button type="button" size="sm" variant="ghost" onClick={() => setHits(null)}>
+                  </motion.button>
+                );
+              })}
+            </AnimatePresence>
+            <div className="flex justify-end pt-0.5">
+              <Button type="button" size="sm" variant="ghost" className="h-7" onClick={() => setHits(null)}>
                 <X className="h-3.5 w-3.5" /> Fermer
               </Button>
             </div>
-
           </div>
         )}
       </Card>
