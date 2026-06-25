@@ -41,6 +41,7 @@ import { useCompany } from "@/hooks/use-company";
 import { isAdminRole, isOwnerRole } from "@/lib/roles";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
+import { getCompanyVisualIdentity } from "@/lib/company-visual";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -266,8 +267,8 @@ function CompanyMenu({
   const { isPlatformAdmin } = useIsPlatformAdmin();
   const active = memberships.find((m) => m.company_id === activeCompanyId);
   const companyName = active?.company.name ?? "Entreprise";
-  // UI compacte → icône, fallback logo (cf. getCompanyVisualIdentity).
-  const logoUrl = active?.company.icon_url ?? active?.company.logo_url ?? null;
+  // UI compacte → icône uniquement, jamais logo en remplacement.
+  const logoUrl = getCompanyVisualIdentity(active?.company).displayIconUrl;
 
   return (
     <DropdownMenu>

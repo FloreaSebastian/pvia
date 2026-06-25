@@ -19,12 +19,11 @@ export const LOGO_ALLOWED_MIMES = new Set([
   "image/jpeg",
   "image/jpg",
   "image/webp",
-  "image/svg+xml",
 ]);
 
 export function validateLogoFile(file: File): string | null {
   if (!LOGO_ALLOWED_MIMES.has(file.type)) {
-    return "Format non supporté (PNG, JPEG, WebP ou SVG).";
+    return "Format non supporté (PNG, JPEG ou WebP).";
   }
   if (file.size > LOGO_MAX_BYTES) {
     return "Logo trop volumineux (max 2 Mo).";

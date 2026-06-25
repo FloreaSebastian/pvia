@@ -96,7 +96,7 @@ export const updateCompanyBranding = createServerFn({ method: "POST" })
     // Load previous to detect what changed (for audit categorization + legacy address)
     const { data: prev } = await supabaseAdmin
       .from("companies")
-      .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url,company_verified")
+      .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url,icon_url,company_verified")
       .eq("id", data.companyId)
       .maybeSingle();
 
@@ -111,17 +111,19 @@ export const updateCompanyBranding = createServerFn({ method: "POST" })
              ((data as any)[k] ?? "") !== "" // ignore champs vides envoyés par défaut
     );
 
-    const name = isVerified ? (prev?.name ?? data.name) : data.name;
-    const legal_form = isVerified ? (prev?.legal_form ?? null) : empty(data.legal_form);
-    const siren = isVerified ? (prev?.siren ?? null) : empty(data.siren);
-    const siret = isVerified ? (prev?.siret ?? null) : empty(data.siret);
-    const vat_number = isVerified ? (prev?.vat_number ?? null) : empty(data.vat_number);
-    const address_line1 = isVerified ? (prev?.address_line1 ?? null) : empty(data.address_line1);
-    const postal_code = isVerified ? (prev?.postal_code ?? null) : empty(data.postal_code);
-    const city = isVerified ? (prev?.city ?? null) : empty(data.city);
+    const has = (key: keyof typeof data) => Object.prototype.hasOwnProperty.call(data, key);
 
-    const address_line2 = empty(data.address_line2);
-    const country = empty(data.country) ?? "FR";
+    const name = isVerified ? (prev?.name ?? data.name) : data.name;
+    const legal_form = isVerified ? (prev?.legal_form ?? null) : (has("legal_form") ? empty(data.legal_form) : (prev?.legal_form ?? null));
+    const siren = isVerified ? (prev?.siren ?? null) : (has("siren") ? empty(data.siren) : (prev?.siren ?? null));
+    const siret = isVerified ? (prev?.siret ?? null) : (has("siret") ? empty(data.siret) : (prev?.siret ?? null));
+    const vat_number = isVerified ? (prev?.vat_number ?? null) : (has("vat_number") ? empty(data.vat_number) : (prev?.vat_number ?? null));
+    const address_line1 = isVerified ? (prev?.address_line1 ?? null) : (has("address_line1") ? empty(data.address_line1) : (prev?.address_line1 ?? null));
+    const postal_code = isVerified ? (prev?.postal_code ?? null) : (has("postal_code") ? empty(data.postal_code) : (prev?.postal_code ?? null));
+    const city = isVerified ? (prev?.city ?? null) : (has("city") ? empty(data.city) : (prev?.city ?? null));
+
+    const address_line2 = has("address_line2") ? empty(data.address_line2) : (prev?.address_line2 ?? null);
+    const country = has("country") ? (empty(data.country) ?? "FR") : (prev?.country ?? "FR");
 
     // Keep legacy `address` in sync from structured fields (back-compat)
     const composedAddress = [
@@ -130,6 +132,9 @@ export const updateCompanyBranding = createServerFn({ method: "POST" })
       [postal_code, city].filter(Boolean).join(" ").trim() || null,
       country,
     ].filter(Boolean).join(", ");
+
+    const hasLogoUrl = Object.prototype.hasOwnProperty.call(data, "logo_url");
+    const hasIconUrl = Object.prototype.hasOwnProperty.call(data, "icon_url");
 
     const update = {
       name,
@@ -143,11 +148,11 @@ export const updateCompanyBranding = createServerFn({ method: "POST" })
       city,
       country,
       address: composedAddress || null,
-      phone: empty(data.phone),
-      email: empty(data.email),
-      website: empty(data.website),
-      logo_url: empty(data.logo_url),
-      icon_url: empty((data as any).icon_url),
+      phone: has("phone") ? empty(data.phone) : (prev?.phone ?? null),
+      email: has("email") ? empty(data.email) : (prev?.email ?? null),
+      website: has("website") ? empty(data.website) : (prev?.website ?? null),
+      logo_url: hasLogoUrl ? empty(data.logo_url) : (prev?.logo_url ?? null),
+      icon_url: hasIconUrl ? empty((data as any).icon_url) : ((prev as any)?.icon_url ?? null),
     };
 
     const { error } = await supabaseAdmin.from("companies").update(update).eq("id", data.companyId);
@@ -168,6 +173,15 @@ export const updateCompanyBranding = createServerFn({ method: "POST" })
         companyId: data.companyId, userId, entityType: "auth",
         action: "company.logo_updated",
         metadata: { has_logo: !!update.logo_url },
+        actor: "user",
+      });
+    }
+    const iconChanged = !prev || (prev as any).icon_url !== update.icon_url;
+    if (iconChanged) {
+      await writeAuditLog({
+        companyId: data.companyId, userId, entityType: "auth",
+        action: "company.icon_updated",
+        metadata: { has_icon: !!update.icon_url },
         actor: "user",
       });
     }

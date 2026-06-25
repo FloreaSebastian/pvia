@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,8 @@ const DEFAULTS: BrandingDraft = {
 };
 
 function BrandingSettings() {
-  const { activeCompanyId, can } = useCompany();
+  const { activeCompanyId, can, refresh } = useCompany();
+  const queryClient = useQueryClient();
   const updateBranding = useServerFn(updateCompanyBranding);
   const publish = useServerFn(publishBrandingSettings);
   const listVersions = useServerFn(listBrandingVersions);
@@ -69,7 +71,7 @@ function BrandingSettings() {
     if (!activeCompanyId) return;
     (async () => {
       const [{ data: comp }, { data: s }] = await Promise.all([
-        supabase.from("companies").select("name,logo_url").eq("id", activeCompanyId).maybeSingle(),
+        supabase.from("companies").select("name,logo_url,icon_url").eq("id", activeCompanyId).maybeSingle(),
         supabase
           .from("company_settings")
           .select("brand_color,pdf_brand_color,email_brand_color,pdf_footer,pdf_watermark,email_footer,email_signature")
@@ -126,6 +128,12 @@ function BrandingSettings() {
         },
       });
       setLogoUrl(res.url);
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: ["company"] }),
+        queryClient.invalidateQueries({ queryKey: ["branding"] }),
+        queryClient.invalidateQueries({ queryKey: ["onboarding-status"] }),
+      ]);
       toast.success("Logo mis à jour.");
     } catch (e) {
       toast.error((e as Error).message);
@@ -145,6 +153,12 @@ function BrandingSettings() {
       await publish({ data: { companyId: activeCompanyId, ...draft } });
       setPublished(draft);
       await refreshVersions();
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: ["company"] }),
+        queryClient.invalidateQueries({ queryKey: ["branding"] }),
+        queryClient.invalidateQueries({ queryKey: ["onboarding-status"] }),
+      ]);
       toast.success("Branding publié.");
     } catch (e) {
       toast.error((e as Error).message);
