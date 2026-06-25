@@ -1209,27 +1209,29 @@ function NewPv() {
                   showNewClientForm={showNewClientForm}
                   setShowNewClientForm={setShowNewClientForm}
                   savingNewClient={savingNewClient}
+                  newClient={newClient}
+                  setNewClient={setNewClient}
                   onCreateClient={async () => {
                     if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
-                    const name = form.new_client_name.trim();
-                    if (!name) { toast.error("Le nom du client est obligatoire."); return; }
+                    const isEnt = newClient.client_type === "entreprise";
+                    const requiredName = isEnt ? newClient.company_name.trim() : newClient.name.trim();
+                    if (!requiredName) {
+                      toast.error(isEnt ? "Le nom de la société est obligatoire." : "Le nom du client est obligatoire.");
+                      return;
+                    }
                     setSavingNewClient(true);
                     try {
                       const res = await createClientFnSrv({
-                        data: {
-                          companyId: activeCompanyId,
-                          data: {
-                            name,
-                            email: form.new_client_email.trim(),
-                            phone: form.new_client_phone.trim(),
-                            address_line1: form.new_client_address.trim(),
-                            postal_code: form.new_client_postal_code.trim(),
-                            city: form.new_client_city.trim(),
-                          },
-                        },
+                        data: { companyId: activeCompanyId, data: newClient },
                       });
                       await reloadLists();
-                      setForm((f) => ({ ...f, client_id: res.id, new_client_name: "", new_client_email: "", new_client_phone: "", new_client_address: "", new_client_postal_code: "", new_client_city: "" }));
+                      setForm((f) => ({
+                        ...f,
+                        client_id: res.id,
+                        new_client_name: "", new_client_email: "", new_client_phone: "",
+                        new_client_address: "", new_client_postal_code: "", new_client_city: "",
+                      }));
+                      setNewClient(EMPTY_CLIENT_FORM);
                       setShowNewClientForm(false);
                       toast.success("Client créé et sélectionné.");
                     } catch (e: any) {
@@ -1240,6 +1242,7 @@ function NewPv() {
                   }}
                 />
               )}
+
 
               {currentStep.id === ID_CHANTIER && (
                 <ChantierStep
