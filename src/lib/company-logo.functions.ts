@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
+import { isAdminRole } from "@/lib/roles";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -7,12 +7,7 @@ import { writeAuditLog } from "./audit.server";
 
 const BUCKET = "company-logos";
 const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
-const ALLOWED = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/jpg",
-  "image/webp",
-]);
+const ALLOWED = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp"]);
 const EXT: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -35,37 +30,53 @@ const InputSchema = z.object({
   companyId: z.string().uuid(),
   fileName: z.string().trim().min(1).max(200),
   mimeType: z.string().trim().min(1).max(100),
-  // base64 string (without data: prefix), max ~3 MB encoded → ~2.25 MB decoded
   base64: z.string().min(1).max(3_500_000),
+  kind: z.enum(["logo", "icon"]).optional().default("logo"),
 });
 
+async function assertAdmin(companyId: string, userId: string) {
+  const { data: m } = await supabaseAdmin
+    .from("company_members")
+    .select("role,status")
+    .eq("company_id", companyId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!m || !isAdminRole(m.role)) {
+    throw new Error("Seuls les administrateurs peuvent modifier l'identité visuelle.");
+  }
+}
+
+function extractStoragePath(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const marker = `/object/public/${BUCKET}/`;
+  const idx = url.indexOf(marker);
+  if (idx < 0) return null;
+  const p = url.slice(idx + marker.length).split("?")[0];
+  return p || null;
+}
+
+/**
+ * Upload du logo OU de l'icône d'entreprise.
+ * Le champ `kind` détermine la colonne mise à jour (`logo_url` / `icon_url`)
+ * et le chemin storage (`{companyId}/branding/{logo|icon}-{ts}.{ext}`).
+ */
 export const uploadCompanyLogo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => InputSchema.parse(i))
   .handler(async ({ data, context }) => {
     const userId = context.userId;
+    const kind = data.kind ?? "logo";
 
-    // 1. Authorize: admin/owner only
-    const { data: m } = await supabaseAdmin
-      .from("company_members")
-      .select("role,status")
-      .eq("company_id", data.companyId)
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
-    if (!m || (!isAdminRole(m.role))) {
-      throw new Error("Seuls les administrateurs peuvent modifier le logo.");
-    }
+    await assertAdmin(data.companyId, userId);
     const { assertSubscriptionUsable } = await import("./plan-guard.server");
     await assertSubscriptionUsable(data.companyId, userId);
 
-    // 2. Validate declared mime
     const declared = data.mimeType.toLowerCase();
     if (!ALLOWED.has(declared)) {
       throw new Error("Format non supporté (PNG, JPEG ou WebP).");
     }
 
-    // 3. Decode + size check
     let bytes: Uint8Array;
     try {
       const buf = Buffer.from(data.base64, "base64");
@@ -74,22 +85,18 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
       throw new Error("Fichier invalide.");
     }
     if (bytes.length === 0) throw new Error("Fichier vide.");
-    if (bytes.length > MAX_BYTES) throw new Error("Logo trop volumineux (max 2 Mo).");
+    if (bytes.length > MAX_BYTES) throw new Error("Fichier trop volumineux (max 2 Mo).");
 
-    // 4. Magic-number check (must match declared mime family)
     const sniffed = sniffMime(bytes);
     if (!sniffed) throw new Error("Contenu non reconnu comme image.");
-    // Normalize jpg/jpeg
     const norm = (s: string) => (s === "image/jpg" ? "image/jpeg" : s);
     if (norm(sniffed) !== norm(declared)) {
       throw new Error("Le contenu du fichier ne correspond pas au type déclaré.");
     }
 
-    // 5. Build deterministic path scoped to company
     const ext = EXT[declared] ?? "bin";
-    const path = `${data.companyId}/logo-${Date.now()}.${ext}`;
+    const path = `${data.companyId}/branding/${kind}-${Date.now()}.${ext}`;
 
-    // 6. Upload via service-role
     const { error: upErr } = await supabaseAdmin
       .storage
       .from(BUCKET)
@@ -103,30 +110,26 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
     const { data: pub } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
     const publicUrl = pub.publicUrl;
 
-    // 7. Persist on companies + audit
+    const column = kind === "icon" ? "icon_url" : "logo_url";
+
     const { data: prev } = await supabaseAdmin
       .from("companies")
-      .select("logo_url")
+      .select("logo_url,icon_url")
       .eq("id", data.companyId)
       .maybeSingle();
 
     const { error: updErr } = await supabaseAdmin
       .from("companies")
-      .update({ logo_url: publicUrl })
+      .update({ [column]: publicUrl })
       .eq("id", data.companyId);
     if (updErr) throw new Error(updErr.message);
 
-    // Best-effort delete of previous logo if hosted in our bucket
-    if (prev?.logo_url) {
+    // Best-effort cleanup of previous file (only if hosted in our bucket).
+    const prevUrl = (prev as any)?.[column] as string | null | undefined;
+    const prevPath = extractStoragePath(prevUrl);
+    if (prevPath && prevPath !== path) {
       try {
-        const marker = `/object/public/${BUCKET}/`;
-        const idx = prev.logo_url.indexOf(marker);
-        if (idx >= 0) {
-          const oldPath = prev.logo_url.slice(idx + marker.length).split("?")[0];
-          if (oldPath && oldPath !== path) {
-            await supabaseAdmin.storage.from(BUCKET).remove([oldPath]);
-          }
-        }
+        await supabaseAdmin.storage.from(BUCKET).remove([prevPath]);
       } catch { /* ignore */ }
     }
 
@@ -134,10 +137,55 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
       companyId: data.companyId,
       userId,
       entityType: "auth",
-      action: "company.logo_updated",
-      metadata: { has_logo: true, size: bytes.length, mime: norm(declared) },
+      action: kind === "icon" ? "company.icon_updated" : "company.logo_updated",
+      metadata: { has_value: true, size: bytes.length, mime: norm(declared), kind },
       actor: "user",
     });
 
-    return { url: publicUrl };
+    return { url: publicUrl, kind };
+  });
+
+/** Suppression du logo ou de l'icône. */
+const DeleteSchema = z.object({
+  companyId: z.string().uuid(),
+  kind: z.enum(["logo", "icon"]),
+});
+
+export const deleteCompanyVisual = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => DeleteSchema.parse(i))
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+    await assertAdmin(data.companyId, userId);
+
+    const column = data.kind === "icon" ? "icon_url" : "logo_url";
+    const { data: prev } = await supabaseAdmin
+      .from("companies")
+      .select("logo_url,icon_url")
+      .eq("id", data.companyId)
+      .maybeSingle();
+
+    const { error } = await supabaseAdmin
+      .from("companies")
+      .update({ [column]: null })
+      .eq("id", data.companyId);
+    if (error) throw new Error(error.message);
+
+    const prevPath = extractStoragePath((prev as any)?.[column]);
+    if (prevPath) {
+      try {
+        await supabaseAdmin.storage.from(BUCKET).remove([prevPath]);
+      } catch { /* ignore */ }
+    }
+
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId,
+      entityType: "auth",
+      action: data.kind === "icon" ? "company.icon_deleted" : "company.logo_deleted",
+      metadata: { kind: data.kind },
+      actor: "user",
+    });
+
+    return { ok: true };
   });
