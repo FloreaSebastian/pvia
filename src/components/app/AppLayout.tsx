@@ -218,7 +218,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
 
           <div className="ml-auto flex items-center gap-2">
             {!suspended && (
-              <Link to="/pv/new" className="hidden sm:block">
+              <Link to="/pv/new" search={{ fresh: 1 }} className="hidden sm:block">
                 <Button size="sm" className="shadow-elevation-sm">
                   <Plus className="h-4 w-4" /> Créer un PV
                 </Button>
