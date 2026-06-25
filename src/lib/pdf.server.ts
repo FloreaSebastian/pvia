@@ -909,7 +909,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
     pv.chantier_id
-      ? supabaseAdmin.from("chantiers").select("name,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
+      ? supabaseAdmin.from("chantiers").select("name,reference,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("pv_photos").select("id,url,caption,reserve_id").eq("pv_id", pvId).order("created_at"),
     supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date,priority,assigned_to,lifted_at,validated_at").eq("pv_id", pvId).order("created_at"),
