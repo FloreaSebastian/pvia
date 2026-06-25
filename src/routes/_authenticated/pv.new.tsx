@@ -1096,6 +1096,160 @@ function NewPv() {
         </DialogContent>
       </Dialog>
 
+      {/* Bottom sheet — Création rapide d'un nouveau chantier depuis le PV */}
+      <Sheet open={newChantierSheetOpen} onOpenChange={(o) => { if (!creatingChantier) setNewChantierSheetOpen(o); }}>
+        <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto sm:max-w-xl sm:mx-auto">
+          <SheetHeader className="text-left">
+            <SheetTitle>Nouveau chantier</SheetTitle>
+            <SheetDescription>
+              Créez un chantier qui sera immédiatement sélectionné pour ce PV. La référence est générée automatiquement.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-3 space-y-3">
+            <Field label="Nom du chantier *">
+              <Input
+                value={newChantier.name}
+                onChange={(e) => setNewChantier({ ...newChantier, name: e.target.value })}
+                placeholder="Villa des Pins — réception lot peinture"
+              />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Client associé">
+                <Select value={newChantier.client_id || "__none"} onValueChange={(v) => setNewChantier({ ...newChantier, client_id: v === "__none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">— Aucun —</SelectItem>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.client_type === "entreprise" ? (c.company_name || c.name) : c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Type de chantier">
+                <Input
+                  value={newChantier.type}
+                  onChange={(e) => setNewChantier({ ...newChantier, type: e.target.value })}
+                  placeholder="Rénovation, neuf, extension…"
+                />
+              </Field>
+            </div>
+            <Field label="Adresse">
+              <AddressAutocomplete
+                value={newChantier.address}
+                onChange={(v) => setNewChantier({ ...newChantier, address: v })}
+                onSelect={(a) => setNewChantier({
+                  ...newChantier,
+                  address: a.address,
+                  postal_code: a.postalCode,
+                  city: a.city,
+                })}
+                placeholder="12 chemin des Pins, Cannes…"
+              />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Code postal">
+                <Input
+                  value={newChantier.postal_code}
+                  onChange={(e) => setNewChantier({ ...newChantier, postal_code: e.target.value })}
+                  placeholder="06400"
+                  inputMode="numeric"
+                />
+              </Field>
+              <Field label="Ville">
+                <Input
+                  value={newChantier.city}
+                  onChange={(e) => setNewChantier({ ...newChantier, city: e.target.value })}
+                  placeholder="Cannes"
+                />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Date de début prévue">
+                <Input type="date" value={newChantier.start_date} onChange={(e) => setNewChantier({ ...newChantier, start_date: e.target.value })} />
+              </Field>
+              <Field label="Date de fin prévue">
+                <Input type="date" value={newChantier.end_date} onChange={(e) => setNewChantier({ ...newChantier, end_date: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="Statut">
+              <Select value={newChantier.status} onValueChange={(v) => setNewChantier({ ...newChantier, status: v as typeof newChantier.status })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="preparation">Préparation</SelectItem>
+                  <SelectItem value="planifie">Planifié</SelectItem>
+                  <SelectItem value="en_cours">En cours</SelectItem>
+                  <SelectItem value="en_attente">En attente</SelectItem>
+                  <SelectItem value="receptionne">Réceptionné</SelectItem>
+                  <SelectItem value="termine">Terminé</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Description / notes">
+              <Textarea
+                rows={3}
+                value={newChantier.description}
+                onChange={(e) => setNewChantier({ ...newChantier, description: e.target.value })}
+                placeholder="Précisions internes (facultatif)"
+              />
+            </Field>
+          </div>
+          <SheetFooter className="mt-4 flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button variant="ghost" disabled={creatingChantier} onClick={() => setNewChantierSheetOpen(false)}>Annuler</Button>
+            <Button
+              disabled={creatingChantier || !newChantier.name.trim()}
+              onClick={async () => {
+                if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
+                setCreatingChantier(true);
+                try {
+                  const res = await createChantierFnSrv({
+                    data: {
+                      companyId: activeCompanyId,
+                      data: {
+                        name: newChantier.name.trim(),
+                        type: newChantier.type.trim() || undefined,
+                        address_line1: newChantier.address.trim() || undefined,
+                        postal_code: newChantier.postal_code.trim() || undefined,
+                        city: newChantier.city.trim() || undefined,
+                        status: newChantier.status,
+                        client_id: newChantier.client_id || null,
+                        start_date: newChantier.start_date || null,
+                        end_date: newChantier.end_date || null,
+                        description: newChantier.description.trim() || undefined,
+                      } as any,
+                    },
+                  });
+                  await reloadLists();
+                  setForm((f: any) => ({
+                    ...f,
+                    chantier_id: res.id,
+                    chantier_address: newChantier.address || f.chantier_address,
+                    chantier_postal_code: newChantier.postal_code || f.chantier_postal_code,
+                    chantier_city: newChantier.city || f.chantier_city,
+                    client_id: newChantier.client_id || f.client_id,
+                  }));
+                  toast.success(`Chantier créé (${res.reference}). Sélectionné pour ce PV.`);
+                  setNewChantierSheetOpen(false);
+                  setNewChantier({
+                    name: "", type: "", client_id: "", address: "", postal_code: "", city: "",
+                    start_date: "", end_date: "", status: "planifie", description: "",
+                  });
+                } catch (e: any) {
+                  toast.error(e?.message || "Création du chantier impossible.");
+                } finally {
+                  setCreatingChantier(false);
+                }
+              }}
+            >
+              {creatingChantier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Créer et sélectionner
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+
       <Card className="overflow-visible p-0">
         <div className="border-b border-border bg-gradient-to-b from-muted/40 to-muted/10 px-4 py-3 sm:px-5">
           <div className="mb-2 flex items-center justify-between">
