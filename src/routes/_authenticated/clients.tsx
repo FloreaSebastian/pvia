@@ -20,6 +20,7 @@ import { ClientTypeSelector, ClientFormFields, EMPTY_CLIENT_FORM, type ClientFor
 import { ClientDetailDialog } from "@/components/clients/ClientDetailDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadClientsCsv } from "@/lib/clients-export";
+import { ClientsImportDialog } from "@/components/clients/ClientsImportDialog";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   component: ClientsPage,
