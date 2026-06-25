@@ -1,119 +1,80 @@
-# Référence chantier unique (CH####XX) + amélioration du dossier
 
-## Objectif
-Donner à chaque chantier une **référence immuable** au format `CH####XX` (4 chiffres séquentiels + 2 lettres aléatoires A–Z), utilisée partout : UI, recherche, photos, documents, PDF, exports ZIP, audit, emails. **Aucune régression** : on conserve les cartes du dossier chantier, on enrichit leur contenu.
+## Périmètre
 
----
+Trois chantiers UI/UX cohérents, sans changement du modèle de données :
 
-## Lot 1 — Données & génération
+1. **Étape 2 — Client** (dans `src/routes/_authenticated/pv.new.tsx`)
+2. **Étape 3 — Chantier** (dans `src/routes/_authenticated/pv.new.tsx`)
+3. **Fiche chantier** — bouton « Modifier » + bottom sheet d'édition (`src/routes/_authenticated/chantiers.$id.tsx`)
 
-### Migration SQL
-1. `ALTER TABLE public.chantiers ADD COLUMN reference varchar(16);`
-2. Fonction `public.generate_chantier_reference(_company_id uuid)` :
-   - Verrouille un compteur par société dans `company_settings` (nouvelle colonne `chantier_reference_next int DEFAULT 1`).
-   - Boucle jusqu'à trouver une combinaison `CH` + 4 chiffres (`lpad`) + 2 lettres aléatoires non utilisée (`UNIQUE` sur `(company_id, reference)`).
-3. Backfill : pour chaque chantier sans référence, en ordre `created_at`, assigner `CH0001AA`, `CH0002AB`, … (lettres déterministes basées sur l'index, garanties uniques).
-4. `ALTER TABLE … ALTER COLUMN reference SET NOT NULL;`
-5. `CREATE UNIQUE INDEX chantiers_company_reference_uq ON public.chantiers (company_id, reference);`
-6. Trigger `BEFORE INSERT` : si `reference IS NULL`, appelle `generate_chantier_reference`.
-7. Trigger `BEFORE UPDATE` : bloque toute modification de `reference` (immuable).
-8. Bloc d'audit : `chantier.reference_assigned` à la création.
-
-### Code serveur
-- `src/lib/chantiers.functions.ts` : retirer la génération côté JS (faite en DB), exposer la référence dans les retours.
-- `src/lib/chantier-detail.functions.ts` : inclure `reference` dans le `select`.
-- `src/lib/audit.server.ts` : enrichir les `metadata` chantier avec `reference` + `name`.
+Aucune migration DB : les server functions `updateChantier`, `createClient`, `createChantier`, et l'audit `chantier.update` existent déjà.
 
 ---
 
-## Lot 2 — Affichage & recherche
+## 1. Étape 2 — Client (refonte)
 
-### Affichage
-- **Liste chantiers** (`src/routes/_authenticated/chantiers.index.tsx`) : badge `CH0007PV` en tête de chaque carte.
-- **Fiche chantier** (`src/routes/_authenticated/chantiers.$id.tsx`) : premier bloc du dossier réécrit en `Référence / Nom / Client / Adresse / Statut / Type`.
-- **Liste PV** (`src/routes/_authenticated/pv.index.tsx`) : afficher la référence chantier sous le numéro PV.
-- **Réserves** (`src/routes/_authenticated/reserves.tsx`) et `ReserveDetailDialog` : ligne "Chantier : CH0007PV — Villa Marius".
-
-### Recherche
-- Étendre les filtres existants (`chantiers.index`, `pv.index`, recherche globale) à `reference` (ILIKE `%term%`). Match exact sur `CH####XX` redirige directement vers la fiche chantier.
-
----
-
-## Lot 3 — Photos & documents
-
-### Photos chantier
-- `src/lib/chantier-photos.functions.ts` :
-  - Storage path : `${companyId}/chantiers/${reference}/${section}/${uuid}.jpg` (section = `avant|pendant|fin`).
-  - Métadonnée `display_name` = `CH0007PV-AVANT-001` (compteur par section, calculé via `count + 1`).
-  - Le nom physique reste un UUID ; l'UI affiche `display_name`.
-- `ChantierPhotosTab.tsx` : afficher le `display_name`, jamais l'URL.
-
-### Documents
-- `chantier_documents` : nouveau champ `display_name` ; à l'upload, préfixer `${reference}-` au nom original.
-- `pv_documents`, exports : nom de fichier `CH0007PV-PV-${numero}.pdf`.
-
-### PDF
-- `src/lib/pdf.functions.ts` / `pdf.server.ts` : en-tête et pied de page de chaque page → `Référence : CH0007PV — Villa Marius`. Pas de logique métier modifiée.
+**État cible** :
+- En-tête compact « Étape 2/7 · Client » + titre court.
+- Carte « Client sélectionné » premium (icône 👤 ou 🏢, nom, type, SIRET/contact, email).
+- Carte vide premium si rien de sélectionné.
+- Barre de recherche sticky avec icône loupe, placeholder enrichi (nom, société, email, téléphone, ville, SIRET, SIREN, contact).
+- Recherche déclenchée dès 2 caractères, debounce 250 ms, requête Supabase `clients` filtrée par `company_id` avec `or(name.ilike,company_name.ilike,email.ilike,phone.ilike,city.ilike,siret.ilike,siren.ilike,primary_contact_name.ilike)`.
+- Résultats sous forme de cartes compactes différenciées Particulier / Entreprise, animation `motion` au pick, toast « Client sélectionné ».
+- Bouton plein largeur `+ Créer un nouveau client` ouvrant le bloc création (réutilise `ClientTypeSelector` + `ClientFormFields` existants).
+- Après création : sélection auto, fermeture du formulaire, toast « Client créé ».
+- Si `signature_mode === "remote"` : badge « Email requis pour signature à distance » ; si client sélectionné sans email, alerte + bouton « Ajouter un email ».
 
 ---
 
-## Lot 4 — Exports & dossier chantier
+## 2. Étape 3 — Chantier (refonte)
 
-### Export ZIP
-- `src/lib/chantier-dossier.functions.ts` : `exportChantierDossier` (nouveau)
-  - Nom : `${reference}-${slug(name)}.zip`
-  - Arborescence : `Photos/{Avant,Pendant,Fin}/`, `Documents/`, `PV/`, `Réserves/`, `Levées/`.
-  - Réutilise JSZip (déjà présent). Check de rôle (`directeur` / `responsable_exploitation` / `conducteur_travaux`).
-
-### Dossier chantier (UI) — on garde les cartes
-- `DossierTab.tsx` / `DossierSummary.tsx` :
-  - Bloc identité enrichi (référence en tête, gros, mono).
-  - Grille KPI 2×4 cliquable (PV, Réserves, Ouvertes, Levées, Photos, Documents, Emails, Évènements). Chaque carte → switch d'onglet/sous-onglet.
-  - Design conservé : coins arrondis, ombre légère, fond blanc, icône colorée, gros chiffre, libellé petit.
+**État cible** :
+- En-tête « Étape 3/7 · Chantier » + sous-titre.
+- Carte « Chantier sélectionné » avec réf. `CH####XX` en mono, nom, badge statut, adresse, client, dates, avancement.
+- Recherche sticky « par référence, nom, adresse, client... », dès 2 caractères, sur `reference, name, address, city, status` + jointure client.
+- Cartes résultats compactes : réf mono, nom, badge statut, ville, client, dates.
+- Bouton `+ Créer un chantier` : formulaire compact (nom, client lié pré-rempli si étape 2 OK avec badge « Client lié », type, adresse via `AddressAutocomplete`, dates, statut initial).
+- Après création : sélection auto + toast « Chantier créé CH#### ».
+- Bloc « Adresse de réception utilisée dans ce PV » (modifiable sans toucher au chantier) + bouton secondaire « Mettre à jour la fiche chantier » qui appelle `updateChantier` (uniquement si l'utilisateur clique).
+- Validation Suivant : (chantier OU adresse complète) + date réception + CP valide ; messages d'erreur sous footer.
 
 ---
 
-## Lot 5 — Audit, emails, compatibilité
+## 3. Fiche chantier — bouton Modifier
 
-- `writeAuditLog` chantier : injecter automatiquement `{ chantier_reference, chantier_name }` dans `metadata`.
-- Emails (réserves, levées, PV) : variable `{{chantier_reference}}` dans les templates + objet ("Chantier CH0007PV — …").
-- Anciens liens (`/chantiers/:id`) : inchangés. Nouveau résolveur `/chantiers/ref/:reference` qui redirige vers l'`id` (utile pour la recherche directe par référence).
+**Dans le header de `chantiers.$id.tsx`** :
+- Icône crayon (mobile) / bouton « Modifier le chantier » (desktop) à côté de la référence.
+- Désactivé si statut `termine` / `archive` avec tooltip « Chantier verrouillé. Réouvrir pour modifier. ».
+- Si rôle `directeur` / `responsable_exploitation` : bouton « Réouvrir » (appelle `reopenChantier` existant).
 
----
-
-## Détails techniques
-
-```text
-CH | 0007 | PV
-   ^^^^    ^^
-   seq     2 lettres A–Z aléatoires (collisions résolues par retry en DB)
-```
-
-- Unicité scoping : `(company_id, reference)` — la séquence est par société, pas globale.
-- Immuabilité : trigger DB + pas d'UI d'édition.
-- Backfill : déterministe, exécuté dans la même migration, transactionnel.
-- Pas de nouveau package. JSZip déjà utilisé.
-- TypeScript strict : `reference: string` non null partout après migration ; types Supabase régénérés après l'approbation.
+**Bottom sheet d'édition** :
+- Champs : nom, type, statut, client lié (select), adresse, CP, ville, dates début/fin, description.
+- Référence affichée en lecture seule (immuable).
+- Sauvegarde via `updateChantier` (audit `chantier.update` déjà géré côté server).
+- Après save : `queryClient.invalidateQueries` + toast « Chantier mis à jour ».
 
 ---
 
-## Livrables
+## Fichiers modifiés
 
-1. Migration SQL (colonne, unique index, fonction de génération, triggers, backfill).
-2. Server fns mises à jour : `chantiers.functions.ts`, `chantier-detail.functions.ts`, `chantier-photos.functions.ts`, `chantier-dossier.functions.ts` (nouveau export ZIP).
-3. UI : `chantiers.index`, `chantiers.$id`, `DossierTab`/`DossierSummary`, `ChantierPhotosTab`, `pv.index`, `reserves`, `ReserveDetailDialog`.
-4. PDF : en-tête/pied avec référence.
-5. Audit + emails : référence injectée.
-6. Test E2E rapide : `tests/e2e/chantier-flow.spec.ts` étendu pour vérifier la présence de la référence sur la fiche et dans la liste.
+- `src/routes/_authenticated/pv.new.tsx` — refonte étapes Client (ID_CLIENT) et Chantier (ID_CHANTIER), bloc adresse PV.
+- `src/routes/_authenticated/chantiers.$id.tsx` — bouton Modifier dans le header + nouveau composant inline `ChantierEditSheet`.
+- (éventuel) extraction d'un petit helper de recherche client dans `pv.new.tsx` si la taille du switch case devient gênante — sinon tout reste inline.
+
+Aucun changement schema, aucun nouveau secret, aucune nouvelle server function.
 
 ---
 
-## Question avant exécution
+## Tests / vérification
 
-Le périmètre est volumineux (~15 fichiers + migration + PDF + ZIP). Je propose de découper la livraison :
+- `tsgo --noEmit` sur le projet.
+- Vérification visuelle en preview mobile 384px (déjà active).
+- Smoke manuel : recherche client 2 char, création client entreprise, recherche chantier, création chantier depuis PV, modification fiche chantier, chantier verrouillé.
 
-- **Phase A (cette session)** : Lots 1 + 2 (migration, génération, affichage, recherche) — base solide, visible immédiatement.
-- **Phase B** : Lots 3 + 4 (photos, documents, PDF, export ZIP, dossier enrichi).
-- **Phase C** : Lot 5 (audit/emails) + tests E2E.
+---
 
-**Tu veux que je lance Phase A seule, ou tout d'un bloc ?** Mon conseil : Phase A d'abord pour valider le format de référence et le backfill sur tes données réelles avant de propager dans les PDF/exports.
+## Notes techniques (annexe)
+
+- Pas de nouveau endpoint : recherche client/chantier en direct via `supabase` client (déjà importé), `ilike` + `limit(20)`.
+- Le `useEffect` debounce nettoie le timer existant ; annulation via flag local `cancelled`.
+- Le bottom sheet de modif chantier utilise `Sheet side="bottom"` cohérent avec les autres bottom sheets du projet.
