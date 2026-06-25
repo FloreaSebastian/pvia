@@ -216,7 +216,33 @@ export const syncCompanyFromSiren = createServerFn({ method: "POST" })
       throw new Error("Numéro invalide (SIREN 9 chiffres ou SIRET 14 chiffres).");
     }
     const siren = cleaned.length === 14 ? cleaned.slice(0, 9) : cleaned;
+
+    // Si l'entreprise a déjà un SIRET/SIREN enregistré, on n'autorise QUE la
+    // resynchronisation depuis ce même identifiant. Impossible de "changer
+    // d'entreprise" en saisissant un autre SIRET.
+    const { data: existing } = await supabaseAdmin
+      .from("companies")
+      .select("siret,siren")
+      .eq("id", data.companyId)
+      .maybeSingle();
+    if (existing?.siret && cleaned.length === 14 && cleaned !== existing.siret) {
+      await writeAuditLog({
+        companyId: data.companyId, userId, entityType: "auth",
+        action: "company.siret_change_attempt_blocked",
+        metadata: { current_siret: existing.siret, attempted: cleaned },
+        actor: "user",
+      });
+      throw new Error("Le SIRET enregistré ne peut pas être remplacé. Contactez le support pour un changement d'entreprise.");
+    }
+    if (existing?.siret && cleaned.length === 9 && existing.siret.slice(0, 9) !== cleaned) {
+      throw new Error("Le SIREN ne correspond pas à l'entreprise enregistrée.");
+    }
+    if (!existing?.siret && existing?.siren && existing.siren !== siren) {
+      throw new Error("Le SIREN ne correspond pas à l'entreprise enregistrée.");
+    }
+
     const url = `https://recherche-entreprises.api.gouv.fr/search?q=${siren}&page=1&per_page=1`;
+
     const res = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "PVIA/1.0 (+https://pvia.fr)" } });
     if (!res.ok) throw new Error("Service de recherche officiel indisponible.");
     const payload: any = await res.json();
