@@ -815,7 +815,10 @@ function labelFor(action: string): string {
     case "company.created": return "Entreprise créée";
     case "company.verified": return "Entreprise validée";
     case "company.synced_from_siren": return "Synchronisation officielle (SIRENE)";
-    case "company.logo_updated": return "Logo modifié";
+    case "company.logo_updated": return "Logo principal modifié";
+    case "company.logo_deleted": return "Logo principal supprimé";
+    case "company.icon_updated": return "Icône modifiée";
+    case "company.icon_deleted": return "Icône supprimée";
     case "company.contact_updated": return "Coordonnées modifiées";
     case "company.legal_info_updated": return "Informations légales modifiées";
     case "company.official_fields_update_denied": return "Tentative de modification refusée";
