@@ -58,6 +58,8 @@ import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.fu
 import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import { tryGetGps, readExif, sanitizeExifForUpload } from "@/lib/photo-exif";
+import { ClientTypeSelector, ClientFormFields, EMPTY_CLIENT_FORM, type ClientFormState } from "@/components/clients/ClientTypeForm";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
