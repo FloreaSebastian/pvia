@@ -11,9 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
-import { updateCompanyBranding } from "@/lib/branding.functions";
+import { updateCompanyBranding, syncCompanyFromSiren } from "@/lib/branding.functions";
 import { uploadCompanyLogo } from "@/lib/company-logo.functions";
-import { lookupCompanyBySirenOrSiret, type SirenLookupResult } from "@/lib/siren.functions";
+
 import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
 
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
@@ -75,16 +75,17 @@ function CompanyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<CompanyForm>(empty);
+  const [verified, setVerified] = useState(false);
+  const [verificationSource, setVerificationSource] = useState<string | null>(null);
   const editable = can("admin");
   const save = useServerFn(updateCompanyBranding);
   const uploadLogoFn = useServerFn(uploadCompanyLogo);
-  const lookupFn = useServerFn(lookupCompanyBySirenOrSiret);
+  const syncFn = useServerFn(syncCompanyFromSiren);
 
-  // SIRET sync dialog
+  // Synchronisation SIRET — un seul clic « Confirmer » fait tout côté serveur
   const [syncOpen, setSyncOpen] = useState(false);
   const [syncQuery, setSyncQuery] = useState("");
   const [syncBusy, setSyncBusy] = useState(false);
-  const [syncResult, setSyncResult] = useState<SirenLookupResult | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -92,7 +93,7 @@ function CompanyPage() {
       setLoading(true);
       const { data } = await supabase
         .from("companies")
-        .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url")
+        .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url,company_verified,company_verification_source")
         .eq("id", activeCompanyId)
         .single();
       if (data) {
@@ -112,6 +113,8 @@ function CompanyPage() {
           website: data.website ?? "",
           logo_url: data.logo_url ?? "",
         });
+        setVerified(!!(data as any).company_verified);
+        setVerificationSource(((data as any).company_verification_source ?? null) as string | null);
       }
       setLoading(false);
     })();
@@ -155,50 +158,35 @@ function CompanyPage() {
   }
 
   async function runSync() {
+    if (!activeCompanyId) return;
     const q = syncQuery.replace(/\s+/g, "");
     if (!/^\d{9}$|^\d{14}$/.test(q)) {
       toast.error("Saisissez un SIREN (9 chiffres) ou SIRET (14 chiffres).");
       return;
     }
     setSyncBusy(true);
-    setSyncResult(null);
     try {
-      const res = await lookupFn({ data: { query: q } });
-      setSyncResult(res);
-      if (!res.found) toast.error(res.error);
-    } catch (e: any) {
-      toast.error(e?.message || "Recherche impossible.");
-    } finally {
-      setSyncBusy(false);
-    }
-  }
-
-  async function confirmSync() {
-    if (!activeCompanyId || !syncResult || !syncResult.found) return;
-    const r = syncResult;
-    const next: CompanyForm = {
-      ...form,
-      name: r.name || form.name,
-      legal_form: r.legal_form || form.legal_form,
-      siren: r.siren || form.siren,
-      siret: r.siret || form.siret,
-      address_line1: r.address_line1 || form.address_line1,
-      postal_code: r.postal_code || form.postal_code,
-      city: r.city || form.city,
-    };
-    setSaving(true);
-    try {
-      await save({ data: { companyId: activeCompanyId, ...next } as any });
-      setForm(next);
-      toast.success("Informations officielles synchronisées.");
+      const res = await syncFn({ data: { companyId: activeCompanyId, query: q } });
+      setForm((f) => ({
+        ...f,
+        name: res.name || f.name,
+        legal_form: res.legal_form || f.legal_form,
+        siren: res.siren || f.siren,
+        siret: res.siret || f.siret,
+        address_line1: res.address_line1 || f.address_line1,
+        postal_code: res.postal_code || f.postal_code,
+        city: res.city || f.city,
+      }));
+      setVerified(true);
+      setVerificationSource("siret_sync");
+      toast.success("Entreprise validée depuis le registre officiel.");
       setSyncOpen(false);
       setSyncQuery("");
-      setSyncResult(null);
       refresh();
     } catch (e: any) {
-      toast.error(e?.message || "Mise à jour impossible.");
+      toast.error(e?.message || "Synchronisation impossible.");
     } finally {
-      setSaving(false);
+      setSyncBusy(false);
     }
   }
 
@@ -210,19 +198,39 @@ function CompanyPage() {
     );
   }
 
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-primary">Paramètres</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Entreprise</h1>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Votre entreprise</h1>
         <p className="text-sm text-muted-foreground">
-          Informations utilisées sur tous les PV, emails et exports.
+          Informations utilisées sur vos PV, emails et exports. Il s'agit de l'entreprise utilisatrice de PVIA — pas de PVIA lui-même.
         </p>
       </div>
 
+      {!verified && (
+        <Card className="border-amber-500/40 bg-amber-50/40 p-4 text-sm dark:bg-amber-950/20">
+          <div className="flex items-start gap-2">
+            <ShieldCheck className="mt-0.5 h-4 w-4 text-amber-600" />
+            <div className="space-y-1">
+              <p className="font-semibold">Votre entreprise n'est pas encore validée.</p>
+              <p className="text-xs text-muted-foreground">
+                Validez-la depuis le registre officiel pour débloquer toutes les fonctionnalités (PV, chantiers, réserves…).
+              </p>
+              {editable && (
+                <Button type="button" size="sm" className="mt-1" onClick={() => setSyncOpen(true)}>
+                  <RefreshCw className="h-3.5 w-3.5" /> Valider via SIRET
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card className="p-4 sm:p-6">
         <form onSubmit={onSubmit} className="space-y-6">
-          {/* Logo */}
+          {/* Identité de l'entreprise utilisatrice */}
           <div className="flex items-center gap-4">
             <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-muted">
               {form.logo_url ? (
@@ -231,53 +239,94 @@ function CompanyPage() {
                 <Building2 className="h-8 w-8 text-muted-foreground" />
               )}
             </div>
-            <div className="min-w-0 flex-1">
-              <Label className="text-xs">Logo de l'entreprise</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                disabled={!editable}
-                onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
-                className="mt-1"
-              />
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Entreprise utilisatrice</p>
+              <p className="truncate text-base font-semibold">{form.name || "—"}</p>
+              {verified ? (
+                <Badge variant="outline" className="border-emerald-500/40 text-[10px] text-emerald-700 dark:text-emerald-400">
+                  <ShieldCheck className="mr-1 h-3 w-3" />
+                  {verificationSource === "siret_sync" ? "Validée via SIRET" : verificationSource === "admin" ? "Validée par un administrateur" : "Validée"}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-amber-500/40 text-[10px] text-amber-700 dark:text-amber-400">À valider</Badge>
+              )}
+              <div>
+                <Label className="text-[10px]">Logo</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  disabled={!editable}
+                  onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])}
+                  className="mt-1"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Identité — verrouillée */}
+          {/* Informations officielles — verrouillées une fois validée */}
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Informations officielles synchronisées
+                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Informations officielles {verified ? "vérifiées" : ""}
               </h2>
               {editable && (
                 <Button type="button" size="sm" variant="outline" onClick={() => setSyncOpen(true)}>
-                  <RefreshCw className="h-3.5 w-3.5" /> Synchroniser depuis SIRET
+                  <RefreshCw className="h-3.5 w-3.5" /> {verified ? "Mettre à jour depuis SIRET" : "Valider via SIRET"}
                 </Button>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Ces champs proviennent du registre officiel et ne sont pas modifiables manuellement.
+              {verified
+                ? "Ces champs proviennent du registre officiel et ne sont plus modifiables manuellement."
+                : "Renseignez votre SIRET puis lancez la validation pour figer ces informations."}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <LockedField label="Raison sociale" value={form.name} />
+                {verified ? <LockedField label="Raison sociale" value={form.name} /> : (
+                  <div><Label className="text-xs">Raison sociale *</Label>
+                    <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} disabled={!editable} /></div>
+                )}
               </div>
-              <LockedField label="Forme juridique" value={form.legal_form} />
-              <LockedField label="TVA intracommunautaire" value={form.vat_number} />
-              <LockedField label="SIREN" value={form.siren} />
-              <LockedField label="SIRET" value={form.siret} />
+              {verified ? <LockedField label="Forme juridique" value={form.legal_form} /> : (
+                <div><Label className="text-xs">Forme juridique</Label>
+                  <Input value={form.legal_form} onChange={(e) => setForm({ ...form, legal_form: e.target.value })} disabled={!editable} /></div>
+              )}
+              {verified ? <LockedField label="TVA intracommunautaire" value={form.vat_number} /> : (
+                <div><Label className="text-xs">TVA intracommunautaire</Label>
+                  <Input value={form.vat_number} onChange={(e) => setForm({ ...form, vat_number: e.target.value })} disabled={!editable} /></div>
+              )}
+              {verified ? <LockedField label="SIREN" value={form.siren} /> : (
+                <div><Label className="text-xs">SIREN</Label>
+                  <Input value={form.siren} onChange={(e) => setForm({ ...form, siren: e.target.value.replace(/\D/g, "").slice(0, 9) })} disabled={!editable} /></div>
+              )}
+              {verified ? <LockedField label="SIRET" value={form.siret} /> : (
+                <div><Label className="text-xs">SIRET</Label>
+                  <Input value={form.siret} onChange={(e) => setForm({ ...form, siret: e.target.value.replace(/\D/g, "").slice(0, 14) })} disabled={!editable} /></div>
+              )}
               <div className="sm:col-span-2">
-                <LockedField
-                  label="Adresse du siège"
-                  value={[form.address_line1, [form.postal_code, form.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
-                />
+                {verified ? (
+                  <LockedField
+                    label="Adresse du siège"
+                    value={[form.address_line1, [form.postal_code, form.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+                  />
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="sm:col-span-3"><Label className="text-xs">Adresse du siège</Label>
+                      <Input value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} disabled={!editable} /></div>
+                    <div><Label className="text-xs">Code postal</Label>
+                      <Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} disabled={!editable} /></div>
+                    <div className="sm:col-span-2"><Label className="text-xs">Ville</Label>
+                      <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} disabled={!editable} /></div>
+                  </div>
+                )}
               </div>
             </div>
           </section>
 
-          {/* Adresse complémentaire */}
+          {/* Coordonnées de contact modifiables */}
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Adresse complémentaire</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Coordonnées de contact</h2>
+            <p className="text-xs text-muted-foreground">Modifiables à tout moment. Utilisées sur les PV envoyés à vos clients.</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label>Complément d'adresse</Label>
@@ -287,13 +336,6 @@ function CompanyPage() {
                 <Label>Pays</Label>
                 <Input disabled={!editable} value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
               </div>
-            </div>
-          </section>
-
-          {/* Contact */}
-          <section className="space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contact</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label>Téléphone</Label>
                 <Input disabled={!editable} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -324,54 +366,35 @@ function CompanyPage() {
         </form>
       </Card>
 
-      {/* SIRET sync dialog */}
-      <Dialog open={syncOpen} onOpenChange={(o) => { setSyncOpen(o); if (!o) { setSyncResult(null); setSyncQuery(""); } }}>
+      {/* Synchronisation officielle */}
+      <Dialog open={syncOpen} onOpenChange={(o) => { setSyncOpen(o); if (!o) setSyncQuery(""); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Synchroniser depuis le registre officiel</DialogTitle>
+            <DialogTitle>Valider votre entreprise via SIRET</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Nous interrogeons le registre officiel pour pré-remplir et figer les informations officielles de votre entreprise.
+            </p>
             <Label>SIREN (9 chiffres) ou SIRET (14 chiffres)</Label>
-            <div className="flex gap-2">
-              <Input
-                value={syncQuery}
-                onChange={(e) => setSyncQuery(e.target.value.replace(/\D/g, "").slice(0, 14))}
-                inputMode="numeric"
-                placeholder="89249214100015"
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSync(); } }}
-              />
-              <Button type="button" onClick={runSync} disabled={syncBusy}>
-                {syncBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Chercher"}
-              </Button>
-            </div>
-
-            {syncResult && syncResult.found && (
-              <Card className="space-y-2 border-emerald-500/40 bg-emerald-50/40 p-3 dark:bg-emerald-950/20">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold">{syncResult.name || "—"}</p>
-                  <Badge variant="outline" className="font-mono text-[10px]">{syncResult.siret || syncResult.siren}</Badge>
-                </div>
-                <div className="space-y-0.5 text-xs text-muted-foreground">
-                  {syncResult.legal_form && <p>Forme juridique : {syncResult.legal_form}</p>}
-                  {syncResult.address_line1 && <p>{syncResult.address_line1}</p>}
-                  {(syncResult.postal_code || syncResult.city) && <p>{[syncResult.postal_code, syncResult.city].filter(Boolean).join(" ")}</p>}
-                </div>
-              </Card>
-            )}
-
-            {syncResult && !syncResult.found && (
-              <p className="text-xs text-destructive">{syncResult.error}</p>
-            )}
+            <Input
+              value={syncQuery}
+              onChange={(e) => setSyncQuery(e.target.value.replace(/\D/g, "").slice(0, 14))}
+              inputMode="numeric"
+              placeholder="89249214100015"
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSync(); } }}
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setSyncOpen(false)}>Annuler</Button>
-            <Button type="button" onClick={confirmSync} disabled={!syncResult?.found || saving}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
-              Confirmer et synchroniser
+            <Button type="button" onClick={runSync} disabled={syncBusy}>
+              {syncBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+              Valider et synchroniser
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
+
 }
