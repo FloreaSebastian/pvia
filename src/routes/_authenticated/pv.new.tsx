@@ -2660,38 +2660,66 @@ function ClientStep(props: {
   savingNewClient: boolean;
   newClient: ClientFormState;
   setNewClient: React.Dispatch<React.SetStateAction<ClientFormState>>;
+  signatureMode: "remote" | "onsite" | null;
   onCreateClient: () => void;
 }) {
-  const { clients, clientObj, form, setForm, clientSearch, setClientSearch, showNewClientForm, setShowNewClientForm, savingNewClient, newClient, setNewClient, onCreateClient } = props;
+  const { clients, clientObj, form, setForm, clientSearch, setClientSearch, showNewClientForm, setShowNewClientForm, savingNewClient, newClient, setNewClient, signatureMode, onCreateClient } = props;
 
   const q = clientSearch.trim().toLowerCase();
   const filtered = useMemo(() => {
     if (!q) return clients.slice(0, 50);
-    return clients.filter((c) =>
-      c.name.toLowerCase().includes(q) ||
-      (c.email ?? "").toLowerCase().includes(q) ||
-      (c.phone ?? "").toLowerCase().includes(q) ||
-      (c.city ?? "").toLowerCase().includes(q),
-    ).slice(0, 50);
+    if (q.length < 2) return clients.slice(0, 50);
+    return clients.filter((c) => {
+      const hay = [
+        c.name, c.company_name, c.email, c.phone, c.city,
+        c.siret, c.siren, c.contact_name,
+      ].map((v) => (v ?? "").toLowerCase()).join(" | ");
+      return hay.includes(q);
+    }).slice(0, 50);
   }, [clients, q]);
+
+  const isEntrepriseClient = clientObj?.client_type === "entreprise";
+  const displayName = isEntrepriseClient ? (clientObj?.company_name || clientObj?.name) : clientObj?.name;
+  const needsEmailForRemote = signatureMode === "remote" && clientObj && !clientObj.email;
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Client signataire</h2>
-        <p className="text-sm text-muted-foreground">
-          Sélectionnez le client qui signera le procès-verbal ou créez-en un nouveau.
-        </p>
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Étape 2/7 · Client</div>
+        <h2 className="mt-1 text-lg font-semibold tracking-tight">Client du procès-verbal</h2>
       </div>
+
+      {signatureMode === "remote" && (
+        <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[11px] font-normal text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          <Mail className="h-3 w-3" /> Email requis pour signature à distance
+        </Badge>
+      )}
 
       {clientObj ? (
         <Card className="border-primary/40 bg-primary/5 p-3 sm:p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />
-                <span className="truncate text-base font-semibold">{clientObj.name}</span>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                {isEntrepriseClient ? (
+                  <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                ) : (
+                  <User className="h-4 w-4 shrink-0 text-primary" />
+                )}
+                <span className="min-w-0 break-words text-base font-semibold">{displayName}</span>
+                <Badge variant="secondary" className="shrink-0 text-[10px]">
+                  {isEntrepriseClient ? "Entreprise" : "Particulier"}
+                </Badge>
               </div>
+              {isEntrepriseClient && clientObj.siret && (
+                <div className="text-xs text-muted-foreground">
+                  SIRET : <span className="font-mono">{clientObj.siret}</span>
+                </div>
+              )}
+              {isEntrepriseClient && clientObj.contact_name && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Contact : {clientObj.contact_name}</span>
+                </div>
+              )}
               {clientObj.email && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientObj.email}</span>
@@ -2702,10 +2730,10 @@ function ClientStep(props: {
                   <Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientObj.phone}</span>
                 </div>
               )}
-              {(clientObj.address || clientObj.address_line1) && (
+              {(clientObj.address || clientObj.address_line1 || clientObj.city) && (
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">
+                  <span className="min-w-0 break-words">
                     {[clientObj.address_line1 || clientObj.address, [clientObj.postal_code, clientObj.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}
                   </span>
                 </div>
@@ -2715,41 +2743,90 @@ function ClientStep(props: {
               <X className="h-4 w-4" /> Changer
             </Button>
           </div>
+
+          {needsEmailForRemote && (
+            <Alert className="mt-3 border-amber-300 bg-amber-50/60 dark:bg-amber-950/30">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-sm">Email manquant pour signature à distance</AlertTitle>
+              <AlertDescription className="text-xs">
+                Ce client n'a pas d'email enregistré. Modifiez sa fiche pour permettre l'envoi du lien de signature.
+              </AlertDescription>
+            </Alert>
+          )}
         </Card>
       ) : (
+        <Card className="border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+          Aucun client sélectionné — sélectionnez un client existant ou créez-en un nouveau.
+        </Card>
+      )}
+
+      {!clientObj && (
         <div className="space-y-3">
-          <div className="relative">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={clientSearch}
-              onChange={(e) => setClientSearch(e.target.value)}
-              placeholder="Rechercher un client (nom, email, ville…)"
-              className="pl-9"
-            />
+          <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 py-1 backdrop-blur">
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+                placeholder="Rechercher : nom, société, email, téléphone, SIRET..."
+                className="pl-9"
+                inputMode="search"
+                autoComplete="off"
+              />
+            </div>
           </div>
-          <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-background">
+
+          <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-0.5">
             {filtered.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">Aucun client trouvé.</div>
+              <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted-foreground">
+                Aucun client trouvé.
+              </div>
             ) : (
-              <ul className="divide-y divide-border">
-                {filtered.map((c) => (
-                  <li key={c.id}>
-                    <button
+              <AnimatePresence initial={false}>
+                {filtered.map((c, i) => {
+                  const ent = c.client_type === "entreprise";
+                  const dn = ent ? (c.company_name || c.name) : c.name;
+                  return (
+                    <motion.button
+                      key={c.id}
                       type="button"
-                      onClick={() => setForm((f: any) => ({ ...f, client_id: c.id }))}
-                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-muted/50"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.16, delay: Math.min(i * 0.015, 0.15) }}
+                      onClick={() => {
+                        setForm((f: any) => ({ ...f, client_id: c.id }));
+                        toast.success("Client sélectionné");
+                      }}
+                      className="block w-full rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
                     >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{c.name}</div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {[c.email, c.city].filter(Boolean).join(" · ") || "—"}
+                      <div className="flex items-start gap-2.5">
+                        <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${ent ? "bg-indigo-500/10 text-indigo-600" : "bg-emerald-500/10 text-emerald-600"}`}>
+                          {ent ? <Building2 className="h-4 w-4" /> : <User className="h-4 w-4" />}
                         </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="min-w-0 break-words text-sm font-semibold">{dn || "—"}</span>
+                            <Badge variant="secondary" className="shrink-0 text-[10px]">{ent ? "Entreprise" : "Particulier"}</Badge>
+                          </div>
+                          {ent && c.siret && (
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                              SIRET <span className="font-mono">{c.siret}</span>
+                            </div>
+                          )}
+                          {ent && c.contact_name && (
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">Contact : {c.contact_name}</div>
+                          )}
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {[c.email, c.phone, c.city].filter(Boolean).join(" · ") || "—"}
+                          </div>
+                        </div>
+                        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                    </motion.button>
+                  );
+                })}
+              </AnimatePresence>
             )}
           </div>
 
@@ -2757,7 +2834,7 @@ function ClientStep(props: {
             type="button"
             variant={showNewClientForm ? "outline" : "default"}
             onClick={() => setShowNewClientForm(!showNewClientForm)}
-            className="w-full sm:w-auto"
+            className="w-full"
           >
             <UserPlus className="h-4 w-4" />
             {showNewClientForm ? "Annuler" : "Créer un nouveau client"}
@@ -2782,7 +2859,7 @@ function ClientStep(props: {
                     ? !newClient.company_name.trim()
                     : !newClient.name.trim())
                 }
-                className="w-full sm:w-auto"
+                className="w-full"
               >
                 {savingNewClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 Enregistrer et sélectionner ce client
@@ -2813,65 +2890,71 @@ function ChantierStep(props: {
 }) {
   const { chantiers, chantierObj, clients, form, setForm, chantierSearch, setChantierSearch, creatingChantier, onCreateChantierFromAddress } = props;
   const q = chantierSearch.trim().toLowerCase();
-  const clientName = (id: string | null) => clients.find((c) => c.id === id)?.name ?? "";
+  const clientName = (id: string | null) => {
+    const c = clients.find((cl) => cl.id === id);
+    if (!c) return "";
+    return c.client_type === "entreprise" ? (c.company_name || c.name) : c.name;
+  };
   const filtered = useMemo(() => {
-    if (!q) return chantiers.slice(0, 50);
+    if (!q || q.length < 2) return chantiers.slice(0, 50);
     return chantiers.filter((c) =>
       c.name.toLowerCase().includes(q) ||
       (c.reference ?? "").toLowerCase().includes(q) ||
       (c.address ?? "").toLowerCase().includes(q) ||
       (c.city ?? "").toLowerCase().includes(q) ||
+      (c.status ?? "").toLowerCase().includes(q) ||
       clientName(c.client_id).toLowerCase().includes(q),
     ).slice(0, 50);
   }, [chantiers, clients, q]);
 
   const hasChantier = !!chantierObj;
+  const cpInvalid = form.chantier_postal_code && !/^\d{5}$/.test(form.chantier_postal_code.trim());
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Chantier concerné</h2>
-        <p className="text-sm text-muted-foreground">
-          Associez ce PV à un chantier existant ou renseignez l’adresse de réception.
-        </p>
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Étape 3/7 · Chantier</div>
+        <h2 className="mt-1 text-lg font-semibold tracking-tight">Lieu de réception des travaux</h2>
       </div>
 
       {hasChantier ? (
         <Card className="border-primary/40 bg-primary/5 p-3 sm:p-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0 flex-1 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
-                <Hammer className="h-4 w-4 text-primary" />
+                <Hammer className="h-4 w-4 shrink-0 text-primary" />
                 {chantierObj!.reference && (
                   <Badge variant="outline" className="font-mono text-xs">{chantierObj!.reference}</Badge>
                 )}
-                <span className="truncate text-base font-semibold">{chantierObj!.name}</span>
+                <span className="min-w-0 break-words text-base font-semibold">{chantierObj!.name}</span>
               </div>
+              {chantierObj!.status && (
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="secondary" className="text-xs">{chantierObj!.status}</Badge>
+                  {typeof chantierObj!.progress_percent === "number" && (
+                    <Badge variant="outline" className="text-xs">Avancement {chantierObj!.progress_percent}%</Badge>
+                  )}
+                </div>
+              )}
               {chantierObj!.address && (
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
                   <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{[chantierObj!.address, [chantierObj!.postal_code, chantierObj!.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}</span>
+                  <span className="min-w-0 break-words">{[chantierObj!.address, [chantierObj!.postal_code, chantierObj!.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}</span>
                 </div>
               )}
               {chantierObj!.client_id && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientName(chantierObj!.client_id)}</span>
+                  <User className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Client : {clientName(chantierObj!.client_id)}</span>
                 </div>
               )}
               {(chantierObj!.start_date || chantierObj!.end_date) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CalendarDays className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
-                    {chantierObj!.start_date ?? "—"} → {chantierObj!.end_date ?? "—"}
+                    Début {chantierObj!.start_date ?? "—"} · Fin {chantierObj!.end_date ?? "—"}
                   </span>
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {chantierObj!.status && <Badge variant="secondary" className="text-xs">{chantierObj!.status}</Badge>}
-                {typeof chantierObj!.progress_percent === "number" && (
-                  <Badge variant="outline" className="text-xs">Avancement {chantierObj!.progress_percent}%</Badge>
-                )}
-              </div>
             </div>
             <Button size="sm" variant="ghost" onClick={() => setForm((f: any) => ({ ...f, chantier_id: "" }))}>
               <X className="h-4 w-4" /> Changer
@@ -2879,42 +2962,74 @@ function ChantierStep(props: {
           </div>
         </Card>
       ) : (
+        <Card className="border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+          Aucun chantier sélectionné — sélectionnez un chantier existant ou créez-en un nouveau.
+        </Card>
+      )}
+
+      {!hasChantier && (
         <div className="space-y-3">
-          <div className="relative">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={chantierSearch}
-              onChange={(e) => setChantierSearch(e.target.value)}
-              placeholder="Rechercher (référence, nom, adresse, client…)"
-              className="pl-9"
-            />
+          <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 py-1 backdrop-blur">
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={chantierSearch}
+                onChange={(e) => setChantierSearch(e.target.value)}
+                placeholder="Rechercher : référence, nom, adresse, client..."
+                className="pl-9"
+                inputMode="search"
+                autoComplete="off"
+              />
+            </div>
           </div>
-          <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-background">
+
+          <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-0.5">
             {filtered.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">Aucun chantier trouvé.</div>
+              <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted-foreground">
+                Aucun chantier trouvé.
+              </div>
             ) : (
-              <ul className="divide-y divide-border">
-                {filtered.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => setForm((f: any) => ({ ...f, chantier_id: c.id }))}
-                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-muted/50"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          {c.reference && <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{c.reference}</span>}
-                          <span className="truncate text-sm font-medium">{c.name}</span>
-                        </div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {[c.city, clientName(c.client_id)].filter(Boolean).join(" · ") || "—"}
-                        </div>
+              <AnimatePresence initial={false}>
+                {filtered.map((c, i) => (
+                  <motion.button
+                    key={c.id}
+                    type="button"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.16, delay: Math.min(i * 0.015, 0.15) }}
+                    onClick={() => {
+                      setForm((f: any) => ({ ...f, chantier_id: c.id }));
+                      toast.success("Chantier sélectionné");
+                    }}
+                    className="block w-full rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                        <Hammer className="h-4 w-4" />
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    </button>
-                  </li>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {c.reference && <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{c.reference}</span>}
+                          <span className="min-w-0 break-words text-sm font-semibold">{c.name}</span>
+                          {c.status && <Badge variant="secondary" className="shrink-0 text-[10px]">{c.status}</Badge>}
+                        </div>
+                        {(c.city || c.client_id) && (
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {[c.city, clientName(c.client_id) && `Client : ${clientName(c.client_id)}`].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                        {(c.start_date || c.end_date) && (
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            {c.start_date ?? "—"} → {c.end_date ?? "—"}
+                          </div>
+                        )}
+                      </div>
+                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+                    </div>
+                  </motion.button>
                 ))}
-              </ul>
+              </AnimatePresence>
             )}
           </div>
         </div>
@@ -2922,7 +3037,12 @@ function ChantierStep(props: {
 
       {/* Adresse de réception (toujours visible — pré-remplie depuis le chantier, modifiable pour le PV) */}
       <div className="space-y-3 rounded-xl border border-border bg-muted/10 p-3 sm:p-4">
-        <div className="text-sm font-medium">Adresse & date de réception</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-medium">Adresse de réception utilisée dans ce PV</div>
+          {hasChantier && form.client_id && (
+            <Badge variant="outline" className="text-[10px]">Client lié</Badge>
+          )}
+        </div>
         <Field label="Adresse du chantier *">
           <AddressAutocomplete
             value={form.chantier_address}
@@ -2940,7 +3060,10 @@ function ChantierStep(props: {
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Code postal">
-            <Input value={form.chantier_postal_code} onChange={(e) => setForm({ ...form, chantier_postal_code: e.target.value })} placeholder="06400" />
+            <Input value={form.chantier_postal_code} onChange={(e) => setForm({ ...form, chantier_postal_code: e.target.value })} placeholder="06400" inputMode="numeric" />
+            {cpInvalid && (
+              <p className="mt-1 text-[11px] text-amber-600">Code postal invalide (5 chiffres attendus).</p>
+            )}
           </Field>
           <Field label="Ville">
             <Input value={form.chantier_city} onChange={(e) => setForm({ ...form, chantier_city: e.target.value })} placeholder="Cannes" />
@@ -2949,6 +3072,11 @@ function ChantierStep(props: {
             <Input type="date" value={form.reception_date} onChange={(e) => setForm({ ...form, reception_date: e.target.value })} />
           </Field>
         </div>
+        {hasChantier && (
+          <p className="text-[11px] text-muted-foreground">
+            Cette adresse n'est utilisée que pour ce PV. Pour modifier la fiche chantier, ouvrez-la et utilisez « Modifier ».
+          </p>
+        )}
         {!hasChantier && (
           <Button
             type="button"
