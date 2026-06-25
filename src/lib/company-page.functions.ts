@@ -59,9 +59,10 @@ export const getCompanyHistory = createServerFn({ method: "POST" })
       action: r.action,
       created_at: r.created_at,
       user_id: r.user_id ?? null,
-      metadata: r.metadata ?? null,
+      metadata: r.metadata ? JSON.stringify(r.metadata) : null,
     }));
     return entries;
+
   });
 
 
