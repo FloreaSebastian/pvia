@@ -40,7 +40,33 @@ const UpdateSchema = z.object({
   phone: z.string().trim().max(30).regex(/^[\d\s+().-]*$/, "Téléphone invalide").optional().nullable().or(z.literal("")),
   email: z.string().trim().email("Email invalide").max(200).optional().nullable().or(z.literal("")),
   website: z.string().trim().url("URL invalide").max(300).optional().nullable().or(z.literal("")),
-  logo_url: z.string().trim().max(2000).optional().nullable().or(z.literal("")),
+  logo_url: z
+    .string()
+    .trim()
+    .max(2000)
+    .url("URL invalide")
+    .refine(
+      (v) => {
+        try {
+          const u = new URL(v);
+          if (u.protocol !== "https:") return false;
+          // Only allow the project's Supabase public storage host for company-logos
+          const supaUrl = process.env.SUPABASE_URL;
+          if (!supaUrl) return false;
+          const supaHost = new URL(supaUrl).host;
+          return (
+            u.host === supaHost &&
+            u.pathname.startsWith("/storage/v1/object/public/company-logos/")
+          );
+        } catch {
+          return false;
+        }
+      },
+      { message: "URL de logo non autorisée." },
+    )
+    .optional()
+    .nullable()
+    .or(z.literal("")),
 });
 
 const empty = (v: string | null | undefined) => (v && v.length > 0 ? v : null);
