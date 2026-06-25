@@ -14,7 +14,7 @@ export type Membership = {
   company_id: string;
   role: CompanyRole;
   status: "active" | "invited" | "suspended";
-  company: { id: string; name: string; logo_url: string | null };
+  company: { id: string; name: string; logo_url: string | null; icon_url: string | null };
 };
 
 type Ctx = {
