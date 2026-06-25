@@ -96,7 +96,7 @@ function PvList() {
     setLoading(true);
     const { data, error } = await supabase
       .from("pv")
-      .select("id,numero,type,status,reception_date,created_at,pdf_url,reception_with_reserves,chantier_id,client_id,chantiers(name),clients(name),pv_reserves(count)")
+      .select("id,numero,type,status,reception_date,created_at,pdf_url,reception_with_reserves,chantier_id,client_id,chantiers(name,reference),clients(name),pv_reserves(count)")
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
     if (error) {
