@@ -398,7 +398,10 @@ function PvList() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{p.type}</TableCell>
                   <TableCell><PvStatusPill status={p.status} /></TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground">{p.chantiers?.name ?? "—"}</TableCell>
+                  <TableCell className="max-w-[220px] truncate text-muted-foreground">
+                    {p.chantiers?.reference && <span className="mr-1 rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold text-foreground">{p.chantiers.reference}</span>}
+                    {p.chantiers?.name ?? "—"}
+                  </TableCell>
                   <TableCell>
                     {p.reception_with_reserves ? (
                       <StatusPill tone="warning" size="sm">{rc > 0 ? `${rc} réserves` : "Avec réserves"}</StatusPill>
