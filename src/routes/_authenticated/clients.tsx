@@ -49,10 +49,25 @@ function ClientsPage() {
   const [typeFilter, setTypeFilter] = useState<"all" | "particulier" | "entreprise">("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
+  const [detailClient, setDetailClient] = useState<Client | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const canWrite = can("manage");
   const createFn = useServerFn(createClientFn);
   const updateFn = useServerFn(updateClientFn);
   const deleteFn = useServerFn(deleteClientFn);
+
+  function openDetail(c: Client) {
+    setDetailClient(c);
+    setDetailOpen(true);
+  }
+  function handleEditFromDetail(c: Client) {
+    setDetailOpen(false);
+    openEdit(c);
+  }
+  function handleDeleteFromDetail(id: string) {
+    setDetailOpen(false);
+    remove(id);
+  }
 
   async function load() {
     if (!activeCompanyId) return;
