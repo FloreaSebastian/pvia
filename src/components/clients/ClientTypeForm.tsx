@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Loader2, Building2, User, Check, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Search, Loader2, Building2, User, Check, X, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { searchFrenchCompanies, type FrenchCompanyHit } from "@/lib/siren.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
 
 export type ClientFormState = {
   client_type: "particulier" | "entreprise";
@@ -76,29 +77,56 @@ export function ClientFormFields({
   const [siretQuery, setSiretQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [hits, setHits] = useState<FrenchCompanyHit[] | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [manualMode, setManualMode] = useState(false);
   const searchFn = useServerFn(searchFrenchCompanies);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reqIdRef = useRef(0);
 
-  async function runSearch() {
-    const q = siretQuery.trim();
-    if (q.length < 2) {
-      toast.error("Saisissez au moins 2 caractères.");
+  async function runSearch(q: string, { silent = false }: { silent?: boolean } = {}) {
+    if (q.length < 3) {
+      if (!silent) toast.error("Saisissez au moins 3 caractères.");
       return;
     }
+    const myReq = ++reqIdRef.current;
     setSearching(true);
+    setSearchError(null);
     try {
       const res = await searchFn({ data: { query: q } });
+      if (reqIdRef.current !== myReq) return; // stale
       if (res.ok) {
         setHits(res.hits);
-        if (res.hits.length === 0) toast.info("Aucune entreprise trouvée.");
+        if (!silent && res.hits.length === 0) toast.info("Aucune entreprise trouvée.");
       } else {
-        toast.error(res.error);
+        setHits(null);
+        setSearchError(res.error);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Recherche impossible.");
+      if (reqIdRef.current !== myReq) return;
+      setHits(null);
+      setSearchError(e instanceof Error ? e.message : "Recherche impossible.");
     } finally {
-      setSearching(false);
+      if (reqIdRef.current === myReq) setSearching(false);
     }
   }
+
+  // Debounced auto-search ≥3 chars
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = siretQuery.trim();
+    setManualMode(false);
+    if (q.length < 3) {
+      setHits(null);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+    debounceRef.current = setTimeout(() => { runSearch(q, { silent: true }); }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siretQuery]);
+
+
 
   function pickCompany(h: FrenchCompanyHit) {
     setForm({
@@ -148,21 +176,37 @@ export function ClientFormFields({
   return (
     <div className="space-y-3">
       <Card className="space-y-2 border-dashed bg-muted/30 p-3">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rechercher une entreprise</Label>
-        <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rechercher une entreprise</Label>
+          {searching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            className="pl-8"
             value={siretQuery}
             onChange={(e) => setSiretQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } }}
-            placeholder="SIRET, SIREN ou nom de société"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(siretQuery.trim()); } }}
+            placeholder="SIRET, SIREN ou nom de société (≥ 3 caractères)"
+            inputMode="search"
+            autoComplete="off"
           />
-          <Button type="button" onClick={runSearch} disabled={searching} variant="outline">
-            {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            Rechercher
-          </Button>
         </div>
+
+        {searchError && !manualMode && (
+          <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2 text-xs">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <span className="break-words">{searchError}</span>
+            </div>
+            <Button type="button" size="sm" variant="outline" className="h-7 w-full" onClick={() => setManualMode(true)}>
+              Saisir manuellement
+            </Button>
+          </div>
+        )}
+
         {hits && hits.length > 0 && (
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-border bg-background">
+          <div className="max-h-72 overflow-y-auto rounded-lg border border-border bg-background">
             <ul className="divide-y divide-border">
               {hits.map((h, i) => (
                 <li key={`${h.siren}-${h.siret ?? i}`}>
@@ -171,12 +215,13 @@ export function ClientFormFields({
                     onClick={() => pickCompany(h)}
                     className="block w-full px-3 py-2 text-left hover:bg-muted/50"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium">{h.name || "—"}</span>
-                      {h.siret && <Badge variant="outline" className="font-mono text-[10px]">{h.siret}</Badge>}
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="break-words text-sm font-medium">{h.name || "—"}</span>
+                      {h.siret && <Badge variant="outline" className="shrink-0 font-mono text-[10px]">{h.siret}</Badge>}
                     </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {[h.address_line1, [h.postal_code, h.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+                    <div className="mt-0.5 break-words text-xs text-muted-foreground">
+                      {[h.address_line1, [h.postal_code, h.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"}
+                      {h.naf_code ? ` · APE ${h.naf_code}` : ""}
                     </div>
                   </button>
                 </li>
@@ -187,6 +232,7 @@ export function ClientFormFields({
                 <X className="h-3.5 w-3.5" /> Fermer
               </Button>
             </div>
+
           </div>
         )}
       </Card>
