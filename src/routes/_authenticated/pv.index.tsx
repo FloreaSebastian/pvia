@@ -580,6 +580,7 @@ function PvCard({
         {ch && (
           <div className="flex items-center gap-1.5 text-foreground/90">
             <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+            {chRef && <span className="rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold">{chRef}</span>}
             <span className="truncate">{ch}</span>
           </div>
         )}
