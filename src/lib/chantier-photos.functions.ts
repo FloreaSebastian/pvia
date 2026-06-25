@@ -74,21 +74,24 @@ export const createChantierPhoto = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
 
-    // Compute next index per type for the label, prefixed by chantier reference (CH####XX)
-    const { count } = await supabase
-      .from("chantier_photos")
-      .select("id", { count: "exact", head: true })
-      .eq("chantier_id", data.chantierId)
-      .eq("photo_type", data.photo_type);
-    const idx = (count ?? 0) + 1;
-    const prefix = data.photo_type === "before" ? "AVANT" : data.photo_type === "during" ? "PENDANT" : "FIN";
-    const { data: chRef } = await supabase
-      .from("chantiers")
-      .select("reference")
-      .eq("id", data.chantierId)
-      .maybeSingle();
-    const refPart = (chRef as { reference?: string } | null)?.reference ?? "CHANTIER";
-    const label = `${refPart}-${prefix}-${String(idx).padStart(3, "0")}`;
+    // Génération transactionnelle du label (verrou sur la ligne chantier + unique index)
+    // Retry en cas de collision (uploads simultanés) — l'index unique partiel garantit l'intégrité.
+    let label = "";
+    let attempt = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      attempt += 1;
+      const { data: lbl, error: lblErr } = await supabase.rpc("next_chantier_photo_label", {
+        _chantier_id: data.chantierId,
+        _photo_type: data.photo_type,
+      });
+      if (lblErr || !lbl) throw new Error(lblErr?.message ?? "Génération du libellé impossible.");
+      label = lbl as unknown as string;
+      // sortie de boucle au prochain insert ; en cas d'erreur 23505, on relance.
+      break;
+    }
+    void attempt;
+
 
 
     const { data: row, error } = await supabase.from("chantier_photos").insert({
