@@ -11,9 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
-import { updateCompanyBranding } from "@/lib/branding.functions";
+import { updateCompanyBranding, syncCompanyFromSiren } from "@/lib/branding.functions";
 import { uploadCompanyLogo } from "@/lib/company-logo.functions";
-import { lookupCompanyBySirenOrSiret, type SirenLookupResult } from "@/lib/siren.functions";
+
 import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
 
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
