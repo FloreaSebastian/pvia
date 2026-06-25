@@ -12,14 +12,12 @@ const ALLOWED = new Set([
   "image/jpeg",
   "image/jpg",
   "image/webp",
-  "image/svg+xml",
 ]);
 const EXT: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/jpg": "jpg",
   "image/webp": "webp",
-  "image/svg+xml": "svg",
 };
 
 // Magic-number sniffing to avoid trusting client-declared mime
@@ -30,9 +28,6 @@ function sniffMime(bytes: Uint8Array): string | null {
   if (bytes.length >= 12 &&
       bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
       bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return "image/webp";
-  // SVG: leading whitespace then "<svg" or "<?xml"
-  const head = new TextDecoder().decode(bytes.slice(0, 256)).trimStart().toLowerCase();
-  if (head.startsWith("<svg") || (head.startsWith("<?xml") && head.includes("<svg"))) return "image/svg+xml";
   return null;
 }
 
@@ -67,7 +62,7 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
     // 2. Validate declared mime
     const declared = data.mimeType.toLowerCase();
     if (!ALLOWED.has(declared)) {
-      throw new Error("Format non supporté (PNG, JPEG, WebP ou SVG).");
+      throw new Error("Format non supporté (PNG, JPEG ou WebP).");
     }
 
     // 3. Decode + size check
