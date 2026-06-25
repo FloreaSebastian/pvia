@@ -54,6 +54,9 @@ export const updatePvEmailSettings = createServerFn({ method: "POST" })
   .inputValidator((i) => UpdateSchema.parse(i))
   .handler(async ({ data, context }) => {
     const member = await requireMember(data.companyId, context.userId);
+    if (!isAdminRole((member as any).role)) {
+      throw new Error("Seuls les administrateurs peuvent modifier les destinataires des PV.");
+    }
     const patch: Record<string, unknown> = {};
     if (data.pv_email_recipients !== undefined) patch.pv_email_recipients = data.pv_email_recipients;
     if (data.pv_email_cc !== undefined) patch.pv_email_cc = data.pv_email_cc;
