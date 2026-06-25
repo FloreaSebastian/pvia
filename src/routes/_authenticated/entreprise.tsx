@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { updateCompanyBranding, syncCompanyFromSiren } from "@/lib/branding.functions";
-import { uploadCompanyLogo } from "@/lib/company-logo.functions";
+import { uploadCompanyLogo, deleteCompanyVisual } from "@/lib/company-logo.functions";
 import { lookupCompanyBySirenOrSiret, type SirenLookupResult } from "@/lib/siren.functions";
 import { getCompanyHistory, requestCompanyChange, type CompanyHistoryEntry } from "@/lib/company-page.functions";
 import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
