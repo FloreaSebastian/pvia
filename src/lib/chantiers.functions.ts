@@ -98,9 +98,11 @@ export const createChantier = createServerFn({ method: "POST" })
     if (error || !row) throw new Error(error?.message ?? "Création impossible.");
     await writeAuditLog({
       companyId: data.companyId, userId, entityType: "chantier", entityId: row.id,
-      action: "chantier.create", newValues: payload,
+      action: "chantier.create",
+      newValues: { ...payload, reference: row.reference },
+      metadata: { reference: row.reference, name: payload.name },
     });
-    return { ok: true, id: row.id as string };
+    return { ok: true, id: row.id as string, reference: row.reference as string };
   });
 
 export const updateChantier = createServerFn({ method: "POST" })
