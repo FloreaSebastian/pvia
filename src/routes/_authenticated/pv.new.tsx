@@ -406,14 +406,16 @@ function NewPv() {
     return !!branding.name && hasIdent && hasAddress && hasContact;
   }, [branding]);
 
-  // Autosave
+  // Autosave (skipped until bootstrap finished — avoids overwriting a draft
+  // before the restore-prompt is answered, or wiping state after a fresh reset)
   useEffect(() => {
+    if (!bootstrappedRef.current) return;
     const t = setTimeout(() => {
       try {
-        // Strip File objects from photos before persisting (non-serializable).
         const persistedReserves = reserves.map((r) => ({ ...r, photos: [] }));
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves: persistedReserves, withReserves }));
-        setLastSaved(new Date());
+        const savedAt = new Date().toISOString();
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves: persistedReserves, withReserves, _savedAt: savedAt }));
+        setLastSaved(new Date(savedAt));
       } catch { /* noop */ }
     }, 600);
     return () => clearTimeout(t);
