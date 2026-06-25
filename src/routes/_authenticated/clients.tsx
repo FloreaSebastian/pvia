@@ -228,29 +228,9 @@ function ClientsPage() {
             <h1 className="truncate text-xl font-semibold tracking-tight">Clients</h1>
             <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">{filtered.length} client{filtered.length > 1 ? "s" : ""}</p>
           </div>
-          {canWrite && (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button size="icon" onClick={openNew} className="h-9 w-9 shrink-0 shadow-brand" aria-label="Nouveau client" data-testid="clients-new-button">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-                <DialogHeader><DialogTitle>{editing ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
-                <form onSubmit={save} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Type de client</Label>
-                    <ClientTypeSelector value={form.client_type} onChange={(v) => setForm({ ...form, client_type: v })} disabled={!!editing} />
-                  </div>
-                  <ClientFormFields form={form} setForm={setForm} />
-                  <div><Label>Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          )}
         </div>
       </div>
+
 
       {/* Desktop header */}
       <div className="hidden sm:block">
