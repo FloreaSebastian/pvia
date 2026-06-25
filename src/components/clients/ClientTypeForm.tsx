@@ -120,7 +120,7 @@ export function ClientFormFields({
     setSearching(true);
     setSearchError(null);
     try {
-      const res = await searchFn({ data: { query: q }, signal: ctrl.signal });
+      const res = await searchFn({ data: { query: q } });
       if (reqIdRef.current !== myReq || ctrl.signal.aborted) return;
       if (res.ok) {
         cachePut(key, res.hits);
