@@ -62,7 +62,7 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
     // 2. Validate declared mime
     const declared = data.mimeType.toLowerCase();
     if (!ALLOWED.has(declared)) {
-      throw new Error("Format non supporté (PNG, JPEG, WebP ou SVG).");
+      throw new Error("Format non supporté (PNG, JPEG ou WebP).");
     }
 
     // 3. Decode + size check
