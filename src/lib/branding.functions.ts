@@ -147,6 +147,7 @@ export const updateCompanyBranding = createServerFn({ method: "POST" })
       email: empty(data.email),
       website: empty(data.website),
       logo_url: empty(data.logo_url),
+      icon_url: empty((data as any).icon_url),
     };
 
     const { error } = await supabaseAdmin.from("companies").update(update).eq("id", data.companyId);
