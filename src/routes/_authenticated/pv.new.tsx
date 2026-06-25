@@ -238,6 +238,20 @@ function NewPv() {
   const [savingNewClient, setSavingNewClient] = useState(false);
   const [chantierSearch, setChantierSearch] = useState("");
   const [creatingChantier, setCreatingChantier] = useState(false);
+  const [usedChantierIds, setUsedChantierIds] = useState<Set<string>>(() => new Set());
+  const [newChantierSheetOpen, setNewChantierSheetOpen] = useState(false);
+  const [newChantier, setNewChantier] = useState({
+    name: "",
+    type: "",
+    client_id: "",
+    address: "",
+    postal_code: "",
+    city: "",
+    start_date: "",
+    end_date: "",
+    status: "planifie" as "preparation" | "planifie" | "en_cours" | "en_attente" | "receptionne" | "termine",
+    description: "",
+  });
 
   // Draft prompt dialog
   const [draftPrompt, setDraftPrompt] = useState<{ open: boolean; savedAt: string | null }>({ open: false, savedAt: null });
