@@ -879,6 +879,12 @@ function NewPv() {
         const idx = STEPS.findIndex((s) => s.id === ID_RESERVES);
         if (idx >= 0) setStepIdx(idx);
 
+      } else if (e?.code === "CHANTIER_ALREADY_HAS_PV" || /CHANTIER_ALREADY_HAS_PV|déjà un PV/i.test(e?.message ?? "")) {
+        toast.error(e?.message || "Ce chantier possède déjà un PV. Un seul PV peut être créé par chantier.");
+        await reloadLists();
+        setForm((f) => ({ ...f, chantier_id: "" }));
+        const idx = STEPS.findIndex((s) => s.id === ID_CHANTIER);
+        if (idx >= 0) setStepIdx(idx);
       } else {
         toast.error(e?.message || "Échec de la création.");
       }
