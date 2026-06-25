@@ -179,6 +179,8 @@ function NewPv() {
     id: string; name: string; email: string | null; phone: string | null;
     address: string | null; address_line1: string | null;
     postal_code: string | null; city: string | null;
+    client_type?: string | null; company_name?: string | null;
+    siret?: string | null; siren?: string | null; contact_name?: string | null;
   }[]>([]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
