@@ -36,6 +36,8 @@ import {
   getReserveLiftPdfUrl,
 } from "@/lib/reserve-lift.functions";
 import { exportReserveLiftExpertise } from "@/lib/reserve-lift-expertise.functions";
+import { exportChantierDossier } from "@/lib/chantier-dossier-export.functions";
+
 import { reserveStatusTone, reserveStatusLabel } from "@/lib/reserve-status";
 import { getReserveCounters } from "@/lib/reserve-counters";
 
