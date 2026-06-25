@@ -389,7 +389,7 @@ export async function generatePvPdfBytes(input: {
     }
   })();
   const cells: { label: string; value: string }[] = [
-    { label: "Chantier", value: chantier?.name ?? "-" },
+    { label: "Chantier", value: chantier?.reference ? `${chantier.reference} - ${chantier?.name ?? "-"}` : (chantier?.name ?? "-") },
     { label: refTypeLabel, value: pv.work_reference_number ?? "-" },
     { label: "Date reception", value: formatDate(pv.reception_date) },
     { label: "Debut travaux", value: formatDate(chantier?.start_date ?? null) },
