@@ -47,7 +47,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const { data } = await supabase
       .from("company_members")
-      .select("id,company_id,role,status,company:companies(id,name,logo_url)")
+      .select("id,company_id,role,status,company:companies(id,name,logo_url,icon_url)")
       .eq("user_id", user.id)
       .eq("status", "active");
     const list = ((data as unknown) as Membership[]) ?? [];
