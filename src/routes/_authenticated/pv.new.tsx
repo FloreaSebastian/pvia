@@ -1843,7 +1843,7 @@ function NewPv() {
           </AnimatePresence>
         </div>
 
-        <div className="flex items-center justify-between border-t border-border bg-muted/20 p-4">
+        <div className="sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 flex items-center justify-between gap-2 border-t border-border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:p-4 lg:static lg:bottom-auto lg:bg-muted/20 lg:backdrop-blur-0">
           <Button variant="ghost" disabled={stepIdx === 0} onClick={() => setStepIdx((s) => Math.max(0, s - 1))}>
             <ChevronLeft className="h-4 w-4" /> Précédent
           </Button>
