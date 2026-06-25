@@ -554,6 +554,7 @@ function PvCard({
   onRemove: () => void;
 }) {
   const ch = pv.chantiers?.name;
+  const chRef = pv.chantiers?.reference;
   const cn = pv.clients?.name;
   const rc = reservesCount(pv);
   const withReserves = !!pv.reception_with_reserves;
