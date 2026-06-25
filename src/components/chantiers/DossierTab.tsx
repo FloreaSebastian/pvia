@@ -774,50 +774,5 @@ function LoadingHint() {
   return <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Chargement…</p>;
 }
 
-function VueKpiGrid({
-  detail, dossier, chantierPhotosCount, reserveCounts, onGoToSubTab,
-}: {
-  detail: Detail;
-  dossier: Dossier | null;
-  chantierPhotosCount: number;
-  reserveCounts: { total: number; open: number; lifted: number; validated: number; rejected: number };
-  onGoToSubTab: (v: string) => void;
-}) {
-  const kpis: Array<{
-    key: string;
-    icon: React.ReactNode;
-    value: number;
-    label: string;
-    sub: string;
-    onClick: () => void;
-  }> = [
-    { key: "pv", icon: <FileText className="h-5 w-5 text-primary" />, value: detail.pvs.length, label: "PV", sub: "PV créés", onClick: () => onGoToSubTab("pv") },
-    { key: "res", icon: <AlertTriangle className="h-5 w-5 text-amber-600" />, value: reserveCounts.total, label: "Réserves", sub: `${reserveCounts.open} ouvertes`, onClick: () => onGoToSubTab("reserves") },
-    { key: "lev", icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, value: dossier?.liftReports.length ?? 0, label: "Levées", sub: "Levées émises", onClick: () => onGoToSubTab("levees") },
-    { key: "ph", icon: <ImageIcon className="h-5 w-5 text-blue-600" />, value: chantierPhotosCount, label: "Photos", sub: "Photos chantier", onClick: () => onGoToSubTab("photos") },
-    { key: "doc", icon: <Paperclip className="h-5 w-5 text-slate-600" />, value: detail.documents.length, label: "Documents", sub: "Fichiers", onClick: () => onGoToSubTab("documents") },
-    { key: "em", icon: <Mail className="h-5 w-5 text-indigo-600" />, value: dossier?.emails.length ?? 0, label: "Emails", sub: "Envoyés", onClick: () => onGoToSubTab("emails") },
-    { key: "ev", icon: <Clock className="h-5 w-5 text-fuchsia-600" />, value: (detail.events ?? []).length, label: "Évènements", sub: "Planifiés", onClick: () => onGoToSubTab("historique") },
-    { key: "hist", icon: <History className="h-5 w-5 text-muted-foreground" />, value: detail.auditLogs?.length ?? 0, label: "Historique", sub: "Entrées", onClick: () => onGoToSubTab("historique") },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {kpis.map((k) => (
-        <button
-          key={k.key}
-          type="button"
-          onClick={k.onClick}
-          className="group flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.98]"
-        >
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-muted">{k.icon}</div>
-          <p className="text-2xl font-semibold leading-none tabular-nums">{k.value}</p>
-          <p className="text-[11px] font-medium">{k.label}</p>
-          <p className="text-[10px] text-muted-foreground">{k.sub}</p>
-        </button>
-      ))}
-    </div>
-  );
-}
 
 
