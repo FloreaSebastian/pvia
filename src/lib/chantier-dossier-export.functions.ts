@@ -233,6 +233,10 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
       [
         `Dossier chantier ${ref} - ${chantier.name ?? ""}`,
         `Genere le ${new Date().toISOString()}`,
+        `Variante : ${isClientVariant ? "CLIENT (sans coordonnees GPS exactes)" : "INTERNE (contient les coordonnees GPS des photos)"}`,
+        isClientVariant
+          ? "Cette archive peut etre transmise au client."
+          : "ATTENTION : archive INTERNE. Ne pas diffuser telle quelle au client (donnees de geolocalisation).",
         "",
         "01-PV/                : Proces-verbaux signes (PDF)",
         "02-Levees/            : Rapports de levee de reserves (PDF client + interne)",
@@ -241,6 +245,7 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
         "manifest.json         : Index machine-readable",
       ].join("\n"),
     );
+
 
     const buf = await zip.generateAsync({
       type: "uint8array",
