@@ -327,6 +327,11 @@ function ClientsPage() {
             ))}
           </div>
           <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">{filtered.length}</span>
+          {canWrite && (
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setImportOpen(true)} aria-label="Importer des clients avec l'IA">
+              <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Import IA</span>
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5" aria-label="Exporter les clients">
