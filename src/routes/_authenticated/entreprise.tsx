@@ -112,6 +112,7 @@ function CompanyPage() {
 
   const saveFn = useServerFn(updateCompanyBranding);
   const uploadFn = useServerFn(uploadCompanyLogo);
+  const deleteFn = useServerFn(deleteCompanyVisual);
   const syncFn = useServerFn(syncCompanyFromSiren);
   const lookupFn = useServerFn(lookupCompanyBySirenOrSiret);
   const historyFn = useServerFn(getCompanyHistory);
