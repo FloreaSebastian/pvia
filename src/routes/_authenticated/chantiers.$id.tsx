@@ -23,8 +23,11 @@ import {
   listCompanyMembers, createChantierAutoPlanning, updateChantierProgress,
   togglePinChantierNote, renameChantierDocument, duplicateChantierEvent, completeChantierEvent,
 } from "@/lib/chantier-detail.functions";
-import { reopenChantier } from "@/lib/chantiers.functions";
+import { reopenChantier, updateChantier, CHANTIER_STATUSES } from "@/lib/chantiers.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import { DossierTab } from "@/components/chantiers/DossierTab";
 import { ChantierPhotosTab } from "@/components/chantiers/ChantierPhotosTab";
 
