@@ -353,6 +353,14 @@ function ClientsPage() {
           </Table>
         </Card>
       )}
+
+      <ClientDetailDialog
+        client={detailClient}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onEdit={handleEditFromDetail}
+        onDelete={handleDeleteFromDetail}
+      />
     </div>
   );
 }
