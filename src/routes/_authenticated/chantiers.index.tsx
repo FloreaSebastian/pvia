@@ -514,6 +514,7 @@ function ChantiersPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">{c.reference}</span>
                       <p className="truncate font-semibold leading-tight">{c.name}</p>
                     </div>
                     {c.address && (
