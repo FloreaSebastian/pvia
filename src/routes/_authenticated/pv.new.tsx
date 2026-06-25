@@ -2914,25 +2914,32 @@ function ClientStep(props: {
 
 function ChantierStep(props: {
   chantiers: ChantierRow[];
+  usedChantierIds: Set<string>;
   chantierObj: ChantierRow | null;
   clients: ClientRow[];
   form: any;
   setForm: React.Dispatch<React.SetStateAction<any>>;
   chantierSearch: string;
   setChantierSearch: (s: string) => void;
-  creatingChantier: boolean;
-  onCreateChantierFromAddress: () => void;
+  onOpenNewChantier: () => void;
 }) {
-  const { chantiers, chantierObj, clients, form, setForm, chantierSearch, setChantierSearch, creatingChantier, onCreateChantierFromAddress } = props;
+  const { chantiers, usedChantierIds, chantierObj, clients, form, setForm, chantierSearch, setChantierSearch, onOpenNewChantier } = props;
   const q = chantierSearch.trim().toLowerCase();
   const clientName = (id: string | null) => {
     const c = clients.find((cl) => cl.id === id);
     if (!c) return "";
     return c.client_type === "entreprise" ? (c.company_name || c.name) : c.name;
   };
+
+  // Seuls les chantiers qui n'ont pas encore de PV sont sélectionnables.
+  const available = useMemo(
+    () => chantiers.filter((c) => !usedChantierIds.has(c.id)),
+    [chantiers, usedChantierIds],
+  );
+
   const filtered = useMemo(() => {
-    if (!q || q.length < 2) return chantiers.slice(0, 50);
-    return chantiers.filter((c) =>
+    if (!q || q.length < 2) return available.slice(0, 50);
+    return available.filter((c) =>
       c.name.toLowerCase().includes(q) ||
       (c.reference ?? "").toLowerCase().includes(q) ||
       (c.address ?? "").toLowerCase().includes(q) ||
@@ -2940,7 +2947,7 @@ function ChantierStep(props: {
       (c.status ?? "").toLowerCase().includes(q) ||
       clientName(c.client_id).toLowerCase().includes(q),
     ).slice(0, 50);
-  }, [chantiers, clients, q]);
+  }, [available, clients, q]);
 
   const hasChantier = !!chantierObj;
   const cpInvalid = form.chantier_postal_code && !/^\d{5}$/.test(form.chantier_postal_code.trim());
@@ -2950,6 +2957,9 @@ function ChantierStep(props: {
       <div>
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Étape 3/7 · Chantier</div>
         <h2 className="mt-1 text-lg font-semibold tracking-tight">Lieu de réception des travaux</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          1 chantier = 1 seul PV. Seuls les chantiers sans PV sont affichés.
+        </p>
       </div>
 
       {hasChantier ? (
@@ -2997,31 +3007,50 @@ function ChantierStep(props: {
           </div>
         </Card>
       ) : (
-        <Card className="border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-          Aucun chantier sélectionné — sélectionnez un chantier existant ou créez-en un nouveau.
-        </Card>
-      )}
-
-      {!hasChantier && (
         <div className="space-y-3">
           <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 py-1 backdrop-blur">
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={chantierSearch}
-                onChange={(e) => setChantierSearch(e.target.value)}
-                placeholder="Rechercher : référence, nom, adresse, client..."
-                className="pl-9"
-                inputMode="search"
-                autoComplete="off"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={chantierSearch}
+                  onChange={(e) => setChantierSearch(e.target.value)}
+                  placeholder="Rechercher un chantier…"
+                  className="pl-9"
+                  inputMode="search"
+                  autoComplete="off"
+                  aria-label="Rechercher un chantier"
+                />
+              </div>
+              <Button type="button" onClick={onOpenNewChantier} className="shrink-0">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nouveau chantier</span>
+              </Button>
             </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Recherche par référence, nom, adresse, ville ou client.
+            </p>
           </div>
 
           <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-0.5">
             {filtered.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-muted-foreground">
-                Aucun chantier trouvé.
+              <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center">
+                <div className="mb-1 text-sm font-medium">Aucun chantier disponible trouvé</div>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {available.length === 0
+                    ? "Tous vos chantiers ont déjà un PV — ou aucun n'a été créé."
+                    : "Aucun résultat pour cette recherche."}
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {chantierSearch && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setChantierSearch("")}>
+                      Modifier la recherche
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" onClick={onOpenNewChantier}>
+                    <Plus className="h-4 w-4" /> Créer un nouveau chantier
+                  </Button>
+                </div>
               </div>
             ) : (
               <AnimatePresence initial={false}>
@@ -3038,6 +3067,7 @@ function ChantierStep(props: {
                       toast.success("Chantier sélectionné");
                     }}
                     className="block w-full rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
+                    data-testid="chantier-card"
                   >
                     <div className="flex items-start gap-2.5">
                       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -3049,9 +3079,14 @@ function ChantierStep(props: {
                           <span className="min-w-0 break-words text-sm font-semibold">{c.name}</span>
                           {c.status && <Badge variant="secondary" className="shrink-0 text-[10px]">{c.status}</Badge>}
                         </div>
-                        {(c.city || c.client_id) && (
+                        {(c.address || c.city || c.postal_code) && (
                           <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                            {[c.city, clientName(c.client_id) && `Client : ${clientName(c.client_id)}`].filter(Boolean).join(" · ")}
+                            {[c.address, [c.postal_code, c.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}
+                          </div>
+                        )}
+                        {c.client_id && (
+                          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                            Client : {clientName(c.client_id)}
                           </div>
                         )}
                         {(c.start_date || c.end_date) && (
@@ -3112,22 +3147,11 @@ function ChantierStep(props: {
             Cette adresse n'est utilisée que pour ce PV. Pour modifier la fiche chantier, ouvrez-la et utilisez « Modifier ».
           </p>
         )}
-        {!hasChantier && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCreateChantierFromAddress}
-            disabled={creatingChantier || !form.chantier_address.trim()}
-            className="w-full sm:w-auto"
-          >
-            {creatingChantier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Créer un chantier avec ces informations
-          </Button>
-        )}
       </div>
     </div>
   );
 }
+
 
 
 
