@@ -336,7 +336,7 @@ export function DossierTab({
 
   const goTo = useCallback((k: SectionKey) => setSubTab(k), []);
 
-  const active = SECTIONS[(subTab as SectionKey) in SECTIONS ? (subTab as SectionKey) : "pv"];
+  const active = SECTIONS[(subTab in SECTIONS ? subTab : "pv") as SectionKey];
 
   // KPI values
   const kpiValues: Record<SectionKey, { value: number; sub: string }> = {
