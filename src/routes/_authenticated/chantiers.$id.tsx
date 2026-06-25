@@ -535,9 +535,20 @@ function ChantierDetailPage() {
         </button>
         <div className="mt-2 min-w-0">
           {(ch as { reference?: string }).reference && (
-            <div className="mb-1 inline-flex items-center rounded bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide">
+            <button
+              type="button"
+              onClick={async () => {
+                const ref = (ch as { reference: string }).reference;
+                try {
+                  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(ref);
+                  toast.success("Référence copiée");
+                } catch { toast.error("Copie impossible"); }
+              }}
+              className="mb-1 inline-flex items-center rounded bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide transition hover:bg-muted/70 active:scale-95"
+              title="Copier la référence"
+            >
               {(ch as { reference: string }).reference}
-            </div>
+            </button>
           )}
           <h1 className="truncate text-xl font-bold leading-tight">
             {ch.name}{surface != null && <span className="ml-1 text-sm font-normal text-muted-foreground">{surface}m²</span>}
