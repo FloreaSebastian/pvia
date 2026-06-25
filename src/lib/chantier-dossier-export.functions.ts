@@ -27,12 +27,31 @@ function extOf(name: string | null | undefined, fallback = "bin"): string {
   return m ? m[1].toLowerCase() : fallback;
 }
 
+/**
+ * Récupère les octets d'un asset depuis Storage.
+ * Accepte aussi bien un storage_path interne qu'une URL complète (legacy /
+ * signée), pour éviter un échec si une colonne `pdf_url` contient déjà une URL.
+ */
 async function downloadBytes(
   supabaseAdmin: any,
   bucket: string,
-  path: string,
+  pathOrUrl: string,
 ): Promise<Uint8Array | null> {
-  const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
+  if (!pathOrUrl) return null;
+  // URL complète (http[s]) → fetch direct.
+  if (/^https?:\/\//i.test(pathOrUrl)) {
+    try {
+      const r = await fetch(pathOrUrl);
+      if (!r.ok) return null;
+      const ab = await r.arrayBuffer();
+      return new Uint8Array(ab);
+    } catch {
+      return null;
+    }
+  }
+  // Storage path relatif au bucket (cas standard).
+  const cleaned = pathOrUrl.replace(/^\/+/, "");
+  const { data, error } = await supabaseAdmin.storage.from(bucket).download(cleaned);
   if (error || !data) return null;
   const ab = await (data as Blob).arrayBuffer();
   return new Uint8Array(ab);
@@ -41,8 +60,13 @@ async function downloadBytes(
 export const exportChantierDossier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z.object({ companyId: z.string().uuid(), chantierId: z.string().uuid() }).parse(i),
+    z.object({
+      companyId: z.string().uuid(),
+      chantierId: z.string().uuid(),
+      variant: z.enum(["internal", "client"]).default("internal"),
+    }).parse(i),
   )
+
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
