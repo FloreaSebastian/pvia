@@ -55,6 +55,7 @@ type CompanyData = {
   email: string;
   website: string;
   logo_url: string;
+  icon_url: string;
   created_at: string | null;
   company_verified: boolean;
   company_verified_at: string | null;
