@@ -19,8 +19,7 @@ import {
   Paperclip, Mail, History, ExternalLink, ChevronRight, Clock,
   FileCheck2, FileLock2, Package, ChevronDown,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { deriveDisplayStatus, STATUS_LABELS, STATUS_TONES } from "@/lib/reserve-lift-status";
@@ -76,11 +75,11 @@ export function DossierTab({
   const [loading, setLoading] = useState(true);
   const [busyLiftId, setBusyLiftId] = useState<string | null>(null);
 
-  // Sub-tab memorized in localStorage
+  // Sub-tab memorized in localStorage (default PV now that the Résumé tab is removed)
   const subTabKey = `chantier-dossier-tab:${chantierId}`;
   const [subTab, setSubTab] = useState<string>(() => {
-    if (typeof window === "undefined") return "resume";
-    try { return localStorage.getItem(subTabKey) ?? "resume"; } catch { return "resume"; }
+    if (typeof window === "undefined") return "pv";
+    try { return localStorage.getItem(subTabKey) ?? "pv"; } catch { return "pv"; }
   });
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -91,7 +90,8 @@ export function DossierTab({
     if (typeof window === "undefined") return;
     const handler = () => {
       try {
-        const v = localStorage.getItem(subTabKey);
+        let v = localStorage.getItem(subTabKey);
+        if (v === "resume") v = "pv";
         if (v && v !== subTab) setSubTab(v);
       } catch { /* noop */ }
     };
@@ -297,7 +297,7 @@ export function DossierTab({
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-end gap-2">
+      <div className="mb-3 flex items-center justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={() => downloadDossierZip("client")} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
           <Package className="h-3.5 w-3.5" />
           Export client
@@ -308,31 +308,15 @@ export function DossierTab({
         </Button>
       </div>
 
-      <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
+      <VueKpiGrid
+        detail={detail}
+        dossier={dossier}
+        chantierPhotosCount={allLightboxPhotos.length}
+        reserveCounts={reserveCounts}
+        onGoToSubTab={setSubTab}
+      />
 
-        <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
-          <TabsTrigger value="resume" className="text-[11px] sm:text-xs">Vue</TabsTrigger>
-          <TabsTrigger value="pv" className="text-[11px] sm:text-xs">PV ({detail.pvs.length})</TabsTrigger>
-          <TabsTrigger value="reserves" className="text-[11px] sm:text-xs">Rés. ({reserveCounts.total})</TabsTrigger>
-          <TabsTrigger value="levees" className="text-[11px] sm:text-xs">Lev. ({dossier?.liftReports.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="photos" className="text-[11px] sm:text-xs">Photos ({allLightboxPhotos.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="text-[11px] sm:text-xs">Docs ({detail.documents.length})</TabsTrigger>
-          <TabsTrigger value="emails" className="text-[11px] sm:text-xs">Emails ({dossier?.emails.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="historique" className="text-[11px] sm:text-xs">Hist.</TabsTrigger>
-        </TabsList>
-
-        {/* Vue — grille de KPI cliquables + actions rapides + dernière activité */}
-        <TabsContent value="resume" className="mt-3">
-          <VueKpiGrid
-            detail={detail}
-            dossier={dossier}
-            chantierPhotosCount={allLightboxPhotos.length}
-            reserveCounts={reserveCounts}
-            onGoToSubTab={setSubTab}
-          />
-        </TabsContent>
-
-
+      <Tabs value={subTab} onValueChange={setSubTab} className="mt-4 w-full">
 
         {/* PV */}
         <TabsContent value="pv" className="mt-3">
@@ -626,18 +610,6 @@ function ReserveRow({
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return (
-    <Card className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-muted sm:h-9 sm:w-9">{icon}</div>
-      <div className="min-w-0">
-        <p className="truncate text-[10px] uppercase tracking-wider text-muted-foreground sm:text-xs">{label}</p>
-        <p className="text-base font-semibold tabular-nums sm:text-lg">{value}</p>
-      </div>
-    </Card>
-  );
-}
-
 function PhotoGrid({
   items, onOpen,
 }: {
@@ -684,13 +656,6 @@ function VueKpiGrid({
   reserveCounts: { total: number; open: number; lifted: number; validated: number; rejected: number };
   onGoToSubTab: (v: string) => void;
 }) {
-  const chantierId = (detail.chantier as any)?.id as string;
-  const nowMs = Date.now();
-  const nextEvent = (detail.events ?? [])
-    .filter((e: any) => e.start_at && new Date(e.start_at).getTime() >= nowMs && e.status !== "annule")
-    .sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0];
-  const lastAudit = detail.auditLogs?.[0];
-
   const kpis: Array<{
     key: string;
     icon: React.ReactNode;
@@ -710,72 +675,20 @@ function VueKpiGrid({
   ];
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {kpis.map((k) => (
-          <button
-            key={k.key}
-            type="button"
-            onClick={k.onClick}
-            className="group flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.98]"
-          >
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-muted">{k.icon}</div>
-            <p className="text-2xl font-semibold leading-none tabular-nums">{k.value}</p>
-            <p className="text-[11px] font-medium">{k.label}</p>
-            <p className="text-[10px] text-muted-foreground">{k.sub}</p>
-          </button>
-        ))}
-      </div>
-
-      <Card className="p-3">
-        <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Actions rapides</p>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="default" className="h-9 gap-1.5">
-            <Link to="/pv/new" search={{ chantierId } as any}>
-              <FileText className="h-4 w-4" /> Créer un PV
-            </Link>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9 gap-1.5"
-            onClick={() => {
-              try { window.dispatchEvent(new CustomEvent("chantier-main-tab", { detail: "photos" })); } catch { /* noop */ }
-              onGoToSubTab("photos");
-            }}
-          >
-            <ImageIcon className="h-4 w-4" /> Ajouter une photo
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => onGoToSubTab("documents")}>
-            <Paperclip className="h-4 w-4" /> Ajouter un document
-          </Button>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Card className="p-3">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Dernière activité</p>
-          {lastAudit ? (
-            <>
-              <p className="text-sm font-medium">{lastAudit.action}</p>
-              <p className="text-[11px] text-muted-foreground">{fmt(lastAudit.created_at)}</p>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Aucune activité enregistrée</p>
-          )}
-        </Card>
-        <Card className="p-3">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Prochaine échéance</p>
-          {nextEvent ? (
-            <>
-              <p className="text-sm font-medium">{(nextEvent as any).title ?? (nextEvent as any).event_type ?? "Évènement"}</p>
-              <p className="text-[11px] text-muted-foreground">{fmtDay((nextEvent as any).start_at)}</p>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Aucune échéance planifiée</p>
-          )}
-        </Card>
-      </div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {kpis.map((k) => (
+        <button
+          key={k.key}
+          type="button"
+          onClick={k.onClick}
+          className="group flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.98]"
+        >
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-muted">{k.icon}</div>
+          <p className="text-2xl font-semibold leading-none tabular-nums">{k.value}</p>
+          <p className="text-[11px] font-medium">{k.label}</p>
+          <p className="text-[10px] text-muted-foreground">{k.sub}</p>
+        </button>
+      ))}
     </div>
   );
 }
