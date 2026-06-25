@@ -1564,6 +1564,103 @@ function ChantierDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ===== Edit chantier — Bottom Sheet ===== */}
+      <Sheet open={editOpen} onOpenChange={setEditOpen}>
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl p-0">
+          <div className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
+            <SheetHeader className="space-y-1 text-left">
+              <SheetTitle className="text-base">Modifier le chantier</SheetTitle>
+              <SheetDescription className="flex items-center gap-2 text-xs">
+                {(ch as { reference?: string }).reference && (
+                  <Badge variant="outline" className="font-mono text-[10px]">{(ch as { reference: string }).reference}</Badge>
+                )}
+                <span>Référence non modifiable</span>
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+
+          <div className="space-y-3 px-4 py-4">
+            <div>
+              <Label className="text-xs">Nom du chantier *</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Type</Label>
+                <Input value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })} placeholder="BTP, rénovation..." />
+              </div>
+              <div>
+                <Label className="text-xs">Statut</Label>
+                <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CHANTIER_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Client lié</Label>
+              <Select value={editForm.client_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, client_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun</SelectItem>
+                  {editClients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.client_type === "entreprise" ? (c.company_name || c.name) : c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs">Adresse</Label>
+              <Input value={editForm.address_line1} onChange={(e) => setEditForm({ ...editForm, address_line1: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">CP</Label>
+                <Input value={editForm.postal_code} onChange={(e) => setEditForm({ ...editForm, postal_code: e.target.value })} inputMode="numeric" />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs">Ville</Label>
+                <Input value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Début</Label>
+                <Input type="date" value={editForm.start_date} onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Fin prévue</Label>
+                <Input type="date" value={editForm.end_date} onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value })} />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Textarea rows={3} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+            </div>
+          </div>
+
+          <SheetFooter className="sticky bottom-0 flex-row gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur">
+            <Button variant="outline" className="flex-1" onClick={() => setEditOpen(false)} disabled={editSaving}>
+              Annuler
+            </Button>
+            <Button className="flex-1" onClick={saveEditChantier} disabled={editSaving || !editForm.name.trim()}>
+              {editSaving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
 
   );
