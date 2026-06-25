@@ -19,9 +19,7 @@ import {
   Paperclip, Mail, History, ExternalLink, ChevronRight, Clock,
   FileCheck2, FileLock2, Package, ChevronDown,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
-import { StatusPill } from "@/components/ui/status-pill";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { deriveDisplayStatus, STATUS_LABELS, STATUS_TONES } from "@/lib/reserve-lift-status";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
