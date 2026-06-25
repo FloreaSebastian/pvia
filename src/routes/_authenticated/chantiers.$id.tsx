@@ -624,9 +624,34 @@ function ChantierDetailPage() {
               {(ch as { reference: string }).reference}
             </button>
           )}
-          <h1 className="truncate text-xl font-bold leading-tight">
-            {ch.name}{surface != null && <span className="ml-1 text-sm font-normal text-muted-foreground">{surface}m²</span>}
-          </h1>
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="truncate text-xl font-bold leading-tight">
+              {ch.name}{surface != null && <span className="ml-1 text-sm font-normal text-muted-foreground">{surface}m²</span>}
+            </h1>
+            {canWrite && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0"
+                      onClick={openEditChantier}
+                      disabled={isLocked}
+                      aria-label="Modifier le chantier"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  {isLocked && (
+                    <TooltipContent side="left" className="text-xs">
+                      Chantier verrouillé. Réouvrir pour modifier.
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <StatusPill tone={statusTone} size="sm" dot>{statusLabel}</StatusPill>
