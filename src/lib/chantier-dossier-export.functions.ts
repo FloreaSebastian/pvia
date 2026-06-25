@@ -117,10 +117,15 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
 
     // 3) Construction du ZIP — admin client pour téléchargement Storage
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const isClientVariant = data.variant === "client";
     const zip = new JSZip();
     const manifest: Record<string, unknown> = {
       generated_at: new Date().toISOString(),
       generated_by: userId,
+      variant: data.variant,
+      privacy_notice: isClientVariant
+        ? "Variante CLIENT : coordonnées GPS exactes retirées (seul un indicateur is_geolocated est conservé)."
+        : "Variante INTERNE : contient des données sensibles (coordonnées GPS exactes des photos). À ne pas diffuser au client.",
       chantier: {
         id: chantier.id,
         reference: ref,
@@ -134,6 +139,7 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
       photos: [] as Array<Record<string, unknown>>,
       documents: [] as Array<Record<string, unknown>>,
     };
+
 
     // 01-PV
     for (const p of pvs as any[]) {
