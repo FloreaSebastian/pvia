@@ -477,6 +477,15 @@ function NewPv() {
     }
   }, [form.chantier_id, chantiers]);
 
+  // Si le chantier sélectionné possède déjà un PV → on l'écarte et on prévient l'utilisateur.
+  useEffect(() => {
+    if (form.chantier_id && usedChantierIds.has(form.chantier_id)) {
+      toast.error("Ce chantier possède déjà un PV. Un seul PV peut être créé par chantier.");
+      setForm((f) => ({ ...f, chantier_id: "" }));
+    }
+  }, [form.chantier_id, usedChantierIds]);
+
+
   // Reset OTP and prefill onsite email when client changes
   useEffect(() => {
     const cl = clients.find((c) => c.id === form.client_id);
