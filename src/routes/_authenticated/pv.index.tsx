@@ -127,11 +127,13 @@ function PvList() {
       if (!q) return true;
       const cn = p.clients?.name ?? "";
       const ch = p.chantiers?.name ?? "";
+      const cref = p.chantiers?.reference ?? "";
       return (
         p.numero.toLowerCase().includes(q) ||
         (p.type ?? "").toLowerCase().includes(q) ||
         cn.toLowerCase().includes(q) ||
-        ch.toLowerCase().includes(q)
+        ch.toLowerCase().includes(q) ||
+        cref.toLowerCase().includes(q)
       );
     });
     const cmpDate = (a: Pv, b: Pv) =>
