@@ -611,18 +611,6 @@ function ReserveRow({
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return (
-    <Card className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-muted sm:h-9 sm:w-9">{icon}</div>
-      <div className="min-w-0">
-        <p className="truncate text-[10px] uppercase tracking-wider text-muted-foreground sm:text-xs">{label}</p>
-        <p className="text-base font-semibold tabular-nums sm:text-lg">{value}</p>
-      </div>
-    </Card>
-  );
-}
-
 function PhotoGrid({
   items, onOpen,
 }: {
