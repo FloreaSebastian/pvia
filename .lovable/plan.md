@@ -1,86 +1,119 @@
-# Refonte métier — Réserve enrichie + Dossier chantier
+# Référence chantier unique (CH####XX) + amélioration du dossier
 
-Ce chantier est volumineux. Je propose de le livrer en **2 lots indépendants**, chacun shippable seul, mobile-first, sans casser l'existant.
-
----
-
-## LOT 1 — Fiche réserve "dossier complet"
-
-**Cible** : `src/components/pv/ReserveDetailDialog.tsx` (déjà existant) → refonte en vue structurée + mobile bottom-sheet.
-
-### Sections affichées (accordéons repliables sur mobile)
-
-1. **Réserve** — nature, description, gravité, priorité, statut, échéance, responsable, travaux, PV/chantier/client (liens).
-2. **Photos constat initial** — requête `pv_photos` filtrées `reserve_id = reserve.id`. Grille 2 col mobile, badges GPS, lightbox via `PhotoLightboxDialog`, bouton carte si GPS.
-3. **Levées liées** — `reserve_lift_items` join `reserve_lift_reports` filtrées par `reserve_id`. Pour chaque levée : numéro, dates, statut, mode validation, intervenant, validation client, motif rejet, commentaire.
-4. **Photos après intervention** — `reserve_lift_item_photos` `photo_type='after'` groupées par levée.
-5. **Mode comparatif Avant / Après** — toggle dédié, 2 colonnes desktop / vertical mobile.
-6. **Actions contextuelles** (selon statut) — Lever, Voir levée, Renvoyer client, PDF client, PDF interne, Export expertise, Nouvelle tentative.
-7. **Timeline courte** — reconstruite depuis `audit_logs` filtrés (`reserve` + `reserve_lift` liés).
-
-### Nouveaux fichiers
-- `src/lib/reserve-detail.functions.ts` — `getReserveDossier({ companyId, reserveId })` : retourne `{ reserve, pv, chantier, client, photosBefore, lifts:[{report, items, photosAfter}], timeline }`.
-- `src/components/pv/ReserveBeforeAfterGrid.tsx` — galerie comparative réutilisable.
-
-### Fichiers modifiés
-- `src/components/pv/ReserveDetailDialog.tsx` — refonte UI, bottom-sheet mobile via `Sheet side="bottom"`, accordéons.
+## Objectif
+Donner à chaque chantier une **référence immuable** au format `CH####XX` (4 chiffres séquentiels + 2 lettres aléatoires A–Z), utilisée partout : UI, recherche, photos, documents, PDF, exports ZIP, audit, emails. **Aucune régression** : on conserve les cartes du dossier chantier, on enrichit leur contenu.
 
 ---
 
-## LOT 2 — Dossier chantier
+## Lot 1 — Données & génération
 
-**Cible** : `src/routes/_authenticated/chantiers.$id.tsx`. Ajout d'un onglet **Dossier** (Tabs existants).
+### Migration SQL
+1. `ALTER TABLE public.chantiers ADD COLUMN reference varchar(16);`
+2. Fonction `public.generate_chantier_reference(_company_id uuid)` :
+   - Verrouille un compteur par société dans `company_settings` (nouvelle colonne `chantier_reference_next int DEFAULT 1`).
+   - Boucle jusqu'à trouver une combinaison `CH` + 4 chiffres (`lpad`) + 2 lettres aléatoires non utilisée (`UNIQUE` sur `(company_id, reference)`).
+3. Backfill : pour chaque chantier sans référence, en ordre `created_at`, assigner `CH0001AA`, `CH0002AB`, … (lettres déterministes basées sur l'index, garanties uniques).
+4. `ALTER TABLE … ALTER COLUMN reference SET NOT NULL;`
+5. `CREATE UNIQUE INDEX chantiers_company_reference_uq ON public.chantiers (company_id, reference);`
+6. Trigger `BEFORE INSERT` : si `reference IS NULL`, appelle `generate_chantier_reference`.
+7. Trigger `BEFORE UPDATE` : bloque toute modification de `reference` (immuable).
+8. Bloc d'audit : `chantier.reference_assigned` à la création.
 
-### Sous-onglets (mobile = accordéons)
-
-1. **Résumé** — KPIs compacts (PV, réserves ouvertes/validées, levées, statut, dates).
-2. **PV** — liste cartes (numéro, statut, avec/sans réserve, PDF).
-3. **Réserves** — groupées par PV, avec accès direct à `ReserveDetailDialog`.
-4. **Levées** — toutes les `reserve_lift_reports` du chantier.
-5. **Photos** — galerie unifiée par source (PV / constat / après / docs) avec lightbox.
-6. **Documents** — PDF PV signés, PDF levées (client/interne), exports expertise, `chantier_documents`.
-7. **Emails** — `email_logs` filtrés par chantier/PV.
-8. **Historique** — timeline unifiée depuis `audit_logs` (chantier + PV + réserves + levées).
-
-### Export dossier chantier (ZIP)
-- Bouton **"Exporter dossier chantier"** réservé rôles `directeur` / `responsable_exploitation` / `conducteur_travaux`.
-- Server fn calquée sur `exportReserveLiftExpertise` mais agrégée chantier.
-
-### Nouveaux fichiers
-- `src/lib/chantier-dossier.functions.ts` — `getChantierDossier` + `exportChantierDossier` (ZIP).
-- `src/components/chantier/DossierTab.tsx` — conteneur onglet (lazy-loaded).
-- `src/components/chantier/DossierSummary.tsx`
-- `src/components/chantier/DossierPvList.tsx`
-- `src/components/chantier/DossierReserves.tsx`
-- `src/components/chantier/DossierLifts.tsx`
-- `src/components/chantier/DossierGallery.tsx`
-- `src/components/chantier/DossierDocuments.tsx`
-- `src/components/chantier/DossierEmails.tsx`
-- `src/components/chantier/DossierTimeline.tsx`
-
-### Fichiers modifiés
-- `src/routes/_authenticated/chantiers.$id.tsx` — ajout onglet "Dossier".
+### Code serveur
+- `src/lib/chantiers.functions.ts` : retirer la génération côté JS (faite en DB), exposer la référence dans les retours.
+- `src/lib/chantier-detail.functions.ts` : inclure `reference` dans le `select`.
+- `src/lib/audit.server.ts` : enrichir les `metadata` chantier avec `reference` + `name`.
 
 ---
 
-## Sécurité
-- Toutes les server fns sous `requireSupabaseAuth` + check `get_company_role`.
-- Export ZIP : check rôle, audit log.
-- Jamais d'URL signée PDF interne ni GPS exact côté client (client portal hors scope ici).
+## Lot 2 — Affichage & recherche
 
-## Stack
-- Pas de nouveau package : `JSZip` déjà utilisé. Réutilisation `Sheet`, `Tabs`, `Accordion`, `Dialog`, `PhotoLightboxDialog`.
-- Loaders via TanStack Query (`ensureQueryData` + `useSuspenseQuery`), conforme template.
+### Affichage
+- **Liste chantiers** (`src/routes/_authenticated/chantiers.index.tsx`) : badge `CH0007PV` en tête de chaque carte.
+- **Fiche chantier** (`src/routes/_authenticated/chantiers.$id.tsx`) : premier bloc du dossier réécrit en `Référence / Nom / Client / Adresse / Statut / Type`.
+- **Liste PV** (`src/routes/_authenticated/pv.index.tsx`) : afficher la référence chantier sous le numéro PV.
+- **Réserves** (`src/routes/_authenticated/reserves.tsx`) et `ReserveDetailDialog` : ligne "Chantier : CH0007PV — Villa Marius".
 
-## Estimation
-- Lot 1 : ~1 fichier modifié, 2 créés, ~600 lignes.
-- Lot 2 : 1 modifié, 10 créés, ~1500 lignes.
-- TypeScript strict OK, mobile testé 360/390/430.
+### Recherche
+- Étendre les filtres existants (`chantiers.index`, `pv.index`, recherche globale) à `reference` (ILIKE `%term%`). Match exact sur `CH####XX` redirige directement vers la fiche chantier.
 
 ---
 
-## Question avant implémentation
+## Lot 3 — Photos & documents
 
-**Veux-tu que je livre les 2 lots d'un seul coup**, ou **uniquement le Lot 1** (Réserve enrichie) en premier pour valider l'ergonomie avant d'attaquer le Dossier chantier ?
+### Photos chantier
+- `src/lib/chantier-photos.functions.ts` :
+  - Storage path : `${companyId}/chantiers/${reference}/${section}/${uuid}.jpg` (section = `avant|pendant|fin`).
+  - Métadonnée `display_name` = `CH0007PV-AVANT-001` (compteur par section, calculé via `count + 1`).
+  - Le nom physique reste un UUID ; l'UI affiche `display_name`.
+- `ChantierPhotosTab.tsx` : afficher le `display_name`, jamais l'URL.
 
-Mon conseil : **Lot 1 d'abord** — plus petit, validable en 1 session, et la fiche réserve est réutilisée dans le Lot 2.
+### Documents
+- `chantier_documents` : nouveau champ `display_name` ; à l'upload, préfixer `${reference}-` au nom original.
+- `pv_documents`, exports : nom de fichier `CH0007PV-PV-${numero}.pdf`.
+
+### PDF
+- `src/lib/pdf.functions.ts` / `pdf.server.ts` : en-tête et pied de page de chaque page → `Référence : CH0007PV — Villa Marius`. Pas de logique métier modifiée.
+
+---
+
+## Lot 4 — Exports & dossier chantier
+
+### Export ZIP
+- `src/lib/chantier-dossier.functions.ts` : `exportChantierDossier` (nouveau)
+  - Nom : `${reference}-${slug(name)}.zip`
+  - Arborescence : `Photos/{Avant,Pendant,Fin}/`, `Documents/`, `PV/`, `Réserves/`, `Levées/`.
+  - Réutilise JSZip (déjà présent). Check de rôle (`directeur` / `responsable_exploitation` / `conducteur_travaux`).
+
+### Dossier chantier (UI) — on garde les cartes
+- `DossierTab.tsx` / `DossierSummary.tsx` :
+  - Bloc identité enrichi (référence en tête, gros, mono).
+  - Grille KPI 2×4 cliquable (PV, Réserves, Ouvertes, Levées, Photos, Documents, Emails, Évènements). Chaque carte → switch d'onglet/sous-onglet.
+  - Design conservé : coins arrondis, ombre légère, fond blanc, icône colorée, gros chiffre, libellé petit.
+
+---
+
+## Lot 5 — Audit, emails, compatibilité
+
+- `writeAuditLog` chantier : injecter automatiquement `{ chantier_reference, chantier_name }` dans `metadata`.
+- Emails (réserves, levées, PV) : variable `{{chantier_reference}}` dans les templates + objet ("Chantier CH0007PV — …").
+- Anciens liens (`/chantiers/:id`) : inchangés. Nouveau résolveur `/chantiers/ref/:reference` qui redirige vers l'`id` (utile pour la recherche directe par référence).
+
+---
+
+## Détails techniques
+
+```text
+CH | 0007 | PV
+   ^^^^    ^^
+   seq     2 lettres A–Z aléatoires (collisions résolues par retry en DB)
+```
+
+- Unicité scoping : `(company_id, reference)` — la séquence est par société, pas globale.
+- Immuabilité : trigger DB + pas d'UI d'édition.
+- Backfill : déterministe, exécuté dans la même migration, transactionnel.
+- Pas de nouveau package. JSZip déjà utilisé.
+- TypeScript strict : `reference: string` non null partout après migration ; types Supabase régénérés après l'approbation.
+
+---
+
+## Livrables
+
+1. Migration SQL (colonne, unique index, fonction de génération, triggers, backfill).
+2. Server fns mises à jour : `chantiers.functions.ts`, `chantier-detail.functions.ts`, `chantier-photos.functions.ts`, `chantier-dossier.functions.ts` (nouveau export ZIP).
+3. UI : `chantiers.index`, `chantiers.$id`, `DossierTab`/`DossierSummary`, `ChantierPhotosTab`, `pv.index`, `reserves`, `ReserveDetailDialog`.
+4. PDF : en-tête/pied avec référence.
+5. Audit + emails : référence injectée.
+6. Test E2E rapide : `tests/e2e/chantier-flow.spec.ts` étendu pour vérifier la présence de la référence sur la fiche et dans la liste.
+
+---
+
+## Question avant exécution
+
+Le périmètre est volumineux (~15 fichiers + migration + PDF + ZIP). Je propose de découper la livraison :
+
+- **Phase A (cette session)** : Lots 1 + 2 (migration, génération, affichage, recherche) — base solide, visible immédiatement.
+- **Phase B** : Lots 3 + 4 (photos, documents, PDF, export ZIP, dossier enrichi).
+- **Phase C** : Lot 5 (audit/emails) + tests E2E.
+
+**Tu veux que je lance Phase A seule, ou tout d'un bloc ?** Mon conseil : Phase A d'abord pour valider le format de référence et le backfill sur tes données réelles avant de propager dans les PDF/exports.

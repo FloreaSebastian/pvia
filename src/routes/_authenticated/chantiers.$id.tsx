@@ -534,6 +534,11 @@ function ChantierDetailPage() {
           <ArrowLeft className="h-4 w-4" /> Retour
         </button>
         <div className="mt-2 min-w-0">
+          {(ch as { reference?: string }).reference && (
+            <div className="mb-1 inline-flex items-center rounded bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide">
+              {(ch as { reference: string }).reference}
+            </div>
+          )}
           <h1 className="truncate text-xl font-bold leading-tight">
             {ch.name}{surface != null && <span className="ml-1 text-sm font-normal text-muted-foreground">{surface}m²</span>}
           </h1>
@@ -578,7 +583,7 @@ function ChantierDetailPage() {
       <div className="hidden md:block">
         <PageHeader
           title={ch.name}
-          description={ch.type ?? "Chantier"}
+          description={`${(ch as { reference?: string }).reference ?? ""}${(ch as { reference?: string }).reference && ch.type ? " · " : ""}${ch.type ?? ""}`.trim() || "Chantier"}
           contained={false}
           className="border-0 bg-transparent px-0 py-0"
           actions={

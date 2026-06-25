@@ -34,7 +34,7 @@ type Pv = {
   reception_with_reserves: boolean | null;
   chantier_id: string | null;
   client_id: string | null;
-  chantiers?: { name: string | null } | null;
+  chantiers?: { name: string | null; reference: string | null } | null;
   clients?: { name: string | null } | null;
   pv_reserves?: { count: number }[] | null;
 };
@@ -96,7 +96,7 @@ function PvList() {
     setLoading(true);
     const { data, error } = await supabase
       .from("pv")
-      .select("id,numero,type,status,reception_date,created_at,pdf_url,reception_with_reserves,chantier_id,client_id,chantiers(name),clients(name),pv_reserves(count)")
+      .select("id,numero,type,status,reception_date,created_at,pdf_url,reception_with_reserves,chantier_id,client_id,chantiers(name,reference),clients(name),pv_reserves(count)")
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
     if (error) {
@@ -127,11 +127,13 @@ function PvList() {
       if (!q) return true;
       const cn = p.clients?.name ?? "";
       const ch = p.chantiers?.name ?? "";
+      const cref = p.chantiers?.reference ?? "";
       return (
         p.numero.toLowerCase().includes(q) ||
         (p.type ?? "").toLowerCase().includes(q) ||
         cn.toLowerCase().includes(q) ||
-        ch.toLowerCase().includes(q)
+        ch.toLowerCase().includes(q) ||
+        cref.toLowerCase().includes(q)
       );
     });
     const cmpDate = (a: Pv, b: Pv) =>
@@ -396,7 +398,10 @@ function PvList() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{p.type}</TableCell>
                   <TableCell><PvStatusPill status={p.status} /></TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground">{p.chantiers?.name ?? "—"}</TableCell>
+                  <TableCell className="max-w-[220px] truncate text-muted-foreground">
+                    {p.chantiers?.reference && <span className="mr-1 rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold text-foreground">{p.chantiers.reference}</span>}
+                    {p.chantiers?.name ?? "—"}
+                  </TableCell>
                   <TableCell>
                     {p.reception_with_reserves ? (
                       <StatusPill tone="warning" size="sm">{rc > 0 ? `${rc} réserves` : "Avec réserves"}</StatusPill>
@@ -549,6 +554,7 @@ function PvCard({
   onRemove: () => void;
 }) {
   const ch = pv.chantiers?.name;
+  const chRef = pv.chantiers?.reference;
   const cn = pv.clients?.name;
   const rc = reservesCount(pv);
   const withReserves = !!pv.reception_with_reserves;
@@ -574,6 +580,7 @@ function PvCard({
         {ch && (
           <div className="flex items-center gap-1.5 text-foreground/90">
             <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+            {chRef && <span className="rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold">{chRef}</span>}
             <span className="truncate">{ch}</span>
           </div>
         )}

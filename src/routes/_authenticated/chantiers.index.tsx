@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/chantiers/")({
 });
 
 type Chantier = {
-  id: string; name: string; address: string | null;
+  id: string; reference: string; name: string; address: string | null;
   address_line1: string | null; postal_code: string | null; city: string | null;
   latitude: number | null; longitude: number | null;
   type: string | null; status: string; client_id: string | null;
@@ -215,6 +215,7 @@ function ChantiersPage() {
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
+        (c.reference ?? "").toLowerCase().includes(q) ||
         (c.address ?? "").toLowerCase().includes(q) ||
         (c.type ?? "").toLowerCase().includes(q) ||
         (clientName(c.client_id) ?? "").toLowerCase().includes(q)
@@ -513,6 +514,7 @@ function ChantiersPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">{c.reference}</span>
                       <p className="truncate font-semibold leading-tight">{c.name}</p>
                     </div>
                     {c.address && (
@@ -582,6 +584,7 @@ function ChantiersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Référence</TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Statut</TableHead>
@@ -593,6 +596,7 @@ function ChantiersPage() {
             <TableBody>
               {filtered.map((c) => (
                 <TableRow key={c.id} className="group cursor-pointer" onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}>
+                  <TableCell className="font-mono text-xs font-semibold">{c.reference}</TableCell>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.type ? <StatusPill tone="neutral">{c.type}</StatusPill> : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>
