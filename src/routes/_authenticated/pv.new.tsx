@@ -958,17 +958,78 @@ function NewPv() {
             Procès-verbal de réception de travaux — avec ou sans réserves.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {lastSaved && (
             <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
               <Cloud className="h-3 w-3 text-success" /> Sauvegardé {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={saving}
+            onClick={() => {
+              if (!confirm("Supprimer définitivement ce brouillon ? Le formulaire sera réinitialisé.")) return;
+              clearDraftStorage();
+              resetWizard();
+              toast.success("Brouillon supprimé.");
+            }}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" /> Supprimer le brouillon
+          </Button>
           <Button variant="outline" disabled={saving} onClick={() => onSave("brouillon")}>
             <Save className="h-4 w-4" /> Enregistrer en brouillon
           </Button>
         </div>
       </div>
+
+      {/* Draft restore prompt — shown on entry if a stored draft exists and no explicit override */}
+      <Dialog open={draftPrompt.open} onOpenChange={(o) => { if (!o) { bootstrappedRef.current = true; setDraftPrompt((p) => ({ ...p, open: false })); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Brouillon existant</DialogTitle>
+            <DialogDescription>
+              Un brouillon de PV est sauvegardé{draftPrompt.savedAt ? ` depuis le ${new Date(draftPrompt.savedAt).toLocaleString("fr-FR")}` : ""}.
+              Voulez-vous le reprendre ou commencer un nouveau PV ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                clearDraftStorage();
+                setDraftPrompt({ open: false, savedAt: null });
+                bootstrappedRef.current = true;
+                toast.success("Brouillon supprimé.");
+              }}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" /> Supprimer le brouillon
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                clearDraftStorage();
+                resetWizard();
+                setDraftPrompt({ open: false, savedAt: null });
+                bootstrappedRef.current = true;
+              }}
+            >
+              Nouveau PV vide
+            </Button>
+            <Button
+              onClick={() => {
+                restoreDraft();
+                setDraftPrompt({ open: false, savedAt: null });
+                bootstrappedRef.current = true;
+              }}
+            >
+              Reprendre
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="overflow-hidden p-0">
         <div className="border-b border-border bg-gradient-to-b from-muted/40 to-muted/10 px-4 py-3 sm:px-5">
