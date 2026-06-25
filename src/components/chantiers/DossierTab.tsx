@@ -297,12 +297,17 @@ export function DossierTab({
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-end">
-        <Button size="sm" variant="outline" onClick={downloadDossierZip} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
+      <div className="mb-2 flex items-center justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={() => downloadDossierZip("client")} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
           <Package className="h-3.5 w-3.5" />
-          {busyDossier ? "Préparation…" : "Exporter le dossier"}
+          Export client
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => downloadDossierZip("internal")} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
+          <Package className="h-3.5 w-3.5" />
+          {busyDossier ? "Préparation…" : "Export interne"}
         </Button>
       </div>
+
       <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
 
         <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
