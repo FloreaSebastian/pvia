@@ -17,6 +17,7 @@ import { useCompany } from "@/hooks/use-company";
 import { PageHeader } from "@/components/app/PageHeader";
 import { cn } from "@/lib/utils";
 import { ClientTypeSelector, ClientFormFields, EMPTY_CLIENT_FORM, type ClientFormState } from "@/components/clients/ClientTypeForm";
+import { ClientDetailDialog } from "@/components/clients/ClientDetailDialog";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   component: ClientsPage,
@@ -48,10 +49,25 @@ function ClientsPage() {
   const [typeFilter, setTypeFilter] = useState<"all" | "particulier" | "entreprise">("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
+  const [detailClient, setDetailClient] = useState<Client | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const canWrite = can("manage");
   const createFn = useServerFn(createClientFn);
   const updateFn = useServerFn(updateClientFn);
   const deleteFn = useServerFn(deleteClientFn);
+
+  function openDetail(c: Client) {
+    setDetailClient(c);
+    setDetailOpen(true);
+  }
+  function handleEditFromDetail(c: Client) {
+    setDetailOpen(false);
+    openEdit(c);
+  }
+  function handleDeleteFromDetail(id: string) {
+    setDetailOpen(false);
+    remove(id);
+  }
 
   async function load() {
     if (!activeCompanyId) return;
@@ -262,7 +278,7 @@ function ClientsPage() {
             const isEnt = c.client_type === "entreprise";
             const Icon = isEnt ? Building2 : User;
             return (
-            <Card key={c.id} className="group relative flex flex-col gap-2.5 p-4 transition hover:-translate-y-0.5 hover:shadow-brand sm:gap-3 sm:p-5">
+            <Card key={c.id} onClick={() => openDetail(c)} className="group relative flex cursor-pointer flex-col gap-2.5 p-4 transition duration-150 hover:-translate-y-0.5 hover:shadow-brand active:scale-[0.99] sm:gap-3 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-primary-foreground shadow-brand sm:h-11 sm:w-11">
                   <Icon className="h-5 w-5" />
@@ -277,14 +293,14 @@ function ClientsPage() {
                 </div>
                 {canWrite && (
                   <div className="-mr-1 -mt-1 flex shrink-0 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(c)} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(c.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); remove(c.id); }} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 )}
               </div>
               <div className="space-y-1 text-xs sm:text-sm">
-                {c.email && (<a href={`mailto:${c.email}`} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.email}</span></a>)}
-                {c.phone && (<a href={`tel:${c.phone}`} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.phone}</span></a>)}
+                {c.email && (<a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.email}</span></a>)}
+                {c.phone && (<a href={`tel:${c.phone}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.phone}</span></a>)}
                 {c.city && (<p className="flex items-center gap-2 truncate text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.city}</span></p>)}
                 {!c.email && !c.phone && !c.city && (<p className="text-xs italic text-muted-foreground">Aucun contact renseigné</p>)}
               </div>
@@ -311,7 +327,7 @@ function ClientsPage() {
             </TableHeader>
             <TableBody>
               {filtered.map((c) => (
-                <TableRow key={c.id} className="group">
+                <TableRow key={c.id} onClick={() => openDetail(c)} className="group cursor-pointer">
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
                       <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-gradient text-xs font-semibold text-primary-foreground">{initials(c.name) || "?"}</div>
@@ -326,8 +342,8 @@ function ClientsPage() {
                   <TableCell className="text-right">
                     {canWrite && (
                       <div className="inline-flex opacity-60 transition group-hover:opacity-100">
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); remove(c.id); }} aria-label="Supprimer"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     )}
                   </TableCell>
@@ -337,6 +353,14 @@ function ClientsPage() {
           </Table>
         </Card>
       )}
+
+      <ClientDetailDialog
+        client={detailClient}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onEdit={handleEditFromDetail}
+        onDelete={handleDeleteFromDetail}
+      />
     </div>
   );
 }
