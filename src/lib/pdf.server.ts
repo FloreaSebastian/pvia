@@ -7,10 +7,12 @@ type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined
 type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
 type Chantier = {
   name?: string | null;
+  reference?: string | null;
   address?: string | null;
   start_date?: string | null;
   end_date?: string | null;
 } | undefined;
+
 type Reserve = {
   description: string;
   severity: string;
@@ -210,7 +212,9 @@ export async function generatePvPdfBytes(input: {
     p.drawLine({ start: { x: MARGIN, y: 32 }, end: { x: PAGE_W - MARGIN, y: 32 }, thickness: 0.5, color: BORDER });
     const footerL = sanitize(branding.pdf_footer || "PVIA - Reception de travaux intelligente");
     p.drawText(footerL, { x: MARGIN, y: 20, size: 7.5, font: helv, color: MUTED });
-    const mid = `PV N° ${sanitize(pv.numero)}  -  Genere le ${formatDate(proof?.pdfGeneratedAt ?? new Date().toISOString())}`;
+    const chRefFooter = chantier?.reference ? `  -  Chantier ${sanitize(chantier.reference)}` : "";
+    const mid = `PV N° ${sanitize(pv.numero)}${chRefFooter}  -  Genere le ${formatDate(proof?.pdfGeneratedAt ?? new Date().toISOString())}`;
+
     const midW = helv.widthOfTextAtSize(mid, 7.5);
     p.drawText(mid, { x: (PAGE_W - midW) / 2, y: 20, size: 7.5, font: helv, color: MUTED });
     p.drawText(`Page ${num}`, { x: PAGE_W - MARGIN - 36, y: 20, size: 7.5, font: bold, color: ACCENT });
@@ -385,7 +389,7 @@ export async function generatePvPdfBytes(input: {
     }
   })();
   const cells: { label: string; value: string }[] = [
-    { label: "Chantier", value: chantier?.name ?? "-" },
+    { label: "Chantier", value: chantier?.reference ? `${chantier.reference} - ${chantier?.name ?? "-"}` : (chantier?.name ?? "-") },
     { label: refTypeLabel, value: pv.work_reference_number ?? "-" },
     { label: "Date reception", value: formatDate(pv.reception_date) },
     { label: "Debut travaux", value: formatDate(chantier?.start_date ?? null) },
@@ -907,7 +911,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
       ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
     pv.chantier_id
-      ? supabaseAdmin.from("chantiers").select("name,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
+      ? supabaseAdmin.from("chantiers").select("name,reference,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("pv_photos").select("id,url,caption,reserve_id").eq("pv_id", pvId).order("created_at"),
     supabaseAdmin.from("pv_reserves").select("id,description,severity,status,nature,work_to_execute,due_date,priority,assigned_to,lifted_at,validated_at").eq("pv_id", pvId).order("created_at"),

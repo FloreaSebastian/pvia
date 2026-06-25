@@ -74,7 +74,7 @@ export const createChantierPhoto = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
 
-    // Compute next index per type for the label
+    // Compute next index per type for the label, prefixed by chantier reference (CH####XX)
     const { count } = await supabase
       .from("chantier_photos")
       .select("id", { count: "exact", head: true })
@@ -82,7 +82,14 @@ export const createChantierPhoto = createServerFn({ method: "POST" })
       .eq("photo_type", data.photo_type);
     const idx = (count ?? 0) + 1;
     const prefix = data.photo_type === "before" ? "AVANT" : data.photo_type === "during" ? "PENDANT" : "FIN";
-    const label = `CHANTIER-${prefix}-${String(idx).padStart(3, "0")}`;
+    const { data: chRef } = await supabase
+      .from("chantiers")
+      .select("reference")
+      .eq("id", data.chantierId)
+      .maybeSingle();
+    const refPart = (chRef as { reference?: string } | null)?.reference ?? "CHANTIER";
+    const label = `${refPart}-${prefix}-${String(idx).padStart(3, "0")}`;
+
 
     const { data: row, error } = await supabase.from("chantier_photos").insert({
       company_id: data.companyId,

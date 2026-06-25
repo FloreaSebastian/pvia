@@ -36,6 +36,8 @@ import {
   getReserveLiftPdfUrl,
 } from "@/lib/reserve-lift.functions";
 import { exportReserveLiftExpertise } from "@/lib/reserve-lift-expertise.functions";
+import { exportChantierDossier } from "@/lib/chantier-dossier-export.functions";
+
 import { reserveStatusTone, reserveStatusLabel } from "@/lib/reserve-status";
 import { getReserveCounters } from "@/lib/reserve-counters";
 
@@ -66,6 +68,9 @@ export function DossierTab({
   const fetchChantierPhotos = useServerFn(listChantierPhotos);
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
   const exportExpertiseFn = useServerFn(exportReserveLiftExpertise);
+  const exportDossierFn = useServerFn(exportChantierDossier);
+  const [busyDossier, setBusyDossier] = useState(false);
+
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [chantierPhotos, setChantierPhotos] = useState<ChantierPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,6 +259,25 @@ export function DossierTab({
     } finally { setBusyLiftId(null); }
   }
 
+  async function downloadDossierZip() {
+    setBusyDossier(true);
+    try {
+      const res = await exportDossierFn({ data: { companyId, chantierId } });
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.fileName; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Dossier exporté");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export impossible");
+    } finally { setBusyDossier(false); }
+  }
+
+
   // Build reserves list for the workflow dialog (filtered to current PV)
   const liftDialogReserves = useMemo(() => {
     if (!liftCtx) return [];
@@ -272,7 +296,14 @@ export function DossierTab({
 
   return (
     <>
+      <div className="mb-2 flex items-center justify-end">
+        <Button size="sm" variant="outline" onClick={downloadDossierZip} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
+          <Package className="h-3.5 w-3.5" />
+          {busyDossier ? "Préparation…" : "Exporter le dossier"}
+        </Button>
+      </div>
       <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
+
         <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
           <TabsTrigger value="resume" className="text-[11px] sm:text-xs">Résumé</TabsTrigger>
           <TabsTrigger value="pv" className="text-[11px] sm:text-xs">PV ({detail.pvs.length})</TabsTrigger>
