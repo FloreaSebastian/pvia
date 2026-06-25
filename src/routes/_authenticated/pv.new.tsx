@@ -276,7 +276,7 @@ function NewPv() {
   async function reloadLists() {
     const [c, cl] = await Promise.all([
       supabase.from("chantiers").select("id,name,reference,client_id,address,postal_code,city,start_date,end_date,status,progress_percent").order("name"),
-      supabase.from("clients").select("id,name,email,phone,address,address_line1,postal_code,city").order("name"),
+      supabase.from("clients").select("id,name,email,phone,address,address_line1,postal_code,city,client_type,company_name,siret,siren,contact_name").order("name"),
     ]);
     setChantiers((c.data as any) ?? []);
     setClients((cl.data as any) ?? []);
