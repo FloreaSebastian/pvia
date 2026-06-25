@@ -877,8 +877,8 @@ function NewPv() {
     else if (signatureMode === "onsite" && !onsiteOtpVerified) signaturesError = "Confirmez l'identité client avec le code OTP.";
     return {
       [ID_ENTREPRISE]: brandingComplete ? null : "Fiche entreprise incomplète.",
-      [ID_CLIENT]: clientOk ? null : "Sélectionnez ou créez un client.",
-      [ID_CHANTIER]: chantierOk ? null : "Adresse chantier et date obligatoires.",
+      [ID_CLIENT]: clientError,
+      [ID_CHANTIER]: chantierError,
       [ID_TRAVAUX]: travauxOk ? null : "Description des travaux obligatoire.",
       [ID_DECISION]: decisionOk ? null : "Choisissez avec ou sans réserves.",
       [ID_RESERVES]: reservesError,
