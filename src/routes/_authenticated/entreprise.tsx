@@ -121,7 +121,7 @@ function CompanyPage() {
     if (!activeCompanyId) return;
     const { data } = await supabase
       .from("companies")
-      .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url,created_at,company_verified,company_verified_at,company_verification_source")
+      .select("name,legal_form,siren,siret,vat_number,address_line1,address_line2,postal_code,city,country,phone,email,website,logo_url,icon_url,created_at,company_verified,company_verified_at,company_verification_source")
       .eq("id", activeCompanyId)
       .single();
     if (data) {
@@ -131,7 +131,8 @@ function CompanyPage() {
         siren: d.siren ?? "", siret: d.siret ?? "", vat_number: d.vat_number ?? "",
         address_line1: d.address_line1 ?? "", address_line2: d.address_line2 ?? "",
         postal_code: d.postal_code ?? "", city: d.city ?? "", country: d.country ?? "FR",
-        phone: d.phone ?? "", email: d.email ?? "", website: d.website ?? "", logo_url: d.logo_url ?? "",
+        phone: d.phone ?? "", email: d.email ?? "", website: d.website ?? "",
+        logo_url: d.logo_url ?? "", icon_url: d.icon_url ?? "",
         created_at: d.created_at ?? null,
         company_verified: !!d.company_verified,
         company_verified_at: d.company_verified_at ?? null,
