@@ -921,7 +921,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     getCompanyBranding(pv.company_id),
     getCompanyBrandingSettings(pv.company_id),
     pv.client_id
-      ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
+      ? supabaseAdmin.from("clients").select("name,email,phone,address,client_type,company_name,siret,siren,vat_number,naf_code,contact_name").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
     pv.chantier_id
       ? supabaseAdmin.from("chantiers").select("name,reference,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()
