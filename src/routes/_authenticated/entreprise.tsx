@@ -762,6 +762,54 @@ function Diff({ label, value, highlight }: { label: string; value: string; highl
   );
 }
 
+function VisualBlock({
+  title, description, hint, url, placeholder, previewClass, editable, onUpload, onRemove,
+}: {
+  title: string;
+  description: string;
+  hint: string;
+  url: string;
+  placeholder: React.ReactNode;
+  previewClass: string;
+  editable: boolean;
+  onUpload: (f: File) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold">{title}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{description}</p>
+      </div>
+      <div className={`grid place-items-center self-start overflow-hidden border border-border bg-background ${previewClass}`}>
+        {url
+          ? <img src={url} alt={title} className="h-full w-full object-contain" />
+          : placeholder}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="outline" disabled={!editable}>
+          <label className="cursor-pointer">
+            <Upload className="h-3.5 w-3.5" /> {url ? "Changer" : "Ajouter"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
+            />
+          </label>
+        </Button>
+        {url && editable && (
+          <Button size="sm" variant="ghost" onClick={onRemove} className="text-destructive hover:text-destructive">
+            <Trash2 className="h-3.5 w-3.5" /> Supprimer
+          </Button>
+        )}
+      </div>
+      <p className="text-[10.5px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+
 function labelFor(action: string): string {
   switch (action) {
     case "company.created": return "Entreprise créée";
