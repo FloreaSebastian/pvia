@@ -229,9 +229,10 @@ export async function buildAndStoreReserveLiftPdf(
   page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: HEADER_BG });
   page.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PRIMARY });
 
-  if (company?.logo_url) {
+  const pdfVisual = company?.logo_url || company?.icon_url;
+  if (pdfVisual) {
     try {
-      const res = await fetch(company.logo_url);
+      const res = await fetch(pdfVisual);
       if (res.ok) {
         const ab = await res.arrayBuffer();
         const u8 = new Uint8Array(ab);
