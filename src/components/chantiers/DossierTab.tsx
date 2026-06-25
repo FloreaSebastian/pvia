@@ -259,6 +259,25 @@ export function DossierTab({
     } finally { setBusyLiftId(null); }
   }
 
+  async function downloadDossierZip() {
+    setBusyDossier(true);
+    try {
+      const res = await exportDossierFn({ data: { companyId, chantierId } });
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.fileName; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Dossier exporté");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export impossible");
+    } finally { setBusyDossier(false); }
+  }
+
+
   // Build reserves list for the workflow dialog (filtered to current PV)
   const liftDialogReserves = useMemo(() => {
     if (!liftCtx) return [];
