@@ -673,52 +673,73 @@ export type Database = {
           address: string | null
           address_line1: string | null
           city: string | null
+          client_type: string
           company_id: string | null
+          company_name: string | null
+          contact_name: string | null
           created_at: string
           email: string | null
           id: string
           latitude: number | null
           longitude: number | null
+          naf_code: string | null
           name: string
           notes: string | null
           owner_id: string
           phone: string | null
           postal_code: string | null
+          siren: string | null
+          siret: string | null
           updated_at: string
+          vat_number: string | null
         }
         Insert: {
           address?: string | null
           address_line1?: string | null
           city?: string | null
+          client_type?: string
           company_id?: string | null
+          company_name?: string | null
+          contact_name?: string | null
           created_at?: string
           email?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
+          naf_code?: string | null
           name: string
           notes?: string | null
           owner_id: string
           phone?: string | null
           postal_code?: string | null
+          siren?: string | null
+          siret?: string | null
           updated_at?: string
+          vat_number?: string | null
         }
         Update: {
           address?: string | null
           address_line1?: string | null
           city?: string | null
+          client_type?: string
           company_id?: string | null
+          company_name?: string | null
+          contact_name?: string | null
           created_at?: string
           email?: string | null
           id?: string
           latitude?: number | null
           longitude?: number | null
+          naf_code?: string | null
           name?: string
           notes?: string | null
           owner_id?: string
           phone?: string | null
           postal_code?: string | null
+          siren?: string | null
+          siret?: string | null
           updated_at?: string
+          vat_number?: string | null
         }
         Relationships: [
           {
