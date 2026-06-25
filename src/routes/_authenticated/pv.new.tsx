@@ -79,8 +79,15 @@ type Branding = {
   logo_url: string | null;
 };
 
+const PvNewSearchSchema = z.object({
+  chantierId: z.string().uuid().optional(),
+  fresh: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
+  draft: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/pv/new")({
   component: NewPv,
+  validateSearch: (s) => PvNewSearchSchema.parse(s),
   head: () => ({ meta: [{ title: "Créer un PV — PVIA" }] }),
 });
 
