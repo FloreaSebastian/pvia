@@ -515,6 +515,14 @@ function ClientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {activeCompanyId && (
+        <ClientsImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          companyId={activeCompanyId}
+          onImported={load}
+        />
+      )}
     </div>
   );
 }
