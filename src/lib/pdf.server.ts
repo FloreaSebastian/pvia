@@ -368,11 +368,24 @@ export async function generatePvPdfBytes(input: {
   companyLegal.push("Garantie decennale - Art. 1792 C. civ.");
 
   drawParty(MARGIN, "Entreprise (titulaire)", company?.name ?? "-", companyAddrLines, companyLegal);
-  drawParty(MARGIN + colW + 16, "Maitre d'ouvrage (client)", client?.name ?? "-", [
+  const isEnt = (client?.client_type ?? "particulier") === "entreprise";
+  const clientTitle = isEnt
+    ? (client?.company_name || client?.name || "-")
+    : (client?.name ?? "-");
+  const clientLegal: string[] = [];
+  if (isEnt) {
+    if (client?.siret) clientLegal.push(`SIRET ${client.siret}`);
+    if (client?.siren && !client?.siret) clientLegal.push(`SIREN ${client.siren}`);
+    if (client?.vat_number) clientLegal.push(`TVA ${client.vat_number}`);
+    if (client?.naf_code) clientLegal.push(`APE ${client.naf_code}`);
+  }
+  drawParty(MARGIN + colW + 16, "Maitre d'ouvrage (client)", clientTitle, [
+    isEnt && client?.contact_name ? `Contact : ${client.contact_name}` : "",
     client?.address ?? "",
     client?.email ?? "",
     client?.phone ?? "",
-  ], []);
+  ], clientLegal);
+
   y -= 160;
 
   // ============ INFO BAND - références & dates ============
