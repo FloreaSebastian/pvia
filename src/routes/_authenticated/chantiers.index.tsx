@@ -215,6 +215,7 @@ function ChantiersPage() {
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
+        (c.reference ?? "").toLowerCase().includes(q) ||
         (c.address ?? "").toLowerCase().includes(q) ||
         (c.type ?? "").toLowerCase().includes(q) ||
         (clientName(c.client_id) ?? "").toLowerCase().includes(q)
