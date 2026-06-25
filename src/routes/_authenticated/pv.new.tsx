@@ -400,6 +400,16 @@ function NewPv() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-fetch lists when the active company becomes known (or changes), so
+  // we know which chantiers already have a PV without doing it at mount only.
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    void reloadLists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId]);
+
+
+
 
   // Branding
   useEffect(() => {
