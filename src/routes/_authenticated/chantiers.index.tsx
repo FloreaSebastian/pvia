@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/chantiers/")({
 });
 
 type Chantier = {
-  id: string; name: string; address: string | null;
+  id: string; reference: string; name: string; address: string | null;
   address_line1: string | null; postal_code: string | null; city: string | null;
   latitude: number | null; longitude: number | null;
   type: string | null; status: string; client_id: string | null;
