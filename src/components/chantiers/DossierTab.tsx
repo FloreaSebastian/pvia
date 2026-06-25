@@ -259,10 +259,10 @@ export function DossierTab({
     } finally { setBusyLiftId(null); }
   }
 
-  async function downloadDossierZip() {
+  async function downloadDossierZip(variant: "internal" | "client" = "internal") {
     setBusyDossier(true);
     try {
-      const res = await exportDossierFn({ data: { companyId, chantierId } });
+      const res = await exportDossierFn({ data: { companyId, chantierId, variant } });
       const bin = atob(res.base64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -271,11 +271,12 @@ export function DossierTab({
       const a = document.createElement("a");
       a.href = url; a.download = res.fileName; a.click();
       URL.revokeObjectURL(url);
-      toast.success("Dossier exporté");
+      toast.success(variant === "client" ? "Dossier client exporté" : "Dossier interne exporté");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export impossible");
     } finally { setBusyDossier(false); }
   }
+
 
 
   // Build reserves list for the workflow dialog (filtered to current PV)
