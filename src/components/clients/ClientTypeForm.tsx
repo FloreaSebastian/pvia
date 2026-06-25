@@ -114,6 +114,7 @@ export function ClientFormFields({
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = siretQuery.trim();
+    setManualMode(false);
     if (q.length < 3) {
       setHits(null);
       setSearchError(null);
@@ -124,6 +125,7 @@ export function ClientFormFields({
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siretQuery]);
+
 
 
   function pickCompany(h: FrenchCompanyHit) {
