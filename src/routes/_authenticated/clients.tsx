@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download, Sparkles, MoreVertical } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -220,15 +220,20 @@ function ClientsPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 pb-28 sm:space-y-6 sm:pb-0" data-testid="clients-page">
       {/* Compact mobile header */}
       <div className="sm:hidden">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">Clients</h1>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold tracking-tight">Clients</h1>
+            <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">{filtered.length} client{filtered.length > 1 ? "s" : ""}</p>
+          </div>
           {canWrite && (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" onClick={openNew} className="h-9 shadow-brand"><Plus className="h-4 w-4" /> Nouveau</Button>
+                <Button size="icon" onClick={openNew} className="h-9 w-9 shrink-0 shadow-brand" aria-label="Nouveau client" data-testid="clients-new-button">
+                  <Plus className="h-4 w-4" />
+                </Button>
               </DialogTrigger>
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader><DialogTitle>{editing ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
@@ -245,7 +250,6 @@ function ClientsPage() {
             </Dialog>
           )}
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">{filtered.length} client{filtered.length > 1 ? "s" : ""}</p>
       </div>
 
       {/* Desktop header */}
@@ -279,19 +283,19 @@ function ClientsPage() {
         />
       </div>
 
-      {/* Toolbar */}
-      <div className="space-y-2 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
+      {/* Search */}
+      <div className="sm:flex sm:items-center sm:justify-between sm:gap-3">
         <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher nom, société, SIRET..." className="h-10 pl-9 pr-9" />
+            placeholder="Rechercher un client…" className="h-9 pl-9 pr-9 sm:h-10" />
           {query && (
             <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Effacer">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="mt-2 hidden items-center gap-2 sm:mt-0 sm:flex">
           {(canAdmin || archivedCount > 0) && (
             <div className="inline-flex rounded-lg border border-border bg-card p-1">
               {([
@@ -313,29 +317,29 @@ function ClientsPage() {
               ))}
             </div>
           )}
-          <div className="inline-flex w-full rounded-lg border border-border bg-card p-1 sm:w-auto">
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
             {([
               { v: "all" as const, l: "Tous" },
               { v: "particulier" as const, l: "Particuliers" },
               { v: "entreprise" as const, l: "Entreprises" },
             ]).map(({ v, l }) => (
               <button key={v} type="button" onClick={() => setTypeFilter(v)}
-                className={cn("h-7 flex-1 rounded-md px-2 text-xs font-medium transition sm:flex-none",
+                className={cn("h-7 rounded-md px-2 text-xs font-medium transition",
                   typeFilter === v ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
                 {l}
               </button>
             ))}
           </div>
-          <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">{filtered.length}</span>
+          <span className="text-xs tabular-nums text-muted-foreground">{filtered.length}</span>
           {canWrite && (
             <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setImportOpen(true)} aria-label="Importer des clients avec l'IA">
-              <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Import IA</span>
+              <Sparkles className="h-3.5 w-3.5" /> Import IA
             </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5" aria-label="Exporter les clients">
-                <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Exporter</span>
+                <Download className="h-3.5 w-3.5" /> Exporter
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -354,7 +358,7 @@ function ClientsPage() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          <div className="hidden rounded-lg border border-border bg-card p-1 sm:inline-flex">
+          <div className="rounded-lg border border-border bg-card p-1 inline-flex">
             <button type="button" onClick={() => setView("grid")} className={cn("inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition", view === "grid" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} aria-label="Vue grille">
               <LayoutGrid className="h-3.5 w-3.5" />
             </button>
@@ -365,55 +369,145 @@ function ClientsPage() {
         </div>
       </div>
 
+      {/* Mobile filters — single scrollable row */}
+      <div className="-mx-4 px-4 sm:hidden" data-testid="clients-filters-mobile">
+        <div
+          className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {(canAdmin || archivedCount > 0) && ([
+            { v: "active" as const, l: "Actifs", icon: undefined as undefined | typeof Archive },
+            { v: "archived" as const, l: archivedCount ? `Archives ${archivedCount}` : "Archives", icon: Archive as typeof Archive | undefined },
+          ]).map(({ v, l, icon: Ic }) => (
+            <button
+              key={`s-${v}`}
+              type="button"
+              onClick={() => setScope(v)}
+              data-testid={`clients-scope-${v}`}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition active:scale-95",
+                scope === v ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-card text-muted-foreground",
+              )}
+              aria-pressed={scope === v}
+            >
+              {Ic ? <Ic className="h-3.5 w-3.5" /> : null} {l}
+            </button>
+          ))}
+          <span className="mx-1 my-auto h-5 w-px shrink-0 bg-border" aria-hidden />
+          {([
+            { v: "all" as const, l: "Tous" },
+            { v: "particulier" as const, l: "Particuliers" },
+            { v: "entreprise" as const, l: "Entreprises" },
+          ]).map(({ v, l }) => (
+            <button
+              key={`t-${v}`}
+              type="button"
+              onClick={() => setTypeFilter(v)}
+              data-testid={`clients-type-${v}`}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full border px-3 text-xs font-medium transition active:scale-95",
+                typeFilter === v ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-card text-muted-foreground",
+              )}
+            >
+              {l}
+            </button>
+          ))}
+          {canWrite && (
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-card px-3 text-xs font-medium text-muted-foreground transition active:scale-95"
+              aria-label="Import IA"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Import IA
+            </button>
+          )}
+        </div>
+      </div>
+
 
       {filtered.length === 0 && (
-        <Card className="flex flex-col items-center justify-center gap-3 p-12 text-center">
+        <Card className="flex flex-col items-center justify-center gap-3 p-8 text-center sm:p-12">
           <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary"><Users className="h-6 w-6" /></div>
           <div>
-            <p className="font-medium">{query || typeFilter !== "all" ? "Aucun résultat" : "Aucun client"}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{query ? "Essayez une autre recherche." : "Créez votre premier client pour commencer."}</p>
+            <p className="font-medium">
+              {scope === "archived" ? "Aucun client archivé" : (query || typeFilter !== "all" ? "Aucun résultat" : "Aucun client")}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {scope === "archived" ? "Les clients archivés apparaîtront ici." : (query ? "Essayez une autre recherche." : "Créez votre premier client pour commencer.")}
+            </p>
           </div>
-          {canWrite && !query && typeFilter === "all" && (
+          {canWrite && !query && typeFilter === "all" && scope === "active" && (
             <Button onClick={openNew} className="mt-2 shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button>
           )}
         </Card>
       )}
 
       {filtered.length > 0 && view === "grid" && (
-        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3" data-testid="clients-grid">
           {filtered.map((c) => {
             const isEnt = c.client_type === "entreprise";
             const Icon = isEnt ? Building2 : User;
             return (
-            <Card key={c.id} onClick={() => openDetail(c)} className="group relative flex cursor-pointer flex-col gap-2.5 p-4 transition duration-150 hover:-translate-y-0.5 hover:shadow-brand active:scale-[0.99] sm:gap-3 sm:p-5">
-              <div className="flex items-start gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-primary-foreground shadow-brand sm:h-11 sm:w-11">
-                  <Icon className="h-5 w-5" />
+            <Card key={c.id} onClick={() => openDetail(c)} className="group relative flex cursor-pointer flex-col gap-2 p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-brand active:scale-[0.99] sm:gap-3 sm:p-5" data-testid="client-card">
+              <div className="flex items-start gap-2.5 sm:gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-gradient text-primary-foreground shadow-brand sm:h-11 sm:w-11 sm:rounded-xl">
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold leading-tight sm:text-base">{c.name}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                     <TypeBadge type={c.client_type} />
                   </div>
-                  {isEnt && c.siret && <p className="mt-1 font-mono text-[11px] text-muted-foreground">SIRET {c.siret}</p>}
-                  {isEnt && c.contact_name && <p className="mt-0.5 text-xs text-muted-foreground truncate">Contact : {c.contact_name}</p>}
+                  {isEnt && c.siret && <p className="mt-0.5 font-mono text-[10px] text-muted-foreground sm:text-[11px]">SIRET {c.siret}</p>}
+                  {isEnt && c.contact_name && <p className="mt-0.5 hidden truncate text-xs text-muted-foreground sm:block">Contact : {c.contact_name}</p>}
                 </div>
                 {canWrite && (
-                  <div className="-mr-1 -mt-1 flex shrink-0 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
-                    {c.archived_at ? (
-                      canAdmin && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); restore(c); }} aria-label="Restaurer"><ArchiveRestore className="h-4 w-4 text-primary" /></Button>
-                      )
-                    ) : (
-                      <>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); askArchive(c); }} aria-label="Archiver"><Archive className="h-4 w-4 text-destructive" /></Button>
-                      </>
-                    )}
-                  </div>
+                  <>
+                    {/* Mobile: actions in dropdown */}
+                    <div className="sm:hidden">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="-mr-1 -mt-1 h-8 w-8 shrink-0" onClick={(e) => e.stopPropagation()} aria-label="Actions" data-testid="client-actions-menu">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          {c.archived_at ? (
+                            canAdmin && (
+                              <DropdownMenuItem onSelect={() => restore(c)}>
+                                <ArchiveRestore className="h-4 w-4 text-primary" /> Restaurer
+                              </DropdownMenuItem>
+                            )
+                          ) : (
+                            <>
+                              <DropdownMenuItem onSelect={() => openEdit(c)}>
+                                <Pencil className="h-4 w-4" /> Modifier
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => askArchive(c)}>
+                                <Archive className="h-4 w-4 text-destructive" /> Archiver
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    {/* Desktop: visible icon buttons */}
+                    <div className="-mr-1 -mt-1 hidden shrink-0 sm:flex sm:opacity-0 sm:transition sm:group-hover:opacity-100">
+                      {c.archived_at ? (
+                        canAdmin && (
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); restore(c); }} aria-label="Restaurer"><ArchiveRestore className="h-4 w-4 text-primary" /></Button>
+                        )
+                      ) : (
+                        <>
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(c); }} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); askArchive(c); }} aria-label="Archiver"><Archive className="h-4 w-4 text-destructive" /></Button>
+                        </>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
-              <div className="space-y-1 text-xs sm:text-sm">
+              <div className="space-y-0.5 text-xs sm:space-y-1 sm:text-sm">
                 {c.email && (<a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.email}</span></a>)}
                 {c.phone && (<a href={`tel:${c.phone}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 truncate text-muted-foreground hover:text-foreground"><Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.phone}</span></a>)}
                 {c.city && (<p className="flex items-center gap-2 truncate text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{c.city}</span></p>)}
@@ -424,6 +518,8 @@ function ClientsPage() {
           })}
         </div>
       )}
+
+
 
 
       {filtered.length > 0 && view === "list" && (
