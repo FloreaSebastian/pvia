@@ -657,13 +657,6 @@ function VueKpiGrid({
   reserveCounts: { total: number; open: number; lifted: number; validated: number; rejected: number };
   onGoToSubTab: (v: string) => void;
 }) {
-  const chantierId = (detail.chantier as any)?.id as string;
-  const nowMs = Date.now();
-  const nextEvent = (detail.events ?? [])
-    .filter((e: any) => e.start_at && new Date(e.start_at).getTime() >= nowMs && e.status !== "annule")
-    .sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0];
-  const lastAudit = detail.auditLogs?.[0];
-
   const kpis: Array<{
     key: string;
     icon: React.ReactNode;
@@ -683,72 +676,20 @@ function VueKpiGrid({
   ];
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {kpis.map((k) => (
-          <button
-            key={k.key}
-            type="button"
-            onClick={k.onClick}
-            className="group flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.98]"
-          >
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-muted">{k.icon}</div>
-            <p className="text-2xl font-semibold leading-none tabular-nums">{k.value}</p>
-            <p className="text-[11px] font-medium">{k.label}</p>
-            <p className="text-[10px] text-muted-foreground">{k.sub}</p>
-          </button>
-        ))}
-      </div>
-
-      <Card className="p-3">
-        <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Actions rapides</p>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="default" className="h-9 gap-1.5">
-            <Link to="/pv/new" search={{ chantierId } as any}>
-              <FileText className="h-4 w-4" /> Créer un PV
-            </Link>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9 gap-1.5"
-            onClick={() => {
-              try { window.dispatchEvent(new CustomEvent("chantier-main-tab", { detail: "photos" })); } catch { /* noop */ }
-              onGoToSubTab("photos");
-            }}
-          >
-            <ImageIcon className="h-4 w-4" /> Ajouter une photo
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={() => onGoToSubTab("documents")}>
-            <Paperclip className="h-4 w-4" /> Ajouter un document
-          </Button>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Card className="p-3">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Dernière activité</p>
-          {lastAudit ? (
-            <>
-              <p className="text-sm font-medium">{lastAudit.action}</p>
-              <p className="text-[11px] text-muted-foreground">{fmt(lastAudit.created_at)}</p>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Aucune activité enregistrée</p>
-          )}
-        </Card>
-        <Card className="p-3">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Prochaine échéance</p>
-          {nextEvent ? (
-            <>
-              <p className="text-sm font-medium">{(nextEvent as any).title ?? (nextEvent as any).event_type ?? "Évènement"}</p>
-              <p className="text-[11px] text-muted-foreground">{fmtDay((nextEvent as any).start_at)}</p>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Aucune échéance planifiée</p>
-          )}
-        </Card>
-      </div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {kpis.map((k) => (
+        <button
+          key={k.key}
+          type="button"
+          onClick={k.onClick}
+          className="group flex flex-col items-start gap-1.5 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:shadow-sm active:scale-[0.98]"
+        >
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-muted">{k.icon}</div>
+          <p className="text-2xl font-semibold leading-none tabular-nums">{k.value}</p>
+          <p className="text-[11px] font-medium">{k.label}</p>
+          <p className="text-[10px] text-muted-foreground">{k.sub}</p>
+        </button>
+      ))}
     </div>
   );
 }
