@@ -10,7 +10,9 @@ import { writeAuditLog } from "./audit.server";
 export type OnboardingStatus = {
   profileComplete: boolean;
   companyComplete: boolean;
-  needsCompanyStep: boolean; // false if user is invited member of an already-complete company
+  companyVerified: boolean;
+  companyVerificationSource: "manual" | "siret_sync" | "admin" | null;
+  needsCompanyStep: boolean; // false if user is invited member of an already-verified company
   activeCompanyId: string | null;
   companyName: string | null;
   isAdmin: boolean;
@@ -49,29 +51,47 @@ export const getOnboardingStatus = createServerFn({ method: "POST" })
     const isAdmin = isAdminRole(primary?.role);
 
     let companyComplete = false;
+    let companyVerified = false;
+    let companyVerificationSource: OnboardingStatus["companyVerificationSource"] = null;
     let companyName: string | null = null;
     if (activeCompanyId) {
       const { data: company } = await supabaseAdmin
         .from("companies")
-        .select("name,siret,siren,address_line1,postal_code,city,onboarding_completed_at")
+        .select("name,siret,siren,address_line1,postal_code,city,email,onboarding_completed_at,company_verified,company_verification_source")
         .eq("id", activeCompanyId)
         .maybeSingle();
       companyName = company?.name ?? null;
+      companyVerified = !!company?.company_verified;
+      companyVerificationSource = (company?.company_verification_source ?? null) as OnboardingStatus["companyVerificationSource"];
+      // Considère l'entreprise utilisatrice « complète » uniquement si elle est validée
+      // (raison sociale + SIRET/SIREN + adresse + email + flag company_verified).
       companyComplete = !!(
+        company?.company_verified &&
         company?.onboarding_completed_at &&
         company?.name &&
         (company?.siret || company?.siren) &&
         company?.address_line1 &&
         company?.postal_code &&
-        company?.city
+        company?.city &&
+        company?.email
       );
     }
 
-    // A non-admin member of a company already onboarded only needs profile
+    // Un membre non-admin d'une entreprise déjà validée n'a besoin que de son profil
     const needsCompanyStep = isAdmin || !companyComplete;
 
-    return { profileComplete, companyComplete, needsCompanyStep, activeCompanyId, companyName, isAdmin };
+    return {
+      profileComplete,
+      companyComplete,
+      companyVerified,
+      companyVerificationSource,
+      needsCompanyStep,
+      activeCompanyId,
+      companyName,
+      isAdmin,
+    };
   });
+
 
 /* -------------------------- Complete profile -------------------------- */
 
