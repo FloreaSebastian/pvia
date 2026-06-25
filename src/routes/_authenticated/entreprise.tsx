@@ -65,7 +65,7 @@ type CompanyData = {
 const emptyCompany: CompanyData = {
   name: "", legal_form: "", siren: "", siret: "", vat_number: "",
   address_line1: "", address_line2: "", postal_code: "", city: "", country: "FR",
-  phone: "", email: "", website: "", logo_url: "",
+  phone: "", email: "", website: "", logo_url: "", icon_url: "",
   created_at: null, company_verified: false, company_verified_at: null, company_verification_source: null,
 };
 
