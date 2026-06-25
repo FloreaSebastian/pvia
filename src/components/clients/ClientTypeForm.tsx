@@ -77,29 +77,54 @@ export function ClientFormFields({
   const [siretQuery, setSiretQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [hits, setHits] = useState<FrenchCompanyHit[] | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [manualMode, setManualMode] = useState(false);
   const searchFn = useServerFn(searchFrenchCompanies);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reqIdRef = useRef(0);
 
-  async function runSearch() {
-    const q = siretQuery.trim();
-    if (q.length < 2) {
-      toast.error("Saisissez au moins 2 caractères.");
+  async function runSearch(q: string, { silent = false }: { silent?: boolean } = {}) {
+    if (q.length < 3) {
+      if (!silent) toast.error("Saisissez au moins 3 caractères.");
       return;
     }
+    const myReq = ++reqIdRef.current;
     setSearching(true);
+    setSearchError(null);
     try {
       const res = await searchFn({ data: { query: q } });
+      if (reqIdRef.current !== myReq) return; // stale
       if (res.ok) {
         setHits(res.hits);
-        if (res.hits.length === 0) toast.info("Aucune entreprise trouvée.");
+        if (!silent && res.hits.length === 0) toast.info("Aucune entreprise trouvée.");
       } else {
-        toast.error(res.error);
+        setHits(null);
+        setSearchError(res.error);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Recherche impossible.");
+      if (reqIdRef.current !== myReq) return;
+      setHits(null);
+      setSearchError(e instanceof Error ? e.message : "Recherche impossible.");
     } finally {
-      setSearching(false);
+      if (reqIdRef.current === myReq) setSearching(false);
     }
   }
+
+  // Debounced auto-search ≥3 chars
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = siretQuery.trim();
+    if (q.length < 3) {
+      setHits(null);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+    debounceRef.current = setTimeout(() => { runSearch(q, { silent: true }); }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siretQuery]);
+
 
   function pickCompany(h: FrenchCompanyHit) {
     setForm({
