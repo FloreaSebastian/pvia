@@ -14,8 +14,9 @@ export type CompanyHistoryEntry = {
   action: string;
   created_at: string;
   user_id: string | null;
-  metadata: unknown;
+  metadata: string | null;
 };
+
 
 const TRACKED_ACTIONS = [
   "company.created",
