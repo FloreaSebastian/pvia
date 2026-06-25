@@ -1368,45 +1368,29 @@ function NewPv() {
               {currentStep.id === ID_CHANTIER && (
                 <ChantierStep
                   chantiers={chantiers}
+                  usedChantierIds={usedChantierIds}
                   chantierObj={chantierObj ?? null}
                   clients={clients}
                   form={form}
                   setForm={setForm}
                   chantierSearch={chantierSearch}
                   setChantierSearch={setChantierSearch}
-                  creatingChantier={creatingChantier}
-                  onCreateChantierFromAddress={async () => {
-                    if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
-                    if (!form.chantier_address.trim()) { toast.error("L'adresse du chantier est requise."); return; }
-                    setCreatingChantier(true);
-                    try {
-                      const res = await createChantierFnSrv({
-                        data: {
-                          companyId: activeCompanyId,
-                          data: {
-                            name: form.chantier_address.trim().slice(0, 200),
-                            address_line1: form.chantier_address.trim(),
-                            postal_code: form.chantier_postal_code.trim(),
-                            city: form.chantier_city.trim(),
-                            latitude: form.latitude,
-                            longitude: form.longitude,
-                            status: "en_cours",
-                            client_id: form.client_id || null,
-                            start_date: form.reception_date || null,
-                          },
-                        },
-                      });
-                      await reloadLists();
-                      setForm((f) => ({ ...f, chantier_id: res.id }));
-                      toast.success(`Chantier créé (${res.reference}).`);
-                    } catch (e: any) {
-                      toast.error(e?.message || "Création du chantier impossible.");
-                    } finally {
-                      setCreatingChantier(false);
-                    }
+                  onOpenNewChantier={() => {
+                    // Pré-remplir intelligemment avec ce qui a déjà été saisi.
+                    setNewChantier((n) => ({
+                      ...n,
+                      name: n.name || form.chantier_address.split(",")[0]?.trim() || "",
+                      client_id: n.client_id || form.client_id || "",
+                      address: n.address || form.chantier_address || "",
+                      postal_code: n.postal_code || form.chantier_postal_code || "",
+                      city: n.city || form.chantier_city || "",
+                      start_date: n.start_date || form.reception_date || "",
+                    }));
+                    setNewChantierSheetOpen(true);
                   }}
                 />
               )}
+
 
 
               {currentStep.id === ID_TRAVAUX && (
