@@ -160,6 +160,7 @@ export const deleteCompanyVisual = createServerFn({ method: "POST" })
     await assertAdmin(data.companyId, userId);
 
     const column = data.kind === "icon" ? "icon_url" : "logo_url";
+    void column;
     const { data: prev } = await supabaseAdmin
       .from("companies")
       .select("logo_url,icon_url")
