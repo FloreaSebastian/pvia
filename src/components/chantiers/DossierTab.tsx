@@ -702,7 +702,7 @@ export function DossierTab({
           context={{ showExactGps: true }}
         />
       )}
-    </>
+    </div>
   );
 }
 
