@@ -118,9 +118,10 @@ export const uploadCompanyLogo = createServerFn({ method: "POST" })
       .eq("id", data.companyId)
       .maybeSingle();
 
+    const updatePayload = kind === "icon" ? { icon_url: publicUrl } : { logo_url: publicUrl };
     const { error: updErr } = await supabaseAdmin
       .from("companies")
-      .update({ [column]: publicUrl })
+      .update(updatePayload)
       .eq("id", data.companyId);
     if (updErr) throw new Error(updErr.message);
 
