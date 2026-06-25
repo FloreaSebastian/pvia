@@ -164,6 +164,8 @@ function NewPv() {
 
   const [stepIdx, setStepIdx] = useState(0);
   const [maxStepIdx, setMaxStepIdx] = useState(0);
+  const [newClient, setNewClient] = useState<ClientFormState>(EMPTY_CLIENT_FORM);
+
   const [chantiers, setChantiers] = useState<{
     id: string; name: string; reference: string | null; client_id: string | null;
     address: string | null; postal_code: string | null; city: string | null;
