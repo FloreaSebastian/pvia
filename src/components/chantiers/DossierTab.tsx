@@ -297,7 +297,7 @@ export function DossierTab({
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-end gap-2">
+      <div className="mb-3 flex items-center justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={() => downloadDossierZip("client")} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
           <Package className="h-3.5 w-3.5" />
           Export client
@@ -308,31 +308,15 @@ export function DossierTab({
         </Button>
       </div>
 
-      <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
+      <VueKpiGrid
+        detail={detail}
+        dossier={dossier}
+        chantierPhotosCount={allLightboxPhotos.length}
+        reserveCounts={reserveCounts}
+        onGoToSubTab={setSubTab}
+      />
 
-        <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
-          <TabsTrigger value="resume" className="text-[11px] sm:text-xs">Vue</TabsTrigger>
-          <TabsTrigger value="pv" className="text-[11px] sm:text-xs">PV ({detail.pvs.length})</TabsTrigger>
-          <TabsTrigger value="reserves" className="text-[11px] sm:text-xs">Rés. ({reserveCounts.total})</TabsTrigger>
-          <TabsTrigger value="levees" className="text-[11px] sm:text-xs">Lev. ({dossier?.liftReports.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="photos" className="text-[11px] sm:text-xs">Photos ({allLightboxPhotos.length})</TabsTrigger>
-          <TabsTrigger value="documents" className="text-[11px] sm:text-xs">Docs ({detail.documents.length})</TabsTrigger>
-          <TabsTrigger value="emails" className="text-[11px] sm:text-xs">Emails ({dossier?.emails.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="historique" className="text-[11px] sm:text-xs">Hist.</TabsTrigger>
-        </TabsList>
-
-        {/* Vue — grille de KPI cliquables + actions rapides + dernière activité */}
-        <TabsContent value="resume" className="mt-3">
-          <VueKpiGrid
-            detail={detail}
-            dossier={dossier}
-            chantierPhotosCount={allLightboxPhotos.length}
-            reserveCounts={reserveCounts}
-            onGoToSubTab={setSubTab}
-          />
-        </TabsContent>
-
-
+      <Tabs value={subTab} onValueChange={setSubTab} className="mt-4 w-full">
 
         {/* PV */}
         <TabsContent value="pv" className="mt-3">
