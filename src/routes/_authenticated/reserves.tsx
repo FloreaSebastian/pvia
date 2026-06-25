@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   AlertCircle, ExternalLink, Trash2, Filter, CheckCircle2, Search,
-  Download, LayoutGrid, Table as TableIcon, UserPlus, X,
+  Download, LayoutGrid, Table as TableIcon, UserPlus, X, ArrowUpDown,
+  SlidersHorizontal, Eye,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,13 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -30,6 +38,7 @@ import {
   bulkUpdateReserves, exportReservesCsv,
 } from "@/lib/reserves.functions";
 import { getReserveCounters } from "@/lib/reserve-counters";
+import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/ReserveDetailDialog";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 
@@ -52,6 +61,18 @@ const STATUS_TONE: Record<Status, "destructive" | "warning" | "success" | "neutr
   validee: "success",
   rejetee: "neutral",
 };
+
+const SORT_OPTIONS = [
+  { value: "recent", label: "Plus récentes" },
+  { value: "oldest", label: "Plus anciennes" },
+  { value: "due_asc", label: "Échéance ↑" },
+  { value: "due_desc", label: "Échéance ↓" },
+  { value: "severity", label: "Gravité (majeure d'abord)" },
+  { value: "status", label: "Statut" },
+] as const;
+type SortKey = (typeof SORT_OPTIONS)[number]["value"];
+const SORT_STORAGE_KEY = "pvia.reserves.sort";
+const PAGE_SIZE = 30;
 
 const reservesSearchSchema = z.object({
   status: fallback(z.enum(["all", ...STATUSES]), "all").default("all"),
@@ -78,6 +99,7 @@ type Row = {
   assigned_to: string | null;
   lifted_at: string | null;
   validated_at: string | null;
+  company_id: string | null;
   pv: { numero: string; chantier_id: string | null; client_id: string | null } | null;
   chantier?: { id: string; nom: string } | null;
   client?: { id: string; nom: string } | null;
@@ -87,6 +109,34 @@ type Member = { user_id: string; display_name: string };
 
 function isOverdue(r: Row) {
   return !!r.due_date && new Date(r.due_date) < new Date() && r.status !== "validee" && r.status !== "levee";
+}
+
+function compareRows(a: Row, b: Row, sort: SortKey) {
+  switch (sort) {
+    case "recent":
+      return +new Date(b.created_at) - +new Date(a.created_at);
+    case "oldest":
+      return +new Date(a.created_at) - +new Date(b.created_at);
+    case "due_asc": {
+      const av = a.due_date ? +new Date(a.due_date) : Number.POSITIVE_INFINITY;
+      const bv = b.due_date ? +new Date(b.due_date) : Number.POSITIVE_INFINITY;
+      return av - bv;
+    }
+    case "due_desc": {
+      const av = a.due_date ? +new Date(a.due_date) : Number.NEGATIVE_INFINITY;
+      const bv = b.due_date ? +new Date(b.due_date) : Number.NEGATIVE_INFINITY;
+      return bv - av;
+    }
+    case "severity": {
+      const w = (s: string) => (s === "majeure" ? 0 : 1);
+      const d = w(a.severity) - w(b.severity);
+      return d !== 0 ? d : +new Date(b.created_at) - +new Date(a.created_at);
+    }
+    case "status":
+      return (a.status ?? "").localeCompare(b.status ?? "");
+    default:
+      return 0;
+  }
 }
 
 function ReservesPage() {
@@ -99,6 +149,10 @@ function ReservesPage() {
   const [quick, setQuick] = useState<string>(search.quick);
   const [query, setQuery] = useState("");
   const [severity, setSeverity] = useState<string>("all");
+  const [sort, setSort] = useState<SortKey>(() => {
+    if (typeof window === "undefined") return "recent";
+    return ((window.localStorage.getItem(SORT_STORAGE_KEY) as SortKey | null) ?? "recent");
+  });
   const isMobile = useIsMobile();
   const [view, setView] = useState<"cards" | "table">("cards");
   const effectiveView: "cards" | "table" = isMobile ? "cards" : view;
@@ -107,6 +161,13 @@ function ReservesPage() {
   const [assignUser, setAssignUser] = useState<string>("none");
   const [assignDue, setAssignDue] = useState<string>("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [detail, setDetail] = useState<Row | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [visible, setVisible] = useState(PAGE_SIZE);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") window.localStorage.setItem(SORT_STORAGE_KEY, sort);
+  }, [sort]);
 
   const canManage = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux"].includes(activeRole);
   const canDelete = activeRole && ["directeur", "responsable_exploitation"].includes(activeRole);
@@ -122,7 +183,7 @@ function ReservesPage() {
     const { data, error } = await supabase
       .from("pv_reserves")
       .select(
-        "id,description,severity,status,priority,created_at,pv_id,nature,work_to_execute,due_date,assigned_to,lifted_at,validated_at",
+        "id,description,severity,status,priority,created_at,pv_id,nature,work_to_execute,due_date,assigned_to,lifted_at,validated_at,company_id",
       )
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
@@ -156,7 +217,6 @@ function ReservesPage() {
         };
       }),
     );
-
   }, [activeCompanyId]);
 
   useEffect(() => { load(); }, [load]);
@@ -239,6 +299,22 @@ function ReservesPage() {
     }
   }
 
+  async function bulkRemove() {
+    if (!activeCompanyId || selected.size === 0) return;
+    if (!confirm(`Supprimer ${selected.size} réserve(s) ? Cette action est irréversible.`)) return;
+    try {
+      const ids = [...selected];
+      for (const id of ids) {
+        await deleteFn({ data: { companyId: activeCompanyId, id } });
+      }
+      toast.success(`${ids.length} réserve(s) supprimée(s)`);
+      setSelected(new Set());
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Suppression impossible");
+    }
+  }
+
   async function doExport(onlySelected: boolean) {
     if (!activeCompanyId) return;
     try {
@@ -258,9 +334,9 @@ function ReservesPage() {
     }
   }
 
-  // Filters
+  // Filters + sort
   const filtered = useMemo(() => {
-    return items.filter((r) => {
+    const out = items.filter((r) => {
       if (filter !== "all" && r.status !== filter) return false;
       if (severity !== "all" && r.severity !== severity) return false;
       if (quick === "ouvertes" && r.status !== "ouverte") return false;
@@ -276,7 +352,11 @@ function ReservesPage() {
       }
       return true;
     });
-  }, [items, filter, severity, quick, query]);
+    return out.sort((a, b) => compareRows(a, b, sort));
+  }, [items, filter, severity, quick, query, sort]);
+
+  // Reset pagination when filters change
+  useEffect(() => { setVisible(PAGE_SIZE); }, [filter, severity, quick, query, sort]);
 
   const counters = useMemo(() => getReserveCounters(items), [items]);
   const dash = useMemo(() => ({
@@ -286,6 +366,9 @@ function ReservesPage() {
     a_valider: counters.enAttenteValidation + counters.levees,
     validees: counters.validees,
   }), [counters]);
+
+  const activeFilterCount =
+    (filter !== "all" ? 1 : 0) + (severity !== "all" ? 1 : 0) + (quick !== "all" ? 1 : 0);
 
   function toggleQuick(k: string) {
     const next = quick === k ? "all" : k;
@@ -301,6 +384,14 @@ function ReservesPage() {
     else setSelected(new Set(filtered.map((r) => r.id)));
   }
 
+  function resetFilters() {
+    setFilter("all");
+    setSeverity("all");
+    setQuick("all");
+    setQuery("");
+    navigate({ search: () => ({ status: "all", quick: "all" }) as any });
+  }
+
   const renderSeverity = (sev: string) => (
     <StatusPill tone={sev === "majeure" ? "destructive" : "neutral"} size="sm">{sev}</StatusPill>
   );
@@ -310,8 +401,30 @@ function ReservesPage() {
     </StatusPill>
   );
 
+  const visibleRows = filtered.slice(0, visible);
+
+  const reserveDetail: ReserveDetail | null = detail
+    ? {
+        id: detail.id,
+        description: detail.description,
+        severity: detail.severity,
+        status: detail.status,
+        priority: detail.priority,
+        nature: detail.nature,
+        work_to_execute: detail.work_to_execute,
+        due_date: detail.due_date,
+        assigned_to: detail.assigned_to,
+        assigned_name: memberName(detail.assigned_to),
+        lifted_at: detail.lifted_at,
+        validated_at: detail.validated_at,
+        created_at: detail.created_at,
+        pv_id: detail.pv_id,
+        company_id: detail.company_id,
+      }
+    : null;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-28">
       <PageHeader
         title="Réserves de chantier"
         description={`${items.length} réserve(s) au total`}
@@ -324,14 +437,14 @@ function ReservesPage() {
         }
       />
 
-      {/* Dashboard cards */}
+      {/* Dashboard KPI – mobile 2 cols, desktop 5 cols */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {[
           { k: "ouvertes", label: "Ouvertes", v: dash.ouvertes, tone: "border-destructive/40" },
           { k: "bloquantes", label: "Bloquantes", v: dash.bloquantes, tone: "border-orange-400/50" },
           { k: "retard", label: "En retard", v: dash.retard, tone: "border-red-500/50" },
           { k: "a_valider", label: "À valider", v: dash.a_valider, tone: "border-yellow-500/50" },
-          { k: "validees", label: "Validées", v: dash.validees, tone: "border-green-500/50" },
+          { k: "validees", label: "Validées", v: dash.validees, tone: "border-green-500/50 col-span-2 sm:col-span-1" },
         ].map((c) => (
           <button
             key={c.k}
@@ -346,45 +459,124 @@ function ReservesPage() {
         ))}
       </div>
 
-      {/* Toolbar */}
-      <Card className="flex flex-wrap items-center gap-2 p-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher (description, PV, chantier, client…)"
-            className="h-9 pl-8"
-          />
-        </div>
-        <Select value={filter} onValueChange={(v) => { setFilter(v); navigate({ search: (p: any) => ({ ...p, status: v as any }) }); }}>
-          <SelectTrigger className="h-9 w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous statuts</SelectItem>
-            {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={severity} onValueChange={setSeverity}>
-          <SelectTrigger className="h-9 w-36"><SelectValue placeholder="Gravité" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Toutes gravités</SelectItem>
-            <SelectItem value="mineure">Mineure</SelectItem>
-            <SelectItem value="majeure">Majeure</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="ml-auto hidden gap-1 md:flex">
-          <Button size="sm" variant={view === "cards" ? "default" : "outline"} onClick={() => setView("cards")}>
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant={view === "table" ? "default" : "outline"} onClick={() => setView("table")}>
-            <TableIcon className="h-4 w-4" />
-          </Button>
-        </div>
-      </Card>
+      {/* Sticky search + actions */}
+      <div className="sticky top-0 z-20 -mx-2 bg-background/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:static sm:mx-0 sm:bg-transparent sm:p-0">
+        <Card className="flex flex-wrap items-center gap-2 p-2">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher (description, PV, chantier, client…)"
+              className="h-9 pl-8"
+            />
+          </div>
+
+          {/* Desktop filters */}
+          <div className="hidden gap-2 sm:flex">
+            <Select value={filter} onValueChange={(v) => { setFilter(v); navigate({ search: (p: any) => ({ ...p, status: v as any }) }); }}>
+              <SelectTrigger className="h-9 w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous statuts</SelectItem>
+                {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={severity} onValueChange={setSeverity}>
+              <SelectTrigger className="h-9 w-36"><SelectValue placeholder="Gravité" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes gravités</SelectItem>
+                <SelectItem value="mineure">Mineure</SelectItem>
+                <SelectItem value="majeure">Majeure</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sort menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="h-9">
+                <ArrowUpDown className="h-4 w-4" />
+                <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "Trier"}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Trier par</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {SORT_OPTIONS.map((o) => (
+                <DropdownMenuItem key={o.value} onClick={() => setSort(o.value)}>
+                  {sort === o.value ? "✓ " : ""}{o.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Mobile filters trigger */}
+          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <SheetTrigger asChild>
+              <Button size="sm" variant="outline" className="h-9 sm:hidden">
+                <SlidersHorizontal className="h-4 w-4" />
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{activeFilterCount}</Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="rounded-t-2xl">
+              <SheetHeader>
+                <SheetTitle>Filtres</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-3 py-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium">Statut</label>
+                  <Select value={filter} onValueChange={(v) => { setFilter(v); navigate({ search: (p: any) => ({ ...p, status: v as any }) }); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous statuts</SelectItem>
+                      {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium">Gravité</label>
+                  <Select value={severity} onValueChange={setSeverity}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes</SelectItem>
+                      <SelectItem value="mineure">Mineure</SelectItem>
+                      <SelectItem value="majeure">Majeure</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <SheetFooter className="flex-row gap-2">
+                <Button variant="outline" className="flex-1" onClick={resetFilters}>Réinitialiser</Button>
+                <Button className="flex-1" onClick={() => setFiltersOpen(false)}>Voir résultats</Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+
+          {/* Desktop view toggle */}
+          <div className="ml-auto hidden gap-1 md:flex">
+            <Button size="sm" variant={view === "cards" ? "default" : "outline"} onClick={() => setView("cards")}>
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant={view === "table" ? "default" : "outline"} onClick={() => setView("table")}>
+              <TableIcon className="h-4 w-4" />
+            </Button>
+          </div>
+        </Card>
+
+        {activeFilterCount > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1 text-xs">
+            <Filter className="h-3 w-3 text-muted-foreground" />
+            <span className="text-muted-foreground">{filtered.length} résultat(s)</span>
+            <button onClick={resetFilters} className="ml-auto text-primary hover:underline">Effacer</button>
+          </div>
+        )}
+      </div>
 
       {/* Bulk actions */}
       {selected.size > 0 && canManage && (
-        <Card className="flex flex-wrap items-center gap-2 border-primary/30 bg-primary/5 p-2">
+        <Card className="sticky bottom-2 z-30 flex flex-wrap items-center gap-2 border-primary/30 bg-primary/5 p-2 shadow-lg">
           <Badge variant="secondary">{selected.size} sélectionnée(s)</Badge>
           <Button size="sm" variant="outline" onClick={() => bulkStatus("levee")}>
             <CheckCircle2 className="h-4 w-4" /> Marquer levées
@@ -392,9 +584,24 @@ function ReservesPage() {
           <Button size="sm" variant="outline" onClick={() => setAssignOpen({ ids: [...selected] })}>
             <UserPlus className="h-4 w-4" /> Assigner
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">Statut…</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {STATUSES.map((s) => (
+                <DropdownMenuItem key={s} onClick={() => bulkStatus(s)}>{STATUS_LABEL[s]}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button size="sm" variant="outline" onClick={() => doExport(true)}>
-            <Download className="h-4 w-4" /> Export sélection
+            <Download className="h-4 w-4" /> Export
           </Button>
+          {canDelete && (
+            <Button size="sm" variant="outline" className="text-destructive" onClick={bulkRemove}>
+              <Trash2 className="h-4 w-4" /> Supprimer
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
             <X className="h-4 w-4" />
           </Button>
@@ -408,79 +615,101 @@ function ReservesPage() {
             <p>Aucune réserve enregistrée pour l'instant.</p>
           </Card>
         ) : (
-          <p className="px-1 text-xs text-muted-foreground">Aucun résultat pour ces filtres.</p>
+          <Card className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
+            <p>Aucun résultat pour ces filtres.</p>
+            <Button size="sm" variant="outline" onClick={resetFilters}>Réinitialiser</Button>
+          </Card>
         )
       ) : effectiveView === "cards" ? (
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((r) => {
-            const overdue = isOverdue(r);
-            const isExpanded = expanded.has(r.id);
-            return (
-              <Card key={r.id} className={`flex flex-col gap-2 p-3 ${overdue ? "border-red-500/50" : ""}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} />
-                    <Link to="/pv/$id" params={{ id: r.pv_id }} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                      PV {r.pv?.numero} <ExternalLink className="h-3 w-3" />
-                    </Link>
+        <>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {visibleRows.map((r) => {
+              const overdue = isOverdue(r);
+              const isExpanded = expanded.has(r.id);
+              return (
+                <Card
+                  key={r.id}
+                  onClick={() => setDetail(r)}
+                  className={`flex cursor-pointer flex-col gap-2 p-3 transition hover:border-primary/40 hover:shadow-md ${overdue ? "border-red-500/50" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} />
+                      <Link to="/pv/$id" params={{ id: r.pv_id }} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                        PV {r.pv?.numero} <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {renderSeverity(r.severity)}
+                      {renderStatus(r.status)}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {renderSeverity(r.severity)}
-                    {renderStatus(r.status)}
+                  {r.nature && <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{r.nature}</div>}
+                  <p className={`text-sm leading-snug ${isExpanded ? "" : "line-clamp-2"}`}>{r.description}</p>
+                  {r.description.length > 100 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setExpanded((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; }); }}
+                      className="text-left text-xs text-primary hover:underline"
+                    >
+                      {isExpanded ? "Voir moins" : "Voir plus"}
+                    </button>
+                  )}
+                  {r.work_to_execute && (
+                    <p className="line-clamp-1 text-xs text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {r.chantier && <span>🏗 {r.chantier.nom}</span>}
+                    {r.client && <span>👤 {r.client.nom}</span>}
+                    {r.assigned_to && <span>👷 {memberName(r.assigned_to)}</span>}
+                    {r.due_date && (
+                      <span className={overdue ? "font-semibold text-red-600" : ""}>
+                        📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}
+                        {overdue && " (retard)"}
+                      </span>
+                    )}
                   </div>
-                </div>
-                {r.nature && <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{r.nature}</div>}
-                <p className={`text-sm leading-snug ${isExpanded ? "" : "line-clamp-2"}`}>{r.description}</p>
-                {r.description.length > 100 && (
-                  <button onClick={() => setExpanded((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} className="text-left text-xs text-primary hover:underline">
-                    {isExpanded ? "Voir moins" : "Voir plus"}
-                  </button>
-                )}
-                {r.work_to_execute && (
-                  <p className="line-clamp-1 text-xs text-muted-foreground"><span className="font-medium">Travaux :</span> {r.work_to_execute}</p>
-                )}
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  {r.chantier && <span>🏗 {r.chantier.nom}</span>}
-                  {r.client && <span>👤 {r.client.nom}</span>}
-                  {r.assigned_to && <span>👷 {memberName(r.assigned_to)}</span>}
-                  {r.due_date && (
-                    <span className={overdue ? "font-semibold text-red-600" : ""}>
-                      📅 {new Date(r.due_date).toLocaleDateString("fr-FR")}
-                      {overdue && " (retard)"}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-auto flex items-center gap-1 pt-1">
-                  {canManage && (
-                    <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
-                      <SelectTrigger className="h-8 flex-1 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {r.status === "ouverte" && (
-                    <Link to="/pv/$id" params={{ id: r.pv_id }} search={{ openLift: r.id }}>
-                      <Button size="sm" variant="outline" className="h-8">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                  <div className="mt-auto flex items-center gap-1 pt-1" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setDetail(r)}>
+                      <Eye className="h-3.5 w-3.5" /> Détail
+                    </Button>
+                    {canManage && (
+                      <Select value={r.status} onValueChange={(v) => setStatus(r.id, v)}>
+                        <SelectTrigger className="h-8 flex-1 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {r.status === "ouverte" && (
+                      <Link to="/pv/$id" params={{ id: r.pv_id }} search={{ openLift: r.id }}>
+                        <Button size="sm" variant="outline" className="h-8">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Lever
+                        </Button>
+                      </Link>
+                    )}
+                    {canManage && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setAssignOpen({ ids: [r.id] })}>
+                        <UserPlus className="h-4 w-4" />
                       </Button>
-                    </Link>
-                  )}
-                  {canManage && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setAssignOpen({ ids: [r.id] })}>
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {canDelete && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(r.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                    )}
+                    {canDelete && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => remove(r.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+          {visible < filtered.length && (
+            <div className="flex justify-center pt-2">
+              <Button variant="outline" onClick={() => setVisible((n) => n + PAGE_SIZE)}>
+                Voir plus ({filtered.length - visible} restantes)
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <Card className="overflow-x-auto">
           <Table>
@@ -500,14 +729,18 @@ function ReservesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((r) => {
+              {visibleRows.map((r) => {
                 const overdue = isOverdue(r);
                 return (
-                  <TableRow key={r.id} className={overdue ? "bg-red-50/40 dark:bg-red-950/10" : ""}>
-                    <TableCell>
+                  <TableRow
+                    key={r.id}
+                    className={`cursor-pointer ${overdue ? "bg-red-50/40 dark:bg-red-950/10" : ""}`}
+                    onClick={() => setDetail(r)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Link to="/pv/$id" params={{ id: r.pv_id }} className="text-primary hover:underline">
                         {r.pv?.numero}
                       </Link>
@@ -520,7 +753,7 @@ function ReservesPage() {
                       {r.due_date ? new Date(r.due_date).toLocaleDateString("fr-FR") : "—"}
                     </TableCell>
                     <TableCell className="text-xs">{memberName(r.assigned_to) ?? "—"}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         {canManage && (
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setAssignOpen({ ids: [r.id] })}>
@@ -539,8 +772,27 @@ function ReservesPage() {
               })}
             </TableBody>
           </Table>
+          {visible < filtered.length && (
+            <div className="flex justify-center p-3">
+              <Button variant="outline" onClick={() => setVisible((n) => n + PAGE_SIZE)}>
+                Voir plus ({filtered.length - visible} restantes)
+              </Button>
+            </div>
+          )}
         </Card>
       )}
+
+      {/* Detail dialog */}
+      <ReserveDetailDialog
+        open={!!reserveDetail}
+        onOpenChange={(o) => !o && setDetail(null)}
+        reserve={reserveDetail}
+        onChanged={() => { load(); }}
+        onLever={(rsv) => {
+          // Navigate to PV page with lift workflow preselected
+          navigate({ to: "/pv/$id", params: { id: rsv.pv_id }, search: { openLift: rsv.id } as any });
+        }}
+      />
 
       {/* Assign dialog */}
       <Dialog open={!!assignOpen} onOpenChange={(o) => !o && setAssignOpen(null)}>
