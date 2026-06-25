@@ -68,6 +68,9 @@ export function DossierTab({
   const fetchChantierPhotos = useServerFn(listChantierPhotos);
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
   const exportExpertiseFn = useServerFn(exportReserveLiftExpertise);
+  const exportDossierFn = useServerFn(exportChantierDossier);
+  const [busyDossier, setBusyDossier] = useState(false);
+
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [chantierPhotos, setChantierPhotos] = useState<ChantierPhoto[]>([]);
   const [loading, setLoading] = useState(true);
