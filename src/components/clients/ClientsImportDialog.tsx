@@ -135,7 +135,9 @@ export function ClientsImportDialog({
     if (analyzing) return;
     setAnalyzing(true);
     try {
-      type ExtractPayload = Parameters<typeof extractFn>[0]["data"];
+      type ExtractPayload =
+        | { companyId: string; mode: "text"; text: string }
+        | { companyId: string; mode: "file"; file: { fileName: string; mimeType: "application/pdf" | "image/png" | "image/jpeg" | "image/webp"; dataUrl: string } };
       let payload: ExtractPayload;
       if (tab === "scan") {
         if (!scanFile) {
