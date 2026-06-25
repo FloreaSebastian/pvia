@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Search, Loader2, Building2, User, Check, X, AlertTriangle } from "lucide-react";
+import { Search, Loader2, Building2, User, Check, X, AlertTriangle, MapPin, ShieldCheck } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
