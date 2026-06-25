@@ -20,7 +20,6 @@ import {
   FileCheck2, FileLock2, Package, ChevronDown,
 } from "lucide-react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { deriveDisplayStatus, STATUS_LABELS, STATUS_TONES } from "@/lib/reserve-lift-status";
