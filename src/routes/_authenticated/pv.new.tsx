@@ -158,10 +158,23 @@ function NewPv() {
   // Clef stable côté brouillon pour rattacher les documents importés avant création du PV.
   const [draftKey] = useState(() => `draft-${crypto.randomUUID()}`);
 
+  const search = Route.useSearch();
+  const createClientFnSrv = useServerFn(createClientFn);
+  const createChantierFnSrv = useServerFn(createChantierFn);
+
   const [stepIdx, setStepIdx] = useState(0);
   const [maxStepIdx, setMaxStepIdx] = useState(0);
-  const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null; postal_code: string | null; city: string | null }[]>([]);
-  const [clients, setClients] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
+  const [chantiers, setChantiers] = useState<{
+    id: string; name: string; reference: string | null; client_id: string | null;
+    address: string | null; postal_code: string | null; city: string | null;
+    start_date: string | null; end_date: string | null;
+    status: string | null; progress_percent: number | null;
+  }[]>([]);
+  const [clients, setClients] = useState<{
+    id: string; name: string; email: string | null; phone: string | null;
+    address: string | null; address_line1: string | null;
+    postal_code: string | null; city: string | null;
+  }[]>([]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [branding, setBranding] = useState<Branding | null>(null);
@@ -171,11 +184,15 @@ function NewPv() {
   // Décision (null = pas encore choisi)
   const [withReserves, setWithReserves] = useState<boolean | null>(null);
 
-  const [form, setForm] = useState({
+  const emptyForm = () => ({
     chantier_id: "",
     client_id: "",
     new_client_name: "",
     new_client_email: "",
+    new_client_phone: "",
+    new_client_address: "",
+    new_client_postal_code: "",
+    new_client_city: "",
     // chantier
     chantier_address: "",
     chantier_postal_code: "",
@@ -195,6 +212,8 @@ function NewPv() {
     reserve_completion_delay: "",
     reserve_due_date: "",
   });
+
+  const [form, setForm] = useState(emptyForm);
   // Photos générales du PV : déprécié — les photos sont désormais liées aux réserves.
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [newReserve, setNewReserve] = useState<Reserve>({
@@ -206,6 +225,18 @@ function NewPv() {
     photos: [],
   });
 
+  // Clef stable côté brouillon pour rattacher les documents importés avant création du PV.
+  const [draftKey] = useState(() => `draft-${crypto.randomUUID()}`);
+
+  // UI state — Client / Chantier steps
+  const [clientSearch, setClientSearch] = useState("");
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [savingNewClient, setSavingNewClient] = useState(false);
+  const [chantierSearch, setChantierSearch] = useState("");
+  const [creatingChantier, setCreatingChantier] = useState(false);
+
+  // Draft prompt dialog
+  const [draftPrompt, setDraftPrompt] = useState<{ open: boolean; savedAt: string | null }>({ open: false, savedAt: null });
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
@@ -240,39 +271,108 @@ function NewPv() {
 
   const currentStep = STEPS[stepIdx] ?? STEPS[0];
 
-  // Load chantiers/clients + draft
-  useEffect(() => {
-    (async () => {
-      const [c, cl] = await Promise.all([
-        supabase.from("chantiers").select("id,name,client_id,address,postal_code,city").order("name"),
-        supabase.from("clients").select("id,name,email,phone").order("name"),
-      ]);
-      setChantiers(c.data ?? []);
-      setClients(cl.data ?? []);
-    })();
+  async function reloadLists() {
+    const [c, cl] = await Promise.all([
+      supabase.from("chantiers").select("id,name,reference,client_id,address,postal_code,city,start_date,end_date,status,progress_percent").order("name"),
+      supabase.from("clients").select("id,name,email,phone,address,address_line1,postal_code,city").order("name"),
+    ]);
+    setChantiers((c.data as any) ?? []);
+    setClients((cl.data as any) ?? []);
+  }
 
+  function restoreDraft() {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (parsed.form) setForm((f) => ({ ...f, ...parsed.form }));
+      if (Array.isArray(parsed.reserves)) {
+        setReserves(parsed.reserves.map((r: any) => ({
+          nature: r.nature ?? "",
+          description: r.description ?? "",
+          work_to_execute: r.work_to_execute ?? "",
+          severity: r.severity ?? "mineure",
+          due_date: r.due_date ?? "",
+          photos: [],
+        })));
+      }
+      if (typeof parsed.withReserves === "boolean") setWithReserves(parsed.withReserves);
+      return true;
+    } catch { return false; }
+  }
+
+  function clearDraftStorage() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    setLastSaved(null);
+  }
+
+  function resetWizard(opts?: { chantierId?: string }) {
+    setForm({ ...emptyForm(), chantier_id: opts?.chantierId ?? "" });
+    setReserves([]);
+    setWithReserves(null);
+    setStepIdx(0);
+    setMaxStepIdx(0);
+    setSignatureMode(null);
+    setClientSignatureDataUrl(null);
+    setCompanySignatureDataUrl(null);
+    setOnsiteOtpEmail("");
+    setOnsiteOtpId(null);
+    setOnsiteOtpSent(false);
+    setOnsiteOtpVerified(false);
+    setOnsiteOtpCode("");
+  }
+
+  // Suppress autosave during the initial bootstrap so we don't overwrite the
+  // freshly cleared/imported state with the empty form values before decisions.
+  const bootstrappedRef = useRef(false);
+
+  // Load chantiers/clients + decide draft strategy from search params
+  useEffect(() => {
+    void reloadLists();
+
+    // Priority: explicit `fresh` → always start blank, clear stored draft
+    if (search.fresh) {
+      clearDraftStorage();
+      // Drop the `fresh` flag from the URL once consumed
+      navigate({ to: "/pv/new", search: search.chantierId ? { chantierId: search.chantierId } : {}, replace: true });
+      if (search.chantierId) resetWizard({ chantierId: search.chantierId });
+      bootstrappedRef.current = true;
+      return;
+    }
+
+    // Coming from a chantier card → prefill only that chantier, ignore old draft
+    if (search.chantierId) {
+      clearDraftStorage();
+      resetWizard({ chantierId: search.chantierId });
+      bootstrappedRef.current = true;
+      return;
+    }
+
+    // Explicit `?draft=1` → restore silently
+    if (search.draft) {
+      restoreDraft();
+      bootstrappedRef.current = true;
+      return;
+    }
+
+    // Default: if a draft exists, ask the user what to do
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.form) setForm((f) => ({ ...f, ...parsed.form }));
-        // Note: les photos (File objects) ne sont pas persistées en localStorage,
-        // on ne restaure que les champs texte des réserves avec photos = [].
-        if (Array.isArray(parsed.reserves)) {
-          setReserves(parsed.reserves.map((r: any) => ({
-            nature: r.nature ?? "",
-            description: r.description ?? "",
-            work_to_execute: r.work_to_execute ?? "",
-            severity: r.severity ?? "mineure",
-            due_date: r.due_date ?? "",
-            photos: [],
-          })));
-        }
-        if (typeof parsed.withReserves === "boolean") setWithReserves(parsed.withReserves);
+        let savedAt: string | null = null;
+        try {
+          const parsed = JSON.parse(raw);
+          savedAt = parsed?._savedAt ?? null;
+        } catch { /* ignore */ }
+        setDraftPrompt({ open: true, savedAt });
+        // Do not bootstrap yet — wait for user choice
+        return;
       }
     } catch { /* ignore */ }
-
+    bootstrappedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // Branding
   useEffect(() => {
