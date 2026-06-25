@@ -59,6 +59,7 @@ function ClientsPage() {
   const [archiveTarget, setArchiveTarget] = useState<Client | null>(null);
   const [archiveReason, setArchiveReason] = useState("");
   const [archiving, setArchiving] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const canWrite = can("manage");
   const canAdmin = can("admin");
   const createFn = useServerFn(createClientFn);
