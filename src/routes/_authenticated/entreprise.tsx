@@ -190,43 +190,47 @@ function CompanyPage() {
     }
   }
 
-  /* ── Logo ── */
-  async function uploadLogo(file: File) {
+  /* ── Identité visuelle (icône + logo) ── */
+  async function uploadVisual(file: File, kind: "logo" | "icon") {
     if (!activeCompanyId) return;
     const err = validateLogoFile(file);
     if (err) return toast.error(err);
     try {
       const base64 = await fileToBase64(file);
       const res = await uploadFn({
-        data: { companyId: activeCompanyId, fileName: file.name, mimeType: file.type, base64 },
+        data: { companyId: activeCompanyId, fileName: file.name, mimeType: file.type, base64, kind },
       });
-      setCompany((c) => ({ ...c, logo_url: res.url }));
-      toast.success("Logo mis à jour.");
+      // Warning ergonomique si ratio inattendu (non bloquant).
+      try {
+        const img = new Image();
+        img.onload = () => {
+          const r = img.width / img.height;
+          if (kind === "icon" && (r < 0.75 || r > 1.33)) {
+            toast.warning("Une image carrée est recommandée pour l'icône.");
+          } else if (kind === "logo" && r > 0 && r < 1.2) {
+            toast.warning("Un visuel horizontal est recommandé pour le logo principal.");
+          }
+        };
+        img.src = res.url;
+      } catch { /* ignore */ }
+      setCompany((c) => kind === "icon" ? { ...c, icon_url: res.url } : { ...c, logo_url: res.url });
+      toast.success(kind === "icon" ? "Icône mise à jour." : "Logo mis à jour.");
       refresh();
     } catch (e: any) {
       toast.error(e?.message || "Échec de l'upload.");
     }
   }
 
-  async function removeLogo() {
+  async function removeVisual(kind: "logo" | "icon") {
     if (!activeCompanyId) return;
     try {
-      await saveFn({
-        data: {
-          companyId: activeCompanyId,
-          name: company.name, legal_form: company.legal_form, siren: company.siren,
-          siret: company.siret, vat_number: company.vat_number,
-          address_line1: company.address_line1, postal_code: company.postal_code, city: company.city,
-          address_line2: contact.address_line2, country: contact.country,
-          phone: contact.phone, email: contact.email, website: contact.website,
-          logo_url: "",
-        } as any,
-      });
-      setCompany((c) => ({ ...c, logo_url: "" }));
-      toast.success("Logo supprimé.");
+      await deleteFn({ data: { companyId: activeCompanyId, kind } });
+      setCompany((c) => kind === "icon" ? { ...c, icon_url: "" } : { ...c, logo_url: "" });
+      toast.success(kind === "icon" ? "Icône supprimée." : "Logo supprimé.");
       refresh();
     } catch (e: any) { toast.error(e?.message || "Suppression impossible."); }
   }
+
 
   /* ── Sync wizard ── */
   function openSync() {
