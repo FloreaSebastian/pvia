@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import SignaturePad from "react-signature-canvas";
+import { z } from "zod";
 import {
   Upload,
   Trash2,
@@ -30,6 +31,10 @@ import {
   Mail,
   MonitorSmartphone,
   Smartphone,
+  Search as SearchIcon,
+  UserPlus,
+  Hammer,
+  Phone,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,11 +43,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { useServerFn } from "@tanstack/react-start";
 import { createPv } from "@/lib/pv-create.functions";
+import { createClient as createClientFn } from "@/lib/clients.functions";
+import { createChantier as createChantierFn } from "@/lib/chantiers.functions";
 import { extractWorkReferenceDoc } from "@/lib/work-reference.functions";
 import { getCompanyBrandingFn } from "@/lib/branding.functions";
 import { getPvNumberingSettings } from "@/lib/pv-numbering.functions";
@@ -71,8 +79,15 @@ type Branding = {
   logo_url: string | null;
 };
 
+const PvNewSearchSchema = z.object({
+  chantierId: z.string().uuid().optional(),
+  fresh: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
+  draft: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/pv/new")({
   component: NewPv,
+  validateSearch: (s) => PvNewSearchSchema.parse(s),
   head: () => ({ meta: [{ title: "Créer un PV — PVIA" }] }),
 });
 
@@ -140,13 +155,24 @@ function NewPv() {
   const verifyOtpFn = useServerFn(verifyOnsiteClientOtp);
   const extractWorkRefFn = useServerFn(extractWorkReferenceDoc);
 
-  // Clef stable côté brouillon pour rattacher les documents importés avant création du PV.
-  const [draftKey] = useState(() => `draft-${crypto.randomUUID()}`);
+
+  const search = Route.useSearch();
+  const createClientFnSrv = useServerFn(createClientFn);
+  const createChantierFnSrv = useServerFn(createChantierFn);
 
   const [stepIdx, setStepIdx] = useState(0);
   const [maxStepIdx, setMaxStepIdx] = useState(0);
-  const [chantiers, setChantiers] = useState<{ id: string; name: string; client_id: string | null; address: string | null; postal_code: string | null; city: string | null }[]>([]);
-  const [clients, setClients] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
+  const [chantiers, setChantiers] = useState<{
+    id: string; name: string; reference: string | null; client_id: string | null;
+    address: string | null; postal_code: string | null; city: string | null;
+    start_date: string | null; end_date: string | null;
+    status: string | null; progress_percent: number | null;
+  }[]>([]);
+  const [clients, setClients] = useState<{
+    id: string; name: string; email: string | null; phone: string | null;
+    address: string | null; address_line1: string | null;
+    postal_code: string | null; city: string | null;
+  }[]>([]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [branding, setBranding] = useState<Branding | null>(null);
@@ -156,11 +182,15 @@ function NewPv() {
   // Décision (null = pas encore choisi)
   const [withReserves, setWithReserves] = useState<boolean | null>(null);
 
-  const [form, setForm] = useState({
+  const emptyForm = () => ({
     chantier_id: "",
     client_id: "",
     new_client_name: "",
     new_client_email: "",
+    new_client_phone: "",
+    new_client_address: "",
+    new_client_postal_code: "",
+    new_client_city: "",
     // chantier
     chantier_address: "",
     chantier_postal_code: "",
@@ -180,6 +210,8 @@ function NewPv() {
     reserve_completion_delay: "",
     reserve_due_date: "",
   });
+
+  const [form, setForm] = useState(emptyForm);
   // Photos générales du PV : déprécié — les photos sont désormais liées aux réserves.
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [newReserve, setNewReserve] = useState<Reserve>({
@@ -191,6 +223,18 @@ function NewPv() {
     photos: [],
   });
 
+  // Clef stable côté brouillon pour rattacher les documents importés avant création du PV.
+  const [draftKey] = useState(() => `draft-${crypto.randomUUID()}`);
+
+  // UI state — Client / Chantier steps
+  const [clientSearch, setClientSearch] = useState("");
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [savingNewClient, setSavingNewClient] = useState(false);
+  const [chantierSearch, setChantierSearch] = useState("");
+  const [creatingChantier, setCreatingChantier] = useState(false);
+
+  // Draft prompt dialog
+  const [draftPrompt, setDraftPrompt] = useState<{ open: boolean; savedAt: string | null }>({ open: false, savedAt: null });
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
@@ -225,39 +269,108 @@ function NewPv() {
 
   const currentStep = STEPS[stepIdx] ?? STEPS[0];
 
-  // Load chantiers/clients + draft
-  useEffect(() => {
-    (async () => {
-      const [c, cl] = await Promise.all([
-        supabase.from("chantiers").select("id,name,client_id,address,postal_code,city").order("name"),
-        supabase.from("clients").select("id,name,email,phone").order("name"),
-      ]);
-      setChantiers(c.data ?? []);
-      setClients(cl.data ?? []);
-    })();
+  async function reloadLists() {
+    const [c, cl] = await Promise.all([
+      supabase.from("chantiers").select("id,name,reference,client_id,address,postal_code,city,start_date,end_date,status,progress_percent").order("name"),
+      supabase.from("clients").select("id,name,email,phone,address,address_line1,postal_code,city").order("name"),
+    ]);
+    setChantiers((c.data as any) ?? []);
+    setClients((cl.data as any) ?? []);
+  }
 
+  function restoreDraft() {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (parsed.form) setForm((f) => ({ ...f, ...parsed.form }));
+      if (Array.isArray(parsed.reserves)) {
+        setReserves(parsed.reserves.map((r: any) => ({
+          nature: r.nature ?? "",
+          description: r.description ?? "",
+          work_to_execute: r.work_to_execute ?? "",
+          severity: r.severity ?? "mineure",
+          due_date: r.due_date ?? "",
+          photos: [],
+        })));
+      }
+      if (typeof parsed.withReserves === "boolean") setWithReserves(parsed.withReserves);
+      return true;
+    } catch { return false; }
+  }
+
+  function clearDraftStorage() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    setLastSaved(null);
+  }
+
+  function resetWizard(opts?: { chantierId?: string }) {
+    setForm({ ...emptyForm(), chantier_id: opts?.chantierId ?? "" });
+    setReserves([]);
+    setWithReserves(null);
+    setStepIdx(0);
+    setMaxStepIdx(0);
+    setSignatureMode(null);
+    setClientSignatureDataUrl(null);
+    setCompanySignatureDataUrl(null);
+    setOnsiteOtpEmail("");
+    setOnsiteOtpId(null);
+    setOnsiteOtpSent(false);
+    setOnsiteOtpVerified(false);
+    setOnsiteOtpCode("");
+  }
+
+  // Suppress autosave during the initial bootstrap so we don't overwrite the
+  // freshly cleared/imported state with the empty form values before decisions.
+  const bootstrappedRef = useRef(false);
+
+  // Load chantiers/clients + decide draft strategy from search params
+  useEffect(() => {
+    void reloadLists();
+
+    // Priority: explicit `fresh` → always start blank, clear stored draft
+    if (search.fresh) {
+      clearDraftStorage();
+      // Drop the `fresh` flag from the URL once consumed
+      navigate({ to: "/pv/new", search: search.chantierId ? { chantierId: search.chantierId } : {}, replace: true });
+      if (search.chantierId) resetWizard({ chantierId: search.chantierId });
+      bootstrappedRef.current = true;
+      return;
+    }
+
+    // Coming from a chantier card → prefill only that chantier, ignore old draft
+    if (search.chantierId) {
+      clearDraftStorage();
+      resetWizard({ chantierId: search.chantierId });
+      bootstrappedRef.current = true;
+      return;
+    }
+
+    // Explicit `?draft=1` → restore silently
+    if (search.draft) {
+      restoreDraft();
+      bootstrappedRef.current = true;
+      return;
+    }
+
+    // Default: if a draft exists, ask the user what to do
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.form) setForm((f) => ({ ...f, ...parsed.form }));
-        // Note: les photos (File objects) ne sont pas persistées en localStorage,
-        // on ne restaure que les champs texte des réserves avec photos = [].
-        if (Array.isArray(parsed.reserves)) {
-          setReserves(parsed.reserves.map((r: any) => ({
-            nature: r.nature ?? "",
-            description: r.description ?? "",
-            work_to_execute: r.work_to_execute ?? "",
-            severity: r.severity ?? "mineure",
-            due_date: r.due_date ?? "",
-            photos: [],
-          })));
-        }
-        if (typeof parsed.withReserves === "boolean") setWithReserves(parsed.withReserves);
+        let savedAt: string | null = null;
+        try {
+          const parsed = JSON.parse(raw);
+          savedAt = parsed?._savedAt ?? null;
+        } catch { /* ignore */ }
+        setDraftPrompt({ open: true, savedAt });
+        // Do not bootstrap yet — wait for user choice
+        return;
       }
     } catch { /* ignore */ }
-
+    bootstrappedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // Branding
   useEffect(() => {
@@ -293,14 +406,16 @@ function NewPv() {
     return !!branding.name && hasIdent && hasAddress && hasContact;
   }, [branding]);
 
-  // Autosave
+  // Autosave (skipped until bootstrap finished — avoids overwriting a draft
+  // before the restore-prompt is answered, or wiping state after a fresh reset)
   useEffect(() => {
+    if (!bootstrappedRef.current) return;
     const t = setTimeout(() => {
       try {
-        // Strip File objects from photos before persisting (non-serializable).
         const persistedReserves = reserves.map((r) => ({ ...r, photos: [] }));
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves: persistedReserves, withReserves }));
-        setLastSaved(new Date());
+        const savedAt = new Date().toISOString();
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ form, reserves: persistedReserves, withReserves, _savedAt: savedAt }));
+        setLastSaved(new Date(savedAt));
       } catch { /* noop */ }
     }, 600);
     return () => clearTimeout(t);
@@ -726,8 +841,18 @@ function NewPv() {
 
   // Validation par étape (par id)
   const stepErrors = useMemo<Record<string, string | null>>(() => {
-    const clientOk = !!form.client_id || (form.new_client_name.trim().length > 1);
-    const chantierOk = form.chantier_address.trim().length > 0 && !!form.reception_date;
+    const selectedClient = clients.find((c) => c.id === form.client_id);
+    const clientName = selectedClient?.name?.trim() || form.new_client_name.trim();
+    const clientEmail = (selectedClient?.email ?? "").trim() || form.new_client_email.trim();
+    let clientError: string | null = null;
+    if (!clientName) clientError = "Veuillez sélectionner ou créer un client avant de continuer.";
+    else if (signatureMode === "remote" && !clientEmail) clientError = "Email du client requis pour la signature à distance.";
+
+    const cp = form.chantier_postal_code.trim();
+    const cpInvalid = cp.length > 0 && !/^\d{4,5}$/.test(cp);
+    let chantierError: string | null = null;
+    if (!form.chantier_address.trim() || !form.reception_date) chantierError = "Veuillez renseigner l’adresse et la date de réception du chantier.";
+    else if (cpInvalid) chantierError = "Code postal invalide.";
     const travauxOk = form.description.trim().length > 0;
     const decisionOk = withReserves !== null;
     const reservesAllHaveContent = reserves.every((r) => (r.description.trim() || r.nature.trim()));
@@ -750,8 +875,8 @@ function NewPv() {
     else if (signatureMode === "onsite" && !onsiteOtpVerified) signaturesError = "Confirmez l'identité client avec le code OTP.";
     return {
       [ID_ENTREPRISE]: brandingComplete ? null : "Fiche entreprise incomplète.",
-      [ID_CLIENT]: clientOk ? null : "Sélectionnez ou créez un client.",
-      [ID_CHANTIER]: chantierOk ? null : "Adresse chantier et date obligatoires.",
+      [ID_CLIENT]: clientError,
+      [ID_CHANTIER]: chantierError,
       [ID_TRAVAUX]: travauxOk ? null : "Description des travaux obligatoire.",
       [ID_DECISION]: decisionOk ? null : "Choisissez avec ou sans réserves.",
       [ID_RESERVES]: reservesError,
@@ -843,17 +968,78 @@ function NewPv() {
             Procès-verbal de réception de travaux — avec ou sans réserves.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {lastSaved && (
             <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
               <Cloud className="h-3 w-3 text-success" /> Sauvegardé {lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={saving}
+            onClick={() => {
+              if (!confirm("Supprimer définitivement ce brouillon ? Le formulaire sera réinitialisé.")) return;
+              clearDraftStorage();
+              resetWizard();
+              toast.success("Brouillon supprimé.");
+            }}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" /> Supprimer le brouillon
+          </Button>
           <Button variant="outline" disabled={saving} onClick={() => onSave("brouillon")}>
             <Save className="h-4 w-4" /> Enregistrer en brouillon
           </Button>
         </div>
       </div>
+
+      {/* Draft restore prompt — shown on entry if a stored draft exists and no explicit override */}
+      <Dialog open={draftPrompt.open} onOpenChange={(o) => { if (!o) { bootstrappedRef.current = true; setDraftPrompt((p) => ({ ...p, open: false })); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Brouillon existant</DialogTitle>
+            <DialogDescription>
+              Un brouillon de PV est sauvegardé{draftPrompt.savedAt ? ` depuis le ${new Date(draftPrompt.savedAt).toLocaleString("fr-FR")}` : ""}.
+              Voulez-vous le reprendre ou commencer un nouveau PV ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                clearDraftStorage();
+                setDraftPrompt({ open: false, savedAt: null });
+                bootstrappedRef.current = true;
+                toast.success("Brouillon supprimé.");
+              }}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" /> Supprimer le brouillon
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                clearDraftStorage();
+                resetWizard();
+                setDraftPrompt({ open: false, savedAt: null });
+                bootstrappedRef.current = true;
+              }}
+            >
+              Nouveau PV vide
+            </Button>
+            <Button
+              onClick={() => {
+                restoreDraft();
+                setDraftPrompt({ open: false, savedAt: null });
+                bootstrappedRef.current = true;
+              }}
+            >
+              Reprendre
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="overflow-hidden p-0">
         <div className="border-b border-border bg-gradient-to-b from-muted/40 to-muted/10 px-4 py-3 sm:px-5">
@@ -1009,60 +1195,91 @@ function NewPv() {
               )}
 
               {currentStep.id === ID_CLIENT && (
-                <>
-                  <SectionHeader icon={User} title="Informations client" desc="Sélectionnez ou créez le client signataire." />
-                  <Field label="Client existant">
-                    <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
-                      <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Nouveau client —</SelectItem>
-                        {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  {!form.client_id && (
-                    <div className="grid gap-4 rounded-xl border border-dashed border-border bg-muted/20 p-4 sm:grid-cols-2">
-                      <Field label="Nom du client *"><Input value={form.new_client_name} onChange={(e) => setForm({ ...form, new_client_name: e.target.value })} placeholder="M. et Mme Mercier" /></Field>
-                      <Field label="Email"><Input type="email" value={form.new_client_email} onChange={(e) => setForm({ ...form, new_client_email: e.target.value })} placeholder="client@email.com" /></Field>
-                    </div>
-                  )}
-                </>
+                <ClientStep
+                  clients={clients}
+                  clientObj={clientObj ?? null}
+                  form={form}
+                  setForm={setForm}
+                  clientSearch={clientSearch}
+                  setClientSearch={setClientSearch}
+                  showNewClientForm={showNewClientForm}
+                  setShowNewClientForm={setShowNewClientForm}
+                  savingNewClient={savingNewClient}
+                  onCreateClient={async () => {
+                    if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
+                    const name = form.new_client_name.trim();
+                    if (!name) { toast.error("Le nom du client est obligatoire."); return; }
+                    setSavingNewClient(true);
+                    try {
+                      const res = await createClientFnSrv({
+                        data: {
+                          companyId: activeCompanyId,
+                          data: {
+                            name,
+                            email: form.new_client_email.trim(),
+                            phone: form.new_client_phone.trim(),
+                            address_line1: form.new_client_address.trim(),
+                            postal_code: form.new_client_postal_code.trim(),
+                            city: form.new_client_city.trim(),
+                          },
+                        },
+                      });
+                      await reloadLists();
+                      setForm((f) => ({ ...f, client_id: res.id, new_client_name: "", new_client_email: "", new_client_phone: "", new_client_address: "", new_client_postal_code: "", new_client_city: "" }));
+                      setShowNewClientForm(false);
+                      toast.success("Client créé et sélectionné.");
+                    } catch (e: any) {
+                      toast.error(e?.message || "Création du client impossible.");
+                    } finally {
+                      setSavingNewClient(false);
+                    }
+                  }}
+                />
               )}
 
               {currentStep.id === ID_CHANTIER && (
-                <>
-                  <SectionHeader icon={MapPin} title="Chantier" desc="Adresse précise du chantier réceptionné." />
-                  <Field label="Chantier existant (optionnel)">
-                    <Select value={form.chantier_id || "none"} onValueChange={(v) => setForm({ ...form, chantier_id: v === "none" ? "" : v })}>
-                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">— Aucun chantier lié —</SelectItem>
-                        {chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Adresse du chantier *">
-                    <AddressAutocomplete
-                      value={form.chantier_address}
-                      onChange={(v) => setForm((f) => ({ ...f, chantier_address: v }))}
-                      onSelect={(a: AddressValue) => setForm((f) => ({
-                        ...f,
-                        chantier_address: a.address,
-                        chantier_postal_code: a.postalCode,
-                        chantier_city: a.city,
-                        latitude: a.latitude,
-                        longitude: a.longitude,
-                      }))}
-                      placeholder="12 chemin des Pins, Cannes…"
-                    />
-                  </Field>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <Field label="Code postal"><Input value={form.chantier_postal_code} onChange={(e) => setForm({ ...form, chantier_postal_code: e.target.value })} placeholder="06400" /></Field>
-                    <Field label="Ville"><Input value={form.chantier_city} onChange={(e) => setForm({ ...form, chantier_city: e.target.value })} placeholder="Cannes" /></Field>
-                    <Field label="Date de réception *"><Input type="date" value={form.reception_date} onChange={(e) => setForm({ ...form, reception_date: e.target.value })} /></Field>
-                  </div>
-                </>
+                <ChantierStep
+                  chantiers={chantiers}
+                  chantierObj={chantierObj ?? null}
+                  clients={clients}
+                  form={form}
+                  setForm={setForm}
+                  chantierSearch={chantierSearch}
+                  setChantierSearch={setChantierSearch}
+                  creatingChantier={creatingChantier}
+                  onCreateChantierFromAddress={async () => {
+                    if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
+                    if (!form.chantier_address.trim()) { toast.error("L'adresse du chantier est requise."); return; }
+                    setCreatingChantier(true);
+                    try {
+                      const res = await createChantierFnSrv({
+                        data: {
+                          companyId: activeCompanyId,
+                          data: {
+                            name: form.chantier_address.trim().slice(0, 200),
+                            address_line1: form.chantier_address.trim(),
+                            postal_code: form.chantier_postal_code.trim(),
+                            city: form.chantier_city.trim(),
+                            latitude: form.latitude,
+                            longitude: form.longitude,
+                            status: "en_cours",
+                            client_id: form.client_id || null,
+                            start_date: form.reception_date || null,
+                          },
+                        },
+                      });
+                      await reloadLists();
+                      setForm((f) => ({ ...f, chantier_id: res.id }));
+                      toast.success(`Chantier créé (${res.reference}).`);
+                    } catch (e: any) {
+                      toast.error(e?.message || "Création du chantier impossible.");
+                    } finally {
+                      setCreatingChantier(false);
+                    }
+                  }}
+                />
               )}
+
 
               {currentStep.id === ID_TRAVAUX && (
                 <>
@@ -2331,5 +2548,345 @@ function WorkReferenceImport(props: {
     </Card>
   );
 }
+
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Sous-étape — Client signataire                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+type ClientRow = {
+  id: string; name: string; email: string | null; phone: string | null;
+  address: string | null; address_line1: string | null;
+  postal_code: string | null; city: string | null;
+};
+
+type ChantierRow = {
+  id: string; name: string; reference: string | null; client_id: string | null;
+  address: string | null; postal_code: string | null; city: string | null;
+  start_date: string | null; end_date: string | null;
+  status: string | null; progress_percent: number | null;
+};
+
+function ClientStep(props: {
+  clients: ClientRow[];
+  clientObj: ClientRow | null;
+  form: any;
+  setForm: React.Dispatch<React.SetStateAction<any>>;
+  clientSearch: string;
+  setClientSearch: (s: string) => void;
+  showNewClientForm: boolean;
+  setShowNewClientForm: (b: boolean) => void;
+  savingNewClient: boolean;
+  onCreateClient: () => void;
+}) {
+  const { clients, clientObj, form, setForm, clientSearch, setClientSearch, showNewClientForm, setShowNewClientForm, savingNewClient, onCreateClient } = props;
+  const q = clientSearch.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!q) return clients.slice(0, 50);
+    return clients.filter((c) =>
+      c.name.toLowerCase().includes(q) ||
+      (c.email ?? "").toLowerCase().includes(q) ||
+      (c.phone ?? "").toLowerCase().includes(q) ||
+      (c.city ?? "").toLowerCase().includes(q),
+    ).slice(0, 50);
+  }, [clients, q]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Client signataire</h2>
+        <p className="text-sm text-muted-foreground">
+          Sélectionnez le client qui signera le procès-verbal ou créez-en un nouveau.
+        </p>
+      </div>
+
+      {clientObj ? (
+        <Card className="border-primary/40 bg-primary/5 p-3 sm:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" />
+                <span className="truncate text-base font-semibold">{clientObj.name}</span>
+              </div>
+              {clientObj.email && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientObj.email}</span>
+                </div>
+              )}
+              {clientObj.phone && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientObj.phone}</span>
+                </div>
+              )}
+              {(clientObj.address || clientObj.address_line1) && (
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {[clientObj.address_line1 || clientObj.address, [clientObj.postal_code, clientObj.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}
+                  </span>
+                </div>
+              )}
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setForm((f: any) => ({ ...f, client_id: "" }))}>
+              <X className="h-4 w-4" /> Changer
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              placeholder="Rechercher un client (nom, email, ville…)"
+              className="pl-9"
+            />
+          </div>
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-background">
+            {filtered.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">Aucun client trouvé.</div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {filtered.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f: any) => ({ ...f, client_id: c.id }))}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-muted/50"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{c.name}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {[c.email, c.city].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <Button
+            type="button"
+            variant={showNewClientForm ? "outline" : "default"}
+            onClick={() => setShowNewClientForm(!showNewClientForm)}
+            className="w-full sm:w-auto"
+          >
+            <UserPlus className="h-4 w-4" />
+            {showNewClientForm ? "Annuler" : "Créer un nouveau client"}
+          </Button>
+
+          {showNewClientForm && (
+            <div className="space-y-3 rounded-xl border border-dashed border-border bg-muted/20 p-3 sm:p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Nom / Société *">
+                  <Input value={form.new_client_name} onChange={(e) => setForm({ ...form, new_client_name: e.target.value })} placeholder="M. et Mme Mercier" />
+                </Field>
+                <Field label="Email">
+                  <Input type="email" value={form.new_client_email} onChange={(e) => setForm({ ...form, new_client_email: e.target.value })} placeholder="client@email.com" />
+                </Field>
+                <Field label="Téléphone">
+                  <Input value={form.new_client_phone} onChange={(e) => setForm({ ...form, new_client_phone: e.target.value })} placeholder="06 12 34 56 78" />
+                </Field>
+                <Field label="Adresse">
+                  <Input value={form.new_client_address} onChange={(e) => setForm({ ...form, new_client_address: e.target.value })} placeholder="12 rue des Lilas" />
+                </Field>
+                <Field label="Code postal">
+                  <Input value={form.new_client_postal_code} onChange={(e) => setForm({ ...form, new_client_postal_code: e.target.value })} placeholder="06400" />
+                </Field>
+                <Field label="Ville">
+                  <Input value={form.new_client_city} onChange={(e) => setForm({ ...form, new_client_city: e.target.value })} placeholder="Cannes" />
+                </Field>
+              </div>
+              <Button
+                type="button"
+                onClick={onCreateClient}
+                disabled={savingNewClient || !form.new_client_name.trim()}
+                className="w-full sm:w-auto"
+              >
+                {savingNewClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                Enregistrer et sélectionner ce client
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  Sous-étape — Chantier concerné                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function ChantierStep(props: {
+  chantiers: ChantierRow[];
+  chantierObj: ChantierRow | null;
+  clients: ClientRow[];
+  form: any;
+  setForm: React.Dispatch<React.SetStateAction<any>>;
+  chantierSearch: string;
+  setChantierSearch: (s: string) => void;
+  creatingChantier: boolean;
+  onCreateChantierFromAddress: () => void;
+}) {
+  const { chantiers, chantierObj, clients, form, setForm, chantierSearch, setChantierSearch, creatingChantier, onCreateChantierFromAddress } = props;
+  const q = chantierSearch.trim().toLowerCase();
+  const clientName = (id: string | null) => clients.find((c) => c.id === id)?.name ?? "";
+  const filtered = useMemo(() => {
+    if (!q) return chantiers.slice(0, 50);
+    return chantiers.filter((c) =>
+      c.name.toLowerCase().includes(q) ||
+      (c.reference ?? "").toLowerCase().includes(q) ||
+      (c.address ?? "").toLowerCase().includes(q) ||
+      (c.city ?? "").toLowerCase().includes(q) ||
+      clientName(c.client_id).toLowerCase().includes(q),
+    ).slice(0, 50);
+  }, [chantiers, clients, q]);
+
+  const hasChantier = !!chantierObj;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Chantier concerné</h2>
+        <p className="text-sm text-muted-foreground">
+          Associez ce PV à un chantier existant ou renseignez l’adresse de réception.
+        </p>
+      </div>
+
+      {hasChantier ? (
+        <Card className="border-primary/40 bg-primary/5 p-3 sm:p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Hammer className="h-4 w-4 text-primary" />
+                {chantierObj!.reference && (
+                  <Badge variant="outline" className="font-mono text-xs">{chantierObj!.reference}</Badge>
+                )}
+                <span className="truncate text-base font-semibold">{chantierObj!.name}</span>
+              </div>
+              {chantierObj!.address && (
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{[chantierObj!.address, [chantierObj!.postal_code, chantierObj!.city].filter(Boolean).join(" ")].filter(Boolean).join(" — ")}</span>
+                </div>
+              )}
+              {chantierObj!.client_id && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{clientName(chantierObj!.client_id)}</span>
+                </div>
+              )}
+              {(chantierObj!.start_date || chantierObj!.end_date) && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {chantierObj!.start_date ?? "—"} → {chantierObj!.end_date ?? "—"}
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {chantierObj!.status && <Badge variant="secondary" className="text-xs">{chantierObj!.status}</Badge>}
+                {typeof chantierObj!.progress_percent === "number" && (
+                  <Badge variant="outline" className="text-xs">Avancement {chantierObj!.progress_percent}%</Badge>
+                )}
+              </div>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setForm((f: any) => ({ ...f, chantier_id: "" }))}>
+              <X className="h-4 w-4" /> Changer
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={chantierSearch}
+              onChange={(e) => setChantierSearch(e.target.value)}
+              placeholder="Rechercher (référence, nom, adresse, client…)"
+              className="pl-9"
+            />
+          </div>
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-background">
+            {filtered.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">Aucun chantier trouvé.</div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {filtered.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f: any) => ({ ...f, chantier_id: c.id }))}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-muted/50"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          {c.reference && <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{c.reference}</span>}
+                          <span className="truncate text-sm font-medium">{c.name}</span>
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {[c.city, clientName(c.client_id)].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Adresse de réception (toujours visible — pré-remplie depuis le chantier, modifiable pour le PV) */}
+      <div className="space-y-3 rounded-xl border border-border bg-muted/10 p-3 sm:p-4">
+        <div className="text-sm font-medium">Adresse & date de réception</div>
+        <Field label="Adresse du chantier *">
+          <AddressAutocomplete
+            value={form.chantier_address}
+            onChange={(v) => setForm((f: any) => ({ ...f, chantier_address: v }))}
+            onSelect={(a: AddressValue) => setForm((f: any) => ({
+              ...f,
+              chantier_address: a.address,
+              chantier_postal_code: a.postalCode,
+              chantier_city: a.city,
+              latitude: a.latitude,
+              longitude: a.longitude,
+            }))}
+            placeholder="12 chemin des Pins, Cannes…"
+          />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Code postal">
+            <Input value={form.chantier_postal_code} onChange={(e) => setForm({ ...form, chantier_postal_code: e.target.value })} placeholder="06400" />
+          </Field>
+          <Field label="Ville">
+            <Input value={form.chantier_city} onChange={(e) => setForm({ ...form, chantier_city: e.target.value })} placeholder="Cannes" />
+          </Field>
+          <Field label="Date de réception *">
+            <Input type="date" value={form.reception_date} onChange={(e) => setForm({ ...form, reception_date: e.target.value })} />
+          </Field>
+        </div>
+        {!hasChantier && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCreateChantierFromAddress}
+            disabled={creatingChantier || !form.chantier_address.trim()}
+            className="w-full sm:w-auto"
+          >
+            {creatingChantier ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Créer un chantier avec ces informations
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 

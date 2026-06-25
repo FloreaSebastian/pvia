@@ -211,7 +211,7 @@ function PvList() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          <Link to="/pv/new">
+          <Link to="/pv/new" search={{ fresh: 1 }}>
             <Button className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau PV</Button>
           </Link>
         }
@@ -533,7 +533,7 @@ function EmptyBlock({ total }: { total: number }) {
       </p>
       {total === 0 && (
         <div className="mt-4">
-          <Link to="/pv/new">
+          <Link to="/pv/new" search={{ fresh: 1 }}>
             <Button size="sm" className="shadow-brand">
               <Plus className="h-3 w-3" /> Créer le premier PV
             </Button>

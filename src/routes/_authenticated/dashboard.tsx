@@ -146,7 +146,7 @@ function Dashboard() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          <Link to="/pv/new">
+          <Link to="/pv/new" search={{ fresh: 1 }}>
             <Button size="lg" className="shadow-brand">
               <Plus className="h-4 w-4" /> Créer un nouveau PV
             </Button>
@@ -300,7 +300,7 @@ function Dashboard() {
                       <p className="mt-3 text-sm font-medium">Aucun PV pour le moment</p>
                       <p className="text-xs text-muted-foreground">Démarrez en créant votre premier procès-verbal.</p>
                       <div className="mt-4">
-                        <Link to="/pv/new">
+                        <Link to="/pv/new" search={{ fresh: 1 }}>
                           <Button size="sm" className="shadow-brand">
                             <Plus className="h-3 w-3" /> Créer le premier PV
                           </Button>
@@ -342,7 +342,7 @@ function Dashboard() {
             <p className="mt-2 text-sm text-primary-foreground/85">
               Créez un PV professionnel en moins de 4 minutes avec photos, réserves et signature électronique.
             </p>
-            <Link to="/pv/new" className="mt-5 inline-block">
+            <Link to="/pv/new" search={{ fresh: 1 }} className="mt-5 inline-block">
               <Button variant="secondary" className="text-foreground shadow-lg">
                 <Plus className="h-4 w-4" /> Créer mon PV
               </Button>
