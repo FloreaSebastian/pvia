@@ -192,9 +192,9 @@ export function ClientFormFields({
         </div>
 
         {searchError && !manualMode && (
-          <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/5 p-2 text-xs">
+          <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2 text-xs">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
               <span className="break-words">{searchError}</span>
             </div>
             <Button type="button" size="sm" variant="outline" className="h-7 w-full" onClick={() => setManualMode(true)}>
