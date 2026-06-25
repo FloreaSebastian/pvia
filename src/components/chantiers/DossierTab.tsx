@@ -296,7 +296,14 @@ export function DossierTab({
 
   return (
     <>
+      <div className="mb-2 flex items-center justify-end">
+        <Button size="sm" variant="outline" onClick={downloadDossierZip} disabled={busyDossier} className="h-8 gap-1.5 text-xs">
+          <Package className="h-3.5 w-3.5" />
+          {busyDossier ? "Préparation…" : "Exporter le dossier"}
+        </Button>
+      </div>
       <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
+
         <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
           <TabsTrigger value="resume" className="text-[11px] sm:text-xs">Résumé</TabsTrigger>
           <TabsTrigger value="pv" className="text-[11px] sm:text-xs">PV ({detail.pvs.length})</TabsTrigger>
