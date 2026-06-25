@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2, User, Mail, Phone, MapPin, Navigation, Pencil, Trash2, X, Briefcase, FileText, AlertTriangle, History, ExternalLink } from "lucide-react";
+import { Building2, User, Mail, Phone, MapPin, Navigation, Pencil, Archive, X, Briefcase, FileText, AlertTriangle, History, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ type Client = {
   notes: string | null; client_type: "particulier" | "entreprise" | null;
   company_name: string | null; siret: string | null; siren: string | null;
   vat_number: string | null; naf_code: string | null; contact_name: string | null;
+  archived_at: string | null; archived_by: string | null; archive_reason: string | null;
 };
 
 type Chantier = { id: string; name: string; reference: string | null; status: string | null; start_date: string | null };
@@ -244,8 +245,8 @@ function ClientDetailContent({ client, onEdit, onDelete, onClose }: { client: Cl
 
       {/* Footer actions */}
       <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t bg-background/95 p-3 backdrop-blur sm:p-4">
-        <Button variant="ghost" size="sm" onClick={() => onDelete(client.id)} className="text-destructive hover:text-destructive">
-          <Trash2 className="h-4 w-4" /> Supprimer
+        <Button variant="ghost" size="sm" onClick={() => onDelete(client.id)} className="text-destructive hover:text-destructive" disabled={!!client.archived_at}>
+          <Archive className="h-4 w-4" /> {client.archived_at ? "Archivé" : "Archiver"}
         </Button>
         <Button size="sm" onClick={() => onEdit(client)} className="shadow-brand">
           <Pencil className="h-4 w-4" /> Modifier
