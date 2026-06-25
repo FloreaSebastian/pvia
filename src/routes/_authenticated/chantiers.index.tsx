@@ -584,6 +584,7 @@ function ChantiersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Référence</TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Statut</TableHead>
@@ -595,6 +596,7 @@ function ChantiersPage() {
             <TableBody>
               {filtered.map((c) => (
                 <TableRow key={c.id} className="group cursor-pointer" onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}>
+                  <TableCell className="font-mono text-xs font-semibold">{c.reference}</TableCell>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.type ? <StatusPill tone="neutral">{c.type}</StatusPill> : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>
