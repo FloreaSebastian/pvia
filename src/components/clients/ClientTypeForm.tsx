@@ -174,21 +174,37 @@ export function ClientFormFields({
   return (
     <div className="space-y-3">
       <Card className="space-y-2 border-dashed bg-muted/30 p-3">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rechercher une entreprise</Label>
-        <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rechercher une entreprise</Label>
+          {searching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            className="pl-8"
             value={siretQuery}
             onChange={(e) => setSiretQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } }}
-            placeholder="SIRET, SIREN ou nom de société"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(siretQuery.trim()); } }}
+            placeholder="SIRET, SIREN ou nom de société (≥ 3 caractères)"
+            inputMode="search"
+            autoComplete="off"
           />
-          <Button type="button" onClick={runSearch} disabled={searching} variant="outline">
-            {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            Rechercher
-          </Button>
         </div>
+
+        {searchError && !manualMode && (
+          <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/5 p-2 text-xs">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+              <span className="break-words">{searchError}</span>
+            </div>
+            <Button type="button" size="sm" variant="outline" className="h-7 w-full" onClick={() => setManualMode(true)}>
+              Saisir manuellement
+            </Button>
+          </div>
+        )}
+
         {hits && hits.length > 0 && (
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-border bg-background">
+          <div className="max-h-72 overflow-y-auto rounded-lg border border-border bg-background">
             <ul className="divide-y divide-border">
               {hits.map((h, i) => (
                 <li key={`${h.siren}-${h.siret ?? i}`}>
@@ -197,12 +213,13 @@ export function ClientFormFields({
                     onClick={() => pickCompany(h)}
                     className="block w-full px-3 py-2 text-left hover:bg-muted/50"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium">{h.name || "—"}</span>
-                      {h.siret && <Badge variant="outline" className="font-mono text-[10px]">{h.siret}</Badge>}
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="break-words text-sm font-medium">{h.name || "—"}</span>
+                      {h.siret && <Badge variant="outline" className="shrink-0 font-mono text-[10px]">{h.siret}</Badge>}
                     </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {[h.address_line1, [h.postal_code, h.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+                    <div className="mt-0.5 break-words text-xs text-muted-foreground">
+                      {[h.address_line1, [h.postal_code, h.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "—"}
+                      {h.naf_code ? ` · APE ${h.naf_code}` : ""}
                     </div>
                   </button>
                 </li>
@@ -213,6 +230,7 @@ export function ClientFormFields({
                 <X className="h-3.5 w-3.5" /> Fermer
               </Button>
             </div>
+
           </div>
         )}
       </Card>
