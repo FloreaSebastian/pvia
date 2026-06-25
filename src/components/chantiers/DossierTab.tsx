@@ -311,7 +311,7 @@ export function DossierTab({
       <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
 
         <TabsList className="grid h-auto w-full grid-cols-4 gap-1 bg-muted/50 p-1 sm:grid-cols-8">
-          <TabsTrigger value="resume" className="text-[11px] sm:text-xs">Résumé</TabsTrigger>
+          <TabsTrigger value="resume" className="text-[11px] sm:text-xs">Vue</TabsTrigger>
           <TabsTrigger value="pv" className="text-[11px] sm:text-xs">PV ({detail.pvs.length})</TabsTrigger>
           <TabsTrigger value="reserves" className="text-[11px] sm:text-xs">Rés. ({reserveCounts.total})</TabsTrigger>
           <TabsTrigger value="levees" className="text-[11px] sm:text-xs">Lev. ({dossier?.liftReports.length ?? 0})</TabsTrigger>
@@ -321,16 +321,17 @@ export function DossierTab({
           <TabsTrigger value="historique" className="text-[11px] sm:text-xs">Hist.</TabsTrigger>
         </TabsList>
 
-        {/* Résumé — synthèse métier (pas de doublons avec onglets) */}
+        {/* Vue — grille de KPI cliquables + actions rapides + dernière activité */}
         <TabsContent value="resume" className="mt-3">
-          <ResumeSynthese
+          <VueKpiGrid
             detail={detail}
             dossier={dossier}
-            chantierPhotosCount={chantierPhotos.length}
+            chantierPhotosCount={allLightboxPhotos.length}
             reserveCounts={reserveCounts}
             onGoToSubTab={setSubTab}
           />
         </TabsContent>
+
 
 
         {/* PV */}
