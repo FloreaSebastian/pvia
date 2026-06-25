@@ -290,12 +290,21 @@ function NewPv() {
   const currentStep = STEPS[stepIdx] ?? STEPS[0];
 
   async function reloadLists() {
-    const [c, cl] = await Promise.all([
+    const companyFilter = activeCompanyId;
+    const [c, cl, pvs] = await Promise.all([
       supabase.from("chantiers").select("id,name,reference,client_id,address,postal_code,city,start_date,end_date,status,progress_percent").order("name"),
       supabase.from("clients").select("id,name,email,phone,address,address_line1,postal_code,city,client_type,company_name,siret,siren,contact_name").order("name"),
+      companyFilter
+        ? supabase.from("pv").select("chantier_id").eq("company_id", companyFilter).not("chantier_id", "is", null)
+        : Promise.resolve({ data: [] as { chantier_id: string | null }[] }),
     ]);
     setChantiers((c.data as any) ?? []);
     setClients((cl.data as any) ?? []);
+    const ids = new Set<string>();
+    for (const row of ((pvs as any).data ?? []) as { chantier_id: string | null }[]) {
+      if (row.chantier_id) ids.add(row.chantier_id);
+    }
+    setUsedChantierIds(ids);
   }
 
   function restoreDraft() {
