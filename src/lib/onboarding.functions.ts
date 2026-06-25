@@ -194,6 +194,24 @@ export const completeCompany = createServerFn({ method: "POST" })
       .filter(Boolean)
       .join(", ");
 
+    // L'entreprise utilisatrice est considérée validée si toutes les informations
+    // officielles + email de contact sont renseignées. La source de validation
+    // (manual / siret_sync) trace comment l'information a été obtenue.
+    const hasAllOfficial = !!(
+      data.name &&
+      (data.siret || data.siren) &&
+      data.address_line1 &&
+      data.postal_code &&
+      data.city &&
+      data.email
+    );
+    const verified = hasAllOfficial;
+    const verificationSource: "siret_sync" | "manual" | null = verified
+      ? data.sourced_from_siren
+        ? "siret_sync"
+        : "manual"
+      : null;
+
     const { error } = await supabaseAdmin
       .from("companies")
       .update({
@@ -213,6 +231,9 @@ export const completeCompany = createServerFn({ method: "POST" })
         website: data.website ?? null,
         logo_url: data.logo_url ?? null,
         onboarding_completed_at: new Date().toISOString(),
+        company_verified: verified,
+        company_verified_at: verified ? new Date().toISOString() : null,
+        company_verification_source: verificationSource,
       })
       .eq("id", data.companyId);
     if (error) throw new Error(error.message);
@@ -221,10 +242,20 @@ export const completeCompany = createServerFn({ method: "POST" })
       companyId: data.companyId,
       userId,
       entityType: "auth",
-      action: data.sourced_from_siren ? "company.updated_from_siren" : "onboarding.company_completed",
-      metadata: { siren: data.siren, siret: data.siret },
+      action: data.sourced_from_siren ? "company.synced_from_siren" : "onboarding.company_completed",
+      metadata: { siren: data.siren, siret: data.siret, verified },
       actor: "user",
     });
+    if (verified) {
+      await writeAuditLog({
+        companyId: data.companyId,
+        userId,
+        entityType: "auth",
+        action: "company.verified",
+        metadata: { source: verificationSource },
+        actor: "user",
+      });
+    }
     await writeAuditLog({
       companyId: data.companyId,
       userId,
@@ -232,6 +263,7 @@ export const completeCompany = createServerFn({ method: "POST" })
       action: "onboarding.completed",
       actor: "user",
     });
+
 
     return { ok: true };
   });
