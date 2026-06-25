@@ -80,22 +80,50 @@ export function ClientFormFields({
   const [hits, setHits] = useState<FrenchCompanyHit[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [manualMode, setManualMode] = useState(false);
+  const [pickedSiret, setPickedSiret] = useState<string | null>(null);
   const searchFn = useServerFn(searchFrenchCompanies);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reqIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  // Local cache: last 10 queries (lowercased trimmed key)
+  const cacheRef = useRef<Map<string, FrenchCompanyHit[]>>(new Map());
+
+  function cachePut(key: string, value: FrenchCompanyHit[]) {
+    const m = cacheRef.current;
+    if (m.has(key)) m.delete(key);
+    m.set(key, value);
+    while (m.size > 10) {
+      const first = m.keys().next().value;
+      if (first === undefined) break;
+      m.delete(first);
+    }
+  }
 
   async function runSearch(q: string, { silent = false }: { silent?: boolean } = {}) {
     if (q.length < 3) {
       if (!silent) toast.error("Saisissez au moins 3 caractères.");
       return;
     }
+    const key = q.toLowerCase();
+    const cached = cacheRef.current.get(key);
+    if (cached) {
+      setHits(cached);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+    // Cancel previous in-flight
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     const myReq = ++reqIdRef.current;
     setSearching(true);
     setSearchError(null);
     try {
-      const res = await searchFn({ data: { query: q } });
-      if (reqIdRef.current !== myReq) return; // stale
+      const res = await searchFn({ data: { query: q }, signal: ctrl.signal });
+      if (reqIdRef.current !== myReq || ctrl.signal.aborted) return;
       if (res.ok) {
+        cachePut(key, res.hits);
         setHits(res.hits);
         if (!silent && res.hits.length === 0) toast.info("Aucune entreprise trouvée.");
       } else {
@@ -103,7 +131,7 @@ export function ClientFormFields({
         setSearchError(res.error);
       }
     } catch (e) {
-      if (reqIdRef.current !== myReq) return;
+      if (reqIdRef.current !== myReq || ctrl.signal.aborted) return;
       setHits(null);
       setSearchError(e instanceof Error ? e.message : "Recherche impossible.");
     } finally {
@@ -117,12 +145,13 @@ export function ClientFormFields({
     const q = siretQuery.trim();
     setManualMode(false);
     if (q.length < 3) {
+      abortRef.current?.abort();
       setHits(null);
       setSearchError(null);
       setSearching(false);
       return;
     }
-    debounceRef.current = setTimeout(() => { runSearch(q, { silent: true }); }, 400);
+    debounceRef.current = setTimeout(() => { runSearch(q, { silent: true }); }, 350);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siretQuery]);
@@ -144,8 +173,9 @@ export function ClientFormFields({
       address: form.address.trim() || [h.address_line1, [h.postal_code, h.city].filter(Boolean).join(" ")]
         .filter(Boolean).join(", "),
     });
-    setHits(null);
-    toast.success("Informations préremplies.");
+    setPickedSiret(h.siret ?? h.siren);
+    toast.success("Entreprise importée");
+    setTimeout(() => { setHits(null); setSiretQuery(""); setPickedSiret(null); }, 650);
   }
 
   const gridCols = compact ? "sm:grid-cols-2" : "sm:grid-cols-2";
