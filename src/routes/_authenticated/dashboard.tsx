@@ -342,7 +342,7 @@ function Dashboard() {
             <p className="mt-2 text-sm text-primary-foreground/85">
               Créez un PV professionnel en moins de 4 minutes avec photos, réserves et signature électronique.
             </p>
-            <Link to="/pv/new" className="mt-5 inline-block">
+            <Link to="/pv/new" search={{ fresh: 1 }} className="mt-5 inline-block">
               <Button variant="secondary" className="text-foreground shadow-lg">
                 <Plus className="h-4 w-4" /> Créer mon PV
               </Button>
