@@ -2558,7 +2558,11 @@ type ClientRow = {
   id: string; name: string; email: string | null; phone: string | null;
   address: string | null; address_line1: string | null;
   postal_code: string | null; city: string | null;
+  client_type?: "particulier" | "entreprise" | null;
+  company_name?: string | null; siret?: string | null; siren?: string | null;
+  contact_name?: string | null;
 };
+
 
 type ChantierRow = {
   id: string; name: string; reference: string | null; client_id: string | null;
