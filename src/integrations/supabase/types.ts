@@ -515,6 +515,7 @@ export type Database = {
           postal_code: string | null
           progress_percent: number
           received_at: string | null
+          reference: string
           start_date: string | null
           status: string
           type: string | null
@@ -540,6 +541,7 @@ export type Database = {
           postal_code?: string | null
           progress_percent?: number
           received_at?: string | null
+          reference: string
           start_date?: string | null
           status?: string
           type?: string | null
@@ -565,6 +567,7 @@ export type Database = {
           postal_code?: string | null
           progress_percent?: number
           received_at?: string | null
+          reference?: string
           start_date?: string | null
           status?: string
           type?: string | null
@@ -889,6 +892,7 @@ export type Database = {
         Row: {
           brand_color: string
           calendar_color_mode: string
+          chantier_reference_next: number
           company_id: string
           company_signed_email: string | null
           currency: string
@@ -916,6 +920,7 @@ export type Database = {
         Insert: {
           brand_color?: string
           calendar_color_mode?: string
+          chantier_reference_next?: number
           company_id: string
           company_signed_email?: string | null
           currency?: string
@@ -943,6 +948,7 @@ export type Database = {
         Update: {
           brand_color?: string
           calendar_color_mode?: string
+          chantier_reference_next?: number
           company_id?: string
           company_signed_email?: string | null
           currency?: string
@@ -2502,6 +2508,10 @@ export type Database = {
       enqueue_webhook_event: {
         Args: { _company_id: string; _event: string; _payload: Json }
         Returns: undefined
+      }
+      generate_chantier_reference: {
+        Args: { _company_id: string }
+        Returns: string
       }
       generate_next_pv_number: {
         Args: { _company_id: string }
