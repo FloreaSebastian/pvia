@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import { ClientTypeSelector, ClientFormFields, EMPTY_CLIENT_FORM, type ClientFor
 import { ClientDetailDialog } from "@/components/clients/ClientDetailDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadClientsCsv } from "@/lib/clients-export";
+import { ClientsImportDialog } from "@/components/clients/ClientsImportDialog";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   component: ClientsPage,
@@ -58,6 +59,7 @@ function ClientsPage() {
   const [archiveTarget, setArchiveTarget] = useState<Client | null>(null);
   const [archiveReason, setArchiveReason] = useState("");
   const [archiving, setArchiving] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const canWrite = can("manage");
   const canAdmin = can("admin");
   const createFn = useServerFn(createClientFn);
@@ -325,6 +327,11 @@ function ClientsPage() {
             ))}
           </div>
           <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">{filtered.length}</span>
+          {canWrite && (
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setImportOpen(true)} aria-label="Importer des clients avec l'IA">
+              <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Import IA</span>
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5" aria-label="Exporter les clients">
@@ -508,6 +515,14 @@ function ClientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {activeCompanyId && (
+        <ClientsImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          companyId={activeCompanyId}
+          onImported={load}
+        />
+      )}
     </div>
   );
 }
