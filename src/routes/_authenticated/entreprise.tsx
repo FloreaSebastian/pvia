@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Building2, Save, Loader2 } from "lucide-react";
+import { Building2, Save, Loader2, Lock, RefreshCw, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { updateCompanyBranding } from "@/lib/branding.functions";
 import { uploadCompanyLogo } from "@/lib/company-logo.functions";
+import { lookupCompanyBySirenOrSiret, type SirenLookupResult } from "@/lib/siren.functions";
 import { fileToBase64, validateLogoFile } from "@/lib/file-upload";
 
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
@@ -52,6 +55,21 @@ const empty: CompanyForm = {
   phone: "", email: "", website: "", logo_url: "",
 };
 
+function LockedField({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">{label}</Label>
+        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><Lock className="h-3 w-3" /> Verrouillé</span>
+      </div>
+      <div className="mt-1 flex h-9 items-center rounded-md border border-dashed border-border bg-muted/40 px-3 text-sm">
+        {value ? <span className="truncate">{value}</span> : <span className="italic text-muted-foreground">Non renseigné</span>}
+      </div>
+      {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
 function CompanyPage() {
   const { activeCompanyId, can, refresh } = useCompany();
   const [loading, setLoading] = useState(true);
@@ -60,6 +78,13 @@ function CompanyPage() {
   const editable = can("admin");
   const save = useServerFn(updateCompanyBranding);
   const uploadLogoFn = useServerFn(uploadCompanyLogo);
+  const lookupFn = useServerFn(lookupCompanyBySirenOrSiret);
+
+  // SIRET sync dialog
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [syncQuery, setSyncQuery] = useState("");
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncResult, setSyncResult] = useState<SirenLookupResult | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -95,8 +120,6 @@ function CompanyPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!activeCompanyId) return;
-    if (form.siren && !/^\d{9}$/.test(form.siren)) return toast.error("SIREN : 9 chiffres requis");
-    if (form.siret && !/^\d{14}$/.test(form.siret)) return toast.error("SIRET : 14 chiffres requis");
     setSaving(true);
     try {
       await save({ data: { companyId: activeCompanyId, ...form } as any });
@@ -131,6 +154,54 @@ function CompanyPage() {
     }
   }
 
+  async function runSync() {
+    const q = syncQuery.replace(/\s+/g, "");
+    if (!/^\d{9}$|^\d{14}$/.test(q)) {
+      toast.error("Saisissez un SIREN (9 chiffres) ou SIRET (14 chiffres).");
+      return;
+    }
+    setSyncBusy(true);
+    setSyncResult(null);
+    try {
+      const res = await lookupFn({ data: { query: q } });
+      setSyncResult(res);
+      if (!res.found) toast.error(res.error);
+    } catch (e: any) {
+      toast.error(e?.message || "Recherche impossible.");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
+  async function confirmSync() {
+    if (!activeCompanyId || !syncResult || !syncResult.found) return;
+    const r = syncResult;
+    const next: CompanyForm = {
+      ...form,
+      name: r.name || form.name,
+      legal_form: r.legal_form || form.legal_form,
+      siren: r.siren || form.siren,
+      siret: r.siret || form.siret,
+      address_line1: r.address_line1 || form.address_line1,
+      postal_code: r.postal_code || form.postal_code,
+      city: r.city || form.city,
+    };
+    setSaving(true);
+    try {
+      await save({ data: { companyId: activeCompanyId, ...next } as any });
+      setForm(next);
+      toast.success("Informations officielles synchronisées.");
+      setSyncOpen(false);
+      setSyncQuery("");
+      setSyncResult(null);
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message || "Mise à jour impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="grid h-64 place-items-center">
@@ -149,18 +220,18 @@ function CompanyPage() {
         </p>
       </div>
 
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <form onSubmit={onSubmit} className="space-y-6">
           {/* Logo */}
           <div className="flex items-center gap-4">
-            <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-xl border border-border bg-muted">
+            <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-muted">
               {form.logo_url ? (
                 <img src={form.logo_url} alt="logo" className="h-full w-full object-contain" />
               ) : (
                 <Building2 className="h-8 w-8 text-muted-foreground" />
               )}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <Label className="text-xs">Logo de l'entreprise</Label>
               <Input
                 type="file"
@@ -172,52 +243,45 @@ function CompanyPage() {
             </div>
           </div>
 
-          {/* Identité */}
-          <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Identité légale</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
+          {/* Identité — verrouillée */}
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Informations officielles synchronisées
+              </h2>
+              {editable && (
+                <Button type="button" size="sm" variant="outline" onClick={() => setSyncOpen(true)}>
+                  <RefreshCw className="h-3.5 w-3.5" /> Synchroniser depuis SIRET
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ces champs proviennent du registre officiel et ne sont pas modifiables manuellement.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <Label>Raison sociale *</Label>
-                <Input required disabled={!editable} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <LockedField label="Raison sociale" value={form.name} />
               </div>
-              <div>
-                <Label>Forme juridique</Label>
-                <Input placeholder="SARL, SAS…" disabled={!editable} value={form.legal_form} onChange={(e) => setForm({ ...form, legal_form: e.target.value })} />
-              </div>
-              <div>
-                <Label>TVA intracommunautaire</Label>
-                <Input placeholder="FRXX999999999" disabled={!editable} value={form.vat_number} onChange={(e) => setForm({ ...form, vat_number: e.target.value.toUpperCase() })} />
-              </div>
-              <div>
-                <Label>SIREN</Label>
-                <Input maxLength={9} inputMode="numeric" disabled={!editable} value={form.siren} onChange={(e) => setForm({ ...form, siren: e.target.value.replace(/\D/g, "") })} />
-              </div>
-              <div>
-                <Label>SIRET</Label>
-                <Input maxLength={14} inputMode="numeric" disabled={!editable} value={form.siret} onChange={(e) => setForm({ ...form, siret: e.target.value.replace(/\D/g, "") })} />
+              <LockedField label="Forme juridique" value={form.legal_form} />
+              <LockedField label="TVA intracommunautaire" value={form.vat_number} />
+              <LockedField label="SIREN" value={form.siren} />
+              <LockedField label="SIRET" value={form.siret} />
+              <div className="sm:col-span-2">
+                <LockedField
+                  label="Adresse du siège"
+                  value={[form.address_line1, [form.postal_code, form.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+                />
               </div>
             </div>
           </section>
 
-          {/* Adresse */}
+          {/* Adresse complémentaire */}
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Adresse</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Adresse complémentaire</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <Label>Adresse ligne 1</Label>
-                <Input disabled={!editable} value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} />
-              </div>
-              <div className="sm:col-span-2">
-                <Label>Adresse ligne 2</Label>
-                <Input disabled={!editable} value={form.address_line2} onChange={(e) => setForm({ ...form, address_line2: e.target.value })} />
-              </div>
-              <div>
-                <Label>Code postal</Label>
-                <Input disabled={!editable} value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} />
-              </div>
-              <div>
-                <Label>Ville</Label>
-                <Input disabled={!editable} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                <Label>Complément d'adresse</Label>
+                <Input disabled={!editable} value={form.address_line2} onChange={(e) => setForm({ ...form, address_line2: e.target.value })} placeholder="Bâtiment, étage, BP…" />
               </div>
               <div>
                 <Label>Pays</Label>
@@ -228,7 +292,7 @@ function CompanyPage() {
 
           {/* Contact */}
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Contact</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contact</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label>Téléphone</Label>
@@ -259,6 +323,55 @@ function CompanyPage() {
           )}
         </form>
       </Card>
+
+      {/* SIRET sync dialog */}
+      <Dialog open={syncOpen} onOpenChange={(o) => { setSyncOpen(o); if (!o) { setSyncResult(null); setSyncQuery(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Synchroniser depuis le registre officiel</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>SIREN (9 chiffres) ou SIRET (14 chiffres)</Label>
+            <div className="flex gap-2">
+              <Input
+                value={syncQuery}
+                onChange={(e) => setSyncQuery(e.target.value.replace(/\D/g, "").slice(0, 14))}
+                inputMode="numeric"
+                placeholder="89249214100015"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSync(); } }}
+              />
+              <Button type="button" onClick={runSync} disabled={syncBusy}>
+                {syncBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Chercher"}
+              </Button>
+            </div>
+
+            {syncResult && syncResult.found && (
+              <Card className="space-y-2 border-emerald-500/40 bg-emerald-50/40 p-3 dark:bg-emerald-950/20">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold">{syncResult.name || "—"}</p>
+                  <Badge variant="outline" className="font-mono text-[10px]">{syncResult.siret || syncResult.siren}</Badge>
+                </div>
+                <div className="space-y-0.5 text-xs text-muted-foreground">
+                  {syncResult.legal_form && <p>Forme juridique : {syncResult.legal_form}</p>}
+                  {syncResult.address_line1 && <p>{syncResult.address_line1}</p>}
+                  {(syncResult.postal_code || syncResult.city) && <p>{[syncResult.postal_code, syncResult.city].filter(Boolean).join(" ")}</p>}
+                </div>
+              </Card>
+            )}
+
+            {syncResult && !syncResult.found && (
+              <p className="text-xs text-destructive">{syncResult.error}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setSyncOpen(false)}>Annuler</Button>
+            <Button type="button" onClick={confirmSync} disabled={!syncResult?.found || saving}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+              Confirmer et synchroniser
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
