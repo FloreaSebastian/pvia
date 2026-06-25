@@ -58,6 +58,8 @@ import { sendOnsiteClientOtp, verifyOnsiteClientOtp } from "@/lib/sign-onsite.fu
 import { fileToBase64 } from "@/lib/file-upload";
 import { compressImageFile, PHOTO_BASE64_MAX } from "@/lib/image-compress";
 import { tryGetGps, readExif, sanitizeExifForUpload } from "@/lib/photo-exif";
+import { ClientTypeSelector, ClientFormFields, EMPTY_CLIENT_FORM, type ClientFormState } from "@/components/clients/ClientTypeForm";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
@@ -162,6 +164,8 @@ function NewPv() {
 
   const [stepIdx, setStepIdx] = useState(0);
   const [maxStepIdx, setMaxStepIdx] = useState(0);
+  const [newClient, setNewClient] = useState<ClientFormState>(EMPTY_CLIENT_FORM);
+
   const [chantiers, setChantiers] = useState<{
     id: string; name: string; reference: string | null; client_id: string | null;
     address: string | null; postal_code: string | null; city: string | null;
@@ -1205,27 +1209,29 @@ function NewPv() {
                   showNewClientForm={showNewClientForm}
                   setShowNewClientForm={setShowNewClientForm}
                   savingNewClient={savingNewClient}
+                  newClient={newClient}
+                  setNewClient={setNewClient}
                   onCreateClient={async () => {
                     if (!activeCompanyId) { toast.error("Aucune entreprise active."); return; }
-                    const name = form.new_client_name.trim();
-                    if (!name) { toast.error("Le nom du client est obligatoire."); return; }
+                    const isEnt = newClient.client_type === "entreprise";
+                    const requiredName = isEnt ? newClient.company_name.trim() : newClient.name.trim();
+                    if (!requiredName) {
+                      toast.error(isEnt ? "Le nom de la société est obligatoire." : "Le nom du client est obligatoire.");
+                      return;
+                    }
                     setSavingNewClient(true);
                     try {
                       const res = await createClientFnSrv({
-                        data: {
-                          companyId: activeCompanyId,
-                          data: {
-                            name,
-                            email: form.new_client_email.trim(),
-                            phone: form.new_client_phone.trim(),
-                            address_line1: form.new_client_address.trim(),
-                            postal_code: form.new_client_postal_code.trim(),
-                            city: form.new_client_city.trim(),
-                          },
-                        },
+                        data: { companyId: activeCompanyId, data: newClient },
                       });
                       await reloadLists();
-                      setForm((f) => ({ ...f, client_id: res.id, new_client_name: "", new_client_email: "", new_client_phone: "", new_client_address: "", new_client_postal_code: "", new_client_city: "" }));
+                      setForm((f) => ({
+                        ...f,
+                        client_id: res.id,
+                        new_client_name: "", new_client_email: "", new_client_phone: "",
+                        new_client_address: "", new_client_postal_code: "", new_client_city: "",
+                      }));
+                      setNewClient(EMPTY_CLIENT_FORM);
                       setShowNewClientForm(false);
                       toast.success("Client créé et sélectionné.");
                     } catch (e: any) {
@@ -1236,6 +1242,7 @@ function NewPv() {
                   }}
                 />
               )}
+
 
               {currentStep.id === ID_CHANTIER && (
                 <ChantierStep
@@ -2558,7 +2565,11 @@ type ClientRow = {
   id: string; name: string; email: string | null; phone: string | null;
   address: string | null; address_line1: string | null;
   postal_code: string | null; city: string | null;
+  client_type?: "particulier" | "entreprise" | null;
+  company_name?: string | null; siret?: string | null; siren?: string | null;
+  contact_name?: string | null;
 };
+
 
 type ChantierRow = {
   id: string; name: string; reference: string | null; client_id: string | null;
@@ -2577,9 +2588,12 @@ function ClientStep(props: {
   showNewClientForm: boolean;
   setShowNewClientForm: (b: boolean) => void;
   savingNewClient: boolean;
+  newClient: ClientFormState;
+  setNewClient: React.Dispatch<React.SetStateAction<ClientFormState>>;
   onCreateClient: () => void;
 }) {
-  const { clients, clientObj, form, setForm, clientSearch, setClientSearch, showNewClientForm, setShowNewClientForm, savingNewClient, onCreateClient } = props;
+  const { clients, clientObj, form, setForm, clientSearch, setClientSearch, showNewClientForm, setShowNewClientForm, savingNewClient, newClient, setNewClient, onCreateClient } = props;
+
   const q = clientSearch.trim().toLowerCase();
   const filtered = useMemo(() => {
     if (!q) return clients.slice(0, 50);
@@ -2681,30 +2695,23 @@ function ClientStep(props: {
 
           {showNewClientForm && (
             <div className="space-y-3 rounded-xl border border-dashed border-border bg-muted/20 p-3 sm:p-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Nom / Société *">
-                  <Input value={form.new_client_name} onChange={(e) => setForm({ ...form, new_client_name: e.target.value })} placeholder="M. et Mme Mercier" />
-                </Field>
-                <Field label="Email">
-                  <Input type="email" value={form.new_client_email} onChange={(e) => setForm({ ...form, new_client_email: e.target.value })} placeholder="client@email.com" />
-                </Field>
-                <Field label="Téléphone">
-                  <Input value={form.new_client_phone} onChange={(e) => setForm({ ...form, new_client_phone: e.target.value })} placeholder="06 12 34 56 78" />
-                </Field>
-                <Field label="Adresse">
-                  <Input value={form.new_client_address} onChange={(e) => setForm({ ...form, new_client_address: e.target.value })} placeholder="12 rue des Lilas" />
-                </Field>
-                <Field label="Code postal">
-                  <Input value={form.new_client_postal_code} onChange={(e) => setForm({ ...form, new_client_postal_code: e.target.value })} placeholder="06400" />
-                </Field>
-                <Field label="Ville">
-                  <Input value={form.new_client_city} onChange={(e) => setForm({ ...form, new_client_city: e.target.value })} placeholder="Cannes" />
-                </Field>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase text-muted-foreground">Type de client</Label>
+                <ClientTypeSelector
+                  value={newClient.client_type}
+                  onChange={(v) => setNewClient({ ...newClient, client_type: v })}
+                />
               </div>
+              <ClientFormFields form={newClient} setForm={setNewClient} compact />
               <Button
                 type="button"
                 onClick={onCreateClient}
-                disabled={savingNewClient || !form.new_client_name.trim()}
+                disabled={
+                  savingNewClient ||
+                  (newClient.client_type === "entreprise"
+                    ? !newClient.company_name.trim()
+                    : !newClient.name.trim())
+                }
                 className="w-full sm:w-auto"
               >
                 {savingNewClient ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -2717,6 +2724,7 @@ function ClientStep(props: {
     </div>
   );
 }
+
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Sous-étape — Chantier concerné                                           */

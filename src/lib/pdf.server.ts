@@ -4,7 +4,7 @@ import { sha256OfBytes, shortUA, EIDAS_MENTIONS } from "./signature-proof.server
 import { RESERVE_STATUS_LABEL, RESERVE_PRIORITY_LABEL, RESERVE_SEVERITY_LABEL, isReserveOverdue, type ReserveStatusValue } from "./reserve-status";
 
 type Company = (Partial<CompanyBranding> & { name?: string | null }) | undefined;
-type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | undefined;
+type Client = { name?: string | null; email?: string | null; phone?: string | null; address?: string | null; client_type?: string | null; company_name?: string | null; siret?: string | null; siren?: string | null; vat_number?: string | null; naf_code?: string | null; contact_name?: string | null } | undefined;
 type Chantier = {
   name?: string | null;
   reference?: string | null;
@@ -368,11 +368,24 @@ export async function generatePvPdfBytes(input: {
   companyLegal.push("Garantie decennale - Art. 1792 C. civ.");
 
   drawParty(MARGIN, "Entreprise (titulaire)", company?.name ?? "-", companyAddrLines, companyLegal);
-  drawParty(MARGIN + colW + 16, "Maitre d'ouvrage (client)", client?.name ?? "-", [
+  const isEnt = (client?.client_type ?? "particulier") === "entreprise";
+  const clientTitle = isEnt
+    ? (client?.company_name || client?.name || "-")
+    : (client?.name ?? "-");
+  const clientLegal: string[] = [];
+  if (isEnt) {
+    if (client?.siret) clientLegal.push(`SIRET ${client.siret}`);
+    if (client?.siren && !client?.siret) clientLegal.push(`SIREN ${client.siren}`);
+    if (client?.vat_number) clientLegal.push(`TVA ${client.vat_number}`);
+    if (client?.naf_code) clientLegal.push(`APE ${client.naf_code}`);
+  }
+  drawParty(MARGIN + colW + 16, "Maitre d'ouvrage (client)", clientTitle, [
+    isEnt && client?.contact_name ? `Contact : ${client.contact_name}` : "",
     client?.address ?? "",
     client?.email ?? "",
     client?.phone ?? "",
-  ], []);
+  ], clientLegal);
+
   y -= 160;
 
   // ============ INFO BAND - références & dates ============
@@ -908,7 +921,7 @@ export async function buildAndStorePvPdf(pvId: string): Promise<string> {
     getCompanyBranding(pv.company_id),
     getCompanyBrandingSettings(pv.company_id),
     pv.client_id
-      ? supabaseAdmin.from("clients").select("name,email,phone,address").eq("id", pv.client_id).maybeSingle()
+      ? supabaseAdmin.from("clients").select("name,email,phone,address,client_type,company_name,siret,siren,vat_number,naf_code,contact_name").eq("id", pv.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
     pv.chantier_id
       ? supabaseAdmin.from("chantiers").select("name,reference,address,start_date,end_date").eq("id", pv.chantier_id).maybeSingle()

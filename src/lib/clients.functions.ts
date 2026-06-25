@@ -12,6 +12,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "./audit.server";
 
 const ClientPayloadSchema = z.object({
+  client_type: z.enum(["particulier", "entreprise"]).default("particulier"),
   name: z.string().trim().min(1, "Nom requis").max(200),
   email: z.string().trim().max(255).optional().default(""),
   phone: z.string().trim().max(50).optional().default(""),
@@ -22,11 +23,30 @@ const ClientPayloadSchema = z.object({
   latitude: z.number().finite().nullable().optional(),
   longitude: z.number().finite().nullable().optional(),
   notes: z.string().trim().max(2000).optional().default(""),
+  // Entreprise-only fields (all optional, validated only when entreprise)
+  company_name: z.string().trim().max(200).optional().default(""),
+  siret: z.string().trim().max(20).optional().default(""),
+  siren: z.string().trim().max(20).optional().default(""),
+  vat_number: z.string().trim().max(40).optional().default(""),
+  naf_code: z.string().trim().max(20).optional().default(""),
+  contact_name: z.string().trim().max(200).optional().default(""),
+}).superRefine((d, ctx) => {
+  if (d.client_type === "entreprise") {
+    const siret = (d.siret ?? "").replace(/\s+/g, "");
+    const siren = (d.siren ?? "").replace(/\s+/g, "");
+    if (siret && !/^\d{14}$/.test(siret)) ctx.addIssue({ code: "custom", path: ["siret"], message: "SIRET : 14 chiffres" });
+    if (siren && !/^\d{9}$/.test(siren)) ctx.addIssue({ code: "custom", path: ["siren"], message: "SIREN : 9 chiffres" });
+  }
+  if (d.email) {
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email);
+    if (!ok) ctx.addIssue({ code: "custom", path: ["email"], message: "Email invalide" });
+  }
 });
 
 const CreateInput = z.object({ companyId: z.string().uuid(), data: ClientPayloadSchema });
 const UpdateInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid(), data: ClientPayloadSchema });
 const DeleteInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid() });
+
 
 async function assertCanManage(
   supabase: import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>,
@@ -52,8 +72,14 @@ function normalize(d: z.infer<typeof ClientPayloadSchema>) {
   const postal = (d.postal_code ?? "").trim();
   const city = (d.city ?? "").trim();
   const composed = recompose(line1, postal, city, d.address ?? "");
+  const isEntreprise = d.client_type === "entreprise";
+  const companyName = (d.company_name ?? "").trim();
+  // For entreprise: ensure `name` mirrors the company name when blank/short, so
+  // existing FK consumers still get a meaningful label.
+  const finalName = isEntreprise && companyName ? companyName : d.name.trim();
   return {
-    name: d.name.trim(),
+    client_type: d.client_type,
+    name: finalName,
     email: d.email.trim() || null,
     phone: d.phone.trim() || null,
     address: composed || null,
@@ -63,8 +89,15 @@ function normalize(d: z.infer<typeof ClientPayloadSchema>) {
     latitude: typeof d.latitude === "number" ? d.latitude : null,
     longitude: typeof d.longitude === "number" ? d.longitude : null,
     notes: d.notes.trim() || null,
+    company_name: isEntreprise ? (companyName || null) : null,
+    siret: isEntreprise ? ((d.siret ?? "").replace(/\s+/g, "") || null) : null,
+    siren: isEntreprise ? ((d.siren ?? "").replace(/\s+/g, "") || null) : null,
+    vat_number: isEntreprise ? ((d.vat_number ?? "").trim() || null) : null,
+    naf_code: isEntreprise ? ((d.naf_code ?? "").trim() || null) : null,
+    contact_name: isEntreprise ? ((d.contact_name ?? "").trim() || null) : null,
   };
 }
+
 
 const ADDR_FIELDS = ["address", "address_line1", "postal_code", "city", "latitude", "longitude"] as const;
 function addressChanged(prev: Record<string, unknown>, next: Record<string, unknown>) {
