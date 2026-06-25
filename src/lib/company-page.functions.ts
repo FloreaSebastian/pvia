@@ -13,8 +13,8 @@ export type CompanyHistoryEntry = {
   id: string;
   action: string;
   created_at: string;
-  actor: string | null;
-  metadata: Record<string, unknown> | null;
+  user_id: string | null;
+  metadata: unknown;
 };
 
 const TRACKED_ACTIONS = [
@@ -34,7 +34,7 @@ const TRACKED_ACTIONS = [
 export const getCompanyHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => HistorySchema.parse(i))
-  .handler(async ({ data, context }): Promise<CompanyHistoryEntry[]> => {
+  .handler(async ({ data, context }) => {
     const { data: m } = await supabaseAdmin
       .from("company_members")
       .select("id")
@@ -46,21 +46,23 @@ export const getCompanyHistory = createServerFn({ method: "POST" })
 
     const { data: rows } = await supabaseAdmin
       .from("audit_logs")
-      .select("id,action,created_at,actor,metadata")
+      .select("id,action,created_at,user_id,metadata")
       .eq("company_id", data.companyId)
       .eq("entity_type", "auth")
       .in("action", TRACKED_ACTIONS)
       .order("created_at", { ascending: false })
       .limit(data.limit ?? 20);
 
-    return (rows ?? []).map((r) => ({
-      id: r.id as string,
-      action: r.action as string,
-      created_at: r.created_at as string,
-      actor: (r.actor as string | null) ?? null,
-      metadata: (r.metadata as Record<string, unknown> | null) ?? null,
+    const entries: CompanyHistoryEntry[] = (rows ?? []).map((r: any) => ({
+      id: r.id,
+      action: r.action,
+      created_at: r.created_at,
+      user_id: r.user_id ?? null,
+      metadata: r.metadata ?? null,
     }));
+    return entries;
   });
+
 
 /* ---------------- Demande de changement d'entreprise ---------------- */
 
