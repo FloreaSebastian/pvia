@@ -198,12 +198,17 @@ export const exportChantierDossier = createServerFn({ method: "POST" })
       const label = ph.label ?? `${ref}-${ph.photo_type}`;
       const name = `03-Photos-Chantier/${folderForType(ph.photo_type)}/${safeName(label)}.${ex}`;
       zip.file(name, bytes);
+      const hasGeo = ph.latitude != null && ph.longitude != null;
       (manifest.photos as any[]).push({
         id: ph.id, type: ph.photo_type, label: ph.label, caption: ph.caption,
-        taken_at: ph.taken_at, latitude: ph.latitude, longitude: ph.longitude,
+        taken_at: ph.taken_at,
+        is_geolocated: hasGeo,
+        // GPS exact uniquement dans la variante interne.
+        ...(isClientVariant ? {} : { latitude: ph.latitude, longitude: ph.longitude }),
         path_in_zip: name,
       });
     }
+
 
     // 04-Documents
     for (const d of (docsRes.data ?? []) as any[]) {
