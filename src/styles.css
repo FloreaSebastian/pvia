@@ -334,3 +334,7 @@ html[data-density="compact"] {
 html[data-density="compact"] body {
   font-size: 14px;
 }
+
+/* Hide scrollbar utility (mobile bottom nav) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

@@ -1,36 +1,79 @@
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import {
   CalendarDays,
   HardHat,
   AlertCircle,
-  Plus,
+  FileText,
   Users,
+  type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { vibrate } from "@/lib/pwa";
+import { cn } from "@/lib/utils";
 
-type NavItem =
-  | { to: string; label: string; icon: typeof CalendarDays; badge?: boolean; match: readonly string[]; exclude?: readonly string[] }
-  | { center: true; to: string; label: string; icon: typeof Plus };
+type NavItem = {
+  label: string;
+  icon: LucideIcon;
+  href: string;
+  match: readonly string[];
+  exclude?: readonly string[];
+  badge?: boolean;
+};
 
-const bottomItems: readonly NavItem[] = [
-  { to: "/chantiers/calendrier", label: "Calendrier", icon: CalendarDays, match: ["/chantiers/calendrier"] },
-  { to: "/chantiers", label: "Chantiers", icon: HardHat, match: ["/chantiers"], exclude: ["/chantiers/calendrier"] },
-  { center: true, to: "/pv/new", label: "Nouveau PV", icon: Plus },
-  { to: "/reserves", label: "Réserves", icon: AlertCircle, badge: true, match: ["/reserves"] },
-  { to: "/clients", label: "Clients", icon: Users, match: ["/clients"] },
+const mobileNavigationItems: readonly NavItem[] = [
+  {
+    label: "Calendrier",
+    icon: CalendarDays,
+    href: "/chantiers/calendrier",
+    match: ["/chantiers/calendrier"],
+  },
+  {
+    label: "Chantiers",
+    icon: HardHat,
+    href: "/chantiers",
+    match: ["/chantiers"],
+    exclude: ["/chantiers/calendrier"],
+  },
+  {
+    label: "PV",
+    icon: FileText,
+    href: "/pv",
+    match: ["/pv"],
+  },
+  {
+    label: "Réserves",
+    icon: AlertCircle,
+    href: "/reserves",
+    match: ["/reserves"],
+    badge: true,
+  },
+  {
+    label: "Clients",
+    icon: Users,
+    href: "/clients",
+    match: ["/clients"],
+  },
 ] as const;
 
-/** Native-feel mobile bottom nav with central "+ PV" FAB. Hidden on lg+. */
+function isActive(item: NavItem, path: string): boolean {
+  const matched = item.match.some((m) => path === m || path.startsWith(m + "/"));
+  if (!matched) return false;
+  if (item.exclude?.some((e) => path === e || path.startsWith(e + "/"))) return false;
+  return true;
+}
+
+/** Native-feel mobile bottom nav: horizontal scrollable, active item auto-centered. Hidden on lg+. */
 export function BottomNav() {
   const location = useLocation();
-  const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
   const [unread, setUnread] = useState(0);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
 
+  // Réserves badge
   useEffect(() => {
     if (!activeCompanyId) return;
     let cancelled = false;
@@ -39,10 +82,6 @@ export function BottomNav() {
       const { data: userRes } = await supabase.auth.getUser();
       const userId = userRes.user?.id;
       if (!userId) { if (!cancelled) setUnread(0); return; }
-
-      // Réserves actionnables = ouvertes / en cours / en attente de validation,
-      // assignées à l'utilisateur (ou non assignées mais ouvertes du périmètre).
-      // Exclut: validee, rejetee, levee, archivée.
       const actionableStatuses = ["ouverte", "en_cours", "en_attente_validation"];
       const { count } = await supabase
         .from("pv_reserves")
@@ -65,76 +104,104 @@ export function BottomNav() {
     return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [activeCompanyId]);
 
+  // Determine active
+  const path = location.pathname;
+  const activeItem = mobileNavigationItems.find((it) => isActive(it, path));
+  const activeKey = activeItem?.href ?? null;
+
+  // Center the active item — after route change or first mount.
+  useEffect(() => {
+    if (!activeKey) return;
+    const el = itemRefs.current[activeKey];
+    const scroller = scrollerRef.current;
+    if (!el || !scroller) return;
+
+    // Compute manually so we scroll only the horizontal scroller (not the page).
+    const scrollerRect = scroller.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const currentLeft = scroller.scrollLeft;
+    const delta =
+      elRect.left - scrollerRect.left - (scrollerRect.width / 2 - elRect.width / 2);
+    const target = Math.max(0, currentLeft + delta);
+
+    // Instant on first paint to avoid a visible jump, smooth on later route changes.
+    const behavior: ScrollBehavior = scroller.dataset.initialized ? "smooth" : "auto";
+    scroller.scrollTo({ left: target, behavior });
+    scroller.dataset.initialized = "1";
+  }, [activeKey]);
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-background/95 backdrop-blur-md lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-md lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Navigation principale"
     >
-      {bottomItems.map((it, idx) => {
-        const Icon = it.icon;
-        const isCenter = "center" in it && it.center;
-        const path = location.pathname;
-        const active =
-          !isCenter &&
-          "match" in it &&
-          it.match.some((m) => path === m || path.startsWith(m + "/")) &&
-          !(("exclude" in it && it.exclude) ? it.exclude.some((e) => path === e || path.startsWith(e + "/")) : false);
-        const showBadge = "badge" in it && it.badge && unread > 0;
+      <div
+        ref={scrollerRef}
+        className="no-scrollbar flex snap-x snap-proximity overflow-x-auto overscroll-x-contain"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {/* Left spacer so the first item can center */}
+        <div aria-hidden className="shrink-0" style={{ width: "40vw" }} />
 
-        if (isCenter) {
+        {mobileNavigationItems.map((it) => {
+          const Icon = it.icon;
+          const active = activeKey === it.href;
+          const showBadge = it.badge && unread > 0;
+
           return (
-            <button
-              key={idx}
-              type="button"
-              aria-label="Créer un nouveau PV"
-              onClick={() => { vibrate([10, 20, 15]); navigate({ to: it.to, search: { fresh: 1 } }); }}
-              className="relative flex min-h-[44px] flex-col items-center justify-end pb-2"
+            <Link
+              key={it.href}
+              to={it.href}
+              ref={(el) => { itemRefs.current[it.href] = el; }}
+              aria-label={it.label}
+              aria-current={active ? "page" : undefined}
+              onClick={() => vibrate(12)}
+              className={cn(
+                "relative flex shrink-0 snap-center flex-col items-center justify-center gap-1 px-3 py-2 min-w-[80px] min-h-[56px] outline-none",
+                "transition-colors",
+                active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+              )}
             >
               <motion.span
-                whileTap={{ scale: 0.92 }}
-                whileHover={{ scale: 1.04 }}
-                className="absolute -top-5 grid h-14 w-14 place-items-center rounded-full bg-brand-gradient text-primary-foreground shadow-brand ring-4 ring-background"
+                animate={active ? { scale: 1.08 } : { scale: 1 }}
+                transition={{ type: "spring", stiffness: 380, damping: 26 }}
+                className={cn(
+                  "relative grid place-items-center rounded-full transition-colors",
+                  active
+                    ? "h-10 w-10 bg-primary/12 text-primary"
+                    : "h-9 w-9 text-muted-foreground",
+                )}
               >
-                <Icon className="h-6 w-6" strokeWidth={2.5} />
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
+                {showBadge && (
+                  <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9px] font-semibold text-destructive-foreground ring-2 ring-background">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
               </motion.span>
-              <span className="mt-9 text-[10px] font-semibold text-foreground">PV</span>
-            </button>
-          );
-        }
-
-        return (
-          <Link
-            key={idx}
-            to={(it as any).to}
-            onClick={() => vibrate(12)}
-            className={`relative flex min-h-[44px] flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition ${
-              active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <motion.span
-              animate={active ? { y: -2, scale: 1.05 } : { y: 0, scale: 1 }}
-              transition={{ type: "spring", stiffness: 380, damping: 26 }}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-            </motion.span>
-            <span className="max-w-full truncate px-1">{it.label}</span>
-            {showBadge && (
-              <span className="absolute right-[22%] top-1 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9px] font-semibold text-destructive-foreground">
-                {unread > 9 ? "9+" : unread}
+              <span
+                className={cn(
+                  "max-w-full truncate text-[11px] leading-none",
+                  active ? "font-semibold" : "font-medium",
+                )}
+              >
+                {it.label}
               </span>
-            )}
-            {active && (
-              <motion.span
-                layoutId="bn-active"
-                className="absolute inset-x-6 top-0 h-0.5 rounded-b-full bg-primary"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
-          </Link>
-        );
-      })}
+              {active && (
+                <motion.span
+                  layoutId="bn-active-underline"
+                  className="absolute bottom-1 h-0.5 w-6 rounded-full bg-primary"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+            </Link>
+          );
+        })}
+
+        {/* Right spacer so the last item can center */}
+        <div aria-hidden className="shrink-0" style={{ width: "40vw" }} />
+      </div>
     </nav>
   );
 }
