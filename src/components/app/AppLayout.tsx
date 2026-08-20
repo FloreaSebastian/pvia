@@ -26,7 +26,7 @@ import {
   Shield,
   History,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +38,7 @@ import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
+import { useViewport } from "@/hooks/use-viewport";
 import { isAdminRole, isOwnerRole } from "@/lib/roles";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
@@ -97,6 +98,13 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
   const [open, setOpen] = useState(false);
   const { activeCompanyId } = useCompany();
   const { suspended } = useSuspension();
+  const { isDesktop, isCompact } = useViewport();
+
+  // Changement de posture (Fold ouvert/fermé, rotation) : on referme le drawer
+  // dès que la navigation latérale redevient visible — sans rechargement.
+  useEffect(() => {
+    if (isDesktop) setOpen(false);
+  }, [isDesktop]);
 
   async function signOut() {
     try {
@@ -209,7 +217,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
           <div className="relative hidden min-w-0 max-w-md flex-1 md:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher un PV, chantier, client…"
+              placeholder={isCompact ? "Rechercher…" : "Rechercher un PV, chantier, client…"}
               className="h-9 border-border bg-muted/40 pl-9 focus-visible:bg-background"
             />
             <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground lg:inline-flex">
