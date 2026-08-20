@@ -334,10 +334,12 @@ function ChantiersPage() {
                       </div>
                     </div>
                     <div className="min-w-0"><Label htmlFor="ch-desc">Description</Label><Textarea id="ch-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-                    <DialogFooter className="sticky bottom-0 -mx-4 gap-2 border-t border-border/60 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:border-0 sm:px-0 sm:pt-0">
+                    </div>
+                    <DialogFooter className="-mx-4 shrink-0 gap-2 border-t border-border/60 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:mx-0 sm:border-0 sm:px-0 sm:pt-2">
                       <Button type="submit" className="w-full shadow-brand sm:w-auto" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button>
                     </DialogFooter>
                   </form>
+
                 </DialogContent>
         )}
       </Dialog>
