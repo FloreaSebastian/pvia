@@ -19,6 +19,7 @@ import { useCompany } from "@/hooks/use-company";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
+import { useContainerWidth } from "@/hooks/use-viewport";
 
 export const Route = createFileRoute("/_authenticated/chantiers/")({
   component: ChantiersPage,
@@ -81,6 +82,8 @@ function ChantiersPage() {
   const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
+  const { ref: formRef, width: formWidth } = useContainerWidth<HTMLFormElement>();
+  const formCompact = formWidth > 0 && formWidth < 380;
   const canWrite = can("manage");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const createFn = useServerFn(createChantierFn);
