@@ -257,10 +257,12 @@ function ChantiersPage() {
         </header>
 
         {canWrite && (
-                <DialogContent className="max-w-lg">
-                  <DialogHeader><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
-                  <form ref={formRef} onSubmit={save} className="space-y-3">
+                <DialogContent className="flex max-w-lg flex-col overflow-hidden">
+                  <DialogHeader className="shrink-0"><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
+                  <form ref={formRef} onSubmit={save} className="flex min-h-0 flex-1 flex-col gap-3">
+                    <div className="-mx-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-2 sm:-mx-6 sm:px-6">
                     <div><Label htmlFor="ch-name">Nom *</Label><Input id="ch-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+
                     <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="min-w-0">
                         <Label htmlFor="ch-type">Type</Label>
