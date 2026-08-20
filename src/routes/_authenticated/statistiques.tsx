@@ -254,7 +254,7 @@ function StatistiquesPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">Période</span>
           <Select value={days} onValueChange={setDays}>
-            <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full min-w-0 sm:w-[150px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="7">7 jours</SelectItem>
               <SelectItem value="30">30 jours</SelectItem>
@@ -306,7 +306,7 @@ function StatistiquesPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">Type PV</span>
           <Select value={pvType} onValueChange={setPvType}>
-            <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full min-w-0 sm:w-[170px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous types</SelectItem>
               <SelectItem value="reception">Réception</SelectItem>
@@ -318,7 +318,7 @@ function StatistiquesPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">Utilisateur</span>
           <Select value={userId} onValueChange={setUserId}>
-            <SelectTrigger className="w-[200px] h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full min-w-0 sm:w-[200px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les membres</SelectItem>
               {(stats?.members ?? []).map((m) => (

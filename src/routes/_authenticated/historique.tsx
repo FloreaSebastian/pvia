@@ -184,7 +184,7 @@ function HistoriqueEntreprisePage() {
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full min-w-0 sm:w-[200px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Toutes catégories</SelectItem>
               <SelectItem value="pv">PV</SelectItem>
@@ -195,7 +195,7 @@ function HistoriqueEntreprisePage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+        <div className="flex items-center gap-2 flex-1 min-w-0 sm:min-w-[240px]">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
             value={searchInput}

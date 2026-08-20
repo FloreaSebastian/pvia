@@ -793,7 +793,7 @@ function ChantierCalendarPage() {
           <Button size="sm" variant="outline" onClick={() => setCursor(new Date())}>Aujourd'hui</Button>
           <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Précédent"><ChevronLeft className="h-4 w-4" /></Button>
           <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant"><ChevronRight className="h-4 w-4" /></Button>
-          <div className="min-w-[180px] text-base font-semibold capitalize">{periodLabel}</div>
+          <div className="min-w-0 flex-1 truncate text-sm font-semibold capitalize sm:min-w-[180px] sm:text-base">{periodLabel}</div>
         </div>
         <div className="flex flex-1 items-center gap-2 lg:max-w-md">
           <Popover open={search.trim().length >= 2 && searchResults.length > 0} onOpenChange={(o) => { if (!o) setSearch(""); }}>
