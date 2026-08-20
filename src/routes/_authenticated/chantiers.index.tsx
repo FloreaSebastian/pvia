@@ -82,6 +82,23 @@ function ChantiersPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
+  // Largeur réellement disponible pour la page (container query), pas le viewport.
+  const { ref: containerRef, width: containerWidth } = useContainerWidth<HTMLDivElement>();
+  // Sous ce seuil, le tableau 7 colonnes n'est plus lisible : on bascule en liste compacte.
+  const listCompact = containerWidth > 0 && containerWidth < 720;
+  // Pointeur sans hover fiable (tactile) : les actions ne doivent pas dépendre de group-hover.
+  const [coarsePointer, setCoarsePointer] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(hover: none), (pointer: coarse)");
+    const sync = () => setCoarsePointer(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const compactSpace = containerWidth > 0 && containerWidth < 520;
+  const touchActions = coarsePointer || compactSpace;
+
   const [saving, setSaving] = useState(false);
   // Mesure la largeur réelle du formulaire (le Dialog n'est monté qu'à l'ouverture,
   // d'où un ref callback plutôt qu'un ref statique).
