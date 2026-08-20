@@ -260,27 +260,27 @@ function ChantiersPage() {
                 <DialogContent className="max-w-lg">
                   <DialogHeader><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
                   <form ref={formRef} onSubmit={save} className="space-y-3">
-                    <div><Label>Nom *</Label><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                    <div><Label htmlFor="ch-name">Nom *</Label><Input id="ch-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
                     <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="min-w-0">
-                        <Label>Type</Label>
+                        <Label htmlFor="ch-type">Type</Label>
                         <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectTrigger id="ch-type" className="w-full"><SelectValue /></SelectTrigger>
                           <SelectContent className="max-w-[calc(100vw-2rem)]">{TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="min-w-0">
-                        <Label>Statut</Label>
+                        <Label htmlFor="ch-status">Statut</Label>
                         <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StatusValue })}>
-                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectTrigger id="ch-status" className="w-full"><SelectValue /></SelectTrigger>
                           <SelectContent className="max-w-[calc(100vw-2rem)]">{STATUSES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </div>
                     <div className="min-w-0">
-                      <Label>Client</Label>
+                      <Label htmlFor="ch-client">Client</Label>
                       <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
-                        <SelectTrigger className="w-full"><SelectValue placeholder="Aucun" /></SelectTrigger>
+                        <SelectTrigger id="ch-client" className="w-full"><SelectValue placeholder="Aucun" /></SelectTrigger>
                         <SelectContent className="max-w-[calc(100vw-2rem)]">
                           <SelectItem value="none">Aucun</SelectItem>
                           {clients.map((c) => <SelectItem key={c.id} value={c.id}><span className="block truncate">{c.name}</span></SelectItem>)}
@@ -298,12 +298,12 @@ function ChantiersPage() {
                       />
                     </div>
                     <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-3")}>
-                      <div className="min-w-0"><Label>Code postal</Label><Input inputMode="numeric" value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
-                      <div className={cn("min-w-0", !formCompact && "col-span-2")}><Label>Ville</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                      <div className="min-w-0"><Label htmlFor="ch-postal">Code postal</Label><Input id="ch-postal" inputMode="numeric" value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
+                      <div className={cn("min-w-0", !formCompact && "col-span-2")}><Label htmlFor="ch-city">Ville</Label><Input id="ch-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
                     </div>
                     <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-2")}>
-                      <div className="min-w-0"><Label>Début</Label><Input type="date" className="w-full" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
-                      <div className="min-w-0"><Label>Fin prévue</Label><Input type="date" className="w-full" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
+                      <div className="min-w-0"><Label htmlFor="ch-start">Début</Label><Input id="ch-start" type="date" className="w-full" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+                      <div className="min-w-0"><Label htmlFor="ch-end">Fin prévue</Label><Input id="ch-end" type="date" className="w-full" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
                     </div>
                     <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="min-w-0">
@@ -331,7 +331,7 @@ function ChantiersPage() {
                           className="mt-2 w-full accent-primary" />
                       </div>
                     </div>
-                    <div className="min-w-0"><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+                    <div className="min-w-0"><Label htmlFor="ch-desc">Description</Label><Textarea id="ch-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
                     <DialogFooter className="sticky bottom-0 -mx-4 gap-2 border-t border-border/60 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:border-0 sm:px-0 sm:pt-0">
                       <Button type="submit" className="w-full shadow-brand sm:w-auto" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button>
                     </DialogFooter>
