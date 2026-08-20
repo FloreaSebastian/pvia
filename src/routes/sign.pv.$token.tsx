@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import { useServerFn } from "@tanstack/react-start";
 import { getPvByToken, signPvByToken, sendRemoteClientOtp, verifyRemoteClientOtp } from "@/lib/sign.functions";
 import { getSignedPvPdfPublic } from "@/lib/pdf.functions";
@@ -34,6 +35,7 @@ function SignPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ pvId: string; downloadKey: string } | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
+  useSignatureResize(padRef);
 
   // OTP state
   const [otpSending, setOtpSending] = useState(false);

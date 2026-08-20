@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import { z } from "zod";
 import {
   Upload,
@@ -262,6 +263,7 @@ function NewPv() {
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
+  useSignatureResize(clientSigRef, companySigRef);
   const [clientSignatureDataUrl, setClientSignatureDataUrl] = useState<string | null>(null);
   const [companySignatureDataUrl, setCompanySignatureDataUrl] = useState<string | null>(null);
 

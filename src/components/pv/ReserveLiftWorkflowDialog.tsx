@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft, ChevronRight, Loader2, MapPin, MapPinOff, X,
@@ -211,6 +212,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
 
   const signerSigRef = useRef<SignaturePad>(null);
   const clientSigRef = useRef<SignaturePad>(null);
+  useSignatureResize(signerSigRef, clientSigRef);
   const [signerSigData, setSignerSigData] = useState<string | null>(null);
   const [clientSigData, setClientSigData] = useState<string | null>(null);
   const [clientConsent, setClientConsent] = useState(false);

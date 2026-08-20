@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import {
   ArrowLeft,
   Download,
@@ -308,6 +309,7 @@ function InlineSignature({
   onSubmit: (signatureDataUrl: string) => Promise<void>;
 }) {
   const padRef = useRef<SignaturePad | null>(null);
+  useSignatureResize(padRef);
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 

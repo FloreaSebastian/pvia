@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ function LeveeReserves() {
 
   const companySigRef = useRef<SignaturePad>(null);
   const technicianSigRef = useRef<SignaturePad>(null);
+  useSignatureResize(companySigRef, technicianSigRef);
 
   useEffect(() => {
     (async () => {

@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import {
   ArrowLeft, CheckCircle2, Download, Eraser, Loader2, PenLine, ShieldCheck,
 } from "lucide-react";
@@ -289,6 +290,7 @@ function ClientLiftValidation({
   onReject: (reason: string) => Promise<void>;
 }) {
   const padRef = useRef<SignaturePad | null>(null);
+  useSignatureResize(padRef);
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [rejecting, setRejecting] = useState(false);
