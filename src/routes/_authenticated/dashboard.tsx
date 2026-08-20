@@ -267,63 +267,8 @@ function Dashboard() {
 
       {/* Recent PV + Quick start */}
       <div className="auto-grid-lg">
-        <Card className="p-6 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-display font-semibold">Derniers procès-verbaux</h3>
-              <p className="text-xs text-muted-foreground">Vos PV les plus récents.</p>
-            </div>
-            <Link
-              to="/pv"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-            >
-              Voir tout <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </div>
+        <RecentPvCard recent={recent} />
 
-          <div className="mt-4 overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2.5 text-left font-medium">Numéro</th>
-                  <th className="px-4 py-2.5 text-left font-medium">Date</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Statut</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border bg-card">
-                {recent.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-12 text-center">
-                      <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <p className="mt-3 text-sm font-medium">Aucun PV pour le moment</p>
-                      <p className="text-xs text-muted-foreground">Démarrez en créant votre premier procès-verbal.</p>
-                      <div className="mt-4">
-                        <Link to="/pv/new" search={{ fresh: 1 }}>
-                          <Button size="sm" className="shadow-brand">
-                            <Plus className="h-3 w-3" /> Créer le premier PV
-                          </Button>
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {recent.map((r) => (
-                  <tr key={r.id} className="transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{r.numero}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {new Date(r.created_at).toLocaleDateString("fr-FR")}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <PvStatusPill status={r.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
 
         <Card className="relative overflow-hidden bg-brand-gradient p-6 text-primary-foreground">
           <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-primary-foreground/10 blur-2xl" />
