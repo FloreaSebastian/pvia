@@ -346,7 +346,7 @@ function InlineSignature({
       <div className="rounded-lg border-2 border-dashed border-border bg-background">
         <SignaturePad
           ref={padRef}
-          canvasProps={{ className: "w-full h-48 touch-none rounded-lg" }}
+          canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,12.0rem)] touch-none rounded-lg" }}
           penColor="rgb(20, 35, 80)"
         />
       </div>

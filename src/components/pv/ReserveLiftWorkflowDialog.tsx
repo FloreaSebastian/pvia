@@ -1053,7 +1053,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
             <div className="rounded-md border border-border bg-background">
               <SignaturePad
                 ref={signerSigRef}
-                canvasProps={{ className: "w-full h-32" }}
+                canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,8.0rem)]" }}
                 onEnd={() => {
                   if (signerSigRef.current && !signerSigRef.current.isEmpty()) {
                     setSignerSigData(signerSigRef.current.toDataURL("image/png"));
@@ -1185,7 +1185,7 @@ export function ReserveLiftWorkflowDialog(props: Props) {
             <div className="rounded-md border border-border bg-background">
               <SignaturePad
                 ref={clientSigRef}
-                canvasProps={{ className: "w-full h-32" }}
+                canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,8.0rem)]" }}
                 onEnd={() => {
                   if (clientSigRef.current && !clientSigRef.current.isEmpty()) {
                     setClientSigData(clientSigRef.current.toDataURL("image/png"));

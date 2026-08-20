@@ -2248,7 +2248,7 @@ function SignatureBox({
       </div>
       {showCanvas ? (
         <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
-          <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
+          <SignaturePad ref={innerRef} canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,11.0rem)]" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
         </div>
       ) : (
         <div className="mt-1 rounded-xl border border-border bg-background p-3">

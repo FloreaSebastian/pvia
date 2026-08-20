@@ -313,7 +313,7 @@ function LeveeReserves() {
             <div>
               <Label className="mb-1.5 block text-xs">Signature entreprise *</Label>
               <div className="rounded-md border border-border bg-background">
-                <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full h-28" }} />
+                <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,7.0rem)]" }} />
               </div>
               <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => companySigRef.current?.clear()}>Effacer</Button>
               <p className="mt-2 text-[11px] text-muted-foreground">
@@ -336,7 +336,7 @@ function LeveeReserves() {
               {includeTechnicianSig && (
                 <div>
                   <div className="rounded-md border border-border bg-background">
-                    <SignaturePad ref={technicianSigRef} canvasProps={{ className: "w-full h-24" }} />
+                    <SignaturePad ref={technicianSigRef} canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,6.0rem)]" }} />
                   </div>
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => technicianSigRef.current?.clear()}>Effacer</Button>
                 </div>
