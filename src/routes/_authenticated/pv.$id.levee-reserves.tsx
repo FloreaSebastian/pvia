@@ -19,9 +19,8 @@ import { tryGetGps, readExif, sanitizeExifForUpload, type PhotoEntry } from "@/l
 
 export const Route = createFileRoute("/_authenticated/pv/$id/levee-reserves")({
   component: LeveeReserves,
-  validateSearch: (s: Record<string, unknown>) => ({
-    reserveId: typeof s.reserveId === "string" ? s.reserveId : undefined,
-  }),
+  validateSearch: (s: Record<string, unknown>): { reserveId?: string } =>
+    typeof s.reserveId === "string" ? { reserveId: s.reserveId } : {},
   head: () => ({ meta: [{ title: "Levée de réserves — PVIA" }] }),
 });
 
