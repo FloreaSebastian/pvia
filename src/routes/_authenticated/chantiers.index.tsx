@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, ArrowRight, SlidersHorizontal } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, ArrowRight, SlidersHorizontal, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useContainerWidth } from "@/hooks/use-viewport";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +82,23 @@ function ChantiersPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
+  // Largeur réellement disponible pour la page (container query), pas le viewport.
+  const { ref: containerRef, width: containerWidth } = useContainerWidth<HTMLDivElement>();
+  // Sous ce seuil, le tableau 7 colonnes n'est plus lisible : on bascule en liste compacte.
+  const listCompact = containerWidth > 0 && containerWidth < 720;
+  // Pointeur sans hover fiable (tactile) : les actions ne doivent pas dépendre de group-hover.
+  const [coarsePointer, setCoarsePointer] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(hover: none), (pointer: coarse)");
+    const sync = () => setCoarsePointer(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  const compactSpace = containerWidth > 0 && containerWidth < 520;
+  const touchActions = coarsePointer || compactSpace;
+
   const [saving, setSaving] = useState(false);
   // Mesure la largeur réelle du formulaire (le Dialog n'est monté qu'à l'ouverture,
   // d'où un ref callback plutôt qu'un ref statique).
@@ -236,7 +255,8 @@ function ChantiersPage() {
   }, [items, query, statusFilter, clientName]);
 
   return (
-    <div className="space-y-3 overflow-x-hidden">
+    <div ref={containerRef} className="space-y-3 overflow-x-hidden">
+
       {/* Compact header */}
       <Dialog open={open} onOpenChange={setOpen}>
         <header className="flex items-center justify-between gap-3 pt-1">
@@ -580,14 +600,18 @@ function ChantiersPage() {
                     Ouvrir la fiche <ArrowRight className="h-3 w-3" />
                   </span>
                   {canWrite && (
-                    <div className="flex gap-1 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    touchActions ? (
+                      <RowActionsMenu onEdit={() => openEdit(c)} onDelete={() => remove(c.id)} label={c.name} />
+                    ) : (
+                      <div className="flex gap-1 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    )
                   )}
                 </div>
               </Card>
@@ -596,8 +620,60 @@ function ChantiersPage() {
         </div>
       )}
 
-      {/* List view */}
-      {filtered.length > 0 && view === "list" && (
+      {/* List view — liste compacte sous 720px de largeur disponible, tableau au-delà */}
+      {filtered.length > 0 && view === "list" && listCompact && (
+        <Card className="divide-y divide-border/60 overflow-hidden p-0">
+          {filtered.map((c) => {
+            const cn_ = clientName(c.client_id);
+            return (
+              <div
+                key={c.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate({ to: "/chantiers/$id", params: { id: c.id } });
+                  }
+                }}
+                className="relative flex w-full cursor-pointer items-start gap-2 px-3 py-3 text-left transition active:bg-muted/60"
+              >
+                {c.color && <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: c.color }} />}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold">{c.reference}</span>
+                    <StatusPill tone={statusTone(c.status)} dot>
+                      {STATUSES.find((s) => s.value === c.status)?.label ?? c.status}
+                    </StatusPill>
+                  </div>
+                  <p className="truncate text-sm font-semibold leading-tight">{c.name}</p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    {c.type && <StatusPill tone="neutral">{c.type}</StatusPill>}
+                    {cn_ && (
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <User className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{cn_}</span>
+                      </span>
+                    )}
+                  </div>
+                  {c.address && (
+                    <p className="flex items-start gap-1 text-xs text-muted-foreground">
+                      <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                      <span className="line-clamp-2">{c.address}</span>
+                    </p>
+                  )}
+                </div>
+                {canWrite && (
+                  <RowActionsMenu onEdit={() => openEdit(c)} onDelete={() => remove(c.id)} label={c.name} />
+                )}
+              </div>
+            );
+          })}
+        </Card>
+      )}
+
+      {filtered.length > 0 && view === "list" && !listCompact && (
         <Card className="overflow-hidden p-0">
           <Table>
             <TableHeader>
@@ -626,14 +702,18 @@ function ChantiersPage() {
                   <TableCell className="text-muted-foreground">{c.address || "—"}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     {canWrite && (
-                      <div className="inline-flex opacity-60 transition group-hover:opacity-100">
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      touchActions ? (
+                        <RowActionsMenu onEdit={() => openEdit(c)} onDelete={() => remove(c.id)} label={c.name} />
+                      ) : (
+                        <div className="inline-flex opacity-60 transition focus-within:opacity-100 group-hover:opacity-100">
+                          <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )
                     )}
                   </TableCell>
                 </TableRow>
@@ -642,6 +722,40 @@ function ChantiersPage() {
           </Table>
         </Card>
       )}
+
+    </div>
+  );
+}
+
+/**
+ * Menu d'actions tactile (Modifier / Supprimer).
+ * Utilisé dès que le pointeur n'a pas de hover fiable ou que l'espace est étroit :
+ * aucune action critique ne dépend alors de `group-hover`.
+ */
+function RowActionsMenu({ onEdit, onDelete, label }: { onEdit: () => void; onDelete: () => void; label?: string }) {
+  return (
+    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-11 w-11"
+            aria-label={label ? `Actions pour ${label}` : "Actions"}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem className="min-h-11" onSelect={() => onEdit()}>
+            <Pencil className="mr-2 h-4 w-4" /> Modifier
+          </DropdownMenuItem>
+          <DropdownMenuItem className="min-h-11 text-destructive focus:text-destructive" onSelect={() => onDelete()}>
+            <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
