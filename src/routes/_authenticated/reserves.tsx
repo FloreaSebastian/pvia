@@ -556,7 +556,7 @@ function ReservesPage() {
       </div>
 
       {/* ───── KPI dashboard ───── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="auto-grid-sm">
         {KPIS.map(({ k, label, v, Icon, tone, activeBg }) => {
           const active = quick === k;
           return (
@@ -580,7 +580,7 @@ function ReservesPage() {
       {/* ───── Sticky search + filters ───── */}
       <div className="sticky top-0 z-20 -mx-2 bg-background/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:static sm:mx-0 sm:bg-transparent sm:p-0">
         <Card className="flex flex-wrap items-center gap-2 p-2">
-          <div className="relative min-w-[180px] flex-1">
+          <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               value={query}
@@ -766,7 +766,7 @@ function ReservesPage() {
         )
       ) : effectiveView === "kanban" ? (
         /* ───── Kanban ───── */
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-5">
+        <div className="auto-grid">
           {(["ouverte", "en_cours", "levee", "validee", "rejetee"] as Status[]).map((col) => {
             const rows = filtered.filter((r) => r.status === col);
             return (

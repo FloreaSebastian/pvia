@@ -173,7 +173,7 @@ function HistoriquePage() {
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full min-w-0 sm:w-[180px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les événements</SelectItem>
                 <SelectItem value="pv.">PV</SelectItem>

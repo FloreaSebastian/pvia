@@ -348,7 +348,7 @@ function MonitoringPage() {
       {/* Filters */}
       <Card className="p-4 flex flex-wrap gap-3 items-center">
         <Select value={severity} onValueChange={(v) => setSeverity(v as any)}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full min-w-0 sm:w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Toutes sévérités</SelectItem>
             <SelectItem value="critical">Critical</SelectItem>
@@ -358,7 +358,7 @@ function MonitoringPage() {
           </SelectContent>
         </Select>
         <Select value={resolved} onValueChange={(v) => setResolved(v as any)}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full min-w-0 sm:w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="open">Non résolues</SelectItem>
             <SelectItem value="resolved">Résolues</SelectItem>

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import { useServerFn } from "@tanstack/react-start";
 import { getPvByToken, signPvByToken, sendRemoteClientOtp, verifyRemoteClientOtp } from "@/lib/sign.functions";
 import { getSignedPvPdfPublic } from "@/lib/pdf.functions";
@@ -34,6 +35,7 @@ function SignPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ pvId: string; downloadKey: string } | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
+  useSignatureResize(padRef);
 
   // OTP state
   const [otpSending, setOtpSending] = useState(false);
@@ -289,7 +291,7 @@ function SignPage() {
           <div className="rounded-lg border-2 border-dashed border-border bg-background">
             <SignaturePad
               ref={padRef}
-              canvasProps={{ className: "w-full h-48 touch-none rounded-lg" }}
+              canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,12.0rem)] touch-none rounded-lg" }}
               penColor="currentColor"
             />
           </div>

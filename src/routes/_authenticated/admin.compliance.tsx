@@ -211,7 +211,7 @@ function Page() {
                 {list.map((item) => (
                   <Card key={item.item_key} className="p-4">
                     <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div className="flex-1 min-w-[260px]">
+                      <div className="min-w-0 flex-1 basis-full sm:basis-auto">
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium">{item.title}</h3>
                           <StatusBadge status={item.status}/>

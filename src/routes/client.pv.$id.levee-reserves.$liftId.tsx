@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import {
   ArrowLeft, CheckCircle2, Download, Eraser, Loader2, PenLine, ShieldCheck,
 } from "lucide-react";
@@ -289,6 +290,7 @@ function ClientLiftValidation({
   onReject: (reason: string) => Promise<void>;
 }) {
   const padRef = useRef<SignaturePad | null>(null);
+  useSignatureResize(padRef);
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [rejecting, setRejecting] = useState(false);
@@ -344,7 +346,7 @@ function ClientLiftValidation({
         <div className="rounded-lg border-2 border-dashed border-border bg-background">
           <SignaturePad
             ref={padRef}
-            canvasProps={{ className: "w-full h-48 touch-none rounded-lg" }}
+            canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,12.0rem)] touch-none rounded-lg" }}
             penColor="rgb(20, 35, 80)"
           />
         </div>

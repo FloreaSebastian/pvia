@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,8 @@ import { tryGetGps, readExif, sanitizeExifForUpload, type PhotoEntry } from "@/l
 
 export const Route = createFileRoute("/_authenticated/pv/$id/levee-reserves")({
   component: LeveeReserves,
-  validateSearch: (s: Record<string, unknown>) => ({
-    reserveId: typeof s.reserveId === "string" ? s.reserveId : undefined,
-  }),
+  validateSearch: (s: Record<string, unknown>): { reserveId?: string } =>
+    typeof s.reserveId === "string" ? { reserveId: s.reserveId } : {},
   head: () => ({ meta: [{ title: "Levée de réserves — PVIA" }] }),
 });
 
@@ -48,6 +48,7 @@ function LeveeReserves() {
 
   const companySigRef = useRef<SignaturePad>(null);
   const technicianSigRef = useRef<SignaturePad>(null);
+  useSignatureResize(companySigRef, technicianSigRef);
 
   useEffect(() => {
     (async () => {
@@ -311,7 +312,7 @@ function LeveeReserves() {
             <div>
               <Label className="mb-1.5 block text-xs">Signature entreprise *</Label>
               <div className="rounded-md border border-border bg-background">
-                <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full h-28" }} />
+                <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,7.0rem)]" }} />
               </div>
               <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => companySigRef.current?.clear()}>Effacer</Button>
               <p className="mt-2 text-[11px] text-muted-foreground">
@@ -334,7 +335,7 @@ function LeveeReserves() {
               {includeTechnicianSig && (
                 <div>
                   <div className="rounded-md border border-border bg-background">
-                    <SignaturePad ref={technicianSigRef} canvasProps={{ className: "w-full h-24" }} />
+                    <SignaturePad ref={technicianSigRef} canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,6.0rem)]" }} />
                   </div>
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => technicianSigRef.current?.clear()}>Effacer</Button>
                 </div>

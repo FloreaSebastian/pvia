@@ -145,7 +145,7 @@ export function ChantierPhotosTab({
                   )}
                 </Card>
               ) : (
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <div className="auto-grid-photos">
                   {items.map((p) => {
                     const hasGps = p.latitude !== null && p.longitude !== null;
                     const phaseLabel = p.photo_type === "before" ? "Avant" : p.photo_type === "during" ? "Pendant" : "Fin";
@@ -330,7 +330,7 @@ function UploadSheet({
           </div>
           <div>
             <Label>2. Source des photos</Label>
-            <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="mt-1 auto-grid">
               <Button type="button" variant="outline" className="h-auto justify-start gap-2 py-3" onClick={() => cameraRef.current?.click()} disabled={uploading}>
                 <Camera className="h-4 w-4" />
                 <span className="text-left text-xs leading-tight">Prendre<br />une photo</span>

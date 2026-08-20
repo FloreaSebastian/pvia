@@ -396,7 +396,7 @@ export function ReserveDetailDialog({
                       {section.hint && (
                         <p className="mb-1 text-[10px] italic text-muted-foreground">{section.hint}</p>
                       )}
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                      <div className="auto-grid-photos">
                         {subset.map((p) => (
                           <PhotoTile
                             key={p.id}

@@ -243,7 +243,7 @@ function IntegrationsSettings() {
               </div>
             </div>
             {isAdmin ? (
-              <Button asChild size="sm" variant="outline"><Link to="/parametres/facturation">Gérer</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link to="/billing">Gérer</Link></Button>
             ) : (
               <Button size="sm" variant="outline" disabled title="Réservé aux directeurs / responsables d'exploitation">Gérer</Button>
             )}

@@ -147,7 +147,7 @@ export function AdminLayout({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1400px] p-4 lg:p-8">{children}</main>
+        <main className="pvia-container min-w-0 py-4 lg:py-8">{children}</main>
       </div>
     </div>
   );

@@ -374,7 +374,7 @@ function ChantiersPage() {
       </div>
 
       {/* Compact KPIs — 2-col grid on mobile, 4-col on sm+, no horizontal scroll */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+      <div className="auto-grid-sm">
         {[
           { key: "actifs", label: "Actifs", value: dashboard.actifs, filter: "en_cours" as FilterValue, tone: "border-warning/40 bg-warning/5" },
           { key: "termine", label: "Terminés", value: dashboard.termine, filter: "termine" as FilterValue, tone: "border-success/40 bg-success/5" },
@@ -498,7 +498,7 @@ function ChantiersPage() {
 
       {/* Grid view */}
       {filtered.length > 0 && view === "grid" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="auto-grid-lg">
           {filtered.map((c) => {
             const cn_ = clientName(c.client_id);
             const start = fmtDate(c.start_date);

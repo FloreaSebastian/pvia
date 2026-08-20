@@ -218,7 +218,7 @@ function PvList() {
       />
 
       {/* KPI grid — 2 cols mobile, 4 cols desktop. No horizontal scroll. */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+      <div className="auto-grid-sm">
         {kpis.map((k) => {
           const Icon = k.icon;
           return (

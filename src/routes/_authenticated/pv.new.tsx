@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import SignaturePad from "react-signature-canvas";
+import { useSignatureResize } from "@/hooks/use-signature-resize";
 import { z } from "zod";
 import {
   Upload,
@@ -262,6 +263,7 @@ function NewPv() {
 
   const clientSigRef = useRef<SignaturePad>(null);
   const companySigRef = useRef<SignaturePad>(null);
+  useSignatureResize(clientSigRef, companySigRef);
   const [clientSignatureDataUrl, setClientSignatureDataUrl] = useState<string | null>(null);
   const [companySignatureDataUrl, setCompanySignatureDataUrl] = useState<string | null>(null);
 
@@ -2246,7 +2248,7 @@ function SignatureBox({
       </div>
       {showCanvas ? (
         <div className="mt-1 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-background">
-          <SignaturePad ref={innerRef} canvasProps={{ className: "w-full h-44" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
+          <SignaturePad ref={innerRef} canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,11.0rem)]" }} penColor="rgb(20, 35, 80)" onEnd={onEnd} />
         </div>
       ) : (
         <div className="mt-1 rounded-xl border border-border bg-background p-3">
