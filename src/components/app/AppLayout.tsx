@@ -128,7 +128,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0 ${
           open ? "translate-x-0 shadow-elevation-xl" : "-translate-x-full lg:translate-x-0"
         }`}
       >
@@ -197,16 +197,16 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
       </aside>
 
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md lg:px-8">
+        <header className="sticky top-0 z-20 flex h-16 min-w-0 items-center gap-2 border-b border-border bg-background/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:gap-3 sm:px-4 lg:px-8">
           <button
             onClick={() => setOpen(true)}
-            className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground lg:hidden"
+            className="touch-target grid shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground lg:hidden"
             aria-label="Ouvrir le menu"
           >
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="relative hidden max-w-md flex-1 md:block">
+          <div className="relative hidden min-w-0 max-w-md flex-1 md:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Rechercher un PV, chantier, client…"
@@ -219,9 +219,10 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
 
           <div className="ml-auto flex items-center gap-2">
             {!suspended && (
-              <Link to="/pv/new" search={{ fresh: 1 }} className="hidden sm:block">
-                <Button size="sm" className="shadow-elevation-sm">
-                  <Plus className="h-4 w-4" /> Créer un PV
+              <Link to="/pv/new" search={{ fresh: 1 }} className="hidden xs:block">
+                <Button size="sm" className="touch-target shadow-elevation-sm">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Créer un PV</span>
                 </Button>
               </Link>
             )}
@@ -235,7 +236,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
 
         <SuspensionBanner />
 
-        <main className="mx-auto w-full max-w-[1400px] p-4 pb-[max(5rem,env(safe-area-inset-bottom))] lg:p-8 lg:pb-12">
+        <main className="pvia-container min-w-0 py-4 pb-[max(6rem,calc(5rem+env(safe-area-inset-bottom)))] lg:py-8 lg:pb-12">
           {children}
         </main>
       </div>
