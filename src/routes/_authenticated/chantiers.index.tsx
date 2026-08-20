@@ -82,7 +82,17 @@ function ChantiersPage() {
   const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [saving, setSaving] = useState(false);
-  const { ref: formRef, width: formWidth } = useContainerWidth<HTMLFormElement>();
+  // Mesure la largeur réelle du formulaire (le Dialog n'est monté qu'à l'ouverture,
+  // d'où un ref callback plutôt qu'un ref statique).
+  const [formWidth, setFormWidth] = useState(0);
+  const formRef = useCallback((node: HTMLFormElement | null) => {
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setFormWidth((prev) => (Math.abs(prev - w) > 1 ? w : prev));
+    });
+    ro.observe(node);
+  }, []);
   const formCompact = formWidth > 0 && formWidth < 380;
   const canWrite = can("manage");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
