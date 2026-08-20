@@ -238,7 +238,8 @@ function ChantiersPage() {
   }, [items, query, statusFilter, clientName]);
 
   return (
-    <div className="space-y-3 overflow-x-hidden">
+    <div ref={containerRef} className="space-y-3 overflow-x-hidden">
+
       {/* Compact header */}
       <Dialog open={open} onOpenChange={setOpen}>
         <header className="flex items-center justify-between gap-3 pt-1">
