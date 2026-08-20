@@ -85,7 +85,7 @@ function ChantiersPage() {
   // Largeur réellement disponible pour la page (container query), pas le viewport.
   const { ref: containerRef, width: containerWidth } = useContainerWidth<HTMLDivElement>();
   // Sous ce seuil, le tableau 7 colonnes n'est plus lisible : on bascule en liste compacte.
-  const listCompact = containerWidth > 0 && containerWidth < 720;
+  const listCompact = containerWidth > 0 && containerWidth < 640;
   // Pointeur sans hover fiable (tactile) : les actions ne doivent pas dépendre de group-hover.
   const [coarsePointer, setCoarsePointer] = useState(false);
   useEffect(() => {
@@ -545,27 +545,49 @@ function ChantiersPage() {
               <Card
                 key={c.id}
                 onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}
-                className="group relative flex cursor-pointer flex-col gap-3 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:shadow-brand"
+                className={`group relative flex cursor-pointer flex-col gap-3 overflow-hidden transition hover:-translate-y-0.5 hover:shadow-brand ${compactSpace ? "p-4" : "p-5"}`}
               >
                 {c.color && <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ backgroundColor: c.color }} />}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                {compactSpace ? (
+                  /* Espace réduit : réf. + statut sur une ligne, nom sur 2 lignes en dessous. */
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex min-w-0 items-center gap-2">
                       <Building2 className="h-4 w-4 shrink-0 text-primary" />
-                      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">{c.reference}</span>
-                      <p className="truncate font-semibold leading-tight">{c.name}</p>
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">{c.reference}</span>
+                      <span className="ml-auto shrink-0">
+                        <StatusPill tone={statusTone(c.status)} dot>
+                          {STATUSES.find((s) => s.value === c.status)?.label ?? c.status}
+                        </StatusPill>
+                      </span>
                     </div>
+                    <p className="line-clamp-2 text-sm font-semibold leading-snug">{c.name}</p>
                     {c.address && (
-                      <p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+                      <p className="flex items-start gap-1 text-xs text-muted-foreground">
                         <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
                         <span className="line-clamp-2">{c.address}</span>
                       </p>
                     )}
                   </div>
-                  <StatusPill tone={statusTone(c.status)} dot>
-                    {STATUSES.find((s) => s.value === c.status)?.label ?? c.status}
-                  </StatusPill>
-                </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">{c.reference}</span>
+                        <p className="truncate font-semibold leading-tight">{c.name}</p>
+                      </div>
+                      {c.address && (
+                        <p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+                          <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                          <span className="line-clamp-2">{c.address}</span>
+                        </p>
+                      )}
+                    </div>
+                    <StatusPill tone={statusTone(c.status)} dot>
+                      {STATUSES.find((s) => s.value === c.status)?.label ?? c.status}
+                    </StatusPill>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {c.type && <StatusPill tone="neutral">{c.type}</StatusPill>}
