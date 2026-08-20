@@ -247,35 +247,35 @@ function ChantiersPage() {
         {canWrite && (
                 <DialogContent className="max-w-lg">
                   <DialogHeader><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
-                  <form onSubmit={save} className="space-y-3">
+                  <form ref={formRef} onSubmit={save} className="space-y-3">
                     <div><Label>Nom *</Label><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
+                    <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-2")}>
+                      <div className="min-w-0">
                         <Label>Type</Label>
                         <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>{TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent className="max-w-[calc(100vw-2rem)]">{TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <Label>Statut</Label>
                         <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StatusValue })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>{STATUSES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent className="max-w-[calc(100vw-2rem)]">{STATUSES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label>Client</Label>
                       <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
-                        <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
-                        <SelectContent>
+                        <SelectTrigger className="w-full"><SelectValue placeholder="Aucun" /></SelectTrigger>
+                        <SelectContent className="max-w-[calc(100vw-2rem)]">
                           <SelectItem value="none">Aucun</SelectItem>
-                          {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          {clients.map((c) => <SelectItem key={c.id} value={c.id}><span className="block truncate">{c.name}</span></SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label htmlFor="ch-address">Adresse</Label>
                       <AddressAutocomplete
                         id="ch-address"
@@ -285,16 +285,16 @@ function ChantiersPage() {
                         placeholder="Tapez l'adresse du chantier…"
                       />
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div><Label>Code postal</Label><Input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
-                      <div className="col-span-2"><Label>Ville</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                    <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-3")}>
+                      <div className="min-w-0"><Label>Code postal</Label><Input inputMode="numeric" value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} /></div>
+                      <div className={cn("min-w-0", !formCompact && "col-span-2")}><Label>Ville</Label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><Label>Début</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
-                      <div><Label>Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
+                    <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-2")}>
+                      <div className="min-w-0"><Label>Début</Label><Input type="date" className="w-full" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+                      <div className="min-w-0"><Label>Fin prévue</Label><Input type="date" className="w-full" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
+                    <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-2")}>
+                      <div className="min-w-0">
                         <Label>Couleur du chantier</Label>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <button type="button" onClick={() => setForm({ ...form, color: "" })}
@@ -312,15 +312,17 @@ function ChantiersPage() {
                           <input type="color" value={form.color || "#3b82f6"} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-7 w-9 cursor-pointer rounded border border-border bg-transparent p-0" aria-label="Couleur personnalisée" />
                         </div>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <Label>Avancement ({form.progress_percent}%)</Label>
                         <input type="range" min={0} max={100} step={5} value={form.progress_percent}
                           onChange={(e) => setForm({ ...form, progress_percent: Number(e.target.value) })}
                           className="mt-2 w-full accent-primary" />
                       </div>
                     </div>
-                    <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-                    <DialogFooter><Button type="submit" className="shadow-brand" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button></DialogFooter>
+                    <div className="min-w-0"><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+                    <DialogFooter className="sticky bottom-0 -mx-4 gap-2 border-t border-border/60 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:border-0 sm:px-0 sm:pt-0">
+                      <Button type="submit" className="w-full shadow-brand sm:w-auto" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button>
+                    </DialogFooter>
                   </form>
                 </DialogContent>
         )}
