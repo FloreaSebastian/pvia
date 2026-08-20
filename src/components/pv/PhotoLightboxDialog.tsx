@@ -78,7 +78,7 @@ export function PhotoLightboxDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl p-0 overflow-hidden">
+      <DialogContent className="max-w-5xl overflow-hidden p-0 sm:p-0">
         <DialogHeader className="px-4 pt-4 pb-2">
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
             <span>{typeLabel(p.photoType)}</span>
@@ -93,10 +93,10 @@ export function PhotoLightboxDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="relative grid gap-3 bg-background p-3 md:grid-cols-[1fr_280px]">
-          <div className="relative flex items-center justify-center rounded-md bg-black/95 min-h-[300px] md:min-h-[480px]">
+        <div className="relative grid min-w-0 gap-3 bg-background p-3 md:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="relative flex items-center justify-center rounded-md bg-black/95 min-h-[min(45dvh,300px)] md:min-h-[480px]">
             {p.url ? (
-              <img src={p.url} alt={p.label ?? ""} className="max-h-[70vh] w-full object-contain" />
+              <img src={p.url} alt={p.label ?? ""} className="max-h-[70dvh] w-full object-contain" />
             ) : (
               <div className="text-xs text-muted-foreground">Image indisponible</div>
             )}
