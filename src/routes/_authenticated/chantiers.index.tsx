@@ -257,10 +257,12 @@ function ChantiersPage() {
         </header>
 
         {canWrite && (
-                <DialogContent className="max-w-lg">
-                  <DialogHeader><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
-                  <form ref={formRef} onSubmit={save} className="space-y-3">
+                <DialogContent className="flex max-w-lg flex-col overflow-hidden">
+                  <DialogHeader className="shrink-0"><DialogTitle>{editing ? "Modifier le chantier" : "Nouveau chantier"}</DialogTitle></DialogHeader>
+                  <form ref={formRef} onSubmit={save} className="flex min-h-0 flex-1 flex-col gap-3">
+                    <div className="-mx-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-2 sm:-mx-6 sm:px-6">
                     <div><Label htmlFor="ch-name">Nom *</Label><Input id="ch-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+
                     <div className={cn("grid gap-3", formCompact ? "grid-cols-1" : "grid-cols-2")}>
                       <div className="min-w-0">
                         <Label htmlFor="ch-type">Type</Label>
@@ -332,10 +334,12 @@ function ChantiersPage() {
                       </div>
                     </div>
                     <div className="min-w-0"><Label htmlFor="ch-desc">Description</Label><Textarea id="ch-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-                    <DialogFooter className="sticky bottom-0 -mx-4 gap-2 border-t border-border/60 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:static sm:mx-0 sm:border-0 sm:px-0 sm:pt-0">
+                    </div>
+                    <DialogFooter className="-mx-4 shrink-0 gap-2 border-t border-border/60 bg-background px-4 pb-[env(safe-area-inset-bottom)] pt-3 sm:mx-0 sm:border-0 sm:px-0 sm:pt-2">
                       <Button type="submit" className="w-full shadow-brand sm:w-auto" disabled={saving}>{saving ? "…" : "Enregistrer"}</Button>
                     </DialogFooter>
                   </form>
+
                 </DialogContent>
         )}
       </Dialog>
