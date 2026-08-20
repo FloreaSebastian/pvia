@@ -266,14 +266,14 @@ function ChantiersPage() {
                         <Label htmlFor="ch-type">Type</Label>
                         <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
                           <SelectTrigger id="ch-type" className="w-full"><SelectValue /></SelectTrigger>
-                          <SelectContent className="max-w-[calc(100vw-2rem)]">{TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                          <SelectContent className="max-w-[calc(100vw-2rem)]">{TYPES.map((t) => <SelectItem key={t} value={t} className="py-2.5 sm:py-1.5">{t}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="min-w-0">
                         <Label htmlFor="ch-status">Statut</Label>
                         <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as StatusValue })}>
                           <SelectTrigger id="ch-status" className="w-full"><SelectValue /></SelectTrigger>
-                          <SelectContent className="max-w-[calc(100vw-2rem)]">{STATUSES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                          <SelectContent className="max-w-[calc(100vw-2rem)]">{STATUSES.map((t) => <SelectItem key={t.value} value={t.value} className="py-2.5 sm:py-1.5">{t.label}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </div>
@@ -282,8 +282,8 @@ function ChantiersPage() {
                       <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
                         <SelectTrigger id="ch-client" className="w-full"><SelectValue placeholder="Aucun" /></SelectTrigger>
                         <SelectContent className="max-w-[calc(100vw-2rem)]">
-                          <SelectItem value="none">Aucun</SelectItem>
-                          {clients.map((c) => <SelectItem key={c.id} value={c.id}><span className="block truncate">{c.name}</span></SelectItem>)}
+                          <SelectItem value="none" className="py-2.5 sm:py-1.5">Aucun</SelectItem>
+                          {clients.map((c) => <SelectItem key={c.id} value={c.id} className="py-2.5 sm:py-1.5"><span className="block truncate">{c.name}</span></SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
