@@ -354,7 +354,7 @@ function StatistiquesPage() {
       ) : (
         <>
           {/* KPIs */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="auto-grid">
             <KpiCard icon={FileText} label="PV créés" value={stats.kpis.totalPv}
               delta={<DeltaBadge cur={stats.kpis.totalPv} prev={stats.previous?.totalPv} />} />
             <KpiCard icon={PenSquare} label="PV signés" value={stats.kpis.signedPv} tone="success"
@@ -397,7 +397,7 @@ function StatistiquesPage() {
             </div>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="auto-grid-lg">
             <Card className="p-5">
               <div className="flex items-center gap-2 mb-4">
                 <CheckCircle2 className="h-4 w-4 text-primary" />

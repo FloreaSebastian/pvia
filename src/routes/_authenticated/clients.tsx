@@ -467,7 +467,7 @@ function ClientsPage() {
       )}
 
       {filtered.length > 0 && view === "grid" && (
-        <div className="grid gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3" data-testid="clients-grid">
+        <div className="auto-grid-lg" data-testid="clients-grid">
           {filtered.map((c) => {
             const isEnt = c.client_type === "entreprise";
             const Icon = isEnt ? Building2 : User;

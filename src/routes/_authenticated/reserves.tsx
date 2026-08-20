@@ -556,7 +556,7 @@ function ReservesPage() {
       </div>
 
       {/* ───── KPI dashboard ───── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="auto-grid-sm">
         {KPIS.map(({ k, label, v, Icon, tone, activeBg }) => {
           const active = quick === k;
           return (
@@ -766,7 +766,7 @@ function ReservesPage() {
         )
       ) : effectiveView === "kanban" ? (
         /* ───── Kanban ───── */
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-5">
+        <div className="auto-grid">
           {(["ouverte", "en_cours", "levee", "validee", "rejetee"] as Status[]).map((col) => {
             const rows = filtered.filter((r) => r.status === col);
             return (

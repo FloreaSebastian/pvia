@@ -155,7 +155,7 @@ function Dashboard() {
       />
 
       {/* KPI cards with sparklines */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="auto-grid">
         {kpis.map((k, i) => (
           <motion.div
             key={k.label}
@@ -189,7 +189,7 @@ function Dashboard() {
       </div>
 
       {/* Activity chart + feed */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="auto-grid-lg">
         <Card className="p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div>
@@ -266,7 +266,7 @@ function Dashboard() {
       {activeCompanyId && <ComplianceWidget companyId={activeCompanyId} />}
 
       {/* Recent PV + Quick start */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="auto-grid-lg">
         <Card className="p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div>
@@ -365,7 +365,7 @@ function Dashboard() {
             Tous les chantiers <ArrowUpRight className="h-3 w-3" />
           </Link>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 auto-grid">
           {chantiers.length === 0 && (
             <div className="col-span-full py-10 text-center">
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-warning/10 text-warning">
