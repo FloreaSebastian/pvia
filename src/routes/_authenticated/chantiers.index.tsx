@@ -600,14 +600,18 @@ function ChantiersPage() {
                     Ouvrir la fiche <ArrowRight className="h-3 w-3" />
                   </span>
                   {canWrite && (
-                    <div className="flex gap-1 opacity-0 transition group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    touchActions ? (
+                      <RowActionsMenu onEdit={() => openEdit(c)} onDelete={() => remove(c.id)} label={c.name} />
+                    ) : (
+                      <div className="flex gap-1 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    )
                   )}
                 </div>
               </Card>
@@ -616,8 +620,60 @@ function ChantiersPage() {
         </div>
       )}
 
-      {/* List view */}
-      {filtered.length > 0 && view === "list" && (
+      {/* List view — liste compacte sous 720px de largeur disponible, tableau au-delà */}
+      {filtered.length > 0 && view === "list" && listCompact && (
+        <Card className="divide-y divide-border/60 overflow-hidden p-0">
+          {filtered.map((c) => {
+            const cn_ = clientName(c.client_id);
+            return (
+              <div
+                key={c.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate({ to: "/chantiers/$id", params: { id: c.id } })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate({ to: "/chantiers/$id", params: { id: c.id } });
+                  }
+                }}
+                className="relative flex w-full cursor-pointer items-start gap-2 px-3 py-3 text-left transition active:bg-muted/60"
+              >
+                {c.color && <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: c.color }} />}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold">{c.reference}</span>
+                    <StatusPill tone={statusTone(c.status)} dot>
+                      {STATUSES.find((s) => s.value === c.status)?.label ?? c.status}
+                    </StatusPill>
+                  </div>
+                  <p className="truncate text-sm font-semibold leading-tight">{c.name}</p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    {c.type && <StatusPill tone="neutral">{c.type}</StatusPill>}
+                    {cn_ && (
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <User className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{cn_}</span>
+                      </span>
+                    )}
+                  </div>
+                  {c.address && (
+                    <p className="flex items-start gap-1 text-xs text-muted-foreground">
+                      <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                      <span className="line-clamp-2">{c.address}</span>
+                    </p>
+                  )}
+                </div>
+                {canWrite && (
+                  <RowActionsMenu onEdit={() => openEdit(c)} onDelete={() => remove(c.id)} label={c.name} />
+                )}
+              </div>
+            );
+          })}
+        </Card>
+      )}
+
+      {filtered.length > 0 && view === "list" && !listCompact && (
         <Card className="overflow-hidden p-0">
           <Table>
             <TableHeader>
@@ -646,14 +702,18 @@ function ChantiersPage() {
                   <TableCell className="text-muted-foreground">{c.address || "—"}</TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     {canWrite && (
-                      <div className="inline-flex opacity-60 transition group-hover:opacity-100">
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      touchActions ? (
+                        <RowActionsMenu onEdit={() => openEdit(c)} onDelete={() => remove(c.id)} label={c.name} />
+                      ) : (
+                        <div className="inline-flex opacity-60 transition focus-within:opacity-100 group-hover:opacity-100">
+                          <Button size="icon" variant="ghost" onClick={() => openEdit(c)} aria-label="Modifier">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => remove(c.id)} aria-label="Supprimer">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )
                     )}
                   </TableCell>
                 </TableRow>
@@ -662,6 +722,7 @@ function ChantiersPage() {
           </Table>
         </Card>
       )}
+
     </div>
   );
 }
