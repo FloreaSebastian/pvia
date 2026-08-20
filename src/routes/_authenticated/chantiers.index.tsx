@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, ArrowRight, SlidersHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Card } from "@/components/ui/card";
@@ -19,7 +19,6 @@ import { useCompany } from "@/hooks/use-company";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
-import { useContainerWidth } from "@/hooks/use-viewport";
 
 export const Route = createFileRoute("/_authenticated/chantiers/")({
   component: ChantiersPage,
