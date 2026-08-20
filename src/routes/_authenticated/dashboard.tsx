@@ -50,6 +50,121 @@ function buildDailySeries(items: { created_at: string }[], days = 14): number[] 
   return buckets;
 }
 
+/**
+ * Bloc « Derniers procès-verbaux ».
+ * S'adapte à la largeur réellement disponible (container query JS partagée) :
+ * liste de lignes tactiles sous ~30rem (Fold fermé / smartphone étroit),
+ * tableau inchangé au-delà.
+ */
+function RecentPvCard({ recent }: { recent: Pv[] }) {
+  const { ref, width } = useContainerWidth<HTMLDivElement>();
+  // width === 0 au premier rendu (SSR / avant mesure) : on part du tableau desktop.
+  const isNarrow = width > 0 && width < 480;
+
+  const empty = (
+    <div className="px-3 py-10 text-center">
+      <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
+        <FileText className="h-5 w-5" />
+      </div>
+      <p className="mt-3 text-sm font-medium">Aucun PV pour le moment</p>
+      <p className="mx-auto mt-0.5 max-w-[26ch] text-xs text-muted-foreground">
+        Démarrez en créant votre premier procès-verbal.
+      </p>
+      <div className="mt-4 flex justify-center">
+        <Link to="/pv/new" search={{ fresh: 1 }} className="min-w-0 max-w-full">
+          <Button size="sm" className="max-w-full shadow-brand">
+            <Plus className="h-3 w-3 shrink-0" />
+            <span className="truncate">Créer le premier PV</span>
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+
+  return (
+    <Card ref={ref} className="p-4 sm:p-6 lg:col-span-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="min-w-0">
+          <h3 className="font-display font-semibold">Derniers procès-verbaux</h3>
+          <p className="text-xs text-muted-foreground">Vos PV les plus récents.</p>
+        </div>
+        <Link
+          to="/pv"
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          Voir tout <ArrowUpRight className="h-3 w-3" />
+        </Link>
+      </div>
+
+      {isNarrow ? (
+        <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
+          {recent.length === 0 ? (
+            empty
+          ) : (
+            <ul className="divide-y divide-border">
+              {recent.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    to="/pv/$id"
+                    params={{ id: r.id }}
+                    className="flex min-h-[56px] items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/40 active:bg-muted/60"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold">{r.numero}</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        {new Date(r.created_at).toLocaleDateString("fr-FR", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <PvStatusPill status={r.status} size="sm" />
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <div className="mt-4 overflow-hidden rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2.5 text-left font-medium">Numéro</th>
+                <th className="px-4 py-2.5 text-left font-medium">Date</th>
+                <th className="px-4 py-2.5 text-right font-medium">Statut</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border bg-card">
+              {recent.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-12 text-center">
+                    {empty}
+                  </td>
+                </tr>
+              )}
+              {recent.map((r) => (
+                <tr key={r.id} className="transition-colors hover:bg-muted/30">
+                  <td className="px-4 py-3 font-medium">{r.numero}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <PvStatusPill status={r.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function Dashboard() {
   const { activeCompanyId } = useCompany();
   const [stats, setStats] = useState<Stats>({ pv: 0, signed: 0, pending: 0, openReserves: 0 });
