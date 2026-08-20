@@ -726,3 +726,36 @@ function ChantiersPage() {
     </div>
   );
 }
+
+/**
+ * Menu d'actions tactile (Modifier / Supprimer).
+ * Utilisé dès que le pointeur n'a pas de hover fiable ou que l'espace est étroit :
+ * aucune action critique ne dépend alors de `group-hover`.
+ */
+function RowActionsMenu({ onEdit, onDelete, label }: { onEdit: () => void; onDelete: () => void; label?: string }) {
+  return (
+    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-11 w-11"
+            aria-label={label ? `Actions pour ${label}` : "Actions"}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem className="min-h-11" onSelect={() => onEdit()}>
+            <Pencil className="mr-2 h-4 w-4" /> Modifier
+          </DropdownMenuItem>
+          <DropdownMenuItem className="min-h-11 text-destructive focus:text-destructive" onSelect={() => onDelete()}>
+            <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
