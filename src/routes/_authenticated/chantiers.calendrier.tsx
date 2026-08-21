@@ -27,7 +27,7 @@ import {
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useViewport, posturize, type Posture } from "@/hooks/use-viewport";
 
 export const Route = createFileRoute("/_authenticated/chantiers/calendrier")({
   component: ChantierCalendarPage,
@@ -144,14 +144,27 @@ function lsSet(k: string, v: unknown) {
 // Saved default view preference: which view to open the calendar on.
 // "week3" = 3-day view anchored on cursor (mobile field view).
 type DefaultViewPref = "day" | "week3" | "week" | "month";
-function loadInitialView(isMobile: boolean): { view: ViewKind; weekDays: WeekDays | null } {
+
+/** Vue par défaut selon la posture d'affichage (aucune préférence enregistrée). */
+function defaultViewForPosture(posture: Posture): { view: ViewKind; weekDays: WeekDays | null } {
+  if (posture === "compact" || posture === "mobile") return { view: "day", weekDays: null };
+  if (posture === "fold") return { view: "week", weekDays: 3 }; // Fold ouvert : vue 3 jours
+  return { view: "month", weekDays: null };
+}
+
+/**
+ * Vue initiale : la préférence utilisateur (localStorage) est TOUJOURS prioritaire.
+ * Sinon on retombe sur la posture mesurée une seule fois, au montage.
+ */
+function loadInitialView(): { view: ViewKind; weekDays: WeekDays | null } {
   const saved = lsGet<DefaultViewPref | "week5" | null>(LS.defaultView, null);
   if (saved === "day") return { view: "day", weekDays: null };
   if (saved === "week3") return { view: "week", weekDays: 3 };
   if (saved === "week") return { view: "week", weekDays: 7 };
   if (saved === "week5") return { view: "week", weekDays: 7 }; // legacy migration
   if (saved === "month") return { view: "month", weekDays: null };
-  return { view: isMobile ? "day" : "month", weekDays: null };
+  const width = typeof window === "undefined" ? 1280 : (window.visualViewport?.width ?? window.innerWidth);
+  return defaultViewForPosture(posturize(width));
 }
 
 
@@ -170,9 +183,28 @@ function ChantierCalendarPage() {
   const { activeCompanyId, can } = useCompany();
   const canWrite = can("manage");
   const isAdmin = can("admin");
-  const isMobile = useIsMobile();
-  
-  const initial = useMemo(() => loadInitialView(isMobile), [isMobile]);
+  const { posture } = useViewport();
+
+  // Pointeur grossier (tactile) : pas de drag natif, cartes denses.
+  const [coarsePointer, setCoarsePointer] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(hover: none), (pointer: coarse)");
+    const apply = () => setCoarsePointer(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  /** Espace réellement restreint : grille horaire/mois en présentation dense. */
+  const isCompactSpace = posture === "compact" || posture === "mobile";
+  /** Présentation tactile dense : petits écrans OU appareil tactile (Fold ouvert inclus). */
+  const denseTouch = isCompactSpace || coarsePointer;
+  /** Filtres en bottom sheet tant qu'on n'a pas la place d'un panneau inline. */
+  const filtersAsSheet = isCompactSpace || posture === "fold";
+
+  // Calculée une seule fois au montage : un resize ne doit jamais écraser la vue en cours.
+  const [initial] = useState(() => loadInitialView());
   const [view, setView] = useState<ViewKind>(initial.view);
   const [cursor, setCursor] = useState(new Date());
 
@@ -971,7 +1003,7 @@ function ChantierCalendarPage() {
       </div>
 
       {/* Filters — desktop inline Card; mobile renders inside a bottom Sheet */}
-      {filtersOpen && !isMobile && (
+      {filtersOpen && !filtersAsSheet && (
       <Card className="grid gap-2 p-2 md:grid-cols-6">
 
         <Select value={fChantier} onValueChange={setFChantier}>
@@ -1064,7 +1096,7 @@ function ChantierCalendarPage() {
       )}
 
       {/* Mobile filters sheet — reuses the same filter controls */}
-      <Sheet open={isMobile && filtersOpen} onOpenChange={(o) => { if (!o) setFiltersOpen(false); }}>
+      <Sheet open={filtersAsSheet && filtersOpen} onOpenChange={(o) => { if (!o) setFiltersOpen(false); }}>
         <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-2xl">
           <SheetHeader>
             <SheetTitle className="flex items-center justify-between gap-2">
@@ -1158,7 +1190,7 @@ function ChantierCalendarPage() {
           days={monthGrid}
           cursor={cursor}
           canWrite={canWrite}
-          isMobile={isMobile}
+          isMobile={denseTouch}
           conflictIds={conflicts}
           onDblClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
           onClickEvent={(e) => openQuick(e)}
@@ -1217,7 +1249,7 @@ function ChantierCalendarPage() {
           })()}
           events={events}
           hourPx={hourPx}
-          isMobile={isMobile}
+          isMobile={denseTouch}
           canWrite={canWrite}
           conflictIds={conflicts}
           onCreateRange={(s, e) => openNew(s, e)}
