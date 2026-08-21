@@ -630,7 +630,6 @@ function ChantierCalendarPage() {
 
   async function removeEvt() {
     if (!activeCompanyId || !evtForm.id) return;
-    if (!confirm("Supprimer cet événement ?")) return;
     try {
       await deleteEvtFn({ data: { companyId: activeCompanyId, id: evtForm.id } });
       toast.success("Supprimé");
