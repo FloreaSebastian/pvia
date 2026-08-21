@@ -1,0 +1,1 @@
+DELETE FROM public.chantiers WHERE name LIKE 'ZZTEST%';
