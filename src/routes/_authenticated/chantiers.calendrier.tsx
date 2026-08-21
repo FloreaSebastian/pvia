@@ -519,12 +519,20 @@ function ChantierCalendarPage() {
   const fieldH = denseTouch ? "h-11" : "h-9";
   const optionH = denseTouch ? "[&_[role=option]]:min-h-11 [&_[role=option]]:items-center" : "";
   const twoCols = denseTouch ? "grid grid-cols-1 gap-3 min-[360px]:grid-cols-2" : "grid grid-cols-2 gap-3";
+  // Géométrie tactile + garde-fou largeur pour les filtres (listes de noms très longs)
+  const filterFieldH = denseTouch ? "h-11" : "h-9";
+  const selectContentCls = cn(
+    "max-w-[min(22rem,calc(100vw-1.5rem))] [&_[role=option]]:whitespace-normal",
+    denseTouch && "[&_[role=option]]:min-h-11 [&_[role=option]]:items-center",
+  );
   const [quickEvt, setQuickEvt] = useState<Evt | null>(null);
   const [clusterSheet, setClusterSheet] = useState<Evt[] | null>(null);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const chantierName = useCallback((id: string | null | undefined) => id ? (chantiers.find((c) => c.id === id)?.name ?? "—") : "—", [chantiers]);
   const clientName = useCallback((id: string | null | undefined) => id ? (clients.find((c) => c.id === id)?.name ?? "—") : "—", [clients]);
   const memberName = useCallback((id: string | null | undefined) => id ? (membersById.get(id)?.name ?? "—") : null, [membersById]);
+
 
   const searchResults = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();
