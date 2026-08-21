@@ -599,7 +599,8 @@ function ChantierDetailPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* ====== MOBILE HEADER ====== */}
+      {/* ====== EN-TÊTE MOBILE ====== */}
+
       <div className="md:hidden">
         <button
           onClick={() => navigate({ to: "/chantiers" })}
