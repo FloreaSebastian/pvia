@@ -1110,7 +1110,7 @@ function ChantierCalendarPage() {
           <div className="min-w-0 flex-1 truncate text-sm font-semibold capitalize sm:min-w-[180px] sm:text-base">{periodLabel}</div>
         </div>
         <div className="flex flex-1 items-center gap-2 lg:max-w-md">
-          <Popover open={search.trim().length >= 2} onOpenChange={(o) => { if (!o) setSearch(""); }}>
+          <Popover open={!filtersAsSheet && !mobileSearchOpen && search.trim().length >= 2} onOpenChange={(o) => { if (!o) setSearch(""); }}>
             <PopoverTrigger asChild>
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
