@@ -204,6 +204,12 @@ function ChantierCalendarPage() {
   const filtersAsSheet = isCompactSpace || posture === "fold";
   /** Fold ouvert / tablette : assez de place pour un libellé complet et plus de segments. */
   const foldWide = !isCompactSpace;
+  /**
+   * Ultra-compact (< 400 px) : 5 cibles de 44 px en ligne 1 ne peuvent pas cohabiter
+   * avec un titre de période lisible. La recherche (action secondaire) bascule
+   * dans le Sheet « Plus » ; aucune fonction n'est perdue.
+   */
+  const ultraCompact = posture === "compact";
 
 
   // Calculée une seule fois au montage : un resize ne doit jamais écraser la vue en cours.
@@ -765,32 +771,34 @@ function ChantierCalendarPage() {
        *  Les fonctions secondaires vivent dans le Sheet « Plus ».
        * ============================================================ */}
       <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur lg:hidden">
-        {/* Ligne 1 */}
+        {/* Ligne 1 — cibles tactiles 44 × 44 px */}
         <div className="flex items-center gap-0.5 px-1 pt-1 xs:gap-1">
-          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Période précédente" className="h-10 w-9 shrink-0 fold:w-10">
-            <ChevronLeft className="h-4 w-4" />
+          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Période précédente" className="h-11 w-11 shrink-0">
+            <ChevronLeft className="h-5 w-5" />
           </Button>
           <button
             type="button"
             onClick={() => setCursor(new Date())}
-            className="focus-ring min-w-0 flex-1 truncate rounded-md px-1 text-center text-[15px] font-semibold capitalize leading-tight"
+            className="focus-ring min-h-11 min-w-0 flex-1 truncate rounded-md px-1 text-center text-[15px] font-semibold capitalize leading-tight"
             title={`${periodLabel} — revenir à aujourd'hui`}
             aria-label={`${periodLabel}. Revenir à aujourd'hui`}
           >
             {foldWide ? periodLabel : compactPeriodLabel}
           </button>
-          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Période suivante" className="h-10 w-9 shrink-0 fold:w-10">
-            <ChevronRight className="h-4 w-4" />
+          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Période suivante" className="h-11 w-11 shrink-0">
+            <ChevronRight className="h-5 w-5" />
           </Button>
-          <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher un événement" title="Rechercher" className="h-10 w-9 shrink-0 fold:w-10">
-            <Search className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={() => setMoreOpen(true)} aria-label="Plus d'options du calendrier" title="Plus d'options" className="h-10 w-9 shrink-0 fold:w-10">
-            <MoreHorizontal className="h-4 w-4" />
+          {!ultraCompact && (
+            <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher un événement" title="Rechercher" className="h-11 w-11 shrink-0">
+              <Search className="h-5 w-5" />
+            </Button>
+          )}
+          <Button size="icon" variant="ghost" onClick={() => setMoreOpen(true)} aria-label="Plus d'options du calendrier" title="Plus d'options" className="h-11 w-11 shrink-0">
+            <MoreHorizontal className="h-5 w-5" />
           </Button>
           {canWrite && (
-            <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" title="Nouvel événement" className="h-10 w-9 shrink-0 shadow-brand fold:w-10">
-              <Plus className="h-4 w-4" />
+            <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" title="Nouvel événement" className="h-11 w-11 shrink-0 shadow-brand">
+              <Plus className="h-5 w-5" />
             </Button>
           )}
         </div>
@@ -808,7 +816,7 @@ function ChantierCalendarPage() {
                 aria-current={opt.active ? "true" : undefined}
                 onClick={opt.onSelect}
                 className={cn(
-                  "focus-ring min-h-9 min-w-0 flex-1 truncate rounded-md px-1 py-2 text-[12px] font-semibold transition",
+                  "focus-ring min-h-11 min-w-0 flex-1 truncate rounded-md px-1 py-2 text-[12px] font-semibold transition",
                   opt.active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground",
                 )}
               >
@@ -822,7 +830,7 @@ function ChantierCalendarPage() {
               type="button"
               onClick={() => setMoreOpen(true)}
               aria-current="true"
-              className="focus-ring inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-primary px-2 text-[12px] font-semibold text-primary-foreground"
+              className="focus-ring inline-flex h-11 shrink-0 items-center gap-1 rounded-lg bg-primary px-2 text-[12px] font-semibold text-primary-foreground"
             >
               {view === "team" ? <Users className="h-3.5 w-3.5" /> : <CalendarDays className="h-3.5 w-3.5" />}
               {view === "team" ? (teamMode === "day" ? "Équipe J" : "Équipe S") : "Perso."}
@@ -834,7 +842,7 @@ function ChantierCalendarPage() {
             onClick={() => setFiltersOpen(true)}
             aria-label={activeFilterCount > 0 ? `Filtres (${activeFilterCount} actifs)` : "Filtres"}
             title="Filtres"
-            className="relative h-9 w-9 shrink-0"
+            className="relative h-11 w-11 shrink-0"
           >
             <Filter className="h-4 w-4" />
             {activeFilterCount > 0 && (
@@ -935,6 +943,15 @@ function ChantierCalendarPage() {
             )}
 
             <div className="grid grid-cols-2 gap-2">
+              {ultraCompact && (
+                <Button
+                  variant="outline"
+                  className="col-span-2 h-11 justify-start gap-2"
+                  onClick={() => { setMoreOpen(false); setMobileSearchOpen(true); }}
+                >
+                  <Search className="h-4 w-4" /> Rechercher un événement
+                </Button>
+              )}
               <Button variant="outline" className="h-11 justify-start gap-2" onClick={() => { setCursor(new Date()); setMoreOpen(false); }}>
                 <CalendarDays className="h-4 w-4" /> Aujourd'hui
               </Button>
