@@ -778,6 +778,7 @@ function ChantierCalendarPage() {
           </Button>
           <button
             type="button"
+            data-period-title
             onClick={() => setCursor(new Date())}
             className="focus-ring min-h-11 min-w-0 flex-1 truncate rounded-md px-1 text-center text-[15px] font-semibold capitalize leading-tight"
             title={`${periodLabel} — revenir à aujourd'hui`}
@@ -1129,7 +1130,7 @@ function ChantierCalendarPage() {
 
 
       {view === "custom" && (
-        <Card className="flex flex-wrap items-end gap-3 p-3">
+        <Card data-custom-picker className="flex flex-wrap items-end gap-3 p-3">
           <div><Label className="text-xs">Du</Label><Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-9" /></div>
           <div><Label className="text-xs">Au</Label><Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-9" /></div>
           <div className="flex flex-wrap gap-1">
