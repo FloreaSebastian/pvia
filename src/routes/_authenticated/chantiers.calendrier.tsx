@@ -27,6 +27,7 @@ import {
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useImmersiveMode } from "@/hooks/use-immersive";
 import { useViewport, posturize, type Posture } from "@/hooks/use-viewport";
 
 export const Route = createFileRoute("/_authenticated/chantiers/calendrier")({
@@ -273,6 +274,15 @@ function ChantierCalendarPage() {
   const hourPx = ZOOM_LEVELS[zoom];
 
   useEffect(() => { lsSet(LS.fs, fullscreen); }, [fullscreen]);
+  // Signale au layout qu'une vue immersive est active (masque la BottomNav).
+  useImmersiveMode(fullscreen);
+  // Empêche le document de défiler derrière le calendrier plein écran.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [fullscreen]);
   useEffect(() => { lsSet(LS.zoom, zoom); }, [zoom]);
   useEffect(() => { lsSet(LS.weekDays, weekDays); }, [weekDays]);
   useEffect(() => { lsSet(LS.filtersOpen, filtersOpen); }, [filtersOpen]);
@@ -806,7 +816,21 @@ function ChantierCalendarPage() {
   }, [canWrite, fullscreen]);
 
   return (
-    <div className={cn("space-y-1.5 lg:space-y-3", fullscreen && "fixed inset-0 z-50 overflow-auto bg-background p-3")}>
+    <div
+      className={cn(
+        "space-y-1.5 lg:space-y-3",
+        fullscreen &&
+          "fixed inset-0 z-50 overflow-auto overscroll-contain bg-background p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+      )}
+      style={
+        fullscreen
+          ? ({
+              "--cal-grid-max-h":
+                "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 8.5rem)",
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
 
       <div className="hidden lg:block">
         <PageHeader
@@ -2384,7 +2408,7 @@ function TimeGridView({
   return (
     <Card className="overflow-hidden p-0">
       {/* Scroll unique : vertical + horizontal interne (header solidaire de la grille) */}
-      <div ref={scrollRef} className="relative overflow-auto overscroll-x-contain" style={{ maxHeight: "72vh" }}>
+      <div ref={scrollRef} className="relative overflow-auto overscroll-x-contain" style={{ maxHeight: "var(--cal-grid-max-h, 72vh)" }}>
         <div style={{ minWidth: canvasMinWidth }}>
           {/* Header */}
           <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 backdrop-blur" style={{ gridTemplateColumns: gridTpl }}>
@@ -3116,7 +3140,7 @@ function TeamDayView({
 
   return (
     <Card data-team-root className="overflow-hidden p-0">
-      <div ref={scrollRef} className="relative overflow-auto overscroll-x-contain" style={{ maxHeight: "72vh" }}>
+      <div ref={scrollRef} className="relative overflow-auto overscroll-x-contain" style={{ maxHeight: "var(--cal-grid-max-h, 72vh)" }}>
         <div style={{ minWidth: minGridPx }}>
           {/* En-têtes membres — sticky en haut, défilent avec le scroll horizontal */}
           <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 backdrop-blur"
@@ -3275,7 +3299,7 @@ function TeamWeekView({
 
   return (
     <Card data-team-root className="overflow-hidden p-0">
-      <div className="overflow-auto overscroll-x-contain" style={{ maxHeight: "72vh" }}>
+      <div className="overflow-auto overscroll-x-contain" style={{ maxHeight: "var(--cal-grid-max-h, 72vh)" }}>
         <div style={{ minWidth: minGridPx }}>
           <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 text-xs backdrop-blur" style={{ gridTemplateColumns: tmpl }}>
             <div className="sticky left-0 z-10 border-r border-border bg-background/95 p-2 font-semibold uppercase tracking-wide text-muted-foreground">Membre</div>
