@@ -39,6 +39,7 @@ import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
 import { useViewport } from "@/hooks/use-viewport";
+import { ImmersiveProvider } from "@/hooks/use-immersive";
 import { isAdminRole, isOwnerRole } from "@/lib/roles";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
@@ -126,6 +127,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
 
 
   return (
+    <ImmersiveProvider>
     <div className="min-h-screen bg-muted/30">
       {/* Mobile overlay */}
       {open && (
@@ -251,6 +253,7 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
       <BottomNav />
       <InstallPrompt companyId={activeCompanyId} />
     </div>
+    </ImmersiveProvider>
   );
 }
 
