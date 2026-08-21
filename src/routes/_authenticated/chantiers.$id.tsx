@@ -620,12 +620,13 @@ function ChantierDetailPage() {
                   toast.success("Référence copiée");
                 } catch { toast.error("Copie impossible"); }
               }}
-              className="-my-2 mb-1 inline-flex min-h-11 items-center py-3 font-mono text-[11px] font-semibold tracking-wide transition active:scale-95"
+              className="-my-1 mb-1 inline-flex min-h-11 items-center py-3 font-mono text-[11px] font-semibold tracking-wide transition active:scale-95"
               title="Copier la référence"
             >
-              <span className="rounded bg-muted px-2 py-0.5 transition hover:bg-muted/70">
+              <span className="rounded bg-muted px-2 py-1 transition hover:bg-muted/70">
                 {(ch as { reference: string }).reference}
               </span>
+
             </button>
           )}
           <div className="flex items-start justify-between gap-2">
