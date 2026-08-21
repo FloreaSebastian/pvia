@@ -263,6 +263,29 @@ function ChantierCalendarPage() {
     else if (p === "week3") { setView("week"); setWeekDays(3); }
   }
 
+  /**
+   * Segments du sélecteur de vue mobile/Fold.
+   * Règle conservée : « 3 jours » est actif ssi view === "week" && weekDays === 3.
+   * Sur Fold ouvert (≥ 600px) on expose aussi Équipe et Personnalisé.
+   */
+  const mobileViewSegments = useMemo(() => {
+    const base = [
+      { key: "day", label: "Jour", active: view === "day", onSelect: () => applyDefaultViewPreset("day") },
+      { key: "week3", label: "3 jours", active: view === "week" && weekDays === 3, onSelect: () => applyDefaultViewPreset("week3") },
+      { key: "week", label: "Semaine", active: view === "week" && weekDays !== 3, onSelect: () => applyDefaultViewPreset("week") },
+      { key: "month", label: "Mois", active: view === "month", onSelect: () => applyDefaultViewPreset("month") },
+    ];
+    if (!foldWide) return base;
+    return [
+      ...base,
+      { key: "team", label: "Équipe", active: view === "team", onSelect: () => setView("team") },
+      { key: "custom", label: "Perso.", active: view === "custom", onSelect: () => setView("custom") },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, weekDays, foldWide]);
+
+
+
 
   // Conflict UI state
   type ConflictRow = { id: string; title: string; start_at: string | null; end_at: string | null };
