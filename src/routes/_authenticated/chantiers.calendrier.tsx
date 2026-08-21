@@ -1542,36 +1542,44 @@ function ChantierCalendarPage() {
 
       {/* Dialog */}
       <Dialog open={evtOpen} onOpenChange={setEvtOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-primary" />
-              {evtForm.id ? "Modifier l'événement" : "Nouvel événement"}
+        {/*
+          Mobile : le footer sort du scroller (même correctif que le formulaire Chantier)
+          afin que « Créer / Enregistrer » reste atteignable sans scroller jusqu'en bas.
+        */}
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] max-w-xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-6">
+            <DialogTitle className="flex items-center gap-2 pr-8">
+              <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate">{evtForm.id ? "Modifier l'événement" : "Nouvel événement"}</span>
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={saveEvt} className="space-y-3">
+          <form onSubmit={saveEvt} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6">
             <Tabs defaultValue="details">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className={cn("grid w-full grid-cols-2", denseTouch && "h-11")}>
                 <TabsTrigger value="details">Détails</TabsTrigger>
                 <TabsTrigger value="reminder">Rappel</TabsTrigger>
               </TabsList>
 
               <TabsContent value="details" className="space-y-3 pt-3">
-                <div><Label>Titre *</Label><Input required value={evtForm.title} onChange={(e) => setEvtForm({ ...evtForm, title: e.target.value })} /></div>
+                <div>
+                  <Label htmlFor="evt-title">Titre *</Label>
+                  <Input id="evt-title" required value={evtForm.title} onChange={(e) => setEvtForm({ ...evtForm, title: e.target.value })} className={cn("w-full", fieldH)} />
+                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Type</Label>
+                <div className={twoCols}>
+                  <div className="min-w-0">
+                    <Label htmlFor="evt-type">Type</Label>
                     <Select value={evtForm.event_type} onValueChange={(v) => setEvtForm({ ...evtForm, event_type: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+                      <SelectTrigger id="evt-type" className={cn("w-full", fieldH)}><SelectValue /></SelectTrigger>
+                      <SelectContent className={optionH}>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Statut</Label>
+                  <div className="min-w-0">
+                    <Label htmlFor="evt-status">Statut</Label>
                     <Select value={evtForm.status} onValueChange={(v) => setEvtForm({ ...evtForm, status: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
+                      <SelectTrigger id="evt-status" className={cn("w-full", fieldH)}><SelectValue /></SelectTrigger>
+                      <SelectContent className={optionH}>
                         <SelectItem value="prevu">Prévu</SelectItem><SelectItem value="en_cours">En cours</SelectItem>
                         <SelectItem value="termine">Terminé</SelectItem><SelectItem value="annule">Annulé</SelectItem>
                         <SelectItem value="reporte">Reporté</SelectItem>
@@ -1580,19 +1588,19 @@ function ChantierCalendarPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Chantier *</Label>
+                <div className={twoCols}>
+                  <div className="min-w-0">
+                    <Label htmlFor="evt-chantier">Chantier *</Label>
                     <Select value={evtForm.chantier_id} onValueChange={(v) => setEvtForm({ ...evtForm, chantier_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Choisir" /></SelectTrigger>
-                      <SelectContent>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                      <SelectTrigger id="evt-chantier" className={cn("w-full", fieldH)}><SelectValue placeholder="Choisir" /></SelectTrigger>
+                      <SelectContent className={optionH}>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Client</Label>
+                  <div className="min-w-0">
+                    <Label htmlFor="evt-client">Client</Label>
                     <Select value={evtForm.client_id || "none"} onValueChange={(v) => setEvtForm({ ...evtForm, client_id: v === "none" ? "" : v })}>
-                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
+                      <SelectTrigger id="evt-client" className={cn("w-full", fieldH)}><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent className={optionH}>
                         <SelectItem value="none">—</SelectItem>
                         {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                       </SelectContent>
@@ -1600,11 +1608,11 @@ function ChantierCalendarPage() {
                   </div>
                 </div>
 
-                <div>
-                  <Label>Assigné à</Label>
+                <div className="min-w-0">
+                  <Label htmlFor="evt-assigned">Assigné à</Label>
                   <Select value={evtForm.assigned_to || "none"} onValueChange={(v) => setEvtForm({ ...evtForm, assigned_to: v === "none" ? "" : v })}>
-                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectTrigger id="evt-assigned" className={cn("w-full", fieldH)}><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent className={optionH}>
                       <SelectItem value="none">—</SelectItem>
                       {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
                     </SelectContent>
@@ -1612,63 +1620,112 @@ function ChantierCalendarPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Switch checked={evtForm.all_day} onCheckedChange={(v) => setEvtForm({ ...evtForm, all_day: !!v })} />
-                  <span className="text-sm">Journée entière</span>
+                  <Switch id="evt-allday" checked={evtForm.all_day} onCheckedChange={(v) => setEvtForm({ ...evtForm, all_day: !!v })} />
+                  <Label htmlFor="evt-allday" className="text-sm font-normal">Journée entière</Label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Début</Label><Input type={evtForm.all_day ? "date" : "datetime-local"} value={evtForm.all_day ? evtForm.start_at.slice(0,10) : evtForm.start_at} onChange={(e) => setEvtForm({ ...evtForm, start_at: e.target.value })} /></div>
-                  <div><Label>Fin</Label><Input type={evtForm.all_day ? "date" : "datetime-local"} value={evtForm.all_day ? evtForm.end_at.slice(0,10) : evtForm.end_at} onChange={(e) => setEvtForm({ ...evtForm, end_at: e.target.value })} /></div>
+                {/* Les inputs date/datetime natifs ont une largeur intrinsèque ~180 px :
+                    une seule colonne en dessous de sm évite la troncature mesurée à 320-412 px. */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <Label htmlFor="evt-start">Début</Label>
+                    <Input id="evt-start" type={evtForm.all_day ? "date" : "datetime-local"}
+                      value={evtForm.all_day ? evtForm.start_at.slice(0,10) : evtForm.start_at}
+                      aria-invalid={!!dateError} aria-describedby={dateError ? "evt-date-error" : undefined}
+                      onChange={(e) => setEvtForm({ ...evtForm, start_at: e.target.value })} className={cn("w-full", fieldH)} />
+                  </div>
+                  <div className="min-w-0">
+                    <Label htmlFor="evt-end">Fin</Label>
+                    <Input id="evt-end" type={evtForm.all_day ? "date" : "datetime-local"}
+                      value={evtForm.all_day ? evtForm.end_at.slice(0,10) : evtForm.end_at}
+                      aria-invalid={!!dateError} aria-describedby={dateError ? "evt-date-error" : undefined}
+                      onChange={(e) => setEvtForm({ ...evtForm, end_at: e.target.value })} className={cn("w-full", fieldH)} />
+                  </div>
                 </div>
-
-                <div><Label>Lieu</Label><Input value={evtForm.location} onChange={(e) => setEvtForm({ ...evtForm, location: e.target.value })} /></div>
+                {dateError && (
+                  <p id="evt-date-error" role="alert" className="rounded-md bg-destructive/10 px-2 py-1.5 text-xs font-medium text-destructive">
+                    {dateError}
+                  </p>
+                )}
 
                 <div>
-                  <Label>Couleur</Label>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <Label htmlFor="evt-location">Lieu</Label>
+                  <Input id="evt-location" value={evtForm.location} onChange={(e) => setEvtForm({ ...evtForm, location: e.target.value })} className={cn("w-full", fieldH)} />
+                </div>
+
+                <div>
+                  <Label id="evt-color-label">Couleur</Label>
+                  <div role="group" aria-labelledby="evt-color-label" className="mt-1 flex flex-wrap items-center gap-1.5">
                     <button type="button" onClick={() => setEvtForm({ ...evtForm, color: "", color_source: "auto" })}
-                      className={cn("h-7 rounded-md border px-2 text-xs", !evtForm.color ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+                      aria-pressed={!evtForm.color}
+                      className={cn("rounded-md border px-2 text-xs", denseTouch ? "h-11" : "h-7", !evtForm.color ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
                       Auto ({TYPE_TO_COLOR[evtForm.event_type] ? COLORS.find(c=>c.key===TYPE_TO_COLOR[evtForm.event_type])?.label : "—"})
                     </button>
                     {COLORS.map((c) => (
                       <button key={c.key} type="button"
                         onClick={() => setEvtForm({ ...evtForm, color: c.key, color_source: "manual" })}
-                        className={cn("h-7 w-7 rounded-full border-2 transition", evtForm.color === c.key ? "border-foreground scale-110" : "border-transparent")}
-                        style={{ background: c.bg }} title={c.label} aria-label={c.label} />
+                        aria-pressed={evtForm.color === c.key}
+                        className={cn("grid place-items-center rounded-full", denseTouch ? "h-11 w-11" : "h-7 w-7")}
+                        title={c.label} aria-label={c.label}>
+                        <span className={cn("block rounded-full border-2 transition", denseTouch ? "h-7 w-7" : "h-full w-full",
+                          evtForm.color === c.key ? "scale-110 border-foreground" : "border-transparent")} style={{ background: c.bg }} />
+                      </button>
                     ))}
                   </div>
                 </div>
 
-                <div><Label>Description</Label><Textarea rows={3} value={evtForm.description} onChange={(e) => setEvtForm({ ...evtForm, description: e.target.value })} /></div>
+                <div>
+                  <Label htmlFor="evt-description">Description</Label>
+                  <Textarea id="evt-description" rows={3} value={evtForm.description} onChange={(e) => setEvtForm({ ...evtForm, description: e.target.value })} className="w-full" />
+                </div>
               </TabsContent>
 
               <TabsContent value="reminder" className="space-y-3 pt-3">
                 <div>
-                  <Label>Rappel programmé</Label>
-                  <Input type="datetime-local" value={evtForm.reminder_at} onChange={(e) => setEvtForm({ ...evtForm, reminder_at: e.target.value })} />
+                  <Label htmlFor="evt-reminder">Rappel programmé</Label>
+                  <Input id="evt-reminder" type="datetime-local" value={evtForm.reminder_at} onChange={(e) => setEvtForm({ ...evtForm, reminder_at: e.target.value })} className={cn("w-full", fieldH)} />
                   <p className="mt-1 text-xs text-muted-foreground">Un email sera envoyé à l'assigné à cette date.</p>
                 </div>
               </TabsContent>
             </Tabs>
+            </div>
 
-            <DialogFooter className="flex flex-row items-center justify-between gap-2 sm:justify-between">
-              <div className="flex gap-1">
+            <DialogFooter className="shrink-0 flex-row items-center justify-between gap-2 border-t border-border bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:justify-between sm:px-6">
+              <div className="flex min-w-0 gap-1">
                 {evtForm.id && isAdmin && (
-                  <Button type="button" variant="ghost" size="sm" onClick={removeEvt} className="text-destructive">
-                    <Trash2 className="h-4 w-4" /> Supprimer
+                  <Button type="button" variant="ghost" size={denseTouch ? "default" : "sm"} onClick={() => setConfirmDelete(true)} className={cn("text-destructive", denseTouch && "px-3")}>
+                    <Trash2 className="h-4 w-4" /> <span className={cn(denseTouch && "sr-only sm:not-sr-only")}>Supprimer</span>
                   </Button>
                 )}
                 {evtForm.id && canWrite && (
-                  <Button type="button" variant="ghost" size="sm" onClick={duplicateEvt}>
-                    <Copy className="h-4 w-4" /> Dupliquer
+                  <Button type="button" variant="ghost" size={denseTouch ? "default" : "sm"} onClick={duplicateEvt} className={cn(denseTouch && "px-3")}>
+                    <Copy className="h-4 w-4" /> <span className={cn(denseTouch && "sr-only sm:not-sr-only")}>Dupliquer</span>
                   </Button>
                 )}
               </div>
-              <Button type="submit" className="shadow-brand">{evtForm.id ? "Enregistrer" : "Créer"}</Button>
+              <Button type="submit" className={cn("shrink-0 shadow-brand", denseTouch && "h-11 px-5")}>{evtForm.id ? "Enregistrer" : "Créer"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Suppression : confirmation accessible et tactile (remplace window.confirm) */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet événement ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              « {evtForm.title || "Sans titre"} » sera définitivement supprimé du planning. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmDelete(false); void removeEvt(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Event action popup */}
       {quickEvt && activeCompanyId && (
