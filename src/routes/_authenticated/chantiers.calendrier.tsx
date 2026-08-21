@@ -802,7 +802,14 @@ function ChantierCalendarPage() {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (isEditable(e.target)) return;
       const k = e.key.toLowerCase();
-      if (k === "escape" && fullscreen) { setFullscreen(false); return; }
+      if (k === "escape") {
+        // Échap ferme d'abord l'overlay actif (Dialog / Sheet / Popover / Select).
+        const overlayOpen = document.querySelector(
+          '[data-radix-popper-content-wrapper], [role="dialog"][data-state="open"], [data-state="open"][role="listbox"]',
+        );
+        if (!overlayOpen && fullscreen) setFullscreen(false);
+        return;
+      }
       if (k === "t") { setCursor(new Date()); e.preventDefault(); }
       else if (k === "m") { setView("month"); e.preventDefault(); }
       else if (k === "s") { setView("week"); e.preventDefault(); }
@@ -1243,7 +1250,14 @@ function ChantierCalendarPage() {
             </Popover>
           )}
 
-          <Button size="icon" variant="ghost" onClick={() => setFullscreen((v) => !v)} title={fullscreen ? "Quitter plein écran (Échap)" : "Plein écran"}>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setFullscreen((v) => !v)}
+            aria-pressed={fullscreen}
+            aria-label={fullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
+            title={fullscreen ? "Quitter plein écran (Échap)" : "Plein écran"}
+          >
             {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </Button>
         </div>
