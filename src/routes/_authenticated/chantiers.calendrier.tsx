@@ -793,8 +793,10 @@ function ChantierCalendarPage() {
 
 
 
-  // Keyboard shortcuts (T M S J L E N) — ignored when typing in inputs
+  // Raccourcis clavier (T M S J E N) — inactifs pendant la saisie et sous un overlay
   useEffect(() => {
+    const OVERLAY_SELECTOR =
+      '[data-radix-popper-content-wrapper], [role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [data-state="open"][role="listbox"]';
     function isEditable(t: EventTarget | null) {
       if (!(t instanceof HTMLElement)) return false;
       const tag = t.tagName;
@@ -804,17 +806,19 @@ function ChantierCalendarPage() {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (isEditable(e.target)) return;
       const k = e.key.toLowerCase();
+      const overlayOpen = document.querySelector(OVERLAY_SELECTOR);
       if (k === "escape") {
         // Échap ferme d'abord l'overlay actif (Dialog / Sheet / Popover / Select).
-        const overlayOpen = document.querySelector(
-          '[data-radix-popper-content-wrapper], [role="dialog"][data-state="open"], [data-state="open"][role="listbox"]',
-        );
         if (!overlayOpen && fullscreen) setFullscreen(false);
         return;
       }
+      // Un overlay ouvert (Dialog événement, Sheet Filtres, Select…) capte le clavier :
+      // aucun raccourci de navigation ne doit changer la vue en arrière-plan.
+      if (overlayOpen) return;
       if (k === "t") { setCursor(new Date()); e.preventDefault(); }
       else if (k === "m") { setView("month"); e.preventDefault(); }
-      else if (k === "s") { setView("week"); e.preventDefault(); }
+      // « s » = Semaine standard : on réinitialise aussi le nombre de jours (bug 3 jours persistants).
+      else if (k === "s") { setView("week"); setWeekDays(7); e.preventDefault(); }
       else if (k === "j") { setView("day"); e.preventDefault(); }
       else if (k === "e") { setView("team"); e.preventDefault(); }
       else if (k === "n" && canWrite) { openNew(new Date()); e.preventDefault(); }
