@@ -636,7 +636,7 @@ function ChantierDetailPage() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 shrink-0"
+                      className="h-11 w-11 shrink-0"
                       onClick={openEditChantier}
                       disabled={isLocked}
                       aria-label="Modifier le chantier"
