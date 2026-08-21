@@ -619,10 +619,12 @@ function ChantierDetailPage() {
                   toast.success("Référence copiée");
                 } catch { toast.error("Copie impossible"); }
               }}
-              className="mb-1 inline-flex items-center rounded bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide transition hover:bg-muted/70 active:scale-95"
+              className="-my-2 mb-1 inline-flex min-h-11 items-center py-3 font-mono text-[11px] font-semibold tracking-wide transition active:scale-95"
               title="Copier la référence"
             >
-              {(ch as { reference: string }).reference}
+              <span className="rounded bg-muted px-2 py-0.5 transition hover:bg-muted/70">
+                {(ch as { reference: string }).reference}
+              </span>
             </button>
           )}
           <div className="flex items-start justify-between gap-2">
@@ -773,10 +775,10 @@ function ChantierDetailPage() {
                   <>
                     <p className="flex items-center gap-2"><User className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="truncate">{ch.client.name}</span></p>
                     {ch.client.email && (
-                      <a href={`mailto:${ch.client.email}`} className="flex items-center gap-2 text-primary"><Mail className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.email}</span></a>
+                      <a href={`mailto:${ch.client.email}`} className="flex min-h-11 items-center gap-2 text-primary"><Mail className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.email}</span></a>
                     )}
                     {ch.client.phone && (
-                      <a href={`tel:${ch.client.phone}`} className="flex items-center gap-2 text-primary"><Phone className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.phone}</span></a>
+                      <a href={`tel:${ch.client.phone}`} className="flex min-h-11 items-center gap-2 text-primary"><Phone className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.phone}</span></a>
                     )}
                   </>
                 )}
