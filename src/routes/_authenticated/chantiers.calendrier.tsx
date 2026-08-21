@@ -943,6 +943,15 @@ function ChantierCalendarPage() {
             )}
 
             <div className="grid grid-cols-2 gap-2">
+              {ultraCompact && (
+                <Button
+                  variant="outline"
+                  className="col-span-2 h-11 justify-start gap-2"
+                  onClick={() => { setMoreOpen(false); setMobileSearchOpen(true); }}
+                >
+                  <Search className="h-4 w-4" /> Rechercher un événement
+                </Button>
+              )}
               <Button variant="outline" className="h-11 justify-start gap-2" onClick={() => { setCursor(new Date()); setMoreOpen(false); }}>
                 <CalendarDays className="h-4 w-4" /> Aujourd'hui
               </Button>
