@@ -1032,11 +1032,22 @@ function ChantierCalendarPage() {
                 autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Chantier, client, événement…"
-                className="h-10 pl-8"
+                aria-label="Rechercher un chantier, un client ou un événement"
+                placeholder="Chantier, client, lieu, événement…"
+                className="h-11 pl-8 pr-11"
               />
+              {search.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Effacer la recherche"
+                  className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <ul className="mt-2 max-h-[60vh] overflow-y-auto">
+            <ul className="mt-2 max-h-[55vh] overflow-y-auto">
               {searchResults.map((e) => {
                 const c = colorOf(e);
                 return (
@@ -1044,7 +1055,7 @@ function ChantierCalendarPage() {
                     <button
                       type="button"
                       onClick={() => { setMobileSearchOpen(false); jumpToEvent(e); }}
-                      className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+                      className="flex min-h-11 w-full items-start gap-2 rounded-md px-2 py-2.5 text-left text-sm hover:bg-muted"
                     >
                       <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
                       <span className="min-w-0 flex-1">
@@ -1054,17 +1065,22 @@ function ChantierCalendarPage() {
                           {e.start_at && !e.all_day && ` · ${fmtTime(new Date(e.start_at))}`}
                           {e.chantier_id && ` · ${chantierName(e.chantier_id)}`}
                           {e.client_id && ` · ${clientName(e.client_id)}`}
+                          {e.location && ` · ${e.location}`}
                         </span>
                       </span>
                     </button>
                   </li>
                 );
               })}
+              {search.trim().length > 0 && search.trim().length < 2 && (
+                <li className="px-2 py-4 text-center text-sm text-muted-foreground">Saisissez au moins 2 caractères.</li>
+              )}
               {search.trim().length >= 2 && searchResults.length === 0 && (
-                <li className="px-2 py-4 text-center text-sm text-muted-foreground">Aucun résultat</li>
+                <li className="px-2 py-4 text-center text-sm text-muted-foreground">Aucun résultat sur la période affichée.</li>
               )}
             </ul>
           </div>
+
         </SheetContent>
       </Sheet>
 
