@@ -704,7 +704,7 @@ function ChantierCalendarPage() {
 
       {/* Mobile compact toolbar — single 48px bar, Google Calendar style */}
       <div className="sticky top-0 z-30 flex items-center gap-0.5 border-b border-border bg-background/95 px-1 py-1 backdrop-blur lg:hidden">
-        <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Précédent" className="h-9 w-9 shrink-0">
+        <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Précédent" className="h-9 w-8 shrink-0 sm:w-9">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <button
@@ -715,7 +715,7 @@ function ChantierCalendarPage() {
         >
           {periodLabel}
         </button>
-        <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant" className="h-9 w-9 shrink-0">
+        <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant" className="h-9 w-8 shrink-0 sm:w-9">
           <ChevronRight className="h-4 w-4" />
         </Button>
         <div className="ml-0.5 inline-flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5">
@@ -736,7 +736,8 @@ function ChantierCalendarPage() {
                 type="button"
                 onClick={() => applyDefaultViewPreset(opt.key)}
                 className={cn(
-                  "h-8 min-w-[26px] rounded-[5px] px-1 text-[11px] font-semibold transition",
+                  // Largeur intrinsèque réduite < 360px : la barre entière tient dans 320px sans overflow.
+                  "h-8 min-w-[22px] rounded-[5px] px-0.5 text-[11px] font-semibold transition sm:min-w-[26px] sm:px-1",
                   isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
                 )}
               >
@@ -745,7 +746,7 @@ function ChantierCalendarPage() {
             );
           })}
         </div>
-        <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher" className="h-9 w-9 shrink-0">
+        <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher" className="h-9 w-8 shrink-0 sm:w-9">
           <Search className="h-4 w-4" />
         </Button>
         <Button
@@ -753,7 +754,7 @@ function ChantierCalendarPage() {
           variant={activeFilterCount > 0 ? "secondary" : "ghost"}
           onClick={() => setFiltersOpen(true)}
           aria-label="Filtres"
-          className="relative h-9 w-9 shrink-0"
+          className="relative h-9 w-8 shrink-0 sm:w-9"
         >
           <Filter className="h-4 w-4" />
           {activeFilterCount > 0 && (
@@ -763,7 +764,7 @@ function ChantierCalendarPage() {
           )}
         </Button>
         {canWrite && (
-          <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" className="h-9 w-9 shrink-0 shadow-brand">
+          <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" className="h-9 w-8 shrink-0 shadow-brand sm:w-9">
             <Plus className="h-4 w-4" />
           </Button>
         )}
