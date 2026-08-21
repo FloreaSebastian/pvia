@@ -113,7 +113,9 @@ function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1
 function startOfWeek(d: Date) { const day = (d.getDay() + 6) % 7; const r = new Date(d); r.setDate(d.getDate() - day); r.setHours(0,0,0,0); return r; }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(d.getDate() + n); return r; }
 function sameDay(a: Date, b: Date) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
-function fmtMonth(d: Date) { return d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }); }
+/** Majuscule initiale des libellés de date (fr-FR renvoie « août 2026 »). */
+function capitalizeFirst(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function fmtMonth(d: Date) { return capitalizeFirst(d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })); }
 function fmtTime(d: Date) { return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); }
 function toLocalInput(d: Date) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
 
