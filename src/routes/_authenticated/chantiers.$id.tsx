@@ -697,7 +697,10 @@ function ChantierDetailPage() {
           contained={false}
           className="border-0 bg-transparent px-0 py-0"
           actions={
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            {/* !flex-auto : neutralise le `flex: 0 0 auto` de .action-row pour
+                autoriser le retour à la ligne des actions sous 1440 px. */}
+            <div className="!flex-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+
 
               <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/chantiers" })}>
                 <ArrowLeft className="h-4 w-4" /> Retour
