@@ -851,7 +851,8 @@ function ChantierDetailPage() {
                   {isManualProgress ? "Mode manuel" : "Mode auto"}
                 </span>
                 <button type="button" onClick={() => { setProgressValue(chProgress); setProgressOpen(true); }}
-                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                  className="-my-2 inline-flex min-h-11 items-center gap-1 py-2 text-muted-foreground hover:text-foreground">
+
                   <Info className="h-3 w-3" /> Comment ça marche
                 </button>
               </div>
