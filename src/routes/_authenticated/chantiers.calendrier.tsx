@@ -1752,18 +1752,67 @@ function MonthView({
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [colW, setColW] = useState(0);
+  const [daySheet, setDaySheet] = useState<Date | null>(null);
+
+  // Compact mode is decided by the REAL available width per column, not by a
+  // hard-coded breakpoint: below ~96px a chip with time + title is unreadable.
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setColW(el.getBoundingClientRect().width / 7));
+    ro.observe(el);
+    setColW(el.getBoundingClientRect().width / 7);
+    return () => ro.disconnect();
+  }, []);
+  const compact = colW > 0 && colW < 96;
+
+  const openDay = (d: Date, evts: Evt[]) => {
+    if (evts.length > 0) setDaySheet(d);
+    else if (canWrite) onDblClickDay(d);
+  };
+
+  const sheetEvts = daySheet ? eventsOn(daySheet) : [];
 
   return (
     <Card className="overflow-hidden p-0">
       <div className="sticky top-0 z-20 grid grid-cols-7 border-b border-border bg-background/95 text-[11px] font-medium uppercase tracking-wide text-muted-foreground backdrop-blur">
-        {["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].map((d) => <div key={d} className="p-2 text-center">{d}</div>)}
+        {["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].map((d) => <div key={d} className={cn("text-center", compact ? "px-0 py-1.5 text-[10px]" : "p-2")}>{compact ? d.slice(0, 1) : d}</div>)}
       </div>
-      <div className="grid grid-cols-7">
+      <div ref={gridRef} className="grid grid-cols-7">
         {days.map((day, i) => {
           const inMonth = day.getMonth() === cursor.getMonth();
           const dayEvts = eventsOn(day);
           const isToday = sameDay(day, new Date());
           const isDropTarget = dragId && dragOverIdx === i;
+
+          if (compact) {
+            const dots = dayEvts.slice(0, 4);
+            return (
+              <button key={i} type="button"
+                onClick={() => openDay(day, dayEvts)}
+                aria-label={`${day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} — ${dayEvts.length} événement(s)`}
+                className={cn("flex min-h-[62px] flex-col items-center gap-1 border-b border-r border-border px-0.5 pb-1 pt-1.5 text-xs transition active:bg-muted/50",
+                  !inMonth && "bg-muted/10 text-muted-foreground/70")}>
+                <span className={cn("inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums",
+                  isToday && "bg-primary text-primary-foreground",
+                  !inMonth && !isToday && "opacity-60")}>{day.getDate()}</span>
+                {dayEvts.length > 0 && (
+                  <span className="flex flex-wrap items-center justify-center gap-[3px]">
+                    {dots.map((e) => (
+                      <span key={e.id} className={cn("h-[6px] w-[6px] rounded-full", e.status === "annule" && "opacity-40")}
+                        style={{ background: colorOf(e).bg }} aria-hidden />
+                    ))}
+                  </span>
+                )}
+                {dayEvts.length > 0 && (
+                  <span className="text-[10px] font-semibold leading-none text-muted-foreground tabular-nums">{dayEvts.length}</span>
+                )}
+              </button>
+            );
+          }
+
           return (
             <div key={i}
               onDoubleClick={() => canWrite && onDblClickDay(day)}
@@ -1810,12 +1859,55 @@ function MonthView({
                     </HoverCard>
                   );
                 })}
-                {dayEvts.length > 3 && <div className="px-1 text-[10px] text-muted-foreground">+ {dayEvts.length - 3} autres</div>}
+                {dayEvts.length > 3 && (
+                  <button type="button"
+                    onClick={(ev) => { ev.stopPropagation(); setDaySheet(day); }}
+                    className="w-full rounded px-1 py-0.5 text-left text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground">
+                    + {dayEvts.length - 3} autres
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      <Sheet open={!!daySheet} onOpenChange={(o) => !o && setDaySheet(null)}>
+        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <SheetHeader className="text-left">
+            <SheetTitle className="capitalize">
+              {daySheet?.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-3 space-y-1.5">
+            {sheetEvts.map((e) => {
+              const c = colorOf(e);
+              return (
+                <button key={e.id} type="button"
+                  onClick={() => { setDaySheet(null); onClickEvent(e); }}
+                  className={cn("flex min-h-[52px] w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-left transition active:bg-muted/60",
+                    e.status === "annule" && "opacity-60",
+                    conflictIds.has(e.id) && "ring-1 ring-red-500/70")}>
+                  <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ background: c.bg }} aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-medium text-muted-foreground tabular-nums">
+                      {e.all_day ? "Toute la journée" : e.start_at ? `${fmtTime(new Date(e.start_at))}${e.end_at ? ` – ${fmtTime(new Date(e.end_at))}` : ""}` : "—"}
+                    </span>
+                    <span className={cn("block truncate text-sm font-semibold", e.status === "annule" && "line-through")}>{e.title}</span>
+                  </span>
+                  <span className="shrink-0">{statusIcon(e.status)}</span>
+                </button>
+              );
+            })}
+            {canWrite && daySheet && (
+              <Button variant="outline" className="mt-2 h-11 w-full"
+                onClick={() => { const d = daySheet; setDaySheet(null); onDblClickDay(new Date(d.getFullYear(), d.getMonth(), d.getDate())); }}>
+                <Plus className="mr-2 h-4 w-4" /> Nouvel événement ce jour
+              </Button>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 }
