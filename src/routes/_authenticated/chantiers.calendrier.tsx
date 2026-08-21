@@ -372,18 +372,25 @@ function ChantierCalendarPage() {
         status: fStatus === "all" ? null : fStatus,
         assignedTo: fAssigned === "all" ? null : fAssigned,
       } });
-      let list = r.events as Evt[];
-      if (fColor !== "all") list = list.filter((e) => colorOf(e).key === fColor);
-      if (fOnlyUnassigned) list = list.filter((e) => !e.assigned_to);
-      if (fHideDone) list = list.filter((e) => e.status !== "termine");
-      if (fHideCancelled) list = list.filter((e) => e.status !== "annule");
-      setEvents(list);
+      setRawEvents(r.events as Evt[]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chargement impossible");
     } finally { setLoading(false); }
-  }, [activeCompanyId, fetchEvents, range.from, range.to, fChantier, fClient, fType, fStatus, fAssigned, fColor, fOnlyUnassigned, fHideDone, fHideCancelled]);
+  }, [activeCompanyId, fetchEvents, range.from, range.to, fChantier, fClient, fType, fStatus, fAssigned]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Filtres purement locaux (couleur, non assignés, masquages) — appliqués
+  // sans rappeler le serveur.
+  const events = useMemo(() => {
+    let list = rawEvents;
+    if (fColor !== "all") list = list.filter((e) => colorOf(e).key === fColor);
+    if (fOnlyUnassigned) list = list.filter((e) => !e.assigned_to);
+    if (fHideDone) list = list.filter((e) => e.status !== "termine");
+    if (fHideCancelled) list = list.filter((e) => e.status !== "annule");
+    return list;
+  }, [rawEvents, fColor, fOnlyUnassigned, fHideDone, fHideCancelled, colorMode]);
+
 
   useEffect(() => {
     if (!activeCompanyId) return;
