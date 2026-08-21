@@ -204,6 +204,12 @@ function ChantierCalendarPage() {
   const filtersAsSheet = isCompactSpace || posture === "fold";
   /** Fold ouvert / tablette : assez de place pour un libellé complet et plus de segments. */
   const foldWide = !isCompactSpace;
+  /**
+   * Ultra-compact (< 400 px) : 5 cibles de 44 px en ligne 1 ne peuvent pas cohabiter
+   * avec un titre de période lisible. La recherche (action secondaire) bascule
+   * dans le Sheet « Plus » ; aucune fonction n'est perdue.
+   */
+  const ultraCompact = posture === "compact";
 
 
   // Calculée une seule fois au montage : un resize ne doit jamais écraser la vue en cours.
