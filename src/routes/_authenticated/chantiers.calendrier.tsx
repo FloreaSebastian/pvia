@@ -2061,25 +2061,66 @@ function TimeGridView({
     return { day: days[drag.dayIdx], s: drag.startMin, e: drag.endMin };
   })();
 
+  // ---- Géométrie responsive de la grille ----
+  // Colonne heures plus étroite en présentation dense (gain de 12 px à 320 px).
+  const hourColW = isMobile ? 44 : 56;
+  // Largeur minimale lisible d'une colonne de jour en dense : en dessous, la
+  // grille défile horizontalement à l'intérieur du conteneur (pas le document).
+  const minColPx = isMobile ? (days.length <= 1 ? 0 : days.length <= 3 ? 104 : 76) : 0;
+  const canvasMinWidth = minColPx ? hourColW + days.length * minColPx : undefined;
+  const gridTpl = `${hourColW}px repeat(${days.length}, minmax(0,1fr))`;
+
   return (
     <Card className="overflow-hidden p-0">
-      {/* Header */}
-      <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 backdrop-blur" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0,1fr))` }}>
-        <div />
-        {days.map((d, i) => {
-          const isToday = sameDay(d, new Date());
-          return (
-            <div key={i} className="border-l border-border px-2 py-2 text-center text-xs">
-              <div className="uppercase tracking-wide text-muted-foreground">{d.toLocaleDateString("fr-FR", { weekday: "short" })}</div>
-              <div className={cn("mx-auto mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold", isToday && "bg-primary text-primary-foreground")}>{d.getDate()}</div>
-            </div>
-          );
-        })}
-      </div>
+      {/* Scroll unique : vertical + horizontal interne (header solidaire de la grille) */}
+      <div ref={scrollRef} className="relative overflow-auto overscroll-x-contain" style={{ maxHeight: "72vh" }}>
+        <div style={{ minWidth: canvasMinWidth }}>
+          {/* Header */}
+          <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 backdrop-blur" style={{ gridTemplateColumns: gridTpl }}>
+            <div className="sticky left-0 z-10 bg-background/95" />
+            {days.map((d, i) => {
+              const isToday = sameDay(d, new Date());
+              return (
+                <div key={i} className="border-l border-border px-1 py-2 text-center text-xs">
+                  <div className="uppercase tracking-wide text-muted-foreground">{d.toLocaleDateString("fr-FR", { weekday: "short" })}</div>
+                  <div className={cn("mx-auto mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold", isToday && "bg-primary text-primary-foreground")}>{d.getDate()}</div>
+                </div>
+              );
+            })}
+          </div>
 
-      {/* Body */}
-      <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "72vh" }}>
-        <div className="grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0,1fr))` }}>
+          {/* Bandeau "journée entière" */}
+          {allDayByDay.some((l) => l.length > 0) && (
+            <div className="grid border-b border-border bg-muted/30" style={{ gridTemplateColumns: gridTpl }}>
+              <div className="sticky left-0 z-10 flex items-center justify-end bg-background pr-1 text-[10px] font-medium text-muted-foreground">
+                Journée
+              </div>
+              {days.map((_, i) => (
+                <div key={i} className="min-w-0 space-y-0.5 border-l border-border p-1">
+                  {allDayByDay[i].map((evt) => {
+                    const c = colorOf(evt);
+                    return (
+                      <button
+                        key={evt.id}
+                        type="button"
+                        data-evt
+                        onClick={() => onClickEvent(evt)}
+                        onDoubleClick={() => onDblClickEvent(evt)}
+                        className="block w-full truncate rounded px-1.5 py-1 text-left text-[11px] font-medium leading-tight"
+                        style={{ background: c.bg, color: c.fg }}
+                        title={evt.title}
+                      >
+                        {evt.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Body */}
+        <div className="grid" style={{ gridTemplateColumns: gridTpl }}>
           {/* Hours col (sticky left) */}
           <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * hourPx }}>
             {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
@@ -2088,6 +2129,7 @@ function TimeGridView({
               </div>
             ))}
           </div>
+
           {/* Day columns */}
           <div ref={gridRef} onMouseDown={onMouseDownBg}
             onDoubleClick={(e) => {
