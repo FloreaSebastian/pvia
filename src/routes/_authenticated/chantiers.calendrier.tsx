@@ -817,8 +817,9 @@ function ChantierCalendarPage() {
       else if (k === "e") { setView("team"); e.preventDefault(); }
       else if (k === "n" && canWrite) { openNew(new Date()); e.preventDefault(); }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Capture : on observe l'état des overlays AVANT que Radix ne les ferme.
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canWrite, fullscreen]);
 
