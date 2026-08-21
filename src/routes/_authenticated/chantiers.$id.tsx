@@ -829,7 +829,7 @@ function ChantierDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className="tabular-nums font-semibold">{chProgress}%</span>
                   {canWrite && !isLocked && (
-                    <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Modifier l'avancement"
+                    <Button size="icon" variant="ghost" className="h-11 w-11 -my-2" aria-label="Modifier l'avancement"
                       onClick={() => { setProgressValue(chProgress); setProgressOpen(true); }}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
