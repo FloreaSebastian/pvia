@@ -752,7 +752,7 @@ function ChantierCalendarPage() {
     }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00"); const b = new Date(customEnd + "T00:00:00");
-      if (a.getTime() === b.getTime()) return a.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+      if (a.getTime() === b.getTime()) return capitalizeFirst(a.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"}));
       return `${a.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${b.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
     }
     return "Liste";
