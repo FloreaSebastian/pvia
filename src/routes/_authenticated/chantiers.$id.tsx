@@ -603,10 +603,11 @@ function ChantierDetailPage() {
       <div className="md:hidden">
         <button
           onClick={() => navigate({ to: "/chantiers" })}
-          className="-ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+          className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Retour
         </button>
+
         <div className="mt-2 min-w-0">
           {(ch as { reference?: string }).reference && (
             <button
