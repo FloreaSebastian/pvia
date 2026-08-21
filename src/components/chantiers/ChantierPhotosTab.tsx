@@ -97,7 +97,7 @@ export function ChantierPhotosTab({
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Photos chantier</h2>
         {canWrite && (
-          <Button size="sm" onClick={() => openUpload("during")}>
+          <Button size="sm" className="h-11 md:h-9" onClick={() => openUpload("during")}>
             <Plus className="h-4 w-4" /> Ajouter photo
           </Button>
         )}
@@ -130,7 +130,7 @@ export function ChantierPhotosTab({
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">{s.title} <span className="text-xs font-normal text-muted-foreground">({items.length})</span></h3>
                 {canWrite && items.length > 0 && (
-                  <Button size="sm" variant="ghost" onClick={() => openUpload(s.type)} className="h-7 gap-1 px-2 text-xs">
+                  <Button size="sm" variant="ghost" onClick={() => openUpload(s.type)} className="h-11 gap-1 px-3 text-xs md:h-7 md:px-2">
                     <Plus className="h-3.5 w-3.5" /> Ajouter
                   </Button>
                 )}
@@ -139,7 +139,7 @@ export function ChantierPhotosTab({
                 <Card className="flex items-center justify-between gap-2 p-3 text-xs text-muted-foreground">
                   <span>{s.emptyLabel}</span>
                   {canWrite && (
-                    <Button size="sm" variant="outline" onClick={() => openUpload(s.type)} className="h-7 gap-1 px-2">
+                    <Button size="sm" variant="outline" onClick={() => openUpload(s.type)} className="h-11 gap-1 px-3 md:h-7 md:px-2">
                       <Plus className="h-3.5 w-3.5" /> Ajouter
                     </Button>
                   )}

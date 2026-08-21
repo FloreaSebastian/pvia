@@ -599,14 +599,16 @@ function ChantierDetailPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* ====== MOBILE HEADER ====== */}
+      {/* ====== EN-TÊTE MOBILE ====== */}
+
       <div className="md:hidden">
         <button
           onClick={() => navigate({ to: "/chantiers" })}
-          className="-ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+          className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Retour
         </button>
+
         <div className="mt-2 min-w-0">
           {(ch as { reference?: string }).reference && (
             <button
@@ -618,10 +620,13 @@ function ChantierDetailPage() {
                   toast.success("Référence copiée");
                 } catch { toast.error("Copie impossible"); }
               }}
-              className="mb-1 inline-flex items-center rounded bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide transition hover:bg-muted/70 active:scale-95"
+              className="-my-1 mb-1 inline-flex min-h-11 items-center py-3 font-mono text-[11px] font-semibold tracking-wide transition active:scale-95"
               title="Copier la référence"
             >
-              {(ch as { reference: string }).reference}
+              <span className="rounded bg-muted px-2 py-1 transition hover:bg-muted/70">
+                {(ch as { reference: string }).reference}
+              </span>
+
             </button>
           )}
           <div className="flex items-start justify-between gap-2">
@@ -635,7 +640,7 @@ function ChantierDetailPage() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 shrink-0"
+                      className="h-11 w-11 shrink-0"
                       onClick={openEditChantier}
                       disabled={isLocked}
                       aria-label="Modifier le chantier"
@@ -697,7 +702,15 @@ function ChantierDetailPage() {
           contained={false}
           className="border-0 bg-transparent px-0 py-0"
           actions={
-            <div className="flex items-center gap-2">
+            // flex:1 1 auto en inline neutralise le `flex:0 0 auto` de .action-row
+            // et autorise le retour à la ligne des actions entre 768 et 1440 px.
+            <div
+              style={{ flex: "1 1 auto" }}
+              className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+            >
+
+
+
               <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/chantiers" })}>
                 <ArrowLeft className="h-4 w-4" /> Retour
               </Button>
@@ -743,10 +756,11 @@ function ChantierDetailPage() {
       </div>
 
       <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier" | "photos")} className="w-full">
-        <TabsList className="sticky top-12 z-30 grid w-full grid-cols-3 border-b border-border bg-background/95 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
-          <TabsTrigger value="overview">Vue</TabsTrigger>
-          <TabsTrigger value="dossier">Dossier</TabsTrigger>
-          <TabsTrigger value="photos">Photos</TabsTrigger>
+        <TabsList className="sticky top-12 z-30 grid h-auto w-full grid-cols-3 border-b border-border bg-background/95 p-1 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
+          <TabsTrigger value="overview" className="min-h-11 md:min-h-0">Vue</TabsTrigger>
+          <TabsTrigger value="dossier" className="min-h-11 md:min-h-0">Dossier</TabsTrigger>
+          <TabsTrigger value="photos" className="min-h-11 md:min-h-0">Photos</TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="overview" className="mt-3 md:mt-4">
@@ -763,10 +777,11 @@ function ChantierDetailPage() {
                   <>
                     <p className="flex items-center gap-2"><User className="h-4 w-4 shrink-0 text-muted-foreground" /><span className="truncate">{ch.client.name}</span></p>
                     {ch.client.email && (
-                      <a href={`mailto:${ch.client.email}`} className="flex items-center gap-2 text-primary"><Mail className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.email}</span></a>
+                      <a href={`mailto:${ch.client.email}`} className="flex min-h-11 items-center gap-2 py-1 text-primary"><Mail className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.email}</span></a>
                     )}
                     {ch.client.phone && (
-                      <a href={`tel:${ch.client.phone}`} className="flex items-center gap-2 text-primary"><Phone className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.phone}</span></a>
+                      <a href={`tel:${ch.client.phone}`} className="flex min-h-11 items-center gap-2 py-1 text-primary"><Phone className="h-4 w-4 shrink-0" /><span className="truncate">{ch.client.phone}</span></a>
+
                     )}
                   </>
                 )}
@@ -821,7 +836,7 @@ function ChantierDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className="tabular-nums font-semibold">{chProgress}%</span>
                   {canWrite && !isLocked && (
-                    <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Modifier l'avancement"
+                    <Button size="icon" variant="ghost" className="h-11 w-11 -my-2" aria-label="Modifier l'avancement"
                       onClick={() => { setProgressValue(chProgress); setProgressOpen(true); }}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -843,7 +858,8 @@ function ChantierDetailPage() {
                   {isManualProgress ? "Mode manuel" : "Mode auto"}
                 </span>
                 <button type="button" onClick={() => { setProgressValue(chProgress); setProgressOpen(true); }}
-                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                  className="-my-2 inline-flex min-h-11 items-center gap-1 py-2 text-muted-foreground hover:text-foreground">
+
                   <Info className="h-3 w-3" /> Comment ça marche
                 </button>
               </div>
@@ -886,7 +902,7 @@ function ChantierDetailPage() {
                     ))}
                   </ol>
                   {userEvents.length > 3 && (
-                    <Button variant="ghost" size="sm" className="mt-2 h-8 w-full text-xs" onClick={() => setTimelineAllOpen(true)}>
+                    <Button variant="ghost" size="sm" className="mt-2 h-11 w-full text-xs md:h-8" onClick={() => setTimelineAllOpen(true)}>
                       Voir toute la timeline ({userEvents.length})
                     </Button>
                   )}
