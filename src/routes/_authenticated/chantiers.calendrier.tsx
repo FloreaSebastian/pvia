@@ -144,14 +144,27 @@ function lsSet(k: string, v: unknown) {
 // Saved default view preference: which view to open the calendar on.
 // "week3" = 3-day view anchored on cursor (mobile field view).
 type DefaultViewPref = "day" | "week3" | "week" | "month";
-function loadInitialView(isMobile: boolean): { view: ViewKind; weekDays: WeekDays | null } {
+
+/** Vue par défaut selon la posture d'affichage (aucune préférence enregistrée). */
+function defaultViewForPosture(posture: Posture): { view: ViewKind; weekDays: WeekDays | null } {
+  if (posture === "compact" || posture === "mobile") return { view: "day", weekDays: null };
+  if (posture === "fold") return { view: "week", weekDays: 3 }; // Fold ouvert : vue 3 jours
+  return { view: "month", weekDays: null };
+}
+
+/**
+ * Vue initiale : la préférence utilisateur (localStorage) est TOUJOURS prioritaire.
+ * Sinon on retombe sur la posture mesurée une seule fois, au montage.
+ */
+function loadInitialView(): { view: ViewKind; weekDays: WeekDays | null } {
   const saved = lsGet<DefaultViewPref | "week5" | null>(LS.defaultView, null);
   if (saved === "day") return { view: "day", weekDays: null };
   if (saved === "week3") return { view: "week", weekDays: 3 };
   if (saved === "week") return { view: "week", weekDays: 7 };
   if (saved === "week5") return { view: "week", weekDays: 7 }; // legacy migration
   if (saved === "month") return { view: "month", weekDays: null };
-  return { view: isMobile ? "day" : "month", weekDays: null };
+  const width = typeof window === "undefined" ? 1280 : (window.visualViewport?.width ?? window.innerWidth);
+  return defaultViewForPosture(posturize(width));
 }
 
 
