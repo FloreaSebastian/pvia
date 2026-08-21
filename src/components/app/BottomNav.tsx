@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { vibrate } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
+import { useImmersive } from "@/hooks/use-immersive";
 
 type NavItem = {
   key: string;
@@ -52,6 +53,8 @@ export function BottomNav() {
   const location = useLocation();
   const { activeCompanyId } = useCompany();
   const [unread, setUnread] = useState(0);
+  // Vue immersive active (plein écran calendrier, etc.) : la barre s'efface.
+  const { immersive } = useImmersive();
 
   // Réserves badge
   useEffect(() => {
@@ -85,6 +88,7 @@ export function BottomNav() {
   }, [activeCompanyId]);
 
   const activeItem = getActiveMobileNavItem(location.pathname);
+  if (immersive) return null;
   const activeKey = activeItem?.key ?? null;
 
   return (
