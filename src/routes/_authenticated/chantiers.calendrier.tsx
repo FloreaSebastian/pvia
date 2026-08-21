@@ -774,7 +774,7 @@ function ChantierCalendarPage() {
         : ultraCompact
         ? `${nn(a)}–${nn(b)}`
         : `${dm(a)} – ${dm(b)}`;
-    if (view === "month") return cursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    if (view === "month") return capitalizeFirst(cursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
     if (view === "day") return dm(cursor);
     if (view === "week") {
       if (weekDays === 3) { const s = new Date(cursor); s.setHours(0,0,0,0); return range(s, addDays(s, 2)); }
