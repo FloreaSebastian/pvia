@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil, AlertTriangle, Users, Maximize2, Minimize2, CheckCircle2, Clock, Filter, ZoomIn, Eye, MoreHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -245,7 +245,7 @@ function ChantierCalendarPage() {
     () => Math.min(MAX_CUSTOM_DAYS, Math.max(1, daysBetween(customStart, customEnd))),
     [customStart, customEnd],
   );
-  const [events, setEvents] = useState<Evt[]>([]);
+  const [rawEvents, setRawEvents] = useState<Evt[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [chantiers, setChantiers] = useState<{ id: string; name: string; color?: string | null }[]>([]);
@@ -372,18 +372,25 @@ function ChantierCalendarPage() {
         status: fStatus === "all" ? null : fStatus,
         assignedTo: fAssigned === "all" ? null : fAssigned,
       } });
-      let list = r.events as Evt[];
-      if (fColor !== "all") list = list.filter((e) => colorOf(e).key === fColor);
-      if (fOnlyUnassigned) list = list.filter((e) => !e.assigned_to);
-      if (fHideDone) list = list.filter((e) => e.status !== "termine");
-      if (fHideCancelled) list = list.filter((e) => e.status !== "annule");
-      setEvents(list);
+      setRawEvents(r.events as Evt[]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chargement impossible");
     } finally { setLoading(false); }
-  }, [activeCompanyId, fetchEvents, range.from, range.to, fChantier, fClient, fType, fStatus, fAssigned, fColor, fOnlyUnassigned, fHideDone, fHideCancelled]);
+  }, [activeCompanyId, fetchEvents, range.from, range.to, fChantier, fClient, fType, fStatus, fAssigned]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Filtres purement locaux (couleur, non assignés, masquages) — appliqués
+  // sans rappeler le serveur.
+  const events = useMemo(() => {
+    let list = rawEvents;
+    if (fColor !== "all") list = list.filter((e) => colorOf(e).key === fColor);
+    if (fOnlyUnassigned) list = list.filter((e) => !e.assigned_to);
+    if (fHideDone) list = list.filter((e) => e.status !== "termine");
+    if (fHideCancelled) list = list.filter((e) => e.status !== "annule");
+    return list;
+  }, [rawEvents, fColor, fOnlyUnassigned, fHideDone, fHideCancelled, colorMode]);
+
 
   useEffect(() => {
     if (!activeCompanyId) return;
@@ -519,23 +526,32 @@ function ChantierCalendarPage() {
   const fieldH = denseTouch ? "h-11" : "h-9";
   const optionH = denseTouch ? "[&_[role=option]]:min-h-11 [&_[role=option]]:items-center" : "";
   const twoCols = denseTouch ? "grid grid-cols-1 gap-3 min-[360px]:grid-cols-2" : "grid grid-cols-2 gap-3";
+  // Géométrie tactile + garde-fou largeur pour les filtres (listes de noms très longs)
+  const filterFieldH = denseTouch ? "h-11" : "h-9";
+  const selectContentCls = cn(
+    "max-w-[min(22rem,calc(100vw-1.5rem))] [&_[role=option]]:whitespace-normal",
+    denseTouch && "[&_[role=option]]:min-h-11 [&_[role=option]]:items-center",
+  );
   const [quickEvt, setQuickEvt] = useState<Evt | null>(null);
   const [clusterSheet, setClusterSheet] = useState<Evt[] | null>(null);
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const chantierName = useCallback((id: string | null | undefined) => id ? (chantiers.find((c) => c.id === id)?.name ?? "—") : "—", [chantiers]);
   const clientName = useCallback((id: string | null | undefined) => id ? (clients.find((c) => c.id === id)?.name ?? "—") : "—", [clients]);
   const memberName = useCallback((id: string | null | undefined) => id ? (membersById.get(id)?.name ?? "—") : null, [membersById]);
 
+
   const searchResults = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     if (q.length < 2) return [];
     return events
       .filter((e) => {
-        const hay = `${e.title} ${chantierName(e.chantier_id)} ${clientName(e.client_id)}`.toLowerCase();
+        const hay = `${e.title} ${chantierName(e.chantier_id)} ${clientName(e.client_id)} ${e.location ?? ""} ${memberName(e.assigned_to) ?? ""} ${TYPE_LABELS[e.event_type] ?? ""}`.toLowerCase();
         return hay.includes(q);
       })
-      .slice(0, 10);
-  }, [events, search, chantierName, clientName]);
+      .slice(0, 20);
+  }, [events, deferredSearch, chantierName, clientName, memberName]);
+
 
   function openQuick(e: Evt) {
     if (e.event_type.startsWith("system_")) return;
@@ -1032,11 +1048,22 @@ function ChantierCalendarPage() {
                 autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Chantier, client, événement…"
-                className="h-10 pl-8"
+                aria-label="Rechercher un chantier, un client ou un événement"
+                placeholder="Chantier, client, lieu, événement…"
+                className="h-11 pl-8 pr-11"
               />
+              {search.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Effacer la recherche"
+                  className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <ul className="mt-2 max-h-[60vh] overflow-y-auto">
+            <ul className="mt-2 max-h-[55vh] overflow-y-auto">
               {searchResults.map((e) => {
                 const c = colorOf(e);
                 return (
@@ -1044,7 +1071,7 @@ function ChantierCalendarPage() {
                     <button
                       type="button"
                       onClick={() => { setMobileSearchOpen(false); jumpToEvent(e); }}
-                      className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+                      className="flex min-h-11 w-full items-start gap-2 rounded-md px-2 py-2.5 text-left text-sm hover:bg-muted"
                     >
                       <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.bg }} />
                       <span className="min-w-0 flex-1">
@@ -1054,17 +1081,22 @@ function ChantierCalendarPage() {
                           {e.start_at && !e.all_day && ` · ${fmtTime(new Date(e.start_at))}`}
                           {e.chantier_id && ` · ${chantierName(e.chantier_id)}`}
                           {e.client_id && ` · ${clientName(e.client_id)}`}
+                          {e.location && ` · ${e.location}`}
                         </span>
                       </span>
                     </button>
                   </li>
                 );
               })}
+              {search.trim().length > 0 && search.trim().length < 2 && (
+                <li className="px-2 py-4 text-center text-sm text-muted-foreground">Saisissez au moins 2 caractères.</li>
+              )}
               {search.trim().length >= 2 && searchResults.length === 0 && (
-                <li className="px-2 py-4 text-center text-sm text-muted-foreground">Aucun résultat</li>
+                <li className="px-2 py-4 text-center text-sm text-muted-foreground">Aucun résultat sur la période affichée.</li>
               )}
             </ul>
           </div>
+
         </SheetContent>
       </Sheet>
 
@@ -1078,16 +1110,27 @@ function ChantierCalendarPage() {
           <div className="min-w-0 flex-1 truncate text-sm font-semibold capitalize sm:min-w-[180px] sm:text-base">{periodLabel}</div>
         </div>
         <div className="flex flex-1 items-center gap-2 lg:max-w-md">
-          <Popover open={search.trim().length >= 2 && searchResults.length > 0} onOpenChange={(o) => { if (!o) setSearch(""); }}>
+          <Popover open={!filtersAsSheet && !mobileSearchOpen && search.trim().length >= 2} onOpenChange={(o) => { if (!o) setSearch(""); }}>
             <PopoverTrigger asChild>
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Rechercher un chantier, un client ou un événement"
                   placeholder="Rechercher un chantier, client ou événement…"
-                  className="h-9 pl-8"
+                  className="h-9 pl-8 pr-8"
                 />
+                {search.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    aria-label="Effacer la recherche"
+                    className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-[min(420px,90vw)] p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -1106,15 +1149,22 @@ function ChantierCalendarPage() {
                             {e.start_at && !e.all_day && ` · ${fmtTime(new Date(e.start_at))}`}
                             {e.chantier_id && ` · ${chantierName(e.chantier_id)}`}
                             {e.client_id && ` · ${clientName(e.client_id)}`}
+                            {e.location && ` · ${e.location}`}
                           </span>
                         </span>
                       </button>
                     </li>
                   );
                 })}
+                {searchResults.length === 0 && (
+                  <li className="px-2 py-4 text-center text-xs text-muted-foreground">
+                    Aucun résultat sur la période affichée.
+                  </li>
+                )}
               </ul>
             </PopoverContent>
           </Popover>
+
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {(["month","week","day","team","custom"] as const).map((v) => (
@@ -1288,20 +1338,20 @@ function ChantierCalendarPage() {
       <Card className="grid gap-2 p-2 md:grid-cols-6">
 
         <Select value={fChantier} onValueChange={setFChantier}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Chantier" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label="Filtrer par chantier" className="h-9 min-w-0"><SelectValue placeholder="Chantier" /></SelectTrigger>
+          <SelectContent className={selectContentCls}><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={fClient} onValueChange={setFClient}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Client" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label="Filtrer par client" className="h-9 min-w-0"><SelectValue placeholder="Client" /></SelectTrigger>
+          <SelectContent className={selectContentCls}><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={fType} onValueChange={setFType}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Type" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label="Filtrer par type" className="h-9 min-w-0"><SelectValue placeholder="Type" /></SelectTrigger>
+          <SelectContent className={selectContentCls}><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={fStatus} onValueChange={setFStatus}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger aria-label="Filtrer par statut" className="h-9 min-w-0"><SelectValue placeholder="Statut" /></SelectTrigger>
+          <SelectContent className={selectContentCls}>
             <SelectItem value="all">Tous statuts</SelectItem>
             <SelectItem value="prevu">Prévu</SelectItem><SelectItem value="en_cours">En cours</SelectItem>
             <SelectItem value="termine">Terminé</SelectItem><SelectItem value="annule">Annulé</SelectItem>
@@ -1309,22 +1359,23 @@ function ChantierCalendarPage() {
           </SelectContent>
         </Select>
         <Select value={fAssigned} onValueChange={setFAssigned}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Assigné" /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger aria-label="Filtrer par membre assigné" className="h-9 min-w-0"><SelectValue placeholder="Assigné" /></SelectTrigger>
+          <SelectContent className={selectContentCls}>
             <SelectItem value="all">Tous membres</SelectItem>
             {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 items-center gap-1">
           <Select value={fColor} onValueChange={setFColor}>
-            <SelectTrigger className="h-9"><SelectValue placeholder="Couleur" /></SelectTrigger>
-            <SelectContent>
+            <SelectTrigger aria-label="Filtrer par couleur" className="h-9 min-w-0"><SelectValue placeholder="Couleur" /></SelectTrigger>
+            <SelectContent className={selectContentCls}>
               <SelectItem value="all">Toutes couleurs</SelectItem>
               {COLORS.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button size="icon" variant="ghost" onClick={resetFilters} aria-label="Réinitialiser"><X className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" onClick={resetFilters} disabled={activeFilterCount === 0} aria-label="Réinitialiser les filtres"><X className="h-4 w-4" /></Button>
         </div>
+
         <div className="col-span-full flex flex-wrap items-center gap-2 border-t border-border/60 pt-2 text-xs">
           <button type="button" onClick={() => setFOnlyUnassigned((v) => !v)}
             className={cn("rounded-full border px-2.5 py-1 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
@@ -1376,35 +1427,31 @@ function ChantierCalendarPage() {
       </Card>
       )}
 
-      {/* Mobile filters sheet — reuses the same filter controls */}
+      {/* Mobile filters sheet — scrollable body + sticky action footer */}
       <Sheet open={filtersAsSheet && filtersOpen} onOpenChange={(o) => { if (!o) setFiltersOpen(false); }}>
-        <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-2xl">
-          <SheetHeader>
+        <SheetContent side="bottom" className="flex max-h-[88vh] flex-col gap-0 overflow-hidden rounded-t-2xl p-0">
+          <SheetHeader className="shrink-0 border-b border-border/60 px-4 py-3">
             <SheetTitle className="flex items-center justify-between gap-2">
-              <span>Filtres</span>
-              {activeFilterCount > 0 && (
-                <Button size="sm" variant="ghost" onClick={resetFilters} className="h-7 gap-1 text-xs">
-                  <X className="h-3 w-3" /> Réinitialiser
-                </Button>
-              )}
+              <span className="truncate">Filtres{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}</span>
             </SheetTitle>
           </SheetHeader>
-          <div className="grid gap-2 pt-3">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div className="grid gap-2">
             <Select value={fChantier} onValueChange={setFChantier}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Chantier" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label="Filtrer par chantier" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Chantier" /></SelectTrigger>
+              <SelectContent className={selectContentCls}><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={fClient} onValueChange={setFClient}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Client" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label="Filtrer par client" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Client" /></SelectTrigger>
+              <SelectContent className={selectContentCls}><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={fType} onValueChange={setFType}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Type" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label="Filtrer par type" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectContent className={selectContentCls}><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={fStatus} onValueChange={setFStatus}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Statut" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger aria-label="Filtrer par statut" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectContent className={selectContentCls}>
                 <SelectItem value="all">Tous statuts</SelectItem>
                 <SelectItem value="prevu">Prévu</SelectItem><SelectItem value="en_cours">En cours</SelectItem>
                 <SelectItem value="termine">Terminé</SelectItem><SelectItem value="annule">Annulé</SelectItem>
@@ -1412,30 +1459,30 @@ function ChantierCalendarPage() {
               </SelectContent>
             </Select>
             <Select value={fAssigned} onValueChange={setFAssigned}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Assigné" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger aria-label="Filtrer par membre assigné" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Assigné" /></SelectTrigger>
+              <SelectContent className={selectContentCls}>
                 <SelectItem value="all">Tous membres</SelectItem>
                 {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fColor} onValueChange={setFColor}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Couleur" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger aria-label="Filtrer par couleur" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Couleur" /></SelectTrigger>
+              <SelectContent className={selectContentCls}>
                 <SelectItem value="all">Toutes couleurs</SelectItem>
                 {COLORS.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
-              <button type="button" onClick={() => setFOnlyUnassigned((v) => !v)}
-                className={cn("rounded-full border px-3 py-1.5 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+              <button type="button" aria-pressed={fOnlyUnassigned} onClick={() => setFOnlyUnassigned((v) => !v)}
+                className={cn("inline-flex min-h-11 items-center rounded-full border px-3 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
                 Non assignés
               </button>
-              <button type="button" onClick={() => setFHideDone((v) => !v)}
-                className={cn("rounded-full border px-3 py-1.5 transition", fHideDone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+              <button type="button" aria-pressed={fHideDone} onClick={() => setFHideDone((v) => !v)}
+                className={cn("inline-flex min-h-11 items-center rounded-full border px-3 transition", fHideDone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
                 Masquer terminés
               </button>
-              <button type="button" onClick={() => setFHideCancelled((v) => !v)}
-                className={cn("rounded-full border px-3 py-1.5 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+              <button type="button" aria-pressed={fHideCancelled} onClick={() => setFHideCancelled((v) => !v)}
+                className={cn("inline-flex min-h-11 items-center rounded-full border px-3 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
                 Masquer annulés
               </button>
             </div>
@@ -1454,10 +1501,25 @@ function ChantierCalendarPage() {
                 })}
               </div>
             </div>
-            <Button onClick={() => setFiltersOpen(false)} className="mt-2 h-11">Appliquer</Button>
+            </div>
+          </div>
+          <div
+            className="shrink-0 border-t border-border/60 bg-background px-4 py-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <p className="mb-2 text-center text-[11px] text-muted-foreground" aria-live="polite">
+              {loading ? "Chargement…" : `${events.length} évènement${events.length > 1 ? "s" : ""} affiché${events.length > 1 ? "s" : ""}`}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="h-11" onClick={resetFilters} disabled={activeFilterCount === 0}>
+                Réinitialiser
+              </Button>
+              <Button className="h-11" onClick={() => setFiltersOpen(false)}>Appliquer</Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
+
 
 
 
