@@ -697,7 +697,8 @@ function ChantierDetailPage() {
           contained={false}
           className="border-0 bg-transparent px-0 py-0"
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+
               <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/chantiers" })}>
                 <ArrowLeft className="h-4 w-4" /> Retour
               </Button>
