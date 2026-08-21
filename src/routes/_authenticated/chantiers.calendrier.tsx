@@ -220,6 +220,31 @@ function ChantierCalendarPage() {
 
   const [customStart, setCustomStart] = useState(() => toLocalInput(new Date()).slice(0,10));
   const [customEnd, setCustomEnd] = useState(() => toLocalInput(addDays(new Date(), 4)).slice(0,10));
+  /**
+   * Limite déjà appliquée en aval par la grille horaire (31 colonnes max).
+   * On la rend explicite ici pour éviter un libellé qui annonce plus de jours
+   * que la grille n'en affiche réellement.
+   */
+  const MAX_CUSTOM_DAYS = 31;
+  const daysBetween = (a: string, b: string) =>
+    Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000) + 1;
+  /** Applique une plage en garantissant fin ≥ début et une durée ≤ MAX_CUSTOM_DAYS. */
+  const applyCustomRange = useCallback((start: string, end: string, edited: "start" | "end") => {
+    if (!start || !end) { setCustomStart(start); setCustomEnd(end); return; }
+    let s = start, e = end;
+    if (daysBetween(s, e) < 1) {
+      if (edited === "start") e = s; else s = e;
+    }
+    if (daysBetween(s, e) > MAX_CUSTOM_DAYS) {
+      if (edited === "start") e = toLocalInput(addDays(new Date(s + "T00:00:00"), MAX_CUSTOM_DAYS - 1)).slice(0, 10);
+      else s = toLocalInput(addDays(new Date(e + "T00:00:00"), -(MAX_CUSTOM_DAYS - 1))).slice(0, 10);
+    }
+    setCustomStart(s); setCustomEnd(e);
+  }, []);
+  const customDayCount = useMemo(
+    () => Math.min(MAX_CUSTOM_DAYS, Math.max(1, daysBetween(customStart, customEnd))),
+    [customStart, customEnd],
+  );
   const [events, setEvents] = useState<Evt[]>([]);
   const [loading, setLoading] = useState(true);
 
