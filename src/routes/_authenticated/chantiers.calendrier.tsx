@@ -202,6 +202,9 @@ function ChantierCalendarPage() {
   const denseTouch = isCompactSpace || coarsePointer;
   /** Filtres en bottom sheet tant qu'on n'a pas la place d'un panneau inline. */
   const filtersAsSheet = isCompactSpace || posture === "fold";
+  /** Fold ouvert / tablette : assez de place pour un libellé complet et plus de segments. */
+  const foldWide = !isCompactSpace;
+
 
   // Calculée une seule fois au montage : un resize ne doit jamais écraser la vue en cours.
   const [initial] = useState(() => loadInitialView());
