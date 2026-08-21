@@ -467,7 +467,7 @@ export function DossierTab({
                             {rs.length > 0 && <span>· {rs.length} réserve{rs.length > 1 ? "s" : ""}</span>}
                           </div>
                         </div>
-                        <Button asChild size="sm" variant="outline" className="h-8 shrink-0">
+                        <Button asChild size="sm" variant="outline" className="h-11 shrink-0 md:h-8">
                           <Link to="/pv/$id" params={{ id: p.id }}>Ouvrir <ChevronRight className="h-3.5 w-3.5" /></Link>
                         </Button>
                       </div>
@@ -539,10 +539,10 @@ export function DossierTab({
                             <FileLock2 className="h-3 w-3" /> PDF interne
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => exportExpertise(rep.id)} className="h-7 gap-1 text-[11px]">
+                        <Button size="sm" variant="outline" disabled={busyLiftId === rep.id} onClick={() => exportExpertise(rep.id)} className="h-11 gap-1 text-[11px] md:h-7">
                           <Package className="h-3 w-3" /> Export expertise
                         </Button>
-                        <Button asChild size="sm" variant="ghost" className="h-7 gap-1 text-[11px]">
+                        <Button asChild size="sm" variant="ghost" className="h-11 gap-1 text-[11px] md:h-7">
                           <Link to="/pv/$id/levee-reserves" params={{ id: rep.pv_id }}>
                             <ExternalLink className="h-3 w-3" /> Ouvrir
                           </Link>
