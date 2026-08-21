@@ -577,7 +577,9 @@ function ChantierCalendarPage() {
   async function saveEvt(ev: React.FormEvent) {
     ev.preventDefault();
     if (!activeCompanyId || !evtForm.chantier_id) { toast.error("Choisissez un chantier."); return; }
+    if (dateError) { toast.error(dateError); return; }
     const payload = {
+
       title: evtForm.title, description: evtForm.description,
       event_type: evtForm.event_type, status: evtForm.status as "prevu",
       start_at: evtForm.start_at ? new Date(evtForm.start_at).toISOString() : null,
