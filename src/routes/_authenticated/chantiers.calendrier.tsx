@@ -828,7 +828,23 @@ function ChantierCalendarPage() {
               {view === "team" ? (teamMode === "day" ? "Équipe J" : "Équipe S") : "Perso."}
             </button>
           )}
+          <Button
+            size="icon"
+            variant={activeFilterCount > 0 ? "secondary" : "outline"}
+            onClick={() => setFiltersOpen(true)}
+            aria-label={activeFilterCount > 0 ? `Filtres (${activeFilterCount} actifs)` : "Filtres"}
+            title="Filtres"
+            className="relative h-9 w-9 shrink-0"
+          >
+            <Filter className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
         </div>
+
       </div>
 
       {/* Sheet « Plus » — vues avancées + options secondaires (mobile / Fold) */}
