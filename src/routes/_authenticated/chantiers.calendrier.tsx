@@ -743,7 +743,7 @@ function ChantierCalendarPage() {
       return range(new Date(customStart + "T00:00:00"), new Date(customEnd + "T00:00:00"));
     }
     return periodLabel;
-  }, [view, cursor, customStart, customEnd, teamMode, weekDays, periodLabel]);
+  }, [view, cursor, customStart, customEnd, teamMode, weekDays, periodLabel, ultraCompact]);
 
 
 
