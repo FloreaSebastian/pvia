@@ -183,9 +183,28 @@ function ChantierCalendarPage() {
   const { activeCompanyId, can } = useCompany();
   const canWrite = can("manage");
   const isAdmin = can("admin");
-  const isMobile = useIsMobile();
-  
-  const initial = useMemo(() => loadInitialView(isMobile), [isMobile]);
+  const { posture } = useViewport();
+
+  // Pointeur grossier (tactile) : pas de drag natif, cartes denses.
+  const [coarsePointer, setCoarsePointer] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(hover: none), (pointer: coarse)");
+    const apply = () => setCoarsePointer(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  /** Espace réellement restreint : grille horaire/mois en présentation dense. */
+  const isCompactSpace = posture === "compact" || posture === "mobile";
+  /** Présentation tactile dense : petits écrans OU appareil tactile (Fold ouvert inclus). */
+  const denseTouch = isCompactSpace || coarsePointer;
+  /** Filtres en bottom sheet tant qu'on n'a pas la place d'un panneau inline. */
+  const filtersAsSheet = isCompactSpace || posture === "fold";
+
+  // Calculée une seule fois au montage : un resize ne doit jamais écraser la vue en cours.
+  const [initial] = useState(() => loadInitialView());
   const [view, setView] = useState<ViewKind>(initial.view);
   const [cursor, setCursor] = useState(new Date());
 
