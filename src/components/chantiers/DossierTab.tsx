@@ -355,7 +355,7 @@ export function DossierTab({
       <div className="mb-3 flex items-center justify-end">
         <Sheet>
           <SheetTrigger asChild>
-            <Button size="sm" variant="outline" disabled={busyDossier} className="h-9 gap-1.5 text-xs">
+            <Button size="sm" variant="outline" disabled={busyDossier} className="h-11 gap-1.5 text-xs md:h-9">
               <Package className="h-4 w-4" />
               {busyDossier ? "Préparation…" : "Exporter"}
             </Button>

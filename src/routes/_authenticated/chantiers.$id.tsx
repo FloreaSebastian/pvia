@@ -897,7 +897,7 @@ function ChantierDetailPage() {
                     ))}
                   </ol>
                   {userEvents.length > 3 && (
-                    <Button variant="ghost" size="sm" className="mt-2 h-8 w-full text-xs" onClick={() => setTimelineAllOpen(true)}>
+                    <Button variant="ghost" size="sm" className="mt-2 h-11 w-full text-xs md:h-8" onClick={() => setTimelineAllOpen(true)}>
                       Voir toute la timeline ({userEvents.length})
                     </Button>
                   )}

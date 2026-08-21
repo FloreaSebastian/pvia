@@ -97,7 +97,7 @@ export function ChantierPhotosTab({
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Photos chantier</h2>
         {canWrite && (
-          <Button size="sm" onClick={() => openUpload("during")}>
+          <Button size="sm" className="h-11 md:h-9" onClick={() => openUpload("during")}>
             <Plus className="h-4 w-4" /> Ajouter photo
           </Button>
         )}
