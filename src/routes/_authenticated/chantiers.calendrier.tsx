@@ -766,8 +766,8 @@ function ChantierCalendarPage() {
        * ============================================================ */}
       <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur lg:hidden">
         {/* Ligne 1 */}
-        <div className="flex items-center gap-1 px-1 pt-1">
-          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Période précédente" className="h-10 w-10 shrink-0">
+        <div className="flex items-center gap-0.5 px-1 pt-1 xs:gap-1">
+          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Période précédente" className="h-10 w-9 shrink-0 fold:w-10">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <button
@@ -779,39 +779,25 @@ function ChantierCalendarPage() {
           >
             {foldWide ? periodLabel : compactPeriodLabel}
           </button>
-          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Période suivante" className="h-10 w-10 shrink-0">
+          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Période suivante" className="h-10 w-9 shrink-0 fold:w-10">
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher un événement" className="h-10 w-10 shrink-0">
+          <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher un événement" title="Rechercher" className="h-10 w-9 shrink-0 fold:w-10">
             <Search className="h-4 w-4" />
           </Button>
-          <Button
-            size="icon"
-            variant={activeFilterCount > 0 ? "secondary" : "ghost"}
-            onClick={() => setFiltersOpen(true)}
-            aria-label={activeFilterCount > 0 ? `Filtres (${activeFilterCount} actifs)` : "Filtres"}
-            title="Filtres"
-            className="relative h-10 w-10 shrink-0"
-          >
-            <Filter className="h-4 w-4" />
-            {activeFilterCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
-          <Button size="icon" variant="ghost" onClick={() => setMoreOpen(true)} aria-label="Plus d'options du calendrier" title="Plus" className="h-10 w-10 shrink-0">
+          <Button size="icon" variant="ghost" onClick={() => setMoreOpen(true)} aria-label="Plus d'options du calendrier" title="Plus d'options" className="h-10 w-9 shrink-0 fold:w-10">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
           {canWrite && (
-            <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" title="Nouvel événement" className="h-10 w-10 shrink-0 shadow-brand">
+            <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" title="Nouvel événement" className="h-10 w-9 shrink-0 shadow-brand fold:w-10">
               <Plus className="h-4 w-4" />
             </Button>
           )}
         </div>
 
-        {/* Ligne 2 — sélecteur de vue */}
+        {/* Ligne 2 — sélecteur de vue + filtres */}
         <div className="flex items-center gap-1 px-1 pb-1 pt-1">
+
           <div role="tablist" aria-label="Vue du calendrier" className="flex min-w-0 flex-1 rounded-lg border border-border bg-muted/40 p-0.5">
             {mobileViewSegments.map((opt) => (
               <button
@@ -822,7 +808,7 @@ function ChantierCalendarPage() {
                 aria-current={opt.active ? "true" : undefined}
                 onClick={opt.onSelect}
                 className={cn(
-                  "focus-ring min-w-0 flex-1 truncate rounded-md px-1 py-1.5 text-[12px] font-semibold transition",
+                  "focus-ring min-h-9 min-w-0 flex-1 truncate rounded-md px-1 py-2 text-[12px] font-semibold transition",
                   opt.active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground",
                 )}
               >
@@ -842,7 +828,23 @@ function ChantierCalendarPage() {
               {view === "team" ? (teamMode === "day" ? "Équipe J" : "Équipe S") : "Perso."}
             </button>
           )}
+          <Button
+            size="icon"
+            variant={activeFilterCount > 0 ? "secondary" : "outline"}
+            onClick={() => setFiltersOpen(true)}
+            aria-label={activeFilterCount > 0 ? `Filtres (${activeFilterCount} actifs)` : "Filtres"}
+            title="Filtres"
+            className="relative h-9 w-9 shrink-0"
+          >
+            <Filter className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
         </div>
+
       </div>
 
       {/* Sheet « Plus » — vues avancées + options secondaires (mobile / Fold) */}
