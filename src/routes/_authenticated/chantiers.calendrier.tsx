@@ -1003,7 +1003,7 @@ function ChantierCalendarPage() {
       </div>
 
       {/* Filters — desktop inline Card; mobile renders inside a bottom Sheet */}
-      {filtersOpen && !isMobile && (
+      {filtersOpen && !filtersAsSheet && (
       <Card className="grid gap-2 p-2 md:grid-cols-6">
 
         <Select value={fChantier} onValueChange={setFChantier}>
@@ -1096,7 +1096,7 @@ function ChantierCalendarPage() {
       )}
 
       {/* Mobile filters sheet — reuses the same filter controls */}
-      <Sheet open={isMobile && filtersOpen} onOpenChange={(o) => { if (!o) setFiltersOpen(false); }}>
+      <Sheet open={filtersAsSheet && filtersOpen} onOpenChange={(o) => { if (!o) setFiltersOpen(false); }}>
         <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-2xl">
           <SheetHeader>
             <SheetTitle className="flex items-center justify-between gap-2">
@@ -1190,7 +1190,7 @@ function ChantierCalendarPage() {
           days={monthGrid}
           cursor={cursor}
           canWrite={canWrite}
-          isMobile={isMobile}
+          isMobile={denseTouch}
           conflictIds={conflicts}
           onDblClickDay={(d) => openNew(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0))}
           onClickEvent={(e) => openQuick(e)}
@@ -1249,7 +1249,7 @@ function ChantierCalendarPage() {
           })()}
           events={events}
           hourPx={hourPx}
-          isMobile={isMobile}
+          isMobile={denseTouch}
           canWrite={canWrite}
           conflictIds={conflicts}
           onCreateRange={(s, e) => openNew(s, e)}
