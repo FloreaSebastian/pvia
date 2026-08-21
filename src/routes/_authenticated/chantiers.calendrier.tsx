@@ -1636,9 +1636,9 @@ function ChantierCalendarPage() {
                   </Select>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className={cn("flex items-center gap-3", denseTouch && "min-h-11")}>
                   <Switch id="evt-allday" checked={evtForm.all_day} onCheckedChange={(v) => setEvtForm({ ...evtForm, all_day: !!v })} />
-                  <Label htmlFor="evt-allday" className="text-sm font-normal">Journée entière</Label>
+                  <Label htmlFor="evt-allday" className={cn("text-sm font-normal", denseTouch && "flex min-h-11 flex-1 items-center")}>Journée entière</Label>
                 </div>
 
                 {/* Les inputs date/datetime natifs ont une largeur intrinsèque ~180 px :
