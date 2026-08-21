@@ -1960,15 +1960,34 @@ function TimeGridView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days, onMove, onResize, onCreateRange]);
 
+  // Événements "journée entière" : bandeau dédié (ils ne volent plus une
+  // colonne de chevauchement dans la grille horaire).
+  const allDayByDay = useMemo<Evt[][]>(() => {
+    const out: Evt[][] = days.map(() => []);
+    for (const e of events) {
+      if (!e.all_day || !e.start_at) continue;
+      const s = new Date(e.start_at);
+      const en = e.end_at ? new Date(e.end_at) : s;
+      for (let i = 0; i < days.length; i++) {
+        const d = days[i];
+        const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const dayEnd = new Date(dayStart.getTime() + 86400000);
+        if (s < dayEnd && en >= dayStart) out[i].push(e);
+      }
+    }
+    return out;
+  }, [events, days]);
+
   // Base positions with side-by-side overlap layout
   const positioned = useMemo<Positioned[]>(() => {
     const byDay: { evt: Evt; dayIdx: number; topMin: number; heightMin: number }[][] = days.map(() => []);
     for (const e of events) {
-      if (!e.start_at) continue;
+      if (!e.start_at || e.all_day) continue;
       const s = new Date(e.start_at);
       const en = e.end_at ? new Date(e.end_at) : new Date(s.getTime() + 60 * 60000);
       for (let i = 0; i < days.length; i++) {
         if (sameDay(s, days[i])) {
+
           const startMin = (s.getHours() - START_HOUR) * 60 + s.getMinutes();
           const endMin = (en.getHours() - START_HOUR) * 60 + en.getMinutes();
           byDay[i].push({ evt: e, dayIdx: i, topMin: Math.max(0, startMin), heightMin: Math.max(20, endMin - startMin) });
