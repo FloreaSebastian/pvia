@@ -654,6 +654,35 @@ function ChantierCalendarPage() {
     return "Liste";
   }, [view, cursor, customStart, customEnd, teamMode, weekDays]);
 
+  /**
+   * Libellé de période **compact**, pensé pour 320 px.
+   * N'altère jamais la logique de cursor : c'est une simple projection d'affichage.
+   * Le libellé complet reste exposé via title/aria-label.
+   */
+  const compactPeriodLabel = useMemo(() => {
+    const dm = (d: Date) => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    const range = (a: Date, b: Date) =>
+      a.getMonth() === b.getMonth()
+        ? `${a.getDate()}–${b.getDate()} ${b.toLocaleDateString("fr-FR", { month: "short" })}`
+        : `${dm(a)} – ${dm(b)}`;
+    if (view === "month") return cursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    if (view === "day") return dm(cursor);
+    if (view === "week") {
+      if (weekDays === 3) { const s = new Date(cursor); s.setHours(0,0,0,0); return range(s, addDays(s, 2)); }
+      const s = startOfWeek(cursor); return range(s, addDays(s, weekDays - 1));
+    }
+    if (view === "team") {
+      if (teamMode === "day") return dm(cursor);
+      const s = startOfWeek(cursor); return range(s, addDays(s, 6));
+    }
+    if (view === "custom") {
+      return range(new Date(customStart + "T00:00:00"), new Date(customEnd + "T00:00:00"));
+    }
+    return periodLabel;
+  }, [view, cursor, customStart, customEnd, teamMode, weekDays, periodLabel]);
+
+
+
 
   // Keyboard shortcuts (T M S J L E N) — ignored when typing in inputs
   useEffect(() => {
