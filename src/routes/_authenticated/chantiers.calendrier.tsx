@@ -7,12 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -963,6 +963,7 @@ function ChantierCalendarPage() {
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
           <SheetHeader>
             <SheetTitle>Options du calendrier</SheetTitle>
+            <SheetDescription className="sr-only">Vues avancées et options d'affichage du calendrier.</SheetDescription>
           </SheetHeader>
 
           <div className="space-y-5 pt-4">
@@ -1078,6 +1079,7 @@ function ChantierCalendarPage() {
         <SheetContent side="top" className="max-h-[85vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Rechercher</SheetTitle>
+            <SheetDescription className="sr-only">Rechercher un événement par titre, chantier, lieu ou intervenant.</SheetDescription>
           </SheetHeader>
           <div className="pt-3">
             <div className="relative">
@@ -1479,6 +1481,7 @@ function ChantierCalendarPage() {
             <SheetTitle className="flex items-center justify-between gap-2">
               <span className="truncate">Filtres{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}</span>
             </SheetTitle>
+            <SheetDescription className="sr-only">Filtrer les événements affichés dans le calendrier.</SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             <div className="grid gap-2">
@@ -1676,6 +1679,7 @@ function ChantierCalendarPage() {
               <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate">{evtForm.id ? "Modifier l'événement" : "Nouvel événement"}</span>
             </DialogTitle>
+            <DialogDescription className="sr-only">Renseignez les informations de l'événement puis enregistrez.</DialogDescription>
           </DialogHeader>
           <form onSubmit={saveEvt} className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3 sm:px-6">
@@ -1876,6 +1880,7 @@ function ChantierCalendarPage() {
         <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl">
           <SheetHeader>
             <SheetTitle>Événements en chevauchement</SheetTitle>
+            <SheetDescription className="sr-only">Liste des événements qui se chevauchent sur ce créneau.</SheetDescription>
           </SheetHeader>
           <ul className="mt-3 divide-y divide-border">
             {clusterSheet?.map((e) => {
