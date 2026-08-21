@@ -1130,20 +1130,51 @@ function ChantierCalendarPage() {
 
 
       {view === "custom" && (
-        <Card data-custom-picker className="flex flex-wrap items-end gap-3 p-3">
-          <div><Label className="text-xs">Du</Label><Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-9" /></div>
-          <div><Label className="text-xs">Au</Label><Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-9" /></div>
-          <div className="flex flex-wrap gap-1">
-            {[
-              { label: "Lun → Ven", days: 4, from: startOfWeek(new Date()) },
-              { label: "3 jours", days: 2, from: new Date() },
-              { label: "10 jours", days: 9, from: new Date() },
-            ].map((p) => (
-              <Button key={p.label} size="sm" variant="outline" onClick={() => {
-                setCustomStart(toLocalInput(p.from).slice(0,10));
-                setCustomEnd(toLocalInput(addDays(p.from, p.days)).slice(0,10));
-              }}>{p.label}</Button>
-            ))}
+        <Card data-custom-picker className="p-2.5 sm:p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
+            {/* Les deux dates côte à côte : évite la carte "3 lignes" sous 400 px. */}
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+              <div className="min-w-0 sm:w-auto">
+                <Label htmlFor="custom-start" className="text-xs">Du</Label>
+                <Input
+                  id="custom-start" type="date" value={customStart}
+                  onChange={(e) => applyCustomRange(e.target.value, customEnd, "start")}
+                  className={cn("w-full", denseTouch ? "h-11" : "h-9")}
+                />
+              </div>
+              <div className="min-w-0 sm:w-auto">
+                <Label htmlFor="custom-end" className="text-xs">Au</Label>
+                <Input
+                  id="custom-end" type="date" value={customEnd}
+                  onChange={(e) => applyCustomRange(customStart, e.target.value, "end")}
+                  className={cn("w-full", denseTouch ? "h-11" : "h-9")}
+                />
+              </div>
+            </div>
+            {/* Raccourcis : une seule ligne scrollable sur mobile, cibles 44 px. */}
+            <div className="-mx-2.5 flex gap-1.5 overflow-x-auto px-2.5 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+              {[
+                { label: "Aujourd'hui", days: 0, from: new Date() },
+                { label: "3 jours", days: 2, from: new Date() },
+                { label: "Lun → Ven", days: 4, from: startOfWeek(new Date()) },
+                { label: "7 jours", days: 6, from: new Date() },
+                { label: "10 jours", days: 9, from: new Date() },
+              ].map((p) => (
+                <Button
+                  key={p.label} size="sm" variant="outline"
+                  className={cn("shrink-0", denseTouch && "h-11 px-3")}
+                  onClick={() => applyCustomRange(
+                    toLocalInput(p.from).slice(0, 10),
+                    toLocalInput(addDays(p.from, p.days)).slice(0, 10),
+                    "start",
+                  )}
+                >{p.label}</Button>
+              ))}
+            </div>
+            <div aria-live="polite" className="text-xs text-muted-foreground sm:ml-auto sm:pb-2">
+              {customDayCount} jour{customDayCount > 1 ? "s" : ""} affiché{customDayCount > 1 ? "s" : ""}
+              {customDayCount === MAX_CUSTOM_DAYS && <span className="ml-1">(maximum)</span>}
+            </div>
           </div>
         </Card>
       )}
