@@ -503,6 +503,22 @@ function ChantierCalendarPage() {
   });
   const [evtOpen, setEvtOpen] = useState(false);
   const [evtForm, setEvtForm] = useState<FormState>(blankForm());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // Cohérence des dates : bloque l'enregistrement d'une fin antérieure au début.
+  const dateError = useMemo(() => {
+    if (!evtForm.start_at || !evtForm.end_at) return null;
+    const s = evtForm.all_day ? evtForm.start_at.slice(0, 10) : evtForm.start_at;
+    const e = evtForm.all_day ? evtForm.end_at.slice(0, 10) : evtForm.end_at;
+    const sd = new Date(s).getTime(), ed = new Date(e).getTime();
+    if (Number.isNaN(sd) || Number.isNaN(ed)) return null;
+    if (ed < sd) return "La fin doit être postérieure au début.";
+    if (!evtForm.all_day && ed === sd) return "La fin doit être postérieure au début.";
+    return null;
+  }, [evtForm.start_at, evtForm.end_at, evtForm.all_day]);
+  // Géométrie tactile du formulaire événement
+  const fieldH = denseTouch ? "h-11" : "h-9";
+  const optionH = denseTouch ? "[&_[role=option]]:min-h-11 [&_[role=option]]:items-center" : "";
+  const twoCols = denseTouch ? "grid grid-cols-1 gap-3 min-[360px]:grid-cols-2" : "grid grid-cols-2 gap-3";
   const [quickEvt, setQuickEvt] = useState<Evt | null>(null);
   const [clusterSheet, setClusterSheet] = useState<Evt[] | null>(null);
   const [search, setSearch] = useState("");
