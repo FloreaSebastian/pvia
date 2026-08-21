@@ -1419,6 +1419,7 @@ function ChantierCalendarPage() {
           cursor={cursor}
           weekDays={weekDays}
           hourPx={hourPx}
+          compact={denseTouch}
           members={members}
           events={events}
           canWrite={canWrite}
@@ -2687,7 +2688,7 @@ function fmtHrs(min: number) {
 }
 
 function TeamView({
-  mode, cursor, members, events, canWrite, conflictIds, weekDays, hourPx,
+  mode, cursor, members, events, canWrite, conflictIds, weekDays, hourPx, compact,
   onClickEvent, onDblClickEvent, onCreateForMember, onReassign,
   chantierName, clientName, memberName,
 }: {
@@ -2699,6 +2700,7 @@ function TeamView({
   conflictIds: Set<string>;
   weekDays: WeekDays;
   hourPx: number;
+  compact: boolean;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onCreateForMember: (memberId: string, start: Date) => void;
@@ -2735,7 +2737,7 @@ function TeamView({
 
   if (mode === "week") return (
     <TeamWeekView
-      cursor={cursor} cols={cols} events={events} canWrite={canWrite}
+      cursor={cursor} cols={cols} events={events} canWrite={canWrite} compact={compact}
       conflictIds={conflictIds} workloadMap={workloadMap} weekDays={weekDays}
       onClickEvent={onClickEvent} onDblClickEvent={onDblClickEvent}
       onReassign={onReassign} chantierName={chantierName} clientName={clientName} memberName={memberName}
@@ -2744,7 +2746,7 @@ function TeamView({
 
   return (
     <TeamDayView
-      day={cursor} cols={cols} events={events} canWrite={canWrite} hourPx={hourPx}
+      day={cursor} cols={cols} events={events} canWrite={canWrite} hourPx={hourPx} compact={compact}
       conflictIds={conflictIds} workloadMap={workloadMap}
       onClickEvent={onClickEvent} onDblClickEvent={onDblClickEvent}
       onCreateForMember={onCreateForMember}
@@ -2753,8 +2755,34 @@ function TeamView({
   );
 }
 
+/** En-tête d'une colonne / ligne membre : nom + charge. Identité toujours lisible. */
+function TeamMemberHead({ c, wl, dense }: { c: Member; wl: { min: number; count: number }; dense: boolean }) {
+  const isUnassigned = c.user_id === UNASSIGNED;
+  const b = workloadBadge(wl.min);
+  return (
+    <>
+      <div className="flex items-center gap-1.5">
+        {!isUnassigned && (
+          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+            {initials(c.name)}
+          </span>
+        )}
+        <span className={cn("truncate text-xs font-semibold", isUnassigned && "text-muted-foreground")} title={c.name}>
+          {c.name}
+        </span>
+      </div>
+      <div className={cn("mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground", dense && "flex-wrap")}>
+        <span className="whitespace-nowrap">{fmtHrs(wl.min)} · {wl.count} évt</span>
+        {!isUnassigned && wl.min > 0 && (
+          <span className={cn("whitespace-nowrap rounded-full border px-1.5 py-px font-medium", b.cls)}>{b.label}</span>
+        )}
+      </div>
+    </>
+  );
+}
+
 function TeamDayView({
-  day, cols, events, canWrite, conflictIds, workloadMap, hourPx,
+  day, cols, events, canWrite, conflictIds, workloadMap, hourPx, compact,
   onClickEvent, onDblClickEvent, onCreateForMember, onReassign,
   chantierName, clientName, memberName,
 }: {
@@ -2762,6 +2790,7 @@ function TeamDayView({
   conflictIds: Set<string>;
   workloadMap: Map<string, { min: number; count: number }>;
   hourPx: number;
+  compact: boolean;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onCreateForMember: (memberId: string, start: Date) => void;
@@ -2776,6 +2805,11 @@ function TeamDayView({
   const [drag, setDrag] = useState<Drag>(null);
   const dragRef = useRef<Drag>(null);
   useEffect(() => { dragRef.current = drag; }, [drag]);
+
+  /** Largeur minimale par membre : en dessous, un événement devient illisible. */
+  const minColPx = compact ? 116 : 148;
+  const hourColPx = compact ? 44 : 56;
+  const minGridPx = hourColPx + cols.length * minColPx;
 
   function pointerToCell(clientX: number, clientY: number) {
     const grid = gridRef.current; if (!grid) return null;
@@ -2817,11 +2851,26 @@ function TeamDayView({
 
   const colWidthPct = 100 / cols.length;
 
-  // Build positioned events per column
-  const positioned = useMemo(() => {
-    const result: { evt: Evt; colIdx: number; topMin: number; heightMin: number }[] = [];
+  /** Journée entière : bandeau dédié, jamais posé sur l'axe horaire. */
+  const allDayByCol = useMemo(() => {
+    const map = new Map<number, Evt[]>();
     for (const e of events) {
-      if (!e.start_at) continue;
+      if (!e.all_day || !e.start_at) continue;
+      if (!sameDay(new Date(e.start_at), day)) continue;
+      const colIdx = cols.findIndex((c) => c.user_id === (e.assigned_to ?? UNASSIGNED));
+      if (colIdx < 0) continue;
+      const arr = map.get(colIdx) ?? []; arr.push(e); map.set(colIdx, arr);
+    }
+    return map;
+  }, [events, day, cols]);
+  const hasAllDay = allDayByCol.size > 0;
+
+  // Build positioned events per column, with lane layout for overlaps.
+  const positioned = useMemo(() => {
+    type P = { evt: Evt; colIdx: number; topMin: number; heightMin: number; lane: number; lanes: number };
+    const perCol = new Map<number, { evt: Evt; topMin: number; heightMin: number }[]>();
+    for (const e of events) {
+      if (!e.start_at || e.all_day) continue;
       const s = new Date(e.start_at);
       if (!sameDay(s, day)) continue;
       const en = e.end_at ? new Date(e.end_at) : new Date(s.getTime() + 60 * 60000);
@@ -2830,110 +2879,163 @@ function TeamDayView({
       const key = e.assigned_to ?? UNASSIGNED;
       const colIdx = cols.findIndex((c) => c.user_id === key);
       if (colIdx < 0) continue;
-      result.push({ evt: e, colIdx, topMin: Math.max(0, startMin), heightMin: Math.max(20, endMin - startMin) });
+      const arr = perCol.get(colIdx) ?? [];
+      arr.push({ evt: e, topMin: Math.max(0, startMin), heightMin: Math.max(30, endMin - startMin) });
+      perCol.set(colIdx, arr);
+    }
+    const result: P[] = [];
+    for (const [colIdx, arr] of perCol) {
+      arr.sort((a, b) => a.topMin - b.topMin || b.heightMin - a.heightMin);
+      // Cluster overlapping events, then spread them on lanes inside the member column.
+      let cluster: typeof arr = [];
+      let clusterEnd = -1;
+      const flush = () => {
+        if (!cluster.length) return;
+        const laneEnds: number[] = [];
+        const laneOf = new Map<string, number>();
+        for (const it of cluster) {
+          let lane = laneEnds.findIndex((end) => end <= it.topMin);
+          if (lane < 0) { lane = laneEnds.length; laneEnds.push(0); }
+          laneEnds[lane] = it.topMin + it.heightMin;
+          laneOf.set(it.evt.id, lane);
+        }
+        const lanes = Math.max(1, laneEnds.length);
+        for (const it of cluster) {
+          result.push({ ...it, colIdx, lane: laneOf.get(it.evt.id) ?? 0, lanes });
+        }
+        cluster = []; clusterEnd = -1;
+      };
+      for (const it of arr) {
+        if (cluster.length && it.topMin >= clusterEnd) flush();
+        cluster.push(it);
+        clusterEnd = Math.max(clusterEnd, it.topMin + it.heightMin);
+      }
+      flush();
     }
     return result;
   }, [events, day, cols]);
 
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 backdrop-blur" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0,1fr))` }}>
-        <div />
-        {cols.map((c) => {
-          const wl = workloadMap.get(c.user_id) ?? { min: 0, count: 0 };
-          const isUnassigned = c.user_id === UNASSIGNED;
-          const b = workloadBadge(wl.min);
-          return (
-            <div key={c.user_id} className="border-l border-border px-2 py-2 text-center">
-              <div className={cn("truncate text-xs font-semibold", isUnassigned && "text-muted-foreground")}>{c.name}</div>
-              <div className="mt-1 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
-                <span>{fmtHrs(wl.min)} · {wl.count} évt</span>
-                {!isUnassigned && wl.min > 0 && (
-                  <span className={cn("rounded-full border px-1.5 py-px font-medium", b.cls)}>{b.label}</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "72vh" }}>
-        <div className="grid" style={{ gridTemplateColumns: `56px repeat(${cols.length}, minmax(0,1fr))` }}>
-          <div className="sticky left-0 z-10 bg-background" style={{ height: TOTAL_HOURS * hourPx }}>
-            {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
-              <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * hourPx }}>
-                {String(START_HOUR + h).padStart(2, "0")}:00
+    <Card data-team-root className="overflow-hidden p-0">
+      <div ref={scrollRef} className="relative overflow-auto overscroll-x-contain" style={{ maxHeight: "72vh" }}>
+        <div style={{ minWidth: minGridPx }}>
+          {/* En-têtes membres — sticky en haut, défilent avec le scroll horizontal */}
+          <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 backdrop-blur"
+            style={{ gridTemplateColumns: `${hourColPx}px repeat(${cols.length}, minmax(0,1fr))` }}>
+            <div className="sticky left-0 z-10 bg-background/95" />
+            {cols.map((c) => (
+              <div key={c.user_id} data-team-head className="min-w-0 border-l border-border px-1.5 py-2">
+                <TeamMemberHead c={c} wl={workloadMap.get(c.user_id) ?? { min: 0, count: 0 }} dense={compact} />
               </div>
             ))}
           </div>
-          <div ref={gridRef}
-            onDoubleClick={(e) => {
-              if (!canWrite) return;
-              if ((e.target as HTMLElement).closest("[data-evt]")) return;
-              const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
-              const s = minutesToDate(day, p.minutes);
-              onCreateForMember(cols[p.colIdx].user_id, s);
-            }}
-            className={cn("relative col-span-full -ml-px", drag && "cursor-grabbing select-none")}
-            style={{ gridColumn: `2 / span ${cols.length}`, height: TOTAL_HOURS * hourPx, gridTemplateColumns: `repeat(${cols.length}, minmax(0,1fr))`, display: "grid" }}>
-            {cols.map((c, i) => (
-              <div key={c.user_id} className={cn("relative border-l border-border", c.user_id === UNASSIGNED && "bg-muted/20", drag?.colIdx === i && "bg-primary/[0.06]")}>
-                {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
-                  <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * hourPx }} />
-                ))}
-              </div>
-            ))}
-            {positioned.map((p, idx) => {
-              const { evt, topMin, heightMin } = p;
-              const c = colorOf(evt);
-              const ann = evt.status === "annule";
-              const isSystem = evt.event_type.startsWith("system_");
-              const isDragged = drag?.id === evt.id;
-              const liveColIdx = isDragged && drag ? drag.colIdx : p.colIdx;
-              const isUnassignedCol = cols[liveColIdx]?.user_id === UNASSIGNED;
-              return (
-                <HoverCard key={evt.id + idx} openDelay={400} closeDelay={80}>
-                  <HoverCardTrigger asChild>
-                    <div data-evt
-                      onMouseDown={(e) => onMouseDownEvt(e, evt, p.colIdx, topMin, heightMin)}
-                      onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
-                      onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
-                      className={cn(
-                        "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
-                        !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
-                        ann && "line-through opacity-60",
-                        isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
-                        conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
-                        isUnassignedCol && !isDragged && "opacity-80",
-                      )}
-                      style={{
-                        background: c.bg, color: c.fg,
-                        left: `calc(${liveColIdx * colWidthPct}% + 2px)`,
-                        width: `calc(${colWidthPct}% - 4px)`,
-                        top: (topMin / 60) * hourPx,
-                        height: (heightMin / 60) * hourPx - 2,
-                        zIndex: isDragged ? 40 : 10,
-                      }}>
-                      <div className="truncate flex items-center gap-1">
-                        {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
-                        {statusIcon(evt.status)}
-                        <span className="truncate">{evt.title}</span>
-                      </div>
 
-                      {heightMin >= 30 && (
-                        <div className="truncate text-[10px] opacity-90">
-                          {fmtMin(topMin)} – {fmtMin(topMin + heightMin)}
+          {/* Bandeau journée entière — séparé de l'axe horaire */}
+          {hasAllDay && (
+            <div className="sticky top-[52px] z-20 grid border-b border-border bg-muted/40"
+              style={{ gridTemplateColumns: `${hourColPx}px repeat(${cols.length}, minmax(0,1fr))` }}>
+              <div className="sticky left-0 z-10 flex items-center justify-end bg-muted/40 pr-1 text-[9px] font-semibold uppercase text-muted-foreground">Jour</div>
+              {cols.map((c, i) => (
+                <div key={c.user_id} className="min-w-0 space-y-1 border-l border-border p-1">
+                  {(allDayByCol.get(i) ?? []).map((e) => {
+                    const col = colorOf(e);
+                    return (
+                      <button key={e.id} type="button" data-evt
+                        onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
+                        onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
+                        className={cn("flex min-h-[28px] w-full items-center gap-1 truncate rounded px-1.5 py-1 text-left text-[11px] font-medium",
+                          e.status === "annule" && "line-through opacity-60")}
+                        style={{ background: col.bg, color: col.fg }}>
+                        {statusIcon(e.status)}<span className="truncate">{e.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="grid" style={{ gridTemplateColumns: `${hourColPx}px repeat(${cols.length}, minmax(0,1fr))` }}>
+            <div className="sticky left-0 z-20 bg-background" style={{ height: TOTAL_HOURS * hourPx }}>
+              {Array.from({ length: TOTAL_HOURS + 1 }).map((_, h) => (
+                <div key={h} className="absolute left-0 right-0 -translate-y-2 pr-1 text-right text-[10px] font-medium text-muted-foreground" style={{ top: h * hourPx }}>
+                  {String(START_HOUR + h).padStart(2, "0")}:00
+                </div>
+              ))}
+            </div>
+            <div ref={gridRef}
+              onDoubleClick={(e) => {
+                if (!canWrite) return;
+                if ((e.target as HTMLElement).closest("[data-evt]")) return;
+                const p = pointerToCell(e.clientX, e.clientY); if (!p) return;
+                const s = minutesToDate(day, p.minutes);
+                onCreateForMember(cols[p.colIdx].user_id, s);
+              }}
+              className={cn("relative col-span-full -ml-px", drag && "cursor-grabbing select-none")}
+              style={{ gridColumn: `2 / span ${cols.length}`, height: TOTAL_HOURS * hourPx, gridTemplateColumns: `repeat(${cols.length}, minmax(0,1fr))`, display: "grid" }}>
+              {cols.map((c, i) => (
+                <div key={c.user_id} className={cn("relative border-l border-border", c.user_id === UNASSIGNED && "bg-muted/20", drag?.colIdx === i && "bg-primary/[0.06]")}>
+                  {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
+                    <div key={h} className="absolute left-0 right-0 border-t border-border/50" style={{ top: h * hourPx }} />
+                  ))}
+                </div>
+              ))}
+              {positioned.map((p, idx) => {
+                const { evt, topMin, heightMin, lane, lanes } = p;
+                const c = colorOf(evt);
+                const ann = evt.status === "annule";
+                const isSystem = evt.event_type.startsWith("system_");
+                const isDragged = drag?.id === evt.id;
+                const liveColIdx = isDragged && drag ? drag.colIdx : p.colIdx;
+                const isUnassignedCol = cols[liveColIdx]?.user_id === UNASSIGNED;
+                const laneW = colWidthPct / lanes;
+                const px = (heightMin / 60) * hourPx - 2;
+                return (
+                  <HoverCard key={evt.id + idx} openDelay={400} closeDelay={80}>
+                    <HoverCardTrigger asChild>
+                      <div data-evt
+                        onMouseDown={(e) => onMouseDownEvt(e, evt, p.colIdx, topMin, heightMin)}
+                        onClick={(e) => { e.stopPropagation(); if (!isDragged) onClickEvent(evt); }}
+                        onDoubleClick={(e) => { e.stopPropagation(); onDblClickEvent(evt); }}
+                        className={cn(
+                          "absolute overflow-hidden rounded-md px-1.5 py-1 text-[11px] font-medium shadow-sm transition-shadow hover:brightness-105 hover:shadow-md",
+                          !isSystem && canWrite && "cursor-grab active:cursor-grabbing",
+                          ann && "line-through opacity-60",
+                          isDragged && "z-30 scale-[1.02] shadow-2xl ring-2 ring-white",
+                          conflictIds.has(evt.id) && !isDragged && "ring-2 ring-red-500/80",
+                          isUnassignedCol && !isDragged && "opacity-80",
+                          lanes > 1 && "ring-1 ring-white/40",
+                        )}
+                        style={{
+                          background: c.bg, color: c.fg,
+                          left: `calc(${liveColIdx * colWidthPct + lane * laneW}% + 2px)`,
+                          width: `calc(${laneW}% - 4px)`,
+                          top: (topMin / 60) * hourPx,
+                          height: Math.max(28, px),
+                          zIndex: isDragged ? 40 : 10 + lane,
+                        }}>
+                        <div className="truncate flex items-center gap-1">
+                          {conflictIds.has(evt.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                          {statusIcon(evt.status)}
+                          <span className="truncate">{evt.title}</span>
                         </div>
-                      )}
-                    </div>
-                  </HoverCardTrigger>
-                  {!drag && (
-                    <HoverCardContent side="right" align="start" className="w-72">
-                      <EventHoverContent evt={evt} memberName={memberName} chantierName={chantierName} clientName={clientName} />
-                    </HoverCardContent>
-                  )}
-                </HoverCard>
-              );
-            })}
+
+                        {heightMin >= 45 && lanes === 1 && (
+                          <div className="truncate text-[10px] opacity-90">
+                            {fmtMin(topMin)} – {fmtMin(topMin + heightMin)}
+                          </div>
+                        )}
+                      </div>
+                    </HoverCardTrigger>
+                    {!drag && (
+                      <HoverCardContent side="right" align="start" collisionPadding={8} className="w-72 max-w-[calc(100vw-1rem)]">
+                        <EventHoverContent evt={evt} memberName={memberName} chantierName={chantierName} clientName={clientName} />
+                      </HoverCardContent>
+                    )}
+                  </HoverCard>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -2942,7 +3044,7 @@ function TeamDayView({
 }
 
 function TeamWeekView({
-  cursor, cols, events, canWrite, conflictIds, workloadMap, weekDays,
+  cursor, cols, events, canWrite, conflictIds, workloadMap, weekDays, compact,
   onClickEvent, onDblClickEvent, onReassign,
   chantierName, clientName, memberName,
 }: {
@@ -2950,6 +3052,7 @@ function TeamWeekView({
   conflictIds: Set<string>;
   workloadMap: Map<string, { min: number; count: number }>;
   weekDays: WeekDays;
+  compact: boolean;
   onClickEvent: (e: Evt) => void;
   onDblClickEvent: (e: Evt) => void;
   onReassign: (id: string, memberId: string) => void;
@@ -2961,91 +3064,94 @@ function TeamWeekView({
   const [dragId, setDragId] = useState<string | null>(null);
   const [overMember, setOverMember] = useState<string | null>(null);
 
+  /** Colonne membre réduite sur petit écran, largeur de jour garantie lisible. */
+  const memberColPx = compact ? 112 : 180;
+  const dayMinPx = compact ? 96 : 120;
+  const minGridPx = memberColPx + days.length * dayMinPx;
+  const tmpl = `${memberColPx}px repeat(${days.length}, minmax(0,1fr))`;
+
   function evtsFor(memberId: string, day: Date) {
     return events.filter((e) => e.start_at && sameDay(new Date(e.start_at), day) && (e.assigned_to ?? UNASSIGNED) === memberId);
   }
 
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="grid border-b border-border bg-background/95 text-xs" style={{ gridTemplateColumns: `180px repeat(${days.length}, minmax(0,1fr))` }}>
-        <div className="border-r border-border p-2 font-semibold uppercase tracking-wide text-muted-foreground">Membre</div>
-        {days.map((d, i) => {
-          const isToday = sameDay(d, new Date());
-          return (
-            <div key={i} className="border-l border-border px-2 py-2 text-center">
-              <div className="uppercase tracking-wide text-[10px] text-muted-foreground">{d.toLocaleDateString("fr-FR", { weekday: "short" })}</div>
-              <div className={cn("mx-auto mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", isToday && "bg-primary text-primary-foreground")}>{d.getDate()}</div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="divide-y divide-border">
-        {cols.map((c) => {
-          const wl = workloadMap.get(c.user_id) ?? { min: 0, count: 0 };
-          const isUnassigned = c.user_id === UNASSIGNED;
-          const b = workloadBadge(wl.min);
-          const isOver = overMember === c.user_id && dragId;
-          return (
-            <div key={c.user_id} className={cn("grid", isOver && "bg-primary/[0.06]")} style={{ gridTemplateColumns: `180px repeat(${days.length}, minmax(0,1fr))` }}
-              onDragOver={(e) => { if (canWrite && dragId) { e.preventDefault(); if (overMember !== c.user_id) setOverMember(c.user_id); } }}
-              onDragLeave={() => { if (overMember === c.user_id) setOverMember(null); }}
-              onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); setOverMember(null); onReassign(id, c.user_id); } }}>
-              <div className="border-r border-border p-2">
-                <div className={cn("truncate text-sm font-medium", isUnassigned && "text-muted-foreground")}>{c.name}</div>
-                <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <span>{fmtHrs(wl.min)} · {wl.count} évt</span>
-                  {!isUnassigned && wl.min > 0 && (
-                    <span className={cn("rounded-full border px-1.5 py-px font-medium", b.cls)}>{b.label}</span>
-                  )}
+    <Card data-team-root className="overflow-hidden p-0">
+      <div className="overflow-auto overscroll-x-contain" style={{ maxHeight: "72vh" }}>
+        <div style={{ minWidth: minGridPx }}>
+          <div className="sticky top-0 z-30 grid border-b border-border bg-background/95 text-xs backdrop-blur" style={{ gridTemplateColumns: tmpl }}>
+            <div className="sticky left-0 z-10 border-r border-border bg-background/95 p-2 font-semibold uppercase tracking-wide text-muted-foreground">Membre</div>
+            {days.map((d, i) => {
+              const isToday = sameDay(d, new Date());
+              return (
+                <div key={i} className="min-w-0 border-l border-border px-1 py-2 text-center">
+                  <div className="truncate uppercase tracking-wide text-[10px] text-muted-foreground">{d.toLocaleDateString("fr-FR", { weekday: "short" })}</div>
+                  <div className={cn("mx-auto mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", isToday && "bg-primary text-primary-foreground")}>{d.getDate()}</div>
                 </div>
-              </div>
-              {days.map((d, i) => {
-                const dayEvts = evtsFor(c.user_id, d);
-                return (
-                  <div key={i} className="min-h-[72px] border-l border-border p-1.5 text-xs">
-                    <div className="space-y-1">
-                      {dayEvts.map((e) => {
-                        const col = colorOf(e);
-                        const isSystem = e.event_type.startsWith("system_");
-                        const draggable = canWrite && !isSystem;
-                        const ann = e.status === "annule";
-                        return (
-                          <HoverCard key={e.id} openDelay={350} closeDelay={80}>
-                            <HoverCardTrigger asChild>
-                              <div
-                                draggable={draggable}
-                                onDragStart={() => { if (draggable) setDragId(e.id); }}
-                                onDragEnd={() => { setDragId(null); setOverMember(null); }}
-                                onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
-                                onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
-                                className={cn("flex items-center gap-1 truncate rounded px-1.5 py-1 text-[11px] font-medium",
-                                  ann && "line-through opacity-50",
-                                  e.status === "termine" && "opacity-75",
-                                  draggable && "cursor-grab active:cursor-grabbing",
-                                  conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
-                                style={{ background: col.bg, color: col.fg }}>
-                                {conflictIds.has(e.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
-                                {statusIcon(e.status)}
-                                {e.start_at && !e.all_day && <span className="opacity-90">{fmtTime(new Date(e.start_at))}</span>}
-                                <span className="truncate">{e.title}</span>
-
-                              </div>
-                            </HoverCardTrigger>
-                            <HoverCardContent side="right" align="start" className="w-72">
-                              <EventHoverContent evt={e} memberName={memberName} chantierName={chantierName} clientName={clientName} />
-                            </HoverCardContent>
-                          </HoverCard>
-                        );
-                      })}
-                    </div>
+              );
+            })}
+          </div>
+          <div className="divide-y divide-border">
+            {cols.map((c) => {
+              const wl = workloadMap.get(c.user_id) ?? { min: 0, count: 0 };
+              const isOver = overMember === c.user_id && dragId;
+              return (
+                <div key={c.user_id} className={cn("grid", isOver && "bg-primary/[0.06]")} style={{ gridTemplateColumns: tmpl }}
+                  onDragOver={(e) => { if (canWrite && dragId) { e.preventDefault(); if (overMember !== c.user_id) setOverMember(c.user_id); } }}
+                  onDragLeave={() => { if (overMember === c.user_id) setOverMember(null); }}
+                  onDrop={(e) => { e.preventDefault(); if (canWrite && dragId) { const id = dragId; setDragId(null); setOverMember(null); onReassign(id, c.user_id); } }}>
+                  <div data-team-head className="sticky left-0 z-10 min-w-0 border-r border-border bg-card p-2">
+                    <TeamMemberHead c={c} wl={wl} dense={compact} />
                   </div>
-                );
-              })}
-            </div>
-          );
-        })}
+                  {days.map((d, i) => {
+                    const dayEvts = evtsFor(c.user_id, d);
+                    return (
+                      <div key={i} className="min-h-[72px] min-w-0 border-l border-border p-1 text-xs">
+                        <div className="space-y-1">
+                          {dayEvts.map((e) => {
+                            const col = colorOf(e);
+                            const isSystem = e.event_type.startsWith("system_");
+                            const draggable = canWrite && !isSystem;
+                            const ann = e.status === "annule";
+                            return (
+                              <HoverCard key={e.id} openDelay={350} closeDelay={80}>
+                                <HoverCardTrigger asChild>
+                                  <div
+                                    data-evt
+                                    draggable={draggable}
+                                    onDragStart={() => { if (draggable) setDragId(e.id); }}
+                                    onDragEnd={() => { setDragId(null); setOverMember(null); }}
+                                    onClick={(ev) => { ev.stopPropagation(); onClickEvent(e); }}
+                                    onDoubleClick={(ev) => { ev.stopPropagation(); onDblClickEvent(e); }}
+                                    className={cn("flex min-h-[32px] items-center gap-1 overflow-hidden rounded px-1.5 py-1 text-[11px] font-medium",
+                                      ann && "line-through opacity-50",
+                                      e.status === "termine" && "opacity-75",
+                                      draggable && "cursor-grab active:cursor-grabbing",
+                                      conflictIds.has(e.id) && "ring-2 ring-red-500/80")}
+                                    style={{ background: col.bg, color: col.fg }}>
+                                    {conflictIds.has(e.id) && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                                    {statusIcon(e.status)}
+                                    {e.all_day
+                                      ? <span className="shrink-0 rounded-sm bg-white/25 px-1 text-[9px] font-bold">JOUR</span>
+                                      : (e.start_at && <span className="shrink-0 opacity-90">{fmtTime(new Date(e.start_at))}</span>)}
+                                    <span className="truncate">{e.title}</span>
+                                  </div>
+                                </HoverCardTrigger>
+                                <HoverCardContent side="right" align="start" collisionPadding={8} className="w-72 max-w-[calc(100vw-1rem)]">
+                                  <EventHoverContent evt={e} memberName={memberName} chantierName={chantierName} clientName={clientName} />
+                                </HoverCardContent>
+                              </HoverCard>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </Card>
   );
 }
-
