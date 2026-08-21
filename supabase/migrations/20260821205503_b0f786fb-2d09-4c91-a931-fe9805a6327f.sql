@@ -1,0 +1,1 @@
+DELETE FROM public.chantier_events WHERE title LIKE 'ZZAUDIT%' OR title LIKE 'ZZFOLD%';
