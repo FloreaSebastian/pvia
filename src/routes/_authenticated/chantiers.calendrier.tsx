@@ -1376,35 +1376,31 @@ function ChantierCalendarPage() {
       </Card>
       )}
 
-      {/* Mobile filters sheet — reuses the same filter controls */}
+      {/* Mobile filters sheet — scrollable body + sticky action footer */}
       <Sheet open={filtersAsSheet && filtersOpen} onOpenChange={(o) => { if (!o) setFiltersOpen(false); }}>
-        <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-2xl">
-          <SheetHeader>
+        <SheetContent side="bottom" className="flex max-h-[88vh] flex-col gap-0 overflow-hidden rounded-t-2xl p-0">
+          <SheetHeader className="shrink-0 border-b border-border/60 px-4 py-3">
             <SheetTitle className="flex items-center justify-between gap-2">
-              <span>Filtres</span>
-              {activeFilterCount > 0 && (
-                <Button size="sm" variant="ghost" onClick={resetFilters} className="h-7 gap-1 text-xs">
-                  <X className="h-3 w-3" /> Réinitialiser
-                </Button>
-              )}
+              <span className="truncate">Filtres{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}</span>
             </SheetTitle>
           </SheetHeader>
-          <div className="grid gap-2 pt-3">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div className="grid gap-2">
             <Select value={fChantier} onValueChange={setFChantier}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Chantier" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label="Filtrer par chantier" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Chantier" /></SelectTrigger>
+              <SelectContent className={selectContentCls}><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={fClient} onValueChange={setFClient}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Client" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label="Filtrer par client" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Client" /></SelectTrigger>
+              <SelectContent className={selectContentCls}><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={fType} onValueChange={setFType}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Type" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label="Filtrer par type" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectContent className={selectContentCls}><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={fStatus} onValueChange={setFStatus}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Statut" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger aria-label="Filtrer par statut" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectContent className={selectContentCls}>
                 <SelectItem value="all">Tous statuts</SelectItem>
                 <SelectItem value="prevu">Prévu</SelectItem><SelectItem value="en_cours">En cours</SelectItem>
                 <SelectItem value="termine">Terminé</SelectItem><SelectItem value="annule">Annulé</SelectItem>
@@ -1412,30 +1408,30 @@ function ChantierCalendarPage() {
               </SelectContent>
             </Select>
             <Select value={fAssigned} onValueChange={setFAssigned}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Assigné" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger aria-label="Filtrer par membre assigné" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Assigné" /></SelectTrigger>
+              <SelectContent className={selectContentCls}>
                 <SelectItem value="all">Tous membres</SelectItem>
                 {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={fColor} onValueChange={setFColor}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Couleur" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger aria-label="Filtrer par couleur" className={cn("min-w-0", filterFieldH)}><SelectValue placeholder="Couleur" /></SelectTrigger>
+              <SelectContent className={selectContentCls}>
                 <SelectItem value="all">Toutes couleurs</SelectItem>
                 {COLORS.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
-              <button type="button" onClick={() => setFOnlyUnassigned((v) => !v)}
-                className={cn("rounded-full border px-3 py-1.5 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+              <button type="button" aria-pressed={fOnlyUnassigned} onClick={() => setFOnlyUnassigned((v) => !v)}
+                className={cn("inline-flex min-h-11 items-center rounded-full border px-3 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
                 Non assignés
               </button>
-              <button type="button" onClick={() => setFHideDone((v) => !v)}
-                className={cn("rounded-full border px-3 py-1.5 transition", fHideDone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+              <button type="button" aria-pressed={fHideDone} onClick={() => setFHideDone((v) => !v)}
+                className={cn("inline-flex min-h-11 items-center rounded-full border px-3 transition", fHideDone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
                 Masquer terminés
               </button>
-              <button type="button" onClick={() => setFHideCancelled((v) => !v)}
-                className={cn("rounded-full border px-3 py-1.5 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
+              <button type="button" aria-pressed={fHideCancelled} onClick={() => setFHideCancelled((v) => !v)}
+                className={cn("inline-flex min-h-11 items-center rounded-full border px-3 transition", fHideCancelled ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>
                 Masquer annulés
               </button>
             </div>
@@ -1454,10 +1450,25 @@ function ChantierCalendarPage() {
                 })}
               </div>
             </div>
-            <Button onClick={() => setFiltersOpen(false)} className="mt-2 h-11">Appliquer</Button>
+            </div>
+          </div>
+          <div
+            className="shrink-0 border-t border-border/60 bg-background px-4 py-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <p className="mb-2 text-center text-[11px] text-muted-foreground" aria-live="polite">
+              {loading ? "Chargement…" : `${events.length} évènement${events.length > 1 ? "s" : ""} affiché${events.length > 1 ? "s" : ""}`}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="h-11" onClick={resetFilters} disabled={activeFilterCount === 0}>
+                Réinitialiser
+              </Button>
+              <Button className="h-11" onClick={() => setFiltersOpen(false)}>Appliquer</Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
+
 
 
 
