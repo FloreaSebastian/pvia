@@ -245,7 +245,7 @@ function ChantierCalendarPage() {
     () => Math.min(MAX_CUSTOM_DAYS, Math.max(1, daysBetween(customStart, customEnd))),
     [customStart, customEnd],
   );
-  const [events, setEvents] = useState<Evt[]>([]);
+  const [rawEvents, setRawEvents] = useState<Evt[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [chantiers, setChantiers] = useState<{ id: string; name: string; color?: string | null }[]>([]);
