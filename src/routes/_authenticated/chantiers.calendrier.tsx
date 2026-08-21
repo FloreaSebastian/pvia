@@ -816,7 +816,7 @@ function ChantierCalendarPage() {
                 aria-current={opt.active ? "true" : undefined}
                 onClick={opt.onSelect}
                 className={cn(
-                  "focus-ring min-h-9 min-w-0 flex-1 truncate rounded-md px-1 py-2 text-[12px] font-semibold transition",
+                  "focus-ring min-h-11 min-w-0 flex-1 truncate rounded-md px-1 py-2 text-[12px] font-semibold transition",
                   opt.active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground",
                 )}
               >
@@ -830,7 +830,7 @@ function ChantierCalendarPage() {
               type="button"
               onClick={() => setMoreOpen(true)}
               aria-current="true"
-              className="focus-ring inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-primary px-2 text-[12px] font-semibold text-primary-foreground"
+              className="focus-ring inline-flex h-11 shrink-0 items-center gap-1 rounded-lg bg-primary px-2 text-[12px] font-semibold text-primary-foreground"
             >
               {view === "team" ? <Users className="h-3.5 w-3.5" /> : <CalendarDays className="h-3.5 w-3.5" />}
               {view === "team" ? (teamMode === "day" ? "Équipe J" : "Équipe S") : "Perso."}
@@ -842,7 +842,7 @@ function ChantierCalendarPage() {
             onClick={() => setFiltersOpen(true)}
             aria-label={activeFilterCount > 0 ? `Filtres (${activeFilterCount} actifs)` : "Filtres"}
             title="Filtres"
-            className="relative h-9 w-9 shrink-0"
+            className="relative h-11 w-11 shrink-0"
           >
             <Filter className="h-4 w-4" />
             {activeFilterCount > 0 && (
