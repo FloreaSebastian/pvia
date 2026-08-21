@@ -808,7 +808,7 @@ function ChantierCalendarPage() {
                 aria-current={opt.active ? "true" : undefined}
                 onClick={opt.onSelect}
                 className={cn(
-                  "focus-ring min-w-0 flex-1 truncate rounded-md px-1 py-1.5 text-[12px] font-semibold transition",
+                  "focus-ring min-w-0 flex-1 truncate rounded-md px-1 py-2 text-[12px] font-semibold transition",
                   opt.active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground",
                 )}
               >
