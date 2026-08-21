@@ -1078,16 +1078,27 @@ function ChantierCalendarPage() {
           <div className="min-w-0 flex-1 truncate text-sm font-semibold capitalize sm:min-w-[180px] sm:text-base">{periodLabel}</div>
         </div>
         <div className="flex flex-1 items-center gap-2 lg:max-w-md">
-          <Popover open={search.trim().length >= 2 && searchResults.length > 0} onOpenChange={(o) => { if (!o) setSearch(""); }}>
+          <Popover open={search.trim().length >= 2} onOpenChange={(o) => { if (!o) setSearch(""); }}>
             <PopoverTrigger asChild>
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Rechercher un chantier, un client ou un événement"
                   placeholder="Rechercher un chantier, client ou événement…"
-                  className="h-9 pl-8"
+                  className="h-9 pl-8 pr-8"
                 />
+                {search.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    aria-label="Effacer la recherche"
+                    className="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-[min(420px,90vw)] p-1" onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -1106,15 +1117,22 @@ function ChantierCalendarPage() {
                             {e.start_at && !e.all_day && ` · ${fmtTime(new Date(e.start_at))}`}
                             {e.chantier_id && ` · ${chantierName(e.chantier_id)}`}
                             {e.client_id && ` · ${clientName(e.client_id)}`}
+                            {e.location && ` · ${e.location}`}
                           </span>
                         </span>
                       </button>
                     </li>
                   );
                 })}
+                {searchResults.length === 0 && (
+                  <li className="px-2 py-4 text-center text-xs text-muted-foreground">
+                    Aucun résultat sur la période affichée.
+                  </li>
+                )}
               </ul>
             </PopoverContent>
           </Popover>
+
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {(["month","week","day","team","custom"] as const).map((v) => (
