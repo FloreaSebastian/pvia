@@ -771,32 +771,34 @@ function ChantierCalendarPage() {
        *  Les fonctions secondaires vivent dans le Sheet « Plus ».
        * ============================================================ */}
       <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur lg:hidden">
-        {/* Ligne 1 */}
+        {/* Ligne 1 — cibles tactiles 44 × 44 px */}
         <div className="flex items-center gap-0.5 px-1 pt-1 xs:gap-1">
-          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Période précédente" className="h-10 w-9 shrink-0 fold:w-10">
-            <ChevronLeft className="h-4 w-4" />
+          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Période précédente" className="h-11 w-11 shrink-0">
+            <ChevronLeft className="h-5 w-5" />
           </Button>
           <button
             type="button"
             onClick={() => setCursor(new Date())}
-            className="focus-ring min-w-0 flex-1 truncate rounded-md px-1 text-center text-[15px] font-semibold capitalize leading-tight"
+            className="focus-ring min-h-11 min-w-0 flex-1 truncate rounded-md px-1 text-center text-[15px] font-semibold capitalize leading-tight"
             title={`${periodLabel} — revenir à aujourd'hui`}
             aria-label={`${periodLabel}. Revenir à aujourd'hui`}
           >
             {foldWide ? periodLabel : compactPeriodLabel}
           </button>
-          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Période suivante" className="h-10 w-9 shrink-0 fold:w-10">
-            <ChevronRight className="h-4 w-4" />
+          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Période suivante" className="h-11 w-11 shrink-0">
+            <ChevronRight className="h-5 w-5" />
           </Button>
-          <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher un événement" title="Rechercher" className="h-10 w-9 shrink-0 fold:w-10">
-            <Search className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" onClick={() => setMoreOpen(true)} aria-label="Plus d'options du calendrier" title="Plus d'options" className="h-10 w-9 shrink-0 fold:w-10">
-            <MoreHorizontal className="h-4 w-4" />
+          {!ultraCompact && (
+            <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher un événement" title="Rechercher" className="h-11 w-11 shrink-0">
+              <Search className="h-5 w-5" />
+            </Button>
+          )}
+          <Button size="icon" variant="ghost" onClick={() => setMoreOpen(true)} aria-label="Plus d'options du calendrier" title="Plus d'options" className="h-11 w-11 shrink-0">
+            <MoreHorizontal className="h-5 w-5" />
           </Button>
           {canWrite && (
-            <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" title="Nouvel événement" className="h-10 w-9 shrink-0 shadow-brand fold:w-10">
-              <Plus className="h-4 w-4" />
+            <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" title="Nouvel événement" className="h-11 w-11 shrink-0 shadow-brand">
+              <Plus className="h-5 w-5" />
             </Button>
           )}
         </div>
