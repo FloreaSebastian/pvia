@@ -697,9 +697,13 @@ function ChantierDetailPage() {
           contained={false}
           className="border-0 bg-transparent px-0 py-0"
           actions={
-            {/* !flex-auto : neutralise le `flex: 0 0 auto` de .action-row pour
-                autoriser le retour à la ligne des actions sous 1440 px. */}
-            <div className="!flex-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+            // flex:1 1 auto en inline neutralise le `flex:0 0 auto` de .action-row
+            // et autorise le retour à la ligne des actions entre 768 et 1440 px.
+            <div
+              style={{ flex: "1 1 auto" }}
+              className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+            >
+
 
 
               <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/chantiers" })}>
