@@ -2337,8 +2337,10 @@ function TimeGridView({
             )}
           </div>
         </div>
+        </div>
       </div>
     </Card>
+
   );
 }
 
