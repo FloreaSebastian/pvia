@@ -527,15 +527,16 @@ function ChantierCalendarPage() {
   const memberName = useCallback((id: string | null | undefined) => id ? (membersById.get(id)?.name ?? "—") : null, [membersById]);
 
   const searchResults = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     if (q.length < 2) return [];
     return events
       .filter((e) => {
-        const hay = `${e.title} ${chantierName(e.chantier_id)} ${clientName(e.client_id)}`.toLowerCase();
+        const hay = `${e.title} ${chantierName(e.chantier_id)} ${clientName(e.client_id)} ${e.location ?? ""} ${memberName(e.assigned_to) ?? ""} ${TYPE_LABELS[e.event_type] ?? ""}`.toLowerCase();
         return hay.includes(q);
       })
-      .slice(0, 10);
-  }, [events, search, chantierName, clientName]);
+      .slice(0, 20);
+  }, [events, deferredSearch, chantierName, clientName, memberName]);
+
 
   function openQuick(e: Evt) {
     if (e.event_type.startsWith("system_")) return;
