@@ -736,7 +736,8 @@ function ChantierCalendarPage() {
                 type="button"
                 onClick={() => applyDefaultViewPreset(opt.key)}
                 className={cn(
-                  "h-8 min-w-[26px] rounded-[5px] px-1 text-[11px] font-semibold transition",
+                  // Largeur intrinsèque réduite < 360px : la barre entière tient dans 320px sans overflow.
+                  "h-8 min-w-[22px] rounded-[5px] px-0.5 text-[11px] font-semibold transition sm:min-w-[26px] sm:px-1",
                   isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
                 )}
               >
