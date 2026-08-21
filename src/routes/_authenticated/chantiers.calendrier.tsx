@@ -220,6 +220,31 @@ function ChantierCalendarPage() {
 
   const [customStart, setCustomStart] = useState(() => toLocalInput(new Date()).slice(0,10));
   const [customEnd, setCustomEnd] = useState(() => toLocalInput(addDays(new Date(), 4)).slice(0,10));
+  /**
+   * Limite déjà appliquée en aval par la grille horaire (31 colonnes max).
+   * On la rend explicite ici pour éviter un libellé qui annonce plus de jours
+   * que la grille n'en affiche réellement.
+   */
+  const MAX_CUSTOM_DAYS = 31;
+  const daysBetween = (a: string, b: string) =>
+    Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000) + 1;
+  /** Applique une plage en garantissant fin ≥ début et une durée ≤ MAX_CUSTOM_DAYS. */
+  const applyCustomRange = useCallback((start: string, end: string, edited: "start" | "end") => {
+    if (!start || !end) { setCustomStart(start); setCustomEnd(end); return; }
+    let s = start, e = end;
+    if (daysBetween(s, e) < 1) {
+      if (edited === "start") e = s; else s = e;
+    }
+    if (daysBetween(s, e) > MAX_CUSTOM_DAYS) {
+      if (edited === "start") e = toLocalInput(addDays(new Date(s + "T00:00:00"), MAX_CUSTOM_DAYS - 1)).slice(0, 10);
+      else s = toLocalInput(addDays(new Date(e + "T00:00:00"), -(MAX_CUSTOM_DAYS - 1))).slice(0, 10);
+    }
+    setCustomStart(s); setCustomEnd(e);
+  }, []);
+  const customDayCount = useMemo(
+    () => Math.min(MAX_CUSTOM_DAYS, Math.max(1, daysBetween(customStart, customEnd))),
+    [customStart, customEnd],
+  );
   const [events, setEvents] = useState<Evt[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -682,6 +707,7 @@ function ChantierCalendarPage() {
     }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00"); const b = new Date(customEnd + "T00:00:00");
+      if (a.getTime() === b.getTime()) return a.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
       return `${a.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${b.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
     }
     return "Liste";
@@ -694,9 +720,14 @@ function ChantierCalendarPage() {
    */
   const compactPeriodLabel = useMemo(() => {
     const dm = (d: Date) => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    const nn = (d: Date) => d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
     const range = (a: Date, b: Date) =>
-      a.getMonth() === b.getMonth()
+      a.getTime() === b.getTime()
+        ? dm(a)
+        : a.getMonth() === b.getMonth()
         ? `${a.getDate()}–${b.getDate()} ${b.toLocaleDateString("fr-FR", { month: "short" })}`
+        : ultraCompact
+        ? `${nn(a)}–${nn(b)}`
         : `${dm(a)} – ${dm(b)}`;
     if (view === "month") return cursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
     if (view === "day") return dm(cursor);
@@ -712,7 +743,7 @@ function ChantierCalendarPage() {
       return range(new Date(customStart + "T00:00:00"), new Date(customEnd + "T00:00:00"));
     }
     return periodLabel;
-  }, [view, cursor, customStart, customEnd, teamMode, weekDays, periodLabel]);
+  }, [view, cursor, customStart, customEnd, teamMode, weekDays, periodLabel, ultraCompact]);
 
 
 
@@ -778,6 +809,7 @@ function ChantierCalendarPage() {
           </Button>
           <button
             type="button"
+            data-period-title
             onClick={() => setCursor(new Date())}
             className="focus-ring min-h-11 min-w-0 flex-1 truncate rounded-md px-1 text-center text-[15px] font-semibold capitalize leading-tight"
             title={`${periodLabel} — revenir à aujourd'hui`}
@@ -1129,20 +1161,51 @@ function ChantierCalendarPage() {
 
 
       {view === "custom" && (
-        <Card className="flex flex-wrap items-end gap-3 p-3">
-          <div><Label className="text-xs">Du</Label><Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-9" /></div>
-          <div><Label className="text-xs">Au</Label><Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-9" /></div>
-          <div className="flex flex-wrap gap-1">
-            {[
-              { label: "Lun → Ven", days: 4, from: startOfWeek(new Date()) },
-              { label: "3 jours", days: 2, from: new Date() },
-              { label: "10 jours", days: 9, from: new Date() },
-            ].map((p) => (
-              <Button key={p.label} size="sm" variant="outline" onClick={() => {
-                setCustomStart(toLocalInput(p.from).slice(0,10));
-                setCustomEnd(toLocalInput(addDays(p.from, p.days)).slice(0,10));
-              }}>{p.label}</Button>
-            ))}
+        <Card data-custom-picker className="p-2.5 sm:p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
+            {/* Les deux dates côte à côte : évite la carte "3 lignes" sous 400 px. */}
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:contents">
+              <div className="min-w-0 sm:w-auto">
+                <Label htmlFor="custom-start" className="text-xs">Du</Label>
+                <Input
+                  id="custom-start" type="date" value={customStart}
+                  onChange={(e) => applyCustomRange(e.target.value, customEnd, "start")}
+                  className={cn("w-full", denseTouch ? "h-11" : "h-9")}
+                />
+              </div>
+              <div className="min-w-0 sm:w-auto">
+                <Label htmlFor="custom-end" className="text-xs">Au</Label>
+                <Input
+                  id="custom-end" type="date" value={customEnd}
+                  onChange={(e) => applyCustomRange(customStart, e.target.value, "end")}
+                  className={cn("w-full", denseTouch ? "h-11" : "h-9")}
+                />
+              </div>
+            </div>
+            {/* Raccourcis : une seule ligne scrollable sur mobile, cibles 44 px. */}
+            <div className="flex max-w-full gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible">
+              {[
+                { label: "Aujourd'hui", days: 0, from: new Date() },
+                { label: "3 jours", days: 2, from: new Date() },
+                { label: "Lun → Ven", days: 4, from: startOfWeek(new Date()) },
+                { label: "7 jours", days: 6, from: new Date() },
+                { label: "10 jours", days: 9, from: new Date() },
+              ].map((p) => (
+                <Button
+                  key={p.label} size="sm" variant="outline"
+                  className={cn("shrink-0", denseTouch && "h-11 px-3")}
+                  onClick={() => applyCustomRange(
+                    toLocalInput(p.from).slice(0, 10),
+                    toLocalInput(addDays(p.from, p.days)).slice(0, 10),
+                    "start",
+                  )}
+                >{p.label}</Button>
+              ))}
+            </div>
+            <div aria-live="polite" className="text-xs text-muted-foreground sm:ml-auto sm:pb-2">
+              {customDayCount} jour{customDayCount > 1 ? "s" : ""} affiché{customDayCount > 1 ? "s" : ""}
+              {customDayCount === MAX_CUSTOM_DAYS && <span className="ml-1">(maximum)</span>}
+            </div>
           </div>
         </Card>
       )}
