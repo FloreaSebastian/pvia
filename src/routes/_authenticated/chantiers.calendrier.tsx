@@ -1288,20 +1288,20 @@ function ChantierCalendarPage() {
       <Card className="grid gap-2 p-2 md:grid-cols-6">
 
         <Select value={fChantier} onValueChange={setFChantier}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Chantier" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label="Filtrer par chantier" className="h-9 min-w-0"><SelectValue placeholder="Chantier" /></SelectTrigger>
+          <SelectContent className={selectContentCls}><SelectItem value="all">Tous chantiers</SelectItem>{chantiers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={fClient} onValueChange={setFClient}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Client" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label="Filtrer par client" className="h-9 min-w-0"><SelectValue placeholder="Client" /></SelectTrigger>
+          <SelectContent className={selectContentCls}><SelectItem value="all">Tous clients</SelectItem>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={fType} onValueChange={setFType}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Type" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label="Filtrer par type" className="h-9 min-w-0"><SelectValue placeholder="Type" /></SelectTrigger>
+          <SelectContent className={selectContentCls}><SelectItem value="all">Tous types</SelectItem>{Object.entries(TYPE_LABELS).map(([k,l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={fStatus} onValueChange={setFStatus}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger aria-label="Filtrer par statut" className="h-9 min-w-0"><SelectValue placeholder="Statut" /></SelectTrigger>
+          <SelectContent className={selectContentCls}>
             <SelectItem value="all">Tous statuts</SelectItem>
             <SelectItem value="prevu">Prévu</SelectItem><SelectItem value="en_cours">En cours</SelectItem>
             <SelectItem value="termine">Terminé</SelectItem><SelectItem value="annule">Annulé</SelectItem>
@@ -1309,22 +1309,23 @@ function ChantierCalendarPage() {
           </SelectContent>
         </Select>
         <Select value={fAssigned} onValueChange={setFAssigned}>
-          <SelectTrigger className="h-9"><SelectValue placeholder="Assigné" /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger aria-label="Filtrer par membre assigné" className="h-9 min-w-0"><SelectValue placeholder="Assigné" /></SelectTrigger>
+          <SelectContent className={selectContentCls}>
             <SelectItem value="all">Tous membres</SelectItem>
             {members.map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 items-center gap-1">
           <Select value={fColor} onValueChange={setFColor}>
-            <SelectTrigger className="h-9"><SelectValue placeholder="Couleur" /></SelectTrigger>
-            <SelectContent>
+            <SelectTrigger aria-label="Filtrer par couleur" className="h-9 min-w-0"><SelectValue placeholder="Couleur" /></SelectTrigger>
+            <SelectContent className={selectContentCls}>
               <SelectItem value="all">Toutes couleurs</SelectItem>
               {COLORS.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button size="icon" variant="ghost" onClick={resetFilters} aria-label="Réinitialiser"><X className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" onClick={resetFilters} disabled={activeFilterCount === 0} aria-label="Réinitialiser les filtres"><X className="h-4 w-4" /></Button>
         </div>
+
         <div className="col-span-full flex flex-wrap items-center gap-2 border-t border-border/60 pt-2 text-xs">
           <button type="button" onClick={() => setFOnlyUnassigned((v) => !v)}
             className={cn("rounded-full border px-2.5 py-1 transition", fOnlyUnassigned ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
