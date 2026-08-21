@@ -707,6 +707,7 @@ function ChantierCalendarPage() {
     }
     if (view === "custom") {
       const a = new Date(customStart + "T00:00:00"); const b = new Date(customEnd + "T00:00:00");
+      if (a.getTime() === b.getTime()) return a.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
       return `${a.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})} – ${b.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}`;
     }
     return "Liste";
@@ -720,7 +721,9 @@ function ChantierCalendarPage() {
   const compactPeriodLabel = useMemo(() => {
     const dm = (d: Date) => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
     const range = (a: Date, b: Date) =>
-      a.getMonth() === b.getMonth()
+      a.getTime() === b.getTime()
+        ? dm(a)
+        : a.getMonth() === b.getMonth()
         ? `${a.getDate()}–${b.getDate()} ${b.toLocaleDateString("fr-FR", { month: "short" })}`
         : `${dm(a)} – ${dm(b)}`;
     if (view === "month") return cursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
