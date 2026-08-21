@@ -720,11 +720,14 @@ function ChantierCalendarPage() {
    */
   const compactPeriodLabel = useMemo(() => {
     const dm = (d: Date) => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    const nn = (d: Date) => d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
     const range = (a: Date, b: Date) =>
       a.getTime() === b.getTime()
         ? dm(a)
         : a.getMonth() === b.getMonth()
         ? `${a.getDate()}–${b.getDate()} ${b.toLocaleDateString("fr-FR", { month: "short" })}`
+        : ultraCompact
+        ? `${nn(a)}–${nn(b)}`
         : `${dm(a)} – ${dm(b)}`;
     if (view === "month") return cursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
     if (view === "day") return dm(cursor);
@@ -1161,7 +1164,7 @@ function ChantierCalendarPage() {
         <Card data-custom-picker className="p-2.5 sm:p-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
             {/* Les deux dates côte à côte : évite la carte "3 lignes" sous 400 px. */}
-            <div className="grid grid-cols-2 gap-2 sm:contents">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:contents">
               <div className="min-w-0 sm:w-auto">
                 <Label htmlFor="custom-start" className="text-xs">Du</Label>
                 <Input
@@ -1180,7 +1183,7 @@ function ChantierCalendarPage() {
               </div>
             </div>
             {/* Raccourcis : une seule ligne scrollable sur mobile, cibles 44 px. */}
-            <div className="-mx-2.5 flex gap-1.5 overflow-x-auto px-2.5 pb-0.5 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+            <div className="flex max-w-full gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible">
               {[
                 { label: "Aujourd'hui", days: 0, from: new Date() },
                 { label: "3 jours", days: 2, from: new Date() },
