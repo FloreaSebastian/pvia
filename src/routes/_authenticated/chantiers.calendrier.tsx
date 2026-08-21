@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil, AlertTriangle, Users, Maximize2, Minimize2, CheckCircle2, Clock, Filter, ZoomIn, Eye } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil, AlertTriangle, Users, Maximize2, Minimize2, CheckCircle2, Clock, Filter, ZoomIn, Eye, MoreHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -235,6 +235,7 @@ function ChantierCalendarPage() {
   const [weekDays, setWeekDays] = useState<WeekDays>(() => (initial.weekDays ?? lsGet<WeekDays>(LS.weekDays, 7)));
   const [filtersOpen, setFiltersOpen] = useState<boolean>(() => lsGet(LS.filtersOpen, false));
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const hourPx = ZOOM_LEVELS[zoom];
 
   useEffect(() => { lsSet(LS.fs, fullscreen); }, [fullscreen]);
@@ -750,8 +751,7 @@ function ChantierCalendarPage() {
             title={`${periodLabel} — revenir à aujourd'hui`}
             aria-label={`${periodLabel}. Revenir à aujourd'hui`}
           >
-            <span className="fold:hidden">{compactPeriodLabel}</span>
-            <span className="hidden fold:inline">{periodLabel}</span>
+            {foldWide ? periodLabel : compactPeriodLabel}
           </button>
           <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Période suivante" className="h-10 w-10 shrink-0">
             <ChevronRight className="h-4 w-4" />
