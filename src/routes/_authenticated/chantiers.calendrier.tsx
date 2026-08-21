@@ -352,9 +352,7 @@ function ChantierCalendarPage() {
       if (fOnlyUnassigned) list = list.filter((e) => !e.assigned_to);
       if (fHideDone) list = list.filter((e) => e.status !== "termine");
       if (fHideCancelled) list = list.filter((e) => e.status !== "annule");
-      // ZZTEST-INJECT
-      const zzt = (window as unknown as { __PVIA_TEST__?: { events?: Evt[] } }).__PVIA_TEST__;
-      setEvents(zzt?.events ?? list);
+      setEvents(list);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chargement impossible");
     } finally { setLoading(false); }
@@ -376,9 +374,7 @@ function ChantierCalendarPage() {
       if (mode === "type" || mode === "chantier") setColorMode(mode);
       try {
         const r = await fetchMembers({ data: { companyId: activeCompanyId } });
-        // ZZTEST-INJECT
-        const zzm = (window as unknown as { __PVIA_TEST__?: { members?: { user_id: string; name: string }[] } }).__PVIA_TEST__;
-        setMembers(zzm?.members ?? r.members);
+        setMembers(r.members);
       } catch { /* non-blocking */ }
     })();
   }, [activeCompanyId, fetchMembers]);
