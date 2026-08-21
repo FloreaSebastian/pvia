@@ -731,73 +731,199 @@ function ChantierCalendarPage() {
         />
       </div>
 
-      {/* Mobile compact toolbar — single 48px bar, Google Calendar style */}
-      <div className="sticky top-0 z-30 flex items-center gap-0.5 border-b border-border bg-background/95 px-1 py-1 backdrop-blur lg:hidden">
-        <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Précédent" className="h-9 w-8 shrink-0 sm:w-9">
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <button
-          type="button"
-          onClick={() => setCursor(new Date())}
-          className="min-w-0 flex-1 truncate px-1 text-center text-[13px] font-semibold capitalize"
-          title="Aujourd'hui"
-        >
-          {periodLabel}
-        </button>
-        <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Suivant" className="h-9 w-8 shrink-0 sm:w-9">
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <div className="ml-0.5 inline-flex shrink-0 rounded-md border border-border bg-muted/40 p-0.5">
-          {([
-            { key: "day" as const, label: "J" },
-            { key: "week3" as const, label: "3J" },
-            { key: "week" as const, label: "S" },
-            { key: "month" as const, label: "M" },
-          ]).map((opt) => {
-            const isActive =
-              (opt.key === "day" && view === "day") ||
-              (opt.key === "month" && view === "month") ||
-              (opt.key === "week" && view === "week" && weekDays !== 3) ||
-              (opt.key === "week3" && view === "week" && weekDays === 3);
-            return (
+      {/* ============================================================
+       *  Toolbar mobile / Fold — architecture 2 niveaux
+       *  Ligne 1 : navigation + période + recherche + Plus + création
+       *  Ligne 2 : sélecteur de vue (Jour / 3 jours / Semaine / Mois [+ avancées sur Fold])
+       *  Les fonctions secondaires vivent dans le Sheet « Plus ».
+       * ============================================================ */}
+      <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur lg:hidden">
+        {/* Ligne 1 */}
+        <div className="flex items-center gap-1 px-1 pt-1">
+          <Button size="icon" variant="ghost" onClick={() => nav(-1)} aria-label="Période précédente" className="h-10 w-10 shrink-0">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <button
+            type="button"
+            onClick={() => setCursor(new Date())}
+            className="focus-ring min-w-0 flex-1 truncate rounded-md px-1 text-center text-[15px] font-semibold capitalize leading-tight"
+            title={`${periodLabel} — revenir à aujourd'hui`}
+            aria-label={`${periodLabel}. Revenir à aujourd'hui`}
+          >
+            <span className="fold:hidden">{compactPeriodLabel}</span>
+            <span className="hidden fold:inline">{periodLabel}</span>
+          </button>
+          <Button size="icon" variant="ghost" onClick={() => nav(1)} aria-label="Période suivante" className="h-10 w-10 shrink-0">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher un événement" className="h-10 w-10 shrink-0">
+            <Search className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant={activeFilterCount > 0 ? "secondary" : "ghost"}
+            onClick={() => setFiltersOpen(true)}
+            aria-label={activeFilterCount > 0 ? `Filtres (${activeFilterCount} actifs)` : "Filtres"}
+            title="Filtres"
+            className="relative h-10 w-10 shrink-0"
+          >
+            <Filter className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+          <Button size="icon" variant="ghost" onClick={() => setMoreOpen(true)} aria-label="Plus d'options du calendrier" title="Plus" className="h-10 w-10 shrink-0">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+          {canWrite && (
+            <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" title="Nouvel événement" className="h-10 w-10 shrink-0 shadow-brand">
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Ligne 2 — sélecteur de vue */}
+        <div className="flex items-center gap-1 px-1 pb-1 pt-1">
+          <div role="tablist" aria-label="Vue du calendrier" className="flex min-w-0 flex-1 rounded-lg border border-border bg-muted/40 p-0.5">
+            {mobileViewSegments.map((opt) => (
               <button
                 key={opt.key}
                 type="button"
-                onClick={() => applyDefaultViewPreset(opt.key)}
+                role="tab"
+                aria-selected={opt.active}
+                aria-current={opt.active ? "true" : undefined}
+                onClick={opt.onSelect}
                 className={cn(
-                  // Largeur intrinsèque réduite < 360px : la barre entière tient dans 320px sans overflow.
-                  "h-8 min-w-[22px] rounded-[5px] px-0.5 text-[11px] font-semibold transition sm:min-w-[26px] sm:px-1",
-                  isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground"
+                  "focus-ring min-w-0 flex-1 truncate rounded-md px-1 py-1.5 text-[12px] font-semibold transition",
+                  opt.active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground",
                 )}
               >
                 {opt.label}
               </button>
-            );
-          })}
-        </div>
-        <Button size="icon" variant="ghost" onClick={() => setMobileSearchOpen(true)} aria-label="Rechercher" className="h-9 w-8 shrink-0 sm:w-9">
-          <Search className="h-4 w-4" />
-        </Button>
-        <Button
-          size="icon"
-          variant={activeFilterCount > 0 ? "secondary" : "ghost"}
-          onClick={() => setFiltersOpen(true)}
-          aria-label="Filtres"
-          className="relative h-9 w-8 shrink-0 sm:w-9"
-        >
-          <Filter className="h-4 w-4" />
-          {activeFilterCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-              {activeFilterCount}
-            </span>
+            ))}
+          </div>
+          {/* Vue avancée active hors Fold : l'état reste sans ambiguïté */}
+          {!foldWide && (view === "team" || view === "custom") && (
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              aria-current="true"
+              className="focus-ring inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-primary px-2 text-[12px] font-semibold text-primary-foreground"
+            >
+              {view === "team" ? <Users className="h-3.5 w-3.5" /> : <CalendarDays className="h-3.5 w-3.5" />}
+              {view === "team" ? (teamMode === "day" ? "Équipe J" : "Équipe S") : "Perso."}
+            </button>
           )}
-        </Button>
-        {canWrite && (
-          <Button size="icon" onClick={() => openNew(new Date())} aria-label="Nouvel événement" className="h-9 w-8 shrink-0 shadow-brand sm:w-9">
-            <Plus className="h-4 w-4" />
-          </Button>
-        )}
+        </div>
       </div>
+
+      {/* Sheet « Plus » — vues avancées + options secondaires (mobile / Fold) */}
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <SheetHeader>
+            <SheetTitle>Options du calendrier</SheetTitle>
+          </SheetHeader>
+
+          <div className="space-y-5 pt-4">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vues avancées</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={view === "team" ? "default" : "outline"}
+                  className="h-11 justify-start gap-2"
+                  aria-current={view === "team" ? "true" : undefined}
+                  onClick={() => { setView("team"); setMoreOpen(false); }}
+                >
+                  <Users className="h-4 w-4" /> Équipe
+                </Button>
+                <Button
+                  variant={view === "custom" ? "default" : "outline"}
+                  className="h-11 justify-start gap-2"
+                  aria-current={view === "custom" ? "true" : undefined}
+                  onClick={() => { setView("custom"); setMoreOpen(false); }}
+                >
+                  <CalendarDays className="h-4 w-4" /> Personnalisé
+                </Button>
+              </div>
+            </div>
+
+            {view === "team" && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mode Équipe</p>
+                <div role="group" aria-label="Mode Équipe" className="flex gap-2">
+                  {(["day", "week"] as const).map((m) => (
+                    <Button
+                      key={m}
+                      variant={teamMode === m ? "default" : "outline"}
+                      aria-current={teamMode === m ? "true" : undefined}
+                      className="h-11 flex-1"
+                      onClick={() => setTeamMode(m)}
+                    >
+                      {m === "day" ? "Jour" : "Semaine"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(view === "week" || (view === "team" && teamMode === "week")) && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Jours affichés</p>
+                <div role="group" aria-label="Jours affichés dans la semaine" className="flex gap-2">
+                  {([3, 5, 6, 7] as const).map((d) => (
+                    <Button
+                      key={d}
+                      variant={weekDays === d ? "default" : "outline"}
+                      aria-current={weekDays === d ? "true" : undefined}
+                      className="h-11 flex-1"
+                      onClick={() => setWeekDays(d)}
+                    >
+                      {d}j
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(view === "week" || view === "day" || view === "custom" || view === "team") && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Zoom</p>
+                <div role="group" aria-label="Niveau de zoom" className="flex gap-2">
+                  {(["compact", "normal", "confort"] as const).map((z) => (
+                    <Button
+                      key={z}
+                      variant={zoom === z ? "default" : "outline"}
+                      aria-current={zoom === z ? "true" : undefined}
+                      className="h-11 flex-1 capitalize"
+                      onClick={() => setZoom(z)}
+                    >
+                      {z}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="h-11 justify-start gap-2" onClick={() => { setCursor(new Date()); setMoreOpen(false); }}>
+                <CalendarDays className="h-4 w-4" /> Aujourd'hui
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11 justify-start gap-2"
+                aria-pressed={fullscreen}
+                onClick={() => { setFullscreen((v) => !v); setMoreOpen(false); }}
+              >
+                {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                {fullscreen ? "Quitter plein écran" : "Plein écran"}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
 
       {/* Mobile search sheet */}
       <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
