@@ -1,0 +1,1 @@
+revoke all on function public.company_members_governance_guard() from public, anon, authenticated;
