@@ -167,52 +167,88 @@ function RecentPvCard({ recent }: { recent: Pv[] }) {
 }
 
 function Dashboard() {
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, can } = useCompany();
+  const canWrite = can("manage");
   const [stats, setStats] = useState<Stats>({ pv: 0, signed: 0, pending: 0, openReserves: 0 });
   const [recent, setRecent] = useState<Pv[]>([]);
   const [chantiers, setChantiers] = useState<Ch[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [trendData, setTrendData] = useState<{ created_at: string }[]>([]);
+  const [signedTrend, setSignedTrend] = useState<{ created_at: string }[]>([]);
+  const [pendingTrend, setPendingTrend] = useState<{ created_at: string }[]>([]);
+  const [reservesTrend, setReservesTrend] = useState<{ created_at: string }[]>([]);
+  const [prevPvCount, setPrevPvCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!activeCompanyId) return;
+    let cancelled = false;
     (async () => {
       setLoaded(false);
       const base = () => supabase.from("pv").select("id", { count: "exact", head: true }).eq("company_id", activeCompanyId);
       const since = new Date(Date.now() - 14 * 86400000).toISOString();
-      const [pv, signed, pending, reserves, rec, chs, trend] = await Promise.all([
-        base(),
-        base().eq("status", "signe"),
-        base().eq("status", "brouillon"),
-        supabase.from("pv_reserves").select("id", { count: "exact", head: true }).eq("status", "ouverte").eq("company_id", activeCompanyId),
-        supabase.from("pv").select("id,numero,status,created_at,reception_date").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(6),
-        supabase.from("chantiers").select("id,name,status,address,created_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(4),
-        supabase.from("pv").select("created_at").eq("company_id", activeCompanyId).gte("created_at", since),
-      ]);
+      const prevSince = new Date(Date.now() - 28 * 86400000).toISOString();
+      const [pv, signed, pending, reserves, rec, chs, trend, prevTrend, signedRows, pendingRows, openReserveRows] =
+        await Promise.all([
+          base(),
+          base().eq("status", "signe"),
+          base().eq("status", "brouillon"),
+          supabase.from("pv_reserves").select("id", { count: "exact", head: true }).eq("status", "ouverte").eq("company_id", activeCompanyId),
+          supabase.from("pv").select("id,numero,status,created_at,reception_date,signed_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(6),
+          supabase.from("chantiers").select("id,name,status,address,created_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(4),
+          supabase.from("pv").select("created_at").eq("company_id", activeCompanyId).gte("created_at", since),
+          supabase.from("pv").select("id", { count: "exact", head: true }).eq("company_id", activeCompanyId).gte("created_at", prevSince).lt("created_at", since),
+          supabase.from("pv").select("signed_at").eq("company_id", activeCompanyId).eq("status", "signe").gte("signed_at", since),
+          supabase.from("pv").select("created_at").eq("company_id", activeCompanyId).eq("status", "brouillon").gte("created_at", since),
+          supabase.from("pv_reserves").select("created_at").eq("company_id", activeCompanyId).eq("status", "ouverte").gte("created_at", since),
+        ]);
+      if (cancelled) return;
       setStats({
         pv: pv.count ?? 0,
         signed: signed.count ?? 0,
         pending: pending.count ?? 0,
         openReserves: reserves.count ?? 0,
       });
-      setRecent(rec.data ?? []);
+      setRecent((rec.data ?? []) as Pv[]);
       setChantiers(chs.data ?? []);
       setTrendData(trend.data ?? []);
+      setPrevPvCount(prevTrend.count ?? 0);
+      setSignedTrend(
+        ((signedRows.data ?? []) as { signed_at: string | null }[])
+          .filter((r) => !!r.signed_at)
+          .map((r) => ({ created_at: r.signed_at as string })),
+      );
+      setPendingTrend((pendingRows.data ?? []) as { created_at: string }[]);
+      setReservesTrend((openReserveRows.data ?? []) as { created_at: string }[]);
 
-      const acts: Activity[] = (rec.data ?? []).slice(0, 5).map((p) => ({
+      const acts: Activity[] = ((rec.data ?? []) as Pv[]).slice(0, 5).map((p) => ({
         id: p.id,
         type: "pv",
         label: p.status === "signe" ? `PV ${p.numero} signé` : `PV ${p.numero} créé`,
-        at: p.created_at,
+        // Un PV signé est daté de sa signature, pas de sa création.
+        at: (p.status === "signe" && p.signed_at) || p.created_at,
       }));
       setActivity(acts);
       setLoaded(true);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [activeCompanyId]);
 
   const series14 = useMemo(() => buildDailySeries(trendData, 14), [trendData]);
+  const signedSeries = useMemo(() => buildDailySeries(signedTrend, 14), [signedTrend]);
+  const pendingSeries = useMemo(() => buildDailySeries(pendingTrend, 14), [pendingTrend]);
+  const reservesSeries = useMemo(() => buildDailySeries(reservesTrend, 14), [reservesTrend]);
   const max14 = Math.max(1, ...series14);
+
+  /** Évolution réelle des PV créés : 14 derniers jours vs les 14 précédents. */
+  const pvDelta = useMemo(() => {
+    const current = trendData.length;
+    if (prevPvCount === 0) return current > 0 ? `+${current} sur 14 j` : "Aucun PV sur 14 j";
+    const pct = Math.round(((current - prevPvCount) / prevPvCount) * 100);
+    return `${pct >= 0 ? "+" : ""}${pct}% vs 14 j précédents`;
+  }, [trendData.length, prevPvCount]);
 
   const kpis = [
     {
@@ -221,8 +257,9 @@ function Dashboard() {
       icon: FileText,
       tone: "text-primary",
       bg: "bg-primary/10",
-      trend: "+12% ce mois",
+      trend: pvDelta,
       spark: series14,
+      sparkLabel: "PV créés par jour sur 14 jours",
     },
     {
       label: "PV signés",
@@ -231,7 +268,8 @@ function Dashboard() {
       tone: "text-success",
       bg: "bg-success/10",
       trend: `${stats.pv ? Math.round((stats.signed / stats.pv) * 100) : 0}% de taux`,
-      spark: series14.map((v) => Math.round(v * 0.7)),
+      spark: signedSeries,
+      sparkLabel: "PV signés par jour sur 14 jours",
     },
     {
       label: "PV en attente",
@@ -239,8 +277,9 @@ function Dashboard() {
       icon: Clock,
       tone: "text-warning",
       bg: "bg-warning/10",
-      trend: "À finaliser",
-      spark: series14.map((v, i) => (i % 2 ? v : Math.max(0, v - 1))),
+      trend: stats.pending > 0 ? "Brouillons à finaliser" : "Rien à finaliser",
+      spark: pendingSeries,
+      sparkLabel: "Brouillons créés par jour sur 14 jours",
     },
     {
       label: "Réserves ouvertes",
@@ -248,10 +287,12 @@ function Dashboard() {
       icon: AlertCircle,
       tone: "text-destructive",
       bg: "bg-destructive/10",
-      trend: "À traiter",
-      spark: series14.map((v) => Math.max(0, v - 1)),
+      trend: stats.openReserves > 0 ? "À traiter" : "Aucune réserve ouverte",
+      spark: reservesSeries,
+      sparkLabel: "Réserves ouvertes créées par jour sur 14 jours",
     },
   ];
+
 
   return (
     <div className="space-y-6">
