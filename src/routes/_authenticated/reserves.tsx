@@ -1085,7 +1085,7 @@ function ReserveCard({
             checked={selected}
             onCheckedChange={onToggleSelect}
             aria-label="Sélectionner la réserve"
-            className="relative before:absolute before:-inset-3 before:content-[''] sm:before:hidden"
+            className="relative before:absolute before:-inset-[14px] before:content-[''] sm:before:hidden"
           />
         </span>
 
