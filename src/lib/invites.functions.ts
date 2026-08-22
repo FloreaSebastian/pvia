@@ -82,6 +82,13 @@ export const sendInvite = createServerFn({ method: "POST" })
       throw new Error("Vous n'avez pas les droits pour inviter des membres.");
     }
 
+    // Auto-invitation impossible
+    const callerEmail = ((context.claims as any)?.email as string | undefined)?.toLowerCase();
+    if (callerEmail && callerEmail === data.email) {
+      throw new Error("Vous faites déjà partie de cette entreprise.");
+    }
+
+
     // Plan quota: max members per plan
     await assertCanAddMember(data.companyId);
 
