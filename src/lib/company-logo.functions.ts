@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { isAdminRole } from "@/lib/roles";
 import { z } from "zod";
+import { parseInput } from "@/lib/zod-errors";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
@@ -116,7 +117,7 @@ async function cleanupOldBrandingFiles(companyId: string, kind: "logo" | "icon",
  */
 export const uploadCompanyLogo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => InputSchema.parse(i))
+  .inputValidator((i) => parseInput(InputSchema, i))
   .handler(async ({ data, context }) => {
     const userId = context.userId;
     const kind = data.kind ?? "logo";
@@ -191,7 +192,7 @@ const DeleteSchema = z.object({
 
 export const deleteCompanyVisual = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => DeleteSchema.parse(i))
+  .inputValidator((i) => parseInput(DeleteSchema, i))
   .handler(async ({ data, context }) => {
     const userId = context.userId;
     await assertAdmin(data.companyId, userId);
