@@ -40,10 +40,22 @@ async function assertCompanyMember(companyId: string, userId: string) {
 
 const CheckoutSchema = z.object({
   companyId: z.string().uuid(),
-  priceId: z.enum(["starter_monthly", "pro_monthly", "enterprise_monthly"]),
+  priceId: z.enum([
+    "starter_monthly",
+    "starter_annual",
+    "pro_monthly",
+    "pro_annual",
+    "business_monthly",
+    "business_annual",
+  ]),
   environment: EnvSchema,
   returnUrl: z.string().url(),
 });
+
+/** price lookup_key → clé de plan interne. */
+function priceIdToPlan(priceId: string): "starter" | "pro" | "business" {
+  return priceId.split("_")[0] as "starter" | "pro" | "business";
+}
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -52,6 +64,25 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const { userId, supabase } = context;
     await assertCompanyAdmin(data.companyId, userId);
 
+    // Garde-fou downgrade : on refuse un plan dont le nombre de sièges est
+    // inférieur à la consommation actuelle (membres actifs + invitations).
+    const targetPlan = priceIdToPlan(data.priceId);
+    const [{ data: targetLimits }, { data: seatUsage }] = await Promise.all([
+      supabaseAdmin
+        .from("plan_limits")
+        .select("max_members,display_name")
+        .eq("plan", targetPlan)
+        .maybeSingle(),
+      supabaseAdmin.rpc("get_company_seat_usage" as never, { _company_id: data.companyId } as never),
+    ]);
+    const maxMembers = (targetLimits as any)?.max_members as number | null | undefined;
+    const used = Number(seatUsage ?? 0);
+    if (maxMembers != null && used > maxMembers) {
+      throw new Error(
+        `Le plan ${(targetLimits as any)?.display_name ?? targetPlan} est limité à ${maxMembers} utilisateur${maxMembers > 1 ? "s" : ""}, or votre entreprise en compte ${used} (invitations en attente incluses). Retirez des utilisateurs avant de rétrograder.`,
+      );
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     const email = user?.email ?? undefined;
 
@@ -59,6 +90,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const prices = await stripe.prices.list({ lookup_keys: [data.priceId], limit: 1 });
     const price = prices.data[0];
     if (!price) throw new Error(`Tarif ${data.priceId} introuvable.`);
+
 
     // Reuse existing customer if any
     const { data: existing } = await supabaseAdmin
