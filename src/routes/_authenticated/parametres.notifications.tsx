@@ -216,12 +216,14 @@ function NotificationsSettings() {
               </div>
             </div>
           </div>
+          <span className="-m-2 grid h-11 w-11 shrink-0 place-items-center">
           <Switch
             aria-label="Activer les notifications sur cet appareil"
             checked={enabled}
             disabled={!supported || loading || permission === "denied"}
             onCheckedChange={(v) => (v ? enable() : disable())}
           />
+          </span>
         </div>
         {enabled && (
           <div className="mt-4">
@@ -295,12 +297,14 @@ function NotificationsSettings() {
               <div className="text-sm font-medium">Envoyer une copie à l'entreprise</div>
               <p className="text-xs text-muted-foreground">Le PDF signé est aussi envoyé à votre adresse principale.</p>
             </div>
+            <span className="-m-2 grid h-11 w-11 shrink-0 place-items-center">
             <Switch
               aria-label="Envoyer une copie du PV signé à l'entreprise"
               checked={sendCompanyCopy}
               disabled={!canEditEmails}
               onCheckedChange={setSendCompanyCopy}
             />
+            </span>
           </div>
 
           <div className="space-y-1.5">
@@ -441,7 +445,7 @@ function EmailList({
                 type="button"
                 disabled={disabled}
                 onClick={() => setEmails(emails.filter((x) => x !== e))}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full hover:bg-destructive/20 disabled:opacity-40"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-destructive/20 disabled:opacity-40"
                 aria-label={`Retirer ${e}`}
               >
                 <X className="h-3.5 w-3.5" />
