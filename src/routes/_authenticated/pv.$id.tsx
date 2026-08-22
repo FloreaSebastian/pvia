@@ -823,7 +823,7 @@ function PvDetail() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {(liftStatus === "pending" || liftStatus === "partial") && (
-                  <Button size="sm" onClick={() => {
+                  <Button size="sm" className="h-11 sm:h-8" onClick={() => {
                     const open = reserves.filter((r) => ["ouverte", "en_cours", "rejetee"].includes(r.status));
                     if (open.length === 0) { toast.error("Aucune réserve ouverte à lever."); return; }
                     setLiftPreselectedId(null);
@@ -1197,7 +1197,7 @@ function DescriptionBlock({ label, text }: { label: string; text: string | null 
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-1 text-xs font-medium text-primary hover:underline"
+          className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-primary hover:underline sm:min-h-0"
         >
           {expanded ? "Voir moins" : "Voir plus"}
         </button>
