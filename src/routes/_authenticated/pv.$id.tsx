@@ -539,19 +539,29 @@ function PvDetail() {
           </div>
         </div>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Link to="/pv" className="hover:text-foreground">Procès-verbaux</Link>
-            <ChevronRight className="h-3 w-3" />
-            <span>N° {pv.numero}</span>
-          </div>
-          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight">N° {pv.numero}</h1>
+      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <Link
+            to="/pv"
+            className="-ml-1 inline-flex min-h-11 items-center gap-1.5 px-1 text-xs text-muted-foreground hover:text-foreground lg:min-h-0"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 shrink-0" /> Procès-verbaux
+          </Link>
+          <h1
+            className="break-anywhere mt-0.5 font-display text-[clamp(1.125rem,5vw,1.5rem)] font-bold leading-tight tracking-tight"
+            title={pv.numero}
+          >
+            N° {pv.numero}
+          </h1>
+          <p className="mt-1 min-w-0 break-words text-xs text-muted-foreground">
+            {[chantierName, clientName].filter(Boolean).join(" · ") || "Chantier / client non renseignés"}
+          </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Créé le {new Date(pv.created_at).toLocaleDateString("fr-FR")}
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
+            <PvStatusPill status={pv.status} />
             {pv.locked_at && (
               <StatusPill tone="success" icon={<ShieldCheck />} size="sm">Verrouillé</StatusPill>
             )}
@@ -563,10 +573,9 @@ function PvDetail() {
             )}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
+        <div className="flex min-w-0 flex-wrap gap-2 [&>*]:min-h-11 [&_button]:min-h-11 lg:[&>*]:min-h-0 lg:[&_button]:min-h-0">
           {!pv.client_signature && !pv.locked_at && (
-            <Button onClick={openSendDialog}>
+            <Button onClick={openSendDialog} className="w-full sm:w-auto">
               <Send className="h-4 w-4" /> {pv.signature_mode === "remote" && pv.status === "en_attente" ? "Renvoyer le lien de signature" : "Envoyer au client pour signature"}
             </Button>
           )}
