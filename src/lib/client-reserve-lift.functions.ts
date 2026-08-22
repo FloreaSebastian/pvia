@@ -283,7 +283,7 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
   .inputValidator((d) => ValidateSchema.parse(d))
   .handler(async ({ data }) => {
     const s = await requireSession();
-    const ip = getClientIp() ?? "unknown";
+    const ip = getClientIp();
     const ua = getClientUA();
 
     await enforceRateLimit({
@@ -511,7 +511,7 @@ export const rejectReserveLiftAsClient = createServerFn({ method: "POST" })
   .inputValidator((d) => RejectSchema.parse(d))
   .handler(async ({ data }) => {
     const s = await requireSession();
-    const ip = getClientIp() ?? "unknown";
+    const ip = getClientIp();
     const ua = getClientUA();
 
     await enforceRateLimit({
