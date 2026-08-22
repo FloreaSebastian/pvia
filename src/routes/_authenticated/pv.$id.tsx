@@ -24,7 +24,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
@@ -161,6 +171,8 @@ function PvDetail() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [sendEmail, setSendEmail] = useState("");
   const [sendingClient, setSendingClient] = useState(false);
   const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
@@ -445,13 +457,18 @@ function PvDetail() {
   async function deletePv() {
     if (!pv) return;
     if (pv.locked_at) return toast.error("Ce PV est signé et verrouillé — suppression interdite.");
-    if (!confirm("Supprimer définitivement ce PV ainsi que ses photos et réserves ?")) return;
+    setDeleting(true);
     const snapshot = { numero: pv.numero, status: pv.status, type: pv.type };
     // delete dependents (RLS scoped to owner)
     await supabase.from("pv_photos").delete().eq("pv_id", pv.id);
     await supabase.from("pv_reserves").delete().eq("pv_id", pv.id);
     const { error } = await supabase.from("pv").delete().eq("id", pv.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      setDeleting(false);
+      return toast.error(error.message);
+    }
+    setDeleting(false);
+    setDeleteOpen(false);
     if (pv.company_id) {
       logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "pv", entityId: pv.id, action: "pv.delete", oldValues: snapshot } }).catch(() => {});
     }
@@ -539,19 +556,29 @@ function PvDetail() {
           </div>
         </div>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Link to="/pv" className="hover:text-foreground">Procès-verbaux</Link>
-            <ChevronRight className="h-3 w-3" />
-            <span>N° {pv.numero}</span>
-          </div>
-          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight">N° {pv.numero}</h1>
+      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <Link
+            to="/pv"
+            className="-ml-1 inline-flex min-h-11 items-center gap-1.5 px-1 text-xs text-muted-foreground hover:text-foreground lg:min-h-0"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 shrink-0" /> Procès-verbaux
+          </Link>
+          <h1
+            className="break-anywhere mt-0.5 font-display text-[clamp(1.125rem,5vw,1.5rem)] font-bold leading-tight tracking-tight"
+            title={pv.numero}
+          >
+            N° {pv.numero}
+          </h1>
+          <p className="mt-1 line-clamp-2 min-w-0 break-words text-xs text-muted-foreground" title={[chantierName, clientName].filter(Boolean).join(" · ") || undefined}>
+            {[chantierName, clientName].filter(Boolean).join(" · ") || "Chantier / client non renseignés"}
+          </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Créé le {new Date(pv.created_at).toLocaleDateString("fr-FR")}
             {pv.signed_at && ` · Signé le ${new Date(pv.signed_at).toLocaleDateString("fr-FR")}`}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
+            <PvStatusPill status={pv.status} />
             {pv.locked_at && (
               <StatusPill tone="success" icon={<ShieldCheck />} size="sm">Verrouillé</StatusPill>
             )}
@@ -563,10 +590,9 @@ function PvDetail() {
             )}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/pv"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Retour</Button></Link>
+        <div className="flex min-w-0 flex-wrap gap-2 [&>*]:min-h-11 [&_button]:min-h-11 lg:[&>*]:min-h-0 lg:[&_button]:min-h-0">
           {!pv.client_signature && !pv.locked_at && (
-            <Button onClick={openSendDialog}>
+            <Button onClick={openSendDialog} className="w-full sm:w-auto">
               <Send className="h-4 w-4" /> {pv.signature_mode === "remote" && pv.status === "en_attente" ? "Renvoyer le lien de signature" : "Envoyer au client pour signature"}
             </Button>
           )}
@@ -602,7 +628,7 @@ function PvDetail() {
             <Button variant="outline"><ShieldCheck className="h-4 w-4" /> Historique légal</Button>
           </Link>
           {!pv.locked_at && (
-            <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
           )}
         </div>
       </div>
@@ -628,11 +654,11 @@ function PvDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Envoyer au client pour signature</DialogTitle>
+            <DialogDescription>
+              Un email professionnel sera envoyé à votre client avec un lien sécurisé pour consulter et signer ce PV en ligne. Aucun compte n'est requis.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Un email professionnel sera envoyé à votre client avec un lien sécurisé pour consulter et signer ce PV en ligne. Aucun compte n'est requis.
-            </p>
             <div>
               <Label htmlFor="client-email">Email du client</Label>
               <Input id="client-email" type="email" value={sendEmail} onChange={(e) => setSendEmail(e.target.value)} placeholder="client@exemple.fr" className="mt-1.5" />
@@ -660,15 +686,15 @@ function PvDetail() {
       </Dialog>
 
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-6 lg:col-span-2 space-y-5">
-          <div className="flex items-center justify-between">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3 [&>*]:min-w-0">
+        <Card className="min-w-0 p-4 sm:p-6 lg:col-span-2 space-y-5">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">Informations</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <PvStatusPill status={pv.status} />
               {!pv.locked_at && (pv.status === "brouillon" || pv.status === "archive") ? (
                 <Select value={pv.status} onValueChange={changeStatus}>
-                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Changer le statut du PV" className="h-11 w-40 max-w-full text-xs sm:h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="brouillon">Brouillon</SelectItem>
                     <SelectItem value="archive">Archivé</SelectItem>
@@ -681,7 +707,7 @@ function PvDetail() {
               )}
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 text-sm">
+          <div className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
             <Info label="Type">{pv.type}</Info>
             <Info label="Date de réception">{pv.reception_date ? new Date(pv.reception_date).toLocaleDateString("fr-FR") : "—"}</Info>
             <Info label="Chantier">{chantierName ?? "—"}</Info>
@@ -723,7 +749,7 @@ function PvDetail() {
           )}
         </Card>
 
-        <Card className="p-4 space-y-3">
+        <Card className="min-w-0 overflow-hidden p-4 space-y-3">
           <h3 className="font-semibold text-sm">Signatures</h3>
           <CompactSignature
             label="Client"
@@ -797,7 +823,7 @@ function PvDetail() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {(liftStatus === "pending" || liftStatus === "partial") && (
-                  <Button size="sm" onClick={() => {
+                  <Button size="sm" className="h-11 sm:h-8" onClick={() => {
                     const open = reserves.filter((r) => ["ouverte", "en_cours", "rejetee"].includes(r.status));
                     if (open.length === 0) { toast.error("Aucune réserve ouverte à lever."); return; }
                     setLiftPreselectedId(null);
@@ -866,12 +892,12 @@ function PvDetail() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 sm:shrink-0">
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
                             Détails
                           </Button>
                           {(r.status === "ouverte" || r.status === "en_cours" || r.status === "rejetee") && (
                             <Button
-                              size="sm" variant="outline" className="h-8"
+                              size="sm" variant="outline" className="h-11 sm:h-8"
                               onClick={() => {
                                 if (r.status === "validee") { toast.error("Cette réserve est déjà validée."); return; }
                                 if (r.status === "en_attente_validation") { toast.error("Cette réserve est en attente de validation."); return; }
@@ -883,7 +909,14 @@ function PvDetail() {
                               <CheckCircle2 className="h-3.5 w-3.5" /> Lever
                             </Button>
                           )}
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-11 w-11 sm:h-8 sm:w-8"
+                            aria-label={`Supprimer la réserve : ${r.description.slice(0, 60)}`}
+                            title="Supprimer la réserve"
+                            onClick={() => deleteReserve(r.id)}
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -946,34 +979,34 @@ function PvDetail() {
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {editable && (
-                          <Button size="sm" variant="default" className="h-8" onClick={() => { setLiftPreselectedId(null); setLiftDialogOpen(true); }}>
+                          <Button size="sm" variant="default" className="h-11 sm:h-8" onClick={() => { setLiftPreselectedId(null); setLiftDialogOpen(true); }}>
                             <Pencil className="h-3.5 w-3.5" /> Reprendre
                           </Button>
                         )}
                         {hasClientPdf && !editable && (
-                          <Button size="sm" variant={validated ? "default" : "outline"} className="h-8" onClick={() => downloadLiftPdf(l.id, "client")}>
+                          <Button size="sm" variant={validated ? "default" : "outline"} className="h-11 sm:h-8" onClick={() => downloadLiftPdf(l.id, "client")}>
                             <Download className="h-3.5 w-3.5" /> PDF client
                           </Button>
                         )}
                         {l.pdf_internal_url && !editable && canViewInternal && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement (rôles : directeur, responsable, conducteur, assistant)">
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement (rôles : directeur, responsable, conducteur, assistant)">
                             <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
                         {!editable && canViewInternal && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail — réservé aux rôles opérationnels">
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail — réservé aux rôles opérationnels">
                             {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
                             Export expertise
                           </Button>
                         )}
                         {validated && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
                             Renvoyer
                           </Button>
                         )}
                         {display === "envoyee_client" && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                             Relancer
                           </Button>
@@ -982,7 +1015,7 @@ function PvDetail() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8"
+                            className="h-11 sm:h-8"
                             onClick={() => handleReopenLift(l.id)}
                             disabled={reopeningLiftId === l.id}
                             title="Réouvrir (directeur / responsable d'exploitation uniquement, avant validation client)"
@@ -992,7 +1025,7 @@ function PvDetail() {
                           </Button>
                         )}
                         {rejected && (
-                          <Button size="sm" variant="default" className="h-8" onClick={handleNewAttemptAfterRejection}>
+                          <Button size="sm" variant="default" className="h-11 sm:h-8" onClick={handleNewAttemptAfterRejection}>
                             <PlusCircle className="h-3.5 w-3.5" />
                             Nouvelle tentative
                           </Button>
@@ -1045,6 +1078,26 @@ function PvDetail() {
           </div>
         )}
       </Card>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le PV n° {pv.numero} ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est définitive : le procès-verbal n° {pv.numero}, ses photos et ses réserves seront supprimés.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); deletePv(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Suppression…" : "Supprimer définitivement"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ReserveDetailDialog
         open={!!reserveDetail}
         onOpenChange={(o) => !o && setReserveDetail(null)}
@@ -1100,16 +1153,16 @@ function labelForType(t: string) {
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1">{children}</p>
+      <p className="mt-1 break-anywhere">{children}</p>
     </div>
   );
 }
 
 function CompactSignature({ label, data, name, date }: { label: string; data: string | null; name: string | null; date: string | null }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-border bg-muted/20 p-2">
+    <div className="flex min-w-0 items-center gap-3 overflow-hidden rounded-md border border-border bg-muted/20 p-2">
       <div className="grid h-10 w-20 shrink-0 place-items-center overflow-hidden rounded bg-background">
         {data ? (
           <img src={data} alt={`Signature ${label}`} className="max-h-full max-w-full object-contain" />
@@ -1119,7 +1172,7 @@ function CompactSignature({ label, data, name, date }: { label: string; data: st
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
-        <div className="truncate text-sm font-medium">{name ?? "—"}</div>
+        <div className="truncate text-sm font-medium" title={name ?? undefined}>{name ?? "—"}</div>
         {data && date && (
           <div className="text-[11px] text-muted-foreground">
             {new Date(date).toLocaleDateString("fr-FR")} · {new Date(date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
@@ -1135,16 +1188,16 @@ function DescriptionBlock({ label, text }: { label: string; text: string | null 
   const value = text?.trim() || "";
   const isLong = value.length > 220 || value.split("\n").length > 3;
   return (
-    <div>
+    <div className="min-w-0">
       <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm ${!expanded && isLong ? "line-clamp-3" : ""}`}>
+      <p className={`break-anywhere whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm ${!expanded && isLong ? "line-clamp-3" : ""}`}>
         {value || "—"}
       </p>
       {isLong && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-1 text-xs font-medium text-primary hover:underline"
+          className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-primary hover:underline sm:min-h-0"
         >
           {expanded ? "Voir moins" : "Voir plus"}
         </button>
