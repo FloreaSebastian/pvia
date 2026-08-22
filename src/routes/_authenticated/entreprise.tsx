@@ -960,24 +960,24 @@ function CompanyPage() {
           )}
 
           <DialogFooter className="flex-row justify-between sm:justify-between">
-            <Button variant="ghost" size="sm" onClick={() => setSyncOpen(false)}>Annuler</Button>
+            <Button variant="ghost" size="sm" className="h-11 sm:h-9" onClick={() => setSyncOpen(false)}>Annuler</Button>
             <div className="flex gap-2">
               {syncStep > 1 && (
-                <Button variant="outline" size="sm" onClick={() => setSyncStep((syncStep - 1) as 1 | 2 | 3)} disabled={syncBusy}>
+                <Button variant="outline" size="sm" className="h-11 sm:h-9" onClick={() => setSyncStep((syncStep - 1) as 1 | 2 | 3)} disabled={syncBusy}>
                   Retour
                 </Button>
               )}
               {syncStep === 1 && (
-                <Button size="sm" onClick={runPreview} disabled={syncBusy || syncQuery.length < 9}>
+                <Button size="sm" className="h-11 sm:h-9" onClick={runPreview} disabled={syncBusy || syncQuery.length < 9} aria-busy={syncBusy}>
                   {syncBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Rechercher
                 </Button>
               )}
               {syncStep === 2 && (
-                <Button size="sm" onClick={() => setSyncStep(3)}>Continuer</Button>
+                <Button size="sm" className="h-11 sm:h-9" onClick={() => setSyncStep(3)}>Continuer</Button>
               )}
               {syncStep === 3 && (
-                <Button size="sm" onClick={confirmSync} disabled={syncBusy}>
+                <Button size="sm" className="h-11 sm:h-9" onClick={confirmSync} disabled={syncBusy} aria-busy={syncBusy}>
                   {syncBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                   Confirmer
                 </Button>
