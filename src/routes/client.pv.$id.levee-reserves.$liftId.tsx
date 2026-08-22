@@ -142,20 +142,24 @@ function ClientLiftDetail() {
           Réserves levées ({items.length})
         </h2>
         <ul className="space-y-3">
-          {items.map((it: any) => (
-            <li key={it.id} className="rounded-lg border border-border p-3">
+          {items.map((it: any, itemIdx: number) => (
+            <li key={it.id} className="min-w-0 rounded-lg border border-border p-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-medium">{it.reserve?.description ?? "(réserve supprimée)"}</p>
-                <Badge variant="outline" className="text-[10px]">{it.reserve?.severity}</Badge>
+                <p className="min-w-0 flex-1 text-sm font-medium [overflow-wrap:anywhere]">
+                  {it.reserve?.description ?? "(réserve supprimée)"}
+                </p>
+                {it.reserve?.severity && (
+                  <Badge variant="outline" className="shrink-0 text-[10px]">{it.reserve.severity}</Badge>
+                )}
               </div>
               {it.reserve?.nature && (
-                <p className="mt-1 text-xs text-muted-foreground">Nature : {it.reserve.nature}</p>
+                <p className="mt-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">Nature : {it.reserve.nature}</p>
               )}
               {it.reserve?.work_to_execute && (
-                <p className="mt-1 text-xs text-muted-foreground">Travaux prévus : {it.reserve.work_to_execute}</p>
+                <p className="mt-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">Travaux prévus : {it.reserve.work_to_execute}</p>
               )}
               {it.comment && (
-                <p className="mt-2 rounded-md bg-muted/50 p-2 text-xs">
+                <p className="mt-2 whitespace-pre-line rounded-md bg-muted/50 p-2 text-xs [overflow-wrap:anywhere]">
                   <strong>Travaux réalisés :</strong> {it.comment}
                 </p>
               )}
@@ -174,17 +178,41 @@ function ClientLiftDetail() {
                           {title} ({subset.length})
                         </div>
                         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                          {subset.map((p: any) => (
-                            <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="relative block overflow-hidden rounded-md border">
-                              <img src={p.url} alt="Justificatif" className="aspect-square w-full object-cover" loading="lazy" />
+                          {subset.map((p: any, photoIdx: number) => (
+                            <a
+                              key={p.id}
+                              href={p.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`Agrandir la photo ${photoIdx + 1} sur ${subset.length} — ${title.toLowerCase()}, réserve ${itemIdx + 1}`}
+                              className="relative block min-h-11 min-w-11 overflow-hidden rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                              <img
+                                src={p.url}
+                                alt={`${title} — photo ${photoIdx + 1} de la réserve ${itemIdx + 1}`}
+                                className="aspect-square w-full bg-muted object-cover"
+                                loading="lazy"
+                                decoding="async"
+                                onError={(e) => {
+                                  const el = e.currentTarget;
+                                  el.style.visibility = "hidden";
+                                  el.parentElement?.setAttribute("data-photo-error", "true");
+                                }}
+                              />
+                              <span className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-muted px-1 text-center text-[9px] leading-tight text-muted-foreground [a[data-photo-error]_&]:flex">
+                                Photo indisponible
+                              </span>
                               {p.isGeolocated && (
-                                <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
-                                  📍 Photo géolocalisée
+                                <span
+                                  title="Photo géolocalisée"
+                                  className="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white"
+                                >
+                                  📍
                                 </span>
                               )}
-                              {p.takenAt && (
-                                <span className="absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
-                                  {new Date(p.takenAt).toLocaleDateString("fr-FR")}
+                              {fmtDate(p.takenAt) && (
+                                <span className="absolute right-1 top-1 max-w-[calc(100%-0.5rem)] truncate rounded bg-black/60 px-1 py-0.5 text-[9px] text-white">
+                                  {fmtDate(p.takenAt)}
                                 </span>
                               )}
                             </a>
@@ -197,6 +225,7 @@ function ClientLiftDetail() {
               )}
             </li>
           ))}
+
         </ul>
       </Card>
 
