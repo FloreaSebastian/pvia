@@ -42,6 +42,18 @@ export const Route = createFileRoute("/client/pv/$id/levee-reserves/$liftId")({
   }),
 });
 
+/** Formate une date en fr-FR, en évitant tout "Invalid Date" affiché à l'écran. */
+function fmtDate(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("fr-FR");
+}
+function fmtDateTime(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleString("fr-FR");
+}
+
 function ClientLiftDetail() {
   const { id: pvId, liftId } = Route.useParams();
   const { session } = Route.useLoaderData();
@@ -112,11 +124,11 @@ function ClientLiftDetail() {
         <div className="flex flex-wrap items-center gap-2">
           {isValidated ? (
             <Badge className="gap-1 bg-success/15 text-success hover:bg-success/15">
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Validée le {new Date(report.client_validated_at!).toLocaleDateString("fr-FR")}
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Validée le {fmtDate(report.client_validated_at)}
             </Badge>
           ) : isRejected ? (
             <Badge variant="destructive" className="gap-1">
-              <XCircle className="h-3.5 w-3.5 shrink-0" /> Rejetée le {new Date((report as any).client_rejected_at!).toLocaleDateString("fr-FR")}
+              <XCircle className="h-3.5 w-3.5 shrink-0" /> Rejetée le {fmtDate((report as any).client_rejected_at)}
             </Badge>
           ) : (
             <Badge variant="outline">En attente de validation</Badge>
@@ -185,7 +197,7 @@ function ClientLiftDetail() {
                               target="_blank"
                               rel="noreferrer"
                               aria-label={`Agrandir la photo ${photoIdx + 1} sur ${subset.length} — ${title.toLowerCase()}, réserve ${itemIdx + 1}`}
-                              className="relative block min-h-11 min-w-11 overflow-hidden rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              className="group relative block min-h-11 min-w-11 overflow-hidden rounded-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
                               <img
                                 src={p.url}
@@ -199,7 +211,7 @@ function ClientLiftDetail() {
                                   el.parentElement?.setAttribute("data-photo-error", "true");
                                 }}
                               />
-                              <span className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-muted px-1 text-center text-[9px] leading-tight text-muted-foreground [a[data-photo-error]_&]:flex">
+                              <span className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-muted px-1 text-center text-[9px] leading-tight text-muted-foreground group-data-[photo-error=true]:flex">
                                 Photo indisponible
                               </span>
                               {p.isGeolocated && (
@@ -261,7 +273,7 @@ function ClientLiftDetail() {
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Validée le {new Date(report.client_validated_at!).toLocaleString("fr-FR")} par {(report as any).client_signature_email ?? report.client_validated_email ?? session.email}.
+                Validée le {fmtDateTime(report.client_validated_at)} par {(report as any).client_signature_email ?? report.client_validated_email ?? session.email}.
               </p>
               {(report as any).client_signature && (
                 <div className="mt-3">
@@ -288,7 +300,7 @@ function ClientLiftDetail() {
             <div className="min-w-0 flex-1">
               <p className="font-semibold">Levée rejetée</p>
               <p className="text-sm text-muted-foreground">
-                Rejetée le {new Date((report as any).client_rejected_at!).toLocaleString("fr-FR")} par {(report as any).client_rejected_email ?? session.email}.
+                Rejetée le {fmtDateTime((report as any).client_rejected_at)} par {(report as any).client_rejected_email ?? session.email}.
               </p>
               {(report as any).client_rejected_reason && (
                 <p className="mt-3 whitespace-pre-line rounded-md border border-destructive/20 bg-background p-3 text-sm">
