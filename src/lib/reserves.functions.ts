@@ -147,6 +147,8 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
       }
     }
 
+    assertTransition(prev.status, data.status, role);
+
     if (data.status === "rejetee" && !data.reason?.trim()) {
       throw new Error("Un motif est requis pour rejeter une réserve.");
     }
@@ -193,6 +195,8 @@ export const assignReserve = createServerFn({ method: "POST" })
     if (!MANAGE_ROLES.includes(role)) {
       throw new Error("Droits insuffisants (conducteur requis).");
     }
+
+    if (data.assignedTo) await assertMemberOfCompany(supabase, data.companyId, data.assignedTo);
 
     const patch: Database["public"]["Tables"]["pv_reserves"]["Update"] = {
       assigned_to: data.assignedTo,
@@ -252,6 +256,21 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
       throw new Error("Droits insuffisants (conducteur requis).");
     }
 
+    if (data.assignedTo) await assertMemberOfCompany(supabase, data.companyId, data.assignedTo);
+
+    // Restreindre aux réserves réellement possédées par l'entreprise appelante
+    const { data: owned } = await supabase
+      .from("pv_reserves")
+      .select("id,status")
+      .eq("company_id", data.companyId)
+      .in("id", data.ids);
+    const ownedRows = (owned ?? []) as { id: string; status: string }[];
+    if (ownedRows.length === 0) throw new Error("Aucune réserve concernée.");
+    if (data.status) {
+      for (const r of ownedRows) assertTransition(r.status, data.status, role);
+    }
+    const ownedIds = ownedRows.map((r) => r.id);
+
     const patch: Database["public"]["Tables"]["pv_reserves"]["Update"] = {};
     if (data.status) patch.status = data.status;
     if (data.assignedTo !== undefined) patch.assigned_to = data.assignedTo;
@@ -262,7 +281,7 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
       .from("pv_reserves")
       .update(patch)
 
-      .in("id", data.ids)
+      .in("id", ownedIds)
       .eq("company_id", data.companyId);
     if (error) throw new Error(error.message);
 
@@ -272,9 +291,9 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
       entityType: "reserve",
       action: "reserve.bulk_updated",
       newValues: patch,
-      metadata: { ids: data.ids, count: data.ids.length, role },
+      metadata: { ids: ownedIds, count: ownedIds.length, role },
     });
-    return { ok: true, count: data.ids.length };
+    return { ok: true, count: ownedIds.length };
   });
 
 // ---------------------------------------------------------------------------
