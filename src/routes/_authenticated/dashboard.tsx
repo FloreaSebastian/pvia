@@ -444,15 +444,18 @@ function Dashboard() {
             <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-foreground/15">
               <Sparkles className="h-4 w-4" />
             </div>
-            <h3 className="mt-4 font-display text-xl font-bold tracking-tight">Prêt à signer ?</h3>
+            <h2 className="mt-4 font-display text-xl font-bold tracking-tight">Prêt à signer ?</h2>
             <p className="mt-2 text-sm text-primary-foreground/85">
               Créez un PV professionnel en moins de 4 minutes avec photos, réserves et signature électronique.
             </p>
-            <Link to="/pv/new" search={{ fresh: 1 }} className="mt-5 inline-block">
-              <Button variant="secondary" className="text-foreground shadow-lg">
-                <Plus className="h-4 w-4" /> Créer mon PV
-              </Button>
-            </Link>
+            {canWrite && (
+              <Link to="/pv/new" search={{ fresh: 1 }} className="mt-5 inline-block">
+                <Button variant="secondary" className="h-11 text-foreground shadow-lg">
+                  <Plus className="h-4 w-4" /> Créer mon PV
+                </Button>
+              </Link>
+            )}
+
           </div>
         </Card>
       </div>
