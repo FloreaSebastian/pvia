@@ -120,8 +120,7 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         status: ReserveStatus,
         reason: z.string().max(2000).optional(),
-      })
-      }) as never, i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -186,8 +185,7 @@ export const assignReserve = createServerFn({ method: "POST" })
         assignedTo: z.string().uuid().nullable(),
         dueDate: z.string().nullable().optional(),
         priority: Priority.optional(),
-      })
-      }) as never, i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -245,8 +243,7 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
         status: ReserveStatus.optional(),
         assignedTo: z.string().uuid().nullable().optional(),
         dueDate: z.string().nullable().optional(),
-      })
-      }) as never, i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -300,8 +297,7 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
       z.object({
         companyId: z.string().uuid(),
         ids: z.array(z.string().uuid()).optional(),
-      })
-      }) as never, i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -410,8 +406,7 @@ export const deleteReserve = createServerFn({ method: "POST" })
       z.object({
         companyId: z.string().uuid(),
         id: z.string().uuid(),
-      })
-      }) as never, i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
