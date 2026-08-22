@@ -16,6 +16,20 @@ import { sendClientLoginCode, verifyClientLoginCode } from "@/lib/client-auth.fu
 import { getRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
+/**
+ * Le client externe ne doit jamais voir de détail technique (SQL, Supabase,
+ * Zod, UUID, JWT…). Les messages métier rédigés côté serveur passent tels
+ * quels, tout le reste est remplacé par un message générique.
+ */
+function friendlyError(err: unknown): string {
+  const raw = String((err as { message?: string })?.message ?? "").trim();
+  const technical = /[{[]|invalid_|uuid|jwt|postgres|supabase|fetch|column|relation|client_login_|_serverFn|\bat\s/i;
+  if (!raw || technical.test(raw)) {
+    return "Service momentanément indisponible. Réessayez dans un instant.";
+  }
+  return raw;
+}
+
 const searchSchema = z.object({
   email: z.string().email().optional(),
 });
@@ -40,6 +54,8 @@ function ClientVerify() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(60);
+  const [resending, setResending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const submittedRef = useRef(false);
 
   // resend cooldown
@@ -64,12 +80,15 @@ function ClientVerify() {
       return;
     }
     setLoading(true);
+    setError(null);
     try {
       await verify({ data: { email, code: value, remember: getRememberMePreference() } });
       toast.success("Connexion réussie", { description: "Bienvenue dans votre espace." });
       navigate({ to: "/client/dashboard" });
-    } catch (err: any) {
-      toast.error(err?.message ?? "Code invalide");
+    } catch (err: unknown) {
+      const msg = friendlyError(err);
+      setError(msg);
+      toast.error(msg);
       setCode("");
       submittedRef.current = false;
     } finally {
@@ -78,15 +97,21 @@ function ClientVerify() {
   }
 
   async function onResend() {
-    if (cooldown > 0 || !email) return;
+    // Garde anti double-clic : sans `resending`, deux clics rapides
+    // déclenchaient deux demandes de code (donc deux emails).
+    if (cooldown > 0 || !email || resending) return;
+    setResending(true);
+    setCooldown(60);
+    setError(null);
     try {
       await resend({ data: { email } });
       toast.success("Nouveau code envoyé");
-      setCooldown(60);
       setCode("");
       submittedRef.current = false;
-    } catch (err: any) {
-      toast.error(err?.message ?? "Échec de l'envoi");
+    } catch (err: unknown) {
+      toast.error(friendlyError(err));
+    } finally {
+      setResending(false);
     }
   }
 
@@ -98,14 +123,14 @@ function ClientVerify() {
         transition={{ duration: 0.3 }}
         className="w-full max-w-md"
       >
-        <Link to="/client/login" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Link to="/client/login" className="mb-6 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Modifier l'email
         </Link>
-        <Card className="border-border/60 p-7 shadow-brand">
+        <Card className="border-border/60 p-5 shadow-brand sm:p-7">
           <div className="mb-6 flex items-center gap-3">
             <BrandLogo variant="compact" />
             <div className="border-l border-border/60 pl-3">
-              <div className="font-display text-base font-bold">Entrez votre code</div>
+              <h1 className="font-display text-base font-bold">Entrez votre code</h1>
               <div className="text-xs text-muted-foreground">
                 Envoyé à <span className="font-medium text-foreground">{email || "votre email"}</span>
               </div>
@@ -122,18 +147,24 @@ function ClientVerify() {
               containerClassName="gap-2"
             >
               <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
+                <InputOTPSlot index={0} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={1} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={2} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={3} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={4} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={5} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
               </InputOTPGroup>
             </InputOTP>
           </div>
 
+          {error && (
+            <p role="alert" className="mt-4 text-center text-sm font-medium text-destructive">
+              {error}
+            </p>
+          )}
+
           {loading && (
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <div role="status" aria-live="polite" className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Vérification…
             </div>
           )}
@@ -143,8 +174,8 @@ function ClientVerify() {
             <button
               type="button"
               onClick={onResend}
-              disabled={cooldown > 0}
-              className="inline-flex items-center gap-1 font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
+              disabled={cooldown > 0 || resending}
+              className="inline-flex min-h-11 items-center gap-1 px-1 font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
             >
               <RefreshCw className="h-3 w-3" />
               {cooldown > 0 ? `Renvoyer (${cooldown}s)` : "Renvoyer le code"}

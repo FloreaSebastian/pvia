@@ -157,3 +157,15 @@ export function describeUA(ua: string | null | undefined): string {
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
+
+/** Palier de réponse minimal (ms) pour la demande de code client. */
+export const CLIENT_LOGIN_MIN_RESPONSE_MS = 2200;
+
+/**
+ * Nivelle la durée d'une réponse pour éviter les oracles temporels
+ * (email connu vs inconnu). Attend jusqu'au palier demandé.
+ */
+export async function padToMinDuration(startedAt: number, minMs: number): Promise<void> {
+  const remaining = minMs - (Date.now() - startedAt);
+  if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+}

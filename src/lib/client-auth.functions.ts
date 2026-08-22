@@ -30,6 +30,8 @@ import {
   getClientIp,
   getClientUA,
   normalizeEmail,
+  padToMinDuration,
+  CLIENT_LOGIN_MIN_RESPONSE_MS,
   readClientCookieToken,
   setClientCookie,
   sha256Hex,
@@ -40,13 +42,22 @@ import { sendClientLoginCodeEmail } from "@/lib/email.server";
 export const sendClientLoginCode = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ email: z.string().email().max(255) }).parse(d))
   .handler(async ({ data }) => {
+    const startedAt = Date.now();
     const email = normalizeEmail(data.email);
     const ip = getClientIp() ?? "unknown";
     const ua = getClientUA();
 
     // Réponse neutre commune (anti-énumération) — l'UI ne doit jamais savoir
     // si l'email existe ou pourquoi un envoi a échoué.
+    // Le temps de réponse est également nivelé : sans ce palier, un email
+    // connu (envoi SMTP réel) répondait en ~1,6 s contre ~0,3 s pour un email
+    // inconnu, ce qui suffit à énumérer la base au chronomètre.
     const NEUTRAL = { ok: true as const, neutral: true as const };
+    const neutral = async () => {
+      await padToMinDuration(startedAt, CLIENT_LOGIN_MIN_RESPONSE_MS);
+      return NEUTRAL;
+    };
+
 
     // Trace systématique de la tentative pour monitoring/admin.
     await writeAuditLog({
@@ -70,7 +81,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
           metadata: { email, ip, bucket: "send" },
           actor: "client",
         });
-        return NEUTRAL;
+        return await neutral();
       }
       throw e;
     }
@@ -99,7 +110,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
         metadata: { email, ip },
         actor: "client",
       });
-      return NEUTRAL;
+      return await neutral();
     }
 
     // Invalide les codes précédents non utilisés
@@ -133,7 +144,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
         metadata: { email, ip, reason: "code_persist_failed", error: insErr?.message ?? null },
         actor: "client",
       });
-      return NEUTRAL;
+      return await neutral();
     }
 
     const hash = await sha256Hex(code + ":" + inserted.id);
@@ -171,7 +182,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       actor: "client",
     });
 
-    return NEUTRAL;
+    return await neutral();
   });
 
 // ─── verify ───────────────────────────────────────────────────────────────────
@@ -190,8 +201,26 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
     const ip = getClientIp() ?? "unknown";
     const ua = getClientUA();
 
-    await enforceRateLimit({ bucket: "client_login_verify_ip", key: ip, limit: 10, windowSec: 600 });
-    await enforceRateLimit({ bucket: "client_login_verify_email", key: email, limit: 15, windowSec: 600 });
+    // Le message brut de RateLimitError contient le nom interne du bucket
+    // ("client_login_verify_ip") : jamais montré à un client externe.
+    try {
+      await enforceRateLimit({ bucket: "client_login_verify_ip", key: ip, limit: 10, windowSec: 600 });
+      await enforceRateLimit({ bucket: "client_login_verify_email", key: email, limit: 15, windowSec: 600 });
+    } catch (e: any) {
+      if (e?.name === "RateLimitError") {
+        const min = Math.max(1, Math.ceil((e.retryAfterSec ?? 600) / 60));
+        await writeAuditLog({
+          companyId: null,
+          entityType: "client_auth",
+          action: "client.login_verify_rate_limited",
+          metadata: { email, ip },
+          actor: "client",
+        });
+        throw new Error(`Trop de tentatives. Réessayez dans ${min} minute${min > 1 ? "s" : ""}.`);
+      }
+      throw e;
+    }
+
 
     // Dernier code actif
     const { data: row } = await supabaseAdmin

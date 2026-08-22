@@ -27,55 +27,29 @@ export async function enforceRateLimit(opts: {
   const now = Date.now();
   const windowMs = windowSec * 1000;
   const windowStart = new Date(Math.floor(now / windowMs) * windowMs).toISOString();
+  const retryAfter = () =>
+    Math.max(1, Math.ceil((Math.floor(now / windowMs) * windowMs + windowMs - now) / 1000));
 
-  // Upsert with atomic increment
-  const { data, error } = await supabaseAdmin
-    .from("rate_limits")
-    .upsert(
-      { bucket, key, window_start: windowStart, count: 1 },
-      { onConflict: "bucket,key,window_start", ignoreDuplicates: false }
-    )
-    .select("count")
-    .single();
+  // Compteur ATOMIQUE côté base (INSERT ... ON CONFLICT DO UPDATE count = count + 1).
+  // Un upsert PostgREST avec `count: 1` réécrivait la valeur à 1 à chaque appel :
+  // le compteur ne montait jamais et aucune limite ne se déclenchait.
+  const { data, error } = await supabaseAdmin.rpc("increment_rate_limit", {
+    _bucket: bucket,
+    _key: key,
+    _window_start: windowStart,
+  });
 
   if (error) {
-    // Fallback: increment existing row
-    const { data: existing } = await supabaseAdmin
-      .from("rate_limits")
-      .select("id,count")
-      .eq("bucket", bucket)
-      .eq("key", key)
-      .eq("window_start", windowStart)
-      .maybeSingle();
-    if (existing) {
-      const next = existing.count + 1;
-      await supabaseAdmin.from("rate_limits").update({ count: next }).eq("id", existing.id);
-      if (next > limit) {
-        const retry = Math.max(1, Math.ceil((Math.floor(now / windowMs) * windowMs + windowMs - now) / 1000));
-        throw new RateLimitError(retry, bucket);
-      }
-    }
+    // Fail-open volontaire : une panne du compteur ne doit pas bloquer la
+    // connexion des clients. L'incident est tracé côté serveur.
+    console.error("enforceRateLimit: increment_rate_limit failed", { bucket, error: error.message });
     return;
   }
 
-  // First insert returns count=1. If it already existed, manually increment.
-  if (data && data.count === 1) return;
-
-  const { data: row } = await supabaseAdmin
-    .from("rate_limits")
-    .select("id,count")
-    .eq("bucket", bucket)
-    .eq("key", key)
-    .eq("window_start", windowStart)
-    .single();
-  if (!row) return;
-  const next = row.count + 1;
-  await supabaseAdmin.from("rate_limits").update({ count: next }).eq("id", row.id);
-  if (next > limit) {
-    const retry = Math.max(1, Math.ceil((Math.floor(now / windowMs) * windowMs + windowMs - now) / 1000));
-    throw new RateLimitError(retry, bucket);
-  }
+  const count = typeof data === "number" ? data : Number(data ?? 0);
+  if (count > limit) throw new RateLimitError(retryAfter(), bucket);
 }
+
 
 /** Extracts a best-effort client IP from a Request. */
 export function getClientIp(request: Request): string {

@@ -2609,6 +2609,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_rate_limit: {
+        Args: { _bucket: string; _key: string; _window_start: string }
+        Returns: number
+      }
       is_company_admin: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean

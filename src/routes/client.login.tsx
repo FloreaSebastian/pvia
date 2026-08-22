@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { motion } from "motion/react";
@@ -9,11 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { sendClientLoginCode } from "@/lib/client-auth.functions";
+import { sendClientLoginCode, getClientSession } from "@/lib/client-auth.functions";
 import { setRememberMePreference, getRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/login")({
+  // Un client déjà connecté n'a rien à faire sur l'écran de connexion.
+  // getClientSession est public (lit le cookie HttpOnly côté serveur).
+  beforeLoad: async () => {
+    const session = await getClientSession();
+    if (session) throw redirect({ to: "/client/dashboard" });
+  },
   component: ClientLogin,
   head: () => ({
     meta: [
@@ -27,6 +33,7 @@ export const Route = createFileRoute("/client/login")({
     ],
   }),
 });
+
 
 function ClientLogin() {
   const navigate = useNavigate();
@@ -72,9 +79,9 @@ function ClientLogin() {
           transition={{ duration: 0.4 }}
           className="space-y-6"
         >
-          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight">
+          <p className="font-display text-4xl font-bold leading-tight tracking-tight">
             Vos procès-verbaux,<br />à portée d'email.
-          </h1>
+          </p>
           <p className="max-w-md text-base text-primary-foreground/85">
             Consultez et signez vos PV en quelques secondes — sans créer de compte, sans mot de passe.
           </p>
@@ -90,7 +97,9 @@ function ClientLogin() {
       <div className="flex items-center justify-center bg-background px-6 py-12 sm:px-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex lg:hidden"><BrandLogo /></div>
-          <h2 className="font-display text-3xl font-bold tracking-tight">Espace client</h2>
+          {/* H1 réel visible sur TOUTES les largeurs : l'ancien H1 était dans le
+              panneau latéral masqué sous 1024 px, donc absent en mobile. */}
+          <h1 className="font-display text-3xl font-bold tracking-tight">Espace client</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Entrez votre email. Nous vous enverrons un code à 6 chiffres pour vous connecter.
           </p>
@@ -103,34 +112,46 @@ function ClientLogin() {
                   id="email"
                   type="email"
                   autoComplete="email"
+                  inputMode="email"
                   autoFocus
                   required
                   placeholder="vous@exemple.fr"
+                  className="h-11 text-base sm:h-10 sm:text-sm"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-muted-foreground">
                 <Checkbox
+                  className="h-5 w-5"
                   checked={remember}
                   onCheckedChange={(v) => setRemember(v === true)}
                 />
                 <span>Se souvenir de moi pendant 30 jours</span>
               </label>
-              <Button type="submit" className="w-full" disabled={loading || !email}>
+              <Button
+                type="submit"
+                className="h-11 w-full sm:h-10"
+                disabled={loading || !email}
+                aria-busy={loading}
+              >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                   <>Recevoir un code <ArrowRight className="ml-1 h-4 w-4" /></>
                 )}
               </Button>
+              <p className="sr-only" role="status" aria-live="polite">
+                {loading ? "Envoi du code en cours…" : ""}
+              </p>
             </form>
           </Card>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
             Vous êtes une entreprise du BTP ?{" "}
-            <Link to="/login" className="font-medium text-primary hover:underline">
+            <Link to="/login" className="inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline">
               Espace professionnel
             </Link>
           </p>
+
         </div>
       </div>
     </div>
