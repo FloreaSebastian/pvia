@@ -74,7 +74,9 @@ function LeveeReserves() {
     kind: "before" | "after",
     files: FileList | null,
   ) {
-    if (!files || files.length === 0) return;
+    // Snapshot immédiat : la FileList est vidée dès que l'input est réinitialisé.
+    const picked = files ? Array.from(files) : [];
+    if (picked.length === 0) return;
     const zoneKey = `${rid}-${kind}`;
     setPendingZones((z) => ({ ...z, [zoneKey]: true }));
     try {
@@ -82,7 +84,7 @@ function LeveeReserves() {
     const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 400) : "";
     let warnedNoGps = false;
     const entries: PhotoEntry[] = await Promise.all(
-      Array.from(files).map(async (file) => {
+      picked.map(async (file) => {
         const exif = await readExif(file);
         // GPS priority: browser → EXIF → none
         let latitude = browserGps.latitude;
