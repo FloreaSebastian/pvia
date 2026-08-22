@@ -643,70 +643,97 @@ export const signPvAsClient = createServerFn({ method: "POST" })
   });
 
 // ─── client activity / history ────────────────────────────────────────────────
-export const getClientActivity = createServerFn({ method: "GET" }).handler(async () => {
-  const s = await requireSession();
+/**
+ * Actions autorisées dans l'historique client.
+ * Liste blanche stricte : aucun événement interne entreprise (pv.*, reserve.*,
+ * member.*, settings.*) ne doit pouvoir remonter à un client externe.
+ */
+const CLIENT_HISTORY_ACTIONS = [
+  "client.login_code_sent",
+  "client.login_success",
+  "client.login_failed",
+  "client.logout",
+  "client.pv_viewed",
+  "client.pdf_downloaded",
+  "client.pv_signed",
+  "client.session_revoked",
+  "client.all_sessions_revoked",
+] as const;
 
-  // Logs liés à cet email OU à ses PVs
-  // 1. Récupère les PV ids du client
-  let pvIds: string[] = [];
-  if (s.clientId) {
-    const { data } = await supabaseAdmin
-      .from("pv")
-      .select("id")
-      .or(`client_id.eq.${s.clientId},sent_to_email.eq.${s.email}`);
-    pvIds = (data ?? []).map((r: any) => r.id);
-  } else {
-    const { data } = await supabaseAdmin.from("pv").select("id").eq("sent_to_email", s.email);
-    pvIds = (data ?? []).map((r: any) => r.id);
-  }
+export const CLIENT_HISTORY_PAGE_SIZE = 50;
 
-  const orParts: string[] = [`metadata->>actor_email.eq.${s.email}`];
-  if (pvIds.length > 0) orParts.push(`pv_id.in.(${pvIds.join(",")})`);
+/**
+ * Historique d'activité du client connecté.
+ *
+ * Cloisonnement : on ne retient QUE les événements dont l'acteur est l'email de
+ * la session (`metadata.actor_email` pour les actions applicatives,
+ * `metadata.email` pour les événements de login). L'ancien filtre incluait
+ * aussi `pv_id in (<PV du client>)`, ce qui faisait remonter les événements
+ * d'UN AUTRE client ayant accès au même PV — avec son IP et son user-agent.
+ *
+ * Le DTO n'expose ni IP, ni user-agent, ni metadata brute : uniquement
+ * action / date / (pv_id + numéro si le PV appartient bien au client).
+ */
+export const getClientActivity = createServerFn({ method: "GET" })
+  .inputValidator((d) =>
+    z
+      .object({ offset: z.number().int().min(0).max(10_000).optional() })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data }) => {
+    const s = await requireSession();
+    const offset = data.offset ?? 0;
 
-  const { data, error } = await supabaseAdmin
-    .from("audit_logs")
-    .select("id,action,created_at,metadata,pv_id,ip_address,user_agent")
-    .or(orParts.join(","))
-    .in("action", [
-      "client.login_code_sent",
-      "client.login_success",
-      "client.login_failed",
-      "client.logout",
-      "client.pv_viewed",
-      "client.pdf_downloaded",
-      "client.pv_signed",
-      "client.session_revoked",
-      "client.all_sessions_revoked",
-    ])
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (error) throw new Error(error.message);
+    // PV réellement accessibles au client : sert uniquement à décider si on
+    // peut exposer un numéro + un lien de navigation.
+    let pvQuery = supabaseAdmin.from("pv").select("id,numero");
+    pvQuery = s.clientId
+      ? pvQuery.or(`client_id.eq.${s.clientId},sent_to_email.eq."${s.email}"`)
+      : pvQuery.eq("sent_to_email", s.email);
+    const { data: ownPvs } = await pvQuery;
+    const pvMap = new Map<string, string>(
+      (ownPvs ?? []).map((p: any) => [p.id as string, p.numero as string]),
+    );
 
-  // Numero lookup for prettier display
-  const pvIdsInLogs = Array.from(
-    new Set((data ?? []).map((r: any) => r.pv_id).filter(Boolean)),
-  ) as string[];
-  let pvMap: Record<string, string> = {};
-  if (pvIdsInLogs.length) {
-    const { data: pvs } = await supabaseAdmin
-      .from("pv")
-      .select("id,numero")
-      .in("id", pvIdsInLogs);
-    pvMap = Object.fromEntries((pvs ?? []).map((p: any) => [p.id, p.numero]));
-  }
+    // Valeurs entre guillemets : l'email vient de la session mais reste une
+    // donnée d'origine utilisateur injectée dans un filtre PostgREST.
+    const orExpr = [
+      `metadata->>actor_email.eq."${s.email}"`,
+      `metadata->>email.eq."${s.email}"`,
+    ].join(",");
 
-  return {
-    events: (data ?? []).map((r: any) => ({
-      id: r.id,
-      action: r.action,
-      created_at: r.created_at,
-      pv_id: r.pv_id,
-      pv_numero: r.pv_id ? pvMap[r.pv_id] : null,
-      ip: r.ip_address,
-      ua: r.user_agent,
-    })),
-  };
-});
+    const { data: rows, error, count } = await supabaseAdmin
+      .from("audit_logs")
+      .select("id,action,created_at,pv_id", { count: "exact" })
+      .or(orExpr)
+      .in("action", CLIENT_HISTORY_ACTIONS as unknown as string[])
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + CLIENT_HISTORY_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+
+    const events = (rows ?? []).map((r: any) => {
+      const numero = r.pv_id ? pvMap.get(r.pv_id) ?? null : null;
+      return {
+        id: r.id as string,
+        action: r.action as string,
+        created_at: r.created_at as string,
+        // Pas de lien/numéro si le PV n'appartient pas (ou plus) au client.
+        pv_id: numero ? (r.pv_id as string) : null,
+        pv_numero: numero,
+      };
+    });
+
+    const total = count ?? offset + events.length;
+    return {
+      events,
+      total,
+      offset,
+      pageSize: CLIENT_HISTORY_PAGE_SIZE,
+      hasMore: offset + events.length < total,
+    };
+  });
+
 
 // ─── client profile / sessions ────────────────────────────────────────────────
 export const getClientProfile = createServerFn({ method: "GET" }).handler(async () => {
