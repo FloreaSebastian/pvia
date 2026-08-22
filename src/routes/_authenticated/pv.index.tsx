@@ -17,6 +17,10 @@ import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { PvStatusPill, StatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
+import { useContainerWidth } from "@/hooks/use-viewport";
+
+/** Largeur réelle (conteneur, pas fenêtre) à partir de laquelle le tableau tient. */
+const TABLE_MIN_WIDTH = 900;
 
 export const Route = createFileRoute("/_authenticated/pv/")({
   component: PvList,
