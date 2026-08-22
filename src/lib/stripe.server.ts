@@ -99,10 +99,11 @@ export async function verifyWebhook(req: Request, env: StripeEnv): Promise<{ typ
 }
 
 /** Maps Stripe price lookup_key → internal plan key. */
-export function priceToPlan(price: any): "starter" | "pro" | "enterprise" | null {
+export function priceToPlan(price: any): "starter" | "pro" | "business" | "enterprise" | null {
   const key = price?.lookup_key || price?.metadata?.lovable_external_id || "";
   if (key.startsWith("starter")) return "starter";
   if (key.startsWith("pro")) return "pro";
+  if (key.startsWith("business")) return "business";
   if (key.startsWith("enterprise")) return "enterprise";
   return null;
 }

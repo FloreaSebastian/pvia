@@ -20,14 +20,4 @@ export function getStripeEnvironment(): "sandbox" | "live" {
   return "live";
 }
 
-export const PLAN_LABELS: Record<string, string> = {
-  starter: "Starter",
-  pro: "Pro",
-  enterprise: "Entreprise",
-};
-
-export const PLAN_PRICE_IDS = {
-  starter: "starter_monthly",
-  pro: "pro_monthly",
-  enterprise: "enterprise_monthly",
-} as const;
+export { PLAN_LABELS, PLAN_PRICE_IDS } from "./plans";
