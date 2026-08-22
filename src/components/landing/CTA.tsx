@@ -32,7 +32,7 @@ export function CTA({ ctaLabel = "Essayer PVIA gratuitement" }: { ctaLabel?: str
                 asChild
               >
                 <Link to="/signup">
-                  Essayer PVIA gratuitement <ArrowRight className="ml-1 h-4 w-4" />
+                  {ctaLabel} <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </Button>
               <Button
