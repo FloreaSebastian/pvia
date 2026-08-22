@@ -79,7 +79,17 @@ function buildDailySeries(items: { created_at: string }[], days = 14): number[] 
  * liste de lignes tactiles sous ~30rem (Fold fermé / smartphone étroit),
  * tableau inchangé au-delà.
  */
-function RecentPvCard({ recent }: { recent: Pv[] }) {
+function SafePvStatus({ status, size }: { status: string; size?: "sm" | "md" }) {
+  if (isKnownPvStatus(status)) return <PvStatusPill status={status} size={size} />;
+  // Jamais la valeur technique brute à l'écran.
+  return (
+    <StatusPill tone="neutral" size={size} dot>
+      <span title={status}>En cours de traitement</span>
+    </StatusPill>
+  );
+}
+
+function RecentPvCard({ recent, canWrite }: { recent: Pv[]; canWrite: boolean }) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();
   // width === 0 au premier rendu (SSR / avant mesure) : on part du tableau desktop.
   const isNarrow = width > 0 && width < 480;
@@ -91,16 +101,20 @@ function RecentPvCard({ recent }: { recent: Pv[] }) {
       </div>
       <p className="mt-3 text-sm font-medium">Aucun PV pour le moment</p>
       <p className="mx-auto mt-0.5 max-w-[26ch] text-xs text-muted-foreground">
-        Démarrez en créant votre premier procès-verbal.
+        {canWrite
+          ? "Démarrez en créant votre premier procès-verbal."
+          : "Aucun procès-verbal n'a encore été créé pour cette entreprise."}
       </p>
-      <div className="mt-4 flex justify-center">
-        <Link to="/pv/new" search={{ fresh: 1 }} className="min-w-0 max-w-full">
-          <Button size="sm" className="max-w-full shadow-brand">
-            <Plus className="h-3 w-3 shrink-0" />
-            <span className="truncate">Créer le premier PV</span>
-          </Button>
-        </Link>
-      </div>
+      {canWrite && (
+        <div className="mt-4 flex justify-center">
+          <Link to="/pv/new" search={{ fresh: 1 }} className="min-w-0 max-w-full">
+            <Button size="sm" className="h-11 max-w-full shadow-brand">
+              <Plus className="h-3 w-3 shrink-0" />
+              <span className="truncate">Créer le premier PV</span>
+            </Button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 
@@ -108,16 +122,18 @@ function RecentPvCard({ recent }: { recent: Pv[] }) {
     <Card ref={ref} className="p-4 sm:p-6 lg:col-span-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="min-w-0">
-          <h3 className="font-display font-semibold">Derniers procès-verbaux</h3>
+          <h2 className="font-display font-semibold">Derniers procès-verbaux</h2>
           <p className="text-xs text-muted-foreground">Vos PV les plus récents.</p>
         </div>
         <Link
           to="/pv"
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
+          className="inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-sm font-medium text-primary hover:underline"
+          aria-label="Voir tous les procès-verbaux"
         >
           Voir tout <ArrowUpRight className="h-3 w-3" />
         </Link>
       </div>
+
 
       {isNarrow ? (
         <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
