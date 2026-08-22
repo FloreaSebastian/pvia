@@ -43,14 +43,30 @@ type Pv = {
   pv_reserves?: { count: number }[] | null;
 };
 
+/**
+ * Groupes de statuts alignés sur les valeurs réellement stockées en base
+ * (brouillon, en_cours, envoye, en_attente(_signature), signe, cloture, refuse, annule).
+ */
+const STATUS_GROUPS = {
+  brouillon: ["brouillon", "en_cours"],
+  en_attente: ["en_attente", "en_attente_signature", "envoye", "envoye_au_client"],
+  signe: ["signe", "signe_par_client", "cloture"],
+  refuse: ["refuse", "annule"],
+} as const;
+
 const STATUS_FILTERS = [
   { id: "all", label: "Tous" },
   { id: "brouillon", label: "Brouillons" },
-  { id: "en_attente", label: "En attente" },
+  { id: "en_attente", label: "En attente de signature" },
   { id: "signe", label: "Signés" },
-  { id: "archive", label: "Archivés" },
+  { id: "refuse", label: "Refusés / annulés" },
 ] as const;
 type StatusFilterId = (typeof STATUS_FILTERS)[number]["id"];
+
+function matchesStatusGroup(status: string, group: StatusFilterId): boolean {
+  if (group === "all") return true;
+  return (STATUS_GROUPS[group] as readonly string[]).includes(status);
+}
 
 const RESERVE_FILTERS = [
   { id: "all", label: "Toutes" },
@@ -120,7 +136,11 @@ function PvList() {
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: items.length };
     for (const f of STATUS_FILTERS) if (f.id !== "all") c[f.id] = 0;
-    for (const p of items) c[p.status] = (c[p.status] ?? 0) + 1;
+    for (const p of items) {
+      for (const f of STATUS_FILTERS) {
+        if (f.id !== "all" && matchesStatusGroup(p.status, f.id)) c[f.id] += 1;
+      }
+    }
     const withRes = items.filter((p) => p.reception_with_reserves).length;
     c.reserves_with = withRes;
     c.reserves_without = items.length - withRes;
@@ -130,7 +150,7 @@ function PvList() {
   const filteredSorted = useMemo(() => {
     const q = query.trim().toLowerCase();
     const arr = items.filter((p) => {
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      if (!matchesStatusGroup(p.status, statusFilter)) return false;
       if (reserveFilter === "with" && !p.reception_with_reserves) return false;
       if (reserveFilter === "without" && p.reception_with_reserves) return false;
       if (!q) return true;
@@ -151,9 +171,17 @@ function PvList() {
     if (sort === "recent") sorted.sort(cmpDate);
     else if (sort === "old") sorted.sort((a, b) => -cmpDate(a, b));
     else if (sort === "signed_first")
-      sorted.sort((a, b) => (a.status === "signe" ? -1 : 0) - (b.status === "signe" ? -1 : 0) || cmpDate(a, b));
+      sorted.sort(
+        (a, b) =>
+          Number(matchesStatusGroup(b.status, "signe")) - Number(matchesStatusGroup(a.status, "signe")) ||
+          cmpDate(a, b),
+      );
     else if (sort === "pending_first")
-      sorted.sort((a, b) => (a.status === "en_attente" ? -1 : 0) - (b.status === "en_attente" ? -1 : 0) || cmpDate(a, b));
+      sorted.sort(
+        (a, b) =>
+          Number(matchesStatusGroup(b.status, "en_attente")) - Number(matchesStatusGroup(a.status, "en_attente")) ||
+          cmpDate(a, b),
+      );
     return sorted;
   }, [items, statusFilter, reserveFilter, query, sort]);
 
