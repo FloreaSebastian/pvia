@@ -875,12 +875,12 @@ function PvDetail() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 sm:shrink-0">
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
                             Détails
                           </Button>
                           {(r.status === "ouverte" || r.status === "en_cours" || r.status === "rejetee") && (
                             <Button
-                              size="sm" variant="outline" className="h-8"
+                              size="sm" variant="outline" className="h-11 sm:h-8"
                               onClick={() => {
                                 if (r.status === "validee") { toast.error("Cette réserve est déjà validée."); return; }
                                 if (r.status === "en_attente_validation") { toast.error("Cette réserve est en attente de validation."); return; }
@@ -892,7 +892,14 @@ function PvDetail() {
                               <CheckCircle2 className="h-3.5 w-3.5" /> Lever
                             </Button>
                           )}
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => deleteReserve(r.id)}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-11 w-11 sm:h-8 sm:w-8"
+                            aria-label={`Supprimer la réserve : ${r.description.slice(0, 60)}`}
+                            title="Supprimer la réserve"
+                            onClick={() => deleteReserve(r.id)}
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -955,34 +962,34 @@ function PvDetail() {
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {editable && (
-                          <Button size="sm" variant="default" className="h-8" onClick={() => { setLiftPreselectedId(null); setLiftDialogOpen(true); }}>
+                          <Button size="sm" variant="default" className="h-11 sm:h-8" onClick={() => { setLiftPreselectedId(null); setLiftDialogOpen(true); }}>
                             <Pencil className="h-3.5 w-3.5" /> Reprendre
                           </Button>
                         )}
                         {hasClientPdf && !editable && (
-                          <Button size="sm" variant={validated ? "default" : "outline"} className="h-8" onClick={() => downloadLiftPdf(l.id, "client")}>
+                          <Button size="sm" variant={validated ? "default" : "outline"} className="h-11 sm:h-8" onClick={() => downloadLiftPdf(l.id, "client")}>
                             <Download className="h-3.5 w-3.5" /> PDF client
                           </Button>
                         )}
                         {l.pdf_internal_url && !editable && canViewInternal && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement (rôles : directeur, responsable, conducteur, assistant)">
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => downloadLiftPdf(l.id, "internal")} title="Version interne avec GPS / EXIF / IP — usage entreprise uniquement (rôles : directeur, responsable, conducteur, assistant)">
                             <Download className="h-3.5 w-3.5" /> PDF interne
                           </Button>
                         )}
                         {!editable && canViewInternal && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail — réservé aux rôles opérationnels">
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail — réservé aux rôles opérationnels">
                             {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
                             Export expertise
                           </Button>
                         )}
                         {validated && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
                             Renvoyer
                           </Button>
                         )}
                         {display === "envoyee_client" && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                             Relancer
                           </Button>
@@ -991,7 +998,7 @@ function PvDetail() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8"
+                            className="h-11 sm:h-8"
                             onClick={() => handleReopenLift(l.id)}
                             disabled={reopeningLiftId === l.id}
                             title="Réouvrir (directeur / responsable d'exploitation uniquement, avant validation client)"
@@ -1001,7 +1008,7 @@ function PvDetail() {
                           </Button>
                         )}
                         {rejected && (
-                          <Button size="sm" variant="default" className="h-8" onClick={handleNewAttemptAfterRejection}>
+                          <Button size="sm" variant="default" className="h-11 sm:h-8" onClick={handleNewAttemptAfterRejection}>
                             <PlusCircle className="h-3.5 w-3.5" />
                             Nouvelle tentative
                           </Button>
@@ -1111,7 +1118,7 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1">{children}</p>
+      <p className="mt-1 break-words">{children}</p>
     </div>
   );
 }
