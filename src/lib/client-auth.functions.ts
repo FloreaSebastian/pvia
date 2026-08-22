@@ -30,6 +30,8 @@ import {
   getClientIp,
   getClientUA,
   normalizeEmail,
+  padToMinDuration,
+  CLIENT_LOGIN_MIN_RESPONSE_MS,
   readClientCookieToken,
   setClientCookie,
   sha256Hex,
