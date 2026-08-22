@@ -62,6 +62,8 @@ const STATUS_TONE: Record<Status, "destructive" | "warning" | "success" | "neutr
   validee: "success",
   rejetee: "neutral",
 };
+const SEVERITY_LABEL: Record<string, string> = { mineure: "Mineure", majeure: "Majeure" };
+
 
 const SORT_OPTIONS = [
   { value: "recent", label: "Plus récentes" },
