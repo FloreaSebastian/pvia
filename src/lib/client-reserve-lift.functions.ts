@@ -20,8 +20,7 @@ import {
   getClientUA,
   normalizeEmail,
   readClientCookieToken,
-  sha256Hex,
-} from "@/lib/client-auth.server";
+  sha256Hex,, toInetOrNull } from "@/lib/client-auth.server";
 
 /* ─── session helpers (mirrors client-auth.functions) ─────────────────── */
 
@@ -314,14 +313,14 @@ export const validateReserveLiftAsClient = createServerFn({ method: "POST" })
       .update({
         client_signature: data.signatureDataUrl,
         client_signed_at: nowIso,
-        client_signature_ip: ip,
+        client_signature_ip: toInetOrNull(ip),
         client_signature_user_agent: ua,
         client_signature_email: s.email,
         client_signature_consent_text: CLIENT_SIGNATURE_CONSENT_TEXT_V1,
         client_signature_consent_at: nowIso,
         client_validated_at: nowIso,
         client_validated_email: s.email,
-        client_validated_ip: ip,
+        client_validated_ip: toInetOrNull(ip),
         status: "client_validated",
       } as any)
       .eq("id", report.id)
@@ -538,7 +537,7 @@ export const rejectReserveLiftAsClient = createServerFn({ method: "POST" })
       .update({
         client_rejected_at: nowIso,
         client_rejected_email: s.email,
-        client_rejected_ip: ip,
+        client_rejected_ip: toInetOrNull(ip),
         client_rejected_reason: data.reason,
         status: "client_rejected",
       } as any)

@@ -33,8 +33,7 @@ import {
   readClientCookieToken,
   setClientCookie,
   sha256Hex,
-  timingSafeEqual,
-} from "@/lib/client-auth.server";
+  timingSafeEqual,, toInetOrNull } from "@/lib/client-auth.server";
 import { sendClientLoginCodeEmail } from "@/lib/email.server";
 
 // ─── send code ────────────────────────────────────────────────────────────────
@@ -512,7 +511,7 @@ export const signPvAsClient = createServerFn({ method: "POST" })
         sign_token: null,
         sign_token_hash: downloadKeyHash,
         sign_token_expires_at: downloadExpires,
-        client_signature_ip: ip || null,
+        client_signature_ip: toInetOrNull(ip),
         client_signature_user_agent: ua || null,
         consent_text: SIGN_CONSENT_TEXT_V1,
         consent_at: nowIso,
