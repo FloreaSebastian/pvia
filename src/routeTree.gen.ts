@@ -11,20 +11,27 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as TarifsRouteImport } from './routes/tarifs'
+import { Route as SolutionsRouteImport } from './routes/solutions'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
+import { Route as PvReceptionRouteImport } from './routes/pv-reception'
+import { Route as PourquoiPviaRouteImport } from './routes/pourquoi-pvia'
+import { Route as PlanningChantierRouteImport } from './routes/planning-chantier'
 import { Route as ModeTerrainRouteImport } from './routes/mode-terrain'
 import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GestionDesReservesRouteImport } from './routes/gestion-des-reserves'
 import { Route as FonctionnalitesRouteImport } from './routes/fonctionnalites'
 import { Route as EspaceClientRouteImport } from './routes/espace-client'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
 import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
 import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
+import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ClientVerifyRouteImport } from './routes/client.verify'
@@ -105,6 +112,11 @@ const TarifsRoute = TarifsRouteImport.update({
   path: '/tarifs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SolutionsRoute = SolutionsRouteImport.update({
+  id: '/solutions',
+  path: '/solutions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -118,6 +130,21 @@ const SignupRoute = SignupRouteImport.update({
 const SecuriteRoute = SecuriteRouteImport.update({
   id: '/securite',
   path: '/securite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PvReceptionRoute = PvReceptionRouteImport.update({
+  id: '/pv-reception',
+  path: '/pv-reception',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PourquoiPviaRoute = PourquoiPviaRouteImport.update({
+  id: '/pourquoi-pvia',
+  path: '/pourquoi-pvia',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanningChantierRoute = PlanningChantierRouteImport.update({
+  id: '/planning-chantier',
+  path: '/planning-chantier',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModeTerrainRoute = ModeTerrainRouteImport.update({
@@ -150,6 +177,11 @@ const EspaceClientRoute = EspaceClientRouteImport.update({
   path: '/espace-client',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
   id: '/confidentialite',
   path: '/confidentialite',
@@ -173,6 +205,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SolutionsRoute,
+} as any)
+const SolutionsSlugRoute = SolutionsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => SolutionsRoute,
 } as any)
 const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
   id: '/legal/privacy',
@@ -569,15 +611,20 @@ export interface FileRoutesByFullPath {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/contact': typeof ContactRoute
   '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/mode-terrain': typeof ModeTerrainRoute
+  '/planning-chantier': typeof PlanningChantierRoute
+  '/pourquoi-pvia': typeof PourquoiPviaRoute
+  '/pv-reception': typeof PvReceptionRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -599,6 +646,8 @@ export interface FileRoutesByFullPath {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
+  '/solutions/': typeof SolutionsIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -655,12 +704,16 @@ export interface FileRoutesByTo {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/contact': typeof ContactRoute
   '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/mode-terrain': typeof ModeTerrainRoute
+  '/planning-chantier': typeof PlanningChantierRoute
+  '/pourquoi-pvia': typeof PourquoiPviaRoute
+  '/pv-reception': typeof PvReceptionRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -684,6 +737,8 @@ export interface FileRoutesByTo {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
+  '/solutions': typeof SolutionsIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -740,15 +795,20 @@ export interface FileRoutesById {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/contact': typeof ContactRoute
   '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/mode-terrain': typeof ModeTerrainRoute
+  '/planning-chantier': typeof PlanningChantierRoute
+  '/pourquoi-pvia': typeof PourquoiPviaRoute
+  '/pv-reception': typeof PvReceptionRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/_authenticated/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -770,6 +830,8 @@ export interface FileRoutesById {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
+  '/solutions/': typeof SolutionsIndexRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/_authenticated/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -828,15 +890,20 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/contact'
     | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
     | '/mode-terrain'
+    | '/planning-chantier'
+    | '/pourquoi-pvia'
+    | '/pv-reception'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
+    | '/solutions'
     | '/tarifs'
     | '/verify'
     | '/account-suspended'
@@ -858,6 +925,8 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions/$slug'
+    | '/solutions/'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/compliance'
@@ -914,12 +983,16 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/contact'
     | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
     | '/mode-terrain'
+    | '/planning-chantier'
+    | '/pourquoi-pvia'
+    | '/pv-reception'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
@@ -943,6 +1016,8 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions/$slug'
+    | '/solutions'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/compliance'
@@ -998,15 +1073,20 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/contact'
     | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
     | '/mode-terrain'
+    | '/planning-chantier'
+    | '/pourquoi-pvia'
+    | '/pv-reception'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
+    | '/solutions'
     | '/tarifs'
     | '/verify'
     | '/_authenticated/account-suspended'
@@ -1028,6 +1108,8 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions/$slug'
+    | '/solutions/'
     | '/_authenticated/admin/billing'
     | '/_authenticated/admin/companies'
     | '/_authenticated/admin/compliance'
@@ -1086,15 +1168,20 @@ export interface RootRouteChildren {
   CgvRoute: typeof CgvRoute
   CommentCaMarcheRoute: typeof CommentCaMarcheRoute
   ConfidentialiteRoute: typeof ConfidentialiteRoute
+  ContactRoute: typeof ContactRoute
   EspaceClientRoute: typeof EspaceClientRoute
   FonctionnalitesRoute: typeof FonctionnalitesRoute
   GestionDesReservesRoute: typeof GestionDesReservesRoute
   LoginRoute: typeof LoginRoute
   MentionsRoute: typeof MentionsRoute
   ModeTerrainRoute: typeof ModeTerrainRoute
+  PlanningChantierRoute: typeof PlanningChantierRoute
+  PourquoiPviaRoute: typeof PourquoiPviaRoute
+  PvReceptionRoute: typeof PvReceptionRoute
   SecuriteRoute: typeof SecuriteRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SolutionsRoute: typeof SolutionsRouteWithChildren
   TarifsRoute: typeof TarifsRoute
   VerifyRoute: typeof VerifyRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
@@ -1135,6 +1222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TarifsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/solutions': {
+      id: '/solutions'
+      path: '/solutions'
+      fullPath: '/solutions'
+      preLoaderRoute: typeof SolutionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -1154,6 +1248,27 @@ declare module '@tanstack/react-router' {
       path: '/securite'
       fullPath: '/securite'
       preLoaderRoute: typeof SecuriteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pv-reception': {
+      id: '/pv-reception'
+      path: '/pv-reception'
+      fullPath: '/pv-reception'
+      preLoaderRoute: typeof PvReceptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pourquoi-pvia': {
+      id: '/pourquoi-pvia'
+      path: '/pourquoi-pvia'
+      fullPath: '/pourquoi-pvia'
+      preLoaderRoute: typeof PourquoiPviaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planning-chantier': {
+      id: '/planning-chantier'
+      path: '/planning-chantier'
+      fullPath: '/planning-chantier'
+      preLoaderRoute: typeof PlanningChantierRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mode-terrain': {
@@ -1198,6 +1313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EspaceClientRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/confidentialite': {
       id: '/confidentialite'
       path: '/confidentialite'
@@ -1232,6 +1354,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/solutions/': {
+      id: '/solutions/'
+      path: '/'
+      fullPath: '/solutions/'
+      preLoaderRoute: typeof SolutionsIndexRouteImport
+      parentRoute: typeof SolutionsRoute
+    }
+    '/solutions/$slug': {
+      id: '/solutions/$slug'
+      path: '/$slug'
+      fullPath: '/solutions/$slug'
+      preLoaderRoute: typeof SolutionsSlugRouteImport
+      parentRoute: typeof SolutionsRoute
     }
     '/legal/privacy': {
       id: '/legal/privacy'
@@ -1882,6 +2018,20 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface SolutionsRouteChildren {
+  SolutionsSlugRoute: typeof SolutionsSlugRoute
+  SolutionsIndexRoute: typeof SolutionsIndexRoute
+}
+
+const SolutionsRouteChildren: SolutionsRouteChildren = {
+  SolutionsSlugRoute: SolutionsSlugRoute,
+  SolutionsIndexRoute: SolutionsIndexRoute,
+}
+
+const SolutionsRouteWithChildren = SolutionsRoute._addFileChildren(
+  SolutionsRouteChildren,
+)
+
 interface ApiPublicHealthRouteChildren {
   ApiPublicHealthDeepRoute: typeof ApiPublicHealthDeepRoute
 }
@@ -1900,15 +2050,20 @@ const rootRouteChildren: RootRouteChildren = {
   CgvRoute: CgvRoute,
   CommentCaMarcheRoute: CommentCaMarcheRoute,
   ConfidentialiteRoute: ConfidentialiteRoute,
+  ContactRoute: ContactRoute,
   EspaceClientRoute: EspaceClientRoute,
   FonctionnalitesRoute: FonctionnalitesRoute,
   GestionDesReservesRoute: GestionDesReservesRoute,
   LoginRoute: LoginRoute,
   MentionsRoute: MentionsRoute,
   ModeTerrainRoute: ModeTerrainRoute,
+  PlanningChantierRoute: PlanningChantierRoute,
+  PourquoiPviaRoute: PourquoiPviaRoute,
+  PvReceptionRoute: PvReceptionRoute,
   SecuriteRoute: SecuriteRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SolutionsRoute: SolutionsRouteWithChildren,
   TarifsRoute: TarifsRoute,
   VerifyRoute: VerifyRoute,
   ClientDashboardRoute: ClientDashboardRoute,

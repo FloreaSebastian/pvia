@@ -6,33 +6,42 @@ type LinkDef = { label: string; href: string; internal?: boolean };
 
 const columns: { title: string; links: LinkDef[] }[] = [
   {
-    title: "PVIA",
+    title: "Produit",
     links: [
       { label: "Fonctionnalités", href: "/fonctionnalites", internal: true },
-      { label: "Tarifs", href: "/tarifs", internal: true },
-      { label: "Connexion", href: "/login", internal: true },
+      { label: "PV de réception", href: "/pv-reception", internal: true },
+      { label: "Gestion des réserves", href: "/gestion-des-reserves", internal: true },
+      { label: "Mode terrain", href: "/mode-terrain", internal: true },
+      { label: "Planning chantier", href: "/planning-chantier", internal: true },
+      { label: "Espace client", href: "/espace-client", internal: true },
     ],
   },
   {
-    title: "Produit",
+    title: "Solutions",
     links: [
-      { label: "Comment ça marche", href: "/comment-ca-marche", internal: true },
-      { label: "Gestion des réserves", href: "/gestion-des-reserves", internal: true },
-      { label: "Mode terrain", href: "/mode-terrain", internal: true },
-      { label: "Espace client", href: "/espace-client", internal: true },
+      { label: "Photovoltaïque", href: "/solutions/photovoltaique", internal: true },
+      { label: "Climatisation & PAC", href: "/solutions/climatisation", internal: true },
+      { label: "Électricité", href: "/solutions/electricite", internal: true },
+      { label: "Plomberie", href: "/solutions/plomberie", internal: true },
+      { label: "Rénovation", href: "/solutions/renovation", internal: true },
+      { label: "Construction", href: "/solutions/construction", internal: true },
     ],
   },
   {
     title: "Entreprise",
     links: [
-      { label: "Contact", href: "mailto:contact@pvia.fr" },
+      { label: "Pourquoi PVIA ?", href: "/pourquoi-pvia", internal: true },
+      { label: "Comment ça marche", href: "/comment-ca-marche", internal: true },
+      { label: "Tarifs", href: "/tarifs", internal: true },
+      { label: "Contact", href: "/contact", internal: true },
       { label: "Sécurité", href: "/securite", internal: true },
-      { label: "Espace client", href: "/client/login", internal: true },
     ],
   },
   {
-    title: "Légal",
+    title: "Accès & légal",
     links: [
+      { label: "Connexion", href: "/login", internal: true },
+      { label: "Espace client", href: "/client/login", internal: true },
       { label: "CGV", href: "/cgv", internal: true },
       { label: "Politique de confidentialité", href: "/confidentialite", internal: true },
       { label: "Mentions légales", href: "/mentions", internal: true },
