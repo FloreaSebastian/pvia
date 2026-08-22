@@ -395,7 +395,7 @@ function Dashboard() {
             <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary">
               <Activity className="h-3.5 w-3.5" />
             </div>
-            <h3 className="font-display font-semibold">Activité récente</h3>
+            <h2 className="font-display font-semibold">Activité récente</h2>
           </div>
           <div className="mt-4 space-y-3">
             {activity.length === 0 && (
