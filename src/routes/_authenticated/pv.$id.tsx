@@ -24,7 +24,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
@@ -161,6 +171,8 @@ function PvDetail() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [sendEmail, setSendEmail] = useState("");
   const [sendingClient, setSendingClient] = useState(false);
   const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
@@ -445,13 +457,18 @@ function PvDetail() {
   async function deletePv() {
     if (!pv) return;
     if (pv.locked_at) return toast.error("Ce PV est signé et verrouillé — suppression interdite.");
-    if (!confirm("Supprimer définitivement ce PV ainsi que ses photos et réserves ?")) return;
+    setDeleting(true);
     const snapshot = { numero: pv.numero, status: pv.status, type: pv.type };
     // delete dependents (RLS scoped to owner)
     await supabase.from("pv_photos").delete().eq("pv_id", pv.id);
     await supabase.from("pv_reserves").delete().eq("pv_id", pv.id);
     const { error } = await supabase.from("pv").delete().eq("id", pv.id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      setDeleting(false);
+      return toast.error(error.message);
+    }
+    setDeleting(false);
+    setDeleteOpen(false);
     if (pv.company_id) {
       logAction({ data: { companyId: pv.company_id, pvId: pv.id, entityType: "pv", entityId: pv.id, action: "pv.delete", oldValues: snapshot } }).catch(() => {});
     }
@@ -611,7 +628,7 @@ function PvDetail() {
             <Button variant="outline"><ShieldCheck className="h-4 w-4" /> Historique légal</Button>
           </Link>
           {!pv.locked_at && (
-            <Button variant="outline" onClick={deletePv}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
           )}
         </div>
       </div>
@@ -637,11 +654,11 @@ function PvDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Envoyer au client pour signature</DialogTitle>
+            <DialogDescription>
+              Un email professionnel sera envoyé à votre client avec un lien sécurisé pour consulter et signer ce PV en ligne. Aucun compte n'est requis.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Un email professionnel sera envoyé à votre client avec un lien sécurisé pour consulter et signer ce PV en ligne. Aucun compte n'est requis.
-            </p>
             <div>
               <Label htmlFor="client-email">Email du client</Label>
               <Input id="client-email" type="email" value={sendEmail} onChange={(e) => setSendEmail(e.target.value)} placeholder="client@exemple.fr" className="mt-1.5" />
@@ -1061,6 +1078,26 @@ function PvDetail() {
           </div>
         )}
       </Card>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le PV n° {pv.numero} ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est définitive : le procès-verbal n° {pv.numero}, ses photos et ses réserves seront supprimés.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); deletePv(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Suppression…" : "Supprimer définitivement"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ReserveDetailDialog
         open={!!reserveDetail}
         onOpenChange={(o) => !o && setReserveDetail(null)}
