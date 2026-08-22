@@ -448,7 +448,7 @@ function ReservesPage() {
       if (quick === "bloquantes" && (r.severity !== "majeure" || ["validee", "rejetee"].includes(r.status))) return false;
       if (quick === "retard" && !isOverdue(r)) return false;
       if (query.trim()) {
-        const q = query.toLowerCase();
+        const q = query.trim().toLowerCase();
         const ref = refs.get(r.id) ?? "";
         const hay = [
           r.description, r.nature, r.work_to_execute,
