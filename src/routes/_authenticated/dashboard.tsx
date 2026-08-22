@@ -484,21 +484,23 @@ function Dashboard() {
           {chantiers.map((c) => (
             <Link
               key={c.id}
-              to="/chantiers"
+              to="/chantiers/$id"
+              params={{ id: c.id }}
               className="group rounded-xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
             >
-              <div className="flex items-center justify-between">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-warning/10 text-warning">
+              <div className="flex items-center justify-between gap-2">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warning/10 text-warning">
                   <HardHat className="h-4 w-4" />
                 </div>
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  {c.status}
+                <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {chantierStatusLabel(c.status)}
                 </span>
               </div>
               <p className="mt-3 truncate font-medium">{c.name}</p>
               <p className="truncate text-xs text-muted-foreground">{c.address ?? "Adresse non renseignée"}</p>
             </Link>
           ))}
+
         </div>
       </Card>
     </div>
