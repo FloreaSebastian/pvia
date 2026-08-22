@@ -11,7 +11,13 @@ import { toast } from "sonner";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
-import { getStripeEnvironment, PLAN_PRICE_IDS } from "@/lib/stripe";
+import { getStripeEnvironment } from "@/lib/stripe";
+import {
+  CONTACT_SALES_EMAIL,
+  formatEur,
+  type BillingInterval,
+  type CheckoutPriceId,
+} from "@/lib/plans";
 import { PageHeader } from "@/components/app/PageHeader";
 
 
@@ -37,18 +43,19 @@ function BillingPage() {
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
   const [busy, setBusy] = useState<string | null>(null);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
 
   const canManage = isAdminRole(activeRole);
   const env = getStripeEnvironment();
 
-  async function handleUpgrade(targetPlan: "starter" | "pro" | "enterprise") {
-    if (!activeCompanyId) return;
-    setBusy(targetPlan);
+  async function handleUpgrade(priceId: string) {
+    if (!activeCompanyId || !priceId) return;
+    setBusy(priceId);
     try {
       const { url } = await checkoutFn({
         data: {
           companyId: activeCompanyId,
-          priceId: PLAN_PRICE_IDS[targetPlan],
+          priceId: priceId as CheckoutPriceId,
           environment: env,
           returnUrl: `${window.location.origin}/billing`,
         },
@@ -192,14 +199,48 @@ function BillingPage() {
 
       {/* Plans */}
       <div>
-        <h2 className="mb-4 text-xl font-semibold tracking-tight">Changer de plan</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold tracking-tight">Changer de plan</h2>
+          <div
+            role="group"
+            aria-label="Périodicité de facturation"
+            className="inline-flex rounded-full border border-border bg-muted/40 p-1"
+          >
+            {(["monthly", "annual"] as const).map((i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setBillingInterval(i)}
+                aria-pressed={billingInterval === i}
+                className={`min-h-[36px] rounded-full px-4 text-sm font-medium transition ${
+                  billingInterval === i
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {i === "monthly" ? "Mensuel" : "Annuel"}
+                {i === "annual" && (
+                  <span className="ml-1.5 text-xs font-semibold text-success">−2 mois</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {allPlans.map((p: any) => {
             const isCurrent = p.plan === plan;
-            const isPro = p.plan === "pro";
+            const custom = Boolean(p.is_custom_pricing);
+            const recommended = Boolean(p.recommended);
+            const priceId = billingInterval === "annual" ? p.stripe_price_annual : p.stripe_price_monthly;
+            const amount = billingInterval === "annual" ? p.annual_price_eur : p.monthly_price_eur;
+            const seatsBlocked =
+              p.max_members != null && (usage.seats ?? usage.members) > p.max_members;
             const features = [
+              p.max_members == null
+                ? "Utilisateurs illimités"
+                : `${p.max_members} utilisateur${p.max_members > 1 ? "s" : ""}`,
               p.max_pv_per_month == null ? "PV illimités" : `${p.max_pv_per_month} PV / mois`,
-              p.max_members == null ? "Utilisateurs illimités" : `${p.max_members} utilisateur${p.max_members > 1 ? "s" : ""}`,
               p.can_remote_sign && "Signature à distance",
               p.can_advanced_stats && "Statistiques avancées",
               p.can_export_audit && "Export historique audit",
@@ -211,19 +252,31 @@ function BillingPage() {
                 key={p.plan}
                 className={`relative flex flex-col p-6 transition hover:-translate-y-0.5 hover:shadow-brand ${
                   isCurrent ? "border-primary/60 ring-2 ring-primary/20" : ""
-                } ${isPro && !isCurrent ? "border-primary/30" : ""}`}
+                } ${recommended && !isCurrent ? "border-primary/30" : ""}`}
               >
-                {isPro && !isCurrent && (
+                {recommended && !isCurrent && (
                   <div className="absolute -top-2.5 right-4 rounded-full bg-brand-gradient px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground shadow-brand">
                     Recommandé
                   </div>
                 )}
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-baseline justify-between gap-2">
                   <div className="text-lg font-semibold tracking-tight">{p.display_name}</div>
                   {isCurrent && <Badge>Actuel</Badge>}
                 </div>
-                <div className="mt-2 text-3xl font-semibold tracking-tight">
-                  {p.monthly_price_eur}€<span className="text-base font-normal text-muted-foreground">/mois</span>
+                {p.tagline && (
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{p.tagline}</p>
+                )}
+                <div className="mt-3 text-3xl font-semibold tracking-tight">
+                  {custom || amount == null ? (
+                    <span className="text-2xl">Sur devis</span>
+                  ) : (
+                    <>
+                      {formatEur(amount)}
+                      <span className="text-base font-normal text-muted-foreground">
+                        {billingInterval === "annual" ? " / an HT" : " / mois HT"}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <ul className="mt-5 flex-1 space-y-2 text-sm">
                   {features.map((f) => (
@@ -231,20 +284,36 @@ function BillingPage() {
                       <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-success/15 text-success">
                         <Check className="h-2.5 w-2.5" />
                       </span>
-                      <span>{f}</span>
+                      <span className="min-w-0 break-words">{f}</span>
                     </li>
                   ))}
                 </ul>
-                {canManage && !isCurrent && (
-                  <Button
-                    className={`mt-6 w-full ${isPro ? "shadow-brand" : ""}`}
-                    variant={isPro ? "default" : "outline"}
-                    onClick={() => handleUpgrade(p.plan)}
-                    disabled={busy === p.plan}
-                  >
-                    {busy === p.plan ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {subscription?.stripe_customer_id ? "Basculer" : "S'abonner"}
+
+                {canManage && !isCurrent && custom && (
+                  <Button variant="outline" className="mt-6 min-h-[44px] w-full" asChild>
+                    <a href={`mailto:${CONTACT_SALES_EMAIL}?subject=Demande%20offre%20Entreprise%20PVIA`}>
+                      Nous contacter
+                    </a>
                   </Button>
+                )}
+
+                {canManage && !isCurrent && !custom && (
+                  <>
+                    <Button
+                      className={`mt-6 min-h-[44px] w-full ${recommended ? "shadow-brand" : ""}`}
+                      variant={recommended ? "default" : "outline"}
+                      onClick={() => handleUpgrade(priceId)}
+                      disabled={busy === priceId || seatsBlocked || !priceId}
+                    >
+                      {busy === priceId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {subscription?.stripe_customer_id ? "Basculer" : "S'abonner"}
+                    </Button>
+                    {seatsBlocked && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Trop d'utilisateurs actifs ({usage.seats ?? usage.members}) pour ce plan.
+                      </p>
+                    )}
+                  </>
                 )}
               </Card>
             );
@@ -256,6 +325,7 @@ function BillingPage() {
           </p>
         )}
       </div>
+
 
       <div className="text-xs text-muted-foreground">
         Paiement sécurisé par Stripe. <button className="underline" onClick={() => refetch()}>Rafraîchir</button>

@@ -40,10 +40,22 @@ async function assertCompanyMember(companyId: string, userId: string) {
 
 const CheckoutSchema = z.object({
   companyId: z.string().uuid(),
-  priceId: z.enum(["starter_monthly", "pro_monthly", "enterprise_monthly"]),
+  priceId: z.enum([
+    "starter_monthly",
+    "starter_annual",
+    "pro_monthly",
+    "pro_annual",
+    "business_monthly",
+    "business_annual",
+  ]),
   environment: EnvSchema,
   returnUrl: z.string().url(),
 });
+
+/** price lookup_key → clé de plan interne. */
+function priceIdToPlan(priceId: string): "starter" | "pro" | "business" {
+  return priceId.split("_")[0] as "starter" | "pro" | "business";
+}
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -51,6 +63,25 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId, supabase } = context;
     await assertCompanyAdmin(data.companyId, userId);
+
+    // Garde-fou downgrade : on refuse un plan dont le nombre de sièges est
+    // inférieur à la consommation actuelle (membres actifs + invitations).
+    const targetPlan = priceIdToPlan(data.priceId);
+    const [{ data: targetLimits }, { data: seatUsage }] = await Promise.all([
+      supabaseAdmin
+        .from("plan_limits")
+        .select("max_members,display_name")
+        .eq("plan", targetPlan)
+        .maybeSingle(),
+      supabaseAdmin.rpc("get_company_seat_usage" as never, { _company_id: data.companyId } as never),
+    ]);
+    const maxMembers = (targetLimits as any)?.max_members as number | null | undefined;
+    const used = Number(seatUsage ?? 0);
+    if (maxMembers != null && used > maxMembers) {
+      throw new Error(
+        `Le plan ${(targetLimits as any)?.display_name ?? targetPlan} est limité à ${maxMembers} utilisateur${maxMembers > 1 ? "s" : ""}, or votre entreprise en compte ${used} (invitations en attente incluses). Retirez des utilisateurs avant de rétrograder.`,
+      );
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
     const email = user?.email ?? undefined;
@@ -60,15 +91,28 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const price = prices.data[0];
     if (!price) throw new Error(`Tarif ${data.priceId} introuvable.`);
 
+
     // Reuse existing customer if any
     const { data: existing } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id,plan,status")
       .eq("company_id", data.companyId)
       .eq("environment", data.environment)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // Abonnement déjà actif sur ce plan → passer par le portail (évite le doublon).
+    if (
+      existing &&
+      (existing as any).plan === targetPlan &&
+      ["active", "trialing", "past_due"].includes(String((existing as any).status))
+    ) {
+      throw new Error(
+        "Vous êtes déjà abonné à ce plan. Utilisez « Gérer mon abonnement » pour modifier la périodicité ou le moyen de paiement.",
+      );
+    }
+
 
     let customerId = existing?.stripe_customer_id as string | undefined;
     if (!customerId) {
@@ -161,7 +205,7 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
     const role = await assertCompanyMember(data.companyId, context.userId);
     const isAdmin = isAdminRole(role);
 
-    const [planRes, limitsRes, subRes, pvCountRes, memberCountRes, access] = await Promise.all([
+    const [planRes, limitsRes, subRes, pvCountRes, memberCountRes, seatUsageRes, access] = await Promise.all([
       supabaseAdmin.rpc("get_company_plan", { _company_id: data.companyId }),
       supabaseAdmin.from("plan_limits").select("*"),
       supabaseAdmin
@@ -173,6 +217,7 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
         .maybeSingle(),
       supabaseAdmin.rpc("get_company_pv_count_current_period", { _company_id: data.companyId }),
       supabaseAdmin.rpc("get_company_member_count", { _company_id: data.companyId }),
+      supabaseAdmin.rpc("get_company_seat_usage" as never, { _company_id: data.companyId } as never),
       getAccessState(data.companyId),
     ]);
 
@@ -190,12 +235,15 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
     return {
       plan,
       limits: currentLimits,
-      allPlans: allLimits.sort((a, b) => a.monthly_price_eur - b.monthly_price_eur),
+      allPlans: allLimits
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99)),
       subscription,
       access,
       usage: {
         pv_this_period: Number(pvCountRes.data ?? 0),
         members: Number(memberCountRes.data ?? 0),
+        seats: Number(seatUsageRes.data ?? memberCountRes.data ?? 0),
       },
     };
   });

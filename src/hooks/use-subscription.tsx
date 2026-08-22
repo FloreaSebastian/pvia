@@ -37,7 +37,7 @@ export function useSubscription() {
     ...query,
     plan: query.data?.plan ?? "starter",
     limits: query.data?.limits ?? null,
-    usage: query.data?.usage ?? { pv_this_period: 0, members: 0 },
+    usage: query.data?.usage ?? { pv_this_period: 0, members: 0, seats: 0 },
     subscription: query.data?.subscription ?? null,
     allPlans: query.data?.allPlans ?? [],
     access,

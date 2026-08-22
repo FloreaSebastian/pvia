@@ -1317,42 +1317,63 @@ export type Database = {
       }
       plan_limits: {
         Row: {
+          annual_price_eur: number | null
           can_advanced_stats: boolean
           can_branding: boolean
           can_export_audit: boolean
           can_remote_sign: boolean
           created_at: string
           display_name: string
+          is_custom_pricing: boolean
           max_members: number | null
           max_pv_per_month: number | null
           monthly_price_eur: number
           plan: string
+          recommended: boolean
+          sort_order: number
+          stripe_price_annual: string | null
+          stripe_price_monthly: string | null
+          tagline: string | null
           updated_at: string
         }
         Insert: {
+          annual_price_eur?: number | null
           can_advanced_stats?: boolean
           can_branding?: boolean
           can_export_audit?: boolean
           can_remote_sign?: boolean
           created_at?: string
           display_name: string
+          is_custom_pricing?: boolean
           max_members?: number | null
           max_pv_per_month?: number | null
           monthly_price_eur?: number
           plan: string
+          recommended?: boolean
+          sort_order?: number
+          stripe_price_annual?: string | null
+          stripe_price_monthly?: string | null
+          tagline?: string | null
           updated_at?: string
         }
         Update: {
+          annual_price_eur?: number | null
           can_advanced_stats?: boolean
           can_branding?: boolean
           can_export_audit?: boolean
           can_remote_sign?: boolean
           created_at?: string
           display_name?: string
+          is_custom_pricing?: boolean
           max_members?: number | null
           max_pv_per_month?: number | null
           monthly_price_eur?: number
           plan?: string
+          recommended?: boolean
+          sort_order?: number
+          stripe_price_annual?: string | null
+          stripe_price_monthly?: string | null
+          tagline?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2566,16 +2587,23 @@ export type Database = {
       get_company_limits: {
         Args: { _company_id: string }
         Returns: {
+          annual_price_eur: number | null
           can_advanced_stats: boolean
           can_branding: boolean
           can_export_audit: boolean
           can_remote_sign: boolean
           created_at: string
           display_name: string
+          is_custom_pricing: boolean
           max_members: number | null
           max_pv_per_month: number | null
           monthly_price_eur: number
           plan: string
+          recommended: boolean
+          sort_order: number
+          stripe_price_annual: string | null
+          stripe_price_monthly: string | null
+          tagline: string | null
           updated_at: string
         }
         SetofOptions: {
@@ -2598,6 +2626,7 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["company_role"]
       }
+      get_company_seat_usage: { Args: { _company_id: string }; Returns: number }
       has_plan_feature: {
         Args: { _company_id: string; _feature: string }
         Returns: boolean
