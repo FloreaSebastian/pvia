@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { motion } from "motion/react";
@@ -9,11 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { sendClientLoginCode } from "@/lib/client-auth.functions";
+import { sendClientLoginCode, getClientSession } from "@/lib/client-auth.functions";
 import { setRememberMePreference, getRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/client/login")({
+  // Un client déjà connecté n'a rien à faire sur l'écran de connexion.
+  // getClientSession est public (lit le cookie HttpOnly côté serveur).
+  beforeLoad: async () => {
+    const session = await getClientSession();
+    if (session) throw redirect({ to: "/client/dashboard" });
+  },
   component: ClientLogin,
   head: () => ({
     meta: [
@@ -27,6 +33,7 @@ export const Route = createFileRoute("/client/login")({
     ],
   }),
 });
+
 
 function ClientLogin() {
   const navigate = useNavigate();
