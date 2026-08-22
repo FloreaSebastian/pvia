@@ -570,7 +570,7 @@ function PvDetail() {
           >
             N° {pv.numero}
           </h1>
-          <p className="mt-1 min-w-0 break-words text-xs text-muted-foreground">
+          <p className="mt-1 line-clamp-2 min-w-0 break-words text-xs text-muted-foreground" title={[chantierName, clientName].filter(Boolean).join(" · ") || undefined}>
             {[chantierName, clientName].filter(Boolean).join(" · ") || "Chantier / client non renseignés"}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
