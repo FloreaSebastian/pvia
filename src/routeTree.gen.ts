@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as TarifsRouteImport } from './routes/tarifs'
+import { Route as SolutionsRouteImport } from './routes/solutions'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
@@ -105,6 +106,11 @@ const VerifyRoute = VerifyRouteImport.update({
 const TarifsRoute = TarifsRouteImport.update({
   id: '/tarifs',
   path: '/tarifs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolutionsRoute = SolutionsRouteImport.update({
+  id: '/solutions',
+  path: '/solutions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -592,6 +598,7 @@ export interface FileRoutesByFullPath {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/solutions': typeof SolutionsRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -680,6 +687,7 @@ export interface FileRoutesByTo {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/solutions': typeof SolutionsRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -767,6 +775,7 @@ export interface FileRoutesById {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/solutions': typeof SolutionsRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/_authenticated/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -857,6 +866,7 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
+    | '/solutions'
     | '/tarifs'
     | '/verify'
     | '/account-suspended'
@@ -945,6 +955,7 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
+    | '/solutions'
     | '/tarifs'
     | '/verify'
     | '/account-suspended'
@@ -1031,6 +1042,7 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
+    | '/solutions'
     | '/tarifs'
     | '/verify'
     | '/_authenticated/account-suspended'
@@ -1121,6 +1133,7 @@ export interface RootRouteChildren {
   SecuriteRoute: typeof SecuriteRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SolutionsRoute: typeof SolutionsRoute
   TarifsRoute: typeof TarifsRoute
   VerifyRoute: typeof VerifyRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
@@ -1159,6 +1172,13 @@ declare module '@tanstack/react-router' {
       path: '/tarifs'
       fullPath: '/tarifs'
       preLoaderRoute: typeof TarifsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solutions': {
+      id: '/solutions'
+      path: '/solutions'
+      fullPath: '/solutions'
+      preLoaderRoute: typeof SolutionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -1951,6 +1971,7 @@ const rootRouteChildren: RootRouteChildren = {
   SecuriteRoute: SecuriteRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SolutionsRoute: SolutionsRoute,
   TarifsRoute: TarifsRoute,
   VerifyRoute: VerifyRoute,
   ClientDashboardRoute: ClientDashboardRoute,

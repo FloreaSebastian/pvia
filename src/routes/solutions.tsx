@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useMatches } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { MarketingPage } from "@/components/landing/MarketingPage";
 import { Workflow } from "@/components/landing/Workflow";
@@ -81,6 +81,3 @@ export function SolutionsOverview() {
     </MarketingPage>
   );
 }
-
-// Évite un import inutilisé côté typage lorsque le layout ne rend que l'Outlet.
-export const _unusedMatchesHook = useMatches;
