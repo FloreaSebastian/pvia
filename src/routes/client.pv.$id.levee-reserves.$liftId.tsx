@@ -69,32 +69,54 @@ function ClientLiftDetail() {
     queryFn: () => detailFn({ data: { pvId, liftId } }),
   });
 
+  const [downloading, setDownloading] = useState(false);
   async function download() {
+    if (downloading) return;
+    setDownloading(true);
     try {
       const { url } = await pdfFn({ data: { pvId, liftId } });
       window.open(url, "_blank", "noopener");
     } catch (e: any) {
       toast.error(e?.message ?? "PDF indisponible");
+    } finally {
+      setDownloading(false);
     }
   }
 
   if (q.isLoading) {
     return (
       <ClientShell email={session.email}>
+        <h1 className="sr-only">Levée de réserves</h1>
         <Skeleton className="mb-4 h-7 w-56" />
         <Skeleton className="mt-6 h-48 w-full" />
+        <p aria-live="polite" className="sr-only">Chargement de la levée de réserves…</p>
       </ClientShell>
     );
   }
   if (q.isError || !q.data) {
     return (
       <ClientShell email={session.email}>
-        <Card className="border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          {(q.error as Error)?.message ?? "Levée introuvable."}
+        <h1 className="font-display text-xl font-bold tracking-tight">Levée de réserves</h1>
+        <Card className="mt-4 border-destructive/40 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive [overflow-wrap:anywhere]">
+            {(q.error as Error)?.message || "Cette levée de réserves est introuvable ou n'est plus accessible."}
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Button onClick={() => q.refetch()} variant="outline" className="min-h-11 sm:flex-none">
+              Réessayer
+            </Button>
+            <Button asChild variant="ghost" className="min-h-11 sm:flex-none">
+              <Link to="/client/pv/$id" params={{ id: pvId }}>Retour au PV</Link>
+            </Button>
+            <Button asChild variant="ghost" className="min-h-11 sm:flex-none">
+              <Link to="/client/dashboard">Mes PV</Link>
+            </Button>
+          </div>
         </Card>
       </ClientShell>
     );
   }
+
 
   const { pv, report, items, company, chantier } = q.data;
   const isValidated = !!report.client_validated_at;
