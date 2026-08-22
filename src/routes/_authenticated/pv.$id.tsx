@@ -1188,9 +1188,9 @@ function DescriptionBlock({ label, text }: { label: string; text: string | null 
   const value = text?.trim() || "";
   const isLong = value.length > 220 || value.split("\n").length > 3;
   return (
-    <div>
+    <div className="min-w-0">
       <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm ${!expanded && isLong ? "line-clamp-3" : ""}`}>
+      <p className={`break-anywhere whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm ${!expanded && isLong ? "line-clamp-3" : ""}`}>
         {value || "—"}
       </p>
       {isLong && (
