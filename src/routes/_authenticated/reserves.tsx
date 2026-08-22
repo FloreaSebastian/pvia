@@ -214,6 +214,7 @@ function ReservesPage() {
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
     setLoadError(null);
+    try {
     const { data, error } = await supabase
       .from("pv_reserves")
       .select(
@@ -260,6 +261,11 @@ function ReservesPage() {
       }),
     );
     setLoading(false);
+    } catch {
+      // Réseau indisponible / requête interrompue : ne jamais rester bloqué sur le squelette.
+      setLoadError("Impossible de charger les réserves. Réessayez.");
+      setLoading(false);
+    }
   }, [activeCompanyId]);
 
   useEffect(() => { load(); }, [load]);
