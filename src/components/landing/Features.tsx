@@ -1,64 +1,65 @@
-import { motion } from "motion/react";
 import {
-  Zap,
-  PenLine,
-  Camera,
   AlertTriangle,
+  BarChart3,
+  Bell,
+  Calendar,
+  Camera,
+  FileText,
   FileDown,
   History,
-  Users,
+  PenLine,
   Smartphone,
-  ShieldCheck,
-  Mail,
+  UserSquare2,
+  Users,
 } from "lucide-react";
 
 const features = [
-  { icon: Zap, title: "Création rapide de PV", desc: "Formulaire intelligent pré-rempli, vos PV prêts en moins de 5 minutes." },
-  { icon: PenLine, title: "Signature électronique", desc: "Signature tactile du client directement sur smartphone ou tablette." },
-  { icon: Camera, title: "Photos de chantier", desc: "Ajoutez photos avant/après géolocalisées et horodatées." },
-  { icon: AlertTriangle, title: "Gestion des réserves", desc: "Listez et suivez les réserves jusqu'à leur levée définitive." },
-  { icon: FileDown, title: "Export PDF automatique", desc: "PV finalisé en PDF haute qualité, prêt à archiver et envoyer." },
-  { icon: History, title: "Historique des chantiers", desc: "Tous vos chantiers et documents accessibles en un clic." },
-  { icon: Users, title: "Multi-utilisateurs", desc: "Invitez vos équipes, chefs de chantier et gestionnaires." },
-  { icon: Smartphone, title: "Optimisé mobile et tablette", desc: "Interface fluide pour créer et signer vos PV directement sur chantier." },
-  { icon: ShieldCheck, title: "Archivage sécurisé", desc: "Stockage chiffré conforme RGPD, conservation 10 ans." },
-  { icon: Mail, title: "Envoi automatique", desc: "PV envoyé au client par email avec accusé de réception." },
+  { icon: FileText, title: "Procès-verbaux", desc: "Créez et suivez vos PV de réception." },
+  { icon: AlertTriangle, title: "Réserves", desc: "Gravité, responsable, statut et levée." },
+  { icon: Camera, title: "Photos", desc: "Avant/après, rattachées au chantier." },
+  { icon: PenLine, title: "Signature", desc: "Sur place ou à distance par email." },
+  { icon: FileDown, title: "PDF automatique", desc: "Document final généré et envoyé." },
+  { icon: UserSquare2, title: "Espace client", desc: "Vos clients consultent leurs documents." },
+  { icon: Calendar, title: "Planning", desc: "Interventions et réceptions à venir." },
+  { icon: Smartphone, title: "Mode terrain", desc: "Tout se fait depuis le téléphone." },
+  { icon: Users, title: "Équipe", desc: "Invitez vos collaborateurs, gérez les rôles." },
+  { icon: Bell, title: "Notifications", desc: "Restez informé des étapes clés." },
+  { icon: History, title: "Historique", desc: "Chaque action reste traçable." },
+  { icon: BarChart3, title: "Statistiques", desc: "Une vue claire sur votre activité." },
 ];
 
 export function Features() {
   return (
-    <section id="features" className="relative py-24 sm:py-32">
+    <section id="fonctionnalites" className="scroll-mt-20 py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             Fonctionnalités
           </span>
           <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
-            Tout ce qu'il faut pour vos réceptions de travaux
+            Tout ce qu'il faut pour vos réceptions
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Une plateforme pensée pour le terrain, conçue avec des artisans et entreprises du BTP.
+            Un seul outil, du premier chantier au dernier PV signé.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {features.map((f, i) => (
-            <motion.div
+        <ul className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {features.map((f) => (
+            <li
               key={f.title}
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.4, delay: (i % 5) * 0.05 }}
-              className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+              className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-elevation-sm transition-colors hover:border-primary/40"
             >
-              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                <f.icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-sm font-semibold tracking-tight">{f.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
-            </motion.div>
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <f.icon className="h-4 w-4" />
+              </span>
+              <h3 className="mt-3 text-sm font-semibold tracking-tight text-foreground">
+                {f.title}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">{f.desc}</p>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );
