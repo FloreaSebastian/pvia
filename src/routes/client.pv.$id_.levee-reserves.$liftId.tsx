@@ -54,6 +54,16 @@ function fmtDateTime(v: string | null | undefined): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleString("fr-FR");
 }
 
+/** Message d'erreur lisible : on n'expose jamais un détail technique (Zod, SQL) au client. */
+function friendlyError(error: unknown): string {
+  const raw = (error as Error)?.message ?? "";
+  const technical = /[{[]|invalid_|uuid|jwt|postgres|fetch/i.test(raw);
+  if (!raw || technical) {
+    return "Cette levée de réserves est introuvable ou n'est plus accessible avec votre compte.";
+  }
+  return raw;
+}
+
 function ClientLiftDetail() {
   const { id: pvId, liftId } = Route.useParams();
   const { session } = Route.useLoaderData();
@@ -102,7 +112,7 @@ function ClientLiftDetail() {
         <h1 className="font-display text-xl font-bold tracking-tight">Levée de réserves</h1>
         <Card className="mt-4 border-destructive/40 bg-destructive/5 p-4">
           <p className="text-sm text-destructive [overflow-wrap:anywhere]">
-            {(q.error as Error)?.message || "Cette levée de réserves est introuvable ou n'est plus accessible."}
+            {friendlyError(q.error)}
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Button onClick={() => q.refetch()} variant="outline" className="min-h-11 sm:flex-none">
