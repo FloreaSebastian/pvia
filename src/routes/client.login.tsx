@@ -147,7 +147,7 @@ function ClientLogin() {
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
             Vous êtes une entreprise du BTP ?{" "}
-            <Link to="/login" className="inline-block py-2 font-medium text-primary hover:underline">
+            <Link to="/login" className="inline-flex min-h-11 items-center px-1 font-medium text-primary hover:underline">
               Espace professionnel
             </Link>
           </p>
