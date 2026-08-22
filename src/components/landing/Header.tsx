@@ -42,15 +42,16 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <Logo className="min-w-0 shrink" />
 
-        <nav aria-label="Navigation principale" className="hidden items-center gap-7 lg:flex">
+        <nav aria-label="Navigation principale" className="hidden items-center gap-6 lg:flex">
           {nav.map((i) => (
-            <a
+            <Link
               key={i.href}
-              href={i.href}
+              to={i.href}
+              activeProps={{ className: "text-foreground" }}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {i.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
