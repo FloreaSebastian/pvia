@@ -26,9 +26,8 @@ import {
   Shield,
   History,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -39,7 +38,8 @@ import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
 import { useViewport } from "@/hooks/use-viewport";
-import { ImmersiveProvider } from "@/hooks/use-immersive";
+import { ImmersiveProvider, useImmersive } from "@/hooks/use-immersive";
+import { GlobalSearch } from "@/components/app/GlobalSearch";
 import { isAdminRole, isOwnerRole } from "@/lib/roles";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
@@ -94,18 +94,104 @@ const adminMenu = [
 
 
 export function AppLayout({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
+  return (
+    <ImmersiveProvider>
+      <AppShell userEmail={userEmail}>{children}</AppShell>
+    </ImmersiveProvider>
+  );
+}
+
+function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const { activeCompanyId } = useCompany();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const { activeCompanyId, can } = useCompany();
   const { suspended } = useSuspension();
-  const { isDesktop, isCompact } = useViewport();
+  const { isCompact } = useViewport();
+  const { immersive } = useImmersive();
+  const asideRef = useRef<HTMLElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const canWrite = can("manage") && !suspended;
 
-  // Changement de posture (Fold ouvert/fermé, rotation) : on referme le drawer
-  // dès que la navigation latérale redevient visible — sans rechargement.
+  // La sidebar n'est visible en permanence qu'à partir de `lg` (1024px) :
+  // on aligne la fermeture automatique du tiroir sur ce même seuil pour ne
+  // jamais laisser l'utilisateur sans navigation entre 900 et 1023px.
+  const [hasFixedSidebar, setHasFixedSidebar] = useState(false);
   useEffect(() => {
-    if (isDesktop) setOpen(false);
-  }, [isDesktop]);
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => {
+      setHasFixedSidebar(mq.matches);
+      if (mq.matches) setOpen(false);
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  // Tiroir mobile : Échap ferme, scroll du corps verrouillé, focus déplacé
+  // dans le tiroir puis restitué au bouton d'ouverture.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusables = () =>
+      Array.from(
+        asideRef.current?.querySelectorAll<HTMLElement>(
+          'a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => el.offsetParent !== null);
+
+    focusables()[0]?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const activeInside = asideRef.current?.contains(document.activeElement);
+      if (!activeInside) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+      if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.body.style.overflow = prevOverflow;
+      (menuButtonRef.current ?? previous)?.focus?.();
+    };
+  }, [open]);
+
+  // Raccourci global ⌘K / Ctrl+K — cohérent avec l'indicateur affiché.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function signOut() {
     try {
@@ -125,30 +211,37 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
     return p === to || p.startsWith(to + "/");
   };
 
+  // Hors écran (tiroir fermé sur mobile) ou masquée par une vue immersive :
+  // la navigation latérale ne doit plus être atteignable au clavier.
+  const asideInert = immersive || (!open && !hasFixedSidebar);
 
   return (
-    <ImmersiveProvider>
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-dvh bg-muted/30">
       {/* Mobile overlay */}
       {open && (
         <div
           onClick={() => setOpen(false)}
+          aria-hidden="true"
           className="fixed inset-0 z-30 bg-foreground/50 backdrop-blur-sm lg:hidden"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0 ${
-          open ? "translate-x-0 shadow-elevation-xl" : "-translate-x-full lg:translate-x-0"
-        }`}
+        ref={asideRef}
+        aria-label="Navigation latérale"
+        id="pvia-sidebar"
+        {...(asideInert ? { inert: "" as unknown as boolean } : {})}
+        className={`fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform ${
+          open ? "translate-x-0 shadow-elevation-xl" : "-translate-x-full"
+        } ${immersive ? "lg:-translate-x-full" : "lg:translate-x-0"}`}
       >
         {/* Brand header */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
           <BrandLogo withLink />
           <button
             onClick={() => setOpen(false)}
-            className="lg:hidden rounded-md p-1.5 text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
-            aria-label="Fermer"
+            className="touch-target grid place-items-center rounded-md text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground lg:hidden"
+            aria-label="Fermer le menu"
           >
             <X className="h-5 w-5" />
           </button>
@@ -158,15 +251,17 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
           <CompanySwitcher />
         </div>
 
-        <div className="px-3 pt-3">
-          <Link to="/pv/new" search={{ fresh: 1 }} onClick={() => setOpen(false)}>
-            <Button className="w-full shadow-brand" size="sm">
-              <Plus className="h-4 w-4" /> Nouveau PV
-            </Button>
-          </Link>
-        </div>
+        {canWrite && (
+          <div className="px-3 pt-3">
+            <Link to="/pv/new" search={{ fresh: 1 }} onClick={() => setOpen(false)} className="block">
+              <Button className="min-h-11 w-full shadow-brand lg:min-h-9" size="sm">
+                <Plus className="h-4 w-4" /> Nouveau PV
+              </Button>
+            </Link>
+          </div>
+        )}
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3" aria-label="Navigation principale (latérale)">
           <p className="px-3 pb-1.5 pt-3 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Navigation
           </p>
@@ -178,7 +273,8 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
                 key={i.to}
                 to={i.to}
                 onClick={() => setOpen(false)}
-                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                aria-current={active ? "page" : undefined}
+                className={`group relative flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all lg:min-h-9 ${
                   active
                     ? "bg-primary text-primary-foreground shadow-brand"
                     : "text-foreground/75 hover:bg-sidebar-accent hover:text-foreground"
@@ -206,29 +302,45 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
         </div>
       </aside>
 
-      <div className="lg:pl-72">
+      <div className={immersive ? "" : "lg:pl-72"}>
         <header className="sticky top-0 z-20 flex h-16 min-w-0 items-center gap-2 border-b border-border bg-background/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:gap-3 sm:px-4 lg:px-8">
           <button
+            ref={menuButtonRef}
             onClick={() => setOpen(true)}
             className="touch-target grid shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground lg:hidden"
             aria-label="Ouvrir le menu"
+            aria-expanded={open}
+            aria-controls="pvia-sidebar"
           >
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="relative hidden min-w-0 max-w-md flex-1 md:block">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Rechercher un PV, un chantier ou un client"
+            aria-keyshortcuts="Meta+K Control+K"
+            className="relative hidden h-9 min-w-0 max-w-md flex-1 items-center rounded-md border border-border bg-muted/40 pl-9 pr-2.5 text-left text-sm text-muted-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
+          >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={isCompact ? "Rechercher…" : "Rechercher un PV, chantier, client…"}
-              className="h-9 border-border bg-muted/40 pl-9 focus-visible:bg-background"
-            />
-            <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground lg:inline-flex">
+            <span className="min-w-0 flex-1 truncate">
+              {isCompact ? "Rechercher…" : "Rechercher un PV, chantier, client…"}
+            </span>
+            <kbd className="pointer-events-none ml-2 hidden select-none items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground lg:inline-flex">
               ⌘K
             </kbd>
-          </div>
+          </button>
 
           <div className="ml-auto flex items-center gap-2">
-            {!suspended && (
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Rechercher"
+              className="touch-target grid place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground md:hidden"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+            {canWrite && (
               <Link to="/pv/new" search={{ fresh: 1 }} className="hidden xs:block">
                 <Button size="sm" className="touch-target shadow-elevation-sm">
                   <Plus className="h-4 w-4" />
@@ -238,7 +350,11 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
             )}
             <NotificationsBell />
 
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-brand-gradient text-xs font-semibold text-primary-foreground shadow-elevation-sm">
+            <div
+              className="grid h-9 w-9 place-items-center rounded-full bg-brand-gradient text-xs font-semibold text-primary-foreground shadow-elevation-sm"
+              title={userEmail ?? undefined}
+              aria-hidden="true"
+            >
               {initial}
             </div>
           </div>
@@ -252,10 +368,11 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
       </div>
       <BottomNav />
       <InstallPrompt companyId={activeCompanyId} />
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
-    </ImmersiveProvider>
   );
 }
+
 
 function CompanyMenu({
   userEmail,
