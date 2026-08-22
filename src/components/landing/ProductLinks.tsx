@@ -8,9 +8,9 @@ export const PRODUCT_PAGES = [
     desc: "Tout ce que PVIA couvre, du chantier au PDF signé.",
   },
   {
-    to: "/comment-ca-marche",
-    label: "Comment ça marche",
-    desc: "Le déroulé complet d'une réception, étape par étape.",
+    to: "/pv-reception",
+    label: "PV de réception",
+    desc: "Créer, faire signer et envoyer un procès-verbal.",
   },
   {
     to: "/gestion-des-reserves",
@@ -23,14 +23,24 @@ export const PRODUCT_PAGES = [
     desc: "Photos, réserves et signature depuis le téléphone.",
   },
   {
+    to: "/planning-chantier",
+    label: "Planning chantier",
+    desc: "Interventions, équipes et réceptions planifiées.",
+  },
+  {
     to: "/espace-client",
     label: "Espace client",
     desc: "Vos clients consultent, signent et valident.",
   },
   {
-    to: "/tarifs",
-    label: "Tarifs",
-    desc: "Des offres claires, sans engagement.",
+    to: "/comment-ca-marche",
+    label: "Comment ça marche",
+    desc: "Le déroulé complet d'une réception, étape par étape.",
+  },
+  {
+    to: "/solutions",
+    label: "Solutions métiers",
+    desc: "Photovoltaïque, CVC, électricité, rénovation…",
   },
 ] as const;
 
