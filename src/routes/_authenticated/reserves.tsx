@@ -181,6 +181,11 @@ function ReservesPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [overview, setOverview] = useState<Map<string, ReserveOverviewEntry>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ ids: string[] } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
 
   useEffect(() => {
     if (typeof window !== "undefined") window.localStorage.setItem(SORT_STORAGE_KEY, sort);
@@ -201,6 +206,7 @@ function ReservesPage() {
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
+    setLoadError(null);
     const { data, error } = await supabase
       .from("pv_reserves")
       .select(
@@ -208,7 +214,11 @@ function ReservesPage() {
       )
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
-    if (error) return toast.error(error.message);
+    if (error) {
+      setLoadError("Impossible de charger les réserves. Réessayez.");
+      setLoading(false);
+      return;
+    }
     const rows = (data ?? []) as Omit<Row, "pv" | "chantier" | "client">[];
     const pvIds = Array.from(new Set(rows.map((r) => r.pv_id)));
     const { data: pvs } = pvIds.length
@@ -219,17 +229,17 @@ function ReservesPage() {
     const clientIds = Array.from(new Set((pvs ?? []).map((p) => p.client_id).filter(Boolean) as string[]));
     const [{ data: chs }, { data: cls }] = await Promise.all([
       chantierIds.length
-        ? supabase.from("chantiers").select("id,nom,reference").in("id", chantierIds)
+        ? supabase.from("chantiers").select("id,name,reference").in("id", chantierIds)
         : Promise.resolve({ data: [] as any }),
       clientIds.length
-        ? supabase.from("clients").select("id,nom").in("id", clientIds)
+        ? supabase.from("clients").select("id,name").in("id", clientIds)
         : Promise.resolve({ data: [] as any }),
     ]);
     const chMap = new Map<string, { id: string; nom: string; reference: string | null }>(
-      (chs ?? []).map((c: any) => [c.id as string, { id: c.id, nom: c.nom, reference: c.reference ?? null }]),
+      (chs ?? []).map((c: any) => [c.id as string, { id: c.id, nom: c.name, reference: c.reference ?? null }]),
     );
     const clMap = new Map<string, { id: string; nom: string }>(
-      (cls ?? []).map((c: any) => [c.id as string, { id: c.id as string, nom: c.nom as string }]),
+      (cls ?? []).map((c: any) => [c.id as string, { id: c.id as string, nom: c.name as string }]),
     );
     setItems(
       rows.map((r) => {
@@ -242,29 +252,37 @@ function ReservesPage() {
         };
       }),
     );
+    setLoading(false);
   }, [activeCompanyId]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Members
+  // Members (no FK between company_members.user_id and profiles → resolve in two steps)
   useEffect(() => {
     if (!activeCompanyId) return;
     (async () => {
       const { data } = await supabase
         .from("company_members")
-        .select("user_id,profile:profiles!company_members_user_id_fkey(full_name)")
+        .select("user_id")
         .eq("company_id", activeCompanyId)
         .eq("status", "active");
+      const ids = ((data ?? []) as { user_id: string | null }[])
+        .map((m) => m.user_id)
+        .filter(Boolean) as string[];
+      if (ids.length === 0) return setMembers([]);
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", ids);
+      const nameById = new Map(
+        ((profs ?? []) as { id: string; full_name: string | null }[]).map((p) => [p.id, p.full_name]),
+      );
       setMembers(
-        ((data ?? []) as any[])
-          .filter((m) => m.user_id)
-          .map((m) => ({
-            user_id: m.user_id as string,
-            display_name: (m.profile?.full_name as string | undefined) ?? "Membre",
-          })),
+        ids.map((id) => ({ user_id: id, display_name: nameById.get(id) || "Membre" })),
       );
     })();
   }, [activeCompanyId]);
+
 
   // Batched overview (thumbnails + photo counts) for current items.
   useEffect(() => {
@@ -317,18 +335,32 @@ function ReservesPage() {
     }
   }
 
-  async function remove(id: string) {
-    if (!activeCompanyId) return;
-    if (!confirm("Supprimer cette réserve ?")) return;
-    try {
-      await deleteFn({ data: { companyId: activeCompanyId, id } });
-      setItems((rs) => rs.filter((r) => r.id !== id));
-      setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
-      toast.success("Réserve supprimée");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Suppression impossible");
-    }
+  function remove(id: string) {
+    setConfirmDelete({ ids: [id] });
   }
+
+  async function doDelete() {
+    if (!activeCompanyId || !confirmDelete) return;
+    const ids = confirmDelete.ids;
+    setDeleting(true);
+    const failures: string[] = [];
+    for (const id of ids) {
+      try {
+        await deleteFn({ data: { companyId: activeCompanyId, id } });
+        setItems((rs) => rs.filter((r) => r.id !== id));
+        setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
+      } catch (err) {
+        failures.push(err instanceof Error ? err.message : "Suppression impossible");
+      }
+    }
+    setDeleting(false);
+    setConfirmDelete(null);
+    const done = ids.length - failures.length;
+    if (done > 0) toast.success(`${done} réserve(s) supprimée(s)`);
+    if (failures.length) toast.error(failures[0]);
+    await load();
+  }
+
 
   async function doAssign() {
     if (!activeCompanyId || !assignOpen) return;
@@ -362,19 +394,11 @@ function ReservesPage() {
     }
   }
 
-  async function bulkRemove() {
-    if (!activeCompanyId || selected.size === 0) return;
-    if (!confirm(`Supprimer ${selected.size} réserve(s) ? Action irréversible.`)) return;
-    try {
-      const ids = [...selected];
-      for (const id of ids) await deleteFn({ data: { companyId: activeCompanyId, id } });
-      toast.success(`${ids.length} réserve(s) supprimée(s)`);
-      setSelected(new Set());
-      await load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Suppression impossible");
-    }
+  function bulkRemove() {
+    if (selected.size === 0) return;
+    setConfirmDelete({ ids: [...selected] });
   }
+
 
   async function doExport(format: "csv" | "xlsx", onlySelected: boolean) {
     if (!activeCompanyId) return;
@@ -469,8 +493,11 @@ function ReservesPage() {
   }
 
   const renderSeverity = (sev: string) => (
-    <StatusPill tone={sev === "majeure" ? "destructive" : "neutral"} size="sm">{sev}</StatusPill>
+    <StatusPill tone={sev === "majeure" ? "destructive" : "neutral"} size="sm">
+      {SEVERITY_LABEL[sev] ?? sev}
+    </StatusPill>
   );
+
   const renderStatus = (s: string) => (
     <StatusPill tone={(STATUS_TONE[s as Status] ?? "neutral") as any} size="sm" dot>
       {STATUS_LABEL[s as Status] ?? s}
