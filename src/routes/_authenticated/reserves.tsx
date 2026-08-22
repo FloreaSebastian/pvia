@@ -214,6 +214,7 @@ function ReservesPage() {
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
     setLoadError(null);
+    try {
     const { data, error } = await supabase
       .from("pv_reserves")
       .select(
@@ -260,6 +261,11 @@ function ReservesPage() {
       }),
     );
     setLoading(false);
+    } catch {
+      // Réseau indisponible / requête interrompue : ne jamais rester bloqué sur le squelette.
+      setLoadError("Impossible de charger les réserves. Réessayez.");
+      setLoading(false);
+    }
   }, [activeCompanyId]);
 
   useEffect(() => { load(); }, [load]);
@@ -1073,7 +1079,17 @@ function ReserveCard({
     >
       {/* Top row: checkbox + ref + status + severity */}
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        <Checkbox checked={selected} onCheckedChange={onToggleSelect} />
+        {/* Zone tactile étendue à 44px (pseudo-élément) : la case reste visuellement 16px */}
+        <span className="flex h-11 w-11 items-center justify-center sm:h-5 sm:w-5">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onToggleSelect}
+            aria-label="Sélectionner la réserve"
+            className="relative before:absolute before:-inset-[14px] before:content-[''] sm:before:hidden"
+          />
+        </span>
+
+
         <div className="min-w-0 truncate font-mono text-xs font-semibold text-primary">{reference}</div>
         <div className="flex shrink-0 items-center gap-1">
           {renderSeverity(r.severity)}
