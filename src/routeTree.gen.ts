@@ -29,6 +29,7 @@ import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
+import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ClientVerifyRouteImport } from './routes/client.verify'
@@ -196,6 +197,11 @@ const IndexRoute = IndexRouteImport.update({
 const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => SolutionsRoute,
+} as any)
+const SolutionsSlugRoute = SolutionsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
   getParentRoute: () => SolutionsRoute,
 } as any)
 const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
@@ -626,6 +632,7 @@ export interface FileRoutesByFullPath {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
   '/solutions/': typeof SolutionsIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
@@ -714,6 +721,7 @@ export interface FileRoutesByTo {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
   '/solutions': typeof SolutionsIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
@@ -804,6 +812,7 @@ export interface FileRoutesById {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions/$slug': typeof SolutionsSlugRoute
   '/solutions/': typeof SolutionsIndexRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
@@ -896,6 +905,7 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions/$slug'
     | '/solutions/'
     | '/admin/billing'
     | '/admin/companies'
@@ -984,6 +994,7 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions/$slug'
     | '/solutions'
     | '/admin/billing'
     | '/admin/companies'
@@ -1073,6 +1084,7 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions/$slug'
     | '/solutions/'
     | '/_authenticated/admin/billing'
     | '/_authenticated/admin/companies'
@@ -1308,6 +1320,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/solutions/'
       preLoaderRoute: typeof SolutionsIndexRouteImport
+      parentRoute: typeof SolutionsRoute
+    }
+    '/solutions/$slug': {
+      id: '/solutions/$slug'
+      path: '/$slug'
+      fullPath: '/solutions/$slug'
+      preLoaderRoute: typeof SolutionsSlugRouteImport
       parentRoute: typeof SolutionsRoute
     }
     '/legal/privacy': {
@@ -1960,10 +1979,12 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 )
 
 interface SolutionsRouteChildren {
+  SolutionsSlugRoute: typeof SolutionsSlugRoute
   SolutionsIndexRoute: typeof SolutionsIndexRoute
 }
 
 const SolutionsRouteChildren: SolutionsRouteChildren = {
+  SolutionsSlugRoute: SolutionsSlugRoute,
   SolutionsIndexRoute: SolutionsIndexRoute,
 }
 
