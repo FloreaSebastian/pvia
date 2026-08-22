@@ -28,6 +28,7 @@ import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
 import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ClientVerifyRouteImport } from './routes/client.verify'
@@ -191,6 +192,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SolutionsRoute,
 } as any)
 const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
   id: '/legal/privacy',
@@ -598,7 +604,7 @@ export interface FileRoutesByFullPath {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/solutions': typeof SolutionsRoute
+  '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -620,6 +626,7 @@ export interface FileRoutesByFullPath {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions/': typeof SolutionsIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -687,7 +694,6 @@ export interface FileRoutesByTo {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/solutions': typeof SolutionsRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -708,6 +714,7 @@ export interface FileRoutesByTo {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions': typeof SolutionsIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -775,7 +782,7 @@ export interface FileRoutesById {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/solutions': typeof SolutionsRoute
+  '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/_authenticated/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -797,6 +804,7 @@ export interface FileRoutesById {
   '/client/verify': typeof ClientVerifyRoute
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/solutions/': typeof SolutionsIndexRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/_authenticated/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -888,6 +896,7 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions/'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/compliance'
@@ -955,7 +964,6 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
-    | '/solutions'
     | '/tarifs'
     | '/verify'
     | '/account-suspended'
@@ -976,6 +984,7 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/compliance'
@@ -1064,6 +1073,7 @@ export interface FileRouteTypes {
     | '/client/verify'
     | '/invite/$token'
     | '/legal/privacy'
+    | '/solutions/'
     | '/_authenticated/admin/billing'
     | '/_authenticated/admin/companies'
     | '/_authenticated/admin/compliance'
@@ -1133,7 +1143,7 @@ export interface RootRouteChildren {
   SecuriteRoute: typeof SecuriteRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  SolutionsRoute: typeof SolutionsRoute
+  SolutionsRoute: typeof SolutionsRouteWithChildren
   TarifsRoute: typeof TarifsRoute
   VerifyRoute: typeof VerifyRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
@@ -1292,6 +1302,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/solutions/': {
+      id: '/solutions/'
+      path: '/'
+      fullPath: '/solutions/'
+      preLoaderRoute: typeof SolutionsIndexRouteImport
+      parentRoute: typeof SolutionsRoute
     }
     '/legal/privacy': {
       id: '/legal/privacy'
@@ -1942,6 +1959,18 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface SolutionsRouteChildren {
+  SolutionsIndexRoute: typeof SolutionsIndexRoute
+}
+
+const SolutionsRouteChildren: SolutionsRouteChildren = {
+  SolutionsIndexRoute: SolutionsIndexRoute,
+}
+
+const SolutionsRouteWithChildren = SolutionsRoute._addFileChildren(
+  SolutionsRouteChildren,
+)
+
 interface ApiPublicHealthRouteChildren {
   ApiPublicHealthDeepRoute: typeof ApiPublicHealthDeepRoute
 }
@@ -1971,7 +2000,7 @@ const rootRouteChildren: RootRouteChildren = {
   SecuriteRoute: SecuriteRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  SolutionsRoute: SolutionsRoute,
+  SolutionsRoute: SolutionsRouteWithChildren,
   TarifsRoute: TarifsRoute,
   VerifyRoute: VerifyRoute,
   ClientDashboardRoute: ClientDashboardRoute,
