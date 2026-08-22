@@ -37,18 +37,19 @@ function BillingPage() {
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
   const [busy, setBusy] = useState<string | null>(null);
+  const [interval, setInterval] = useState<BillingInterval>("monthly");
 
   const canManage = isAdminRole(activeRole);
   const env = getStripeEnvironment();
 
-  async function handleUpgrade(targetPlan: "starter" | "pro" | "enterprise") {
-    if (!activeCompanyId) return;
-    setBusy(targetPlan);
+  async function handleUpgrade(priceId: string) {
+    if (!activeCompanyId || !priceId) return;
+    setBusy(priceId);
     try {
       const { url } = await checkoutFn({
         data: {
           companyId: activeCompanyId,
-          priceId: PLAN_PRICE_IDS[targetPlan],
+          priceId: priceId as CheckoutPriceId,
           environment: env,
           returnUrl: `${window.location.origin}/billing`,
         },
