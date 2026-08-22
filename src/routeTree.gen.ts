@@ -14,6 +14,7 @@ import { Route as TarifsRouteImport } from './routes/tarifs'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
+import { Route as ModeTerrainRouteImport } from './routes/mode-terrain'
 import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GestionDesReservesRouteImport } from './routes/gestion-des-reserves'
@@ -116,6 +117,11 @@ const SignupRoute = SignupRouteImport.update({
 const SecuriteRoute = SecuriteRouteImport.update({
   id: '/securite',
   path: '/securite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModeTerrainRoute = ModeTerrainRouteImport.update({
+  id: '/mode-terrain',
+  path: '/mode-terrain',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MentionsRoute = MentionsRouteImport.update({
@@ -561,6 +567,7 @@ export interface FileRoutesByFullPath {
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
+  '/mode-terrain': typeof ModeTerrainRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -645,6 +652,7 @@ export interface FileRoutesByTo {
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
+  '/mode-terrain': typeof ModeTerrainRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -728,6 +736,7 @@ export interface FileRoutesById {
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
+  '/mode-terrain': typeof ModeTerrainRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -814,6 +823,7 @@ export interface FileRouteTypes {
     | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
+    | '/mode-terrain'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
@@ -898,6 +908,7 @@ export interface FileRouteTypes {
     | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
+    | '/mode-terrain'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
@@ -980,6 +991,7 @@ export interface FileRouteTypes {
     | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
+    | '/mode-terrain'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
@@ -1066,6 +1078,7 @@ export interface RootRouteChildren {
   GestionDesReservesRoute: typeof GestionDesReservesRoute
   LoginRoute: typeof LoginRoute
   MentionsRoute: typeof MentionsRoute
+  ModeTerrainRoute: typeof ModeTerrainRoute
   SecuriteRoute: typeof SecuriteRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -1128,6 +1141,13 @@ declare module '@tanstack/react-router' {
       path: '/securite'
       fullPath: '/securite'
       preLoaderRoute: typeof SecuriteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mode-terrain': {
+      id: '/mode-terrain'
+      path: '/mode-terrain'
+      fullPath: '/mode-terrain'
+      preLoaderRoute: typeof ModeTerrainRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mentions': {
@@ -1864,6 +1884,7 @@ const rootRouteChildren: RootRouteChildren = {
   GestionDesReservesRoute: GestionDesReservesRoute,
   LoginRoute: LoginRoute,
   MentionsRoute: MentionsRoute,
+  ModeTerrainRoute: ModeTerrainRoute,
   SecuriteRoute: SecuriteRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
