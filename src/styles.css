@@ -529,3 +529,15 @@ html[data-density="compact"] body {
     background: oklch(0.16 0.002 60 / 0.14);
   }
 }
+
+/* Typographie éditoriale — hors layer pour primer sur les utilitaires Tailwind. */
+.landing-editorial h1,
+.landing-editorial h2,
+.landing-editorial h3,
+.landing-editorial .font-display {
+  font-family: "Instrument Serif", "Sora", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+.landing-editorial h1 { line-height: 1.02; }
+.landing-editorial h2 { line-height: 1.08; }
