@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { XCircle } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/client/pv/$id/levee-reserves/$liftId")({
+export const Route = createFileRoute("/client/pv/$id_/levee-reserves/$liftId")({
   beforeLoad: async () => {
     const s = await getClientSession();
     if (!s) throw redirect({ to: "/client/login" });
