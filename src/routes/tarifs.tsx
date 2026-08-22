@@ -13,7 +13,7 @@ export const Route = createFileRoute("/tarifs")({
       {
         name: "description",
         content:
-          "Découvrez les tarifs PVIA : plans Starter, Pro et Entreprise pour digitaliser vos procès-verbaux de réception de travaux. Essai gratuit 14 jours sans carte.",
+          "Tarifs PVIA : offres Essentiel (19€), Pro (59€), Business (149€) et Entreprise sur devis pour vos procès-verbaux de réception. Essai gratuit 14 jours sans carte.",
       },
       { property: "og:title", content: "Tarifs PVIA — Simples, transparents, sans engagement" },
       {
