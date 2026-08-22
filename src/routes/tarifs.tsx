@@ -43,7 +43,7 @@ export const Route = createFileRoute("/tarifs")({
 
 function TarifsPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-editorial min-h-screen bg-background">
       <Header />
       <main className="pt-24">
         <Pricing as="h1" />

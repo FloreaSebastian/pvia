@@ -4,13 +4,8 @@ import { Hero } from "@/components/landing/Hero";
 import { TradesBar } from "@/components/landing/TradesBar";
 import { ProblemSolution } from "@/components/landing/ProblemSolution";
 import { HowItWorks } from "@/components/landing/HowItWorks";
-import { FieldMode } from "@/components/landing/FieldMode";
-import { Reserves } from "@/components/landing/Reserves";
-import { SignaturePdf } from "@/components/landing/SignaturePdf";
-import { ClientSpace } from "@/components/landing/ClientSpace";
-import { PlanningTeam } from "@/components/landing/PlanningTeam";
-import { Pilotage } from "@/components/landing/Pilotage";
 import { Features } from "@/components/landing/Features";
+import { ProductLinks } from "@/components/landing/ProductLinks";
 import { Pricing } from "@/components/landing/Pricing";
 import { FAQ, faqs } from "@/components/landing/FAQ";
 import { CTA } from "@/components/landing/CTA";
@@ -80,13 +75,8 @@ function Index() {
         <TradesBar />
         <ProblemSolution />
         <HowItWorks />
-        <FieldMode />
-        <Reserves />
-        <SignaturePdf />
-        <ClientSpace />
-        <PlanningTeam />
-        <Pilotage />
         <Features />
+        <ProductLinks />
         <Pricing />
         <FAQ />
         <CTA />

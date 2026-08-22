@@ -8,7 +8,7 @@ const columns: { title: string; links: LinkDef[] }[] = [
   {
     title: "PVIA",
     links: [
-      { label: "Fonctionnalités", href: "/#fonctionnalites" },
+      { label: "Fonctionnalités", href: "/fonctionnalites", internal: true },
       { label: "Tarifs", href: "/tarifs", internal: true },
       { label: "Connexion", href: "/login", internal: true },
     ],
@@ -16,10 +16,10 @@ const columns: { title: string; links: LinkDef[] }[] = [
   {
     title: "Produit",
     links: [
-      { label: "Réception", href: "/#comment-ca-marche" },
-      { label: "Réserves", href: "/#reserves" },
-      { label: "Mode terrain", href: "/#mode-terrain" },
-      { label: "Espace client", href: "/#espace-client" },
+      { label: "Comment ça marche", href: "/comment-ca-marche", internal: true },
+      { label: "Gestion des réserves", href: "/gestion-des-reserves", internal: true },
+      { label: "Mode terrain", href: "/mode-terrain", internal: true },
+      { label: "Espace client", href: "/espace-client", internal: true },
     ],
   },
   {

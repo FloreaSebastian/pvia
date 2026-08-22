@@ -11,7 +11,7 @@ interface PublicPageShellProps {
 
 export function PublicPageShell({ eyebrow, title, description, children }: PublicPageShellProps) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="landing-editorial min-h-screen bg-background">
       <Header />
       <main className="pt-32 pb-20 sm:pt-40">
         <section className="relative">

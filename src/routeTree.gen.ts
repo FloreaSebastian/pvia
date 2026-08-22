@@ -14,9 +14,14 @@ import { Route as TarifsRouteImport } from './routes/tarifs'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
+import { Route as ModeTerrainRouteImport } from './routes/mode-terrain'
 import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GestionDesReservesRouteImport } from './routes/gestion-des-reserves'
+import { Route as FonctionnalitesRouteImport } from './routes/fonctionnalites'
+import { Route as EspaceClientRouteImport } from './routes/espace-client'
 import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
+import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
 import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -115,6 +120,11 @@ const SecuriteRoute = SecuriteRouteImport.update({
   path: '/securite',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ModeTerrainRoute = ModeTerrainRouteImport.update({
+  id: '/mode-terrain',
+  path: '/mode-terrain',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MentionsRoute = MentionsRouteImport.update({
   id: '/mentions',
   path: '/mentions',
@@ -125,9 +135,29 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GestionDesReservesRoute = GestionDesReservesRouteImport.update({
+  id: '/gestion-des-reserves',
+  path: '/gestion-des-reserves',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FonctionnalitesRoute = FonctionnalitesRouteImport.update({
+  id: '/fonctionnalites',
+  path: '/fonctionnalites',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EspaceClientRoute = EspaceClientRouteImport.update({
+  id: '/espace-client',
+  path: '/espace-client',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
   id: '/confidentialite',
   path: '/confidentialite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommentCaMarcheRoute = CommentCaMarcheRouteImport.update({
+  id: '/comment-ca-marche',
+  path: '/comment-ca-marche',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CgvRoute = CgvRouteImport.update({
@@ -537,9 +567,14 @@ const ClientPvIdLeveeReservesLiftIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cgv': typeof CgvRoute
+  '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/espace-client': typeof EspaceClientRoute
+  '/fonctionnalites': typeof FonctionnalitesRoute
+  '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
+  '/mode-terrain': typeof ModeTerrainRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -618,9 +653,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cgv': typeof CgvRoute
+  '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/espace-client': typeof EspaceClientRoute
+  '/fonctionnalites': typeof FonctionnalitesRoute
+  '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
+  '/mode-terrain': typeof ModeTerrainRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -698,9 +738,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/cgv': typeof CgvRoute
+  '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/espace-client': typeof EspaceClientRoute
+  '/fonctionnalites': typeof FonctionnalitesRoute
+  '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
+  '/mode-terrain': typeof ModeTerrainRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -781,9 +826,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/cgv'
+    | '/comment-ca-marche'
     | '/confidentialite'
+    | '/espace-client'
+    | '/fonctionnalites'
+    | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
+    | '/mode-terrain'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
@@ -862,9 +912,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/cgv'
+    | '/comment-ca-marche'
     | '/confidentialite'
+    | '/espace-client'
+    | '/fonctionnalites'
+    | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
+    | '/mode-terrain'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
@@ -941,9 +996,14 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/cgv'
+    | '/comment-ca-marche'
     | '/confidentialite'
+    | '/espace-client'
+    | '/fonctionnalites'
+    | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
+    | '/mode-terrain'
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
@@ -1024,9 +1084,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CgvRoute: typeof CgvRoute
+  CommentCaMarcheRoute: typeof CommentCaMarcheRoute
   ConfidentialiteRoute: typeof ConfidentialiteRoute
+  EspaceClientRoute: typeof EspaceClientRoute
+  FonctionnalitesRoute: typeof FonctionnalitesRoute
+  GestionDesReservesRoute: typeof GestionDesReservesRoute
   LoginRoute: typeof LoginRoute
   MentionsRoute: typeof MentionsRoute
+  ModeTerrainRoute: typeof ModeTerrainRoute
   SecuriteRoute: typeof SecuriteRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -1091,6 +1156,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SecuriteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mode-terrain': {
+      id: '/mode-terrain'
+      path: '/mode-terrain'
+      fullPath: '/mode-terrain'
+      preLoaderRoute: typeof ModeTerrainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mentions': {
       id: '/mentions'
       path: '/mentions'
@@ -1105,11 +1177,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gestion-des-reserves': {
+      id: '/gestion-des-reserves'
+      path: '/gestion-des-reserves'
+      fullPath: '/gestion-des-reserves'
+      preLoaderRoute: typeof GestionDesReservesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fonctionnalites': {
+      id: '/fonctionnalites'
+      path: '/fonctionnalites'
+      fullPath: '/fonctionnalites'
+      preLoaderRoute: typeof FonctionnalitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/espace-client': {
+      id: '/espace-client'
+      path: '/espace-client'
+      fullPath: '/espace-client'
+      preLoaderRoute: typeof EspaceClientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/confidentialite': {
       id: '/confidentialite'
       path: '/confidentialite'
       fullPath: '/confidentialite'
       preLoaderRoute: typeof ConfidentialiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comment-ca-marche': {
+      id: '/comment-ca-marche'
+      path: '/comment-ca-marche'
+      fullPath: '/comment-ca-marche'
+      preLoaderRoute: typeof CommentCaMarcheRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cgv': {
@@ -1798,9 +1898,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CgvRoute: CgvRoute,
+  CommentCaMarcheRoute: CommentCaMarcheRoute,
   ConfidentialiteRoute: ConfidentialiteRoute,
+  EspaceClientRoute: EspaceClientRoute,
+  FonctionnalitesRoute: FonctionnalitesRoute,
+  GestionDesReservesRoute: GestionDesReservesRoute,
   LoginRoute: LoginRoute,
   MentionsRoute: MentionsRoute,
+  ModeTerrainRoute: ModeTerrainRoute,
   SecuriteRoute: SecuriteRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
