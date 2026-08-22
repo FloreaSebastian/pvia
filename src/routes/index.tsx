@@ -80,13 +80,8 @@ function Index() {
         <TradesBar />
         <ProblemSolution />
         <HowItWorks />
-        <FieldMode />
-        <Reserves />
-        <SignaturePdf />
-        <ClientSpace />
-        <PlanningTeam />
-        <Pilotage />
         <Features />
+        <ProductLinks />
         <Pricing />
         <FAQ />
         <CTA />
