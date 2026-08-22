@@ -52,6 +52,44 @@ const MANAGE_ROLES: RoleValue[] = [
 ];
 const TECH_ALLOWED_STATUS = ["ouverte", "en_cours", "levee"] as const;
 
+/**
+ * Machine d'état serveur. Empêche les sauts illégitimes forgés côté client
+ * (ex. ouverte → validée sans levée, rejetée → validée).
+ * La réouverture d'une réserve validée reste possible pour les rôles admin.
+ */
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  ouverte: ["en_cours", "levee", "rejetee"],
+  en_cours: ["ouverte", "levee", "rejetee"],
+  levee: ["en_attente_validation", "validee", "rejetee", "en_cours"],
+  en_attente_validation: ["validee", "rejetee", "en_cours", "levee"],
+  validee: [], // terminal (réouverture admin gérée à part)
+  rejetee: ["ouverte", "en_cours"],
+};
+
+function assertTransition(from: string, to: string, role: RoleValue) {
+  if (from === to) return;
+  if (from === "validee" && to === "ouverte" && ADMIN_ROLES.includes(role)) return;
+  if (!(ALLOWED_TRANSITIONS[from] ?? []).includes(to)) {
+    throw new Error("Transition de statut non autorisée pour cette réserve.");
+  }
+}
+
+/** Vérifie qu'un utilisateur assigné appartient bien à l'entreprise. */
+async function assertMemberOfCompany(
+  sb: SupabaseClient<Database>,
+  companyId: string,
+  assignedTo: string,
+) {
+  const { data } = await sb
+    .from("company_members")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("user_id", assignedTo)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!data) throw new Error("Ce responsable n'appartient pas à l'entreprise.");
+}
+
 const ReserveStatus = z.enum([
   "ouverte",
   "en_cours",
@@ -62,20 +100,27 @@ const ReserveStatus = z.enum([
 ]);
 const Priority = z.enum(["low", "normal", "high"]);
 
+/** Ne jamais renvoyer l'erreur Zod brute au navigateur. */
+function validate<T>(schema: z.ZodType<T>, input: unknown): T {
+  const r = schema.safeParse(input);
+  if (!r.success) throw new Error("Données invalides.");
+  return r.data;
+}
+
+
 // ---------------------------------------------------------------------------
 // updateReserveStatus
 // ---------------------------------------------------------------------------
 export const updateReserveStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         id: z.string().uuid(),
         status: ReserveStatus,
         reason: z.string().max(2000).optional(),
-      })
-      .parse(i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -101,6 +146,8 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
         throw new Error("Cette réserve ne vous est pas assignée.");
       }
     }
+
+    assertTransition(prev.status, data.status, role);
 
     if (data.status === "rejetee" && !data.reason?.trim()) {
       throw new Error("Un motif est requis pour rejeter une réserve.");
@@ -133,15 +180,14 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
 export const assignReserve = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         id: z.string().uuid(),
         assignedTo: z.string().uuid().nullable(),
         dueDate: z.string().nullable().optional(),
         priority: Priority.optional(),
-      })
-      .parse(i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -149,6 +195,8 @@ export const assignReserve = createServerFn({ method: "POST" })
     if (!MANAGE_ROLES.includes(role)) {
       throw new Error("Droits insuffisants (conducteur requis).");
     }
+
+    if (data.assignedTo) await assertMemberOfCompany(supabase, data.companyId, data.assignedTo);
 
     const patch: Database["public"]["Tables"]["pv_reserves"]["Update"] = {
       assigned_to: data.assignedTo,
@@ -192,15 +240,14 @@ export const assignReserve = createServerFn({ method: "POST" })
 export const bulkUpdateReserves = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         ids: z.array(z.string().uuid()).min(1).max(200),
         status: ReserveStatus.optional(),
         assignedTo: z.string().uuid().nullable().optional(),
         dueDate: z.string().nullable().optional(),
-      })
-      .parse(i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -208,6 +255,21 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
     if (!MANAGE_ROLES.includes(role)) {
       throw new Error("Droits insuffisants (conducteur requis).");
     }
+
+    if (data.assignedTo) await assertMemberOfCompany(supabase, data.companyId, data.assignedTo);
+
+    // Restreindre aux réserves réellement possédées par l'entreprise appelante
+    const { data: owned } = await supabase
+      .from("pv_reserves")
+      .select("id,status")
+      .eq("company_id", data.companyId)
+      .in("id", data.ids);
+    const ownedRows = (owned ?? []) as { id: string; status: string }[];
+    if (ownedRows.length === 0) throw new Error("Aucune réserve concernée.");
+    if (data.status) {
+      for (const r of ownedRows) assertTransition(r.status, data.status, role);
+    }
+    const ownedIds = ownedRows.map((r) => r.id);
 
     const patch: Database["public"]["Tables"]["pv_reserves"]["Update"] = {};
     if (data.status) patch.status = data.status;
@@ -219,7 +281,7 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
       .from("pv_reserves")
       .update(patch)
 
-      .in("id", data.ids)
+      .in("id", ownedIds)
       .eq("company_id", data.companyId);
     if (error) throw new Error(error.message);
 
@@ -229,9 +291,9 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
       entityType: "reserve",
       action: "reserve.bulk_updated",
       newValues: patch,
-      metadata: { ids: data.ids, count: data.ids.length, role },
+      metadata: { ids: ownedIds, count: ownedIds.length, role },
     });
-    return { ok: true, count: data.ids.length };
+    return { ok: true, count: ownedIds.length };
   });
 
 // ---------------------------------------------------------------------------
@@ -250,12 +312,11 @@ function csvEscape(v: unknown): string {
 export const exportReservesCsv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         ids: z.array(z.string().uuid()).optional(),
-      })
-      .parse(i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -360,12 +421,11 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
 export const deleteReserve = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         id: z.string().uuid(),
-      })
-      .parse(i),
+      }), i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
