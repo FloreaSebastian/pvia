@@ -87,12 +87,12 @@ export function Header() {
             <nav aria-label="Navigation mobile" className="flex flex-col gap-1 p-4">
               {nav.map((i) => (
                 <SheetClose asChild key={i.href}>
-                  <a
-                    href={i.href}
+                  <Link
+                    to={i.href}
                     className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-foreground hover:bg-muted"
                   >
                     {i.label}
-                  </a>
+                  </Link>
                 </SheetClose>
               ))}
               <div className="mt-3 space-y-2 border-t border-border pt-4">
