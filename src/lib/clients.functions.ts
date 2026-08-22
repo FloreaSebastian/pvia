@@ -46,6 +46,24 @@ const ClientPayloadSchema = z.object({
 const CreateInput = z.object({ companyId: z.string().uuid(), data: ClientPayloadSchema });
 const UpdateInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid(), data: ClientPayloadSchema });
 const DeleteInput = z.object({ companyId: z.string().uuid(), id: z.string().uuid() });
+
+/**
+ * Parse an input schema and surface a human-readable message instead of the
+ * raw Zod issue array (which leaks internal field paths / validation codes to
+ * the end user through the toast).
+ */
+function parseInput<T extends z.ZodTypeAny>(schema: T, input: unknown): z.infer<T> {
+  const res = schema.safeParse(input);
+  if (res.success) return res.data;
+  const first = res.error.issues[0];
+  const field = first?.path?.filter((p) => typeof p === "string" && p !== "data").slice(-1)[0];
+  const msg = first?.message && !/^Invalid|^Required/i.test(first.message)
+    ? first.message
+    : field
+      ? `Champ invalide : ${String(field)}.`
+      : "Données invalides.";
+  throw new Error(msg);
+}
 const ArchiveInput = z.object({
   companyId: z.string().uuid(),
   id: z.string().uuid(),
@@ -112,7 +130,7 @@ function addressChanged(prev: Record<string, unknown>, next: Record<string, unkn
 
 export const createClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => CreateInput.parse(input))
+  .inputValidator((input) => parseInput(CreateInput, input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
@@ -132,7 +150,7 @@ export const createClient = createServerFn({ method: "POST" })
 
 export const updateClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => UpdateInput.parse(input))
+  .inputValidator((input) => parseInput(UpdateInput, input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
@@ -177,7 +195,7 @@ async function assertCanAdmin(
  */
 export const archiveClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => ArchiveInput.parse(input))
+  .inputValidator((input) => parseInput(ArchiveInput, input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
@@ -205,7 +223,7 @@ export const archiveClient = createServerFn({ method: "POST" })
  */
 export const restoreClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => RestoreInput.parse(input))
+  .inputValidator((input) => parseInput(RestoreInput, input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertCanAdmin(supabase, data.companyId, userId);
@@ -230,7 +248,7 @@ export const restoreClient = createServerFn({ method: "POST" })
  */
 export const deleteClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => DeleteInput.parse(input))
+  .inputValidator((input) => parseInput(DeleteInput, input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
