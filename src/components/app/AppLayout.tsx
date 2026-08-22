@@ -26,9 +26,8 @@ import {
   Shield,
   History,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -39,7 +38,8 @@ import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
 import { useCompany } from "@/hooks/use-company";
 import { useViewport } from "@/hooks/use-viewport";
-import { ImmersiveProvider } from "@/hooks/use-immersive";
+import { ImmersiveProvider, useImmersive } from "@/hooks/use-immersive";
+import { GlobalSearch } from "@/components/app/GlobalSearch";
 import { isAdminRole, isOwnerRole } from "@/lib/roles";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
@@ -117,10 +117,12 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
   // La sidebar n'est visible en permanence qu'à partir de `lg` (1024px) :
   // on aligne la fermeture automatique du tiroir sur ce même seuil pour ne
   // jamais laisser l'utilisateur sans navigation entre 900 et 1023px.
+  const [hasFixedSidebar, setHasFixedSidebar] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(min-width: 1024px)");
     const sync = () => {
+      setHasFixedSidebar(mq.matches);
       if (mq.matches) setOpen(false);
     };
     sync();
@@ -209,9 +211,9 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
     return p === to || p.startsWith(to + "/");
   };
 
-  // Hors écran (tiroir fermé) ou masquée par une vue immersive :
+  // Hors écran (tiroir fermé sur mobile) ou masquée par une vue immersive :
   // la navigation latérale ne doit plus être atteignable au clavier.
-  const asideInert = immersive || !open;
+  const asideInert = immersive || (!open && !hasFixedSidebar);
 
   return (
     <div className="min-h-dvh bg-muted/30">
@@ -227,10 +229,11 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
       <aside
         ref={asideRef}
         aria-label="Navigation latérale"
+        id="pvia-sidebar"
         {...(asideInert ? { inert: "" as unknown as boolean } : {})}
         className={`fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform ${
-          immersive ? "lg:-translate-x-full" : "lg:translate-x-0 lg:[--tw-inert:0]"
-        } ${open ? "translate-x-0 shadow-elevation-xl" : "-translate-x-full"} ${immersive ? "" : "lg:translate-x-0"}`}
+          open ? "translate-x-0 shadow-elevation-xl" : "-translate-x-full"
+        } ${immersive ? "lg:-translate-x-full" : "lg:translate-x-0"}`}
       >
         {/* Brand header */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
