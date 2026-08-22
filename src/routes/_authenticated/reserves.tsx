@@ -1027,12 +1027,13 @@ function ReservesPage() {
           // sinon le focus retombe sur <body> (navigation clavier perdue).
           const id = confirmDelete?.ids.length === 1 ? confirmDelete.ids[0] : null;
           setConfirmDelete(null);
-          requestAnimationFrame(() => {
+          // 120 ms : après la restauration de focus interne de Radix (sinon écrasée).
+          window.setTimeout(() => {
             const el = id
               ? document.querySelector<HTMLElement>(`[data-more-trigger="${id}"]`)
               : document.querySelector<HTMLElement>("[data-bulk-delete]");
             el?.focus();
-          });
+          }, 120);
         }}
       >
         <AlertDialogContent>
