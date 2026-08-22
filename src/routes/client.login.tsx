@@ -79,9 +79,9 @@ function ClientLogin() {
           transition={{ duration: 0.4 }}
           className="space-y-6"
         >
-          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight">
+          <p className="font-display text-4xl font-bold leading-tight tracking-tight">
             Vos procès-verbaux,<br />à portée d'email.
-          </h1>
+          </p>
           <p className="max-w-md text-base text-primary-foreground/85">
             Consultez et signez vos PV en quelques secondes — sans créer de compte, sans mot de passe.
           </p>
@@ -97,7 +97,9 @@ function ClientLogin() {
       <div className="flex items-center justify-center bg-background px-6 py-12 sm:px-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex lg:hidden"><BrandLogo /></div>
-          <h2 className="font-display text-3xl font-bold tracking-tight">Espace client</h2>
+          {/* H1 réel visible sur TOUTES les largeurs : l'ancien H1 était dans le
+              panneau latéral masqué sous 1024 px, donc absent en mobile. */}
+          <h1 className="font-display text-3xl font-bold tracking-tight">Espace client</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Entrez votre email. Nous vous enverrons un code à 6 chiffres pour vous connecter.
           </p>
@@ -110,24 +112,28 @@ function ClientLogin() {
                   id="email"
                   type="email"
                   autoComplete="email"
+                  inputMode="email"
                   autoFocus
                   required
                   placeholder="vous@exemple.fr"
+                  className="h-11 text-base sm:h-10 sm:text-sm"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-muted-foreground">
                 <Checkbox
+                  className="h-5 w-5"
                   checked={remember}
                   onCheckedChange={(v) => setRemember(v === true)}
                 />
                 <span>Se souvenir de moi pendant 30 jours</span>
               </label>
-              <Button type="submit" className="w-full" disabled={loading || !email}>
+              <Button type="submit" className="h-11 w-full sm:h-10" disabled={loading || !email}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                   <>Recevoir un code <ArrowRight className="ml-1 h-4 w-4" /></>
                 )}
+
               </Button>
             </form>
           </Card>
