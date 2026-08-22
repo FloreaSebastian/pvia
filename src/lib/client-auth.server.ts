@@ -111,6 +111,20 @@ export function getClientIp(): string | null {
   }
 }
 
+/**
+ * Postgres `inet` n'accepte pas de valeur libre : une IP non résolue ("unknown",
+ * chaîne vide) fait échouer tout l'INSERT/UPDATE. On normalise en null.
+ */
+export function toInetOrNull(ip: string | null | undefined): string | null {
+  if (!ip) return null;
+  const v = ip.trim();
+  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const ipv6 = /^[0-9a-fA-F:]+$/;
+  if (ipv4.test(v) && v.split(".").every((o) => Number(o) <= 255)) return v;
+  if (v.includes(":") && ipv6.test(v)) return v;
+  return null;
+}
+
 export function getClientUA(): string | null {
   try {
     return getRequestHeader("user-agent") || null;
