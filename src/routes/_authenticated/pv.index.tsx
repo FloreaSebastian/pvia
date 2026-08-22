@@ -324,14 +324,14 @@ function PvList() {
         </div>
 
         {activeFiltersCount > 0 && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="min-w-0 truncate text-muted-foreground" aria-live="polite">
               {filteredSorted.length} résultat{filteredSorted.length > 1 ? "s" : ""}
             </span>
             <button
               type="button"
               onClick={() => { setStatusFilter("all"); setReserveFilter("all"); }}
-              className="font-medium text-primary hover:underline"
+              className="shrink-0 font-medium text-primary hover:underline"
             >
               Réinitialiser
             </button>
@@ -339,118 +339,120 @@ function PvList() {
         )}
       </div>
 
-      {/* MOBILE: card grid */}
-      <div className="md:hidden">
-        {loading && (
-          <div className="py-16 text-center text-sm text-muted-foreground">Chargement…</div>
-        )}
-        {!loading && filteredSorted.length === 0 && (
-          <EmptyBlock total={items.length} />
-        )}
-        {!loading && filteredSorted.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
-              {shown.map((p) => (
-                <PvCard
-                  key={p.id}
-                  pv={p}
-                  onOpen={() => navigate({ to: "/pv/$id", params: { id: p.id } })}
-                  onDownload={() => download(p.pdf_url)}
-                  onShare={() => share(p)}
-                  onRemove={() => remove(p.id)}
-                />
-              ))}
-            </div>
-            {visible < filteredSorted.length && (
-              <div className="mt-4 flex justify-center">
-                <Button variant="outline" size="sm" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
-                  Charger plus ({filteredSorted.length - visible} restants)
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      {/* Liste — bascule cartes ↔ tableau sur la largeur réelle du conteneur */}
+      <div ref={listRef} className="min-w-0">
+        {loading && <ListSkeleton />}
+        {!loading && filteredSorted.length === 0 && <EmptyBlock total={items.length} />}
 
-      {/* DESKTOP: table */}
-      <Card className="hidden overflow-hidden p-0 md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Numéro</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Chantier</TableHead>
-              <TableHead>Réserves</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-16 text-center text-sm text-muted-foreground">Chargement…</TableCell>
-              </TableRow>
-            )}
-            {!loading && filteredSorted.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-16 text-center">
-                  <EmptyBlock total={items.length} />
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && shown.map((p) => {
-              const rc = reservesCount(p);
-              return (
-                <TableRow key={p.id} className="group cursor-pointer hover:bg-muted/40">
-                  <TableCell className="font-medium">
-                    <Link to="/pv/$id" params={{ id: p.id }} className="font-mono hover:underline">N° {p.numero}</Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{p.type}</TableCell>
-                  <TableCell><PvStatusPill status={p.status} /></TableCell>
-                  <TableCell className="max-w-[220px] truncate text-muted-foreground">
-                    {p.chantiers?.reference && <span className="mr-1 rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold text-foreground">{p.chantiers.reference}</span>}
-                    {p.chantiers?.name ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    {p.reception_with_reserves ? (
-                      <StatusPill tone="warning" size="sm">{rc > 0 ? `${rc} réserves` : "Avec réserves"}</StatusPill>
-                    ) : (
-                      <StatusPill tone="success" size="sm">Sans réserve</StatusPill>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{formatDate(p.reception_date)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="inline-flex items-center gap-1 opacity-60 transition group-hover:opacity-100">
-                      <Link to="/pv/$id" params={{ id: p.id }}>
-                        <Button size="sm" variant="ghost">Ouvrir</Button>
-                      </Link>
-                      {p.pdf_url && (
-                        <Button size="icon" variant="ghost" onClick={() => download(p.pdf_url)} title="Télécharger PDF">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button size="icon" variant="ghost" onClick={() => share(p)} title="Partager">
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(p.id)} title="Supprimer">
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        {!loading && filteredSorted.length > 0 && !useTable && (
+          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
+            {shown.map((p) => (
+              <PvCard
+                key={p.id}
+                pv={p}
+                onOpen={() => navigate({ to: "/pv/$id", params: { id: p.id } })}
+                onDownload={() => download(p.pdf_url)}
+                onShare={() => share(p)}
+                onRemove={() => remove(p.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {!loading && filteredSorted.length > 0 && useTable && (
+          <Card className="overflow-hidden p-0">
+            <div className="w-full overflow-x-auto">
+              <Table className="table-fixed">
+                <colgroup>
+                  <col className="w-[20%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[23%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
+                </colgroup>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Numéro</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Chantier</TableHead>
+                    <TableHead>Réserves</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {shown.map((p) => {
+                    const rc = reservesCount(p);
+                    return (
+                      <TableRow key={p.id} className="hover:bg-muted/40">
+                        <TableCell className="font-medium">
+                          <Link
+                            to="/pv/$id"
+                            params={{ id: p.id }}
+                            title={`N° ${p.numero}`}
+                            className="block truncate font-mono hover:underline"
+                          >
+                            N° {p.numero}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="truncate text-muted-foreground" title={p.type}>{p.type || "—"}</TableCell>
+                        <TableCell><PvStatusPill status={p.status} size="sm" /></TableCell>
+                        <TableCell className="text-muted-foreground">
+                          <div className="flex min-w-0 items-center gap-1" title={p.chantiers?.name ?? undefined}>
+                            {p.chantiers?.reference && (
+                              <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold text-foreground">{p.chantiers.reference}</span>
+                            )}
+                            <span className="truncate">{p.chantiers?.name ?? "—"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {p.reception_with_reserves ? (
+                            <StatusPill tone="warning" size="sm">{rc > 0 ? `${rc} réserve${rc > 1 ? "s" : ""}` : "Avec réserves"}</StatusPill>
+                          ) : (
+                            <StatusPill tone="success" size="sm">Sans réserve</StatusPill>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(p.reception_date)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-0.5">
+                            <Link to="/pv/$id" params={{ id: p.id }} aria-label={`Ouvrir le PV ${p.numero}`}>
+                              <Button size="icon" variant="ghost" title="Ouvrir">
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            {p.pdf_url && (
+                              <Button size="icon" variant="ghost" onClick={() => download(p.pdf_url)} title="Télécharger le PDF" aria-label={`Télécharger le PDF du PV ${p.numero}`}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button size="icon" variant="ghost" onClick={() => share(p)} title="Partager" aria-label={`Partager le PV ${p.numero}`}>
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => remove(p.id)} title="Supprimer" aria-label={`Supprimer le PV ${p.numero}`}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        )}
+
         {!loading && visible < filteredSorted.length && (
-          <div className="flex justify-center border-t border-border bg-muted/30 p-3">
-            <Button variant="outline" size="sm" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" className="h-11 sm:h-9" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
               Charger plus ({filteredSorted.length - visible} restants)
             </Button>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }
