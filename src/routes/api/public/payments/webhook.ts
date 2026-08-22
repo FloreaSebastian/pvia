@@ -17,6 +17,8 @@ function tsToIso(seconds: number | null | undefined): string | null {
   return seconds ? new Date(seconds * 1000).toISOString() : null;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function audit(opts: {
   companyId?: string | null;
   userId?: string | null;
@@ -26,14 +28,22 @@ async function audit(opts: {
   metadata?: Record<string, unknown>;
 }) {
   const db = (await getSupabase()) as any;
-  await db.from("audit_logs").insert({
+  // ST-M7: audit_logs.entity_id is a uuid column, but Stripe identifiers
+  // (sub_…, cs_…, in_…, evt_…) are not uuids. Storing them in entity_id made
+  // every billing audit insert fail silently. Keep the Stripe id in metadata.
+  const isUuid = UUID_RE.test(opts.entityId ?? "");
+  const { error } = await db.from("audit_logs").insert({
     company_id: opts.companyId ?? null,
     user_id: opts.userId ?? null,
     entity_type: opts.entityType,
-    entity_id: opts.entityId,
+    entity_id: isUuid ? opts.entityId : null,
     action: opts.action,
-    metadata: opts.metadata ?? {},
+    metadata: {
+      ...(opts.metadata ?? {}),
+      ...(isUuid ? {} : { stripe_id: opts.entityId }),
+    },
   });
+  if (error) console.error("[webhook] audit insert failed", opts.action, error);
 }
 
 async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { auditAction?: string }) {
