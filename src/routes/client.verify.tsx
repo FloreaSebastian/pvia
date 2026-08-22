@@ -147,12 +147,12 @@ function ClientVerify() {
               containerClassName="gap-2"
             >
               <InputOTPGroup>
-                <InputOTPSlot index={0} className="h-12 w-11 text-base sm:h-10 sm:w-10 sm:text-sm" />
-                <InputOTPSlot index={1} className="h-12 w-11 text-base sm:h-10 sm:w-10 sm:text-sm" />
-                <InputOTPSlot index={2} className="h-12 w-11 text-base sm:h-10 sm:w-10 sm:text-sm" />
-                <InputOTPSlot index={3} className="h-12 w-11 text-base sm:h-10 sm:w-10 sm:text-sm" />
-                <InputOTPSlot index={4} className="h-12 w-11 text-base sm:h-10 sm:w-10 sm:text-sm" />
-                <InputOTPSlot index={5} className="h-12 w-11 text-base sm:h-10 sm:w-10 sm:text-sm" />
+                <InputOTPSlot index={0} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
+                <InputOTPSlot index={1} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
+                <InputOTPSlot index={2} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
+                <InputOTPSlot index={3} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
+                <InputOTPSlot index={4} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
+                <InputOTPSlot index={5} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
               </InputOTPGroup>
             </InputOTP>
           </div>
