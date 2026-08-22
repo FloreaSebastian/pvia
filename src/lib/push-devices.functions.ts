@@ -11,9 +11,11 @@ export const listMyPushDevices = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { data } = await supabaseAdmin
       .from("push_subscriptions")
-      .select("id,endpoint,user_agent,last_seen_at,created_at,company_id")
+      .select("id,user_agent,last_seen_at,created_at")
       .eq("user_id", context.userId)
       .order("last_seen_at", { ascending: false });
+    // NB: l'endpoint push et l'entreprise ne sont jamais renvoyés au client
+    // (donnée technique sensible, inutile à l'affichage).
     return { devices: data ?? [] };
   });
 
@@ -22,11 +24,15 @@ export const deleteMyPushDevice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => DelSchema.parse(i))
   .handler(async ({ data, context }) => {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("push_subscriptions")
       .delete()
       .eq("id", data.id)
       .eq("user_id", context.userId);
+    if (error) {
+      console.error("[push-devices] delete failed", error);
+      throw new Error("Impossible de supprimer cet appareil.");
+    }
     return { ok: true };
   });
 
