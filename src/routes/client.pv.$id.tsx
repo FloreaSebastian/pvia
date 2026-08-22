@@ -381,7 +381,7 @@ function ClientPvDetail() {
                       </Badge>
                     )}
                     <Link
-                      to="/client/pv/$id_/levee-reserves/$liftId"
+                      to="/client/pv/$id/levee-reserves/$liftId"
                       params={{ id, liftId: l.id }}
                       className="flex-1 sm:flex-none"
                     >
