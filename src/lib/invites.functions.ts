@@ -10,7 +10,12 @@ import { enforceRateLimit, getClientIp } from "./rate-limit.server";
 
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
-  email: z.string().email().max(255),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Adresse email invalide.")
+    .max(255),
   role: z.enum([
     "responsable_exploitation",
     "conducteur_travaux",
@@ -76,6 +81,13 @@ export const sendInvite = createServerFn({ method: "POST" })
     if (!membership || !isAdminRole(membership.role)) {
       throw new Error("Vous n'avez pas les droits pour inviter des membres.");
     }
+
+    // Auto-invitation impossible
+    const callerEmail = ((context.claims as any)?.email as string | undefined)?.toLowerCase();
+    if (callerEmail && callerEmail === data.email) {
+      throw new Error("Vous faites déjà partie de cette entreprise.");
+    }
+
 
     // Plan quota: max members per plan
     await assertCanAddMember(data.companyId);
@@ -185,7 +197,7 @@ export const sendInvite = createServerFn({ method: "POST" })
       tag: `invite-${data.email.toLowerCase()}`,
     }, { excludeUserId: userId });
 
-    return { ok: true, acceptUrl };
+    return { ok: true as const };
   });
 
 const TokenSchema = z.object({ token: z.string().min(10).max(128) });
@@ -261,7 +273,24 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
     if (email && invite.invited_email && email.toLowerCase() !== invite.invited_email.toLowerCase())
       throw new Error("Cette invitation est destinée à un autre email.");
 
-    const { error } = await supabaseAdmin
+    // Déjà membre de cette entreprise ? On consomme l'invitation sans dupliquer la ligne.
+    const { data: inviteRow } = await supabaseAdmin
+      .from("company_members").select("company_id").eq("id", invite.id).maybeSingle();
+    if (inviteRow?.company_id) {
+      const { data: already } = await supabaseAdmin
+        .from("company_members")
+        .select("id")
+        .eq("company_id", inviteRow.company_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (already) {
+        await supabaseAdmin.from("company_members").delete().eq("id", invite.id);
+        return { ok: true as const, alreadyMember: true as const };
+      }
+    }
+
+    // Consommation atomique : la ligne doit encore être au statut "invited".
+    const { data: updated, error } = await supabaseAdmin
       .from("company_members")
       .update({
         user_id: userId,
@@ -271,8 +300,11 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
         invite_token_hash: null,
         accepted_at: new Date().toISOString(),
       } as never)
-      .eq("id", invite.id);
-    if (error) throw new Error(error.message);
+      .eq("id", invite.id)
+      .eq("status", "invited")
+      .select("id");
+    if (error) throw new Error("Impossible d'accepter cette invitation.");
+    if (!updated || updated.length === 0) throw new Error("Invitation déjà utilisée.");
 
 
     // Lookup company for audit context
