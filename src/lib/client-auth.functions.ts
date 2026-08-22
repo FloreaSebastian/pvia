@@ -33,7 +33,7 @@ import {
   readClientCookieToken,
   setClientCookie,
   sha256Hex,
-  timingSafeEqual,, toInetOrNull } from "@/lib/client-auth.server";
+  timingSafeEqual, toInetOrNull } from "@/lib/client-auth.server";
 import { sendClientLoginCodeEmail } from "@/lib/email.server";
 
 // ─── send code ────────────────────────────────────────────────────────────────

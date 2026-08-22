@@ -20,7 +20,7 @@ import {
   getClientUA,
   normalizeEmail,
   readClientCookieToken,
-  sha256Hex,, toInetOrNull } from "@/lib/client-auth.server";
+  sha256Hex, toInetOrNull } from "@/lib/client-auth.server";
 
 /* ─── session helpers (mirrors client-auth.functions) ─────────────────── */
 
