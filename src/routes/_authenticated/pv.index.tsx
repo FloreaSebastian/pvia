@@ -631,17 +631,17 @@ function PvCard({
         <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
           Ouvrir <ChevronRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
         </span>
-        <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="-mr-1 flex items-center" onClick={(e) => e.stopPropagation()}>
           {pv.pdf_url && (
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onDownload} aria-label="Télécharger PDF">
-              <Download className="h-3.5 w-3.5" />
+            <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onDownload} aria-label={`Télécharger le PDF du PV ${pv.numero}`}>
+              <Download className="h-4 w-4" />
             </Button>
           )}
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onShare} aria-label="Partager">
-            <Share2 className="h-3.5 w-3.5" />
+          <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onShare} aria-label={`Partager le PV ${pv.numero}`}>
+            <Share2 className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onRemove} aria-label="Supprimer">
-            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onRemove} aria-label={`Supprimer le PV ${pv.numero}`}>
+            <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       </div>
