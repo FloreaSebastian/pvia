@@ -707,7 +707,7 @@ function PvDetail() {
               )}
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 text-sm">
+          <div className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
             <Info label="Type">{pv.type}</Info>
             <Info label="Date de réception">{pv.reception_date ? new Date(pv.reception_date).toLocaleDateString("fr-FR") : "—"}</Info>
             <Info label="Chantier">{chantierName ?? "—"}</Info>
@@ -1153,9 +1153,9 @@ function labelForType(t: string) {
 
 function Info({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 break-words">{children}</p>
+      <p className="mt-1 break-anywhere">{children}</p>
     </div>
   );
 }
