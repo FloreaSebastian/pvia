@@ -14,6 +14,11 @@ import { listMyPushDevices, deleteMyPushDevice } from "@/lib/push-devices.functi
 import { sendTestPush } from "@/lib/notify-pv.functions";
 import { getPvEmailSettings, updatePvEmailSettings } from "@/lib/pv-email-settings.functions";
 import { useServerFn } from "@tanstack/react-start";
+import { isAdminRole } from "@/lib/roles";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/parametres/notifications")({
   component: NotificationsSettings,
@@ -22,20 +27,21 @@ export const Route = createFileRoute("/_authenticated/parametres/notifications")
 
 type Device = {
   id: string;
-  endpoint: string;
   user_agent: string | null;
   last_seen_at: string;
   created_at: string;
 };
 
 function NotificationsSettings() {
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, activeRole } = useCompany();
+  const canEditEmails = isAdminRole(activeRole);
   const [supported, setSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [enabled, setEnabled] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [pendingDevice, setPendingDevice] = useState<Device | null>(null);
 
   // PV signed email settings
   const getSettingsFn = useServerFn(getPvEmailSettings);
@@ -210,15 +216,18 @@ function NotificationsSettings() {
               </div>
             </div>
           </div>
+          <span className="-m-2 grid h-11 w-11 shrink-0 place-items-center">
           <Switch
+            aria-label="Activer les notifications sur cet appareil"
             checked={enabled}
             disabled={!supported || loading || permission === "denied"}
             onCheckedChange={(v) => (v ? enable() : disable())}
           />
+          </span>
         </div>
         {enabled && (
           <div className="mt-4">
-            <Button size="sm" variant="outline" onClick={testPush} disabled={testing}>
+            <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={testPush} disabled={testing}>
               {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Envoyer une notification test
             </Button>
@@ -245,16 +254,22 @@ function NotificationsSettings() {
               : "Appareil";
             return (
               <li key={d.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="flex items-center gap-3">
-                  <Smartphone className="h-4 w-4 text-muted-foreground" />
-                  <div>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
                     <div className="text-sm font-medium">{label}</div>
                     <div className="text-xs text-muted-foreground">
                       Dernière activité : {new Date(d.last_seen_at).toLocaleString("fr-FR")}
                     </div>
                   </div>
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => removeDevice(d.id)} aria-label="Supprimer">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-11 w-11 shrink-0"
+                  onClick={() => setPendingDevice(d)}
+                  aria-label={`Supprimer l'appareil ${label}`}
+                >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </li>
@@ -282,7 +297,14 @@ function NotificationsSettings() {
               <div className="text-sm font-medium">Envoyer une copie à l'entreprise</div>
               <p className="text-xs text-muted-foreground">Le PDF signé est aussi envoyé à votre adresse principale.</p>
             </div>
-            <Switch checked={sendCompanyCopy} onCheckedChange={setSendCompanyCopy} />
+            <span className="-m-2 grid h-11 w-11 shrink-0 place-items-center">
+            <Switch
+              aria-label="Envoyer une copie du PV signé à l'entreprise"
+              checked={sendCompanyCopy}
+              disabled={!canEditEmails}
+              onCheckedChange={setSendCompanyCopy}
+            />
+            </span>
           </div>
 
           <div className="space-y-1.5">
@@ -292,6 +314,8 @@ function NotificationsSettings() {
               value={companySignedEmail}
               onChange={(e) => setCompanySignedEmail(e.target.value)}
               placeholder="archives@monentreprise.fr"
+              disabled={!canEditEmails}
+              className="h-11"
             />
             <p className="text-[11px] text-muted-foreground">Si vide, l'email de la fiche entreprise sera utilisé.</p>
           </div>
@@ -303,6 +327,7 @@ function NotificationsSettings() {
             setEmails={setPvRecipients}
             value={newRecipient}
             setValue={setNewRecipient}
+            disabled={!canEditEmails}
           />
 
           <EmailList
@@ -312,22 +337,57 @@ function NotificationsSettings() {
             setEmails={setPvCc}
             value={newCc}
             setValue={setNewCc}
+            disabled={!canEditEmails}
           />
 
+          {!canEditEmails && (
+            <p className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+              Seuls les administrateurs de l'entreprise peuvent modifier ces destinataires.
+            </p>
+          )}
+
           <div className="flex justify-end">
-            <Button onClick={savePvEmailSettings} disabled={savingPvEmail}>
+            <Button
+              className="h-11 w-full gap-2 sm:w-auto"
+              onClick={savePvEmailSettings}
+              disabled={savingPvEmail || !canEditEmails}
+            >
               {savingPvEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Enregistrer
             </Button>
           </div>
         </div>
       </Card>
+
+      <AlertDialog open={!!pendingDevice} onOpenChange={(o) => !o && setPendingDevice(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet appareil ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cet appareil ne recevra plus de notifications push. Vous pourrez les réactiver depuis l'appareil concerné.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-11">Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                const id = pendingDevice?.id;
+                setPendingDevice(null);
+                if (id) removeDevice(id);
+              }}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 function EmailList({
-  label, help, emails, setEmails, value, setValue,
+  label, help, emails, setEmails, value, setValue, disabled,
 }: {
   label: string;
   help: string;
@@ -335,6 +395,7 @@ function EmailList({
   setEmails: (e: string[]) => void;
   value: string;
   setValue: (v: string) => void;
+  disabled?: boolean;
 }) {
   function add() {
     const v = value.trim().toLowerCase();
@@ -358,31 +419,36 @@ function EmailList({
     <div className="space-y-1.5">
       <Label className="text-xs font-medium">{label}</Label>
       <p className="text-[11px] text-muted-foreground">{help}</p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Input
           type="email"
+          inputMode="email"
+          autoComplete="email"
+          className="h-11 min-w-0 flex-1"
           value={value}
+          disabled={disabled}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder="email@exemple.com"
         />
-        <Button type="button" variant="outline" onClick={add}>
+        <Button type="button" variant="outline" className="h-11 shrink-0 gap-1.5" onClick={add} disabled={disabled}>
           <Plus className="h-4 w-4" /> Ajouter
         </Button>
       </div>
       {emails.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2">
           {emails.map((e) => (
-            <li key={e} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/30 px-3 py-1 text-xs">
-              <Mail className="h-3 w-3 text-muted-foreground" />
-              {e}
+            <li key={e} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/30 py-1 pl-3 pr-1 text-xs">
+              <Mail className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 truncate">{e}</span>
               <button
                 type="button"
+                disabled={disabled}
                 onClick={() => setEmails(emails.filter((x) => x !== e))}
-                className="ml-1 grid h-4 w-4 place-items-center rounded-full hover:bg-destructive/20"
-                aria-label="Retirer"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-destructive/20 disabled:opacity-40"
+                aria-label={`Retirer ${e}`}
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
             </li>
           ))}
