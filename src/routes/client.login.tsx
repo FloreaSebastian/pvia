@@ -129,21 +129,29 @@ function ClientLogin() {
                 />
                 <span>Se souvenir de moi pendant 30 jours</span>
               </label>
-              <Button type="submit" className="h-11 w-full sm:h-10" disabled={loading || !email}>
+              <Button
+                type="submit"
+                className="h-11 w-full sm:h-10"
+                disabled={loading || !email}
+                aria-busy={loading}
+              >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                   <>Recevoir un code <ArrowRight className="ml-1 h-4 w-4" /></>
                 )}
-
               </Button>
+              <p className="sr-only" role="status" aria-live="polite">
+                {loading ? "Envoi du code en cours…" : ""}
+              </p>
             </form>
           </Card>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
             Vous êtes une entreprise du BTP ?{" "}
-            <Link to="/login" className="font-medium text-primary hover:underline">
+            <Link to="/login" className="inline-block py-2 font-medium text-primary hover:underline">
               Espace professionnel
             </Link>
           </p>
+
         </div>
       </div>
     </div>
