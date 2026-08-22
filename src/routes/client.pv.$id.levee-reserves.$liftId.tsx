@@ -146,7 +146,7 @@ function ClientLiftDetail() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Entreprise
         </h2>
-        <p className="text-sm font-medium">{company?.name ?? "—"}</p>
+        <p className="text-sm font-medium [overflow-wrap:anywhere]">{company?.name ?? "—"}</p>
       </Card>
 
       <Card className="mb-4 p-5">
@@ -246,7 +246,7 @@ function ClientLiftDetail() {
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Commentaire de l'entreprise
           </h2>
-          <p className="whitespace-pre-line text-sm text-foreground">{report.comment}</p>
+          <p className="whitespace-pre-line text-sm text-foreground [overflow-wrap:anywhere]">{report.comment}</p>
         </Card>
       )}
 
@@ -255,7 +255,7 @@ function ClientLiftDetail() {
           Signature entreprise
         </h2>
         {report.company_signature ? (
-          <img src={report.company_signature} alt="Signature entreprise" className="h-28 rounded-md border bg-white" />
+          <img src={report.company_signature} alt="Signature de l’entreprise" className="h-28 max-w-full rounded-md border bg-white object-contain" />
         ) : (
           <p className="text-sm text-muted-foreground">Non signée</p>
         )}
@@ -273,20 +273,20 @@ function ClientLiftDetail() {
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Validée le {fmtDateTime(report.client_validated_at)} par {(report as any).client_signature_email ?? report.client_validated_email ?? session.email}.
+                Validée le {fmtDateTime(report.client_validated_at)} par <span className="[overflow-wrap:anywhere]">{(report as any).client_signature_email ?? report.client_validated_email ?? session.email}</span>.
               </p>
               {(report as any).client_signature && (
                 <div className="mt-3">
                   <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Votre signature</p>
                   <img
                     src={(report as any).client_signature}
-                    alt="Signature client"
-                    className="h-24 rounded-md border bg-white"
+                    alt="Votre signature"
+                    className="h-24 max-w-full rounded-md border bg-white object-contain"
                   />
                 </div>
               )}
               <div className="mt-3">
-                <Button onClick={download} variant="outline" size="sm">
+                <Button onClick={download} variant="outline" size="sm" className="h-11 w-full sm:h-9 sm:w-auto">
                   <Download className="mr-1.5 h-4 w-4" /> Télécharger le PDF signé
                 </Button>
               </div>
@@ -300,11 +300,11 @@ function ClientLiftDetail() {
             <div className="min-w-0 flex-1">
               <p className="font-semibold">Levée rejetée</p>
               <p className="text-sm text-muted-foreground">
-                Rejetée le {fmtDateTime((report as any).client_rejected_at)} par {(report as any).client_rejected_email ?? session.email}.
+                Rejetée le {fmtDateTime((report as any).client_rejected_at)} par <span className="[overflow-wrap:anywhere]">{(report as any).client_rejected_email ?? session.email}</span>.
               </p>
               {(report as any).client_rejected_reason && (
                 <p className="mt-3 whitespace-pre-line rounded-md border border-destructive/20 bg-background p-3 text-sm">
-                  <strong>Motif&nbsp;:</strong> {(report as any).client_rejected_reason}
+                  <strong>Motif&nbsp;:</strong> <span className="[overflow-wrap:anywhere]">{(report as any).client_rejected_reason}</span>
                 </p>
               )}
             </div>
