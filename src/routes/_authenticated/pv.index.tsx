@@ -136,7 +136,11 @@ function PvList() {
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: items.length };
     for (const f of STATUS_FILTERS) if (f.id !== "all") c[f.id] = 0;
-    for (const p of items) c[p.status] = (c[p.status] ?? 0) + 1;
+    for (const p of items) {
+      for (const f of STATUS_FILTERS) {
+        if (f.id !== "all" && matchesStatusGroup(p.status, f.id)) c[f.id] += 1;
+      }
+    }
     const withRes = items.filter((p) => p.reception_with_reserves).length;
     c.reserves_with = withRes;
     c.reserves_without = items.length - withRes;
