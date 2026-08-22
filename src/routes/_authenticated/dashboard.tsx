@@ -303,13 +303,16 @@ function Dashboard() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          <Link to="/pv/new" search={{ fresh: 1 }}>
-            <Button size="lg" className="shadow-brand">
-              <Plus className="h-4 w-4" /> Créer un nouveau PV
-            </Button>
-          </Link>
+          canWrite ? (
+            <Link to="/pv/new" search={{ fresh: 1 }}>
+              <Button size="lg" className="h-11 shadow-brand">
+                <Plus className="h-4 w-4" /> Créer un nouveau PV
+              </Button>
+            </Link>
+          ) : null
         }
       />
+
 
       {/* KPI cards with sparklines */}
       <div className="auto-grid">
