@@ -37,15 +37,25 @@ async function audit(opts: {
 }
 
 async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { auditAction?: string }) {
-  const companyId = subscription.metadata?.companyId ?? null;
-  const userId = subscription.metadata?.userId ?? null;
+  const dbEarly = (await getSupabase()) as any;
+
+  // ST-M6: metadata is not guaranteed (portal-initiated changes, legacy subs).
+  // Fall back to the existing row before dropping the event on the floor.
+  const { data: knownRow } = await dbEarly
+    .from("subscriptions")
+    .select("company_id,user_id,plan")
+    .eq("stripe_subscription_id", subscription.id)
+    .maybeSingle();
+
+  const companyId = subscription.metadata?.companyId ?? knownRow?.company_id ?? null;
+  const userId = subscription.metadata?.userId ?? knownRow?.user_id ?? null;
   if (!companyId || !userId) {
-    console.error("[webhook] subscription missing companyId/userId in metadata", subscription.id);
+    console.error("[webhook] subscription without resolvable company/user", subscription.id);
     return;
   }
 
   const item = subscription.items?.data?.[0];
-  const plan = priceToPlan(item?.price);
+  const plan = priceToPlan(item?.price) ?? knownRow?.plan ?? null;
   if (!plan) {
     console.error("[webhook] could not resolve plan from price", item?.price?.id);
     return;
