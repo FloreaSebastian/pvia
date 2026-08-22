@@ -781,7 +781,21 @@ function ReservesPage() {
       )}
 
       {/* ───── Body ───── */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Chargement des réserves">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="h-36 animate-pulse bg-muted/40 p-2.5" />
+          ))}
+        </div>
+      ) : loadError ? (
+        <Card role="alert" className="flex flex-col items-center gap-2 p-8 text-center text-sm">
+          <AlertCircle className="h-7 w-7 text-destructive opacity-70" />
+          <p>{loadError}</p>
+          <Button size="sm" variant="outline" className="h-11" onClick={() => { setLoading(true); load(); }}>
+            Réessayer
+          </Button>
+        </Card>
+      ) : filtered.length === 0 ? (
         items.length === 0 ? (
           <Card className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
             <AlertCircle className="h-7 w-7 opacity-40" />
@@ -790,9 +804,10 @@ function ReservesPage() {
         ) : (
           <Card className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
             <p>Aucun résultat pour ces filtres.</p>
-            <Button size="sm" variant="outline" onClick={resetFilters}>Réinitialiser</Button>
+            <Button size="sm" variant="outline" className="h-11" onClick={resetFilters}>Réinitialiser</Button>
           </Card>
         )
+
       ) : effectiveView === "kanban" ? (
         /* ───── Kanban ───── */
         <div className="auto-grid">
