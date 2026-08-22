@@ -147,7 +147,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr">
+    {/* Le script anti-flash écrit class/data-* sur <html> avant l'hydratation. */}
+    <html lang="fr" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
