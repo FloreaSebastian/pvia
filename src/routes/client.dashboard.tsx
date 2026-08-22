@@ -183,17 +183,16 @@ function ClientDashboard() {
                           <StatusPill tone="destructive" size="sm" dot>
                             Lien expiré
                           </StatusPill>
-                        ) : (
                         ) : isKnownPvStatus(pv.status) ? (
                           <PvStatusPill status={pv.status} size="sm" />
                         ) : (
                           // Statut inattendu : on n'affiche jamais l'identifiant
-                          // technique au client externe (mais on le conserve en title).
-                          <StatusPill tone="neutral" size="sm" dot className="cursor-help">
+                          // technique au client externe (conservé en title).
+                          <StatusPill tone="neutral" size="sm" dot>
                             <span title={pv.status}>En cours de traitement</span>
                           </StatusPill>
-
                         )}
+
                         {pv.hasPdf && (
                           <StatusPill tone="info" size="sm">
                             PDF
