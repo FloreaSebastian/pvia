@@ -1191,7 +1191,7 @@ function ReserveCard({
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-11 w-11 sm:h-9 sm:w-9" title="Plus d'actions" aria-label={`Plus d'actions pour la réserve`}>
+            <Button data-more-trigger={r.id} size="icon" variant="ghost" className="h-11 w-11 sm:h-9 sm:w-9" title="Plus d'actions" aria-label={`Plus d'actions pour la réserve`}>
               <HistoryIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
