@@ -252,13 +252,14 @@ function PvList() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rechercher un PV, chantier, client…"
-            className="h-10 pl-9 pr-9"
+            aria-label="Rechercher un procès-verbal (numéro, type, client, chantier)"
+            className="h-11 pl-9 pr-12 sm:h-10"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="absolute right-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
               aria-label="Effacer la recherche"
             >
               <X className="h-3.5 w-3.5" />
