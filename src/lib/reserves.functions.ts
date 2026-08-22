@@ -239,9 +239,13 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return "";
-  const s = String(v).replace(/"/g, '""');
+  let s = String(v);
+  // CSV/Excel formula injection: neutralize leading =,+,-,@,tab,CR
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  s = s.replace(/"/g, '""');
   return /[",\n;]/.test(s) ? `"${s}"` : s;
 }
+
 
 export const exportReservesCsv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -260,8 +264,9 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
     let q = supabase
       .from("pv_reserves")
       .select(
-        "id,description,severity,status,priority,due_date,assigned_to,created_at,lifted_at,validated_at,pv_id,pv:pv_id(numero,chantier_id,client_id,chantier:chantier_id(nom),client:client_id(nom))",
+        "id,description,severity,status,priority,due_date,assigned_to,created_at,lifted_at,validated_at,pv_id,pv:pv_id(numero,chantier_id,client_id,chantier:chantier_id(name,reference),client:client_id(name))",
       )
+
       .eq("company_id", data.companyId)
       .order("created_at", { ascending: false });
     if (data.ids?.length) q = q.in("id", data.ids);
@@ -287,6 +292,7 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
       "PV",
       "Client",
       "Chantier",
+      "Réf. chantier",
       "Description",
       "Gravité",
       "Statut",
@@ -298,27 +304,44 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
       "Date validation",
     ];
     const lines = [header.join(";")];
+
+    const STATUS_FR: Record<string, string> = {
+      ouverte: "Ouverte",
+      en_cours: "En cours",
+      levee: "Levée",
+      en_attente_validation: "À valider",
+      validee: "Validée",
+      rejetee: "Rejetée",
+    };
+    const PRIORITY_FR: Record<string, string> = { low: "Basse", normal: "Normale", high: "Haute" };
+    const SEVERITY_FR: Record<string, string> = { mineure: "Mineure", majeure: "Majeure" };
+    const dateFr = (v: string | null | undefined) =>
+      v ? new Date(v).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }) : "";
+
     for (const r of rows ?? []) {
       const pv = (r as any).pv;
       const assigneeId = (r as any).assigned_to as string | null;
-      const assigneeName = assigneeId ? (assigneeMap.get(assigneeId) || assigneeId) : "";
+      // Never leak a raw user id into an exported file.
+      const assigneeName = assigneeId ? (assigneeMap.get(assigneeId) ?? "Membre") : "";
       lines.push(
         [
           csvEscape(pv?.numero),
-          csvEscape(pv?.client?.nom),
-          csvEscape(pv?.chantier?.nom),
+          csvEscape(pv?.client?.name),
+          csvEscape(pv?.chantier?.name),
+          csvEscape(pv?.chantier?.reference),
           csvEscape(r.description),
-          csvEscape(r.severity),
-          csvEscape(r.status),
-          csvEscape((r as any).priority),
-          csvEscape(r.due_date),
+          csvEscape(SEVERITY_FR[r.severity] ?? r.severity),
+          csvEscape(STATUS_FR[r.status] ?? r.status),
+          csvEscape(PRIORITY_FR[(r as any).priority] ?? (r as any).priority),
+          csvEscape(dateFr(r.due_date)),
           csvEscape(assigneeName),
-          csvEscape(r.created_at),
-          csvEscape(r.lifted_at),
-          csvEscape(r.validated_at),
+          csvEscape(dateFr(r.created_at)),
+          csvEscape(dateFr(r.lifted_at)),
+          csvEscape(dateFr(r.validated_at)),
         ].join(";"),
       );
     }
+
 
     await writeAuditLog({
       companyId: data.companyId,

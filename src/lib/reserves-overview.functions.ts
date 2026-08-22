@@ -44,10 +44,18 @@ export const listReservesOverview = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!member) throw new Error("Accès refusé.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Only keep reserve ids that actually belong to this company. Without this,
+    // a member of company A could pass company B's reserve ids and read photo
+    // counts / signed thumbnails belonging to another tenant.
+    const { data: ownedReserves } = await supabase
+      .from("pv_reserves")
+      .select("id")
+      .eq("company_id", data.companyId)
+      .in("id", data.reserveIds);
+    const reserveIds = ((ownedReserves ?? []) as { id: string }[]).map((r) => r.id);
 
     const map = new Map<string, ReserveOverviewEntry>();
-    for (const id of data.reserveIds) {
+    for (const id of reserveIds) {
       map.set(id, {
         reserveId: id,
         initialCount: 0,
@@ -57,13 +65,18 @@ export const listReservesOverview = createServerFn({ method: "POST" })
         thumbUrl: null,
       });
     }
+    if (reserveIds.length === 0) return { entries: [] };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Initial photos from pv_photos.reserve_id (also serves as default thumbnail source).
     const { data: pvPhotos } = await supabaseAdmin
       .from("pv_photos")
       .select("id,url,reserve_id,created_at")
-      .in("reserve_id", data.reserveIds)
+      .eq("company_id", data.companyId)
+      .in("reserve_id", reserveIds)
       .order("created_at", { ascending: true });
+
     const firstInitial = new Map<string, string>();
     for (const r of (pvPhotos ?? []) as any[]) {
       if (!r.reserve_id) continue;
@@ -77,8 +90,10 @@ export const listReservesOverview = createServerFn({ method: "POST" })
     const { data: liftPhotos } = await supabaseAdmin
       .from("reserve_lift_item_photos" as any)
       .select("id,reserve_id,storage_path,photo_type,uploaded_at")
-      .in("reserve_id", data.reserveIds)
+      .eq("company_id", data.companyId)
+      .in("reserve_id", reserveIds)
       .order("uploaded_at", { ascending: true });
+
     const firstBefore = new Map<string, string>();
     const firstAfter = new Map<string, string>();
     for (const r of (liftPhotos ?? []) as any[]) {
@@ -98,7 +113,8 @@ export const listReservesOverview = createServerFn({ method: "POST" })
     const { data: liftItems } = await supabaseAdmin
       .from("reserve_lift_items")
       .select("reserve_id,report_id")
-      .in("reserve_id", data.reserveIds);
+      .in("reserve_id", reserveIds);
+
     const liftSet = new Map<string, Set<string>>();
     for (const r of (liftItems ?? []) as any[]) {
       if (!r.reserve_id || !r.report_id) continue;
@@ -112,17 +128,30 @@ export const listReservesOverview = createServerFn({ method: "POST" })
       if (e) e.liftCount = set.size;
     }
 
-    // Pick + sign the thumbnail: prefer after, then before, then initial.
+    // Pick + sign the thumbnail (prefer after, then before, then initial) in ONE batched storage call.
+
+    const candidates = new Map<string, string>();
     for (const e of map.values()) {
       const candidate =
         firstAfter.get(e.reserveId) ?? firstBefore.get(e.reserveId) ?? firstInitial.get(e.reserveId) ?? null;
-      if (candidate) {
-        const { data: signed } = await supabaseAdmin.storage
-          .from("pv-assets")
-          .createSignedUrl(candidate, SIGNED_TTL);
-        e.thumbUrl = signed?.signedUrl ?? null;
+      if (candidate) candidates.set(e.reserveId, candidate);
+    }
+    if (candidates.size > 0) {
+      const paths = Array.from(new Set(candidates.values()));
+      const { data: signedList } = await supabaseAdmin.storage
+        .from("pv-assets")
+        .createSignedUrls(paths, SIGNED_TTL);
+      const signedByPath = new Map<string, string>();
+      for (const s of signedList ?? []) {
+        if (s.path && s.signedUrl && !s.error) signedByPath.set(s.path, s.signedUrl);
+      }
+      for (const [reserveId, path] of candidates) {
+        const e = map.get(reserveId);
+        if (e) e.thumbUrl = signedByPath.get(path) ?? null;
       }
     }
+
+
 
     return { entries: Array.from(map.values()) };
   });

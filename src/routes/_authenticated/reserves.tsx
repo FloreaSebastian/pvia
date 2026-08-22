@@ -19,6 +19,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter,
 } from "@/components/ui/sheet";
 import {
@@ -62,6 +67,8 @@ const STATUS_TONE: Record<Status, "destructive" | "warning" | "success" | "neutr
   validee: "success",
   rejetee: "neutral",
 };
+const SEVERITY_LABEL: Record<string, string> = { mineure: "Mineure", majeure: "Majeure" };
+
 
 const SORT_OPTIONS = [
   { value: "recent", label: "Plus récentes" },
@@ -181,6 +188,11 @@ function ReservesPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [overview, setOverview] = useState<Map<string, ReserveOverviewEntry>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ ids: string[] } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
 
   useEffect(() => {
     if (typeof window !== "undefined") window.localStorage.setItem(SORT_STORAGE_KEY, sort);
@@ -201,6 +213,7 @@ function ReservesPage() {
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
+    setLoadError(null);
     const { data, error } = await supabase
       .from("pv_reserves")
       .select(
@@ -208,7 +221,11 @@ function ReservesPage() {
       )
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
-    if (error) return toast.error(error.message);
+    if (error) {
+      setLoadError("Impossible de charger les réserves. Réessayez.");
+      setLoading(false);
+      return;
+    }
     const rows = (data ?? []) as Omit<Row, "pv" | "chantier" | "client">[];
     const pvIds = Array.from(new Set(rows.map((r) => r.pv_id)));
     const { data: pvs } = pvIds.length
@@ -219,17 +236,17 @@ function ReservesPage() {
     const clientIds = Array.from(new Set((pvs ?? []).map((p) => p.client_id).filter(Boolean) as string[]));
     const [{ data: chs }, { data: cls }] = await Promise.all([
       chantierIds.length
-        ? supabase.from("chantiers").select("id,nom,reference").in("id", chantierIds)
+        ? supabase.from("chantiers").select("id,name,reference").in("id", chantierIds)
         : Promise.resolve({ data: [] as any }),
       clientIds.length
-        ? supabase.from("clients").select("id,nom").in("id", clientIds)
+        ? supabase.from("clients").select("id,name").in("id", clientIds)
         : Promise.resolve({ data: [] as any }),
     ]);
     const chMap = new Map<string, { id: string; nom: string; reference: string | null }>(
-      (chs ?? []).map((c: any) => [c.id as string, { id: c.id, nom: c.nom, reference: c.reference ?? null }]),
+      (chs ?? []).map((c: any) => [c.id as string, { id: c.id, nom: c.name, reference: c.reference ?? null }]),
     );
     const clMap = new Map<string, { id: string; nom: string }>(
-      (cls ?? []).map((c: any) => [c.id as string, { id: c.id as string, nom: c.nom as string }]),
+      (cls ?? []).map((c: any) => [c.id as string, { id: c.id as string, nom: c.name as string }]),
     );
     setItems(
       rows.map((r) => {
@@ -242,29 +259,37 @@ function ReservesPage() {
         };
       }),
     );
+    setLoading(false);
   }, [activeCompanyId]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Members
+  // Members (no FK between company_members.user_id and profiles → resolve in two steps)
   useEffect(() => {
     if (!activeCompanyId) return;
     (async () => {
       const { data } = await supabase
         .from("company_members")
-        .select("user_id,profile:profiles!company_members_user_id_fkey(full_name)")
+        .select("user_id")
         .eq("company_id", activeCompanyId)
         .eq("status", "active");
+      const ids = ((data ?? []) as { user_id: string | null }[])
+        .map((m) => m.user_id)
+        .filter(Boolean) as string[];
+      if (ids.length === 0) return setMembers([]);
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", ids);
+      const nameById = new Map(
+        ((profs ?? []) as { id: string; full_name: string | null }[]).map((p) => [p.id, p.full_name]),
+      );
       setMembers(
-        ((data ?? []) as any[])
-          .filter((m) => m.user_id)
-          .map((m) => ({
-            user_id: m.user_id as string,
-            display_name: (m.profile?.full_name as string | undefined) ?? "Membre",
-          })),
+        ids.map((id) => ({ user_id: id, display_name: nameById.get(id) || "Membre" })),
       );
     })();
   }, [activeCompanyId]);
+
 
   // Batched overview (thumbnails + photo counts) for current items.
   useEffect(() => {
@@ -317,18 +342,32 @@ function ReservesPage() {
     }
   }
 
-  async function remove(id: string) {
-    if (!activeCompanyId) return;
-    if (!confirm("Supprimer cette réserve ?")) return;
-    try {
-      await deleteFn({ data: { companyId: activeCompanyId, id } });
-      setItems((rs) => rs.filter((r) => r.id !== id));
-      setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
-      toast.success("Réserve supprimée");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Suppression impossible");
-    }
+  function remove(id: string) {
+    setConfirmDelete({ ids: [id] });
   }
+
+  async function doDelete() {
+    if (!activeCompanyId || !confirmDelete) return;
+    const ids = confirmDelete.ids;
+    setDeleting(true);
+    const failures: string[] = [];
+    for (const id of ids) {
+      try {
+        await deleteFn({ data: { companyId: activeCompanyId, id } });
+        setItems((rs) => rs.filter((r) => r.id !== id));
+        setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
+      } catch (err) {
+        failures.push(err instanceof Error ? err.message : "Suppression impossible");
+      }
+    }
+    setDeleting(false);
+    setConfirmDelete(null);
+    const done = ids.length - failures.length;
+    if (done > 0) toast.success(`${done} réserve(s) supprimée(s)`);
+    if (failures.length) toast.error(failures[0]);
+    await load();
+  }
+
 
   async function doAssign() {
     if (!activeCompanyId || !assignOpen) return;
@@ -362,19 +401,11 @@ function ReservesPage() {
     }
   }
 
-  async function bulkRemove() {
-    if (!activeCompanyId || selected.size === 0) return;
-    if (!confirm(`Supprimer ${selected.size} réserve(s) ? Action irréversible.`)) return;
-    try {
-      const ids = [...selected];
-      for (const id of ids) await deleteFn({ data: { companyId: activeCompanyId, id } });
-      toast.success(`${ids.length} réserve(s) supprimée(s)`);
-      setSelected(new Set());
-      await load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Suppression impossible");
-    }
+  function bulkRemove() {
+    if (selected.size === 0) return;
+    setConfirmDelete({ ids: [...selected] });
   }
+
 
   async function doExport(format: "csv" | "xlsx", onlySelected: boolean) {
     if (!activeCompanyId) return;
@@ -469,8 +500,11 @@ function ReservesPage() {
   }
 
   const renderSeverity = (sev: string) => (
-    <StatusPill tone={sev === "majeure" ? "destructive" : "neutral"} size="sm">{sev}</StatusPill>
+    <StatusPill tone={sev === "majeure" ? "destructive" : "neutral"} size="sm">
+      {SEVERITY_LABEL[sev] ?? sev}
+    </StatusPill>
   );
+
   const renderStatus = (s: string) => (
     <StatusPill tone={(STATUS_TONE[s as Status] ?? "neutral") as any} size="sm" dot>
       {STATUS_LABEL[s as Status] ?? s}
@@ -752,7 +786,21 @@ function ReservesPage() {
       )}
 
       {/* ───── Body ───── */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Chargement des réserves">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="h-36 animate-pulse bg-muted/40 p-2.5" />
+          ))}
+        </div>
+      ) : loadError ? (
+        <Card role="alert" className="flex flex-col items-center gap-2 p-8 text-center text-sm">
+          <AlertCircle className="h-7 w-7 text-destructive opacity-70" />
+          <p>{loadError}</p>
+          <Button size="sm" variant="outline" className="h-11" onClick={() => { setLoading(true); load(); }}>
+            Réessayer
+          </Button>
+        </Card>
+      ) : filtered.length === 0 ? (
         items.length === 0 ? (
           <Card className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
             <AlertCircle className="h-7 w-7 opacity-40" />
@@ -761,9 +809,10 @@ function ReservesPage() {
         ) : (
           <Card className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
             <p>Aucun résultat pour ces filtres.</p>
-            <Button size="sm" variant="outline" onClick={resetFilters}>Réinitialiser</Button>
+            <Button size="sm" variant="outline" className="h-11" onClick={resetFilters}>Réinitialiser</Button>
           </Card>
         )
+
       ) : effectiveView === "kanban" ? (
         /* ───── Kanban ───── */
         <div className="auto-grid">
@@ -955,13 +1004,39 @@ function ReservesPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(null)}>Annuler</Button>
-            <Button onClick={doAssign}>Appliquer</Button>
+          <DialogFooter className="flex-row gap-2">
+            <Button variant="outline" className="h-11 flex-1 sm:flex-none" onClick={() => setAssignOpen(null)}>Annuler</Button>
+            <Button className="h-11 flex-1 sm:flex-none" onClick={doAssign}>Appliquer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation (replaces window.confirm) */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o && !deleting) setConfirmDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Supprimer {confirmDelete?.ids.length ?? 0} réserve{(confirmDelete?.ids.length ?? 0) > 1 ? "s" : ""} ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Les réserves rattachées à un PV signé ou verrouillé ne peuvent pas être supprimées.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2">
+            <AlertDialogCancel disabled={deleting} className="h-11 flex-1 sm:flex-none">Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              aria-busy={deleting}
+              onClick={(e) => { e.preventDefault(); doDelete(); }}
+              className="h-11 flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:flex-none"
+            >
+              {deleting ? "Suppression…" : "Supprimer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
 
@@ -1076,7 +1151,9 @@ function ReserveCard({
       <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5 pt-0.5" onClick={(e) => e.stopPropagation()}>
         {canManage ? (
           <Select value={r.assigned_to ?? "none"} onValueChange={(v) => onQuickAssign(v === "none" ? null : v)}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Responsable" /></SelectTrigger>
+            <SelectTrigger className="h-11 text-xs sm:h-9" aria-label="Responsable de la réserve">
+              <SelectValue placeholder="Responsable" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">— Aucun —</SelectItem>
               {members.map((m) => (
@@ -1085,20 +1162,24 @@ function ReserveCard({
             </SelectContent>
           </Select>
         ) : <div />}
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onOpen} title="Modifier / détail">
+        <Button
+          size="icon" variant="ghost" className="h-11 w-11 sm:h-9 sm:w-9"
+          onClick={onOpen} title="Modifier / détail" aria-label={`Ouvrir le détail de la réserve`}
+        >
           <Pencil className="h-4 w-4" />
         </Button>
         {r.status !== "validee" && r.status !== "levee" && (
-          <Button size="sm" variant="outline" className="h-8" onClick={onLever}>
+          <Button size="sm" variant="outline" className="h-11 sm:h-9" onClick={onLever} aria-label={`Lever la réserve`}>
             <CheckCircle2 className="h-3.5 w-3.5" /> Lever
           </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-8 w-8" title="Plus">
+            <Button size="icon" variant="ghost" className="h-11 w-11 sm:h-9 sm:w-9" title="Plus d'actions" aria-label={`Plus d'actions pour la réserve`}>
               <HistoryIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onOpen}>
               <HistoryIcon className="h-4 w-4" /> Historique
