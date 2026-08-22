@@ -1,3 +1,4 @@
+import { toInetOrNull } from "@/lib/client-auth.server";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -276,7 +277,7 @@ export const signPvByToken = createServerFn({ method: "POST" })
         sign_token: null,
         sign_token_hash: downloadKeyHash,
         sign_token_expires_at: downloadExpires,
-        client_signature_ip: ip || null,
+        client_signature_ip: toInetOrNull(ip),
         client_signature_user_agent: userAgent || null,
         consent_text: SIGN_CONSENT_TEXT_V1,
         consent_at: nowIso,

@@ -23,7 +23,9 @@ export const Route = createFileRoute("/client/dashboard")({
     if (!s) throw redirect({ to: "/client/login" });
     return { session: s };
   },
-  loader: ({ context }) => context as { session: { email: string; clientId: string | null } },
+  loader: ({ context }) => ({
+    session: (context as { session: { email: string; clientId: string | null } }).session,
+  }),
   component: ClientDashboard,
   head: () => ({
     meta: [

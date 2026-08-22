@@ -33,8 +33,7 @@ import {
   readClientCookieToken,
   setClientCookie,
   sha256Hex,
-  timingSafeEqual,
-} from "@/lib/client-auth.server";
+  timingSafeEqual, toInetOrNull } from "@/lib/client-auth.server";
 import { sendClientLoginCodeEmail } from "@/lib/email.server";
 
 // ─── send code ────────────────────────────────────────────────────────────────
@@ -430,7 +429,10 @@ export const getClientPvDetail = createServerFn({ method: "POST" })
       actor: "client",
     });
 
-    return { pv, company, chantier, reserves: reserves ?? [], photos: signedPhotos };
+    // Ne jamais renvoyer de données sensibles au navigateur du client externe
+    const { sign_token: _t, company_id: _c, client_id: _cl, chantier_id: _ch, ...safePv } = pv as any;
+
+    return { pv: safePv, company, chantier, reserves: reserves ?? [], photos: signedPhotos };
   });
 
 export const getClientPdfSignedUrl = createServerFn({ method: "POST" })
@@ -509,7 +511,7 @@ export const signPvAsClient = createServerFn({ method: "POST" })
         sign_token: null,
         sign_token_hash: downloadKeyHash,
         sign_token_expires_at: downloadExpires,
-        client_signature_ip: ip || null,
+        client_signature_ip: toInetOrNull(ip),
         client_signature_user_agent: ua || null,
         consent_text: SIGN_CONSENT_TEXT_V1,
         consent_at: nowIso,
