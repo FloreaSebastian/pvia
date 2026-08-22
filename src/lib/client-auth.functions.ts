@@ -201,8 +201,26 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
     const ip = getClientIp() ?? "unknown";
     const ua = getClientUA();
 
-    await enforceRateLimit({ bucket: "client_login_verify_ip", key: ip, limit: 10, windowSec: 600 });
-    await enforceRateLimit({ bucket: "client_login_verify_email", key: email, limit: 15, windowSec: 600 });
+    // Le message brut de RateLimitError contient le nom interne du bucket
+    // ("client_login_verify_ip") : jamais montré à un client externe.
+    try {
+      await enforceRateLimit({ bucket: "client_login_verify_ip", key: ip, limit: 10, windowSec: 600 });
+      await enforceRateLimit({ bucket: "client_login_verify_email", key: email, limit: 15, windowSec: 600 });
+    } catch (e: any) {
+      if (e?.name === "RateLimitError") {
+        const min = Math.max(1, Math.ceil((e.retryAfterSec ?? 600) / 60));
+        await writeAuditLog({
+          companyId: null,
+          entityType: "client_auth",
+          action: "client.login_verify_rate_limited",
+          metadata: { email, ip },
+          actor: "client",
+        });
+        throw new Error(`Trop de tentatives. Réessayez dans ${min} minute${min > 1 ? "s" : ""}.`);
+      }
+      throw e;
+    }
+
 
     // Dernier code actif
     const { data: row } = await supabaseAdmin
