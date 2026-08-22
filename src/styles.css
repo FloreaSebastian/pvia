@@ -481,7 +481,6 @@ html[data-density="compact"] body {
     --input: oklch(0.878 0.010 80);
     --ring: oklch(0.30 0.004 60);
 
-    --font-display: "Instrument Serif", "Sora", Georgia, serif;
 
     background-color: var(--background);
     color: var(--foreground);
@@ -489,7 +488,9 @@ html[data-density="compact"] body {
 
   .landing-editorial h1,
   .landing-editorial h2,
-  .landing-editorial h3 {
+  .landing-editorial h3,
+  .landing-editorial .font-display {
+    font-family: "Instrument Serif", "Sora", Georgia, serif;
     font-weight: 400;
     letter-spacing: -0.02em;
   }
