@@ -171,9 +171,17 @@ function PvList() {
     if (sort === "recent") sorted.sort(cmpDate);
     else if (sort === "old") sorted.sort((a, b) => -cmpDate(a, b));
     else if (sort === "signed_first")
-      sorted.sort((a, b) => (a.status === "signe" ? -1 : 0) - (b.status === "signe" ? -1 : 0) || cmpDate(a, b));
+      sorted.sort(
+        (a, b) =>
+          Number(matchesStatusGroup(b.status, "signe")) - Number(matchesStatusGroup(a.status, "signe")) ||
+          cmpDate(a, b),
+      );
     else if (sort === "pending_first")
-      sorted.sort((a, b) => (a.status === "en_attente" ? -1 : 0) - (b.status === "en_attente" ? -1 : 0) || cmpDate(a, b));
+      sorted.sort(
+        (a, b) =>
+          Number(matchesStatusGroup(b.status, "en_attente")) - Number(matchesStatusGroup(a.status, "en_attente")) ||
+          cmpDate(a, b),
+      );
     return sorted;
   }, [items, statusFilter, reserveFilter, query, sort]);
 
