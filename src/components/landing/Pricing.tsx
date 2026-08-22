@@ -12,8 +12,9 @@ import {
   type BillingInterval,
 } from "@/lib/plans";
 
-export function Pricing() {
+export function Pricing({ as = "h2" }: { as?: "h1" | "h2" } = {}) {
   const [interval, setInterval] = useState<BillingInterval>("monthly");
+  const Heading = as;
 
   return (
     <section id="pricing" className="py-24 sm:py-32">
@@ -22,9 +23,9 @@ export function Pricing() {
           <span className="text-xs font-semibold uppercase tracking-wider text-primary">
             Tarifs
           </span>
-          <h2 className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          <Heading className="mt-3 text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Des prix simples, sans surprise
-          </h2>
+          </Heading>
           <p className="mt-4 text-muted-foreground">
             {TRIAL_DAYS} jours d'essai gratuit, sans carte bancaire. Résiliable à tout moment.
           </p>

@@ -46,7 +46,7 @@ function TarifsPage() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="pt-24">
-        <Pricing />
+        <Pricing as="h1" />
         <FAQ />
         <CTA />
       </main>
