@@ -1063,21 +1063,62 @@ function VisualBlock({
           : placeholder}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline" disabled={!editable || busy}>
-          <label className="cursor-pointer">
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} {url ? "Changer" : "Ajouter"}
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          disabled={!editable || busy}
+          className={!editable || busy ? "pointer-events-none opacity-50" : undefined}
+        >
+          <label className="h-11 cursor-pointer sm:h-9">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Upload className="h-3.5 w-3.5" aria-hidden="true" />}
+            {url ? "Changer" : "Ajouter"}
+            <span className="sr-only"> — {title}</span>
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
+              disabled={!editable || busy}
+              aria-label={`${url ? "Changer" : "Ajouter"} : ${title}`}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void onUpload(file);
+              }}
             />
           </label>
         </Button>
         {url && editable && (
-          <Button size="sm" variant="ghost" onClick={onRemove} disabled={busy} className="text-destructive hover:text-destructive">
-            <Trash2 className="h-3.5 w-3.5" /> Supprimer
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                className="h-11 text-destructive hover:text-destructive sm:h-9"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Supprimer
+                <span className="sr-only"> — {title}</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer {title.toLowerCase()} ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette image sera retirée de vos documents et communications. Vous pourrez en ajouter une nouvelle à tout moment.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="h-11 sm:h-10">Annuler</AlertDialogCancel>
+                <AlertDialogAction
+                  className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:h-10"
+                  onClick={() => void onRemove()}
+                >
+                  Supprimer
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
       <p className="text-[10.5px] text-muted-foreground">{hint}</p>
