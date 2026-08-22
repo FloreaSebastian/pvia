@@ -489,12 +489,24 @@ function FilterSheetButton({
       <SheetContent side="bottom" className="rounded-t-2xl p-0">
         <SheetHeader className="border-b border-border px-5 py-4">
           <SheetTitle className="text-base">{title}</SheetTitle>
+          <SheetDescription className="sr-only">Choisissez une option pour filtrer ou trier la liste des procès-verbaux.</SheetDescription>
         </SheetHeader>
-        <div className="max-h-[60vh] overflow-y-auto p-2">
+        <div className="max-h-[60vh] overflow-y-auto p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {children(() => setOpen(false))}
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** Squelette de chargement (évite le saut de mise en page cartes → tableau). */
+function ListSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Chargement des procès-verbaux">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-32 animate-pulse rounded-xl border border-border bg-muted/40" />
+      ))}
+    </div>
   );
 }
 
