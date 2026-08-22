@@ -1,89 +1,99 @@
-import { Linkedin, Twitter, Facebook, Mail } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Mail } from "lucide-react";
 import { Logo } from "@/components/landing/Logo";
+
+type LinkDef = { label: string; href: string; internal?: boolean };
+
+const columns: { title: string; links: LinkDef[] }[] = [
+  {
+    title: "PVIA",
+    links: [
+      { label: "Fonctionnalités", href: "/#fonctionnalites" },
+      { label: "Tarifs", href: "/tarifs", internal: true },
+      { label: "Connexion", href: "/login", internal: true },
+    ],
+  },
+  {
+    title: "Produit",
+    links: [
+      { label: "Réception", href: "/#comment-ca-marche" },
+      { label: "Réserves", href: "/#reserves" },
+      { label: "Mode terrain", href: "/#mode-terrain" },
+      { label: "Espace client", href: "/#espace-client" },
+    ],
+  },
+  {
+    title: "Entreprise",
+    links: [
+      { label: "Contact", href: "mailto:contact@pvia.fr" },
+      { label: "Sécurité", href: "/securite", internal: true },
+      { label: "Espace client", href: "/client/login", internal: true },
+    ],
+  },
+  {
+    title: "Légal",
+    links: [
+      { label: "CGV", href: "/cgv", internal: true },
+      { label: "Politique de confidentialité", href: "/confidentialite", internal: true },
+      { label: "Mentions légales", href: "/mentions", internal: true },
+    ],
+  },
+];
 
 export function Footer() {
   return (
     <footer className="border-t border-border bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-5">
-          <div className="lg:col-span-2">
-            <Logo withBaseline />
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="grid gap-10 lg:grid-cols-6">
+          <div className="min-w-0 lg:col-span-2">
+            <Logo />
             <p className="mt-4 max-w-sm text-sm text-muted-foreground">
-              La solution professionnelle pour créer, signer et archiver vos procès-verbaux de
-              réception de travaux.
+              PVIA — Réception de travaux intelligente. Procès-verbaux, réserves, photos et
+              signatures, du chantier au PDF signé.
             </p>
             <a
               href="mailto:contact@pvia.fr"
-              className="mt-4 inline-flex items-center gap-2 text-sm text-foreground hover:text-primary"
+              className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm text-foreground hover:text-primary"
             >
-              <Mail className="h-4 w-4" /><span>contact@pvia.fr</span>
+              <Mail className="h-4 w-4" />
+              <span>contact@pvia.fr</span>
             </a>
           </div>
 
-          <FooterCol
-            title="Produit"
-            links={[
-              ["Fonctionnalités", "/#features"],
-              ["Tarifs", "/tarifs"],
-              ["Sécurité", "/securite"],
-              ["Avis clients", "/#testimonials"],
-            ]}
-          />
-          <FooterCol
-            title="Entreprise"
-            links={[
-              ["Contact", "mailto:contact@pvia.fr"],
-              ["Connexion", "/login"],
-              ["Essai gratuit", "/signup"],
-              ["Espace client", "/client/login"],
-            ]}
-          />
-          <FooterCol
-            title="Légal"
-            links={[
-              ["Mentions légales", "/mentions"],
-              ["CGV", "/cgv"],
-              ["Confidentialité", "/confidentialite"],
-              ["Sécurité & RGPD", "/securite"],
-            ]}
-          />
+          {columns.map((c) => (
+            <nav key={c.title} aria-label={c.title} className="min-w-0">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground">
+                {c.title}
+              </h2>
+              <ul className="mt-4 space-y-1">
+                {c.links.map((l) => (
+                  <li key={l.label}>
+                    {l.internal ? (
+                      <Link
+                        to={l.href}
+                        className="flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        {l.label}
+                      </Link>
+                    ) : (
+                      <a
+                        href={l.href}
+                        className="flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        {l.label}
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
-          <p className="text-xs text-muted-foreground">
-            © 2026 PVIA — Tous droits réservés.
-          </p>
-          <div className="flex items-center gap-3">
-            {[Linkedin, Twitter, Facebook].map((Icon, i) => (
-              <a
-                key={i}
-                href="#"
-                className="grid h-8 w-8 place-items-center rounded-md border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                aria-label="Social link"
-              >
-                <Icon className="h-4 w-4" />
-              </a>
-            ))}
-          </div>
+        <div className="mt-10 border-t border-border pt-6">
+          <p className="text-xs text-muted-foreground">© 2026 PVIA — Tous droits réservés.</p>
         </div>
       </div>
     </footer>
-  );
-}
-
-function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
-  return (
-    <div>
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">{title}</h4>
-      <ul className="mt-4 space-y-2.5">
-        {links.map(([label, href]) => (
-          <li key={label}>
-            <a href={href} className="text-sm text-muted-foreground hover:text-foreground">
-              {label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
