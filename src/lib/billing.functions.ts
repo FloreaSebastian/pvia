@@ -95,12 +95,24 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     // Reuse existing customer if any
     const { data: existing } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id,plan,status")
       .eq("company_id", data.companyId)
       .eq("environment", data.environment)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // Abonnement déjà actif sur ce plan → passer par le portail (évite le doublon).
+    if (
+      existing &&
+      (existing as any).plan === targetPlan &&
+      ["active", "trialing", "past_due"].includes(String((existing as any).status))
+    ) {
+      throw new Error(
+        "Vous êtes déjà abonné à ce plan. Utilisez « Gérer mon abonnement » pour modifier la périodicité ou le moyen de paiement.",
+      );
+    }
+
 
     let customerId = existing?.stripe_customer_id as string | undefined;
     if (!customerId) {
