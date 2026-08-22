@@ -31,6 +31,16 @@ function GuardedBillingPage() {
   );
 }
 
+
+/** Filet de sécurité client : n'affiche jamais un message technique. */
+const TECHNICAL_ERROR_RE =
+  /cus_|sub_[A-Za-z0-9]{6,}|price_|prod_|cs_(test|live)_|whsec_|sk_(test|live)_|req_[A-Za-z0-9]{6,}|No such |StripeError|api\.stripe\.com|PGRST|service_role|supabase|jwt|ZodError|lookup_key/i;
+function safeBillingMessage(e: unknown, fallback: string): string {
+  const msg = e instanceof Error ? e.message : "";
+  if (!msg || TECHNICAL_ERROR_RE.test(msg)) return fallback;
+  return msg;
+}
+
 export const Route = createFileRoute("/_authenticated/billing")({
   component: GuardedBillingPage,
   head: () => ({ meta: [{ title: "Facturation — PVIA" }] }),
@@ -62,7 +72,7 @@ function BillingPage() {
       });
       if (url) window.location.href = url;
     } catch (e: any) {
-      toast.error(e.message || "Erreur lors de l'ouverture du paiement.");
+      toast.error(safeBillingMessage(e, "Impossible de démarrer le paiement pour le moment. Réessayez dans quelques instants."));
     } finally {
       setBusy(null);
     }
@@ -81,7 +91,7 @@ function BillingPage() {
       });
       window.open(url, "_blank");
     } catch (e: any) {
-      toast.error(e.message || "Erreur portail de facturation.");
+      toast.error(safeBillingMessage(e, "Impossible d'ouvrir la gestion de votre abonnement pour le moment."));
     } finally {
       setBusy(null);
     }
