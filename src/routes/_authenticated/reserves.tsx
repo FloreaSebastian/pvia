@@ -268,7 +268,7 @@ function ReservesPage() {
     }
   }, [activeCompanyId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { (window as any).__reservesMounts = ((window as any).__reservesMounts ?? 0) + 1; load(); }, [load]);
 
   // Members (no FK between company_members.user_id and profiles → resolve in two steps)
   useEffect(() => {
