@@ -13,7 +13,7 @@ import { listPvAuditLogs, exportPvAuditPdf } from "@/lib/audit.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/pv/$id/historique")({
+export const Route = createFileRoute("/_authenticated/pv/$id_/historique")({
   component: HistoriquePage,
   head: () => ({ meta: [{ title: "Historique légal — PVIA" }] }),
 });

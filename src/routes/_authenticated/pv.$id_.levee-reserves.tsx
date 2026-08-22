@@ -17,7 +17,7 @@ import { createReserveLift } from "@/lib/reserve-lift.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { tryGetGps, readExif, sanitizeExifForUpload, type PhotoEntry } from "@/lib/photo-exif";
 
-export const Route = createFileRoute("/_authenticated/pv/$id/levee-reserves")({
+export const Route = createFileRoute("/_authenticated/pv/$id_/levee-reserves")({
   component: LeveeReserves,
   validateSearch: (s: Record<string, unknown>): { reserveId?: string } =>
     typeof s.reserveId === "string" ? { reserveId: s.reserveId } : {},
