@@ -114,14 +114,14 @@ function validate<T>(schema: z.ZodType<T>, input: unknown): T {
 export const updateReserveStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         id: z.string().uuid(),
         status: ReserveStatus,
         reason: z.string().max(2000).optional(),
       })
-      .parse(i),
+      }) as never, i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -179,15 +179,15 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
 export const assignReserve = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         id: z.string().uuid(),
         assignedTo: z.string().uuid().nullable(),
         dueDate: z.string().nullable().optional(),
         priority: Priority.optional(),
       })
-      .parse(i),
+      }) as never, i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -238,15 +238,15 @@ export const assignReserve = createServerFn({ method: "POST" })
 export const bulkUpdateReserves = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         ids: z.array(z.string().uuid()).min(1).max(200),
         status: ReserveStatus.optional(),
         assignedTo: z.string().uuid().nullable().optional(),
         dueDate: z.string().nullable().optional(),
       })
-      .parse(i),
+      }) as never, i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -296,12 +296,12 @@ function csvEscape(v: unknown): string {
 export const exportReservesCsv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         ids: z.array(z.string().uuid()).optional(),
       })
-      .parse(i),
+      }) as never, i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -406,12 +406,12 @@ export const exportReservesCsv = createServerFn({ method: "POST" })
 export const deleteReserve = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z
-      .object({
+    validate(
+      z.object({
         companyId: z.string().uuid(),
         id: z.string().uuid(),
       })
-      .parse(i),
+      }) as never, i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
