@@ -90,37 +90,45 @@ function ClientLiftDetail() {
 
   return (
     <ClientShell email={session.email}>
-      <Link to="/client/pv/$id" params={{ id: pvId }} className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-3.5 w-3.5" /> Retour au PV {pv.numero}
+      <Link
+        to="/client/pv/$id"
+        params={{ id: pvId }}
+        className="mb-3 -ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4 shrink-0" />
+        <span className="[overflow-wrap:anywhere]">Retour au PV {pv.numero}</span>
       </Link>
 
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">N° {report.numero}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">
+            N° {report.numero}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
             Levée de réserves · PV {pv.numero}
             {chantier?.name ? ` · ${chantier.name}` : ""}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isValidated ? (
             <Badge className="gap-1 bg-success/15 text-success hover:bg-success/15">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Validée le {new Date(report.client_validated_at!).toLocaleDateString("fr-FR")}
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Validée le {new Date(report.client_validated_at!).toLocaleDateString("fr-FR")}
             </Badge>
           ) : isRejected ? (
             <Badge variant="destructive" className="gap-1">
-              <XCircle className="h-3.5 w-3.5" /> Rejetée le {new Date((report as any).client_rejected_at!).toLocaleDateString("fr-FR")}
+              <XCircle className="h-3.5 w-3.5 shrink-0" /> Rejetée le {new Date((report as any).client_rejected_at!).toLocaleDateString("fr-FR")}
             </Badge>
           ) : (
             <Badge variant="outline">En attente de validation</Badge>
           )}
           {report.pdf_url && (
-            <Button onClick={download} variant="outline" size="sm">
+            <Button onClick={download} variant="outline" size="sm" className="h-11 sm:h-9">
               <Download className="mr-1.5 h-4 w-4" /> Télécharger le PDF
             </Button>
           )}
         </div>
       </div>
+
 
       <Card className="mb-4 p-5">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
