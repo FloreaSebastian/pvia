@@ -10,7 +10,12 @@ import { enforceRateLimit, getClientIp } from "./rate-limit.server";
 
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
-  email: z.string().email().max(255),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Adresse email invalide.")
+    .max(255),
   role: z.enum([
     "responsable_exploitation",
     "conducteur_travaux",
