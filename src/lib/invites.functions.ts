@@ -273,7 +273,24 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
     if (email && invite.invited_email && email.toLowerCase() !== invite.invited_email.toLowerCase())
       throw new Error("Cette invitation est destinée à un autre email.");
 
-    const { error } = await supabaseAdmin
+    // Déjà membre de cette entreprise ? On consomme l'invitation sans dupliquer la ligne.
+    const { data: inviteRow } = await supabaseAdmin
+      .from("company_members").select("company_id").eq("id", invite.id).maybeSingle();
+    if (inviteRow?.company_id) {
+      const { data: already } = await supabaseAdmin
+        .from("company_members")
+        .select("id")
+        .eq("company_id", inviteRow.company_id)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (already) {
+        await supabaseAdmin.from("company_members").delete().eq("id", invite.id);
+        return { ok: true as const, alreadyMember: true as const };
+      }
+    }
+
+    // Consommation atomique : la ligne doit encore être au statut "invited".
+    const { data: updated, error } = await supabaseAdmin
       .from("company_members")
       .update({
         user_id: userId,
@@ -283,8 +300,11 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
         invite_token_hash: null,
         accepted_at: new Date().toISOString(),
       } as never)
-      .eq("id", invite.id);
-    if (error) throw new Error(error.message);
+      .eq("id", invite.id)
+      .eq("status", "invited")
+      .select("id");
+    if (error) throw new Error("Impossible d'accepter cette invitation.");
+    if (!updated || updated.length === 0) throw new Error("Invitation déjà utilisée.");
 
 
     // Lookup company for audit context
