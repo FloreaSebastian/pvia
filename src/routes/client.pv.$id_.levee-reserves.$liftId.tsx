@@ -67,6 +67,9 @@ function ClientLiftDetail() {
   const q = useQuery({
     queryKey: ["client.lift", pvId, liftId],
     queryFn: () => detailFn({ data: { pvId, liftId } }),
+    // Une levée introuvable / non autorisée est une erreur définitive :
+    // inutile de retenter, on affiche l'état d'erreur immédiatement.
+    retry: false,
   });
 
   const [downloading, setDownloading] = useState(false);
