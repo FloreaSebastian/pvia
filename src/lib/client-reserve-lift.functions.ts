@@ -211,14 +211,23 @@ export const getClientReserveLiftDetail = createServerFn({ method: "POST" })
         : Promise.resolve({ data: null }),
     ]);
 
+    // Cloisonnement : on ne renvoie au navigateur client QUE les champs utiles.
+    // `company_id` / `pv_id` (identifiants internes) ne quittent pas le serveur.
+    const {
+      company_id: _companyId,
+      pv_id: _pvId,
+      ...safeReport
+    } = report as Record<string, unknown>;
+
     return {
       pv: { id: pv.id, numero: pv.numero, reserve_lift_status: pv.reserve_lift_status },
-      report,
+      report: safeReport as typeof report,
       items: enriched,
       company,
       chantier,
     };
   });
+
 
 /* ─── signed PDF URL for client ─────────────────────────────────────────── */
 
