@@ -49,6 +49,7 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
       .select("id", { count: "exact", head: true })
       .eq("pv_id", data.pvId);
     if (data.actions && data.actions.length) countQ = countQ.in("action", data.actions);
+    if (data.actionPrefix) countQ = countQ.like("action", `${data.actionPrefix}%`);
     const { count: total } = await countQ;
 
     let q = supabaseAdmin
@@ -58,6 +59,7 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
     if (data.actions && data.actions.length) q = q.in("action", data.actions);
+    if (data.actionPrefix) q = q.like("action", `${data.actionPrefix}%`);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
