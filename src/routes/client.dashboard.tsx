@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Download, FileText, PenLine, ChevronRight, Clock, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
+import { StatusPill, PvStatusPill, isKnownPvStatus } from "@/components/ui/status-pill";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClientShell } from "@/components/client/ClientShell";
