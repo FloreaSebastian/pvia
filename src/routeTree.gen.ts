@@ -83,8 +83,8 @@ import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/
 import { Route as ApiPublicHealthDeepRouteImport } from './routes/api/public/health.deep'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as ApiPublicAuthSendEmailHookRouteImport } from './routes/api/public/auth/send-email-hook'
-import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id.levee-reserves'
-import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id.historique'
+import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id_.levee-reserves'
+import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id_.historique'
 import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
 import { Route as AuthenticatedAdminGoLiveReportRouteImport } from './routes/_authenticated/admin.go-live.report'
 import { Route as AuthenticatedAdminCompaniesIdRouteImport } from './routes/_authenticated/admin.companies.$id'
@@ -499,15 +499,15 @@ const ApiPublicAuthSendEmailHookRoute =
   } as any)
 const AuthenticatedPvIdLeveeReservesRoute =
   AuthenticatedPvIdLeveeReservesRouteImport.update({
-    id: '/levee-reserves',
-    path: '/levee-reserves',
-    getParentRoute: () => AuthenticatedPvIdRoute,
+    id: '/pv/$id_/levee-reserves',
+    path: '/pv/$id/levee-reserves',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedPvIdHistoriqueRoute =
   AuthenticatedPvIdHistoriqueRouteImport.update({
-    id: '/historique',
-    path: '/historique',
-    getParentRoute: () => AuthenticatedPvIdRoute,
+    id: '/pv/$id_/historique',
+    path: '/pv/$id/historique',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminSupportCompanyIdRoute =
   AuthenticatedAdminSupportCompanyIdRouteImport.update({
@@ -588,7 +588,7 @@ export interface FileRoutesByFullPath {
   '/parametres/numerotation': typeof AuthenticatedParametresNumerotationRoute
   '/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
-  '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
+  '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
@@ -666,7 +666,7 @@ export interface FileRoutesByTo {
   '/parametres/numerotation': typeof AuthenticatedParametresNumerotationRoute
   '/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
-  '/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
+  '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
@@ -749,7 +749,7 @@ export interface FileRoutesById {
   '/_authenticated/parametres/numerotation': typeof AuthenticatedParametresNumerotationRoute
   '/_authenticated/parametres/preferences': typeof AuthenticatedParametresPreferencesRoute
   '/_authenticated/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
-  '/_authenticated/pv/$id': typeof AuthenticatedPvIdRouteWithChildren
+  '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRouteWithChildren
@@ -760,8 +760,8 @@ export interface FileRoutesById {
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/_authenticated/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
-  '/_authenticated/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
-  '/_authenticated/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
+  '/_authenticated/pv/$id_/historique': typeof AuthenticatedPvIdHistoriqueRoute
+  '/_authenticated/pv/$id_/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
@@ -1003,8 +1003,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/companies/$id'
     | '/_authenticated/admin/go-live/report'
     | '/_authenticated/admin/support/$companyId'
-    | '/_authenticated/pv/$id/historique'
-    | '/_authenticated/pv/$id/levee-reserves'
+    | '/_authenticated/pv/$id_/historique'
+    | '/_authenticated/pv/$id_/levee-reserves'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
     | '/api/public/health/deep'
@@ -1573,19 +1573,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAuthSendEmailHookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/pv/$id/levee-reserves': {
-      id: '/_authenticated/pv/$id/levee-reserves'
-      path: '/levee-reserves'
+    '/_authenticated/pv/$id_/levee-reserves': {
+      id: '/_authenticated/pv/$id_/levee-reserves'
+      path: '/pv/$id/levee-reserves'
       fullPath: '/pv/$id/levee-reserves'
       preLoaderRoute: typeof AuthenticatedPvIdLeveeReservesRouteImport
-      parentRoute: typeof AuthenticatedPvIdRoute
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/pv/$id/historique': {
-      id: '/_authenticated/pv/$id/historique'
-      path: '/historique'
+    '/_authenticated/pv/$id_/historique': {
+      id: '/_authenticated/pv/$id_/historique'
+      path: '/pv/$id/historique'
       fullPath: '/pv/$id/historique'
       preLoaderRoute: typeof AuthenticatedPvIdHistoriqueRouteImport
-      parentRoute: typeof AuthenticatedPvIdRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/support/$companyId': {
       id: '/_authenticated/admin/support/$companyId'
@@ -1701,19 +1701,6 @@ const AuthenticatedAdminSupportRouteWithChildren =
     AuthenticatedAdminSupportRouteChildren,
   )
 
-interface AuthenticatedPvIdRouteChildren {
-  AuthenticatedPvIdHistoriqueRoute: typeof AuthenticatedPvIdHistoriqueRoute
-  AuthenticatedPvIdLeveeReservesRoute: typeof AuthenticatedPvIdLeveeReservesRoute
-}
-
-const AuthenticatedPvIdRouteChildren: AuthenticatedPvIdRouteChildren = {
-  AuthenticatedPvIdHistoriqueRoute: AuthenticatedPvIdHistoriqueRoute,
-  AuthenticatedPvIdLeveeReservesRoute: AuthenticatedPvIdLeveeReservesRoute,
-}
-
-const AuthenticatedPvIdRouteWithChildren =
-  AuthenticatedPvIdRoute._addFileChildren(AuthenticatedPvIdRouteChildren)
-
 interface AuthenticatedRouteChildren {
   AuthenticatedAccountSuspendedRoute: typeof AuthenticatedAccountSuspendedRoute
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
@@ -1742,10 +1729,12 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminSystemHealthRoute: typeof AuthenticatedAdminSystemHealthRoute
   AuthenticatedChantiersIdRoute: typeof AuthenticatedChantiersIdRoute
   AuthenticatedChantiersCalendrierRoute: typeof AuthenticatedChantiersCalendrierRoute
-  AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRouteWithChildren
+  AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRoute
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedChantiersIndexRoute: typeof AuthenticatedChantiersIndexRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
+  AuthenticatedPvIdHistoriqueRoute: typeof AuthenticatedPvIdHistoriqueRoute
+  AuthenticatedPvIdLeveeReservesRoute: typeof AuthenticatedPvIdLeveeReservesRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -1780,10 +1769,12 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminSystemHealthRoute: AuthenticatedAdminSystemHealthRoute,
   AuthenticatedChantiersIdRoute: AuthenticatedChantiersIdRoute,
   AuthenticatedChantiersCalendrierRoute: AuthenticatedChantiersCalendrierRoute,
-  AuthenticatedPvIdRoute: AuthenticatedPvIdRouteWithChildren,
+  AuthenticatedPvIdRoute: AuthenticatedPvIdRoute,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedChantiersIndexRoute: AuthenticatedChantiersIndexRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
+  AuthenticatedPvIdHistoriqueRoute: AuthenticatedPvIdHistoriqueRoute,
+  AuthenticatedPvIdLeveeReservesRoute: AuthenticatedPvIdLeveeReservesRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
