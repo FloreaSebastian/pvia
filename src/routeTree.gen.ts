@@ -18,6 +18,7 @@ import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FonctionnalitesRouteImport } from './routes/fonctionnalites'
 import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
+import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
 import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -134,6 +135,11 @@ const FonctionnalitesRoute = FonctionnalitesRouteImport.update({
 const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
   id: '/confidentialite',
   path: '/confidentialite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommentCaMarcheRoute = CommentCaMarcheRouteImport.update({
+  id: '/comment-ca-marche',
+  path: '/comment-ca-marche',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CgvRoute = CgvRouteImport.update({
@@ -543,6 +549,7 @@ const ClientPvIdLeveeReservesLiftIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cgv': typeof CgvRoute
+  '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/login': typeof LoginRoute
@@ -625,6 +632,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cgv': typeof CgvRoute
+  '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/login': typeof LoginRoute
@@ -706,6 +714,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/cgv': typeof CgvRoute
+  '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/login': typeof LoginRoute
@@ -790,6 +799,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/cgv'
+    | '/comment-ca-marche'
     | '/confidentialite'
     | '/fonctionnalites'
     | '/login'
@@ -872,6 +882,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/cgv'
+    | '/comment-ca-marche'
     | '/confidentialite'
     | '/fonctionnalites'
     | '/login'
@@ -952,6 +963,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/cgv'
+    | '/comment-ca-marche'
     | '/confidentialite'
     | '/fonctionnalites'
     | '/login'
@@ -1036,6 +1048,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CgvRoute: typeof CgvRoute
+  CommentCaMarcheRoute: typeof CommentCaMarcheRoute
   ConfidentialiteRoute: typeof ConfidentialiteRoute
   FonctionnalitesRoute: typeof FonctionnalitesRoute
   LoginRoute: typeof LoginRoute
@@ -1130,6 +1143,13 @@ declare module '@tanstack/react-router' {
       path: '/confidentialite'
       fullPath: '/confidentialite'
       preLoaderRoute: typeof ConfidentialiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comment-ca-marche': {
+      id: '/comment-ca-marche'
+      path: '/comment-ca-marche'
+      fullPath: '/comment-ca-marche'
+      preLoaderRoute: typeof CommentCaMarcheRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cgv': {
@@ -1818,6 +1838,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CgvRoute: CgvRoute,
+  CommentCaMarcheRoute: CommentCaMarcheRoute,
   ConfidentialiteRoute: ConfidentialiteRoute,
   FonctionnalitesRoute: FonctionnalitesRoute,
   LoginRoute: LoginRoute,
