@@ -156,7 +156,7 @@ function ClientLiftDetail() {
             <Badge variant="outline">En attente de validation</Badge>
           )}
           {report.pdf_url && (
-            <Button onClick={download} variant="outline" size="sm" className="h-11 sm:h-9">
+            <Button onClick={download} disabled={downloading} variant="outline" size="sm" className="h-11 sm:h-9">
               <Download className="mr-1.5 h-4 w-4" /> Télécharger le PDF
             </Button>
           )}
@@ -308,7 +308,7 @@ function ClientLiftDetail() {
                 </div>
               )}
               <div className="mt-3">
-                <Button onClick={download} variant="outline" size="sm" className="h-11 w-full sm:h-9 sm:w-auto">
+                <Button onClick={download} disabled={downloading} variant="outline" size="sm" className="h-11 w-full sm:h-9 sm:w-auto">
                   <Download className="mr-1.5 h-4 w-4" /> Télécharger le PDF signé
                 </Button>
               </div>
@@ -371,6 +371,7 @@ function ClientLiftValidation({
   const [reason, setReason] = useState("");
 
   async function handleValidate() {
+    if (submitting || rejecting) return;
     if (!padRef.current || padRef.current.isEmpty()) {
       toast.error("Veuillez apposer votre signature.");
       return;
@@ -391,6 +392,7 @@ function ClientLiftValidation({
   }
 
   async function handleReject() {
+    if (submitting || rejecting) return;
     const r = reason.trim();
     if (r.length < 5) {
       toast.error("Motif obligatoire (5 caractères minimum).");
