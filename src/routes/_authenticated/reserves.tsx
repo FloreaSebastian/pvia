@@ -781,7 +781,7 @@ function ReservesPage() {
             <Printer className="h-4 w-4" /> PDF
           </Button>
           {canDelete && (
-            <Button size="sm" variant="outline" className="text-destructive" onClick={bulkRemove}>
+            <Button data-bulk-delete size="sm" variant="outline" className="text-destructive" onClick={bulkRemove}>
               <Trash2 className="h-4 w-4" /> Supprimer
             </Button>
           )}
