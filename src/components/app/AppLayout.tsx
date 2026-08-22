@@ -230,7 +230,7 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
         ref={asideRef}
         aria-label="Navigation latérale"
         id="pvia-sidebar"
-        {...(asideInert ? { inert: "" as unknown as boolean } : {})}
+        inert={asideInert || undefined}
         className={`fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform ${
           open ? "translate-x-0 shadow-elevation-xl" : "-translate-x-full"
         } ${immersive ? "lg:-translate-x-full" : "lg:translate-x-0"}`}
