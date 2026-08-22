@@ -11,13 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, ArrowLeft, ChevronRight, Save, Send, MapPin, MapPinOff, X } from "lucide-react";
+import { Loader2, ArrowLeft, Save, Send, MapPin, MapPinOff, X, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { createReserveLift } from "@/lib/reserve-lift.functions";
 import { fileToBase64 } from "@/lib/file-upload";
 import { tryGetGps, readExif, sanitizeExifForUpload, type PhotoEntry } from "@/lib/photo-exif";
 
-export const Route = createFileRoute("/_authenticated/pv/$id/levee-reserves")({
+export const Route = createFileRoute("/_authenticated/pv/$id_/levee-reserves")({
   component: LeveeReserves,
   validateSearch: (s: Record<string, unknown>): { reserveId?: string } =>
     typeof s.reserveId === "string" ? { reserveId: s.reserveId } : {},
@@ -45,6 +45,9 @@ function LeveeReserves() {
   const [includeTechnicianSig, setIncludeTechnicianSig] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pendingZones, setPendingZones] = useState<Record<string, boolean>>({});
+
+  const selectedCount = Object.values(selected).filter(Boolean).length;
 
   const companySigRef = useRef<SignaturePad>(null);
   const technicianSigRef = useRef<SignaturePad>(null);
@@ -71,12 +74,17 @@ function LeveeReserves() {
     kind: "before" | "after",
     files: FileList | null,
   ) {
-    if (!files || files.length === 0) return;
+    // Snapshot immédiat : la FileList est vidée dès que l'input est réinitialisé.
+    const picked = files ? Array.from(files) : [];
+    if (picked.length === 0) return;
+    const zoneKey = `${rid}-${kind}`;
+    setPendingZones((z) => ({ ...z, [zoneKey]: true }));
+    try {
     const browserGps = await tryGetGps();
     const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 400) : "";
     let warnedNoGps = false;
     const entries: PhotoEntry[] = await Promise.all(
-      Array.from(files).map(async (file) => {
+      picked.map(async (file) => {
         const exif = await readExif(file);
         // GPS priority: browser → EXIF → none
         let latitude = browserGps.latitude;
@@ -122,6 +130,9 @@ function LeveeReserves() {
     );
     const setter = kind === "before" ? setItemPhotosBefore : setItemPhotosAfter;
     setter((prev) => ({ ...prev, [rid]: [...(prev[rid] ?? []), ...entries] }));
+    } finally {
+      setPendingZones((z) => ({ ...z, [zoneKey]: false }));
+    }
   }
 
   function removePhoto(rid: string, kind: "before" | "after", idx: number) {
@@ -191,13 +202,16 @@ function LeveeReserves() {
     rid, kind, label,
   }: { rid: string; kind: "before" | "after"; label: string }) {
     const list = (kind === "before" ? itemPhotosBefore : itemPhotosAfter)[rid] ?? [];
+    const inputId = `photo-${kind}-${rid}`;
+    const pending = !!pendingZones[`${rid}-${kind}`];
     return (
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-medium">{label}</Label>
-          <span className="text-[10px] text-muted-foreground">{list.length} photo(s)</span>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+          <Label htmlFor={inputId} className="text-xs font-medium">{label}</Label>
+          <span className="text-[10px] text-muted-foreground" aria-live="polite">{list.length} photo(s)</span>
         </div>
         <input
+          id={inputId}
           type="file"
           multiple
           accept="image/png,image/jpeg,image/webp"
@@ -205,32 +219,41 @@ function LeveeReserves() {
             void handleFilesPicked(rid, kind, e.target.files);
             e.target.value = "";
           }}
-          className="block w-full text-xs"
+          className="sr-only"
         />
+        <label
+          htmlFor={inputId}
+          className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 text-xs font-medium hover:bg-accent sm:min-h-9"
+        >
+          {pending ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" /> : <ImagePlus className="h-4 w-4 shrink-0" aria-hidden="true" />}
+          {pending ? "Localisation en cours…" : "Ajouter des photos"}
+        </label>
         {list.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             {list.map((p, idx) => {
               const geo = p.latitude !== null && p.longitude !== null;
               return (
-                <div key={idx} className="relative overflow-hidden rounded border border-border">
-                  <img src={p.previewUrl} alt="" className="aspect-square w-full object-cover" />
+                <div key={idx} className="relative min-w-0 overflow-hidden rounded border border-border">
+                  <img src={p.previewUrl} alt={`Photo ${kind === "before" ? "avant" : "après"} ${idx + 1}`} className="aspect-square w-full object-cover" />
                   <button
                     type="button"
                     onClick={() => removePhoto(rid, kind, idx)}
-                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-                    aria-label="Supprimer"
+                    className="absolute right-0 top-0 grid h-11 w-11 place-items-center sm:h-8 sm:w-8"
+                    aria-label={`Supprimer la photo ${idx + 1}`}
                   >
-                    <X className="h-3 w-3" />
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80">
+                      <X className="h-3.5 w-3.5" />
+                    </span>
                   </button>
-                  <div className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
+                  <div className="absolute bottom-1 left-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 truncate rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
                     {geo ? (
                       <>
-                        <MapPin className="h-2.5 w-2.5 text-green-300" />
+                        <MapPin className="h-2.5 w-2.5 shrink-0 text-green-300" />
                         {p.accuracy ? `±${Math.round(p.accuracy)}m` : "GPS"}
                       </>
                     ) : (
                       <>
-                        <MapPinOff className="h-2.5 w-2.5 text-amber-300" />
+                        <MapPinOff className="h-2.5 w-2.5 shrink-0 text-amber-300" />
                         Non géoloc.
                       </>
                     )}
@@ -248,27 +271,36 @@ function LeveeReserves() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Link to="/pv" className="hover:text-foreground">PV</Link>
-          <ChevronRight className="h-3 w-3" />
-          <Link to="/pv/$id" params={{ id: pvId }} className="hover:text-foreground">{pvNumero}</Link>
-          <ChevronRight className="h-3 w-3" />
-          <span>Levée de réserves</span>
-        </div>
+      <div className="min-w-0">
+        <Link
+          to="/pv/$id"
+          params={{ id: pvId }}
+          className="-ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground sm:min-h-0 sm:py-1"
+          aria-label="Retour au procès-verbal"
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="line-clamp-1">Retour au PV {pvNumero}</span>
+        </Link>
         <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Créer une levée de réserves</h1>
         {reserves.length > 0 && (
-          <p className="mt-0.5 text-xs text-muted-foreground">PV {pvNumero} · {reserves.length} réserve(s) à traiter</p>
+          <p className="mt-0.5 text-xs text-muted-foreground" aria-live="polite">
+            {selectedCount} / {reserves.length} réserve(s) sélectionnée(s)
+          </p>
         )}
       </div>
 
       {reserves.length === 0 ? (
-        <Card className="flex flex-col items-center gap-2 p-8 text-center text-sm text-muted-foreground">
-          Aucune réserve à lever sur ce PV.
-          <Link to="/pv/$id" params={{ id: pvId }}><Button variant="outline" size="sm"><ArrowLeft className="h-4 w-4" /> Retour au PV</Button></Link>
+        <Card className="flex flex-col items-center gap-2 p-6 text-center text-sm">
+          <p className="font-medium">Aucune réserve à lever</p>
+          <p className="text-xs text-muted-foreground">
+            Toutes les réserves de ce PV sont déjà levées ou validées : aucune action n'est nécessaire.
+          </p>
+          <Link to="/pv/$id" params={{ id: pvId }} className="mt-1">
+            <Button variant="outline" className="h-11 sm:h-9"><ArrowLeft className="h-4 w-4" /> Retour au PV</Button>
+          </Link>
         </Card>
       ) : (
-        <Card className="space-y-2 p-4">
+        <Card className="space-y-2 p-3 sm:p-4">
           <h2 className="text-sm font-semibold">Réserves à lever</h2>
           <p className="text-[11px] text-muted-foreground">
             La géolocalisation des photos est conservée comme preuve d'intervention. Son absence n'invalide ni la réserve ni sa levée.
@@ -276,17 +308,23 @@ function LeveeReserves() {
           <div className="space-y-2">
             {reserves.map((r) => (
               <div key={r.id} className="space-y-2 rounded-md border border-border p-2.5">
-                <div className="flex items-start gap-2.5">
-                  <Checkbox checked={!!selected[r.id]} onCheckedChange={(v) => setSelected((s) => ({ ...s, [r.id]: !!v }))} className="mt-0.5" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-snug">{r.description}</p>
+                <label htmlFor={`res-${r.id}`} className="flex min-h-11 cursor-pointer items-start gap-2.5 sm:min-h-0">
+                  <Checkbox
+                    id={`res-${r.id}`}
+                    checked={!!selected[r.id]}
+                    onCheckedChange={(v) => setSelected((s) => ({ ...s, [r.id]: !!v }))}
+                    className="mt-2.5 shrink-0 sm:mt-0.5"
+                  />
+                  <div className="min-w-0 flex-1 py-1.5 sm:py-0">
+                    <p className="break-words text-sm leading-snug">{r.description}</p>
                     <p className="mt-0.5 text-[11px] uppercase tracking-wider text-muted-foreground">Sévérité : {r.severity}</p>
                   </div>
-                </div>
+                </label>
                 {selected[r.id] && (
-                  <div className="ml-6 space-y-3">
+                  <div className="ml-0 space-y-3 border-t border-border pt-2 sm:ml-6 sm:border-0 sm:pt-0">
                     <Textarea
                       placeholder="Intervention réalisée (optionnel)…"
+                      aria-label="Commentaire d'intervention"
                       rows={2}
                       value={itemComment[r.id] ?? ""}
                       onChange={(e) => setItemComment((c) => ({ ...c, [r.id]: e.target.value }))}
@@ -303,52 +341,53 @@ function LeveeReserves() {
 
       {reserves.length > 0 && (
         <>
-          <Card className="space-y-2 p-4">
-            <Label className="text-xs">Commentaire général (optionnel)</Label>
-            <Textarea rows={2} value={globalComment} onChange={(e) => setGlobalComment(e.target.value)} placeholder="Conditions d'intervention, observations…" />
+          <Card className="space-y-2 p-3 sm:p-4">
+            <Label htmlFor="global-comment" className="text-xs">Commentaire général (optionnel)</Label>
+            <Textarea id="global-comment" rows={2} value={globalComment} onChange={(e) => setGlobalComment(e.target.value)} placeholder="Conditions d'intervention, observations…" />
           </Card>
 
-          <Card className="space-y-3 p-4">
+          <Card className="space-y-3 p-3 sm:p-4">
             <div>
               <Label className="mb-1.5 block text-xs">Signature entreprise *</Label>
-              <div className="rounded-md border border-border bg-background">
+              <div className="overflow-hidden rounded-md border border-border bg-background">
                 <SignaturePad ref={companySigRef} canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,7.0rem)]" }} />
               </div>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => companySigRef.current?.clear()}>Effacer</Button>
+              <Button variant="ghost" size="sm" className="h-11 px-3 text-xs sm:h-7 sm:px-2" onClick={() => companySigRef.current?.clear()}>Effacer</Button>
               <p className="mt-2 text-[11px] text-muted-foreground">
                 La signature client sera collectée à distance, depuis l'espace client, lors de la validation de la levée.
               </p>
             </div>
 
             <div className="space-y-2 rounded-md border border-dashed border-border p-3">
-              <div className="text-xs font-medium">Technicien intervenant (optionnel, PDF interne)</div>
+              <Label htmlFor="technician-name" className="block text-xs font-medium">Technicien intervenant (optionnel, PDF interne)</Label>
               <Input
+                id="technician-name"
                 placeholder="Nom du technicien sur site"
                 value={technicianName}
                 onChange={(e) => setTechnicianName(e.target.value)}
-                className="h-8 text-sm"
+                className="h-11 text-sm sm:h-8"
               />
-              <div className="flex items-center gap-2">
-                <Switch checked={includeTechnicianSig} onCheckedChange={setIncludeTechnicianSig} />
-                <Label className="!mt-0 text-xs">Collecter la signature du technicien</Label>
-              </div>
+              <label htmlFor="technician-sig" className="flex min-h-11 cursor-pointer items-center gap-2 sm:min-h-0">
+                <Switch id="technician-sig" checked={includeTechnicianSig} onCheckedChange={setIncludeTechnicianSig} className="shrink-0" />
+                <span className="text-xs">Collecter la signature du technicien</span>
+              </label>
               {includeTechnicianSig && (
                 <div>
-                  <div className="rounded-md border border-border bg-background">
+                  <div className="overflow-hidden rounded-md border border-border bg-background">
                     <SignaturePad ref={technicianSigRef} canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,6.0rem)]" }} />
                   </div>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => technicianSigRef.current?.clear()}>Effacer</Button>
+                  <Button variant="ghost" size="sm" className="h-11 px-3 text-xs sm:h-7 sm:px-2" onClick={() => technicianSigRef.current?.clear()}>Effacer</Button>
                 </div>
               )}
             </div>
           </Card>
 
-          <div className="sticky bottom-0 -mx-4 flex flex-wrap justify-end gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
-            <Link to="/pv/$id" params={{ id: pvId }} className="hidden sm:inline-block"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Annuler</Button></Link>
-            <Button variant="outline" disabled={saving} onClick={() => onSubmit("brouillon")}>
+          <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 flex flex-wrap justify-end gap-2 rounded-lg border border-border bg-background/95 p-2 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0">
+            <Link to="/pv/$id" params={{ id: pvId }} className="hidden lg:inline-block"><Button variant="ghost"><ArrowLeft className="h-4 w-4" /> Annuler</Button></Link>
+            <Button variant="outline" className="h-11 flex-1 lg:h-9 lg:flex-none" disabled={saving} onClick={() => onSubmit("brouillon")}>
               <Save className="h-4 w-4" /> Brouillon
             </Button>
-            <Button disabled={saving} onClick={() => onSubmit("signe")}>
+            <Button className="h-11 flex-1 lg:h-9 lg:flex-none" disabled={saving} onClick={() => onSubmit("signe")}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Signer et générer le PDF
             </Button>
