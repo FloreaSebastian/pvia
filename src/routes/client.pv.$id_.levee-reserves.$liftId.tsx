@@ -464,7 +464,7 @@ function ClientLiftValidation({
             id="lift-consent"
             checked={consent}
             onCheckedChange={(v) => setConsent(!!v)}
-            className="mt-0.5 h-5 w-5"
+            className="mt-0.5 h-6 w-6"
           />
           <span className="text-sm leading-relaxed">
             Je confirme que les réserves indiquées ont été levées et accepte la signature électronique de ce procès-verbal de levée. Cette signature a la même valeur juridique qu'une signature manuscrite.

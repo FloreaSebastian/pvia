@@ -40,7 +40,7 @@ export function ClientShell({
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 pb-20 sm:pb-0">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <Link to="/client/dashboard" className="flex items-center gap-2.5">
+          <Link to="/client/dashboard" className="flex min-h-11 items-center gap-2.5">
             <BrandLogo variant="compact" />
             <span className="hidden text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground sm:inline">
               Espace client
