@@ -28,9 +28,12 @@ async function assertPvAccess(pvId: string, userId: string) {
 const ListSchema = z.object({
   pvId: z.string().uuid(),
   actions: z.array(z.string()).optional(),
+  /** Filtre par famille d'action, ex. "pv." / "reserve." (lecture seule, aucun impact sur les données). */
+  actionPrefix: z.string().max(32).regex(/^[a-z_]+\.$/).optional(),
   limit: z.number().int().min(1).max(200).optional(),
   offset: z.number().int().min(0).optional(),
 });
+
 
 export const listPvAuditLogs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
