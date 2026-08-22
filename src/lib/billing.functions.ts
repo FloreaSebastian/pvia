@@ -192,10 +192,15 @@ export const createPortalSession = createServerFn({ method: "POST" })
     if (!sub?.stripe_customer_id) throw new Error("Aucun abonnement à gérer.");
 
     const stripe = createStripeClient(data.environment);
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: sub.stripe_customer_id,
-      return_url: data.returnUrl,
-    });
+    let portal;
+    try {
+      portal = await stripe.billingPortal.sessions.create({
+        customer: sub.stripe_customer_id,
+        return_url: data.returnUrl,
+      });
+    } catch (e) {
+      throw sanitizeStripeError(e, BILLING_MESSAGES.portal);
+    }
 
     await writeAuditLog({
       companyId: data.companyId,
