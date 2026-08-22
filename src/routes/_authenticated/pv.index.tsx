@@ -92,6 +92,9 @@ function PvList() {
   });
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(true);
+  // Bascule cartes ↔ tableau sur la largeur RÉELLE du conteneur (sidebar, Fold, split-screen).
+  const { ref: listRef, width: listWidth } = useContainerWidth<HTMLDivElement>();
+  const useTable = listWidth >= TABLE_MIN_WIDTH;
 
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem(SORT_STORAGE_KEY, sort);
