@@ -20,7 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatedCounter } from "@/components/app/AnimatedCounter";
-import { PvStatusPill } from "@/components/ui/status-pill";
+import { PvStatusPill, StatusPill, isKnownPvStatus } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Sparkline } from "@/components/app/Sparkline";
 import { useCompany } from "@/hooks/use-company";
@@ -33,9 +33,31 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 type Stats = { pv: number; signed: number; pending: number; openReserves: number };
-type Pv = { id: string; numero: string; status: string; created_at: string; reception_date: string | null };
+type Pv = {
+  id: string;
+  numero: string;
+  status: string;
+  created_at: string;
+  reception_date: string | null;
+  signed_at?: string | null;
+};
 type Ch = { id: string; name: string; status: string; address: string | null; created_at: string };
 type Activity = { id: string; type: "pv" | "reserve" | "chantier"; label: string; at: string };
+
+/** Libellés métier des statuts chantier — jamais la valeur technique à l'écran. */
+const CHANTIER_STATUS_LABELS: Record<string, string> = {
+  preparation: "Préparation",
+  planifie: "Planifié",
+  en_cours: "En cours",
+  en_attente: "En attente",
+  receptionne: "Réceptionné",
+  termine: "Terminé",
+  archive: "Archivé",
+};
+function chantierStatusLabel(status: string): string {
+  return CHANTIER_STATUS_LABELS[status] ?? "Statut non précisé";
+}
+
 
 /** Build a 14-day series of PV creation counts from a list of timestamps. */
 function buildDailySeries(items: { created_at: string }[], days = 14): number[] {
@@ -57,7 +79,17 @@ function buildDailySeries(items: { created_at: string }[], days = 14): number[] 
  * liste de lignes tactiles sous ~30rem (Fold fermé / smartphone étroit),
  * tableau inchangé au-delà.
  */
-function RecentPvCard({ recent }: { recent: Pv[] }) {
+function SafePvStatus({ status, size }: { status: string; size?: "sm" | "md" }) {
+  if (isKnownPvStatus(status)) return <PvStatusPill status={status} size={size} />;
+  // Jamais la valeur technique brute à l'écran.
+  return (
+    <StatusPill tone="neutral" size={size} dot>
+      <span title={status}>En cours de traitement</span>
+    </StatusPill>
+  );
+}
+
+function RecentPvCard({ recent, canWrite }: { recent: Pv[]; canWrite: boolean }) {
   const { ref, width } = useContainerWidth<HTMLDivElement>();
   // width === 0 au premier rendu (SSR / avant mesure) : on part du tableau desktop.
   const isNarrow = width > 0 && width < 480;
@@ -69,16 +101,20 @@ function RecentPvCard({ recent }: { recent: Pv[] }) {
       </div>
       <p className="mt-3 text-sm font-medium">Aucun PV pour le moment</p>
       <p className="mx-auto mt-0.5 max-w-[26ch] text-xs text-muted-foreground">
-        Démarrez en créant votre premier procès-verbal.
+        {canWrite
+          ? "Démarrez en créant votre premier procès-verbal."
+          : "Aucun procès-verbal n'a encore été créé pour cette entreprise."}
       </p>
-      <div className="mt-4 flex justify-center">
-        <Link to="/pv/new" search={{ fresh: 1 }} className="min-w-0 max-w-full">
-          <Button size="sm" className="max-w-full shadow-brand">
-            <Plus className="h-3 w-3 shrink-0" />
-            <span className="truncate">Créer le premier PV</span>
-          </Button>
-        </Link>
-      </div>
+      {canWrite && (
+        <div className="mt-4 flex justify-center">
+          <Link to="/pv/new" search={{ fresh: 1 }} className="min-w-0 max-w-full">
+            <Button size="sm" className="h-11 max-w-full shadow-brand">
+              <Plus className="h-3 w-3 shrink-0" />
+              <span className="truncate">Créer le premier PV</span>
+            </Button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 
@@ -86,16 +122,18 @@ function RecentPvCard({ recent }: { recent: Pv[] }) {
     <Card ref={ref} className="p-4 sm:p-6 lg:col-span-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="min-w-0">
-          <h3 className="font-display font-semibold">Derniers procès-verbaux</h3>
+          <h2 className="font-display font-semibold">Derniers procès-verbaux</h2>
           <p className="text-xs text-muted-foreground">Vos PV les plus récents.</p>
         </div>
         <Link
           to="/pv"
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
+          className="inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-sm font-medium text-primary hover:underline"
+          aria-label="Voir tous les procès-verbaux"
         >
           Voir tout <ArrowUpRight className="h-3 w-3" />
         </Link>
       </div>
+
 
       {isNarrow ? (
         <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
@@ -121,7 +159,7 @@ function RecentPvCard({ recent }: { recent: Pv[] }) {
                       </div>
                     </div>
                     <div className="shrink-0">
-                      <PvStatusPill status={r.status} size="sm" />
+                      <SafePvStatus status={r.status} size="sm" />
                     </div>
                   </Link>
                 </li>
@@ -149,12 +187,12 @@ function RecentPvCard({ recent }: { recent: Pv[] }) {
               )}
               {recent.map((r) => (
                 <tr key={r.id} className="transition-colors hover:bg-muted/30">
-                  <td className="px-4 py-3 font-medium">{r.numero}</td>
+                  <td className="max-w-[22ch] truncate px-4 py-3 font-medium" title={r.numero}>{r.numero}</td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {new Date(r.created_at).toLocaleDateString("fr-FR")}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <PvStatusPill status={r.status} />
+                    <SafePvStatus status={r.status} />
                   </td>
                 </tr>
               ))}
@@ -167,52 +205,88 @@ function RecentPvCard({ recent }: { recent: Pv[] }) {
 }
 
 function Dashboard() {
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, can } = useCompany();
+  const canWrite = can("manage");
   const [stats, setStats] = useState<Stats>({ pv: 0, signed: 0, pending: 0, openReserves: 0 });
   const [recent, setRecent] = useState<Pv[]>([]);
   const [chantiers, setChantiers] = useState<Ch[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [trendData, setTrendData] = useState<{ created_at: string }[]>([]);
+  const [signedTrend, setSignedTrend] = useState<{ created_at: string }[]>([]);
+  const [pendingTrend, setPendingTrend] = useState<{ created_at: string }[]>([]);
+  const [reservesTrend, setReservesTrend] = useState<{ created_at: string }[]>([]);
+  const [prevPvCount, setPrevPvCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!activeCompanyId) return;
+    let cancelled = false;
     (async () => {
       setLoaded(false);
       const base = () => supabase.from("pv").select("id", { count: "exact", head: true }).eq("company_id", activeCompanyId);
       const since = new Date(Date.now() - 14 * 86400000).toISOString();
-      const [pv, signed, pending, reserves, rec, chs, trend] = await Promise.all([
-        base(),
-        base().eq("status", "signe"),
-        base().eq("status", "brouillon"),
-        supabase.from("pv_reserves").select("id", { count: "exact", head: true }).eq("status", "ouverte").eq("company_id", activeCompanyId),
-        supabase.from("pv").select("id,numero,status,created_at,reception_date").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(6),
-        supabase.from("chantiers").select("id,name,status,address,created_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(4),
-        supabase.from("pv").select("created_at").eq("company_id", activeCompanyId).gte("created_at", since),
-      ]);
+      const prevSince = new Date(Date.now() - 28 * 86400000).toISOString();
+      const [pv, signed, pending, reserves, rec, chs, trend, prevTrend, signedRows, pendingRows, openReserveRows] =
+        await Promise.all([
+          base(),
+          base().eq("status", "signe"),
+          base().eq("status", "brouillon"),
+          supabase.from("pv_reserves").select("id", { count: "exact", head: true }).eq("status", "ouverte").eq("company_id", activeCompanyId),
+          supabase.from("pv").select("id,numero,status,created_at,reception_date,signed_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(6),
+          supabase.from("chantiers").select("id,name,status,address,created_at").eq("company_id", activeCompanyId).order("created_at", { ascending: false }).limit(4),
+          supabase.from("pv").select("created_at").eq("company_id", activeCompanyId).gte("created_at", since),
+          supabase.from("pv").select("id", { count: "exact", head: true }).eq("company_id", activeCompanyId).gte("created_at", prevSince).lt("created_at", since),
+          supabase.from("pv").select("signed_at").eq("company_id", activeCompanyId).eq("status", "signe").gte("signed_at", since),
+          supabase.from("pv").select("created_at").eq("company_id", activeCompanyId).eq("status", "brouillon").gte("created_at", since),
+          supabase.from("pv_reserves").select("created_at").eq("company_id", activeCompanyId).eq("status", "ouverte").gte("created_at", since),
+        ]);
+      if (cancelled) return;
       setStats({
         pv: pv.count ?? 0,
         signed: signed.count ?? 0,
         pending: pending.count ?? 0,
         openReserves: reserves.count ?? 0,
       });
-      setRecent(rec.data ?? []);
+      setRecent((rec.data ?? []) as Pv[]);
       setChantiers(chs.data ?? []);
       setTrendData(trend.data ?? []);
+      setPrevPvCount(prevTrend.count ?? 0);
+      setSignedTrend(
+        ((signedRows.data ?? []) as { signed_at: string | null }[])
+          .filter((r) => !!r.signed_at)
+          .map((r) => ({ created_at: r.signed_at as string })),
+      );
+      setPendingTrend((pendingRows.data ?? []) as { created_at: string }[]);
+      setReservesTrend((openReserveRows.data ?? []) as { created_at: string }[]);
 
-      const acts: Activity[] = (rec.data ?? []).slice(0, 5).map((p) => ({
+      const acts: Activity[] = ((rec.data ?? []) as Pv[]).slice(0, 5).map((p) => ({
         id: p.id,
         type: "pv",
         label: p.status === "signe" ? `PV ${p.numero} signé` : `PV ${p.numero} créé`,
-        at: p.created_at,
+        // Un PV signé est daté de sa signature, pas de sa création.
+        at: (p.status === "signe" && p.signed_at) || p.created_at,
       }));
       setActivity(acts);
       setLoaded(true);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [activeCompanyId]);
 
   const series14 = useMemo(() => buildDailySeries(trendData, 14), [trendData]);
+  const signedSeries = useMemo(() => buildDailySeries(signedTrend, 14), [signedTrend]);
+  const pendingSeries = useMemo(() => buildDailySeries(pendingTrend, 14), [pendingTrend]);
+  const reservesSeries = useMemo(() => buildDailySeries(reservesTrend, 14), [reservesTrend]);
   const max14 = Math.max(1, ...series14);
+
+  /** Évolution réelle des PV créés : 14 derniers jours vs les 14 précédents. */
+  const pvDelta = useMemo(() => {
+    const current = trendData.length;
+    if (prevPvCount === 0) return current > 0 ? `+${current} sur 14 j` : "Aucun PV sur 14 j";
+    const pct = Math.round(((current - prevPvCount) / prevPvCount) * 100);
+    return `${pct >= 0 ? "+" : ""}${pct}% vs 14 j précédents`;
+  }, [trendData.length, prevPvCount]);
 
   const kpis = [
     {
@@ -221,8 +295,9 @@ function Dashboard() {
       icon: FileText,
       tone: "text-primary",
       bg: "bg-primary/10",
-      trend: "+12% ce mois",
+      trend: pvDelta,
       spark: series14,
+      sparkLabel: "PV créés par jour sur 14 jours",
     },
     {
       label: "PV signés",
@@ -231,7 +306,8 @@ function Dashboard() {
       tone: "text-success",
       bg: "bg-success/10",
       trend: `${stats.pv ? Math.round((stats.signed / stats.pv) * 100) : 0}% de taux`,
-      spark: series14.map((v) => Math.round(v * 0.7)),
+      spark: signedSeries,
+      sparkLabel: "PV signés par jour sur 14 jours",
     },
     {
       label: "PV en attente",
@@ -239,8 +315,9 @@ function Dashboard() {
       icon: Clock,
       tone: "text-warning",
       bg: "bg-warning/10",
-      trend: "À finaliser",
-      spark: series14.map((v, i) => (i % 2 ? v : Math.max(0, v - 1))),
+      trend: stats.pending > 0 ? "Brouillons à finaliser" : "Rien à finaliser",
+      spark: pendingSeries,
+      sparkLabel: "Brouillons créés par jour sur 14 jours",
     },
     {
       label: "Réserves ouvertes",
@@ -248,10 +325,12 @@ function Dashboard() {
       icon: AlertCircle,
       tone: "text-destructive",
       bg: "bg-destructive/10",
-      trend: "À traiter",
-      spark: series14.map((v) => Math.max(0, v - 1)),
+      trend: stats.openReserves > 0 ? "À traiter" : "Aucune réserve ouverte",
+      spark: reservesSeries,
+      sparkLabel: "Réserves ouvertes créées par jour sur 14 jours",
     },
   ];
+
 
   return (
     <div className="space-y-6">
@@ -262,13 +341,16 @@ function Dashboard() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          <Link to="/pv/new" search={{ fresh: 1 }}>
-            <Button size="lg" className="shadow-brand">
-              <Plus className="h-4 w-4" /> Créer un nouveau PV
-            </Button>
-          </Link>
+          canWrite ? (
+            <Link to="/pv/new" search={{ fresh: 1 }}>
+              <Button size="lg" className="h-11 shadow-brand">
+                <Plus className="h-4 w-4" /> Créer un nouveau PV
+              </Button>
+            </Link>
+          ) : null
         }
       />
+
 
       {/* KPI cards with sparklines */}
       <div className="auto-grid">
@@ -296,9 +378,10 @@ function Dashboard() {
                   <k.icon className="h-4 w-4" />
                 </div>
               </div>
-              <div className={`relative mt-4 h-10 ${k.tone}`}>
+              <div className={`relative mt-4 h-10 ${k.tone}`} role="img" aria-label={k.sparkLabel}>
                 <Sparkline values={k.spark} />
               </div>
+
             </Card>
           </motion.div>
         ))}
@@ -309,7 +392,7 @@ function Dashboard() {
         <Card className="p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-display font-semibold">Activité — 14 derniers jours</h3>
+              <h2 className="font-display font-semibold">Activité — 14 derniers jours</h2>
               <p className="text-xs text-muted-foreground">Procès-verbaux créés par jour.</p>
             </div>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -350,7 +433,7 @@ function Dashboard() {
             <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary">
               <Activity className="h-3.5 w-3.5" />
             </div>
-            <h3 className="font-display font-semibold">Activité récente</h3>
+            <h2 className="font-display font-semibold">Activité récente</h2>
           </div>
           <div className="mt-4 space-y-3">
             {activity.length === 0 && (
@@ -383,7 +466,7 @@ function Dashboard() {
 
       {/* Recent PV + Quick start */}
       <div className="auto-grid-lg">
-        <RecentPvCard recent={recent} />
+        <RecentPvCard recent={recent} canWrite={canWrite} />
 
 
         <Card className="relative overflow-hidden bg-brand-gradient p-6 text-primary-foreground">
@@ -399,33 +482,37 @@ function Dashboard() {
             <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary-foreground/15">
               <Sparkles className="h-4 w-4" />
             </div>
-            <h3 className="mt-4 font-display text-xl font-bold tracking-tight">Prêt à signer ?</h3>
+            <h2 className="mt-4 font-display text-xl font-bold tracking-tight">Prêt à signer ?</h2>
             <p className="mt-2 text-sm text-primary-foreground/85">
               Créez un PV professionnel en moins de 4 minutes avec photos, réserves et signature électronique.
             </p>
-            <Link to="/pv/new" search={{ fresh: 1 }} className="mt-5 inline-block">
-              <Button variant="secondary" className="text-foreground shadow-lg">
-                <Plus className="h-4 w-4" /> Créer mon PV
-              </Button>
-            </Link>
+            {canWrite && (
+              <Link to="/pv/new" search={{ fresh: 1 }} className="mt-5 inline-block">
+                <Button variant="secondary" className="h-11 text-foreground shadow-lg">
+                  <Plus className="h-4 w-4" /> Créer mon PV
+                </Button>
+              </Link>
+            )}
+
           </div>
         </Card>
       </div>
 
       {/* Chantiers */}
       <Card className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-display font-semibold">Derniers chantiers</h3>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-display font-semibold">Derniers chantiers</h2>
             <p className="text-xs text-muted-foreground">Vos interventions en cours.</p>
           </div>
           <Link
             to="/chantiers"
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-sm font-medium text-primary hover:underline"
           >
             Tous les chantiers <ArrowUpRight className="h-3 w-3" />
           </Link>
         </div>
+
         <div className="mt-4 auto-grid">
           {chantiers.length === 0 && (
             <div className="col-span-full py-10 text-center">
@@ -439,21 +526,23 @@ function Dashboard() {
           {chantiers.map((c) => (
             <Link
               key={c.id}
-              to="/chantiers"
+              to="/chantiers/$id"
+              params={{ id: c.id }}
               className="group rounded-xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
             >
-              <div className="flex items-center justify-between">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-warning/10 text-warning">
+              <div className="flex items-center justify-between gap-2">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warning/10 text-warning">
                   <HardHat className="h-4 w-4" />
                 </div>
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  {c.status}
+                <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {chantierStatusLabel(c.status)}
                 </span>
               </div>
               <p className="mt-3 truncate font-medium">{c.name}</p>
               <p className="truncate text-xs text-muted-foreground">{c.address ?? "Adresse non renseignée"}</p>
             </Link>
           ))}
+
         </div>
       </Card>
     </div>
