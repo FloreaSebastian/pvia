@@ -10,13 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import { PvStatusPill, StatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
+import { useContainerWidth } from "@/hooks/use-viewport";
+
+/** Largeur réelle (conteneur, pas fenêtre) à partir de laquelle le tableau tient. */
+const TABLE_MIN_WIDTH = 900;
 
 export const Route = createFileRoute("/_authenticated/pv/")({
   component: PvList,
@@ -67,7 +71,9 @@ const PAGE_SIZE = 60;
 const SORT_STORAGE_KEY = "pvia.pv.list.sort";
 
 function formatDate(d: string | null) {
-  return d ? new Date(d).toLocaleDateString("fr-FR") : "—";
+  if (!d) return "—";
+  const dt = new Date(d);
+  return Number.isNaN(dt.getTime()) ? "—" : dt.toLocaleDateString("fr-FR");
 }
 function reservesCount(p: Pv) {
   return p.pv_reserves?.[0]?.count ?? 0;
@@ -86,6 +92,9 @@ function PvList() {
   });
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(true);
+  // Bascule cartes ↔ tableau sur la largeur RÉELLE du conteneur (sidebar, Fold, split-screen).
+  const { ref: listRef, width: listWidth } = useContainerWidth<HTMLDivElement>();
+  const useTable = listWidth >= TABLE_MIN_WIDTH;
 
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem(SORT_STORAGE_KEY, sort);
@@ -211,8 +220,8 @@ function PvList() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          <Link to="/pv/new" search={{ fresh: 1 }}>
-            <Button className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau PV</Button>
+          <Link to="/pv/new" search={{ fresh: 1 }} className="shrink-0">
+            <Button className="h-11 shadow-brand sm:h-10"><Plus className="h-4 w-4" /> Nouveau PV</Button>
           </Link>
         }
       />
@@ -243,13 +252,14 @@ function PvList() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rechercher un PV, chantier, client…"
-            className="h-10 pl-9 pr-9"
+            aria-label="Rechercher un procès-verbal (numéro, type, client, chantier)"
+            className="h-11 pl-9 pr-12 sm:h-10"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="absolute right-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
               aria-label="Effacer la recherche"
             >
               <X className="h-3.5 w-3.5" />
@@ -314,14 +324,14 @@ function PvList() {
         </div>
 
         {activeFiltersCount > 0 && (
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="min-w-0 truncate text-muted-foreground" aria-live="polite">
               {filteredSorted.length} résultat{filteredSorted.length > 1 ? "s" : ""}
             </span>
             <button
               type="button"
               onClick={() => { setStatusFilter("all"); setReserveFilter("all"); }}
-              className="font-medium text-primary hover:underline"
+              className="shrink-0 font-medium text-primary hover:underline"
             >
               Réinitialiser
             </button>
@@ -329,118 +339,120 @@ function PvList() {
         )}
       </div>
 
-      {/* MOBILE: card grid */}
-      <div className="md:hidden">
-        {loading && (
-          <div className="py-16 text-center text-sm text-muted-foreground">Chargement…</div>
-        )}
-        {!loading && filteredSorted.length === 0 && (
-          <EmptyBlock total={items.length} />
-        )}
-        {!loading && filteredSorted.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
-              {shown.map((p) => (
-                <PvCard
-                  key={p.id}
-                  pv={p}
-                  onOpen={() => navigate({ to: "/pv/$id", params: { id: p.id } })}
-                  onDownload={() => download(p.pdf_url)}
-                  onShare={() => share(p)}
-                  onRemove={() => remove(p.id)}
-                />
-              ))}
-            </div>
-            {visible < filteredSorted.length && (
-              <div className="mt-4 flex justify-center">
-                <Button variant="outline" size="sm" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
-                  Charger plus ({filteredSorted.length - visible} restants)
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      {/* Liste — bascule cartes ↔ tableau sur la largeur réelle du conteneur */}
+      <div ref={listRef} className="min-w-0">
+        {loading && <ListSkeleton />}
+        {!loading && filteredSorted.length === 0 && <EmptyBlock total={items.length} />}
 
-      {/* DESKTOP: table */}
-      <Card className="hidden overflow-hidden p-0 md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Numéro</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Chantier</TableHead>
-              <TableHead>Réserves</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-16 text-center text-sm text-muted-foreground">Chargement…</TableCell>
-              </TableRow>
-            )}
-            {!loading && filteredSorted.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-16 text-center">
-                  <EmptyBlock total={items.length} />
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && shown.map((p) => {
-              const rc = reservesCount(p);
-              return (
-                <TableRow key={p.id} className="group cursor-pointer hover:bg-muted/40">
-                  <TableCell className="font-medium">
-                    <Link to="/pv/$id" params={{ id: p.id }} className="font-mono hover:underline">N° {p.numero}</Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{p.type}</TableCell>
-                  <TableCell><PvStatusPill status={p.status} /></TableCell>
-                  <TableCell className="max-w-[220px] truncate text-muted-foreground">
-                    {p.chantiers?.reference && <span className="mr-1 rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold text-foreground">{p.chantiers.reference}</span>}
-                    {p.chantiers?.name ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    {p.reception_with_reserves ? (
-                      <StatusPill tone="warning" size="sm">{rc > 0 ? `${rc} réserves` : "Avec réserves"}</StatusPill>
-                    ) : (
-                      <StatusPill tone="success" size="sm">Sans réserve</StatusPill>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{formatDate(p.reception_date)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="inline-flex items-center gap-1 opacity-60 transition group-hover:opacity-100">
-                      <Link to="/pv/$id" params={{ id: p.id }}>
-                        <Button size="sm" variant="ghost">Ouvrir</Button>
-                      </Link>
-                      {p.pdf_url && (
-                        <Button size="icon" variant="ghost" onClick={() => download(p.pdf_url)} title="Télécharger PDF">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button size="icon" variant="ghost" onClick={() => share(p)} title="Partager">
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => remove(p.id)} title="Supprimer">
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        {!loading && filteredSorted.length > 0 && !useTable && (
+          <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
+            {shown.map((p) => (
+              <PvCard
+                key={p.id}
+                pv={p}
+                onOpen={() => navigate({ to: "/pv/$id", params: { id: p.id } })}
+                onDownload={() => download(p.pdf_url)}
+                onShare={() => share(p)}
+                onRemove={() => remove(p.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {!loading && filteredSorted.length > 0 && useTable && (
+          <Card className="overflow-hidden p-0">
+            <div className="w-full overflow-x-auto">
+              <Table className="table-fixed">
+                <colgroup>
+                  <col className="w-[20%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[23%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
+                </colgroup>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Numéro</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Chantier</TableHead>
+                    <TableHead>Réserves</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {shown.map((p) => {
+                    const rc = reservesCount(p);
+                    return (
+                      <TableRow key={p.id} className="hover:bg-muted/40">
+                        <TableCell className="font-medium">
+                          <Link
+                            to="/pv/$id"
+                            params={{ id: p.id }}
+                            title={`N° ${p.numero}`}
+                            className="block truncate font-mono hover:underline"
+                          >
+                            N° {p.numero}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="truncate text-muted-foreground" title={p.type}>{p.type || "—"}</TableCell>
+                        <TableCell><PvStatusPill status={p.status} size="sm" /></TableCell>
+                        <TableCell className="text-muted-foreground">
+                          <div className="flex min-w-0 items-center gap-1" title={p.chantiers?.name ?? undefined}>
+                            {p.chantiers?.reference && (
+                              <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] font-semibold text-foreground">{p.chantiers.reference}</span>
+                            )}
+                            <span className="truncate">{p.chantiers?.name ?? "—"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {p.reception_with_reserves ? (
+                            <StatusPill tone="warning" size="sm">{rc > 0 ? `${rc} réserve${rc > 1 ? "s" : ""}` : "Avec réserves"}</StatusPill>
+                          ) : (
+                            <StatusPill tone="success" size="sm">Sans réserve</StatusPill>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(p.reception_date)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-0.5">
+                            <Link to="/pv/$id" params={{ id: p.id }} aria-label={`Ouvrir le PV ${p.numero}`}>
+                              <Button size="icon" variant="ghost" title="Ouvrir">
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            {p.pdf_url && (
+                              <Button size="icon" variant="ghost" onClick={() => download(p.pdf_url)} title="Télécharger le PDF" aria-label={`Télécharger le PDF du PV ${p.numero}`}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button size="icon" variant="ghost" onClick={() => share(p)} title="Partager" aria-label={`Partager le PV ${p.numero}`}>
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => remove(p.id)} title="Supprimer" aria-label={`Supprimer le PV ${p.numero}`}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        )}
+
         {!loading && visible < filteredSorted.length && (
-          <div className="flex justify-center border-t border-border bg-muted/30 p-3">
-            <Button variant="outline" size="sm" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" className="h-11 sm:h-9" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
               Charger plus ({filteredSorted.length - visible} restants)
             </Button>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }
@@ -460,7 +472,8 @@ function FilterSheetButton({
       <SheetTrigger asChild>
         <button
           type="button"
-          className={`flex h-10 w-full items-center justify-between gap-1.5 rounded-lg border px-3 text-left text-xs font-medium transition ${
+          aria-label={`${title}${value ? ` : ${value}` : ""}`}
+          className={`flex h-11 w-full items-center justify-between gap-1.5 rounded-lg border px-3 text-left text-xs font-medium transition sm:h-10 ${
             value
               ? "border-primary/40 bg-primary/5 text-foreground"
               : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -476,12 +489,24 @@ function FilterSheetButton({
       <SheetContent side="bottom" className="rounded-t-2xl p-0">
         <SheetHeader className="border-b border-border px-5 py-4">
           <SheetTitle className="text-base">{title}</SheetTitle>
+          <SheetDescription className="sr-only">Choisissez une option pour filtrer ou trier la liste des procès-verbaux.</SheetDescription>
         </SheetHeader>
-        <div className="max-h-[60vh] overflow-y-auto p-2">
+        <div className="max-h-[60vh] overflow-y-auto p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {children(() => setOpen(false))}
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** Squelette de chargement (évite le saut de mise en page cartes → tableau). */
+function ListSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Chargement des procès-verbaux">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-32 animate-pulse rounded-xl border border-border bg-muted/40" />
+      ))}
+    </div>
   );
 }
 
@@ -606,17 +631,17 @@ function PvCard({
         <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
           Ouvrir <ChevronRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
         </span>
-        <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="-mr-1 flex items-center" onClick={(e) => e.stopPropagation()}>
           {pv.pdf_url && (
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onDownload} aria-label="Télécharger PDF">
-              <Download className="h-3.5 w-3.5" />
+            <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onDownload} aria-label={`Télécharger le PDF du PV ${pv.numero}`}>
+              <Download className="h-4 w-4" />
             </Button>
           )}
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onShare} aria-label="Partager">
-            <Share2 className="h-3.5 w-3.5" />
+          <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onShare} aria-label={`Partager le PV ${pv.numero}`}>
+            <Share2 className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onRemove} aria-label="Supprimer">
-            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onRemove} aria-label={`Supprimer le PV ${pv.numero}`}>
+            <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       </div>
