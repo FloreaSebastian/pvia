@@ -67,7 +67,9 @@ const PAGE_SIZE = 60;
 const SORT_STORAGE_KEY = "pvia.pv.list.sort";
 
 function formatDate(d: string | null) {
-  return d ? new Date(d).toLocaleDateString("fr-FR") : "—";
+  if (!d) return "—";
+  const dt = new Date(d);
+  return Number.isNaN(dt.getTime()) ? "—" : dt.toLocaleDateString("fr-FR");
 }
 function reservesCount(p: Pv) {
   return p.pv_reserves?.[0]?.count ?? 0;
