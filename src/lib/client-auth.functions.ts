@@ -40,13 +40,22 @@ import { sendClientLoginCodeEmail } from "@/lib/email.server";
 export const sendClientLoginCode = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ email: z.string().email().max(255) }).parse(d))
   .handler(async ({ data }) => {
+    const startedAt = Date.now();
     const email = normalizeEmail(data.email);
     const ip = getClientIp() ?? "unknown";
     const ua = getClientUA();
 
     // Réponse neutre commune (anti-énumération) — l'UI ne doit jamais savoir
     // si l'email existe ou pourquoi un envoi a échoué.
+    // Le temps de réponse est également nivelé : sans ce palier, un email
+    // connu (envoi SMTP réel) répondait en ~1,6 s contre ~0,3 s pour un email
+    // inconnu, ce qui suffit à énumérer la base au chronomètre.
     const NEUTRAL = { ok: true as const, neutral: true as const };
+    const neutral = async () => {
+      await padToMinDuration(startedAt, CLIENT_LOGIN_MIN_RESPONSE_MS);
+      return NEUTRAL;
+    };
+
 
     // Trace systématique de la tentative pour monitoring/admin.
     await writeAuditLog({
