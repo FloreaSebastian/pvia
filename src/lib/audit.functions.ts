@@ -28,9 +28,12 @@ async function assertPvAccess(pvId: string, userId: string) {
 const ListSchema = z.object({
   pvId: z.string().uuid(),
   actions: z.array(z.string()).optional(),
+  /** Filtre par famille d'action, ex. "pv." / "reserve." (lecture seule, aucun impact sur les données). */
+  actionPrefix: z.string().max(32).regex(/^[a-z_]+\.$/).optional(),
   limit: z.number().int().min(1).max(200).optional(),
   offset: z.number().int().min(0).optional(),
 });
+
 
 export const listPvAuditLogs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -46,6 +49,7 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
       .select("id", { count: "exact", head: true })
       .eq("pv_id", data.pvId);
     if (data.actions && data.actions.length) countQ = countQ.in("action", data.actions);
+    if (data.actionPrefix) countQ = countQ.like("action", `${data.actionPrefix}%`);
     const { count: total } = await countQ;
 
     let q = supabaseAdmin
@@ -55,6 +59,7 @@ export const listPvAuditLogs = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
     if (data.actions && data.actions.length) q = q.in("action", data.actions);
+    if (data.actionPrefix) q = q.like("action", `${data.actionPrefix}%`);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 

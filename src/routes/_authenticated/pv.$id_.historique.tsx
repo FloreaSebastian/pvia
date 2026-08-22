@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, ShieldCheck, FileText, Mail, Send, Camera, AlertCircle,
   PenSquare, Plus, Edit, Trash2, UserPlus, CheckCircle2, Download, Loader2, Filter,
@@ -74,6 +74,64 @@ function metaFor(action: string) {
 
 const PAGE_SIZE = 50;
 
+const FILTERS: { value: string; label: string }[] = [
+  { value: "all", label: "Tous les événements" },
+  { value: "pv.", label: "PV" },
+  { value: "reserve.", label: "Réserves" },
+  { value: "reserve_lift.", label: "Levées de réserves" },
+  { value: "photo.", label: "Photos" },
+  { value: "member.", label: "Équipe" },
+];
+
+const DATE_FMT = new Intl.DateTimeFormat("fr-FR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "Europe/Paris",
+});
+
+/** Projection d'affichage uniquement : la valeur stockée n'est jamais modifiée. */
+function formatDate(value: string | null | undefined): string {
+  if (!value) return "Date inconnue";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Date inconnue";
+  return DATE_FMT.format(d);
+}
+
+/** Rend une valeur JSON de façon lisible, jamais "undefined"/"null" brut. */
+function renderValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Oui" : "Non";
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : "—";
+  if (typeof v === "string") return v;
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return "—";
+  }
+}
+
+function KeyValues({ data, tone }: { data: Record<string, unknown>; tone?: "old" | "new" }) {
+  const entries = Object.entries(data ?? {});
+  if (!entries.length) return null;
+  return (
+    <dl className="min-w-0 space-y-1">
+      {entries.map(([k, v]) => (
+        <div key={k} className="min-w-0 grid grid-cols-1 gap-x-2 sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)]">
+          <dt className="min-w-0 font-medium text-muted-foreground [overflow-wrap:anywhere]">{k}</dt>
+          <dd
+            className={
+              "min-w-0 font-mono [overflow-wrap:anywhere] " +
+              (tone === "old" ? "text-destructive/90" : tone === "new" ? "text-success/90" : "")
+            }
+          >
+            {renderValue(v)}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function HistoriquePage() {
   const { id } = Route.useParams();
   const fetchLogs = useServerFn(listPvAuditLogs);
@@ -87,169 +145,260 @@ function HistoriquePage() {
   const [hasMore, setHasMore] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
-  // Server-side filter mapping (prefix → list of actions OR we filter client-side by prefix via metadata.action.startsWith).
-  // We keep server pagination total accurate by sending an `actions` array when a filter is active.
-  const actionsForFilter = (f: string): string[] | undefined => {
-    if (f === "all") return undefined;
-    // We don't enumerate all actions to keep this generic — use server filter only when known set.
-    return undefined;
-  };
-
-  const reload = async () => {
-    setLoading(true);
-    try {
-      const [{ data: pv }, res] = await Promise.all([
-        supabase.from("pv").select("numero").eq("id", id).maybeSingle(),
-        fetchLogs({ data: { pvId: id, limit: PAGE_SIZE, offset: 0, actions: actionsForFilter(filter) } }),
-      ]);
-      if (pv) setPvNumero(pv.numero);
-      setLogs(res.logs as Log[]);
-      setCanSeeDetails(res.canSeeDetails);
-      setTotal(res.total);
-      setHasMore(res.hasMore);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Erreur chargement");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const prefixFor = (f: string) => (f === "all" ? undefined : f);
 
   useEffect(() => {
-    reload();
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [{ data: pv }, res] = await Promise.all([
+          supabase.from("pv").select("numero").eq("id", id).maybeSingle(),
+          fetchLogs({ data: { pvId: id, limit: PAGE_SIZE, offset: 0, actionPrefix: prefixFor(filter) } }),
+        ]);
+        if (cancelled) return;
+        setPvNumero(pv?.numero ?? "");
+        setLogs(res.logs as Log[]);
+        setCanSeeDetails(res.canSeeDetails);
+        setTotal(res.total);
+        setHasMore(res.hasMore);
+      } catch (e: any) {
+        if (cancelled) return;
+        setError(e?.message ?? "Impossible de charger l'historique de ce PV.");
+        setLogs([]);
+        setTotal(0);
+        setHasMore(false);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, filter]);
 
   const loadMore = async () => {
+    if (loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await fetchLogs({ data: { pvId: id, limit: PAGE_SIZE, offset: logs.length, actions: actionsForFilter(filter) } });
+      const res = await fetchLogs({
+        data: { pvId: id, limit: PAGE_SIZE, offset: logs.length, actionPrefix: prefixFor(filter) },
+      });
       setLogs((prev) => [...prev, ...(res.logs as Log[])]);
       setHasMore(res.hasMore);
       setTotal(res.total);
     } catch (e: any) {
-      toast.error(e?.message ?? "Erreur");
+      toast.error(e?.message ?? "Erreur lors du chargement des événements suivants.");
     } finally {
       setLoadingMore(false);
     }
   };
 
   const handleExport = async () => {
+    if (exporting) return;
     setExporting(true);
+    setExportStatus("Génération du PDF en cours…");
     try {
       const { url } = await exportFn({ data: { pvId: id } });
-      if (url) window.open(url, "_blank");
-      else toast.error("URL indisponible");
+      if (url) {
+        window.open(url, "_blank");
+        setExportStatus("PDF de l'historique généré.");
+        toast.success("Export PDF généré.");
+      } else {
+        setExportStatus("Le PDF n'a pas pu être récupéré.");
+        toast.error("URL du PDF indisponible.");
+      }
     } catch (e: any) {
+      setExportStatus(e?.message ?? "Erreur pendant l'export.");
       toast.error(e?.message ?? "Erreur export");
     } finally {
       setExporting(false);
     }
   };
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return logs;
-    return logs.filter((l: Log) => l.action.startsWith(filter));
-  }, [logs, filter]);
+  const activeFilterLabel = useMemo(
+    () => FILTERS.find((f) => f.value === filter)?.label ?? "Tous les événements",
+    [filter],
+  );
 
   return (
-    <div className="container max-w-4xl py-8 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link to="/pv/$id" params={{ id }}>
-            <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /> Retour au PV</Button>
+    <div className="container max-w-4xl min-w-0 py-6 sm:py-8 space-y-5 sm:space-y-6">
+      <div className="min-w-0 space-y-4 sm:flex sm:items-start sm:justify-between sm:gap-4 sm:space-y-0">
+        <div className="min-w-0">
+          <Link to="/pv/$id" params={{ id }} className="inline-block">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-11 gap-1.5 px-3 sm:h-9"
+              aria-label="Revenir à la fiche du PV"
+            >
+              <ArrowLeft className="h-4 w-4" /> Retour au PV
+            </Button>
           </Link>
-          <h1 className="text-2xl font-semibold mt-2 flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-success" /> Historique légal
+          <h1 className="mt-2 flex min-w-0 items-center gap-2 text-xl font-semibold sm:text-2xl">
+            <ShieldCheck className="h-5 w-5 shrink-0 text-success sm:h-6 sm:w-6" />
+            <span className="min-w-0 [overflow-wrap:anywhere]">Historique légal</span>
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            PV <span className="font-mono">{pvNumero}</span> · {total} événement(s) tracé(s) · {logs.length} chargé(s)
+          <p className="mt-1 min-w-0 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+            {pvNumero ? (
+              <>
+                PV <span className="font-mono">{pvNumero}</span> ·{" "}
+              </>
+            ) : null}
+            {total} événement(s) tracé(s) · {logs.length} affiché(s)
           </p>
           <Badge variant="secondary" className="mt-2 gap-1.5 bg-success/15 text-success">
-            <ShieldCheck className="h-3 w-3" /> Traçabilité complète
+            <ShieldCheck className="h-3 w-3" /> Lecture seule · traçabilité complète
           </Badge>
         </div>
-        <div className="flex gap-2">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
+
+        <div className="grid min-w-0 grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Filter className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-full min-w-0 sm:w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les événements</SelectItem>
-                <SelectItem value="pv.">PV</SelectItem>
-                <SelectItem value="reserve.">Réserves</SelectItem>
-                <SelectItem value="photo.">Photos</SelectItem>
-                <SelectItem value="member.">Équipe</SelectItem>
+              <SelectTrigger
+                className="h-11 w-full min-w-0 sm:h-9 sm:w-[190px]"
+                aria-label={`Filtrer les événements — ${activeFilterLabel}`}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-w-[calc(100vw-2rem)]">
+                {FILTERS.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    {f.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleExport} disabled={exporting}>
+          <Button
+            onClick={handleExport}
+            disabled={exporting}
+            className="h-11 w-full min-w-0 sm:h-9 sm:w-auto"
+            aria-label="Exporter l'historique légal au format PDF"
+            title="Exporter l'historique légal au format PDF"
+          >
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Exporter PDF
+            <span className="truncate">{exporting ? "Génération…" : "Exporter PDF"}</span>
           </Button>
         </div>
       </div>
 
+      <p aria-live="polite" className="sr-only">
+        {exportStatus}
+      </p>
+
       {loading ? (
-        <Card className="p-12 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></Card>
-      ) : filtered.length === 0 ? (
-        <Card className="p-12 text-center text-sm text-muted-foreground">Aucun événement.</Card>
+        <div className="space-y-4" aria-busy="true" aria-label="Chargement de l'historique">
+          {[0, 1, 2].map((i) => (
+            <Card key={i} className="p-4">
+              <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+              <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-muted" />
+            </Card>
+          ))}
+        </div>
+      ) : error ? (
+        <Card className="p-8 text-center text-sm">
+          <p className="text-destructive [overflow-wrap:anywhere]">{error}</p>
+          <p className="mt-2 text-muted-foreground">
+            Vérifiez que ce PV existe et que vous y avez accès, puis réessayez.
+          </p>
+        </Card>
+      ) : logs.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground sm:p-12">
+          {filter === "all"
+            ? "Aucune activité enregistrée pour ce PV."
+            : `Aucune activité enregistrée pour la catégorie « ${activeFilterLabel} ».`}
+        </Card>
       ) : (
-        <div className="space-y-4">
-        <div className="relative pl-8 space-y-4 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-border">
-          {filtered.map((l) => {
-            const m = metaFor(l.action);
-            const Icon = m.icon;
-            return (
-              <Card key={l.id} className="p-4 relative">
-                <div className="absolute -left-[28px] top-4 h-6 w-6 rounded-full bg-background border-2 border-border flex items-center justify-center">
-                  <Icon className="h-3 w-3" />
-                </div>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <div className="font-medium flex items-center gap-2">
-                      {m.label}
-                      <Badge variant="secondary" className={m.tone + " text-[10px]"}>{m.badge}</Badge>
+        <div className="min-w-0 space-y-4">
+          <ol className="relative min-w-0 space-y-4 pl-7 sm:pl-8 before:absolute before:bottom-2 before:left-[11px] before:top-2 before:w-px before:bg-border sm:before:left-3">
+            {logs.map((l, index) => {
+              const m = metaFor(l.action);
+              const Icon = m.icon;
+              return (
+                <li key={l.id} className="min-w-0">
+                  <Card className="relative min-w-0 overflow-hidden p-3 sm:p-4">
+                    <div
+                      className="absolute -left-[26px] top-4 flex h-6 w-6 items-center justify-center rounded-full border-2 border-border bg-background sm:-left-[28px]"
+                      aria-hidden="true"
+                    >
+                      <Icon className="h-3 w-3" />
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(l.created_at).toLocaleString("fr-FR")}
-                      {l.user_name && <span> · par <span className="font-medium text-foreground">{l.user_name}</span></span>}
-                      {!l.user_name && l.user_id && <span> · par utilisateur</span>}
-                      {!l.user_name && !l.user_id && <span> · automatique</span>}
-                      {canSeeDetails && l.ip_address && <span className="font-mono"> · {l.ip_address}</span>}
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-medium">
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{m.label}</span>
+                        <Badge variant="secondary" className={m.tone + " text-[10px]"}>
+                          {m.badge}
+                        </Badge>
+                        {index === 0 && filter === "all" && (
+                          <Badge variant="outline" className="text-[10px]">
+                            Plus récent
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-0.5 min-w-0 text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                        <time dateTime={l.created_at ?? undefined}>{formatDate(l.created_at)}</time>
+                        {l.user_name ? (
+                          <span>
+                            {" "}
+                            · par <span className="font-medium text-foreground">{l.user_name}</span>
+                          </span>
+                        ) : l.user_id ? (
+                          <span> · par un utilisateur</span>
+                        ) : (
+                          <span> · automatique</span>
+                        )}
+                        {canSeeDetails && l.ip_address && <span className="font-mono"> · {l.ip_address}</span>}
+                      </div>
                     </div>
-                  </div>
-                </div>
-                {l.metadata && Object.keys(l.metadata).length > 0 && (
-                  <div className="mt-2 text-xs text-muted-foreground bg-muted/40 rounded p-2 font-mono overflow-x-auto">
-                    {JSON.stringify(l.metadata)}
-                  </div>
-                )}
-                {canSeeDetails && (l.old_values || l.new_values) && (
-                  <div className="mt-2 grid sm:grid-cols-2 gap-2 text-xs">
-                    {l.old_values && (
-                      <div className="bg-destructive/5 border border-destructive/20 rounded p-2">
-                        <div className="font-semibold text-destructive mb-1">Avant</div>
-                        <pre className="font-mono whitespace-pre-wrap break-words text-destructive/90">{JSON.stringify(l.old_values, null, 2)}</pre>
+
+                    {l.metadata && typeof l.metadata === "object" && Object.keys(l.metadata).length > 0 && (
+                      <div className="mt-2 min-w-0 rounded bg-muted/40 p-2 text-xs text-muted-foreground">
+                        <KeyValues data={l.metadata as Record<string, unknown>} />
                       </div>
                     )}
-                    {l.new_values && (
-                      <div className="bg-success/5 border border-success/20 rounded p-2">
-                        <div className="font-semibold text-success mb-1">Après</div>
-                        <pre className="font-mono whitespace-pre-wrap break-words text-success/90">{JSON.stringify(l.new_values, null, 2)}</pre>
+
+                    {canSeeDetails && (l.old_values || l.new_values) && (
+                      <div className="mt-2 grid min-w-0 gap-2 text-xs sm:grid-cols-2">
+                        {l.old_values && (
+                          <div className="min-w-0 rounded border border-destructive/20 bg-destructive/5 p-2">
+                            <div className="mb-1 font-semibold text-destructive">Avant</div>
+                            <KeyValues data={l.old_values as Record<string, unknown>} tone="old" />
+                          </div>
+                        )}
+                        {l.new_values && (
+                          <div className="min-w-0 rounded border border-success/20 bg-success/5 p-2">
+                            <div className="mb-1 font-semibold text-success">Après</div>
+                            <KeyValues data={l.new_values as Record<string, unknown>} tone="new" />
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-          </div>
+                  </Card>
+                </li>
+              );
+            })}
+          </ol>
           {hasMore && (
             <div className="flex justify-center pt-2">
-              <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+              <Button
+                variant="outline"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="h-11 w-full min-w-0 sm:h-9 sm:w-auto"
+                aria-label="Charger plus d'événements"
+              >
                 {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Charger plus ({logs.length} / {total})
+                <span className="truncate">
+                  Charger plus ({logs.length} / {total})
+                </span>
               </Button>
             </div>
           )}
@@ -257,10 +406,11 @@ function HistoriquePage() {
       )}
 
       {!canSeeDetails && (
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="text-center text-xs text-muted-foreground">
           Les valeurs détaillées (avant/après, IP) sont réservées aux administrateurs.
         </p>
       )}
     </div>
   );
 }
+
