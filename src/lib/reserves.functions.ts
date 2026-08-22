@@ -52,6 +52,44 @@ const MANAGE_ROLES: RoleValue[] = [
 ];
 const TECH_ALLOWED_STATUS = ["ouverte", "en_cours", "levee"] as const;
 
+/**
+ * Machine d'état serveur. Empêche les sauts illégitimes forgés côté client
+ * (ex. ouverte → validée sans levée, rejetée → validée).
+ * La réouverture d'une réserve validée reste possible pour les rôles admin.
+ */
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  ouverte: ["en_cours", "levee", "rejetee"],
+  en_cours: ["ouverte", "levee", "rejetee"],
+  levee: ["en_attente_validation", "validee", "rejetee", "en_cours"],
+  en_attente_validation: ["validee", "rejetee", "en_cours", "levee"],
+  validee: [], // terminal (réouverture admin gérée à part)
+  rejetee: ["ouverte", "en_cours"],
+};
+
+function assertTransition(from: string, to: string, role: RoleValue) {
+  if (from === to) return;
+  if (from === "validee" && to === "ouverte" && ADMIN_ROLES.includes(role)) return;
+  if (!(ALLOWED_TRANSITIONS[from] ?? []).includes(to)) {
+    throw new Error("Transition de statut non autorisée pour cette réserve.");
+  }
+}
+
+/** Vérifie qu'un utilisateur assigné appartient bien à l'entreprise. */
+async function assertMemberOfCompany(
+  sb: SupabaseClient<Database>,
+  companyId: string,
+  assignedTo: string,
+) {
+  const { data } = await sb
+    .from("company_members")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("user_id", assignedTo)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!data) throw new Error("Ce responsable n'appartient pas à l'entreprise.");
+}
+
 const ReserveStatus = z.enum([
   "ouverte",
   "en_cours",
@@ -61,6 +99,14 @@ const ReserveStatus = z.enum([
   "rejetee",
 ]);
 const Priority = z.enum(["low", "normal", "high"]);
+
+/** Ne jamais renvoyer l'erreur Zod brute au navigateur. */
+function validate<T>(schema: z.ZodType<T>, input: unknown): T {
+  const r = schema.safeParse(input);
+  if (!r.success) throw new Error("Données invalides.");
+  return r.data;
+}
+
 
 // ---------------------------------------------------------------------------
 // updateReserveStatus

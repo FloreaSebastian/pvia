@@ -580,7 +580,7 @@ function ReservesPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button asChild size="sm" className="shrink-0">
+          <Button asChild size="sm" className="h-11 shrink-0 sm:h-9">
             <Link to="/pv">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Nouvelle réserve</span>
@@ -620,21 +620,21 @@ function ReservesPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Réf, chantier, client, PV, technicien, commentaire…"
-              className="h-9 pl-8"
+              className="h-11 pl-8 sm:h-9"
             />
           </div>
 
           {/* Desktop filters */}
           <div className="hidden gap-2 md:flex">
             <Select value={filter} onValueChange={(v) => { setFilter(v); navigate({ search: (p: any) => ({ ...p, status: v as any }) }); }}>
-              <SelectTrigger className="h-9 w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectTrigger className="h-11 w-40 sm:h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous statuts</SelectItem>
                 {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={severity} onValueChange={setSeverity}>
-              <SelectTrigger className="h-9 w-36"><SelectValue placeholder="Gravité" /></SelectTrigger>
+              <SelectTrigger className="h-11 w-36 sm:h-9"><SelectValue placeholder="Gravité" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes gravités</SelectItem>
                 <SelectItem value="mineure">Mineure</SelectItem>
@@ -646,7 +646,7 @@ function ReservesPage() {
           {/* Sort */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="h-9">
+              <Button size="sm" variant="outline" className="h-11 sm:h-9">
                 <ArrowUpDown className="h-4 w-4" />
                 <span className="hidden sm:inline">{SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "Trier"}</span>
               </Button>
@@ -665,7 +665,7 @@ function ReservesPage() {
           {/* Mobile filters trigger */}
           <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
             <SheetTrigger asChild>
-              <Button size="sm" variant="outline" className="h-9 md:hidden">
+              <Button size="sm" variant="outline" className="h-11 md:hidden">
                 <SlidersHorizontal className="h-4 w-4" />
                 {activeFilterCount > 0 && (
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{activeFilterCount}</Badge>
@@ -720,7 +720,7 @@ function ReservesPage() {
           {/* Export menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="h-9">
+              <Button size="sm" variant="outline" className="h-11 sm:h-9">
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Export</span>
               </Button>
@@ -787,7 +787,7 @@ function ReservesPage() {
 
       {/* ───── Body ───── */}
       {loading ? (
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Chargement des réserves">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Chargement des réserves">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="h-36 animate-pulse bg-muted/40 p-2.5" />
           ))}
@@ -925,7 +925,7 @@ function ReservesPage() {
         </Card>
       ) : (
         /* ───── Cards (default) ───── */
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {visibleRows.map((r) => (
             <ReserveCard
               key={r.id}
