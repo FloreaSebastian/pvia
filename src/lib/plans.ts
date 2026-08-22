@@ -75,7 +75,7 @@ export const PUBLIC_PLANS: {
       "Photos, réserves et export PDF",
       "Support par email",
     ],
-    cta: "Commencer",
+    cta: "Essayer gratuitement",
   },
   {
     key: "pro",
@@ -93,7 +93,7 @@ export const PUBLIC_PLANS: {
       "Export de l'historique d'audit",
       "Support prioritaire",
     ],
-    cta: "Essayer Pro",
+    cta: "Essayer gratuitement",
   },
   {
     key: "business",
@@ -110,7 +110,7 @@ export const PUBLIC_PLANS: {
       "Branding personnalisé (logo, couleurs)",
       "Export de l'historique d'audit",
     ],
-    cta: "Choisir Business",
+    cta: "Essayer gratuitement",
   },
   {
     key: "enterprise",
