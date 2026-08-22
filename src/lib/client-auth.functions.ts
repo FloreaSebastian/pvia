@@ -70,7 +70,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
           metadata: { email, ip, bucket: "send" },
           actor: "client",
         });
-        return NEUTRAL;
+        return await neutral();
       }
       throw e;
     }
@@ -99,7 +99,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
         metadata: { email, ip },
         actor: "client",
       });
-      return NEUTRAL;
+      return await neutral();
     }
 
     // Invalide les codes précédents non utilisés
@@ -133,7 +133,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
         metadata: { email, ip, reason: "code_persist_failed", error: insErr?.message ?? null },
         actor: "client",
       });
-      return NEUTRAL;
+      return await neutral();
     }
 
     const hash = await sha256Hex(code + ":" + inserted.id);
@@ -171,7 +171,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       actor: "client",
     });
 
-    return NEUTRAL;
+    return await neutral();
   });
 
 // ─── verify ───────────────────────────────────────────────────────────────────
