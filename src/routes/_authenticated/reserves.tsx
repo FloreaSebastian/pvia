@@ -1151,7 +1151,9 @@ function ReserveCard({
       <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5 pt-0.5" onClick={(e) => e.stopPropagation()}>
         {canManage ? (
           <Select value={r.assigned_to ?? "none"} onValueChange={(v) => onQuickAssign(v === "none" ? null : v)}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Responsable" /></SelectTrigger>
+            <SelectTrigger className="h-11 text-xs sm:h-9" aria-label="Responsable de la réserve">
+              <SelectValue placeholder="Responsable" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">— Aucun —</SelectItem>
               {members.map((m) => (
@@ -1160,20 +1162,24 @@ function ReserveCard({
             </SelectContent>
           </Select>
         ) : <div />}
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onOpen} title="Modifier / détail">
+        <Button
+          size="icon" variant="ghost" className="h-11 w-11 sm:h-9 sm:w-9"
+          onClick={onOpen} title="Modifier / détail" aria-label={`Ouvrir le détail de la réserve ${reference}`}
+        >
           <Pencil className="h-4 w-4" />
         </Button>
         {r.status !== "validee" && r.status !== "levee" && (
-          <Button size="sm" variant="outline" className="h-8" onClick={onLever}>
+          <Button size="sm" variant="outline" className="h-11 sm:h-9" onClick={onLever} aria-label={`Lever la réserve ${reference}`}>
             <CheckCircle2 className="h-3.5 w-3.5" /> Lever
           </Button>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-8 w-8" title="Plus">
+            <Button size="icon" variant="ghost" className="h-11 w-11 sm:h-9 sm:w-9" title="Plus d'actions" aria-label={`Plus d'actions pour la réserve ${reference}`}>
               <HistoryIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onOpen}>
               <HistoryIcon className="h-4 w-4" /> Historique
