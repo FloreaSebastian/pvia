@@ -488,8 +488,7 @@ html[data-density="compact"] body {
 
   .landing-editorial h1,
   .landing-editorial h2,
-  .landing-editorial h3,
-  .landing-editorial .font-display {
+  .landing-editorial h3 {
     font-family: "Instrument Serif", "Sora", Georgia, serif;
     font-weight: 400;
     letter-spacing: -0.02em;
@@ -533,8 +532,7 @@ html[data-density="compact"] body {
 /* Typographie éditoriale — hors layer pour primer sur les utilitaires Tailwind. */
 .landing-editorial h1,
 .landing-editorial h2,
-.landing-editorial h3,
-.landing-editorial .font-display {
+.landing-editorial h3 {
   font-family: "Instrument Serif", "Sora", Georgia, serif;
   font-weight: 400;
   letter-spacing: -0.02em;
