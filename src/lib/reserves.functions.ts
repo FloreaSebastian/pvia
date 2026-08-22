@@ -196,6 +196,17 @@ export const assignReserve = createServerFn({ method: "POST" })
       throw new Error("Droits insuffisants (conducteur requis).");
     }
 
+    // La réserve doit exister ET appartenir à l'entreprise appelante.
+    // Sans ce contrôle, un identifiant d'une autre entreprise renvoyait « ok: true »
+    // (0 ligne modifiée) et écrivait un journal d'audit trompeur.
+    const { data: target } = await supabase
+      .from("pv_reserves")
+      .select("id")
+      .eq("id", data.id)
+      .eq("company_id", data.companyId)
+      .maybeSingle();
+    if (!target) throw new Error("Réserve introuvable.");
+
     if (data.assignedTo) await assertMemberOfCompany(supabase, data.companyId, data.assignedTo);
 
     const patch: Database["public"]["Tables"]["pv_reserves"]["Update"] = {
