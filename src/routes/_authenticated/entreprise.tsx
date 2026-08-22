@@ -607,8 +607,14 @@ function CompanyPage() {
                 <ShieldCheck className="h-4 w-4 text-emerald-600" /> Informations officielles
               </h2>
               {editable && (
-                <Button size="sm" variant="outline" className="shrink-0" onClick={openSync}>
-                  <RefreshCw className="h-3.5 w-3.5" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-11 shrink-0 sm:h-9"
+                  onClick={openSync}
+                  aria-label={company.company_verified ? "Resynchroniser les informations officielles" : "Valider l'entreprise via SIRET"}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">{company.company_verified ? "Resynchroniser" : "Valider via SIRET"}</span>
                 </Button>
               )}
@@ -655,46 +661,46 @@ function CompanyPage() {
             <p className="mb-4 text-xs text-muted-foreground">Modifiables à tout moment. Utilisées sur les communications clients.</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label className="text-xs">Téléphone</Label>
+                <Label htmlFor="company-phone" className="text-xs">Téléphone</Label>
                 <div className="relative mt-1">
                   <Phone className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input disabled={!editable} className="pl-9" value={contact.phone}
+                  <Input id="company-phone" inputMode="tel" autoComplete="tel" disabled={!editable} className="h-11 pl-9 sm:h-10" value={contact.phone}
                     onChange={(e) => setContact({ ...contact, phone: e.target.value })} placeholder="01 23 45 67 89" />
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Email</Label>
+                <Label htmlFor="company-email" className="text-xs">Email</Label>
                 <div className="relative mt-1">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="email" disabled={!editable} className="pl-9" value={contact.email}
+                  <Input id="company-email" type="email" inputMode="email" autoComplete="email" disabled={!editable} className="h-11 pl-9 sm:h-10" value={contact.email}
                     onChange={(e) => setContact({ ...contact, email: e.target.value })} placeholder="contact@entreprise.fr" />
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-xs">Site web</Label>
+                <Label htmlFor="company-website" className="text-xs">Site web</Label>
                 <div className="relative mt-1">
                   <Globe className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input disabled={!editable} className="pl-9" placeholder="https://…" value={contact.website}
+                  <Input id="company-website" inputMode="url" disabled={!editable} className="h-11 pl-9 sm:h-10" placeholder="https://…" value={contact.website}
                     onChange={(e) => setContact({ ...contact, website: e.target.value })} />
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-xs">Complément d'adresse</Label>
+                <Label htmlFor="company-address_line2" className="text-xs">Complément d'adresse</Label>
                 <div className="relative mt-1">
                   <MapPin className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input disabled={!editable} className="pl-9" placeholder="Bâtiment, étage, BP…" value={contact.address_line2}
+                  <Input id="company-address_line2" disabled={!editable} className="h-11 pl-9 sm:h-10" placeholder="Bâtiment, étage, BP…" value={contact.address_line2}
                     onChange={(e) => setContact({ ...contact, address_line2: e.target.value })} />
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Pays</Label>
-                <Input disabled={!editable} className="mt-1" value={contact.country}
+                <Label htmlFor="company-country" className="text-xs">Pays</Label>
+                <Input id="company-country" disabled={!editable} className="mt-1 h-11 sm:h-10" value={contact.country}
                   onChange={(e) => setContact({ ...contact, country: e.target.value })} />
               </div>
             </div>
             {editable && (
               <div className="mt-5 flex justify-end">
-                <Button onClick={saveContact} disabled={savingContact}>
+                <Button onClick={saveContact} disabled={savingContact} aria-busy={savingContact} className="h-11 w-full sm:w-auto">
                   {savingContact ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Enregistrer
                 </Button>
@@ -758,7 +764,7 @@ function CompanyPage() {
               <p className="text-xs text-muted-foreground">
                 Pour des raisons de sécurité, un changement d'entreprise nécessite une intervention manuelle de l'équipe PVIA.
               </p>
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => setChangeOpen(true)}>
+              <Button variant="outline" size="sm" className="mt-3 h-11 w-full sm:h-9 sm:w-auto" onClick={() => setChangeOpen(true)}>
                 <Send className="h-3.5 w-3.5" /> Demander un changement
               </Button>
             </Card>
@@ -810,7 +816,8 @@ function CompanyPage() {
                 <div>
                   <Label className="text-xs">Zoom</Label>
                   <Slider
-                    className="mt-2"
+                    aria-label="Zoom de l'image"
+                    className="mt-2 py-3"
                     min={1}
                     max={3}
                     step={0.05}
@@ -822,7 +829,8 @@ function CompanyPage() {
                   <div>
                     <Label className="text-xs">Déplacement horizontal</Label>
                     <Slider
-                      className="mt-2"
+                      aria-label="Déplacement horizontal de l'image"
+                      className="mt-2 py-3"
                       min={-160}
                       max={160}
                       step={1}
@@ -833,7 +841,8 @@ function CompanyPage() {
                   <div>
                     <Label className="text-xs">Déplacement vertical</Label>
                     <Slider
-                      className="mt-2"
+                      aria-label="Déplacement vertical de l'image"
+                      className="mt-2 py-3"
                       min={-160}
                       max={160}
                       step={1}
@@ -882,8 +891,10 @@ function CompanyPage() {
 
           {syncStep === 1 && (
             <div className="space-y-3">
-              <Label className="text-xs">SIREN (9 chiffres) ou SIRET (14 chiffres)</Label>
+              <Label htmlFor="sync-siret" className="text-xs">SIREN (9 chiffres) ou SIRET (14 chiffres)</Label>
               <Input
+                id="sync-siret"
+                className="h-11 sm:h-10"
                 value={syncQuery}
                 disabled={sirenSiretLocked}
                 onChange={(e) => setSyncQuery(e.target.value.replace(/\D/g, "").slice(0, 14))}
@@ -982,18 +993,20 @@ function CompanyPage() {
               <p><span className="text-muted-foreground">SIRET actuel :</span> <span className="font-mono font-medium">{company.siret || "—"}</span></p>
             </div>
             <div>
-              <Label className="text-xs">Nouveau SIRET souhaité</Label>
+              <Label htmlFor="change-siret" className="text-xs">Nouveau SIRET souhaité</Label>
               <Input
+                id="change-siret"
                 inputMode="numeric"
                 value={changeNewSiret}
                 onChange={(e) => setChangeNewSiret(e.target.value.replace(/\D/g, "").slice(0, 14))}
                 placeholder="14 chiffres"
-                className="mt-1"
+                className="mt-1 h-11 sm:h-10"
               />
             </div>
             <div>
-              <Label className="text-xs">Motif</Label>
+              <Label htmlFor="change-reason" className="text-xs">Motif</Label>
               <Textarea
+                id="change-reason"
                 rows={4}
                 value={changeReason}
                 onChange={(e) => setChangeReason(e.target.value)}
