@@ -354,7 +354,7 @@ function Dashboard() {
         <Card className="p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-display font-semibold">Activité — 14 derniers jours</h3>
+              <h2 className="font-display font-semibold">Activité — 14 derniers jours</h2>
               <p className="text-xs text-muted-foreground">Procès-verbaux créés par jour.</p>
             </div>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
