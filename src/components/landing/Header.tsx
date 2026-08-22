@@ -6,6 +6,7 @@ import {
   Sheet,
   SheetClose,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -75,6 +76,9 @@ export function Header() {
           <SheetContent side="right" className="w-[min(20rem,88vw)] p-0">
             <SheetHeader className="border-b border-border px-5 py-4 text-left">
               <SheetTitle className="text-base">Menu</SheetTitle>
+              <SheetDescription className="text-xs">
+                Navigation du site PVIA
+              </SheetDescription>
             </SheetHeader>
             <nav aria-label="Navigation mobile" className="flex flex-col gap-1 p-4">
               {nav.map((i) => (
