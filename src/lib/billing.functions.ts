@@ -3,7 +3,7 @@ import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from 
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { createStripeClient, type StripeEnv } from "./stripe.server";
+import { createStripeClient, sanitizeStripeError, BILLING_MESSAGES, type StripeEnv } from "./stripe.server";
 import { writeAuditLog } from "./audit.server";
 import { getAccessState } from "./plan-guard.server";
 
@@ -87,9 +87,15 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const email = user?.email ?? undefined;
 
     const stripe = createStripeClient(data.environment);
-    const prices = await stripe.prices.list({ lookup_keys: [data.priceId], limit: 1 });
-    const price = prices.data[0];
-    if (!price) throw new Error(`Tarif ${data.priceId} introuvable.`);
+    const price = await (async () => {
+      try {
+        const prices = await stripe.prices.list({ lookup_keys: [data.priceId], limit: 1 });
+        return prices.data[0];
+      } catch (e) {
+        throw sanitizeStripeError(e, BILLING_MESSAGES.checkout);
+      }
+    })();
+    if (!price) throw new Error("Cette offre n'est pas disponible actuellement.");
 
 
     // Reuse existing customer if any
@@ -116,28 +122,37 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     let customerId = existing?.stripe_customer_id as string | undefined;
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email,
-        metadata: { companyId: data.companyId, userId },
-      });
-      customerId = customer.id;
+      try {
+        const customer = await stripe.customers.create({
+          email,
+          metadata: { companyId: data.companyId, userId },
+        });
+        customerId = customer.id;
+      } catch (e) {
+        throw sanitizeStripeError(e, BILLING_MESSAGES.checkout);
+      }
     }
 
     // Only offer the 14-day trial on first ever checkout for this company.
     const trialDays = existing?.stripe_customer_id ? undefined : 14;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      line_items: [{ price: price.id, quantity: 1 }],
-      success_url: `${data.returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${data.returnUrl}?status=cancel`,
-      subscription_data: {
-        ...(trialDays ? { trial_period_days: trialDays } : {}),
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        customer: customerId,
+        line_items: [{ price: price.id, quantity: 1 }],
+        success_url: `${data.returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${data.returnUrl}?status=cancel`,
+        subscription_data: {
+          ...(trialDays ? { trial_period_days: trialDays } : {}),
+          metadata: { companyId: data.companyId, userId },
+        },
         metadata: { companyId: data.companyId, userId },
-      },
-      metadata: { companyId: data.companyId, userId },
-    });
+      });
+    } catch (e) {
+      throw sanitizeStripeError(e, BILLING_MESSAGES.checkout);
+    }
 
     await writeAuditLog({
       companyId: data.companyId,
@@ -177,10 +192,15 @@ export const createPortalSession = createServerFn({ method: "POST" })
     if (!sub?.stripe_customer_id) throw new Error("Aucun abonnement à gérer.");
 
     const stripe = createStripeClient(data.environment);
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: sub.stripe_customer_id,
-      return_url: data.returnUrl,
-    });
+    let portal;
+    try {
+      portal = await stripe.billingPortal.sessions.create({
+        customer: sub.stripe_customer_id,
+        return_url: data.returnUrl,
+      });
+    } catch (e) {
+      throw sanitizeStripeError(e, BILLING_MESSAGES.portal);
+    }
 
     await writeAuditLog({
       companyId: data.companyId,
