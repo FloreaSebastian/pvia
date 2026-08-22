@@ -686,7 +686,7 @@ function PvDetail() {
       </Dialog>
 
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3 [&>*]:min-w-0">
         <Card className="min-w-0 p-4 sm:p-6 lg:col-span-2 space-y-5">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">Informations</h3>
@@ -749,7 +749,7 @@ function PvDetail() {
           )}
         </Card>
 
-        <Card className="p-4 space-y-3">
+        <Card className="min-w-0 overflow-hidden p-4 space-y-3">
           <h3 className="font-semibold text-sm">Signatures</h3>
           <CompactSignature
             label="Client"
@@ -1162,7 +1162,7 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 
 function CompactSignature({ label, data, name, date }: { label: string; data: string | null; name: string | null; date: string | null }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-border bg-muted/20 p-2">
+    <div className="flex min-w-0 items-center gap-3 overflow-hidden rounded-md border border-border bg-muted/20 p-2">
       <div className="grid h-10 w-20 shrink-0 place-items-center overflow-hidden rounded bg-background">
         {data ? (
           <img src={data} alt={`Signature ${label}`} className="max-h-full max-w-full object-contain" />
@@ -1172,7 +1172,7 @@ function CompactSignature({ label, data, name, date }: { label: string; data: st
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
-        <div className="truncate text-sm font-medium">{name ?? "—"}</div>
+        <div className="truncate text-sm font-medium" title={name ?? undefined}>{name ?? "—"}</div>
         {data && date && (
           <div className="text-[11px] text-muted-foreground">
             {new Date(date).toLocaleDateString("fr-FR")} · {new Date(date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
