@@ -15,6 +15,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
 import { Route as PvReceptionRouteImport } from './routes/pv-reception'
+import { Route as PlanningChantierRouteImport } from './routes/planning-chantier'
 import { Route as ModeTerrainRouteImport } from './routes/mode-terrain'
 import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LoginRouteImport } from './routes/login'
@@ -124,6 +125,11 @@ const SecuriteRoute = SecuriteRouteImport.update({
 const PvReceptionRoute = PvReceptionRouteImport.update({
   id: '/pv-reception',
   path: '/pv-reception',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanningChantierRoute = PlanningChantierRouteImport.update({
+  id: '/planning-chantier',
+  path: '/planning-chantier',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModeTerrainRoute = ModeTerrainRouteImport.update({
@@ -581,6 +587,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/mode-terrain': typeof ModeTerrainRoute
+  '/planning-chantier': typeof PlanningChantierRoute
   '/pv-reception': typeof PvReceptionRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
@@ -668,6 +675,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/mode-terrain': typeof ModeTerrainRoute
+  '/planning-chantier': typeof PlanningChantierRoute
   '/pv-reception': typeof PvReceptionRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
@@ -754,6 +762,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/mode-terrain': typeof ModeTerrainRoute
+  '/planning-chantier': typeof PlanningChantierRoute
   '/pv-reception': typeof PvReceptionRoute
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
@@ -843,6 +852,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mentions'
     | '/mode-terrain'
+    | '/planning-chantier'
     | '/pv-reception'
     | '/securite'
     | '/signup'
@@ -930,6 +940,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mentions'
     | '/mode-terrain'
+    | '/planning-chantier'
     | '/pv-reception'
     | '/securite'
     | '/signup'
@@ -1015,6 +1026,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mentions'
     | '/mode-terrain'
+    | '/planning-chantier'
     | '/pv-reception'
     | '/securite'
     | '/signup'
@@ -1104,6 +1116,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MentionsRoute: typeof MentionsRoute
   ModeTerrainRoute: typeof ModeTerrainRoute
+  PlanningChantierRoute: typeof PlanningChantierRoute
   PvReceptionRoute: typeof PvReceptionRoute
   SecuriteRoute: typeof SecuriteRoute
   SignupRoute: typeof SignupRoute
@@ -1174,6 +1187,13 @@ declare module '@tanstack/react-router' {
       path: '/pv-reception'
       fullPath: '/pv-reception'
       preLoaderRoute: typeof PvReceptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planning-chantier': {
+      id: '/planning-chantier'
+      path: '/planning-chantier'
+      fullPath: '/planning-chantier'
+      preLoaderRoute: typeof PlanningChantierRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mode-terrain': {
@@ -1926,6 +1946,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MentionsRoute: MentionsRoute,
   ModeTerrainRoute: ModeTerrainRoute,
+  PlanningChantierRoute: PlanningChantierRoute,
   PvReceptionRoute: PvReceptionRoute,
   SecuriteRoute: SecuriteRoute,
   SignupRoute: SignupRoute,
