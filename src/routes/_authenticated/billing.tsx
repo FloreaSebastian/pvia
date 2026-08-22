@@ -43,7 +43,7 @@ function BillingPage() {
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
   const [busy, setBusy] = useState<string | null>(null);
-  const [interval, setInterval] = useState<BillingInterval>("monthly");
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
 
   const canManage = isAdminRole(activeRole);
   const env = getStripeEnvironment();
@@ -210,10 +210,10 @@ function BillingPage() {
               <button
                 key={i}
                 type="button"
-                onClick={() => setInterval(i)}
-                aria-pressed={interval === i}
+                onClick={() => setBillingInterval(i)}
+                aria-pressed={billingInterval === i}
                 className={`min-h-[36px] rounded-full px-4 text-sm font-medium transition ${
-                  interval === i
+                  billingInterval === i
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -232,8 +232,8 @@ function BillingPage() {
             const isCurrent = p.plan === plan;
             const custom = Boolean(p.is_custom_pricing);
             const recommended = Boolean(p.recommended);
-            const priceId = interval === "annual" ? p.stripe_price_annual : p.stripe_price_monthly;
-            const amount = interval === "annual" ? p.annual_price_eur : p.monthly_price_eur;
+            const priceId = billingInterval === "annual" ? p.stripe_price_annual : p.stripe_price_monthly;
+            const amount = billingInterval === "annual" ? p.annual_price_eur : p.monthly_price_eur;
             const seatsBlocked =
               p.max_members != null && (usage.seats ?? usage.members) > p.max_members;
             const features = [
@@ -273,7 +273,7 @@ function BillingPage() {
                     <>
                       {formatEur(amount)}
                       <span className="text-base font-normal text-muted-foreground">
-                        {interval === "annual" ? " / an HT" : " / mois HT"}
+                        {billingInterval === "annual" ? " / an HT" : " / mois HT"}
                       </span>
                     </>
                   )}
