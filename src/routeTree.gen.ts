@@ -16,6 +16,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
 import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GestionDesReservesRouteImport } from './routes/gestion-des-reserves'
 import { Route as FonctionnalitesRouteImport } from './routes/fonctionnalites'
 import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
 import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
@@ -125,6 +126,11 @@ const MentionsRoute = MentionsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GestionDesReservesRoute = GestionDesReservesRouteImport.update({
+  id: '/gestion-des-reserves',
+  path: '/gestion-des-reserves',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FonctionnalitesRoute = FonctionnalitesRouteImport.update({
@@ -552,6 +558,7 @@ export interface FileRoutesByFullPath {
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
+  '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/securite': typeof SecuriteRoute
@@ -635,6 +642,7 @@ export interface FileRoutesByTo {
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
+  '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/securite': typeof SecuriteRoute
@@ -717,6 +725,7 @@ export interface FileRoutesById {
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
+  '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/securite': typeof SecuriteRoute
@@ -802,6 +811,7 @@ export interface FileRouteTypes {
     | '/comment-ca-marche'
     | '/confidentialite'
     | '/fonctionnalites'
+    | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
     | '/securite'
@@ -885,6 +895,7 @@ export interface FileRouteTypes {
     | '/comment-ca-marche'
     | '/confidentialite'
     | '/fonctionnalites'
+    | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
     | '/securite'
@@ -966,6 +977,7 @@ export interface FileRouteTypes {
     | '/comment-ca-marche'
     | '/confidentialite'
     | '/fonctionnalites'
+    | '/gestion-des-reserves'
     | '/login'
     | '/mentions'
     | '/securite'
@@ -1051,6 +1063,7 @@ export interface RootRouteChildren {
   CommentCaMarcheRoute: typeof CommentCaMarcheRoute
   ConfidentialiteRoute: typeof ConfidentialiteRoute
   FonctionnalitesRoute: typeof FonctionnalitesRoute
+  GestionDesReservesRoute: typeof GestionDesReservesRoute
   LoginRoute: typeof LoginRoute
   MentionsRoute: typeof MentionsRoute
   SecuriteRoute: typeof SecuriteRoute
@@ -1129,6 +1142,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestion-des-reserves': {
+      id: '/gestion-des-reserves'
+      path: '/gestion-des-reserves'
+      fullPath: '/gestion-des-reserves'
+      preLoaderRoute: typeof GestionDesReservesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fonctionnalites': {
@@ -1841,6 +1861,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommentCaMarcheRoute: CommentCaMarcheRoute,
   ConfidentialiteRoute: ConfidentialiteRoute,
   FonctionnalitesRoute: FonctionnalitesRoute,
+  GestionDesReservesRoute: GestionDesReservesRoute,
   LoginRoute: LoginRoute,
   MentionsRoute: MentionsRoute,
   SecuriteRoute: SecuriteRoute,
