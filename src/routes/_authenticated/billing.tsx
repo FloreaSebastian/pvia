@@ -11,7 +11,13 @@ import { toast } from "sonner";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
 import { createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
-import { getStripeEnvironment, PLAN_PRICE_IDS } from "@/lib/stripe";
+import { getStripeEnvironment } from "@/lib/stripe";
+import {
+  CONTACT_SALES_EMAIL,
+  formatEur,
+  type BillingInterval,
+  type CheckoutPriceId,
+} from "@/lib/plans";
 import { PageHeader } from "@/components/app/PageHeader";
 
 
