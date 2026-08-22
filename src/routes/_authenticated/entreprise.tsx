@@ -90,10 +90,14 @@ function LockedField({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <div className="flex items-center justify-between gap-2">
-        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</Label>
-        <Lock className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+        <Lock className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden="true" />
       </div>
-      <div className="mt-1 rounded-md border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-sm">
+      <div
+        role="group"
+        aria-label={`${label} (verrouillé)`}
+        className="mt-1 rounded-md border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-sm"
+      >
         {value ? <span className="break-words font-medium">{value}</span> : <span className="italic text-muted-foreground">Non renseigné</span>}
       </div>
     </div>
