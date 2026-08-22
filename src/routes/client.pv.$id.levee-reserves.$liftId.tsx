@@ -394,25 +394,46 @@ function ClientLiftValidation({
             <ShieldCheck className="h-3 w-3" /> Sécurisé
           </Badge>
         </div>
-        <div className="rounded-lg border-2 border-dashed border-border bg-background">
+        <div
+          className="rounded-lg border-2 border-dashed border-border bg-background"
+          role="application"
+          aria-label="Zone de signature — tracez votre signature avec le doigt ou la souris"
+        >
           <SignaturePad
             ref={padRef}
-            canvasProps={{ className: "w-full touch-none h-[clamp(7rem,28vw,12.0rem)] touch-none rounded-lg" }}
+            canvasProps={{
+              className: "w-full touch-none h-[clamp(7rem,28vw,12rem)] rounded-lg",
+              "aria-label": "Zone de signature",
+            }}
             penColor="rgb(20, 35, 80)"
           />
         </div>
         <div className="mt-2 flex justify-end">
-          <Button variant="ghost" size="sm" onClick={() => padRef.current?.clear()} type="button">
-            <Eraser className="mr-1 h-3.5 w-3.5" /> Effacer
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => padRef.current?.clear()}
+            type="button"
+            className="h-11 sm:h-9"
+          >
+            <Eraser className="mr-1 h-4 w-4" /> Effacer
           </Button>
         </div>
-        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-muted/40">
-          <Checkbox checked={consent} onCheckedChange={(v) => setConsent(!!v)} className="mt-0.5" />
+        <label
+          htmlFor="lift-consent"
+          className="mt-4 flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-muted/40"
+        >
+          <Checkbox
+            id="lift-consent"
+            checked={consent}
+            onCheckedChange={(v) => setConsent(!!v)}
+            className="mt-0.5 h-5 w-5"
+          />
           <span className="text-sm leading-relaxed">
             Je confirme que les réserves indiquées ont été levées et accepte la signature électronique de ce procès-verbal de levée. Cette signature a la même valeur juridique qu'une signature manuscrite.
           </span>
         </label>
-        <Button onClick={handleValidate} disabled={submitting || rejecting || !consent} size="lg" className="mt-4 w-full">
+        <Button onClick={handleValidate} disabled={submitting || rejecting || !consent} size="lg" className="mt-4 min-h-12 w-full">
           {submitting ? (
             <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
           ) : (
@@ -420,11 +441,14 @@ function ClientLiftValidation({
           )}
           {submitting ? "Validation en cours…" : "Valider et signer la levée"}
         </Button>
+        <p aria-live="polite" className="sr-only">
+          {submitting ? "Validation en cours, veuillez patienter." : ""}
+        </p>
       </Card>
 
       <Card className="mt-4 border-destructive/30 p-5">
         <div className="mb-3 flex items-center gap-2">
-          <XCircle className="h-4 w-4 text-destructive" />
+          <XCircle className="h-4 w-4 shrink-0 text-destructive" />
           <h3 className="text-sm font-semibold">Refuser la levée</h3>
         </div>
         <p className="mb-3 text-xs text-muted-foreground">
@@ -434,7 +458,7 @@ function ClientLiftValidation({
           <Button
             type="button"
             variant="outline"
-            className="w-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+            className="min-h-11 w-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
             onClick={() => setShowReject(true)}
             disabled={submitting || rejecting}
           >
@@ -442,17 +466,25 @@ function ClientLiftValidation({
           </Button>
         ) : (
           <>
+            <label htmlFor="lift-reject-reason" className="mb-1.5 block text-sm font-medium">
+              Motif du rejet <span aria-hidden="true">*</span>
+            </label>
             <Textarea
+              id="lift-reject-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Décrivez précisément les motifs du rejet (travaux non conformes, finition manquante, etc.)"
               rows={4}
               maxLength={2000}
               disabled={rejecting}
+              required
+              aria-describedby="lift-reject-help"
+              aria-invalid={reason.length > 0 && reason.trim().length < 5}
+              className="min-h-24 w-full"
             />
-            <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+            <div id="lift-reject-help" className="mt-2 flex justify-between gap-2 text-[11px] text-muted-foreground">
               <span>5 caractères minimum</span>
-              <span>{reason.length} / 2000</span>
+              <span aria-live="polite">{reason.length} / 2000</span>
             </div>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <Button
@@ -460,7 +492,7 @@ function ClientLiftValidation({
                 variant="ghost"
                 onClick={() => { setShowReject(false); setReason(""); }}
                 disabled={rejecting}
-                className="sm:flex-1"
+                className="min-h-11 sm:flex-1"
               >
                 Annuler
               </Button>
@@ -469,7 +501,7 @@ function ClientLiftValidation({
                 variant="destructive"
                 onClick={handleReject}
                 disabled={rejecting || submitting || reason.trim().length < 5}
-                className="sm:flex-1"
+                className="min-h-11 sm:flex-1"
               >
                 {rejecting ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -481,6 +513,7 @@ function ClientLiftValidation({
             </div>
           </>
         )}
+
       </Card>
     </>
   );
