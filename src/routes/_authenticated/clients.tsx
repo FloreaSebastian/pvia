@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -41,6 +41,12 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("");
 }
 
+/** Lower-cased, accent-insensitive form used by the search filter. */
+function norm(s: string) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+
 
 
 function ClientsPage() {
@@ -60,6 +66,10 @@ function ClientsPage() {
   const [archiveReason, setArchiveReason] = useState("");
   const [archiving, setArchiving] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+
   const canWrite = can("manage");
   const canAdmin = can("admin");
   const createFn = useServerFn(createClientFn);
@@ -81,16 +91,40 @@ function ClientsPage() {
     if (target) askArchive(target);
   }
 
+  /** Explicit projection: never ship internal ownership columns to the browser. */
+  const CLIENT_COLUMNS =
+    "id,name,email,phone,address,address_line1,postal_code,city,latitude,longitude,notes," +
+    "client_type,company_name,siret,siren,vat_number,naf_code,contact_name,archived_at,archive_reason,created_at";
+
   async function load() {
-    if (!activeCompanyId) return;
-    const { data } = await supabase
+    if (!activeCompanyId) {
+      setItems([]);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    const { data, error } = await supabase
       .from("clients" as any)
-      .select("*")
+      .select(CLIENT_COLUMNS)
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
-    setItems((data as unknown as Client[]) ?? []);
+    if (error) {
+      setItems([]);
+      setLoadError("Impossible de charger les clients.");
+    } else {
+      setItems((data as unknown as Client[]) ?? []);
+    }
+    setLoading(false);
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeCompanyId]);
+  useEffect(() => {
+    // Reset immediately on company switch so data from the previous tenant is
+    // never displayed while the new query is in flight.
+    setItems([]);
+    setQuery("");
+    load();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [activeCompanyId]);
+
 
   function openNew() {
     setEditing(null);
@@ -152,15 +186,19 @@ function ClientsPage() {
     }
   }
   async function restore(c: Client) {
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || restoringId) return;
+    setRestoringId(c.id);
     try {
       await restoreFn({ data: { companyId: activeCompanyId, id: c.id } });
       toast.success("Client restauré");
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Restauration impossible");
+    } finally {
+      setRestoringId(null);
     }
   }
+
 
   function exportCsv(target: "filtered" | "active" | "archived") {
     const today = new Date().toISOString().slice(0, 10);
@@ -188,23 +226,21 @@ function ClientsPage() {
 
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = norm(query.trim());
+
     return items.filter((c) => {
       const isArchived = !!c.archived_at;
       if (scope === "active" && isArchived) return false;
       if (scope === "archived" && !isArchived) return false;
       if (typeFilter !== "all" && (c.client_type ?? "particulier") !== typeFilter) return false;
       if (!q) return true;
-      return (
-        c.name.toLowerCase().includes(q) ||
-        (c.email ?? "").toLowerCase().includes(q) ||
-        (c.phone ?? "").toLowerCase().includes(q) ||
-        (c.address ?? "").toLowerCase().includes(q) ||
-        (c.city ?? "").toLowerCase().includes(q) ||
-        (c.company_name ?? "").toLowerCase().includes(q) ||
-        (c.siret ?? "").toLowerCase().includes(q) ||
-        (c.siren ?? "").toLowerCase().includes(q)
+      const hay = norm(
+        [c.name, c.email, c.phone, c.address, c.city, c.company_name, c.siret, c.siren, c.contact_name]
+          .filter(Boolean)
+          .join(" "),
       );
+      return hay.includes(q);
+
     });
   }, [items, query, typeFilter, scope]);
   const archivedCount = useMemo(() => items.filter((c) => !!c.archived_at).length, [items]);
@@ -220,7 +256,7 @@ function ClientsPage() {
   }
 
   return (
-    <div className="space-y-3 pb-28 sm:space-y-6 sm:pb-0" data-testid="clients-page">
+    <div className="space-y-3 overflow-x-clip pb-28 sm:space-y-6 sm:overflow-x-visible sm:pb-0" data-testid="clients-page">
       {/* Compact mobile header */}
       <div className="sm:hidden">
         <div className="flex items-center justify-between gap-3">
@@ -264,18 +300,18 @@ function ClientsPage() {
       </div>
 
       {/* Search */}
-      <div className="sm:flex sm:items-center sm:justify-between sm:gap-3">
+      <div className="sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
         <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un client…" className="h-9 pl-9 pr-9 sm:h-10" />
+            placeholder="Rechercher un client…" aria-label="Rechercher un client" className="h-11 pl-9 pr-11 sm:h-10" />
           {query && (
-            <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Effacer">
+            <button type="button" onClick={() => setQuery("")} className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-muted" aria-label="Effacer la recherche">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-        <div className="mt-2 hidden items-center gap-2 sm:mt-0 sm:flex">
+        <div className="mt-2 hidden flex-wrap items-center justify-end gap-2 sm:mt-0 sm:flex">
           {(canAdmin || archivedCount > 0) && (
             <div className="inline-flex rounded-lg border border-border bg-card p-1">
               {([
@@ -355,7 +391,7 @@ function ClientsPage() {
           <Button
             size="sm"
             onClick={openNew}
-            className="h-10 w-full gap-1.5 shadow-brand"
+            className="h-11 w-full gap-1.5 shadow-brand"
             data-testid="clients-new-button"
           >
             <Plus className="h-4 w-4" /> Nouveau
@@ -366,7 +402,7 @@ function ClientsPage() {
             variant="outline"
             size="sm"
             onClick={() => setImportOpen(true)}
-            className="h-10 w-full gap-1.5"
+            className="h-11 w-full gap-1.5"
             data-testid="clients-import-button"
             aria-label="Importer des clients avec l'IA"
           >
@@ -378,7 +414,7 @@ function ClientsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="h-10 w-full gap-1.5"
+              className="h-11 w-full gap-1.5"
               data-testid="clients-export-button"
               aria-label="Exporter les clients"
             >
@@ -418,7 +454,7 @@ function ClientsPage() {
               onClick={() => setScope(v)}
               data-testid={`clients-scope-${v}`}
               className={cn(
-                "inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition active:scale-95",
+                "inline-flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3.5 text-xs font-medium transition active:scale-95",
                 scope === v ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-card text-muted-foreground",
               )}
               aria-pressed={scope === v}
@@ -437,7 +473,7 @@ function ClientsPage() {
               onClick={() => setTypeFilter(v)}
               data-testid={`clients-type-${v}`}
               className={cn(
-                "inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full border px-3 text-xs font-medium transition active:scale-95",
+                "inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 text-xs font-medium transition active:scale-95",
                 typeFilter === v ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-card text-muted-foreground",
               )}
             >
@@ -449,7 +485,41 @@ function ClientsPage() {
 
 
 
-      {filtered.length === 0 && (
+      <p className="sr-only" role="status" aria-live="polite">
+        {loading ? "Chargement des clients…" : `${filtered.length} client${filtered.length > 1 ? "s" : ""} affiché${filtered.length > 1 ? "s" : ""}`}
+      </p>
+
+      {loading && (
+        <div className="auto-grid-lg" data-testid="clients-loading" aria-hidden="true">
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i} className="space-y-3 p-3 sm:p-5">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 shrink-0 animate-pulse rounded-lg bg-muted sm:h-11 sm:w-11" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-2/3 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+                </div>
+              </div>
+              <div className="h-3 w-4/5 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-3/5 animate-pulse rounded bg-muted" />
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!loading && loadError && (
+        <Card className="flex flex-col items-center justify-center gap-3 p-8 text-center sm:p-12" role="alert">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive"><X className="h-6 w-6" /></div>
+          <div>
+            <p className="font-medium">{loadError}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Vérifiez votre connexion, puis réessayez.</p>
+          </div>
+          <Button variant="outline" className="mt-2 h-11" onClick={() => load()}>Réessayer</Button>
+        </Card>
+      )}
+
+      {!loading && !loadError && filtered.length === 0 && (
+
         <Card className="flex flex-col items-center justify-center gap-3 p-8 text-center sm:p-12">
           <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary"><Users className="h-6 w-6" /></div>
           <div>
@@ -466,7 +536,7 @@ function ClientsPage() {
         </Card>
       )}
 
-      {filtered.length > 0 && view === "grid" && (
+      {!loading && !loadError && filtered.length > 0 && view === "grid" && (
         <div className="auto-grid-lg" data-testid="clients-grid">
           {filtered.map((c) => {
             const isEnt = c.client_type === "entreprise";
@@ -491,7 +561,7 @@ function ClientsPage() {
                     <div className="sm:hidden">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost" className="-mr-1 -mt-1 h-8 w-8 shrink-0" onClick={(e) => e.stopPropagation()} aria-label="Actions" data-testid="client-actions-menu">
+                          <Button size="icon" variant="ghost" className="-mr-1 -mt-1 h-11 w-11 shrink-0" onClick={(e) => e.stopPropagation()} aria-label="Actions" data-testid="client-actions-menu">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -546,7 +616,7 @@ function ClientsPage() {
 
 
 
-      {filtered.length > 0 && view === "list" && (
+      {!loading && !loadError && filtered.length > 0 && view === "list" && (
         <Card className="overflow-hidden p-0">
           <Table>
             <TableHeader>
@@ -609,6 +679,9 @@ function ClientsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Archiver ce client ?</DialogTitle>
+            <DialogDescription>
+              Le client est masqué de la liste principale mais aucune donnée liée n'est supprimée.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <p className="text-muted-foreground">
@@ -628,8 +701,8 @@ function ClientsPage() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setArchiveTarget(null); setArchiveReason(""); }} disabled={archiving}>Annuler</Button>
-            <Button variant="destructive" onClick={confirmArchive} disabled={archiving}>
+            <Button variant="outline" className="h-11 sm:h-10" onClick={() => { setArchiveTarget(null); setArchiveReason(""); }} disabled={archiving}>Annuler</Button>
+            <Button variant="destructive" className="h-11 sm:h-10" onClick={confirmArchive} disabled={archiving}>
               <Archive className="h-4 w-4" /> {archiving ? "Archivage…" : "Archiver"}
             </Button>
           </DialogFooter>

@@ -48,10 +48,13 @@ const COLUMNS: { key: keyof ExportClient | "statut"; label: string }[] = [
 
 function escapeCsv(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const s = String(value);
+  let s = String(value);
+  // Neutralise CSV/Excel formula injection (=, +, -, @, tab, CR at start).
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   if (/[",\r\n;]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
+
 
 export function buildClientsCsv(clients: ExportClient[]): string {
   const header = COLUMNS.map((c) => escapeCsv(c.label)).join(",");

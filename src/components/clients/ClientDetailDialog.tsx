@@ -129,21 +129,21 @@ function ClientDetailContent({ client, onEdit, onDelete, onClose }: { client: Cl
             {client.city && <span className="text-xs text-muted-foreground">· {client.city}</span>}
           </div>
         </div>
-        <Button size="icon" variant="ghost" onClick={onClose} className="h-8 w-8 shrink-0" aria-label="Fermer"><X className="h-4 w-4" /></Button>
+        <Button size="icon" variant="ghost" onClick={onClose} className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" aria-label="Fermer"><X className="h-4 w-4" /></Button>
       </div>
 
       {/* Quick actions */}
       <div className="grid grid-cols-4 gap-2 border-b p-3 sm:p-4">
-        <Button variant="outline" size="sm" disabled={!client.phone} asChild={!!client.phone} className="h-auto flex-col gap-1 py-2">
+        <Button variant="outline" size="sm" disabled={!client.phone} asChild={!!client.phone} className="h-auto min-h-11 flex-col gap-1 py-2">
           {client.phone ? <a href={`tel:${client.phone}`}><Phone className="h-4 w-4" /><span className="text-[10px]">Appeler</span></a> : <span><Phone className="h-4 w-4" /><span className="text-[10px]">Appeler</span></span>}
         </Button>
-        <Button variant="outline" size="sm" disabled={!client.email} asChild={!!client.email} className="h-auto flex-col gap-1 py-2">
+        <Button variant="outline" size="sm" disabled={!client.email} asChild={!!client.email} className="h-auto min-h-11 flex-col gap-1 py-2">
           {client.email ? <a href={`mailto:${client.email}`}><Mail className="h-4 w-4" /><span className="text-[10px]">Email</span></a> : <span><Mail className="h-4 w-4" /><span className="text-[10px]">Email</span></span>}
         </Button>
-        <Button variant="outline" size="sm" disabled={!mapsHref} asChild={!!mapsHref} className="h-auto flex-col gap-1 py-2">
+        <Button variant="outline" size="sm" disabled={!mapsHref} asChild={!!mapsHref} className="h-auto min-h-11 flex-col gap-1 py-2">
           {mapsHref ? <a href={mapsHref} target="_blank" rel="noreferrer"><Navigation className="h-4 w-4" /><span className="text-[10px]">Itinéraire</span></a> : <span><Navigation className="h-4 w-4" /><span className="text-[10px]">Itinéraire</span></span>}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onEdit(client)} className="h-auto flex-col gap-1 py-2">
+        <Button variant="outline" size="sm" onClick={() => onEdit(client)} className="h-auto min-h-11 flex-col gap-1 py-2">
           <Pencil className="h-4 w-4" /><span className="text-[10px]">Modifier</span>
         </Button>
       </div>
