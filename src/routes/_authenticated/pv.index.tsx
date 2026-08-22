@@ -220,8 +220,8 @@ function PvList() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          <Link to="/pv/new" search={{ fresh: 1 }}>
-            <Button className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau PV</Button>
+          <Link to="/pv/new" search={{ fresh: 1 }} className="shrink-0">
+            <Button className="h-11 shadow-brand sm:h-10"><Plus className="h-4 w-4" /> Nouveau PV</Button>
           </Link>
         }
       />
