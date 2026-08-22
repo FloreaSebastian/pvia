@@ -1079,7 +1079,11 @@ function ReserveCard({
     >
       {/* Top row: checkbox + ref + status + severity */}
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        <Checkbox checked={selected} onCheckedChange={onToggleSelect} />
+        {/* Zone tactile 44px sur mobile (la case elle-même reste visuellement 16px) */}
+        <span className="-m-3 flex h-11 w-11 items-center justify-center sm:m-0 sm:h-5 sm:w-5">
+          <Checkbox checked={selected} onCheckedChange={onToggleSelect} aria-label="Sélectionner la réserve" />
+        </span>
+
         <div className="min-w-0 truncate font-mono text-xs font-semibold text-primary">{reference}</div>
         <div className="flex shrink-0 items-center gap-1">
           {renderSeverity(r.severity)}
