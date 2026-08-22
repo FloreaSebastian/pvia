@@ -88,7 +88,7 @@ import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
 import { Route as AuthenticatedAdminGoLiveReportRouteImport } from './routes/_authenticated/admin.go-live.report'
 import { Route as AuthenticatedAdminCompaniesIdRouteImport } from './routes/_authenticated/admin.companies.$id'
-import { Route as ClientPvIdLeveeReservesLiftIdRouteImport } from './routes/client.pv.$id.levee-reserves.$liftId'
+import { Route as ClientPvIdLeveeReservesLiftIdRouteImport } from './routes/client.pv.$id_.levee-reserves.$liftId'
 
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
@@ -529,9 +529,9 @@ const AuthenticatedAdminCompaniesIdRoute =
   } as any)
 const ClientPvIdLeveeReservesLiftIdRoute =
   ClientPvIdLeveeReservesLiftIdRouteImport.update({
-    id: '/levee-reserves/$liftId',
-    path: '/levee-reserves/$liftId',
-    getParentRoute: () => ClientPvIdRoute,
+    id: '/client/pv/$id_/levee-reserves/$liftId',
+    path: '/client/pv/$id/levee-reserves/$liftId',
+    getParentRoute: () => rootRouteImport,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -591,7 +591,7 @@ export interface FileRoutesByFullPath {
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
-  '/client/pv/$id': typeof ClientPvIdRouteWithChildren
+  '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
@@ -669,7 +669,7 @@ export interface FileRoutesByTo {
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
-  '/client/pv/$id': typeof ClientPvIdRouteWithChildren
+  '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/chantiers': typeof AuthenticatedChantiersIndexRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
@@ -752,7 +752,7 @@ export interface FileRoutesById {
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
-  '/client/pv/$id': typeof ClientPvIdRouteWithChildren
+  '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
@@ -774,7 +774,7 @@ export interface FileRoutesById {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/_authenticated/admin/go-live/': typeof AuthenticatedAdminGoLiveIndexRoute
   '/_authenticated/admin/support/': typeof AuthenticatedAdminSupportIndexRoute
-  '/client/pv/$id/levee-reserves/$liftId': typeof ClientPvIdLeveeReservesLiftIdRoute
+  '/client/pv/$id_/levee-reserves/$liftId': typeof ClientPvIdLeveeReservesLiftIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1017,7 +1017,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/_authenticated/admin/go-live/'
     | '/_authenticated/admin/support/'
-    | '/client/pv/$id/levee-reserves/$liftId'
+    | '/client/pv/$id_/levee-reserves/$liftId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1040,7 +1040,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
-  ClientPvIdRoute: typeof ClientPvIdRouteWithChildren
+  ClientPvIdRoute: typeof ClientPvIdRoute
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
@@ -1051,6 +1051,7 @@ export interface RootRouteChildren {
   ApiPublicHooksSendChantierRemindersRoute: typeof ApiPublicHooksSendChantierRemindersRoute
   ApiPublicHooksSendReserveDeadlineRemindersRoute: typeof ApiPublicHooksSendReserveDeadlineRemindersRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
+  ClientPvIdLeveeReservesLiftIdRoute: typeof ClientPvIdLeveeReservesLiftIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1608,12 +1609,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCompaniesIdRouteImport
       parentRoute: typeof AuthenticatedAdminCompaniesRoute
     }
-    '/client/pv/$id/levee-reserves/$liftId': {
-      id: '/client/pv/$id/levee-reserves/$liftId'
-      path: '/levee-reserves/$liftId'
+    '/client/pv/$id_/levee-reserves/$liftId': {
+      id: '/client/pv/$id_/levee-reserves/$liftId'
+      path: '/client/pv/$id/levee-reserves/$liftId'
       fullPath: '/client/pv/$id/levee-reserves/$liftId'
       preLoaderRoute: typeof ClientPvIdLeveeReservesLiftIdRouteImport
-      parentRoute: typeof ClientPvIdRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -1793,18 +1794,6 @@ const ApiPublicHealthRouteWithChildren = ApiPublicHealthRoute._addFileChildren(
   ApiPublicHealthRouteChildren,
 )
 
-interface ClientPvIdRouteChildren {
-  ClientPvIdLeveeReservesLiftIdRoute: typeof ClientPvIdLeveeReservesLiftIdRoute
-}
-
-const ClientPvIdRouteChildren: ClientPvIdRouteChildren = {
-  ClientPvIdLeveeReservesLiftIdRoute: ClientPvIdLeveeReservesLiftIdRoute,
-}
-
-const ClientPvIdRouteWithChildren = ClientPvIdRoute._addFileChildren(
-  ClientPvIdRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
@@ -1825,7 +1814,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
-  ClientPvIdRoute: ClientPvIdRouteWithChildren,
+  ClientPvIdRoute: ClientPvIdRoute,
   SignPvTokenRoute: SignPvTokenRoute,
   ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
@@ -1839,6 +1828,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksSendReserveDeadlineRemindersRoute:
     ApiPublicHooksSendReserveDeadlineRemindersRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
+  ClientPvIdLeveeReservesLiftIdRoute: ClientPvIdLeveeReservesLiftIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
