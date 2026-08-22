@@ -472,7 +472,8 @@ function FilterSheetButton({
       <SheetTrigger asChild>
         <button
           type="button"
-          className={`flex h-10 w-full items-center justify-between gap-1.5 rounded-lg border px-3 text-left text-xs font-medium transition ${
+          aria-label={`${title}${value ? ` : ${value}` : ""}`}
+          className={`flex h-11 w-full items-center justify-between gap-1.5 rounded-lg border px-3 text-left text-xs font-medium transition sm:h-10 ${
             value
               ? "border-primary/40 bg-primary/5 text-foreground"
               : "border-border bg-card text-muted-foreground hover:text-foreground"
