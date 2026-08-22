@@ -781,7 +781,7 @@ function ReservesPage() {
             <Printer className="h-4 w-4" /> PDF
           </Button>
           {canDelete && (
-            <Button size="sm" variant="outline" className="text-destructive" onClick={bulkRemove}>
+            <Button data-bulk-delete size="sm" variant="outline" className="text-destructive" onClick={bulkRemove}>
               <Trash2 className="h-4 w-4" /> Supprimer
             </Button>
           )}
@@ -1018,7 +1018,24 @@ function ReservesPage() {
       </Dialog>
 
       {/* Delete confirmation (replaces window.confirm) */}
-      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o && !deleting) setConfirmDelete(null); }}>
+      <AlertDialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => {
+          if (o || deleting) return;
+          // Le dialogue est monté au niveau page : Radix ne peut pas rendre le focus
+          // au bouton « Plus d'actions » de la carte. On le restaure manuellement,
+          // sinon le focus retombe sur <body> (navigation clavier perdue).
+          const id = confirmDelete?.ids.length === 1 ? confirmDelete.ids[0] : null;
+          setConfirmDelete(null);
+          // 120 ms : après la restauration de focus interne de Radix (sinon écrasée).
+          window.setTimeout(() => {
+            const el = id
+              ? document.querySelector<HTMLElement>(`[data-more-trigger="${id}"]`)
+              : document.querySelector<HTMLElement>("[data-bulk-delete]");
+            el?.focus();
+          }, 120);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -1191,7 +1208,7 @@ function ReserveCard({
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-11 w-11 sm:h-9 sm:w-9" title="Plus d'actions" aria-label={`Plus d'actions pour la réserve`}>
+            <Button data-more-trigger={r.id} size="icon" variant="ghost" className="h-11 w-11 sm:h-9 sm:w-9" title="Plus d'actions" aria-label={`Plus d'actions pour la réserve`}>
               <HistoryIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
