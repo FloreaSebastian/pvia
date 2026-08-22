@@ -400,8 +400,10 @@ export const getClientPvList = createServerFn({ method: "GET" }).handler(async (
       created_at: (pv.created_at ?? null) as string | null,
       hasPdf: !!pv.pdf_url,
       isSigned,
-      signExpired: !isSigned && signExpired,
+      // "Lien expiré" n'a de sens que pour un PV qui, sinon, serait signable.
+      signExpired: !isSigned && signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
       canSign: !isSigned && !signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
+
     };
   });
   return { pvs };
