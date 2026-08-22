@@ -535,7 +535,6 @@ html[data-density="compact"] body {
 .landing-editorial h3 {
   font-family: "Instrument Serif", "Sora", Georgia, serif;
   font-weight: 400;
-  letter-spacing: -0.02em;
 }
 .landing-editorial h1 { line-height: 1.02; }
 .landing-editorial h2 { line-height: 1.08; }
