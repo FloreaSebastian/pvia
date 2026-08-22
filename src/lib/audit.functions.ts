@@ -256,7 +256,7 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
     draw(`Client : ${client?.name || "—"}${client?.email ? ` (${client.email})` : ""}`, { size: 10 });
     draw(`Chantier : ${chantier?.name || "—"}${chantier?.address ? ` — ${chantier.address}` : ""}`, { size: 10 });
     y -= 4;
-    draw(`Export effectué le ${new Date().toLocaleString("fr-FR")}`, { size: 9, color: [0.42, 0.45, 0.52] });
+    draw(`Export effectué le ${new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" })} (heure de Paris)`, { size: 9, color: [0.42, 0.45, 0.52] });
     draw(`Par : ${exporter?.full_name || "Utilisateur"} (rôle ${role})`, { size: 9, color: [0.42, 0.45, 0.52] });
     draw(`Total des événements : ${rows?.length ?? 0}`, { size: 9, color: [0.42, 0.45, 0.52] });
     y -= 8;
@@ -265,7 +265,7 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
 
     // -------- Timeline --------
     for (const r of rows ?? []) {
-      const when = new Date(r.created_at as string).toLocaleString("fr-FR");
+      const when = new Date(r.created_at as string).toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
       const who = r.user_id ? profiles[r.user_id] || "Utilisateur" : "Système";
       // estimate space and break early to keep entries together
       if (y < M + 80) newPage();
