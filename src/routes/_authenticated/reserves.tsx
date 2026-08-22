@@ -999,13 +999,39 @@ function ReservesPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(null)}>Annuler</Button>
-            <Button onClick={doAssign}>Appliquer</Button>
+          <DialogFooter className="flex-row gap-2">
+            <Button variant="outline" className="h-11 flex-1 sm:flex-none" onClick={() => setAssignOpen(null)}>Annuler</Button>
+            <Button className="h-11 flex-1 sm:flex-none" onClick={doAssign}>Appliquer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation (replaces window.confirm) */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o && !deleting) setConfirmDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Supprimer {confirmDelete?.ids.length ?? 0} réserve{(confirmDelete?.ids.length ?? 0) > 1 ? "s" : ""} ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Les réserves rattachées à un PV signé ou verrouillé ne peuvent pas être supprimées.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2">
+            <AlertDialogCancel disabled={deleting} className="h-11 flex-1 sm:flex-none">Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              aria-busy={deleting}
+              onClick={(e) => { e.preventDefault(); doDelete(); }}
+              className="h-11 flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:flex-none"
+            >
+              {deleting ? "Suppression…" : "Supprimer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
 
