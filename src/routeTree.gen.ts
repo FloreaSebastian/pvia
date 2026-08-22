@@ -19,6 +19,7 @@ import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GestionDesReservesRouteImport } from './routes/gestion-des-reserves'
 import { Route as FonctionnalitesRouteImport } from './routes/fonctionnalites'
+import { Route as EspaceClientRouteImport } from './routes/espace-client'
 import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
 import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
 import { Route as CgvRouteImport } from './routes/cgv'
@@ -142,6 +143,11 @@ const GestionDesReservesRoute = GestionDesReservesRouteImport.update({
 const FonctionnalitesRoute = FonctionnalitesRouteImport.update({
   id: '/fonctionnalites',
   path: '/fonctionnalites',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EspaceClientRoute = EspaceClientRouteImport.update({
+  id: '/espace-client',
+  path: '/espace-client',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
@@ -563,6 +569,7 @@ export interface FileRoutesByFullPath {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
@@ -648,6 +655,7 @@ export interface FileRoutesByTo {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
@@ -732,6 +740,7 @@ export interface FileRoutesById {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
   '/login': typeof LoginRoute
@@ -819,6 +828,7 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
     | '/login'
@@ -904,6 +914,7 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
     | '/login'
@@ -987,6 +998,7 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
     | '/login'
@@ -1074,6 +1086,7 @@ export interface RootRouteChildren {
   CgvRoute: typeof CgvRoute
   CommentCaMarcheRoute: typeof CommentCaMarcheRoute
   ConfidentialiteRoute: typeof ConfidentialiteRoute
+  EspaceClientRoute: typeof EspaceClientRoute
   FonctionnalitesRoute: typeof FonctionnalitesRoute
   GestionDesReservesRoute: typeof GestionDesReservesRoute
   LoginRoute: typeof LoginRoute
@@ -1176,6 +1189,13 @@ declare module '@tanstack/react-router' {
       path: '/fonctionnalites'
       fullPath: '/fonctionnalites'
       preLoaderRoute: typeof FonctionnalitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/espace-client': {
+      id: '/espace-client'
+      path: '/espace-client'
+      fullPath: '/espace-client'
+      preLoaderRoute: typeof EspaceClientRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/confidentialite': {
@@ -1880,6 +1900,7 @@ const rootRouteChildren: RootRouteChildren = {
   CgvRoute: CgvRoute,
   CommentCaMarcheRoute: CommentCaMarcheRoute,
   ConfidentialiteRoute: ConfidentialiteRoute,
+  EspaceClientRoute: EspaceClientRoute,
   FonctionnalitesRoute: FonctionnalitesRoute,
   GestionDesReservesRoute: GestionDesReservesRoute,
   LoginRoute: LoginRoute,

@@ -14,8 +14,11 @@ import {
 import { Logo } from "@/components/landing/Logo";
 
 const nav: { label: string; href: string }[] = [
-  { label: "Fonctionnalités", href: "/#fonctionnalites" },
-  { label: "Comment ça marche", href: "/#comment-ca-marche" },
+  { label: "Fonctionnalités", href: "/fonctionnalites" },
+  { label: "Comment ça marche", href: "/comment-ca-marche" },
+  { label: "Réserves", href: "/gestion-des-reserves" },
+  { label: "Mode terrain", href: "/mode-terrain" },
+  { label: "Espace client", href: "/espace-client" },
   { label: "Tarifs", href: "/tarifs" },
 ];
 
