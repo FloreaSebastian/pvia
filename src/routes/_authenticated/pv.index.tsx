@@ -43,14 +43,30 @@ type Pv = {
   pv_reserves?: { count: number }[] | null;
 };
 
+/**
+ * Groupes de statuts alignés sur les valeurs réellement stockées en base
+ * (brouillon, en_cours, envoye, en_attente(_signature), signe, cloture, refuse, annule).
+ */
+const STATUS_GROUPS = {
+  brouillon: ["brouillon", "en_cours"],
+  en_attente: ["en_attente", "en_attente_signature", "envoye", "envoye_au_client"],
+  signe: ["signe", "signe_par_client", "cloture"],
+  refuse: ["refuse", "annule"],
+} as const;
+
 const STATUS_FILTERS = [
   { id: "all", label: "Tous" },
   { id: "brouillon", label: "Brouillons" },
-  { id: "en_attente", label: "En attente" },
+  { id: "en_attente", label: "En attente de signature" },
   { id: "signe", label: "Signés" },
-  { id: "archive", label: "Archivés" },
+  { id: "refuse", label: "Refusés / annulés" },
 ] as const;
 type StatusFilterId = (typeof STATUS_FILTERS)[number]["id"];
+
+function matchesStatusGroup(status: string, group: StatusFilterId): boolean {
+  if (group === "all") return true;
+  return (STATUS_GROUPS[group] as readonly string[]).includes(status);
+}
 
 const RESERVE_FILTERS = [
   { id: "all", label: "Toutes" },
