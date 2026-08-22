@@ -71,26 +71,33 @@ export function StatusPill({
   );
 }
 
+const PV_STATUS_MAP: Record<string, { tone: Tone; label: string }> = {
+  brouillon: { tone: "neutral", label: "Brouillon" },
+  en_cours: { tone: "info", label: "En cours" },
+  envoye: { tone: "info", label: "Envoyé" },
+  envoye_au_client: { tone: "info", label: "Envoyé au client" },
+  en_attente: { tone: "warning", label: "En attente" },
+  en_attente_signature: { tone: "warning", label: "À signer" },
+  archive: { tone: "neutral", label: "Archivé" },
+  signe: { tone: "success", label: "Signé" },
+  signe_par_client: { tone: "success", label: "Signé par client" },
+  cloture: { tone: "success", label: "Clôturé" },
+  refuse: { tone: "destructive", label: "Refusé" },
+  annule: { tone: "destructive", label: "Annulé" },
+};
+
+/** True si le statut possède un libellé métier connu (sinon: valeur technique). */
+export function isKnownPvStatus(status: string) {
+  return Object.prototype.hasOwnProperty.call(PV_STATUS_MAP, status);
+}
+
 /** Convenience: map a PV status string to a StatusPill tone + label. */
 export function PvStatusPill({ status, size = "md" }: { status: string; size?: Size }) {
-  const map: Record<string, { tone: Tone; label: string }> = {
-    brouillon: { tone: "neutral", label: "Brouillon" },
-    en_cours: { tone: "info", label: "En cours" },
-    envoye: { tone: "info", label: "Envoyé" },
-    envoye_au_client: { tone: "info", label: "Envoyé au client" },
-    en_attente: { tone: "warning", label: "En attente" },
-    en_attente_signature: { tone: "warning", label: "À signer" },
-    archive: { tone: "neutral", label: "Archivé" },
-    signe: { tone: "success", label: "Signé" },
-    signe_par_client: { tone: "success", label: "Signé par client" },
-    cloture: { tone: "success", label: "Clôturé" },
-    refuse: { tone: "destructive", label: "Refusé" },
-    annule: { tone: "destructive", label: "Annulé" },
-  };
-  const entry = map[status] ?? { tone: "neutral" as Tone, label: status };
+  const entry = PV_STATUS_MAP[status] ?? { tone: "neutral" as Tone, label: status };
   return (
     <StatusPill tone={entry.tone} size={size} dot>
       {entry.label}
     </StatusPill>
   );
 }
+
