@@ -197,7 +197,7 @@ export const sendInvite = createServerFn({ method: "POST" })
       tag: `invite-${data.email.toLowerCase()}`,
     }, { excludeUserId: userId });
 
-    return { ok: true, acceptUrl };
+    return { ok: true as const };
   });
 
 const TokenSchema = z.object({ token: z.string().min(10).max(128) });
