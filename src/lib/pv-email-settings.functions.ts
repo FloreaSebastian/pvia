@@ -63,10 +63,10 @@ export const updatePvEmailSettings = createServerFn({ method: "POST" })
     if (data.send_signed_pv_to_company !== undefined) patch.send_signed_pv_to_company = data.send_signed_pv_to_company;
     if (data.company_signed_email !== undefined) patch.company_signed_email = data.company_signed_email;
 
-    // upsert based on existing row
+    // company_settings est clé par company_id (pas de colonne "id")
     const { data: existing } = await supabaseAdmin
       .from("company_settings")
-      .select("id,pv_email_recipients,pv_email_cc,send_signed_pv_to_company,company_signed_email")
+      .select("company_id,pv_email_recipients,pv_email_cc,send_signed_pv_to_company,company_signed_email")
       .eq("company_id", data.companyId)
       .maybeSingle();
 
@@ -79,18 +79,15 @@ export const updatePvEmailSettings = createServerFn({ method: "POST" })
         }
       : null;
 
-    if (existing) {
-      const { error } = await supabaseAdmin
-        .from("company_settings")
-        .update(patch as never)
-        .eq("company_id", data.companyId);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supabaseAdmin
-        .from("company_settings")
-        .insert({ company_id: data.companyId, ...patch } as never);
-      if (error) throw new Error(error.message);
+    // upsert atomique : évite l'erreur "duplicate key" en cas de course
+    const { error } = await supabaseAdmin
+      .from("company_settings")
+      .upsert({ company_id: data.companyId, ...patch } as never, { onConflict: "company_id" });
+    if (error) {
+      console.error("[pv-email-settings] upsert failed", error);
+      throw new Error("Impossible d'enregistrer les destinataires. Réessayez.");
     }
+
 
     await writeAuditLog({
       companyId: data.companyId,
