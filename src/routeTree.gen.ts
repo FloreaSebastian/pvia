@@ -24,6 +24,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as GestionDesReservesRouteImport } from './routes/gestion-des-reserves'
 import { Route as FonctionnalitesRouteImport } from './routes/fonctionnalites'
 import { Route as EspaceClientRouteImport } from './routes/espace-client'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
 import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
 import { Route as CgvRouteImport } from './routes/cgv'
@@ -174,6 +175,11 @@ const FonctionnalitesRoute = FonctionnalitesRouteImport.update({
 const EspaceClientRoute = EspaceClientRouteImport.update({
   id: '/espace-client',
   path: '/espace-client',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
@@ -605,6 +611,7 @@ export interface FileRoutesByFullPath {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/contact': typeof ContactRoute
   '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
@@ -697,6 +704,7 @@ export interface FileRoutesByTo {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/contact': typeof ContactRoute
   '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
@@ -787,6 +795,7 @@ export interface FileRoutesById {
   '/cgv': typeof CgvRoute
   '/comment-ca-marche': typeof CommentCaMarcheRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/contact': typeof ContactRoute
   '/espace-client': typeof EspaceClientRoute
   '/fonctionnalites': typeof FonctionnalitesRoute
   '/gestion-des-reserves': typeof GestionDesReservesRoute
@@ -881,6 +890,7 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/contact'
     | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
@@ -973,6 +983,7 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/contact'
     | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
@@ -1062,6 +1073,7 @@ export interface FileRouteTypes {
     | '/cgv'
     | '/comment-ca-marche'
     | '/confidentialite'
+    | '/contact'
     | '/espace-client'
     | '/fonctionnalites'
     | '/gestion-des-reserves'
@@ -1156,6 +1168,7 @@ export interface RootRouteChildren {
   CgvRoute: typeof CgvRoute
   CommentCaMarcheRoute: typeof CommentCaMarcheRoute
   ConfidentialiteRoute: typeof ConfidentialiteRoute
+  ContactRoute: typeof ContactRoute
   EspaceClientRoute: typeof EspaceClientRoute
   FonctionnalitesRoute: typeof FonctionnalitesRoute
   GestionDesReservesRoute: typeof GestionDesReservesRoute
@@ -1298,6 +1311,13 @@ declare module '@tanstack/react-router' {
       path: '/espace-client'
       fullPath: '/espace-client'
       preLoaderRoute: typeof EspaceClientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/confidentialite': {
@@ -2030,6 +2050,7 @@ const rootRouteChildren: RootRouteChildren = {
   CgvRoute: CgvRoute,
   CommentCaMarcheRoute: CommentCaMarcheRoute,
   ConfidentialiteRoute: ConfidentialiteRoute,
+  ContactRoute: ContactRoute,
   EspaceClientRoute: EspaceClientRoute,
   FonctionnalitesRoute: FonctionnalitesRoute,
   GestionDesReservesRoute: GestionDesReservesRoute,

@@ -3,10 +3,11 @@ import { Header } from "@/components/landing/Header";
 import { Hero } from "@/components/landing/Hero";
 import { TradesBar } from "@/components/landing/TradesBar";
 import { ProblemSolution } from "@/components/landing/ProblemSolution";
-import { HowItWorks } from "@/components/landing/HowItWorks";
-import { Features } from "@/components/landing/Features";
+import { Workflow } from "@/components/landing/Workflow";
+import { Benefits } from "@/components/landing/Benefits";
 import { ProductLinks } from "@/components/landing/ProductLinks";
-import { Pricing } from "@/components/landing/Pricing";
+import { SolutionsPreview } from "@/components/landing/SolutionsPreview";
+import { PricingPreview } from "@/components/landing/PricingPreview";
 import { FAQ, faqs } from "@/components/landing/FAQ";
 import { CTA } from "@/components/landing/CTA";
 import { Footer } from "@/components/landing/Footer";
@@ -74,10 +75,11 @@ function Index() {
         <Hero />
         <TradesBar />
         <ProblemSolution />
-        <HowItWorks />
-        <Features />
+        <Workflow />
+        <Benefits />
         <ProductLinks />
-        <Pricing />
+        <SolutionsPreview />
+        <PricingPreview />
         <FAQ />
         <CTA />
       </main>
