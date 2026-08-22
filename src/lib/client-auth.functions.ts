@@ -352,25 +352,61 @@ async function requireSession() {
   return s;
 }
 
+/**
+ * Liste des PV du client connecté.
+ *
+ * Le serveur fait autorité : il calcule les états dérivés (isSigned / canSign /
+ * signExpired) et n'expose AUCUNE donnée interne au navigateur du client
+ * externe (sign_token, sign_token_expires_at, company_id, chantier_id,
+ * client_id, pdf_url/chemin de stockage...).
+ */
+const CLIENT_SIGNABLE_STATUSES = new Set(["en_attente", "en_attente_signature", "envoye"]);
+
 export const getClientPvList = createServerFn({ method: "GET" }).handler(async () => {
   const s = await requireSession();
   // Match par client_id quand disponible, sinon par sent_to_email
   let query = supabaseAdmin
     .from("pv")
     .select(
-      "id,numero,status,type,reception_date,signed_at,sent_to_client_at,created_at,pdf_url,sign_token,sign_token_expires_at,company_id,chantier_id",
+      "id,numero,status,type,reception_date,signed_at,sent_to_client_at,created_at,pdf_url,sign_token_expires_at,client_signature",
     )
+    // Un brouillon n'a jamais été adressé au client : il ne doit pas apparaître.
+    .neq("status", "brouillon")
     .order("created_at", { ascending: false })
     .limit(200);
   if (s.clientId) {
-    query = query.or(`client_id.eq.${s.clientId},sent_to_email.eq.${s.email}`);
+    query = query.or(`client_id.eq.${s.clientId},sent_to_email.eq."${s.email.replace(/"/g, "")}"`);
   } else {
     query = query.eq("sent_to_email", s.email);
   }
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return { pvs: data ?? [] };
+  if (error) {
+    console.error("getClientPvList failed:", error);
+    throw new Error("Impossible de charger vos procès-verbaux pour le moment.");
+  }
+  const now = Date.now();
+  const pvs = (data ?? []).map((pv: any) => {
+    const isSigned = pv.status === "signe" || !!pv.client_signature || !!pv.signed_at;
+    const signExpired =
+      !!pv.sign_token_expires_at && new Date(pv.sign_token_expires_at).getTime() < now;
+    return {
+      id: pv.id as string,
+      numero: (pv.numero ?? "") as string,
+      status: pv.status as string,
+      type: (pv.type ?? null) as string | null,
+      reception_date: (pv.reception_date ?? null) as string | null,
+      signed_at: (pv.signed_at ?? null) as string | null,
+      sent_to_client_at: (pv.sent_to_client_at ?? null) as string | null,
+      created_at: (pv.created_at ?? null) as string | null,
+      hasPdf: !!pv.pdf_url,
+      isSigned,
+      signExpired: !isSigned && signExpired,
+      canSign: !isSigned && !signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
+    };
+  });
+  return { pvs };
 });
+
 
 async function fetchPvForClient(pvId: string, s: { email: string; clientId: string | null }) {
   const { data: pv } = await supabaseAdmin
