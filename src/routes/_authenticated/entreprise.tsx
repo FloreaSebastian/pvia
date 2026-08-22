@@ -1027,8 +1027,13 @@ function CompanyPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setChangeOpen(false)}>Annuler</Button>
-            <Button onClick={submitChange} disabled={changeBusy || changeNewSiret.length !== 14 || changeReason.trim().length < 20}>
+            <Button variant="ghost" className="h-11 sm:h-10" onClick={() => setChangeOpen(false)}>Annuler</Button>
+            <Button
+              className="h-11 sm:h-10"
+              onClick={submitChange}
+              aria-busy={changeBusy}
+              disabled={changeBusy || changeNewSiret.length !== 14 || changeReason.trim().length < 20}
+            >
               {changeBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Envoyer la demande
             </Button>
