@@ -159,7 +159,7 @@ function RecentPvCard({ recent, canWrite }: { recent: Pv[]; canWrite: boolean })
                       </div>
                     </div>
                     <div className="shrink-0">
-                      <PvStatusPill status={r.status} size="sm" />
+                      <SafePvStatus status={r.status} size="sm" />
                     </div>
                   </Link>
                 </li>
@@ -187,12 +187,12 @@ function RecentPvCard({ recent, canWrite }: { recent: Pv[]; canWrite: boolean })
               )}
               {recent.map((r) => (
                 <tr key={r.id} className="transition-colors hover:bg-muted/30">
-                  <td className="px-4 py-3 font-medium">{r.numero}</td>
+                  <td className="max-w-[22ch] truncate px-4 py-3 font-medium" title={r.numero}>{r.numero}</td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {new Date(r.created_at).toLocaleDateString("fr-FR")}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <PvStatusPill status={r.status} />
+                    <SafePvStatus status={r.status} />
                   </td>
                 </tr>
               ))}
@@ -466,7 +466,7 @@ function Dashboard() {
 
       {/* Recent PV + Quick start */}
       <div className="auto-grid-lg">
-        <RecentPvCard recent={recent} />
+        <RecentPvCard recent={recent} canWrite={canWrite} />
 
 
         <Card className="relative overflow-hidden bg-brand-gradient p-6 text-primary-foreground">
