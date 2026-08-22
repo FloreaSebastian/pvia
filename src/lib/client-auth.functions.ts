@@ -749,13 +749,17 @@ export const getClientProfile = createServerFn({ method: "GET" }).handler(async 
     .gt("expires_at", new Date().toISOString())
     .order("last_seen_at", { ascending: false })
     .limit(20);
-  if (error) throw new Error(error.message);
+  // Ne jamais renvoyer le message Postgres brut au navigateur du client externe.
+  if (error) {
+    console.error("[client-profile] sessions query failed", error);
+    throw new Error("Impossible de charger vos sessions pour le moment.");
+  }
 
+  // DTO minimal : ni token_hash, ni user-agent brut (deviceLabel suffit à l'UI).
   const sessions = (data ?? []).map((row: any) => ({
     id: row.id,
     isCurrent: currentHash !== null && row.token_hash === currentHash,
     ip: row.ip_address,
-    ua: row.user_agent,
     deviceLabel: describeUA(row.user_agent),
     created_at: row.created_at,
     last_seen_at: row.last_seen_at,
