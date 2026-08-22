@@ -205,7 +205,7 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
     const role = await assertCompanyMember(data.companyId, context.userId);
     const isAdmin = isAdminRole(role);
 
-    const [planRes, limitsRes, subRes, pvCountRes, memberCountRes, access] = await Promise.all([
+    const [planRes, limitsRes, subRes, pvCountRes, memberCountRes, seatUsageRes, access] = await Promise.all([
       supabaseAdmin.rpc("get_company_plan", { _company_id: data.companyId }),
       supabaseAdmin.from("plan_limits").select("*"),
       supabaseAdmin
@@ -217,6 +217,7 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
         .maybeSingle(),
       supabaseAdmin.rpc("get_company_pv_count_current_period", { _company_id: data.companyId }),
       supabaseAdmin.rpc("get_company_member_count", { _company_id: data.companyId }),
+      supabaseAdmin.rpc("get_company_seat_usage" as never, { _company_id: data.companyId } as never),
       getAccessState(data.companyId),
     ]);
 
@@ -234,12 +235,15 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
     return {
       plan,
       limits: currentLimits,
-      allPlans: allLimits.sort((a, b) => a.monthly_price_eur - b.monthly_price_eur),
+      allPlans: allLimits
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99)),
       subscription,
       access,
       usage: {
         pv_this_period: Number(pvCountRes.data ?? 0),
         members: Number(memberCountRes.data ?? 0),
+        seats: Number(seatUsageRes.data ?? memberCountRes.data ?? 0),
       },
     };
   });
