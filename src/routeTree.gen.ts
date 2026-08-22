@@ -16,6 +16,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
 import { Route as MentionsRouteImport } from './routes/mentions'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as FonctionnalitesRouteImport } from './routes/fonctionnalites'
 import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
 import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -123,6 +124,11 @@ const MentionsRoute = MentionsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FonctionnalitesRoute = FonctionnalitesRouteImport.update({
+  id: '/fonctionnalites',
+  path: '/fonctionnalites',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
@@ -538,6 +544,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cgv': typeof CgvRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/fonctionnalites': typeof FonctionnalitesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/securite': typeof SecuriteRoute
@@ -619,6 +626,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cgv': typeof CgvRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/fonctionnalites': typeof FonctionnalitesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/securite': typeof SecuriteRoute
@@ -699,6 +707,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/cgv': typeof CgvRoute
   '/confidentialite': typeof ConfidentialiteRoute
+  '/fonctionnalites': typeof FonctionnalitesRoute
   '/login': typeof LoginRoute
   '/mentions': typeof MentionsRoute
   '/securite': typeof SecuriteRoute
@@ -782,6 +791,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cgv'
     | '/confidentialite'
+    | '/fonctionnalites'
     | '/login'
     | '/mentions'
     | '/securite'
@@ -863,6 +873,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cgv'
     | '/confidentialite'
+    | '/fonctionnalites'
     | '/login'
     | '/mentions'
     | '/securite'
@@ -942,6 +953,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/cgv'
     | '/confidentialite'
+    | '/fonctionnalites'
     | '/login'
     | '/mentions'
     | '/securite'
@@ -1025,6 +1037,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   CgvRoute: typeof CgvRoute
   ConfidentialiteRoute: typeof ConfidentialiteRoute
+  FonctionnalitesRoute: typeof FonctionnalitesRoute
   LoginRoute: typeof LoginRoute
   MentionsRoute: typeof MentionsRoute
   SecuriteRoute: typeof SecuriteRoute
@@ -1103,6 +1116,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fonctionnalites': {
+      id: '/fonctionnalites'
+      path: '/fonctionnalites'
+      fullPath: '/fonctionnalites'
+      preLoaderRoute: typeof FonctionnalitesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/confidentialite': {
@@ -1799,6 +1819,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   CgvRoute: CgvRoute,
   ConfidentialiteRoute: ConfidentialiteRoute,
+  FonctionnalitesRoute: FonctionnalitesRoute,
   LoginRoute: LoginRoute,
   MentionsRoute: MentionsRoute,
   SecuriteRoute: SecuriteRoute,
