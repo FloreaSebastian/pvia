@@ -670,14 +670,14 @@ function PvDetail() {
 
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-6 lg:col-span-2 space-y-5">
-          <div className="flex items-center justify-between">
+        <Card className="min-w-0 p-4 sm:p-6 lg:col-span-2 space-y-5">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">Informations</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <PvStatusPill status={pv.status} />
               {!pv.locked_at && (pv.status === "brouillon" || pv.status === "archive") ? (
                 <Select value={pv.status} onValueChange={changeStatus}>
-                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Changer le statut du PV" className="h-11 w-40 max-w-full text-xs sm:h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="brouillon">Brouillon</SelectItem>
                     <SelectItem value="archive">Archivé</SelectItem>
