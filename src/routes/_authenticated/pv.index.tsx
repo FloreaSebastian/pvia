@@ -150,7 +150,7 @@ function PvList() {
   const filteredSorted = useMemo(() => {
     const q = query.trim().toLowerCase();
     const arr = items.filter((p) => {
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      if (!matchesStatusGroup(p.status, statusFilter)) return false;
       if (reserveFilter === "with" && !p.reception_with_reserves) return false;
       if (reserveFilter === "without" && p.reception_with_reserves) return false;
       if (!q) return true;
