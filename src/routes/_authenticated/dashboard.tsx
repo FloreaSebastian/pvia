@@ -33,9 +33,31 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 type Stats = { pv: number; signed: number; pending: number; openReserves: number };
-type Pv = { id: string; numero: string; status: string; created_at: string; reception_date: string | null };
+type Pv = {
+  id: string;
+  numero: string;
+  status: string;
+  created_at: string;
+  reception_date: string | null;
+  signed_at?: string | null;
+};
 type Ch = { id: string; name: string; status: string; address: string | null; created_at: string };
 type Activity = { id: string; type: "pv" | "reserve" | "chantier"; label: string; at: string };
+
+/** Libellés métier des statuts chantier — jamais la valeur technique à l'écran. */
+const CHANTIER_STATUS_LABELS: Record<string, string> = {
+  preparation: "Préparation",
+  planifie: "Planifié",
+  en_cours: "En cours",
+  en_attente: "En attente",
+  receptionne: "Réceptionné",
+  termine: "Terminé",
+  archive: "Archivé",
+};
+function chantierStatusLabel(status: string): string {
+  return CHANTIER_STATUS_LABELS[status] ?? "Statut non précisé";
+}
+
 
 /** Build a 14-day series of PV creation counts from a list of timestamps. */
 function buildDailySeries(items: { created_at: string }[], days = 14): number[] {
