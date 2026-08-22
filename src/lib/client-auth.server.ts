@@ -159,7 +159,7 @@ export function normalizeEmail(email: string): string {
 }
 
 /** Palier de réponse minimal (ms) pour la demande de code client. */
-export const CLIENT_LOGIN_MIN_RESPONSE_MS = 1200;
+export const CLIENT_LOGIN_MIN_RESPONSE_MS = 2200;
 
 /**
  * Nivelle la durée d'une réponse pour éviter les oracles temporels
