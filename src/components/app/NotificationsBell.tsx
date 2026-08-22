@@ -45,6 +45,8 @@ export function NotificationsBell() {
   }
 
   useEffect(() => {
+    // Changement d'entreprise : on purge immédiatement l'affichage précédent.
+    setItems([]);
     load();
     if (!activeCompanyId) return;
     const ch = supabase
@@ -82,10 +84,10 @@ export function NotificationsBell() {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
-          className="relative rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Notifications"
+          className="touch-target relative grid place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          aria-label={unread > 0 ? `Notifications, ${unread} non lue${unread > 1 ? "s" : ""}` : "Notifications"}
         >
-          <Bell className="h-4 w-4" />
+          <Bell className="h-5 w-5" />
           {unread > 0 && (
             <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
               {unread > 9 ? "9+" : unread}
