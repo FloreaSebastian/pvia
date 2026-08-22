@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { z } from "zod";
+import { parseInput } from "@/lib/zod-errors";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getCompanyBranding } from "./branding.server";
@@ -10,7 +11,7 @@ const GetSchema = z.object({ companyId: z.string().uuid() });
 
 export const getCompanyBrandingFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => GetSchema.parse(i))
+  .inputValidator((i) => parseInput(GetSchema, i))
   .handler(async ({ data, context }) => {
     const { data: m } = await supabaseAdmin
       .from("company_members")
@@ -77,7 +78,7 @@ const empty = (v: string | null | undefined) => (v && v.length > 0 ? v : null);
 
 export const updateCompanyBranding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => UpdateSchema.parse(i))
+  .inputValidator((i) => parseInput(UpdateSchema, i))
   .handler(async ({ data, context }) => {
     const userId = context.userId;
 
@@ -215,7 +216,7 @@ const SyncSchema = z.object({
 
 export const syncCompanyFromSiren = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => SyncSchema.parse(i))
+  .inputValidator((i) => parseInput(SyncSchema, i))
   .handler(async ({ data, context }) => {
     const userId = context.userId;
 

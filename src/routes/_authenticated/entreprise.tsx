@@ -16,6 +16,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,10 +101,14 @@ function LockedField({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <div className="flex items-center justify-between gap-2">
-        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</Label>
-        <Lock className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+        <Lock className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden="true" />
       </div>
-      <div className="mt-1 rounded-md border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-sm">
+      <div
+        role="group"
+        aria-label={`${label} (verrouillé)`}
+        className="mt-1 rounded-md border border-dashed border-border/70 bg-muted/40 px-3 py-2 text-sm"
+      >
         {value ? <span className="break-words font-medium">{value}</span> : <span className="italic text-muted-foreground">Non renseigné</span>}
       </div>
     </div>
@@ -603,8 +618,14 @@ function CompanyPage() {
                 <ShieldCheck className="h-4 w-4 text-emerald-600" /> Informations officielles
               </h2>
               {editable && (
-                <Button size="sm" variant="outline" className="shrink-0" onClick={openSync}>
-                  <RefreshCw className="h-3.5 w-3.5" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-11 shrink-0 sm:h-9"
+                  onClick={openSync}
+                  aria-label={company.company_verified ? "Resynchroniser les informations officielles" : "Valider l'entreprise via SIRET"}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">{company.company_verified ? "Resynchroniser" : "Valider via SIRET"}</span>
                 </Button>
               )}
@@ -651,46 +672,46 @@ function CompanyPage() {
             <p className="mb-4 text-xs text-muted-foreground">Modifiables à tout moment. Utilisées sur les communications clients.</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label className="text-xs">Téléphone</Label>
+                <Label htmlFor="company-phone" className="text-xs">Téléphone</Label>
                 <div className="relative mt-1">
                   <Phone className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input disabled={!editable} className="pl-9" value={contact.phone}
+                  <Input id="company-phone" inputMode="tel" autoComplete="tel" disabled={!editable} className="h-11 pl-9 sm:h-10" value={contact.phone}
                     onChange={(e) => setContact({ ...contact, phone: e.target.value })} placeholder="01 23 45 67 89" />
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Email</Label>
+                <Label htmlFor="company-email" className="text-xs">Email</Label>
                 <div className="relative mt-1">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input type="email" disabled={!editable} className="pl-9" value={contact.email}
+                  <Input id="company-email" type="email" inputMode="email" autoComplete="email" disabled={!editable} className="h-11 pl-9 sm:h-10" value={contact.email}
                     onChange={(e) => setContact({ ...contact, email: e.target.value })} placeholder="contact@entreprise.fr" />
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-xs">Site web</Label>
+                <Label htmlFor="company-website" className="text-xs">Site web</Label>
                 <div className="relative mt-1">
                   <Globe className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input disabled={!editable} className="pl-9" placeholder="https://…" value={contact.website}
+                  <Input id="company-website" inputMode="url" disabled={!editable} className="h-11 pl-9 sm:h-10" placeholder="https://…" value={contact.website}
                     onChange={(e) => setContact({ ...contact, website: e.target.value })} />
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-xs">Complément d'adresse</Label>
+                <Label htmlFor="company-address_line2" className="text-xs">Complément d'adresse</Label>
                 <div className="relative mt-1">
                   <MapPin className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input disabled={!editable} className="pl-9" placeholder="Bâtiment, étage, BP…" value={contact.address_line2}
+                  <Input id="company-address_line2" disabled={!editable} className="h-11 pl-9 sm:h-10" placeholder="Bâtiment, étage, BP…" value={contact.address_line2}
                     onChange={(e) => setContact({ ...contact, address_line2: e.target.value })} />
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Pays</Label>
-                <Input disabled={!editable} className="mt-1" value={contact.country}
+                <Label htmlFor="company-country" className="text-xs">Pays</Label>
+                <Input id="company-country" disabled={!editable} className="mt-1 h-11 sm:h-10" value={contact.country}
                   onChange={(e) => setContact({ ...contact, country: e.target.value })} />
               </div>
             </div>
             {editable && (
               <div className="mt-5 flex justify-end">
-                <Button onClick={saveContact} disabled={savingContact}>
+                <Button onClick={saveContact} disabled={savingContact} aria-busy={savingContact} className="h-11 w-full sm:w-auto">
                   {savingContact ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Enregistrer
                 </Button>
@@ -754,7 +775,7 @@ function CompanyPage() {
               <p className="text-xs text-muted-foreground">
                 Pour des raisons de sécurité, un changement d'entreprise nécessite une intervention manuelle de l'équipe PVIA.
               </p>
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => setChangeOpen(true)}>
+              <Button variant="outline" size="sm" className="mt-3 h-11 w-full sm:h-9 sm:w-auto" onClick={() => setChangeOpen(true)}>
                 <Send className="h-3.5 w-3.5" /> Demander un changement
               </Button>
             </Card>
@@ -806,7 +827,8 @@ function CompanyPage() {
                 <div>
                   <Label className="text-xs">Zoom</Label>
                   <Slider
-                    className="mt-2"
+                    aria-label="Zoom de l'image"
+                    className="mt-2 py-3"
                     min={1}
                     max={3}
                     step={0.05}
@@ -818,7 +840,8 @@ function CompanyPage() {
                   <div>
                     <Label className="text-xs">Déplacement horizontal</Label>
                     <Slider
-                      className="mt-2"
+                      aria-label="Déplacement horizontal de l'image"
+                      className="mt-2 py-3"
                       min={-160}
                       max={160}
                       step={1}
@@ -829,7 +852,8 @@ function CompanyPage() {
                   <div>
                     <Label className="text-xs">Déplacement vertical</Label>
                     <Slider
-                      className="mt-2"
+                      aria-label="Déplacement vertical de l'image"
+                      className="mt-2 py-3"
                       min={-160}
                       max={160}
                       step={1}
@@ -878,8 +902,10 @@ function CompanyPage() {
 
           {syncStep === 1 && (
             <div className="space-y-3">
-              <Label className="text-xs">SIREN (9 chiffres) ou SIRET (14 chiffres)</Label>
+              <Label htmlFor="sync-siret" className="text-xs">SIREN (9 chiffres) ou SIRET (14 chiffres)</Label>
               <Input
+                id="sync-siret"
+                className="h-11 sm:h-10"
                 value={syncQuery}
                 disabled={sirenSiretLocked}
                 onChange={(e) => setSyncQuery(e.target.value.replace(/\D/g, "").slice(0, 14))}
@@ -934,24 +960,24 @@ function CompanyPage() {
           )}
 
           <DialogFooter className="flex-row justify-between sm:justify-between">
-            <Button variant="ghost" size="sm" onClick={() => setSyncOpen(false)}>Annuler</Button>
+            <Button variant="ghost" size="sm" className="h-11 sm:h-9" onClick={() => setSyncOpen(false)}>Annuler</Button>
             <div className="flex gap-2">
               {syncStep > 1 && (
-                <Button variant="outline" size="sm" onClick={() => setSyncStep((syncStep - 1) as 1 | 2 | 3)} disabled={syncBusy}>
+                <Button variant="outline" size="sm" className="h-11 sm:h-9" onClick={() => setSyncStep((syncStep - 1) as 1 | 2 | 3)} disabled={syncBusy}>
                   Retour
                 </Button>
               )}
               {syncStep === 1 && (
-                <Button size="sm" onClick={runPreview} disabled={syncBusy || syncQuery.length < 9}>
+                <Button size="sm" className="h-11 sm:h-9" onClick={runPreview} disabled={syncBusy || syncQuery.length < 9} aria-busy={syncBusy}>
                   {syncBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Rechercher
                 </Button>
               )}
               {syncStep === 2 && (
-                <Button size="sm" onClick={() => setSyncStep(3)}>Continuer</Button>
+                <Button size="sm" className="h-11 sm:h-9" onClick={() => setSyncStep(3)}>Continuer</Button>
               )}
               {syncStep === 3 && (
-                <Button size="sm" onClick={confirmSync} disabled={syncBusy}>
+                <Button size="sm" className="h-11 sm:h-9" onClick={confirmSync} disabled={syncBusy} aria-busy={syncBusy}>
                   {syncBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                   Confirmer
                 </Button>
@@ -978,18 +1004,20 @@ function CompanyPage() {
               <p><span className="text-muted-foreground">SIRET actuel :</span> <span className="font-mono font-medium">{company.siret || "—"}</span></p>
             </div>
             <div>
-              <Label className="text-xs">Nouveau SIRET souhaité</Label>
+              <Label htmlFor="change-siret" className="text-xs">Nouveau SIRET souhaité</Label>
               <Input
+                id="change-siret"
                 inputMode="numeric"
                 value={changeNewSiret}
                 onChange={(e) => setChangeNewSiret(e.target.value.replace(/\D/g, "").slice(0, 14))}
                 placeholder="14 chiffres"
-                className="mt-1"
+                className="mt-1 h-11 sm:h-10"
               />
             </div>
             <div>
-              <Label className="text-xs">Motif</Label>
+              <Label htmlFor="change-reason" className="text-xs">Motif</Label>
               <Textarea
+                id="change-reason"
                 rows={4}
                 value={changeReason}
                 onChange={(e) => setChangeReason(e.target.value)}
@@ -999,8 +1027,13 @@ function CompanyPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setChangeOpen(false)}>Annuler</Button>
-            <Button onClick={submitChange} disabled={changeBusy || changeNewSiret.length !== 14 || changeReason.trim().length < 20}>
+            <Button variant="ghost" className="h-11 sm:h-10" onClick={() => setChangeOpen(false)}>Annuler</Button>
+            <Button
+              className="h-11 sm:h-10"
+              onClick={submitChange}
+              aria-busy={changeBusy}
+              disabled={changeBusy || changeNewSiret.length !== 14 || changeReason.trim().length < 20}
+            >
               {changeBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Envoyer la demande
             </Button>
@@ -1046,21 +1079,62 @@ function VisualBlock({
           : placeholder}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline" disabled={!editable || busy}>
-          <label className="cursor-pointer">
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} {url ? "Changer" : "Ajouter"}
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          disabled={!editable || busy}
+          className={!editable || busy ? "pointer-events-none opacity-50" : undefined}
+        >
+          <label className="h-11 cursor-pointer sm:h-9">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Upload className="h-3.5 w-3.5" aria-hidden="true" />}
+            {url ? "Changer" : "Ajouter"}
+            <span className="sr-only"> — {title}</span>
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
+              disabled={!editable || busy}
+              aria-label={`${url ? "Changer" : "Ajouter"} : ${title}`}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void onUpload(file);
+              }}
             />
           </label>
         </Button>
         {url && editable && (
-          <Button size="sm" variant="ghost" onClick={onRemove} disabled={busy} className="text-destructive hover:text-destructive">
-            <Trash2 className="h-3.5 w-3.5" /> Supprimer
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                className="h-11 text-destructive hover:text-destructive sm:h-9"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Supprimer
+                <span className="sr-only"> — {title}</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer {title.toLowerCase()} ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette image sera retirée de vos documents et communications. Vous pourrez en ajouter une nouvelle à tout moment.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="h-11 sm:h-10">Annuler</AlertDialogCancel>
+                <AlertDialogAction
+                  className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:h-10"
+                  onClick={() => void onRemove()}
+                >
+                  Supprimer
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
       <p className="text-[10.5px] text-muted-foreground">{hint}</p>

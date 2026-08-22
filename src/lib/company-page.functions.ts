@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { parseInput } from "@/lib/zod-errors";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { isAdminRole } from "@/lib/roles";
@@ -34,7 +35,7 @@ const TRACKED_ACTIONS = [
 
 export const getCompanyHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => HistorySchema.parse(i))
+  .inputValidator((i) => parseInput(HistorySchema, i))
   .handler(async ({ data, context }) => {
     const { data: m } = await supabaseAdmin
       .from("company_members")
@@ -76,7 +77,7 @@ const ChangeRequestSchema = z.object({
 
 export const requestCompanyChange = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => ChangeRequestSchema.parse(i))
+  .inputValidator((i) => parseInput(ChangeRequestSchema, i))
   .handler(async ({ data, context }) => {
     const userId = context.userId;
 
