@@ -135,7 +135,7 @@ function BillingPage() {
               Création PV, signatures distantes, exports et invitations sont bloqués
               tant que l'abonnement n'est pas régularisé. La lecture des anciens PV reste possible.
             </p>
-            <Button asChild size="sm" className="mt-3">
+            <Button asChild size="sm" className="mt-3 min-h-[44px]">
               <Link to="/upgrade-required" search={{ reason: access.state }}>Voir les options</Link>
             </Button>
           </div>
@@ -177,7 +177,7 @@ function BillingPage() {
           </div>
 
           {canManage && subscription?.stripe_customer_id && (
-            <Button variant="outline" onClick={handlePortal} disabled={busy === "portal"} className="shadow-sm">
+            <Button variant="outline" onClick={handlePortal} disabled={busy === "portal"} className="min-h-[44px] shadow-sm">
               {busy === "portal" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
               Gérer mon abonnement
               <ExternalLink className="ml-2 h-3 w-3" />
@@ -222,7 +222,7 @@ function BillingPage() {
                 type="button"
                 onClick={() => setBillingInterval(i)}
                 aria-pressed={billingInterval === i}
-                className={`min-h-[36px] rounded-full px-4 text-sm font-medium transition ${
+                className={`min-h-[44px] rounded-full px-4 text-sm font-medium transition ${
                   billingInterval === i
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -338,7 +338,14 @@ function BillingPage() {
 
 
       <div className="text-xs text-muted-foreground">
-        Paiement sécurisé par Stripe. <button className="underline" onClick={() => refetch()}>Rafraîchir</button>
+        Paiement sécurisé par Stripe.{" "}
+        <button
+          type="button"
+          className="inline-flex min-h-[44px] items-center px-2 underline"
+          onClick={() => refetch()}
+        >
+          Rafraîchir
+        </button>
       </div>
     </div>
   );
