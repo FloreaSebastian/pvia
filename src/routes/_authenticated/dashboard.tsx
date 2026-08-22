@@ -340,9 +340,10 @@ function Dashboard() {
                   <k.icon className="h-4 w-4" />
                 </div>
               </div>
-              <div className={`relative mt-4 h-10 ${k.tone}`}>
+              <div className={`relative mt-4 h-10 ${k.tone}`} role="img" aria-label={k.sparkLabel}>
                 <Sparkline values={k.spark} />
               </div>
+
             </Card>
           </motion.div>
         ))}
