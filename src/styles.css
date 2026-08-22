@@ -446,3 +446,95 @@ html[data-density="compact"] body {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+
+@layer components {
+  /*
+   * Direction éditoriale — homepage publique uniquement.
+   * Palette papier/encre, serif d'affichage, angles sobres.
+   * Portée par la classe .landing-editorial pour ne pas affecter l'app.
+   */
+  .landing-editorial {
+    --radius: 0.375rem;
+
+    --background: oklch(0.965 0.006 85);
+    --foreground: oklch(0.30 0.004 60);
+    --card: oklch(0.988 0.004 85);
+    --card-foreground: oklch(0.30 0.004 60);
+    --popover: oklch(0.988 0.004 85);
+    --popover-foreground: oklch(0.30 0.004 60);
+
+    --brand-navy: oklch(0.22 0.003 60);
+    --brand-navy-deep: oklch(0.16 0.002 60);
+    --brand-ink: oklch(0.16 0.002 60);
+
+    --primary: oklch(0.22 0.003 60);
+    --primary-foreground: oklch(0.97 0.006 85);
+
+    --secondary: oklch(0.925 0.008 82);
+    --secondary-foreground: oklch(0.26 0.004 60);
+    --muted: oklch(0.930 0.008 82);
+    --muted-foreground: oklch(0.505 0.008 70);
+    --accent: oklch(0.915 0.010 80);
+    --accent-foreground: oklch(0.24 0.004 60);
+
+    --border: oklch(0.878 0.010 80);
+    --input: oklch(0.878 0.010 80);
+    --ring: oklch(0.30 0.004 60);
+
+
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  .landing-editorial h1:not(.uppercase),
+  .landing-editorial h2:not(.uppercase),
+  .landing-editorial h3:not(.uppercase) {
+    font-family: "Instrument Serif", "Sora", Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  .landing-editorial .font-display {
+    font-weight: 400;
+  }
+
+  /* Le serif porte mieux en plus grand : on relève l'échelle des titres. */
+  .landing-editorial h1 { line-height: 1.02; }
+  .landing-editorial h2 { line-height: 1.08; }
+
+  .landing-editorial .bg-radial-fade {
+    background: radial-gradient(ellipse 90% 60% at top, oklch(0.90 0.012 80 / 0.9), transparent 70%);
+  }
+
+  .landing-editorial .glass {
+    background: oklch(0.965 0.006 85 / 0.85);
+  }
+
+  .landing-editorial .text-gradient,
+  .landing-editorial .text-gradient-brand {
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: var(--foreground);
+  }
+
+  .landing-editorial .shadow-elevation-sm,
+  .landing-editorial .shadow-elevation-md { box-shadow: none; }
+  .landing-editorial .shadow-elevation-lg { box-shadow: 0 10px 28px -18px oklch(0.16 0.002 60 / 0.5); }
+  .landing-editorial .shadow-elevation-xl { box-shadow: 0 24px 60px -28px oklch(0.16 0.002 60 / 0.55); }
+  .landing-editorial .shadow-brand { box-shadow: 0 10px 24px -14px oklch(0.16 0.002 60 / 0.45); }
+
+  .landing-editorial ::selection {
+    background: oklch(0.16 0.002 60 / 0.14);
+  }
+}
+
+/* Typographie éditoriale — hors layer pour primer sur les utilitaires Tailwind. */
+.landing-editorial h1:not(.uppercase),
+.landing-editorial h2:not(.uppercase),
+.landing-editorial h3:not(.uppercase) {
+  font-family: "Instrument Serif", "Sora", Georgia, serif;
+  font-weight: 400;
+}
+.landing-editorial h1 { line-height: 1.02; }
+.landing-editorial h2 { line-height: 1.08; }
