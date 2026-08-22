@@ -1,15 +1,21 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { Menu, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Logo } from "@/components/landing/Logo";
 
-const nav: { label: string; href: string; to?: string }[] = [
-  { label: "Pourquoi PVIA", href: "/#why" },
-  { label: "Fonctionnalités", href: "/#features" },
-  { label: "Tarifs", href: "/tarifs", to: "/tarifs" },
-  { label: "Sécurité", href: "/securite", to: "/securite" },
-  { label: "Avis clients", href: "/#testimonials" },
+const nav: { label: string; href: string }[] = [
+  { label: "Fonctionnalités", href: "/#fonctionnalites" },
+  { label: "Comment ça marche", href: "/#comment-ca-marche" },
+  { label: "Tarifs", href: "/tarifs" },
 ];
 
 export function Header() {
@@ -19,20 +25,20 @@ export function Header() {
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
-    window.addEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all ${
-        scrolled ? "glass border-b border-border/60" : "bg-transparent"
+      className={`fixed inset-x-0 top-0 z-50 transition-colors ${
+        scrolled ? "glass border-b border-border/60" : "border-b border-transparent bg-transparent"
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Logo withBaseline />
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <Logo className="min-w-0 shrink" />
 
-        <nav className="hidden items-center gap-8 lg:flex">
+        <nav aria-label="Navigation principale" className="hidden items-center gap-7 lg:flex">
           {nav.map((i) => (
             <a
               key={i.href}
@@ -45,47 +51,61 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" className="min-h-11" asChild>
             <Link to="/login">Connexion</Link>
           </Button>
-          <Button size="sm" className="shadow-brand" asChild>
-            <Link to="/signup">Créer mon premier PV <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
+          <Button size="sm" className="min-h-11 shadow-elevation-md" asChild>
+            <Link to="/signup">
+              Essayer gratuitement <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </Link>
           </Button>
         </div>
 
-        <button
-          onClick={() => setOpen(!open)}
-          className="rounded-md p-2 lg:hidden"
-          aria-label="Toggle menu"
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="min-h-11 min-w-11 lg:hidden"
+              aria-label="Ouvrir le menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[min(20rem,88vw)] p-0">
+            <SheetHeader className="border-b border-border px-5 py-4 text-left">
+              <SheetTitle className="text-base">Menu</SheetTitle>
+            </SheetHeader>
+            <nav aria-label="Navigation mobile" className="flex flex-col gap-1 p-4">
+              {nav.map((i) => (
+                <SheetClose asChild key={i.href}>
+                  <a
+                    href={i.href}
+                    className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-foreground hover:bg-muted"
+                  >
+                    {i.label}
+                  </a>
+                </SheetClose>
+              ))}
+              <div className="mt-3 space-y-2 border-t border-border pt-4">
+                <SheetClose asChild>
+                  <Button variant="outline" className="min-h-11 w-full" asChild>
+                    <Link to="/login">Connexion</Link>
+                  </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Button className="min-h-12 w-full" asChild>
+                    <Link to="/signup">Essayer gratuitement</Link>
+                  </Button>
+                </SheetClose>
+              </div>
+              <p className="px-3 pt-2 text-xs text-muted-foreground">
+                14 jours gratuits · Sans engagement
+              </p>
+            </nav>
+          </SheetContent>
+        </Sheet>
       </div>
-
-      {open && (
-        <div className="border-t border-border/60 bg-background/95 backdrop-blur lg:hidden">
-          <div className="space-y-1 px-4 py-4">
-            {nav.map((i) => (
-              <a
-                key={i.href}
-                href={i.href}
-                onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                {i.label}
-              </a>
-            ))}
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link to="/login">Connexion</Link>
-              </Button>
-              <Button size="sm" className="flex-1" asChild>
-                <Link to="/signup">Essai gratuit</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
