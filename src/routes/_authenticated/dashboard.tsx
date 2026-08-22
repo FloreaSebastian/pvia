@@ -20,7 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatedCounter } from "@/components/app/AnimatedCounter";
-import { PvStatusPill } from "@/components/ui/status-pill";
+import { PvStatusPill, StatusPill, isKnownPvStatus } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Sparkline } from "@/components/app/Sparkline";
 import { useCompany } from "@/hooks/use-company";
