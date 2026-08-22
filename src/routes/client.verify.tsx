@@ -126,7 +126,7 @@ function ClientVerify() {
         <Link to="/client/login" className="mb-6 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Modifier l'email
         </Link>
-        <Card className="border-border/60 p-7 shadow-brand">
+        <Card className="border-border/60 p-5 shadow-brand sm:p-7">
           <div className="mb-6 flex items-center gap-3">
             <BrandLogo variant="compact" />
             <div className="border-l border-border/60 pl-3">
@@ -147,12 +147,12 @@ function ClientVerify() {
               containerClassName="gap-2"
             >
               <InputOTPGroup>
-                <InputOTPSlot index={0} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
-                <InputOTPSlot index={1} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
-                <InputOTPSlot index={2} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
-                <InputOTPSlot index={3} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
-                <InputOTPSlot index={4} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
-                <InputOTPSlot index={5} className="h-12 w-9 text-base xs:w-10 sm:h-10 sm:text-sm" />
+                <InputOTPSlot index={0} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={1} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={2} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={3} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={4} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
+                <InputOTPSlot index={5} className="h-12 w-8 text-base min-[360px]:w-10 sm:h-11" />
               </InputOTPGroup>
             </InputOTP>
           </div>
