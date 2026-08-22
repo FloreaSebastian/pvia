@@ -1018,7 +1018,23 @@ function ReservesPage() {
       </Dialog>
 
       {/* Delete confirmation (replaces window.confirm) */}
-      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o && !deleting) setConfirmDelete(null); }}>
+      <AlertDialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => {
+          if (o || deleting) return;
+          // Le dialogue est monté au niveau page : Radix ne peut pas rendre le focus
+          // au bouton « Plus d'actions » de la carte. On le restaure manuellement,
+          // sinon le focus retombe sur <body> (navigation clavier perdue).
+          const id = confirmDelete?.ids.length === 1 ? confirmDelete.ids[0] : null;
+          setConfirmDelete(null);
+          requestAnimationFrame(() => {
+            const el = id
+              ? document.querySelector<HTMLElement>(`[data-more-trigger="${id}"]`)
+              : document.querySelector<HTMLElement>("[data-bulk-delete]");
+            el?.focus();
+          });
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
