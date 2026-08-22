@@ -72,7 +72,13 @@ export function ClientShell({
             <span className="hidden max-w-[160px] truncate text-xs text-muted-foreground md:inline">
               {email}
             </span>
-            <Button size="sm" variant="ghost" onClick={onLogout} className="gap-1.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onLogout}
+              aria-label="Se déconnecter de l'espace client"
+              className="h-11 gap-1.5 sm:h-9"
+            >
               <LogOut className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Se déconnecter</span>
             </Button>

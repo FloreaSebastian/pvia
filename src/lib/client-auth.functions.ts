@@ -430,7 +430,10 @@ export const getClientPvDetail = createServerFn({ method: "POST" })
       actor: "client",
     });
 
-    return { pv, company, chantier, reserves: reserves ?? [], photos: signedPhotos };
+    // Ne jamais renvoyer de données sensibles au navigateur du client externe
+    const { sign_token: _t, company_id: _c, client_id: _cl, chantier_id: _ch, ...safePv } = pv as any;
+
+    return { pv: safePv, company, chantier, reserves: reserves ?? [], photos: signedPhotos };
   });
 
 export const getClientPdfSignedUrl = createServerFn({ method: "POST" })
