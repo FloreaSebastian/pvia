@@ -165,3 +165,49 @@ export function assertStripeEnvConsistent(env: StripeEnv): void {
   }
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Sanitisation des erreurs Stripe (P0 audit billing).
+ * Le détail technique reste dans les logs serveur ; le client ne reçoit
+ * qu'un message métier neutre en français.
+ * ------------------------------------------------------------------ */
+
+/** Motifs techniques qui ne doivent JAMAIS atteindre le navigateur. */
+const TECHNICAL_LEAK_PATTERNS = [
+  /\bcus_[A-Za-z0-9]+/,
+  /\bsub_[A-Za-z0-9]+/,
+  /\bprice_[A-Za-z0-9]+/,
+  /\bprod_[A-Za-z0-9]+/,
+  /\bcs_(test|live)_[A-Za-z0-9]+/,
+  /\bin_[A-Za-z0-9]{10,}/,
+  /\bpi_[A-Za-z0-9]{10,}/,
+  /\bwhsec_[A-Za-z0-9]+/,
+  /\bsk_(test|live)_/,
+  /\breq_[A-Za-z0-9]{6,}/,
+  /No such /i,
+  /StripeError|StripeInvalidRequestError|api\.stripe\.com/i,
+  /PGRST|service_role|supabase|jwt/i,
+  /ZodError|"issues"/i,
+  /lookup_key/i,
+];
+
+export function containsTechnicalLeak(message: string): boolean {
+  return TECHNICAL_LEAK_PATTERNS.some((r) => r.test(message));
+}
+
+/**
+ * Journalise l'erreur brute côté serveur et renvoie une Error portant un
+ * message métier neutre, sûr à afficher côté client.
+ */
+export function sanitizeStripeError(error: unknown, fallback: string): Error {
+  const raw = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  console.error("[billing] erreur Stripe (détail serveur uniquement):", raw);
+  return new Error(fallback);
+}
+
+/** Messages métier standardisés. */
+export const BILLING_MESSAGES = {
+  checkout: "Impossible de démarrer le paiement pour le moment. Réessayez dans quelques instants.",
+  portal: "Impossible d'ouvrir la gestion de votre abonnement pour le moment. Réessayez dans quelques instants.",
+  generic: "Une erreur est survenue sur la facturation. Réessayez dans quelques instants.",
+} as const;
