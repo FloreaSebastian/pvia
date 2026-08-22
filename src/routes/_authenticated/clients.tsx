@@ -352,10 +352,74 @@ function ClientsPage() {
               <Sparkles className="h-3.5 w-3.5" /> Import IA
             </Button>
           )}
+          {canWrite && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" aria-label="Exporter les clients">
+                  <Download className="h-3.5 w-3.5" /> Exporter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Exporter en CSV</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => exportCsv("filtered")}>
+                  Vue actuelle ({filtered.length})
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportCsv("active")}>
+                  Tous les clients actifs
+                </DropdownMenuItem>
+                {(canAdmin || archivedCount > 0) && (
+                  <DropdownMenuItem onSelect={() => exportCsv("archived")}>
+                    Clients archivés ({archivedCount})
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <div className="rounded-lg border border-border bg-card p-1 inline-flex">
+            <button type="button" onClick={() => setView("grid")} className={cn("inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition", view === "grid" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} aria-label="Vue grille">
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => setView("list")} className={cn("inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition", view === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} aria-label="Vue liste">
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile action row — always visible, no horizontal scroll.
+          Réservé aux rôles de gestion : la lecture seule n'a ni création,
+          ni import, ni export de masse du fichier clients. */}
+      {canWrite && (
+        <div className="grid grid-cols-3 gap-2 sm:hidden" data-testid="clients-actions-mobile">
+          <Button
+            size="sm"
+            onClick={openNew}
+            className="h-11 w-full gap-1.5 shadow-brand"
+            data-testid="clients-new-button"
+          >
+            <Plus className="h-4 w-4" /> Nouveau
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+            className="h-11 w-full gap-1.5"
+            data-testid="clients-import-button"
+            aria-label="Importer des clients avec l'IA"
+          >
+            <Sparkles className="h-4 w-4" /> Import
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5" aria-label="Exporter les clients">
-                <Download className="h-3.5 w-3.5" /> Exporter
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11 w-full gap-1.5"
+                data-testid="clients-export-button"
+                aria-label="Exporter les clients"
+              >
+                <Download className="h-4 w-4" /> Export
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -374,70 +438,8 @@ function ClientsPage() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          <div className="rounded-lg border border-border bg-card p-1 inline-flex">
-            <button type="button" onClick={() => setView("grid")} className={cn("inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition", view === "grid" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} aria-label="Vue grille">
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" onClick={() => setView("list")} className={cn("inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition", view === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} aria-label="Vue liste">
-              <List className="h-3.5 w-3.5" />
-            </button>
-          </div>
         </div>
-      </div>
-
-      {/* Mobile action row — always visible, no horizontal scroll */}
-      <div className="grid grid-cols-3 gap-2 sm:hidden" data-testid="clients-actions-mobile">
-        {canWrite ? (
-          <Button
-            size="sm"
-            onClick={openNew}
-            className="h-11 w-full gap-1.5 shadow-brand"
-            data-testid="clients-new-button"
-          >
-            <Plus className="h-4 w-4" /> Nouveau
-          </Button>
-        ) : <span />}
-        {canWrite ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setImportOpen(true)}
-            className="h-11 w-full gap-1.5"
-            data-testid="clients-import-button"
-            aria-label="Importer des clients avec l'IA"
-          >
-            <Sparkles className="h-4 w-4" /> Import
-          </Button>
-        ) : <span />}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-11 w-full gap-1.5"
-              data-testid="clients-export-button"
-              aria-label="Exporter les clients"
-            >
-              <Download className="h-4 w-4" /> Export
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Exporter en CSV</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => exportCsv("filtered")}>
-              Vue actuelle ({filtered.length})
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => exportCsv("active")}>
-              Tous les clients actifs
-            </DropdownMenuItem>
-            {(canAdmin || archivedCount > 0) && (
-              <DropdownMenuItem onSelect={() => exportCsv("archived")}>
-                Clients archivés ({archivedCount})
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      )}
 
       {/* Mobile filters — single scrollable row (filters only) */}
       <div className="-mx-4 px-4 sm:hidden" data-testid="clients-filters-mobile">
