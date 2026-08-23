@@ -87,9 +87,50 @@ export const sendPvToClient = createServerFn({ method: "POST" })
     const [{ data: company }, { data: client }] = await Promise.all([
       supabaseAdmin.from("companies").select("name").eq("id", pv.company_id!).maybeSingle(),
       pv.client_id
-        ? supabaseAdmin.from("clients").select("name").eq("id", pv.client_id).maybeSingle()
+        ? supabaseAdmin
+            .from("clients")
+            .select("name,email,client_identity_id")
+            .eq("id", pv.client_id)
+            .maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
+
+    // Activation automatique au premier envoi : on résout (ou crée) l'identité
+    // Espace Client du destinataire et on répare la relation si nécessaire.
+    // Aucune donnée cross-entreprise n'est lue ni exposée ici.
+    const recipientEmail = data.email.toLowerCase();
+    const { resolveIdentityId } = await import("@/lib/client-identity.server");
+    const identityId = await resolveIdentityId(recipientEmail);
+    let firstTime = true;
+    if (identityId) {
+      const { data: identity } = await supabaseAdmin
+        .from("client_identities")
+        .select("id,status,activated_at")
+        .eq("id", identityId)
+        .maybeSingle();
+      firstTime = !(identity as any)?.activated_at;
+      if ((identity as any)?.status === "pending") {
+        await supabaseAdmin
+          .from("client_identities")
+          .update({ status: "invited", invited_at: new Date().toISOString() } as never)
+          .eq("id", identityId);
+      }
+      if (pv.client_id && (client as any) && !(client as any).client_identity_id) {
+        await supabaseAdmin
+          .from("clients")
+          .update({ client_identity_id: identityId } as never)
+          .eq("id", pv.client_id)
+          .eq("company_id", pv.company_id!);
+      }
+      if (pv.client_id) {
+        await supabaseAdmin
+          .from("clients")
+          .update({ portal_invited_at: new Date().toISOString() } as never)
+          .eq("id", pv.client_id)
+          .eq("company_id", pv.company_id!);
+      }
+    }
+
 
     const token = generateSignToken();
     const tokenHash = await sha256Hex(token);
