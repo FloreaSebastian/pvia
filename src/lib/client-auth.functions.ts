@@ -455,7 +455,7 @@ export const getClientPvList = createServerFn({ method: "GET" }).handler(async (
   const { data, error } = await supabaseAdmin
     .from("pv")
     .select(
-      "id,numero,status,type,reception_date,signed_at,sent_to_client_at,created_at,pdf_url,sign_token_expires_at,client_signature,company_id,chantier_id",
+      "id,numero,status,type,reception_date,signed_at,sent_to_client_at,created_at,pdf_url,sign_token_expires_at,client_signature,company_id,client_id,sent_to_email,chantier_id",
     )
     // Un brouillon n'a jamais été adressé au client : il ne doit pas apparaître.
     .neq("status", "brouillon")
@@ -467,7 +467,10 @@ export const getClientPvList = createServerFn({ method: "GET" }).handler(async (
     throw new Error("Impossible de charger vos procès-verbaux pour le moment.");
   }
 
-  const rows = data ?? [];
+  // Autorisation définitive ligne par ligne (le `.or()` SQL reste permissif sur
+  // le chemin email de compatibilité et ignore les suspensions).
+  const rows = (data ?? []).filter((r: any) => isPvInScope(r, scope));
+
   const companyIds = rows.map((r: any) => r.company_id).filter(Boolean) as string[];
   const chantierIds = Array.from(new Set(rows.map((r: any) => r.chantier_id).filter(Boolean))) as string[];
   const [companyNames, chantierRows] = await Promise.all([
