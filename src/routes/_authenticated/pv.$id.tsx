@@ -1068,7 +1068,11 @@ function PvDetail() {
                   </div>
                   <p className="mt-1 truncate font-medium">{l.recipient_email}</p>
                   {l.subject && <p className="truncate text-xs text-muted-foreground">{l.subject}</p>}
-                  {l.error_message && <p className="mt-1 text-xs text-destructive">{l.error_message}</p>}
+                  {l.error_message && (
+                    <p className="mt-1 text-xs text-destructive break-words" title={l.error_message}>
+                      {friendlyEmailError(l.error_message)}
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0 text-right text-xs text-muted-foreground">
                   {new Date(l.sent_at || l.created_at).toLocaleString("fr-FR")}
