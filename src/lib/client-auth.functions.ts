@@ -412,11 +412,12 @@ export const logoutClientSession = createServerFn({ method: "POST" }).handler(as
 });
 
 // ─── data access (scoped) ─────────────────────────────────────────────────────
-async function requireSession() {
-  const s = await loadSessionFromCookie();
-  if (!s) throw new Error("Session expirée. Reconnectez-vous.");
-  return s;
-}
+/** Périmètre autorisé : identité globale → relations clients → documents. */
+const requireSession = requireClientScope;
+
+/** Statuts de levée sur lesquels le client a réellement une action à faire. */
+const LIFT_CLIENT_ACTIONABLE = new Set<string>([...LIFT_SIGNED_STATUSES]);
+
 
 /**
  * Documents accessibles au client connecté, toutes entreprises confondues.
