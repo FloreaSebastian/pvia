@@ -226,6 +226,13 @@ function ClientHistorique() {
                             </Link>
                           </>
                         )}
+                        {e.companyName && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="[overflow-wrap:anywhere]">{e.companyName}</span>
+                          </>
+                        )}
+
                       </div>
                     </div>
                   </li>
