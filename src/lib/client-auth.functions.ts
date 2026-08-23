@@ -419,78 +419,125 @@ async function requireSession() {
 }
 
 /**
- * Liste des PV du client connecté.
+ * Documents accessibles au client connecté, toutes entreprises confondues.
  *
- * Le serveur fait autorité : il calcule les états dérivés (isSigned / canSign /
- * signExpired) et n'expose AUCUNE donnée interne au navigateur du client
- * externe (sign_token, sign_token_expires_at, company_id, chantier_id,
- * client_id, pdf_url/chemin de stockage...).
+ * Le serveur fait autorité : il résout identité → relations → PV, calcule les
+ * états dérivés (isSigned / canSign / signExpired) et n'expose AUCUNE donnée
+ * interne (sign_token, company_id/chantier_id/client_id, chemin de stockage).
+ * L'entreprise émettrice est identifiée par son nom + une clé opaque servant
+ * uniquement au filtre de l'interface.
  */
 const CLIENT_SIGNABLE_STATUSES = new Set(["en_attente", "en_attente_signature", "envoye"]);
 
 export const getClientPvList = createServerFn({ method: "GET" }).handler(async () => {
-  const s = await requireSession();
-  // Match par client_id quand disponible, sinon par sent_to_email
-  let query = supabaseAdmin
+  const scope = await requireClientScope();
+
+  const filters: string[] = [];
+  if (scope.clientIds.length) filters.push(`client_id.in.(${scope.clientIds.join(",")})`);
+  // Compat anciens PV adressés par email sans relation établie.
+  filters.push(`sent_to_email.eq."${scope.email.replace(/"/g, "")}"`);
+
+  const { data, error } = await supabaseAdmin
     .from("pv")
     .select(
-      "id,numero,status,type,reception_date,signed_at,sent_to_client_at,created_at,pdf_url,sign_token_expires_at,client_signature",
+      "id,numero,status,type,reception_date,signed_at,sent_to_client_at,created_at,pdf_url,sign_token_expires_at,client_signature,company_id,chantier_id",
     )
     // Un brouillon n'a jamais été adressé au client : il ne doit pas apparaître.
     .neq("status", "brouillon")
+    .or(filters.join(","))
     .order("created_at", { ascending: false })
     .limit(200);
-  if (s.clientId) {
-    query = query.or(`client_id.eq.${s.clientId},sent_to_email.eq."${s.email.replace(/"/g, "")}"`);
-  } else {
-    query = query.eq("sent_to_email", s.email);
-  }
-  const { data, error } = await query;
   if (error) {
     console.error("getClientPvList failed:", error);
     throw new Error("Impossible de charger vos procès-verbaux pour le moment.");
   }
-  const now = Date.now();
-  const pvs = (data ?? []).map((pv: any) => {
-    const isSigned = pv.status === "signe" || !!pv.client_signature || !!pv.signed_at;
-    const signExpired =
-      !!pv.sign_token_expires_at && new Date(pv.sign_token_expires_at).getTime() < now;
-    return {
-      id: pv.id as string,
-      numero: (pv.numero ?? "") as string,
-      status: pv.status as string,
-      type: (pv.type ?? null) as string | null,
-      reception_date: (pv.reception_date ?? null) as string | null,
-      signed_at: (pv.signed_at ?? null) as string | null,
-      sent_to_client_at: (pv.sent_to_client_at ?? null) as string | null,
-      created_at: (pv.created_at ?? null) as string | null,
-      hasPdf: !!pv.pdf_url,
-      isSigned,
-      // "Lien expiré" n'a de sens que pour un PV qui, sinon, serait signable.
-      signExpired: !isSigned && signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
-      canSign: !isSigned && !signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
 
-    };
-  });
-  return { pvs };
+  const rows = data ?? [];
+  const companyIds = rows.map((r: any) => r.company_id).filter(Boolean) as string[];
+  const chantierIds = Array.from(new Set(rows.map((r: any) => r.chantier_id).filter(Boolean))) as string[];
+  const [companyNames, chantierRows] = await Promise.all([
+    loadCompanyLabels(companyIds),
+    chantierIds.length
+      ? supabaseAdmin.from("chantiers").select("id,name").in("id", chantierIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const chantierNames = new Map<string, string>(
+    ((chantierRows as any).data ?? []).map((c: any) => [c.id as string, (c.name ?? "") as string]),
+  );
+
+  // Levées en attente d'action client, sur les PV accessibles.
+  const pvIds = rows.map((r: any) => r.id as string);
+  const { data: liftRows } = pvIds.length
+    ? await supabaseAdmin
+        .from("reserve_lift_reports")
+        .select("id,numero,pv_id,status,created_at,client_validated_at,client_rejected_at")
+        .in("pv_id", pvIds)
+        .is("client_validated_at", null)
+        .is("client_rejected_at", null)
+        .order("created_at", { ascending: false })
+    : { data: [] as any[] };
+
+  const now = Date.now();
+  const pvs = await Promise.all(
+    rows.map(async (pv: any) => {
+      const isSigned = pv.status === "signe" || !!pv.client_signature || !!pv.signed_at;
+      const signExpired =
+        !!pv.sign_token_expires_at && new Date(pv.sign_token_expires_at).getTime() < now;
+      return {
+        id: pv.id as string,
+        numero: (pv.numero ?? "") as string,
+        status: pv.status as string,
+        type: (pv.type ?? null) as string | null,
+        reception_date: (pv.reception_date ?? null) as string | null,
+        signed_at: (pv.signed_at ?? null) as string | null,
+        sent_to_client_at: (pv.sent_to_client_at ?? null) as string | null,
+        created_at: (pv.created_at ?? null) as string | null,
+        companyName: pv.company_id ? companyNames.get(pv.company_id) ?? null : null,
+        companyKey: await companyKey(pv.company_id ?? null),
+        chantierName: pv.chantier_id ? chantierNames.get(pv.chantier_id) ?? null : null,
+        hasPdf: !!pv.pdf_url,
+        isSigned,
+        // "Lien expiré" n'a de sens que pour un PV qui, sinon, serait signable.
+        signExpired: !isSigned && signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
+        canSign: !isSigned && !signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
+      };
+    }),
+  );
+
+  const pvById = new Map(rows.map((r: any) => [r.id as string, r]));
+  const lifts = await Promise.all(
+    ((liftRows as any[]) ?? [])
+      .filter((l: any) => LIFT_CLIENT_ACTIONABLE.has(l.status))
+      .map(async (l: any) => {
+        const parent = pvById.get(l.pv_id);
+        return {
+          id: l.id as string,
+          pvId: l.pv_id as string,
+          numero: (l.numero ?? "") as string,
+          pvNumero: (parent?.numero ?? "") as string,
+          created_at: (l.created_at ?? null) as string | null,
+          companyName: parent?.company_id ? companyNames.get(parent.company_id) ?? null : null,
+          companyKey: await companyKey(parent?.company_id ?? null),
+          chantierName: parent?.chantier_id ? chantierNames.get(parent.chantier_id) ?? null : null,
+        };
+      }),
+  );
+
+  // Entreprises réellement liées au client (pour le filtre du dashboard).
+  const companies = await Promise.all(
+    Array.from(new Set(rows.map((r: any) => r.company_id).filter(Boolean))).map(async (id: any) => ({
+      key: (await companyKey(id)) as string,
+      name: companyNames.get(id) ?? "Entreprise",
+    })),
+  );
+
+  return { pvs, lifts, companies: companies.sort((a, b) => a.name.localeCompare(b.name, "fr")) };
 });
 
-
-async function fetchPvForClient(pvId: string, s: { email: string; clientId: string | null }) {
-  const { data: pv } = await supabaseAdmin
-    .from("pv")
-    .select(
-      "id,numero,status,type,description,observations,reception_date,signed_at,sent_to_client_at,sent_to_email,client_signature,company_signature,company_id,client_id,chantier_id,pdf_url,sign_token,sign_token_expires_at,created_at",
-    )
-    .eq("id", pvId)
-    .maybeSingle();
-  if (!pv) throw new Error("PV introuvable.");
-  const owned =
-    (s.clientId && pv.client_id === s.clientId) ||
-    (pv.sent_to_email && pv.sent_to_email.toLowerCase() === s.email);
-  if (!owned) throw new Error("Accès refusé.");
-  return pv;
+async function fetchPvForClient(pvId: string, scope: Awaited<ReturnType<typeof requireClientScope>>) {
+  return fetchPvForClientScope(pvId, scope);
 }
+
 
 export const getClientPvDetail = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ pvId: z.string().uuid() }).parse(d))
