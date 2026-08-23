@@ -57,6 +57,7 @@ import { ReserveDetailDialog, type ReserveDetail } from "@/components/pv/Reserve
 import { ReserveLiftWorkflowDialog, type LiftDialogReserve } from "@/components/pv/ReserveLiftWorkflowDialog";
 import { PhotoLightboxDialog, type LightboxPhoto } from "@/components/pv/PhotoLightboxDialog";
 import { reserveStatusLabel, reserveStatusTone, isReserveOverdue } from "@/lib/reserve-status";
+import { friendlyEmailError } from "@/lib/email-error-message";
 
 
 
