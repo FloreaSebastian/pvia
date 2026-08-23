@@ -8,27 +8,27 @@ export const PRODUCT_PAGES = [
     desc: "Tout ce que PVIA couvre, du chantier au PDF signé.",
   },
   {
-    to: "/pv-reception",
+    to: "/solutions/pv-reception",
     label: "PV de réception",
     desc: "Créer, faire signer et envoyer un procès-verbal.",
   },
   {
-    to: "/gestion-des-reserves",
+    to: "/solutions/reserves",
     label: "Gestion des réserves",
     desc: "Ouverture, gravité, levée et validation client.",
   },
   {
-    to: "/mode-terrain",
+    to: "/solutions/terrain",
     label: "Mode terrain",
     desc: "Photos, réserves et signature depuis le téléphone.",
   },
   {
-    to: "/planning-chantier",
+    to: "/solutions/planning",
     label: "Planning chantier",
     desc: "Interventions, équipes et réceptions planifiées.",
   },
   {
-    to: "/espace-client",
+    to: "/solutions/espace-client",
     label: "Espace client",
     desc: "Vos clients consultent, signent et valident.",
   },
