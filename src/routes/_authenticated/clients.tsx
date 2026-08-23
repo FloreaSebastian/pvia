@@ -21,6 +21,7 @@ import { ClientDetailDialog } from "@/components/clients/ClientDetailDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadClientsCsv } from "@/lib/clients-export";
 import { ClientsImportDialog } from "@/components/clients/ClientsImportDialog";
+import { listClientPortalStatuses, type PortalStatus } from "@/lib/client-portal.functions";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   component: ClientsPage,
@@ -69,6 +70,7 @@ function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [portal, setPortal] = useState<Record<string, PortalStatus["state"]>>({});
 
   const canWrite = can("manage");
   const canAdmin = can("admin");
@@ -76,6 +78,7 @@ function ClientsPage() {
   const updateFn = useServerFn(updateClientFn);
   const archiveFn = useServerFn(archiveClientFn);
   const restoreFn = useServerFn(restoreClientFn);
+  const portalFn = useServerFn(listClientPortalStatuses);
 
   function openDetail(c: Client) {
     setDetailClient(c);
@@ -115,11 +118,18 @@ function ClientsPage() {
       setItems((data as unknown as Client[]) ?? []);
     }
     setLoading(false);
+    try {
+      const rows = await portalFn({ data: { companyId: activeCompanyId } });
+      setPortal(Object.fromEntries(rows.map((r) => [r.clientId, r.state])));
+    } catch {
+      setPortal({});
+    }
   }
   useEffect(() => {
     // Reset immediately on company switch so data from the previous tenant is
     // never displayed while the new query is in flight.
     setItems([]);
+    setPortal({});
     setQuery("");
     load();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -253,6 +263,18 @@ function ClientsPage() {
         {isEnt ? "Entreprise" : "Particulier"}
       </Badge>
     );
+  }
+
+  function PortalBadge({ state }: { state?: PortalStatus["state"] }) {
+    if (!state || state === "no_email" || state === "not_invited") return null;
+    const map = {
+      invited: { l: "Invité", c: "border-amber-500/40 text-amber-600 dark:text-amber-400" },
+      active: { l: "Espace client", c: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400" },
+      suspended: { l: "Portail suspendu", c: "border-destructive/40 text-destructive" },
+    } as const;
+    const m = map[state as keyof typeof map];
+    if (!m) return null;
+    return <Badge variant="outline" className={cn("gap-1 text-[10px]", m.c)}>{m.l}</Badge>;
   }
 
   return (
@@ -553,6 +575,7 @@ function ClientsPage() {
                   <p className="truncate text-sm font-semibold leading-tight sm:text-base">{c.name}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                     <TypeBadge type={c.client_type} />
+                    <PortalBadge state={portal[c.id]} />
                   </div>
                   {isEnt && c.siret && <p className="mt-0.5 font-mono text-[10px] text-muted-foreground sm:text-[11px]">SIRET {c.siret}</p>}
                   {isEnt && c.contact_name && <p className="mt-0.5 hidden truncate text-xs text-muted-foreground sm:block">Contact : {c.contact_name}</p>}
@@ -625,6 +648,7 @@ function ClientsPage() {
               <TableRow>
                 <TableHead>Nom</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Portail</TableHead>
                 <TableHead>SIRET</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Téléphone</TableHead>
@@ -642,6 +666,7 @@ function ClientsPage() {
                     </div>
                   </TableCell>
                   <TableCell><TypeBadge type={c.client_type} /></TableCell>
+                  <TableCell>{PortalBadge({ state: portal[c.id] }) ?? <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{c.siret || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.email || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.phone || "—"}</TableCell>
