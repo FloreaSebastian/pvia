@@ -183,8 +183,17 @@ export const inviteClientToPortal = createServerFn({ method: "POST" })
       throw new Error("Vous n'avez pas les droits pour inviter ce client.");
     }
 
-    await enforceRateLimit({ bucket: "client.portal_invite", key: userId, limit: 30, windowSec: 3600 });
-    await enforceRateLimit({ bucket: "client.portal_invite.client", key: data.clientId, limit: 3, windowSec: 3600 });
+    // Les quotas restent serveur ; le message affiché reste métier (aucun nom
+    // de bucket interne, aucune seconde brute exposée au client).
+    try {
+      await enforceRateLimit({ bucket: "client.portal_invite", key: userId, limit: 30, windowSec: 3600 });
+      await enforceRateLimit({ bucket: "client.portal_invite.client", key: data.clientId, limit: 3, windowSec: 3600 });
+    } catch {
+      throw new Error(
+        "Trop d'invitations envoyées à ce client. Réessayez dans un moment (3 invitations par heure maximum).",
+      );
+    }
+
 
     const { data: client } = await supabaseAdmin
       .from("clients")
@@ -280,4 +289,49 @@ export const inviteClientToPortal = createServerFn({ method: "POST" })
     }
 
     return { ok: true as const, reinvited: isReinvite, alreadyActive, email };
+  });
+
+/**
+ * Suspend / réactive l'accès du client à l'espace client POUR CETTE ENTREPRISE
+ * uniquement. La suspension est portée par la ligne `clients` (jamais par
+ * l'identité globale) : les documents des autres entreprises restent visibles.
+ */
+export const setClientPortalAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => CompanyClient.extend({ suspended: z.boolean() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+    const membership = await requireMember(data.companyId, userId);
+    if (!isManageRole(membership.role)) {
+      throw new Error("Vous n'avez pas les droits pour modifier l'accès de ce client.");
+    }
+
+    const { data: client } = await supabaseAdmin
+      .from("clients")
+      .select("id,portal_suspended_at")
+      .eq("id", data.clientId)
+      .eq("company_id", data.companyId)
+      .maybeSingle();
+    if (!client) throw new Error("Client introuvable.");
+
+    const now = new Date().toISOString();
+    const next = data.suspended ? now : null;
+    await supabaseAdmin
+      .from("clients")
+      .update({ portal_suspended_at: next } as never)
+      .eq("id", data.clientId)
+      .eq("company_id", data.companyId);
+
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId,
+      entityType: "client",
+      entityId: data.clientId,
+      action: data.suspended ? "client.portal_suspended" : "client.portal_resumed",
+      oldValues: { portal_suspended_at: (client as any).portal_suspended_at ?? null },
+      newValues: { portal_suspended_at: next },
+      actor: "user",
+    });
+
+    return { ok: true as const, suspended: data.suspended };
   });
