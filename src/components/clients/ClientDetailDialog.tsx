@@ -335,7 +335,10 @@ function ClientDetailContent({ client, onEdit, onDelete, onClose }: { client: Cl
               </dl>
             )}
           </SectionCard>
+
+          <PortalSection clientId={client.id} companyId={activeCompanyId} canManage={can("manage") && !client.archived_at} />
         </div>
+
 
         {client.notes && (
           <Card className="mt-4 p-4">
