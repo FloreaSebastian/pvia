@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/sheet";
 import { Logo } from "@/components/landing/Logo";
 import { SOLUTIONS } from "@/components/landing/solutions-data";
+import { SOLUTION_GROUPS, SOLUTION_PAGES } from "@/components/landing/solutions/content";
+import type { LucideIcon } from "lucide-react";
 
-type NavLink = { label: string; href: string; desc?: string };
+type NavLink = { label: string; href: string; desc?: string; icon?: LucideIcon; group?: string };
 
 export const PRODUCT_NAV: NavLink[] = [
   { label: "Vue d'ensemble", href: "/fonctionnalites", desc: "Tout ce que couvre PVIA" },
@@ -65,8 +67,8 @@ export function Header() {
         <Logo className="min-w-0 shrink" />
 
         <nav aria-label="Navigation principale" className="hidden items-center gap-1 lg:flex">
-          <NavDropdown label="Produit" items={PRODUCT_NAV} />
-          <NavDropdown label="Solutions" items={SOLUTIONS_NAV} footer="/solutions" />
+          <SolutionsMegaMenu />
+          <NavDropdown label="Métiers" items={TRADES_NAV} footer="/solutions" />
           <TopLink to="/tarifs">Tarifs</TopLink>
           <TopLink to="/pourquoi-pvia">Pourquoi PVIA ?</TopLink>
           <TopLink to="/contact">Contact</TopLink>
@@ -104,10 +106,16 @@ export function Header() {
               aria-label="Navigation mobile"
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
             >
-              <MobileGroup title="Produit" items={PRODUCT_NAV} />
               <MobileGroup
                 title="Solutions"
-                items={[{ label: "Tous les métiers", href: "/solutions" }, ...SOLUTIONS_NAV]}
+                items={[
+                  { label: "Vue d'ensemble", href: "/solutions" },
+                  ...SOLUTIONS_NAV,
+                ]}
+              />
+              <MobileGroup
+                title="Métiers"
+                items={TRADES_NAV}
               />
               <MobileGroup
                 title="En savoir plus"
@@ -139,6 +147,66 @@ export function Header() {
         </Sheet>
       </div>
     </header>
+  );
+}
+
+/** Mega-menu desktop : les solutions PVIA regroupées par usage. */
+function SolutionsMegaMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex min-h-11 items-center gap-1 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=open]:text-foreground"
+        >
+          Solutions
+          <ChevronDown aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-[min(56rem,92vw)] p-4">
+        <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+          {SOLUTION_GROUPS.map((group) => (
+            <div key={group.title} className="min-w-0">
+              <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                {group.title}
+              </p>
+              <ul>
+                {group.items.map((p) => (
+                  <li key={p.slug}>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/solutions/$slug"
+                        params={{ slug: p.slug }}
+                        className="flex min-h-11 items-start gap-2.5 rounded-lg p-2"
+                      >
+                        <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                          <p.navIcon aria-hidden className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-foreground">
+                            {p.navLabel}
+                          </span>
+                          <span className="block text-xs leading-snug text-muted-foreground">
+                            {p.navDesc}
+                          </span>
+                        </span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 border-t border-border pt-2">
+          <DropdownMenuItem asChild>
+            <Link to="/solutions" className="min-h-11 text-sm font-medium text-primary">
+              Vue d'ensemble des solutions PVIA
+            </Link>
+          </DropdownMenuItem>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
