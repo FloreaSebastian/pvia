@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Building2, User, Mail, Phone, MapPin, Navigation, Pencil, Archive, X, Briefcase, FileText, AlertTriangle, History, ExternalLink, ShieldCheck, Send, Loader2 } from "lucide-react";
+import { Building2, User, Mail, Phone, MapPin, Navigation, Pencil, Archive, X, Briefcase, FileText, AlertTriangle, History, ExternalLink, ShieldCheck, Send, Loader2, Ban, RotateCcw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { getClientPortalStatus, inviteClientToPortal, type PortalStatus } from "@/lib/client-portal.functions";
+import { getClientPortalStatus, inviteClientToPortal, setClientPortalAccess, type PortalStatus } from "@/lib/client-portal.functions";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -102,9 +107,11 @@ const PORTAL_LABEL: Record<PortalStatus["state"], { label: string; help: string;
 function PortalSection({ clientId, companyId, canManage }: { clientId: string; companyId: string | null; canManage: boolean }) {
   const statusFn = useServerFn(getClientPortalStatus);
   const inviteFn = useServerFn(inviteClientToPortal);
+  const accessFn = useServerFn(setClientPortalAccess);
   const [status, setStatus] = useState<PortalStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [confirmSuspend, setConfirmSuspend] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
@@ -134,8 +141,25 @@ function PortalSection({ clientId, companyId, canManage }: { clientId: string; c
     }
   }
 
+  async function setAccess(suspended: boolean) {
+    if (!companyId || sending) return;
+    setSending(true);
+    try {
+      await accessFn({ data: { companyId, clientId, suspended } });
+      toast.success(suspended ? "Accès suspendu" : "Accès rétabli");
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Modification impossible");
+    } finally {
+      setSending(false);
+      setConfirmSuspend(false);
+    }
+  }
+
   const meta = status ? PORTAL_LABEL[status.state] : null;
   const canInvite = canManage && !!status && status.state !== "no_email" && status.state !== "suspended";
+  const canSuspend = canManage && !!status && (status.state === "invited" || status.state === "active");
+  const canResume = canManage && status?.state === "suspended";
 
   return (
     <SectionCard icon={ShieldCheck} title="Espace client">
@@ -152,20 +176,68 @@ function PortalSection({ clientId, companyId, canManage }: { clientId: string; c
             )}
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">{meta.help}</p>
-          {canInvite && (
-            <Button
-              size="sm"
-              variant={status.state === "not_invited" ? "default" : "outline"}
-              className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
-              onClick={invite}
-              disabled={sending}
-            >
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {status.state === "not_invited" ? "Inviter à l'espace client" : "Renvoyer l'invitation"}
-            </Button>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {canInvite && (
+              <Button
+                size="sm"
+                variant={status.state === "not_invited" ? "default" : "outline"}
+                className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
+                onClick={invite}
+                disabled={sending}
+              >
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {status.state === "not_invited" ? "Inviter à l'espace client" : "Renvoyer l'invitation"}
+              </Button>
+            )}
+            {canSuspend && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-11 w-full gap-1.5 text-destructive sm:h-9 sm:w-auto"
+                onClick={() => setConfirmSuspend(true)}
+                disabled={sending}
+              >
+                <Ban className="h-4 w-4" />
+                Suspendre l'accès
+              </Button>
+            )}
+            {canResume && (
+              <Button
+                size="sm"
+                variant="default"
+                className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
+                onClick={() => void setAccess(false)}
+                disabled={sending}
+              >
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                Rétablir l'accès
+              </Button>
+            )}
+          </div>
+          <AlertDialog open={confirmSuspend} onOpenChange={setConfirmSuspend}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Suspendre l'accès à l'espace client ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Le client ne verra plus vos documents dans son espace en ligne. Les documents
+                  que d'autres entreprises lui ont adressés restent accessibles. Vous pourrez
+                  rétablir l'accès à tout moment.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="h-11 sm:h-9">Annuler</AlertDialogCancel>
+                <AlertDialogAction
+                  className="h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:h-9"
+                  onClick={(e) => { e.preventDefault(); void setAccess(true); }}
+                >
+                  Suspendre
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
+
     </SectionCard>
   );
 }

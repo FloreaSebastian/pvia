@@ -88,6 +88,31 @@ export async function listIdentityRelations(identityId: string | null): Promise<
     }));
 }
 
+/**
+ * Relations dont l'entreprise a suspendu l'accès portail. Retourné séparément
+ * pour que l'autorisation puisse REFUSER explicitement ces documents, y compris
+ * lorsqu'ils seraient sinon acceptés par un chemin de compatibilité (ancienne
+ * session rattachée à une ligne client, ou PV adressé par email).
+ */
+export async function listSuspendedRelations(identityId: string | null) {
+  const empty = { clientIds: [] as string[], companyIds: [] as string[] };
+  if (!identityId) return empty;
+  const { data, error } = await supabaseAdmin
+    .from("clients")
+    .select("id,company_id,portal_suspended_at")
+    .eq("client_identity_id", identityId)
+    .not("portal_suspended_at", "is", null);
+  if (error) {
+    console.error("[client-identity] suspended query failed", error);
+    return empty;
+  }
+  const rows = (data ?? []) as any[];
+  return {
+    clientIds: rows.map((r) => r.id as string),
+    companyIds: Array.from(new Set(rows.map((r) => r.company_id).filter(Boolean) as string[])),
+  };
+}
+
 /** Noms d'entreprises émettrices (affichage client uniquement). */
 export async function loadCompanyLabels(companyIds: string[]) {
   const ids = Array.from(new Set(companyIds.filter(Boolean)));

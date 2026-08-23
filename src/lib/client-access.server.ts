@@ -14,7 +14,12 @@ import {
   readClientCookieToken,
   sha256Hex,
 } from "@/lib/client-auth.server";
-import { findIdentityByEmail, listIdentityRelations, type ClientRelation } from "@/lib/client-identity.server";
+import {
+  findIdentityByEmail,
+  listIdentityRelations,
+  listSuspendedRelations,
+  type ClientRelation,
+} from "@/lib/client-identity.server";
 
 export type ClientScope = {
   sessionId: string;
@@ -24,7 +29,11 @@ export type ClientScope = {
   email: string;
   relations: ClientRelation[];
   clientIds: string[];
+  /** Relations suspendues par leur entreprise : refus explicite, prioritaire. */
+  suspendedClientIds: string[];
+  suspendedCompanyIds: string[];
 };
+
 
 const SESSION_EXPIRED = "Session expirée. Reconnectez-vous.";
 /** Message volontairement identique pour "inexistant" et "interdit" (anti-IDOR). */
@@ -56,8 +65,13 @@ export async function requireClientScope(): Promise<ClientScope> {
   }
 
   const relations = await listIdentityRelations(identityId);
+  const suspended = await listSuspendedRelations(identityId);
   const ids = new Set(relations.map((r) => r.clientId));
-  if (data.client_id) ids.add(data.client_id as string);
+  // Compat ancienne session : n'ouvre le périmètre que si l'entreprise n'a pas
+  // suspendu cet accès (sinon une session en cours survivrait à la suspension).
+  if (data.client_id && !suspended.clientIds.includes(data.client_id as string)) {
+    ids.add(data.client_id as string);
+  }
 
   return {
     sessionId: data.id as string,
@@ -66,18 +80,25 @@ export async function requireClientScope(): Promise<ClientScope> {
     email,
     relations,
     clientIds: Array.from(ids),
+    suspendedClientIds: suspended.clientIds,
+    suspendedCompanyIds: suspended.companyIds,
   };
 }
 
 /** Le PV est-il accessible à ce périmètre ? (relation persistante, ou legacy email) */
 export function isPvInScope(
-  pv: { client_id?: string | null; sent_to_email?: string | null },
-  scope: Pick<ClientScope, "clientIds" | "email">,
+  pv: { client_id?: string | null; company_id?: string | null; sent_to_email?: string | null },
+  scope: Pick<ClientScope, "clientIds" | "email"> & Partial<Pick<ClientScope, "suspendedClientIds" | "suspendedCompanyIds">>,
 ) {
+  // Refus prioritaire : une suspension d'entreprise l'emporte sur tout chemin
+  // d'accès, y compris la correspondance email de compatibilité.
+  if (pv.client_id && scope.suspendedClientIds?.includes(pv.client_id)) return false;
+  if (pv.company_id && scope.suspendedCompanyIds?.includes(pv.company_id)) return false;
   if (pv.client_id && scope.clientIds.includes(pv.client_id)) return true;
   if (pv.sent_to_email && normalizeEmail(pv.sent_to_email) === scope.email) return true;
   return false;
 }
+
 
 const PV_SCOPE_COLUMNS =
   "id,numero,status,type,description,observations,reception_date,signed_at,sent_to_client_at,sent_to_email,client_signature,company_signature,company_id,client_id,chantier_id,pdf_url,sign_token,sign_token_expires_at,created_at";
