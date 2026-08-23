@@ -14,7 +14,12 @@ import {
   readClientCookieToken,
   sha256Hex,
 } from "@/lib/client-auth.server";
-import { findIdentityByEmail, listIdentityRelations, type ClientRelation } from "@/lib/client-identity.server";
+import {
+  findIdentityByEmail,
+  listIdentityRelations,
+  listSuspendedRelations,
+  type ClientRelation,
+} from "@/lib/client-identity.server";
 
 export type ClientScope = {
   sessionId: string;
@@ -24,7 +29,11 @@ export type ClientScope = {
   email: string;
   relations: ClientRelation[];
   clientIds: string[];
+  /** Relations suspendues par leur entreprise : refus explicite, prioritaire. */
+  suspendedClientIds: string[];
+  suspendedCompanyIds: string[];
 };
+
 
 const SESSION_EXPIRED = "Session expirée. Reconnectez-vous.";
 /** Message volontairement identique pour "inexistant" et "interdit" (anti-IDOR). */
