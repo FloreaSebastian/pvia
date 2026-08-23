@@ -781,16 +781,30 @@ export const getClientActivity = createServerFn({ method: "GET" })
     const s = await requireSession();
     const offset = data.offset ?? 0;
 
-    // PV réellement accessibles au client : sert uniquement à décider si on
-    // peut exposer un numéro + un lien de navigation.
-    let pvQuery = supabaseAdmin.from("pv").select("id,numero");
-    pvQuery = s.clientId
-      ? pvQuery.or(`client_id.eq.${s.clientId},sent_to_email.eq."${s.email}"`)
-      : pvQuery.eq("sent_to_email", s.email);
-    const { data: ownPvs } = await pvQuery;
-    const pvMap = new Map<string, string>(
-      (ownPvs ?? []).map((p: any) => [p.id as string, p.numero as string]),
+    // PV réellement accessibles au client (identité → relations → documents) :
+    // sert uniquement à décider si on peut exposer un numéro, l'entreprise
+    // émettrice et un lien de navigation.
+    const filters: string[] = [];
+    if (s.clientIds.length) filters.push(`client_id.in.(${s.clientIds.join(",")})`);
+    filters.push(`sent_to_email.eq."${s.email.replace(/"/g, "")}"`);
+    const { data: ownPvs } = await supabaseAdmin
+      .from("pv")
+      .select("id,numero,company_id")
+      .neq("status", "brouillon")
+      .or(filters.join(","));
+    const companyNames = await loadCompanyLabels(
+      (ownPvs ?? []).map((p: any) => p.company_id).filter(Boolean),
     );
+    const pvMap = new Map<string, { numero: string; companyName: string | null }>(
+      (ownPvs ?? []).map((p: any) => [
+        p.id as string,
+        {
+          numero: (p.numero ?? "") as string,
+          companyName: p.company_id ? companyNames.get(p.company_id) ?? null : null,
+        },
+      ]),
+    );
+
 
     // Valeurs entre guillemets : l'email vient de la session mais reste une
     // donnée d'origine utilisateur injectée dans un filtre PostgREST.
