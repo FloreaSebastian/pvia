@@ -31,9 +31,17 @@ export const PRODUCT_NAV: NavLink[] = [
   { label: "Espace client", href: "/espace-client", desc: "L'expérience de votre client" },
 ];
 
-export const SOLUTIONS_NAV: NavLink[] = SOLUTIONS.map((s) => ({
+export const TRADES_NAV: NavLink[] = SOLUTIONS.map((s) => ({
   label: s.label,
   href: `/solutions/${s.slug}`,
+}));
+
+export const SOLUTIONS_NAV: NavLink[] = SOLUTION_PAGES.map((p) => ({
+  label: p.navLabel,
+  href: `/solutions/${p.slug}`,
+  desc: p.navDesc,
+  icon: p.navIcon,
+  group: p.navGroup,
 }));
 
 export function Header() {
