@@ -37,6 +37,18 @@ import {
   sha256Hex,
   timingSafeEqual, toInetOrNull } from "@/lib/client-auth.server";
 import { sendClientLoginCodeEmail } from "@/lib/email.server";
+import {
+  findIdentityByEmail,
+  listIdentityRelations,
+  loadCompanyLabels,
+  markIdentityLogin,
+} from "@/lib/client-identity.server";
+import {
+  companyKey,
+  fetchPvForClientScope,
+  requireClientScope,
+} from "@/lib/client-access.server";
+import { LIFT_SIGNED_STATUSES } from "@/lib/reserve-lift-status";
 
 // ─── send code ────────────────────────────────────────────────────────────────
 export const sendClientLoginCode = createServerFn({ method: "POST" })
