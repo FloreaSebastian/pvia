@@ -14,7 +14,9 @@
  * l'autorité d'autorisation est donc ici, jamais dans l'input utilisateur).
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { normalizeEmail } from "@/lib/client-auth.server";
+// Helper local (pas d'import depuis client-auth.server : ce module est atteignable
+// depuis le graphe client via *.functions.ts et ne doit tirer aucune API serveur).
+const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
 export type ClientRelation = {
   clientId: string;
