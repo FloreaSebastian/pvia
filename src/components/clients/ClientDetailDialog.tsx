@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
-import { Building2, User, Mail, Phone, MapPin, Navigation, Pencil, Archive, X, Briefcase, FileText, AlertTriangle, History, ExternalLink } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Building2, User, Mail, Phone, MapPin, Navigation, Pencil, Archive, X, Briefcase, FileText, AlertTriangle, History, ExternalLink, ShieldCheck, Send, Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { getClientPortalStatus, inviteClientToPortal, type PortalStatus } from "@/lib/client-portal.functions";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
