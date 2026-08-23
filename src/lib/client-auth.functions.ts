@@ -86,22 +86,27 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       throw e;
     }
 
-    // Cherche un client matchant (par email) OU un PV envoyé à cet email.
-    const [{ data: clientRow }, { data: pvRow }] = await Promise.all([
-      supabaseAdmin
-        .from("clients")
-        .select("id,email,company_id,name")
-        .ilike("email", email)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("pv")
-        .select("id,company_id")
-        .ilike("sent_to_email", email)
-        .limit(1)
-        .maybeSingle(),
+    // Résolution multi-entreprises : une même adresse peut être cliente de
+    // plusieurs entreprises. On ne cherche donc JAMAIS une ligne unique par
+    // email — on passe par l'identité globale (sans la créer ici : la création
+    // d'identité appartient au workflow entreprise, pas à un visiteur).
+    const identity = await findIdentityByEmail(email);
+    const [{ data: clientRows }, { data: pvRows }] = await Promise.all([
+      identity
+        ? supabaseAdmin
+            .from("clients")
+            .select("id,company_id,name")
+            .eq("client_identity_id", identity.id)
+            .is("portal_suspended_at", null)
+            .limit(20)
+        : Promise.resolve({ data: [] as any[] }),
+      supabaseAdmin.from("pv").select("id,company_id").ilike("sent_to_email", email).limit(1),
     ]);
+    const clientRow = (clientRows ?? [])[0] ?? null;
+    const pvRow = (pvRows ?? [])[0] ?? null;
 
     const knownCompanyId = clientRow?.company_id ?? pvRow?.company_id ?? null;
+
     if (!clientRow && !pvRow) {
       await writeAuditLog({
         companyId: null,
