@@ -48,7 +48,10 @@ type EventItem = {
   created_at: string;
   pv_id: string | null;
   pv_numero: string | null;
+  /** Entreprise émettrice — utile quand plusieurs entreprises adressent des PV. */
+  companyName?: string | null;
 };
+
 
 const META: Record<string, { icon: typeof History; label: string; tone: string }> = {
   "client.login_code_sent": { icon: Mail, label: "Code de connexion envoyé", tone: "text-info" },
@@ -223,6 +226,13 @@ function ClientHistorique() {
                             </Link>
                           </>
                         )}
+                        {e.companyName && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="[overflow-wrap:anywhere]">{e.companyName}</span>
+                          </>
+                        )}
+
                       </div>
                     </div>
                   </li>

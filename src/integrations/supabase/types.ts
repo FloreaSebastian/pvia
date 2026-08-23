@@ -594,6 +594,7 @@ export type Database = {
         Row: {
           attempts: number
           client_id: string | null
+          client_identity_id: string | null
           code_hash: string
           created_at: string
           email: string
@@ -606,6 +607,7 @@ export type Database = {
         Insert: {
           attempts?: number
           client_id?: string | null
+          client_identity_id?: string | null
           code_hash: string
           created_at?: string
           email: string
@@ -618,6 +620,7 @@ export type Database = {
         Update: {
           attempts?: number
           client_id?: string | null
+          client_identity_id?: string | null
           code_hash?: string
           created_at?: string
           email?: string
@@ -627,11 +630,56 @@ export type Database = {
           used_at?: string | null
           user_agent?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "client_auth_codes_client_identity_id_fkey"
+            columns: ["client_identity_id"]
+            isOneToOne: false
+            referencedRelation: "client_identities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_identities: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          disabled_at: string | null
+          id: string
+          invited_at: string | null
+          last_login_at: string | null
+          normalized_email: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          id?: string
+          invited_at?: string | null
+          last_login_at?: string | null
+          normalized_email: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          disabled_at?: string | null
+          id?: string
+          invited_at?: string | null
+          last_login_at?: string | null
+          normalized_email?: string
+          status?: string
+          updated_at?: string
+        }
         Relationships: []
       }
       client_sessions: {
         Row: {
           client_id: string | null
+          client_identity_id: string | null
           created_at: string
           email: string
           expires_at: string
@@ -644,6 +692,7 @@ export type Database = {
         }
         Insert: {
           client_id?: string | null
+          client_identity_id?: string | null
           created_at?: string
           email: string
           expires_at: string
@@ -656,6 +705,7 @@ export type Database = {
         }
         Update: {
           client_id?: string | null
+          client_identity_id?: string | null
           created_at?: string
           email?: string
           expires_at?: string
@@ -666,7 +716,15 @@ export type Database = {
           token_hash?: string
           user_agent?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "client_sessions_client_identity_id_fkey"
+            columns: ["client_identity_id"]
+            isOneToOne: false
+            referencedRelation: "client_identities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -676,6 +734,7 @@ export type Database = {
           archived_at: string | null
           archived_by: string | null
           city: string | null
+          client_identity_id: string | null
           client_type: string
           company_id: string | null
           company_name: string | null
@@ -690,6 +749,9 @@ export type Database = {
           notes: string | null
           owner_id: string
           phone: string | null
+          portal_invited_at: string | null
+          portal_suspended_at: string | null
+          portal_suspended_by: string | null
           postal_code: string | null
           siren: string | null
           siret: string | null
@@ -703,6 +765,7 @@ export type Database = {
           archived_at?: string | null
           archived_by?: string | null
           city?: string | null
+          client_identity_id?: string | null
           client_type?: string
           company_id?: string | null
           company_name?: string | null
@@ -717,6 +780,9 @@ export type Database = {
           notes?: string | null
           owner_id: string
           phone?: string | null
+          portal_invited_at?: string | null
+          portal_suspended_at?: string | null
+          portal_suspended_by?: string | null
           postal_code?: string | null
           siren?: string | null
           siret?: string | null
@@ -730,6 +796,7 @@ export type Database = {
           archived_at?: string | null
           archived_by?: string | null
           city?: string | null
+          client_identity_id?: string | null
           client_type?: string
           company_id?: string | null
           company_name?: string | null
@@ -744,6 +811,9 @@ export type Database = {
           notes?: string | null
           owner_id?: string
           phone?: string | null
+          portal_invited_at?: string | null
+          portal_suspended_at?: string | null
+          portal_suspended_by?: string | null
           postal_code?: string | null
           siren?: string | null
           siret?: string | null
@@ -751,6 +821,13 @@ export type Database = {
           vat_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "clients_client_identity_id_fkey"
+            columns: ["client_identity_id"]
+            isOneToOne: false
+            referencedRelation: "client_identities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clients_company_id_fkey"
             columns: ["company_id"]
@@ -2665,6 +2742,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      resolve_client_identity: { Args: { _email: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "manager" | "user" | "platform_admin"

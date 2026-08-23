@@ -22,42 +22,27 @@ import {
   readClientCookieToken,
   sha256Hex, toInetOrNull } from "@/lib/client-auth.server";
 
-/* ─── session helpers (mirrors client-auth.functions) ─────────────────── */
+/* ─── session helpers (autorisation partagée, multi-entreprises) ───────── */
+import {
+  requireClientScope,
+  fetchPvForClientScope,
+  type ClientScope,
+} from "@/lib/client-access.server";
 
-type ClientSession = {
-  sessionId: string;
-  clientId: string | null;
-  email: string;
-};
+type ClientSession = ClientScope;
 
 async function requireSession(): Promise<ClientSession> {
-  const token = readClientCookieToken();
-  if (!token) throw new Error("Session expirée. Reconnectez-vous.");
-  const tokenHash = await sha256Hex(token);
-  const { data } = await supabaseAdmin
-    .from("client_sessions")
-    .select("id,client_id,email,expires_at,revoked_at")
-    .eq("token_hash", tokenHash)
-    .maybeSingle();
-  if (!data || data.revoked_at) throw new Error("Session expirée. Reconnectez-vous.");
-  if (new Date(data.expires_at).getTime() <= Date.now())
-    throw new Error("Session expirée. Reconnectez-vous.");
-  return { sessionId: data.id, clientId: data.client_id, email: normalizeEmail(data.email) };
+  return requireClientScope();
 }
 
 async function fetchPvForClient(pvId: string, s: ClientSession) {
-  const { data: pv } = await supabaseAdmin
-    .from("pv")
-    .select("id,numero,company_id,client_id,chantier_id,sent_to_email,reserve_lift_status")
-    .eq("id", pvId)
-    .maybeSingle();
-  if (!pv) throw new Error("PV introuvable.");
-  const owned =
-    (s.clientId && pv.client_id === s.clientId) ||
-    (pv.sent_to_email && pv.sent_to_email.toLowerCase() === s.email);
-  if (!owned) throw new Error("Accès refusé.");
-  return pv;
+  return fetchPvForClientScope(
+    pvId,
+    s,
+    "id,numero,company_id,client_id,chantier_id,sent_to_email,reserve_lift_status,status",
+  );
 }
+
 
 /* ─── list lifts for one PV ────────────────────────────────────────────── */
 

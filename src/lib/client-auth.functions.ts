@@ -37,6 +37,18 @@ import {
   sha256Hex,
   timingSafeEqual, toInetOrNull } from "@/lib/client-auth.server";
 import { sendClientLoginCodeEmail } from "@/lib/email.server";
+import {
+  findIdentityByEmail,
+  listIdentityRelations,
+  loadCompanyLabels,
+  markIdentityLogin,
+} from "@/lib/client-identity.server";
+import {
+  companyKey,
+  fetchPvForClientScope,
+  requireClientScope,
+} from "@/lib/client-access.server";
+import { LIFT_SIGNED_STATUSES } from "@/lib/reserve-lift-status";
 
 // ─── send code ────────────────────────────────────────────────────────────────
 export const sendClientLoginCode = createServerFn({ method: "POST" })
@@ -86,22 +98,27 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       throw e;
     }
 
-    // Cherche un client matchant (par email) OU un PV envoyé à cet email.
-    const [{ data: clientRow }, { data: pvRow }] = await Promise.all([
-      supabaseAdmin
-        .from("clients")
-        .select("id,email,company_id,name")
-        .ilike("email", email)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("pv")
-        .select("id,company_id")
-        .ilike("sent_to_email", email)
-        .limit(1)
-        .maybeSingle(),
+    // Résolution multi-entreprises : une même adresse peut être cliente de
+    // plusieurs entreprises. On ne cherche donc JAMAIS une ligne unique par
+    // email — on passe par l'identité globale (sans la créer ici : la création
+    // d'identité appartient au workflow entreprise, pas à un visiteur).
+    const identity = await findIdentityByEmail(email);
+    const [{ data: clientRows }, { data: pvRows }] = await Promise.all([
+      identity
+        ? supabaseAdmin
+            .from("clients")
+            .select("id,company_id,name")
+            .eq("client_identity_id", identity.id)
+            .is("portal_suspended_at", null)
+            .limit(20)
+        : Promise.resolve({ data: [] as any[] }),
+      supabaseAdmin.from("pv").select("id,company_id").ilike("sent_to_email", email).limit(1),
     ]);
+    const clientRow = (clientRows ?? [])[0] ?? null;
+    const pvRow = (pvRows ?? [])[0] ?? null;
 
     const knownCompanyId = clientRow?.company_id ?? pvRow?.company_id ?? null;
+
     if (!clientRow && !pvRow) {
       await writeAuditLog({
         companyId: null,
@@ -126,6 +143,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       .from("client_auth_codes")
       .insert({
         client_id: clientRow?.id ?? null,
+        client_identity_id: identity?.id ?? null,
         email,
         code_hash: "pending",
         expires_at: expiresAt,
@@ -225,7 +243,7 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
     // Dernier code actif
     const { data: row } = await supabaseAdmin
       .from("client_auth_codes")
-      .select("id,client_id,code_hash,expires_at,attempts,used_at")
+      .select("id,client_id,client_identity_id,code_hash,expires_at,attempts,used_at")
       .eq("email", email)
       .is("used_at", null)
       .gt("expires_at", new Date().toISOString())
@@ -270,16 +288,12 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
       .update({ used_at: new Date().toISOString() })
       .eq("id", row.id);
 
-    // Résout le client_id à jour (au cas où il aurait été créé après l'envoi)
-    let clientId = row.client_id;
-    if (!clientId) {
-      const { data: c } = await supabaseAdmin
-        .from("clients")
-        .select("id")
-        .ilike("email", email)
-        .maybeSingle();
-      clientId = c?.id ?? null;
-    }
+    // Authentifie l'IDENTITÉ globale, plus une ligne `clients` unique.
+    const identityId =
+      (row as any).client_identity_id ?? (await findIdentityByEmail(email))?.id ?? null;
+    const relations = await listIdentityRelations(identityId);
+    // client_id reste renseigné (compatibilité anciennes sessions / audit).
+    const clientId = (row.client_id as string | null) ?? relations[0]?.clientId ?? null;
 
     // Crée la session
     const remember = data.remember !== false; // default: persistent 30 days
@@ -290,28 +304,33 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
     await supabaseAdmin.from("client_sessions").insert({
       token_hash: tokenHash,
       client_id: clientId,
+      client_identity_id: identityId,
       email,
       expires_at: expiresAt,
       ip_address: ip,
       user_agent: ua,
     });
     setClientCookie(token, ttlSec, remember);
+    await markIdentityLogin(identityId);
 
     await writeAuditLog({
       companyId: null,
       entityType: "client_auth",
       action: "client.login_success",
-      metadata: { email, has_client: !!clientId, ip },
+      metadata: { email, has_client: relations.length > 0, companies: relations.length, ip },
       actor: "client",
     });
 
-    return { ok: true as const, hasClient: !!clientId };
+    return { ok: true as const, hasClient: relations.length > 0 };
+
   });
 
 // ─── session lookup ───────────────────────────────────────────────────────────
 type ClientSession = {
   sessionId: string;
+  /** @deprecated compat : une identité peut être liée à plusieurs `clients`. */
   clientId: string | null;
+  identityId: string | null;
   email: string;
   expiresAt: string;
 } | null;
@@ -322,12 +341,26 @@ async function loadSessionFromCookie(): Promise<ClientSession> {
   const tokenHash = await sha256Hex(token);
   const { data } = await supabaseAdmin
     .from("client_sessions")
-    .select("id,client_id,email,expires_at,revoked_at")
+    .select("id,client_id,client_identity_id,email,expires_at,revoked_at")
     .eq("token_hash", tokenHash)
     .maybeSingle();
   if (!data) return null;
   if (data.revoked_at) return null;
   if (new Date(data.expires_at).getTime() <= Date.now()) return null;
+
+  // Migration douce : une session créée avant le modèle multi-entreprises n'a
+  // pas d'identité. On la résout et on la répare — sans déconnecter personne.
+  let identityId = (data as any).client_identity_id as string | null;
+  if (!identityId) {
+    identityId = (await findIdentityByEmail(data.email))?.id ?? null;
+    if (identityId) {
+      void supabaseAdmin
+        .from("client_sessions")
+        .update({ client_identity_id: identityId } as never)
+        .eq("id", data.id);
+    }
+  }
+
   // sliding last_seen update (best effort, no await needed)
   void supabaseAdmin
     .from("client_sessions")
@@ -336,10 +369,26 @@ async function loadSessionFromCookie(): Promise<ClientSession> {
   return {
     sessionId: data.id,
     clientId: data.client_id,
+    identityId,
     email: data.email,
     expiresAt: data.expires_at,
   };
 }
+
+/**
+ * Périmètre d'accès réel d'une session : identité globale → relations clients
+ * autorisées → identifiants de lignes `clients`. L'email reste accepté en
+ * compatibilité (anciens PV `sent_to_email` sans relation établie), mais n'est
+ * plus le mécanisme d'autorisation principal.
+ */
+async function sessionScope(s: NonNullable<ClientSession>) {
+  const relations = await listIdentityRelations(s.identityId);
+  const clientIds = new Set(relations.map((r) => r.clientId));
+  // Compat : session ancienne encore rattachée à une ligne client précise.
+  if (s.clientId) clientIds.add(s.clientId);
+  return { relations, clientIds: Array.from(clientIds) };
+}
+
 
 export const getClientSession = createServerFn({ method: "GET" }).handler(async () => {
   const s = await loadSessionFromCookie();
@@ -375,85 +424,133 @@ export const logoutClientSession = createServerFn({ method: "POST" }).handler(as
 });
 
 // ─── data access (scoped) ─────────────────────────────────────────────────────
-async function requireSession() {
-  const s = await loadSessionFromCookie();
-  if (!s) throw new Error("Session expirée. Reconnectez-vous.");
-  return s;
-}
+/** Périmètre autorisé : identité globale → relations clients → documents. */
+const requireSession = requireClientScope;
+
+/** Statuts de levée sur lesquels le client a réellement une action à faire. */
+const LIFT_CLIENT_ACTIONABLE = new Set<string>([...LIFT_SIGNED_STATUSES]);
+
 
 /**
- * Liste des PV du client connecté.
+ * Documents accessibles au client connecté, toutes entreprises confondues.
  *
- * Le serveur fait autorité : il calcule les états dérivés (isSigned / canSign /
- * signExpired) et n'expose AUCUNE donnée interne au navigateur du client
- * externe (sign_token, sign_token_expires_at, company_id, chantier_id,
- * client_id, pdf_url/chemin de stockage...).
+ * Le serveur fait autorité : il résout identité → relations → PV, calcule les
+ * états dérivés (isSigned / canSign / signExpired) et n'expose AUCUNE donnée
+ * interne (sign_token, company_id/chantier_id/client_id, chemin de stockage).
+ * L'entreprise émettrice est identifiée par son nom + une clé opaque servant
+ * uniquement au filtre de l'interface.
  */
 const CLIENT_SIGNABLE_STATUSES = new Set(["en_attente", "en_attente_signature", "envoye"]);
 
 export const getClientPvList = createServerFn({ method: "GET" }).handler(async () => {
-  const s = await requireSession();
-  // Match par client_id quand disponible, sinon par sent_to_email
-  let query = supabaseAdmin
+  const scope = await requireClientScope();
+
+  const filters: string[] = [];
+  if (scope.clientIds.length) filters.push(`client_id.in.(${scope.clientIds.join(",")})`);
+  // Compat anciens PV adressés par email sans relation établie.
+  filters.push(`sent_to_email.eq."${scope.email.replace(/"/g, "")}"`);
+
+  const { data, error } = await supabaseAdmin
     .from("pv")
     .select(
-      "id,numero,status,type,reception_date,signed_at,sent_to_client_at,created_at,pdf_url,sign_token_expires_at,client_signature",
+      "id,numero,status,type,reception_date,signed_at,sent_to_client_at,created_at,pdf_url,sign_token_expires_at,client_signature,company_id,chantier_id",
     )
     // Un brouillon n'a jamais été adressé au client : il ne doit pas apparaître.
     .neq("status", "brouillon")
+    .or(filters.join(","))
     .order("created_at", { ascending: false })
     .limit(200);
-  if (s.clientId) {
-    query = query.or(`client_id.eq.${s.clientId},sent_to_email.eq."${s.email.replace(/"/g, "")}"`);
-  } else {
-    query = query.eq("sent_to_email", s.email);
-  }
-  const { data, error } = await query;
   if (error) {
     console.error("getClientPvList failed:", error);
     throw new Error("Impossible de charger vos procès-verbaux pour le moment.");
   }
-  const now = Date.now();
-  const pvs = (data ?? []).map((pv: any) => {
-    const isSigned = pv.status === "signe" || !!pv.client_signature || !!pv.signed_at;
-    const signExpired =
-      !!pv.sign_token_expires_at && new Date(pv.sign_token_expires_at).getTime() < now;
-    return {
-      id: pv.id as string,
-      numero: (pv.numero ?? "") as string,
-      status: pv.status as string,
-      type: (pv.type ?? null) as string | null,
-      reception_date: (pv.reception_date ?? null) as string | null,
-      signed_at: (pv.signed_at ?? null) as string | null,
-      sent_to_client_at: (pv.sent_to_client_at ?? null) as string | null,
-      created_at: (pv.created_at ?? null) as string | null,
-      hasPdf: !!pv.pdf_url,
-      isSigned,
-      // "Lien expiré" n'a de sens que pour un PV qui, sinon, serait signable.
-      signExpired: !isSigned && signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
-      canSign: !isSigned && !signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
 
-    };
-  });
-  return { pvs };
+  const rows = data ?? [];
+  const companyIds = rows.map((r: any) => r.company_id).filter(Boolean) as string[];
+  const chantierIds = Array.from(new Set(rows.map((r: any) => r.chantier_id).filter(Boolean))) as string[];
+  const [companyNames, chantierRows] = await Promise.all([
+    loadCompanyLabels(companyIds),
+    chantierIds.length
+      ? supabaseAdmin.from("chantiers").select("id,name").in("id", chantierIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const chantierNames = new Map<string, string>(
+    ((chantierRows as any).data ?? []).map((c: any) => [c.id as string, (c.name ?? "") as string]),
+  );
+
+  // Levées en attente d'action client, sur les PV accessibles.
+  const pvIds = rows.map((r: any) => r.id as string);
+  const { data: liftRows } = pvIds.length
+    ? await supabaseAdmin
+        .from("reserve_lift_reports")
+        .select("id,numero,pv_id,status,created_at,client_validated_at,client_rejected_at")
+        .in("pv_id", pvIds)
+        .is("client_validated_at", null)
+        .is("client_rejected_at", null)
+        .order("created_at", { ascending: false })
+    : { data: [] as any[] };
+
+  const now = Date.now();
+  const pvs = await Promise.all(
+    rows.map(async (pv: any) => {
+      const isSigned = pv.status === "signe" || !!pv.client_signature || !!pv.signed_at;
+      const signExpired =
+        !!pv.sign_token_expires_at && new Date(pv.sign_token_expires_at).getTime() < now;
+      return {
+        id: pv.id as string,
+        numero: (pv.numero ?? "") as string,
+        status: pv.status as string,
+        type: (pv.type ?? null) as string | null,
+        reception_date: (pv.reception_date ?? null) as string | null,
+        signed_at: (pv.signed_at ?? null) as string | null,
+        sent_to_client_at: (pv.sent_to_client_at ?? null) as string | null,
+        created_at: (pv.created_at ?? null) as string | null,
+        companyName: pv.company_id ? companyNames.get(pv.company_id) ?? null : null,
+        companyKey: await companyKey(pv.company_id ?? null),
+        chantierName: pv.chantier_id ? chantierNames.get(pv.chantier_id) ?? null : null,
+        hasPdf: !!pv.pdf_url,
+        isSigned,
+        // "Lien expiré" n'a de sens que pour un PV qui, sinon, serait signable.
+        signExpired: !isSigned && signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
+        canSign: !isSigned && !signExpired && CLIENT_SIGNABLE_STATUSES.has(pv.status),
+      };
+    }),
+  );
+
+  const pvById = new Map(rows.map((r: any) => [r.id as string, r]));
+  const lifts = await Promise.all(
+    ((liftRows as any[]) ?? [])
+      .filter((l: any) => LIFT_CLIENT_ACTIONABLE.has(l.status))
+      .map(async (l: any) => {
+        const parent = pvById.get(l.pv_id);
+        return {
+          id: l.id as string,
+          pvId: l.pv_id as string,
+          numero: (l.numero ?? "") as string,
+          pvNumero: (parent?.numero ?? "") as string,
+          created_at: (l.created_at ?? null) as string | null,
+          companyName: parent?.company_id ? companyNames.get(parent.company_id) ?? null : null,
+          companyKey: await companyKey(parent?.company_id ?? null),
+          chantierName: parent?.chantier_id ? chantierNames.get(parent.chantier_id) ?? null : null,
+        };
+      }),
+  );
+
+  // Entreprises réellement liées au client (pour le filtre du dashboard).
+  const companies = await Promise.all(
+    Array.from(new Set(rows.map((r: any) => r.company_id).filter(Boolean))).map(async (id: any) => ({
+      key: (await companyKey(id)) as string,
+      name: companyNames.get(id) ?? "Entreprise",
+    })),
+  );
+
+  return { pvs, lifts, companies: companies.sort((a, b) => a.name.localeCompare(b.name, "fr")) };
 });
 
-
-async function fetchPvForClient(pvId: string, s: { email: string; clientId: string | null }) {
-  const { data: pv } = await supabaseAdmin
-    .from("pv")
-    .select(
-      "id,numero,status,type,description,observations,reception_date,signed_at,sent_to_client_at,sent_to_email,client_signature,company_signature,company_id,client_id,chantier_id,pdf_url,sign_token,sign_token_expires_at,created_at",
-    )
-    .eq("id", pvId)
-    .maybeSingle();
-  if (!pv) throw new Error("PV introuvable.");
-  const owned =
-    (s.clientId && pv.client_id === s.clientId) ||
-    (pv.sent_to_email && pv.sent_to_email.toLowerCase() === s.email);
-  if (!owned) throw new Error("Accès refusé.");
-  return pv;
+async function fetchPvForClient(pvId: string, scope: Awaited<ReturnType<typeof requireClientScope>>) {
+  return fetchPvForClientScope(pvId, scope);
 }
+
 
 export const getClientPvDetail = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ pvId: z.string().uuid() }).parse(d))
@@ -684,16 +781,30 @@ export const getClientActivity = createServerFn({ method: "GET" })
     const s = await requireSession();
     const offset = data.offset ?? 0;
 
-    // PV réellement accessibles au client : sert uniquement à décider si on
-    // peut exposer un numéro + un lien de navigation.
-    let pvQuery = supabaseAdmin.from("pv").select("id,numero");
-    pvQuery = s.clientId
-      ? pvQuery.or(`client_id.eq.${s.clientId},sent_to_email.eq."${s.email}"`)
-      : pvQuery.eq("sent_to_email", s.email);
-    const { data: ownPvs } = await pvQuery;
-    const pvMap = new Map<string, string>(
-      (ownPvs ?? []).map((p: any) => [p.id as string, p.numero as string]),
+    // PV réellement accessibles au client (identité → relations → documents) :
+    // sert uniquement à décider si on peut exposer un numéro, l'entreprise
+    // émettrice et un lien de navigation.
+    const filters: string[] = [];
+    if (s.clientIds.length) filters.push(`client_id.in.(${s.clientIds.join(",")})`);
+    filters.push(`sent_to_email.eq."${s.email.replace(/"/g, "")}"`);
+    const { data: ownPvs } = await supabaseAdmin
+      .from("pv")
+      .select("id,numero,company_id")
+      .neq("status", "brouillon")
+      .or(filters.join(","));
+    const companyNames = await loadCompanyLabels(
+      (ownPvs ?? []).map((p: any) => p.company_id).filter(Boolean),
     );
+    const pvMap = new Map<string, { numero: string; companyName: string | null }>(
+      (ownPvs ?? []).map((p: any) => [
+        p.id as string,
+        {
+          numero: (p.numero ?? "") as string,
+          companyName: p.company_id ? companyNames.get(p.company_id) ?? null : null,
+        },
+      ]),
+    );
+
 
     // Valeurs entre guillemets : l'email vient de la session mais reste une
     // donnée d'origine utilisateur injectée dans un filtre PostgREST.
@@ -713,16 +824,18 @@ export const getClientActivity = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const events = (rows ?? []).map((r: any) => {
-      const numero = r.pv_id ? pvMap.get(r.pv_id) ?? null : null;
+      const pv = r.pv_id ? pvMap.get(r.pv_id) ?? null : null;
       return {
         id: r.id as string,
         action: r.action as string,
         created_at: r.created_at as string,
         // Pas de lien/numéro si le PV n'appartient pas (ou plus) au client.
-        pv_id: numero ? (r.pv_id as string) : null,
-        pv_numero: numero,
+        pv_id: pv ? (r.pv_id as string) : null,
+        pv_numero: pv?.numero ?? null,
+        companyName: pv?.companyName ?? null,
       };
     });
+
 
     const total = count ?? offset + events.length;
     return {
