@@ -824,16 +824,18 @@ export const getClientActivity = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const events = (rows ?? []).map((r: any) => {
-      const numero = r.pv_id ? pvMap.get(r.pv_id) ?? null : null;
+      const pv = r.pv_id ? pvMap.get(r.pv_id) ?? null : null;
       return {
         id: r.id as string,
         action: r.action as string,
         created_at: r.created_at as string,
         // Pas de lien/numéro si le PV n'appartient pas (ou plus) au client.
-        pv_id: numero ? (r.pv_id as string) : null,
-        pv_numero: numero,
+        pv_id: pv ? (r.pv_id as string) : null,
+        pv_numero: pv?.numero ?? null,
+        companyName: pv?.companyName ?? null,
       };
     });
+
 
     const total = count ?? offset + events.length;
     return {
