@@ -316,7 +316,9 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
 // ─── session lookup ───────────────────────────────────────────────────────────
 type ClientSession = {
   sessionId: string;
+  /** @deprecated compat : une identité peut être liée à plusieurs `clients`. */
   clientId: string | null;
+  identityId: string | null;
   email: string;
   expiresAt: string;
 } | null;
@@ -327,12 +329,26 @@ async function loadSessionFromCookie(): Promise<ClientSession> {
   const tokenHash = await sha256Hex(token);
   const { data } = await supabaseAdmin
     .from("client_sessions")
-    .select("id,client_id,email,expires_at,revoked_at")
+    .select("id,client_id,client_identity_id,email,expires_at,revoked_at")
     .eq("token_hash", tokenHash)
     .maybeSingle();
   if (!data) return null;
   if (data.revoked_at) return null;
   if (new Date(data.expires_at).getTime() <= Date.now()) return null;
+
+  // Migration douce : une session créée avant le modèle multi-entreprises n'a
+  // pas d'identité. On la résout et on la répare — sans déconnecter personne.
+  let identityId = (data as any).client_identity_id as string | null;
+  if (!identityId) {
+    identityId = (await findIdentityByEmail(data.email))?.id ?? null;
+    if (identityId) {
+      void supabaseAdmin
+        .from("client_sessions")
+        .update({ client_identity_id: identityId } as never)
+        .eq("id", data.id);
+    }
+  }
+
   // sliding last_seen update (best effort, no await needed)
   void supabaseAdmin
     .from("client_sessions")
@@ -341,10 +357,26 @@ async function loadSessionFromCookie(): Promise<ClientSession> {
   return {
     sessionId: data.id,
     clientId: data.client_id,
+    identityId,
     email: data.email,
     expiresAt: data.expires_at,
   };
 }
+
+/**
+ * Périmètre d'accès réel d'une session : identité globale → relations clients
+ * autorisées → identifiants de lignes `clients`. L'email reste accepté en
+ * compatibilité (anciens PV `sent_to_email` sans relation établie), mais n'est
+ * plus le mécanisme d'autorisation principal.
+ */
+async function sessionScope(s: NonNullable<ClientSession>) {
+  const relations = await listIdentityRelations(s.identityId);
+  const clientIds = new Set(relations.map((r) => r.clientId));
+  // Compat : session ancienne encore rattachée à une ligne client précise.
+  if (s.clientId) clientIds.add(s.clientId);
+  return { relations, clientIds: Array.from(clientIds) };
+}
+
 
 export const getClientSession = createServerFn({ method: "GET" }).handler(async () => {
   const s = await loadSessionFromCookie();
