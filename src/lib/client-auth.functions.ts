@@ -276,16 +276,12 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
       .update({ used_at: new Date().toISOString() })
       .eq("id", row.id);
 
-    // Résout le client_id à jour (au cas où il aurait été créé après l'envoi)
-    let clientId = row.client_id;
-    if (!clientId) {
-      const { data: c } = await supabaseAdmin
-        .from("clients")
-        .select("id")
-        .ilike("email", email)
-        .maybeSingle();
-      clientId = c?.id ?? null;
-    }
+    // Authentifie l'IDENTITÉ globale, plus une ligne `clients` unique.
+    const identityId =
+      (row as any).client_identity_id ?? (await findIdentityByEmail(email))?.id ?? null;
+    const relations = await listIdentityRelations(identityId);
+    // client_id reste renseigné (compatibilité anciennes sessions / audit).
+    const clientId = (row.client_id as string | null) ?? relations[0]?.clientId ?? null;
 
     // Crée la session
     const remember = data.remember !== false; // default: persistent 30 days
@@ -296,22 +292,25 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
     await supabaseAdmin.from("client_sessions").insert({
       token_hash: tokenHash,
       client_id: clientId,
+      client_identity_id: identityId,
       email,
       expires_at: expiresAt,
       ip_address: ip,
       user_agent: ua,
     });
     setClientCookie(token, ttlSec, remember);
+    await markIdentityLogin(identityId);
 
     await writeAuditLog({
       companyId: null,
       entityType: "client_auth",
       action: "client.login_success",
-      metadata: { email, has_client: !!clientId, ip },
+      metadata: { email, has_client: relations.length > 0, companies: relations.length, ip },
       actor: "client",
     });
 
-    return { ok: true as const, hasClient: !!clientId };
+    return { ok: true as const, hasClient: relations.length > 0 };
+
   });
 
 // ─── session lookup ───────────────────────────────────────────────────────────
