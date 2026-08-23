@@ -55,7 +55,9 @@ export function ProductLinks({ currentTo }: { currentTo?: string }) {
           {items.map((p) => (
             <li key={p.to}>
               <Link
-                to={p.to}
+                {...(p.to.startsWith("/solutions/")
+                  ? { to: "/solutions/$slug" as const, params: { slug: p.to.slice("/solutions/".length) } }
+                  : { to: p.to as "/fonctionnalites" })}
                 className="group flex min-h-[6rem] min-w-0 flex-col justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
               >
                 <span className="flex items-center justify-between gap-2 text-sm font-semibold text-foreground">
