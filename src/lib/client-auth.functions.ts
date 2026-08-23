@@ -231,7 +231,7 @@ export const verifyClientLoginCode = createServerFn({ method: "POST" })
     // Dernier code actif
     const { data: row } = await supabaseAdmin
       .from("client_auth_codes")
-      .select("id,client_id,code_hash,expires_at,attempts,used_at")
+      .select("id,client_id,client_identity_id,code_hash,expires_at,attempts,used_at")
       .eq("email", email)
       .is("used_at", null)
       .gt("expires_at", new Date().toISOString())
