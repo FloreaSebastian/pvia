@@ -9,11 +9,11 @@ const columns: { title: string; links: LinkDef[] }[] = [
     title: "Produit",
     links: [
       { label: "Fonctionnalités", href: "/fonctionnalites", internal: true },
-      { label: "PV de réception", href: "/pv-reception", internal: true },
-      { label: "Gestion des réserves", href: "/gestion-des-reserves", internal: true },
-      { label: "Mode terrain", href: "/mode-terrain", internal: true },
-      { label: "Planning chantier", href: "/planning-chantier", internal: true },
-      { label: "Espace client", href: "/espace-client", internal: true },
+      { label: "PV de réception", href: "/solutions/pv-reception", internal: true },
+      { label: "Gestion des réserves", href: "/solutions/reserves", internal: true },
+      { label: "Mode terrain", href: "/solutions/terrain", internal: true },
+      { label: "Planning chantier", href: "/solutions/planning", internal: true },
+      { label: "Espace client", href: "/solutions/espace-client", internal: true },
     ],
   },
   {

@@ -1,12 +1,22 @@
 # PVIA
 
-> PVIA est une solution SaaS française qui digitalise les procès-verbaux de réception de travaux pour les professionnels du BTP : création guidée, photos, réserves, signature électronique conforme eIDAS et PDF automatique archivé 10 ans.
+> PVIA est une solution SaaS française qui structure la réception et le suivi des travaux pour les professionnels du BTP : chantiers, procès-verbaux, réserves, photos, signature, PDF, levées, espace client et historique.
 
 ## Pages
 
 - [Accueil](/): Présentation de PVIA, fonctionnalités clés et avantages pour les pros du BTP.
-- [Tarifs](/tarifs): Plans Starter, Pro et Entreprise avec essai gratuit 14 jours sans carte bancaire.
-- [Sécurité & RGPD](/securite): Chiffrement, hébergement européen, signature eIDAS et conformité RGPD.
+- [Solutions](/solutions): Vue d'ensemble du processus PVIA, du chantier à l'historique.
+- [PV de réception](/solutions/pv-reception): Créer, faire signer et envoyer un procès-verbal de réception.
+- [Réserves & levées](/solutions/reserves): Ouverture, gravité, levée et validation client des réserves.
+- [Mode terrain](/solutions/terrain): Photos, réserves et signature depuis le téléphone, sur le chantier.
+- [Signature & documents](/solutions/signature-pdf): Signature sur place ou à distance, PDF généré et envoyé.
+- [Espace client](/solutions/espace-client): Un espace dédié au client, séparé de l'espace interne.
+- [Chantiers](/solutions/chantiers): Dossier chantier complet avec référence unique.
+- [Planning](/solutions/planning): Interventions et réceptions planifiées, reliées aux chantiers.
+- [Équipes](/solutions/equipes): Rôles, invitations et collaboration bureau/terrain.
+- [Historique & statistiques](/solutions/suivi-pilotage): Journal des opérations et indicateurs d'activité.
+- [Tarifs](/tarifs): Plans et essai gratuit 14 jours sans carte bancaire.
+- [Sécurité & RGPD](/securite): Chiffrement, hébergement européen, signature et conformité RGPD.
 
 ## Optional
 

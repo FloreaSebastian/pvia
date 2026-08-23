@@ -8,27 +8,27 @@ export const PRODUCT_PAGES = [
     desc: "Tout ce que PVIA couvre, du chantier au PDF signé.",
   },
   {
-    to: "/pv-reception",
+    to: "/solutions/pv-reception",
     label: "PV de réception",
     desc: "Créer, faire signer et envoyer un procès-verbal.",
   },
   {
-    to: "/gestion-des-reserves",
+    to: "/solutions/reserves",
     label: "Gestion des réserves",
     desc: "Ouverture, gravité, levée et validation client.",
   },
   {
-    to: "/mode-terrain",
+    to: "/solutions/terrain",
     label: "Mode terrain",
     desc: "Photos, réserves et signature depuis le téléphone.",
   },
   {
-    to: "/planning-chantier",
+    to: "/solutions/planning",
     label: "Planning chantier",
     desc: "Interventions, équipes et réceptions planifiées.",
   },
   {
-    to: "/espace-client",
+    to: "/solutions/espace-client",
     label: "Espace client",
     desc: "Vos clients consultent, signent et valident.",
   },
@@ -55,7 +55,9 @@ export function ProductLinks({ currentTo }: { currentTo?: string }) {
           {items.map((p) => (
             <li key={p.to}>
               <Link
-                to={p.to}
+                {...(p.to.startsWith("/solutions/")
+                  ? { to: "/solutions/$slug" as const, params: { slug: p.to.slice("/solutions/".length) } }
+                  : { to: p.to as "/fonctionnalites" })}
                 className="group flex min-h-[6rem] min-w-0 flex-col justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
               >
                 <span className="flex items-center justify-between gap-2 text-sm font-semibold text-foreground">

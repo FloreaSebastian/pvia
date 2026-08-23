@@ -393,3 +393,100 @@ export function SignatureMockup({ className = "" }: { className?: string }) {
     </Frame>
   );
 }
+
+/** Fiche chantier : tout ce qui est rattaché au dossier (fictif). */
+export function ChantierMockup({ className = "" }: { className?: string }) {
+  const links = [
+    { l: "Client", v: "M. Dumas" },
+    { l: "Planning", v: "3 interventions" },
+    { l: "Équipe", v: "2 techniciens" },
+    { l: "PV", v: "PV-2026-0184" },
+    { l: "Réserves", v: "2 ouvertes" },
+    { l: "Photos", v: "14" },
+    { l: "Documents", v: "5" },
+    { l: "Historique", v: "18 événements" },
+  ];
+  return (
+    <Frame label="Fiche chantier PVIA : client, planning, équipe, PV, réserves et documents" className={className}>
+      <div className="p-3 sm:p-4">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-semibold text-foreground">Toiture Villa Dumas</p>
+            <p className="truncate text-[10px] text-muted-foreground">CH0184AZ · Aix-en-Provence</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary">
+            En cours
+          </span>
+        </div>
+        <ul className="mt-3 grid grid-cols-2 gap-1.5">
+          {links.map((i) => (
+            <li key={i.l} className="min-w-0 rounded-lg border border-border px-2.5 py-1.5">
+              <p className="truncate text-[9px] uppercase tracking-wide text-muted-foreground">{i.l}</p>
+              <p className="truncate text-[10px] font-medium text-foreground">{i.v}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Frame>
+  );
+}
+
+/** Membres de l'entreprise et rôles (fictif). */
+export function TeamMockup({ className = "" }: { className?: string }) {
+  const members = [
+    { n: "Sophie L.", r: "Owner" },
+    { n: "Karim B.", r: "Manager" },
+    { n: "Julien P.", r: "Utilisateur" },
+    { n: "Invitation en attente", r: "Utilisateur" },
+  ];
+  return (
+    <Frame label="Membres de l'entreprise dans PVIA et rôles associés" className={className}>
+      <div className="p-3 sm:p-4">
+        <p className="truncate text-[11px] font-semibold text-foreground">Équipe — 4 membres</p>
+        <ul className="mt-2.5 space-y-1.5">
+          {members.map((m) => (
+            <li
+              key={m.n}
+              className="flex min-w-0 items-center gap-2 rounded-lg border border-border px-2.5 py-2"
+            >
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground">
+                <Users className="h-3 w-3" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground">
+                {m.n}
+              </span>
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">
+                {m.r}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Frame>
+  );
+}
+
+/** Journal des opérations d'un dossier (fictif). */
+export function HistoryMockup({ className = "" }: { className?: string }) {
+  const events = [
+    { t: "14/03 · 10:06", l: "PDF envoyé au client" },
+    { t: "14/03 · 10:05", l: "PV signé par M. Dumas" },
+    { t: "14/03 · 09:41", l: "Réserve majeure créée" },
+    { t: "14/03 · 09:12", l: "Réception démarrée par Julien P." },
+  ];
+  return (
+    <Frame label="Historique horodaté d'un dossier PVIA" className={className}>
+      <ol className="space-y-2 p-3 sm:p-4">
+        {events.map((e) => (
+          <li key={e.t} className="flex min-w-0 items-start gap-2.5">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-medium text-foreground">{e.l}</p>
+              <p className="truncate text-[10px] text-muted-foreground">{e.t}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </Frame>
+  );
+}
