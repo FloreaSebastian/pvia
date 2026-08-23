@@ -131,6 +131,7 @@ export const sendClientLoginCode = createServerFn({ method: "POST" })
       .from("client_auth_codes")
       .insert({
         client_id: clientRow?.id ?? null,
+        client_identity_id: identity?.id ?? null,
         email,
         code_hash: "pending",
         expires_at: expiresAt,
