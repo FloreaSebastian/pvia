@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
-import { Building2, User, Mail, Phone, MapPin, Navigation, Pencil, Archive, X, Briefcase, FileText, AlertTriangle, History, ExternalLink } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Building2, User, Mail, Phone, MapPin, Navigation, Pencil, Archive, X, Briefcase, FileText, AlertTriangle, History, ExternalLink, ShieldCheck, Send, Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { getClientPortalStatus, inviteClientToPortal, type PortalStatus } from "@/lib/client-portal.functions";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -68,8 +71,107 @@ function SectionCard({ icon: Icon, title, action, children }: { icon: React.Elem
   );
 }
 
+const PORTAL_LABEL: Record<PortalStatus["state"], { label: string; help: string; tone: string }> = {
+  no_email: {
+    label: "Indisponible",
+    help: "Ajoutez une adresse email au client pour activer son espace en ligne.",
+    tone: "border-border text-muted-foreground",
+  },
+  not_invited: {
+    label: "Non activé",
+    help: "Ce client n'a pas encore été invité à consulter ses documents en ligne.",
+    tone: "border-border text-muted-foreground",
+  },
+  invited: {
+    label: "Invitation envoyée",
+    help: "Le client a reçu son invitation mais ne s'est pas encore connecté.",
+    tone: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+  },
+  active: {
+    label: "Compte actif",
+    help: "Le client accède à ses documents depuis son espace en ligne.",
+    tone: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+  },
+  suspended: {
+    label: "Accès suspendu",
+    help: "L'accès à l'espace client a été suspendu pour ce client.",
+    tone: "border-destructive/40 text-destructive",
+  },
+};
+
+function PortalSection({ clientId, companyId, canManage }: { clientId: string; companyId: string | null; canManage: boolean }) {
+  const statusFn = useServerFn(getClientPortalStatus);
+  const inviteFn = useServerFn(inviteClientToPortal);
+  const [status, setStatus] = useState<PortalStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!companyId) return;
+    setLoading(true);
+    try {
+      setStatus(await statusFn({ data: { companyId, clientId } }));
+    } catch {
+      setStatus(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, clientId, statusFn]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  async function invite() {
+    if (!companyId || sending) return;
+    setSending(true);
+    try {
+      const res = await inviteFn({ data: { companyId, clientId } });
+      toast.success(res.reinvited ? "Invitation renvoyée" : "Invitation envoyée");
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Envoi impossible");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const meta = status ? PORTAL_LABEL[status.state] : null;
+  const canInvite = canManage && !!status && status.state !== "no_email" && status.state !== "suspended";
+
+  return (
+    <SectionCard icon={ShieldCheck} title="Espace client">
+      {loading ? (
+        <Skeleton className="h-16 w-full" />
+      ) : !status || !meta ? (
+        <p className="text-xs italic text-muted-foreground">Statut indisponible.</p>
+      ) : (
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className={cn("text-[10px]", meta.tone)}>{meta.label}</Badge>
+            {status.invitedAt && status.state !== "no_email" && (
+              <span className="text-[11px] text-muted-foreground">Invité le {fmtDate(status.invitedAt)}</span>
+            )}
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">{meta.help}</p>
+          {canInvite && (
+            <Button
+              size="sm"
+              variant={status.state === "not_invited" ? "default" : "outline"}
+              className="h-11 w-full gap-1.5 sm:h-9 sm:w-auto"
+              onClick={invite}
+              disabled={sending}
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {status.state === "not_invited" ? "Inviter à l'espace client" : "Renvoyer l'invitation"}
+            </Button>
+          )}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
 function ClientDetailContent({ client, onEdit, onDelete, onClose }: { client: Client; onEdit: (c: Client) => void; onDelete: (id: string) => void; onClose: () => void }) {
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, can } = useCompany();
   const isEnt = client.client_type === "entreprise";
   const [loading, setLoading] = useState(true);
   const [chantiers, setChantiers] = useState<Chantier[]>([]);
@@ -233,7 +335,10 @@ function ClientDetailContent({ client, onEdit, onDelete, onClose }: { client: Cl
               </dl>
             )}
           </SectionCard>
+
+          <PortalSection clientId={client.id} companyId={activeCompanyId} canManage={can("manage") && !client.archived_at} />
         </div>
+
 
         {client.notes && (
           <Card className="mt-4 p-4">

@@ -122,7 +122,11 @@ export type AuditAction =
   | "reserve_lift.client_pdf_deleted_on_reopen"
   | "reserve_lift.internal_pdf_deleted_on_reopen"
   | "chantier.reopened"
-  | "chantier.status_recomputed";
+  | "chantier.status_recomputed"
+  // Espace Client V2 — pilotage entreprise
+  | "client.portal_invited"
+  | "client.portal_reinvited"
+  | "client.portal_linked";
 
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
