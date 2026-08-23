@@ -46,8 +46,10 @@ import {
 import {
   companyKey,
   fetchPvForClientScope,
+  isPvInScope,
   requireClientScope,
 } from "@/lib/client-access.server";
+
 import { LIFT_SIGNED_STATUSES } from "@/lib/reserve-lift-status";
 
 // ─── send code ────────────────────────────────────────────────────────────────
