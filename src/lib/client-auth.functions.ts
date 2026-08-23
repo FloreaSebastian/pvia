@@ -425,7 +425,7 @@ export const logoutClientSession = createServerFn({ method: "POST" }).handler(as
 
 // ─── data access (scoped) ─────────────────────────────────────────────────────
 /** Périmètre autorisé : identité globale → relations clients → documents. */
-const requireSession = requireClientScope;
+
 
 /** Statuts de levée sur lesquels le client a réellement une action à faire. */
 const LIFT_CLIENT_ACTIONABLE = new Set<string>([...LIFT_SIGNED_STATUSES]);
@@ -555,7 +555,7 @@ async function fetchPvForClient(pvId: string, scope: Awaited<ReturnType<typeof r
 export const getClientPvDetail = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ pvId: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
-    const s = await requireSession();
+    const s = await requireClientScope();
     const pv = await fetchPvForClient(data.pvId, s);
     const [{ data: company }, { data: chantier }, { data: reserves }, { data: photos }] =
       await Promise.all([
@@ -602,7 +602,7 @@ export const getClientPvDetail = createServerFn({ method: "POST" })
 export const getClientPdfSignedUrl = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ pvId: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
-    const s = await requireSession();
+    const s = await requireClientScope();
     const pv = await fetchPvForClient(data.pvId, s);
     if (!pv.pdf_url) throw new Error("PDF non encore disponible.");
     const { data: signed, error } = await supabaseAdmin.storage
@@ -630,7 +630,7 @@ const SignClientSchema = z.object({
 export const signPvAsClient = createServerFn({ method: "POST" })
   .inputValidator((d) => SignClientSchema.parse(d))
   .handler(async ({ data }) => {
-    const s = await requireSession();
+    const s = await requireClientScope();
     const ip = getClientIp() ?? "unknown";
     const userAgent = (getClientUA() ?? "").slice(0, 500);
     await enforceRateLimit({
@@ -778,7 +778,7 @@ export const getClientActivity = createServerFn({ method: "GET" })
       .parse(d ?? {}),
   )
   .handler(async ({ data }) => {
-    const s = await requireSession();
+    const s = await requireClientScope();
     const offset = data.offset ?? 0;
 
     // PV réellement accessibles au client (identité → relations → documents) :
@@ -850,7 +850,7 @@ export const getClientActivity = createServerFn({ method: "GET" })
 
 // ─── client profile / sessions ────────────────────────────────────────────────
 export const getClientProfile = createServerFn({ method: "GET" }).handler(async () => {
-  const s = await requireSession();
+  const s = await requireClientScope();
   const token = readClientCookieToken();
   const currentHash = token ? await sha256Hex(token) : null;
 
@@ -885,7 +885,7 @@ export const getClientProfile = createServerFn({ method: "GET" }).handler(async 
 export const revokeClientSession = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ sessionId: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
-    const s = await requireSession();
+    const s = await requireClientScope();
     const token = readClientCookieToken();
     const currentHash = token ? await sha256Hex(token) : null;
 
@@ -915,7 +915,7 @@ export const revokeClientSession = createServerFn({ method: "POST" })
   });
 
 export const revokeAllClientSessions = createServerFn({ method: "POST" }).handler(async () => {
-  const s = await requireSession();
+  const s = await requireClientScope();
 
   await supabaseAdmin
     .from("client_sessions")
