@@ -787,11 +787,15 @@ export const getClientActivity = createServerFn({ method: "GET" })
     const filters: string[] = [];
     if (s.clientIds.length) filters.push(`client_id.in.(${s.clientIds.join(",")})`);
     filters.push(`sent_to_email.eq."${s.email.replace(/"/g, "")}"`);
-    const { data: ownPvs } = await supabaseAdmin
+    const { data: ownPvsRaw } = await supabaseAdmin
       .from("pv")
-      .select("id,numero,company_id")
+      .select("id,numero,company_id,client_id,sent_to_email")
       .neq("status", "brouillon")
       .or(filters.join(","));
+    // Le `.or()` SQL reste large (compat email) : l'autorisation définitive,
+    // suspensions comprises, est réappliquée ligne par ligne.
+    const ownPvs = (ownPvsRaw ?? []).filter((p: any) => isPvInScope(p, s));
+
     const companyNames = await loadCompanyLabels(
       (ownPvs ?? []).map((p: any) => p.company_id).filter(Boolean),
     );
