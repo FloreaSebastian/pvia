@@ -252,14 +252,14 @@ function VisiteDetailPage() {
       <div className="flex min-w-0 flex-wrap gap-2">
         {canEdit && visit.status !== "validee" && visit.status !== "archivee" ? (
           <Button asChild className="h-11 flex-1 min-w-[10rem]">
-            <Link to="/visites-techniques/$id_/terrain" params={{ id }}>
+            <Link to="/visites-techniques/$id/terrain" params={{ id }}>
               <Play className="mr-2 h-4 w-4" aria-hidden="true" />
               {visit.status === "en_cours" ? "Continuer la saisie" : "Mode terrain"}
             </Link>
           </Button>
         ) : (
           <Button asChild variant="outline" className="h-11 flex-1 min-w-[10rem]">
-            <Link to="/visites-techniques/$id_/terrain" params={{ id }}>
+            <Link to="/visites-techniques/$id/terrain" params={{ id }}>
               <ClipboardList className="mr-2 h-4 w-4" aria-hidden="true" />
               Consulter le relevé
             </Link>
