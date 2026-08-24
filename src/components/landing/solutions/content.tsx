@@ -47,7 +47,7 @@ export type SolutionContent = {
   navLabel: string;
   navDesc: string;
   navIcon: LucideIcon;
-  navGroup: "Réception" | "Terrain" | "Collaboration" | "Pilotage";
+  navGroup: "Préparer" | "Réception" | "Terrain" | "Collaboration" | "Pilotage";
   eyebrow: string;
   h1: string;
   subtitle: string;
