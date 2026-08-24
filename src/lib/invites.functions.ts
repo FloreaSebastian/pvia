@@ -124,7 +124,6 @@ export const sendInvite = createServerFn({ method: "POST" })
         .update({
           role: data.role,
           status: "invited",
-          invite_token: null,
           invite_token_hash: tokenHash,
           invite_expires_at: expiresAt,
           invited_by: userId,
@@ -137,7 +136,6 @@ export const sendInvite = createServerFn({ method: "POST" })
         invited_email: data.email.toLowerCase(),
         role: data.role,
         status: "invited",
-        invite_token: null,
         invite_token_hash: tokenHash,
         invite_expires_at: expiresAt,
         invited_by: userId,
@@ -296,7 +294,6 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
         user_id: userId,
         status: "active",
         invited_email: null,
-        invite_token: null,
         invite_token_hash: null,
         accepted_at: new Date().toISOString(),
       } as never)
