@@ -160,7 +160,7 @@ export const getTechnicalVisit = createServerFn({ method: "POST" })
       supabase.rpc("can_edit_technical_visit", { _visit_id: data.visitId, _user_id: userId }),
     ]);
 
-    const answers: Record<string, unknown> = {};
+    const answers: Record<string, any> = {};
     for (const a of answersRes.data ?? []) answers[a.field_key] = a.value;
 
     let assigneeName: string | null = null;
