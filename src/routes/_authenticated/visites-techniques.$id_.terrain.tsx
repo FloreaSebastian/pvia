@@ -1,9 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, Check, CloudOff, Loader2, Save, ShieldAlert, X,
+  ArrowLeft, ArrowRight, Check, CloudOff, Loader2, ShieldAlert,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -19,7 +18,7 @@ import { useCompany } from "@/hooks/use-company";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { getTechnicalVisit, saveVisitAnswers, setVisitStatus } from "@/lib/visites.functions";
 import { getVisitTemplate, isVisitType } from "@/lib/visites/templates";
-import { computeProgress, resolveSections, formatAnswer } from "@/lib/visites/engine";
+import { computeProgress, resolveSections } from "@/lib/visites/engine";
 import type { AnswerMap, AnswerValue } from "@/lib/visites/types";
 import { VisitFieldInput } from "@/components/visites/VisitFieldInput";
 import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "@/components/visites/VisitPhotoSlotCard";
