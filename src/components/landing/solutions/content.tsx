@@ -241,7 +241,6 @@ export const SOLUTION_PAGES: SolutionContent[] = [
       "Réalisez vos visites techniques photovoltaïque, PAC air/air et PAC air/eau dans PVIA : questionnaire par type d'installation, photos attendues, contraintes techniques et rattachement au chantier. Inclus à partir de la formule Pro.",
   },
   {
-  {
     slug: "pv-reception",
     navLabel: "PV de réception",
     navDesc: "Du premier constat au document signé",
