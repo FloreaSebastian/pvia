@@ -59,6 +59,8 @@ export const PUBLIC_PLANS: {
   maxMembers: number | null;
   recommended?: boolean;
   features: string[];
+  /** Fonctionnalités explicitement non incluses (affichées barrées). */
+  notIncluded?: string[];
   cta: string;
 }[] = [
   {
@@ -75,6 +77,7 @@ export const PUBLIC_PLANS: {
       "Photos, réserves et export PDF",
       "Support par email",
     ],
+    notIncluded: ["Visites techniques (à partir du plan Pro)"],
     cta: "Essayer gratuitement",
   },
   {

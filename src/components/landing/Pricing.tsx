@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
@@ -106,6 +106,12 @@ export function Pricing({ as = "h2" }: { as?: "h1" | "h2" } = {}) {
                     <li key={f} className="flex items-start gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                       <span className="min-w-0 break-words text-foreground/80">{f}</span>
+                    </li>
+                  ))}
+                  {p.notIncluded?.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm">
+                      <X className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 break-words text-muted-foreground">{f}</span>
                     </li>
                   ))}
                 </ul>
