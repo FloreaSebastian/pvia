@@ -7,7 +7,12 @@ import { writeAuditLog } from "./audit.server";
  * Sources truth from public.plan_limits + public.subscriptions via RPCs.
  */
 
-export type PlanFeature = "remote_sign" | "advanced_stats" | "export_audit" | "branding";
+export type PlanFeature =
+  | "remote_sign"
+  | "advanced_stats"
+  | "export_audit"
+  | "branding"
+  | "technical_visits";
 
 export type AccessState =
   | "free"            // no subscription row → free starter tier
@@ -186,6 +191,7 @@ export async function assertPlanFeature(companyId: string, feature: PlanFeature,
       advanced_stats: "Statistiques avancées",
       export_audit: "Export de l'historique d'audit",
       branding: "Branding personnalisé",
+      technical_visits: "Visite technique",
     };
     throw new Error(`Fonctionnalité « ${labels[feature]} » non incluse dans votre plan actuel.`);
   }

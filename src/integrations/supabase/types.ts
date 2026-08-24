@@ -1396,6 +1396,7 @@ export type Database = {
           can_branding: boolean
           can_export_audit: boolean
           can_remote_sign: boolean
+          can_technical_visits: boolean
           created_at: string
           display_name: string
           is_custom_pricing: boolean
@@ -1416,6 +1417,7 @@ export type Database = {
           can_branding?: boolean
           can_export_audit?: boolean
           can_remote_sign?: boolean
+          can_technical_visits?: boolean
           created_at?: string
           display_name: string
           is_custom_pricing?: boolean
@@ -1436,6 +1438,7 @@ export type Database = {
           can_branding?: boolean
           can_export_audit?: boolean
           can_remote_sign?: boolean
+          can_technical_visits?: boolean
           created_at?: string
           display_name?: string
           is_custom_pricing?: boolean
@@ -3027,6 +3030,7 @@ export type Database = {
           can_branding: boolean
           can_export_audit: boolean
           can_remote_sign: boolean
+          can_technical_visits: boolean
           created_at: string
           display_name: string
           is_custom_pricing: boolean

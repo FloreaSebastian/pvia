@@ -44,7 +44,9 @@ export function useSubscription() {
     blocked: access?.blocked ?? false,
     isTrialing: access?.state === "trialing",
     /** True if current plan grants this feature. */
-    hasFeature: (feature: "remote_sign" | "advanced_stats" | "export_audit" | "branding") => {
+    hasFeature: (
+      feature: "remote_sign" | "advanced_stats" | "export_audit" | "branding" | "technical_visits",
+    ) => {
       const lim = query.data?.limits as any;
       if (!lim) return false;
       const map: Record<string, keyof typeof lim> = {
@@ -52,6 +54,7 @@ export function useSubscription() {
         advanced_stats: "can_advanced_stats",
         export_audit: "can_export_audit",
         branding: "can_branding",
+        technical_visits: "can_technical_visits",
       };
       return Boolean(lim[map[feature]]);
     },

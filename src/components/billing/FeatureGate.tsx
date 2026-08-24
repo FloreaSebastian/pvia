@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { useSubscription } from "@/hooks/use-subscription";
 import type { PropsWithChildren } from "react";
 
-type Feature = "remote_sign" | "advanced_stats" | "export_audit" | "branding";
+type Feature = "remote_sign" | "advanced_stats" | "export_audit" | "branding" | "technical_visits";
 
 const LABELS: Record<Feature, string> = {
   remote_sign: "Signature à distance",
   advanced_stats: "Statistiques avancées",
   export_audit: "Export de l'historique d'audit",
   branding: "Branding personnalisé",
+  technical_visits: "Visite technique (à partir du plan Pro)",
 };
 
 /**

@@ -19,6 +19,7 @@ import { isManageRole } from "@/lib/roles";
 import { createTechnicalVisit, listVisitAssignees } from "@/lib/visites.functions";
 import { VISIT_TYPE_OPTIONS } from "@/lib/visites/templates";
 import type { VisitType } from "@/lib/visites/types";
+import { FeatureGate } from "@/components/billing/FeatureGate";
 
 export const Route = createFileRoute("/_authenticated/visites-techniques/nouvelle")({
   head: () => ({
@@ -222,6 +223,7 @@ function NouvelleVisitePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl min-w-0 space-y-4 px-3 pb-28 pt-3 sm:px-4 sm:pb-10">
+      <FeatureGate feature="technical_visits">
       <div className="flex min-w-0 items-center gap-2">
         <Button asChild variant="ghost" size="icon" className="h-11 w-11 shrink-0">
           <Link to="/visites-techniques" aria-label="Retour aux visites techniques">
@@ -561,6 +563,7 @@ function NouvelleVisitePage() {
           </Button>
         )}
       </div>
+      </FeatureGate>
     </div>
   );
 }

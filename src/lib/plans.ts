@@ -91,6 +91,7 @@ export const PUBLIC_PLANS: {
       "Signature à distance (email + OTP)",
       "Statistiques avancées",
       "Export de l'historique d'audit",
+      "Visites techniques PV, PAC air/air et air/eau",
       "Support prioritaire",
     ],
     cta: "Essayer gratuitement",
@@ -108,6 +109,7 @@ export const PUBLIC_PLANS: {
       "Signature à distance (email + OTP)",
       "Statistiques avancées",
       "Branding personnalisé (logo, couleurs)",
+      "Visites techniques PV, PAC air/air et air/eau",
       "Export de l'historique d'audit",
     ],
     cta: "Essayer gratuitement",
@@ -122,6 +124,7 @@ export const PUBLIC_PLANS: {
     features: [
       "Utilisateurs illimités",
       "PV illimités",
+      "Visites techniques PV, PAC air/air et air/eau",
       "Multi-sociétés et gestion fine des rôles",
       "API, webhooks et intégrations",
       "Accompagnement dédié et SLA",

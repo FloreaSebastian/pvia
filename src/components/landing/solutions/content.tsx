@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Camera,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
   Download,
   FileText,
@@ -47,7 +48,7 @@ export type SolutionContent = {
   navLabel: string;
   navDesc: string;
   navIcon: LucideIcon;
-  navGroup: "Réception" | "Terrain" | "Collaboration" | "Pilotage";
+  navGroup: "Préparer" | "Réception" | "Terrain" | "Collaboration" | "Pilotage";
   eyebrow: string;
   h1: string;
   subtitle: string;
@@ -60,6 +61,8 @@ export type SolutionContent = {
   outcomes: { title: string; items: { title: string; text: string }[] };
   scenario: { title: string; intro: string; steps: { when: string; text: string }[] };
   compare?: boolean;
+  /** Restriction commerciale : la solution n'est pas incluse dans toutes les formules. */
+  plan?: { badge: string; title: string; text: string; bullets: string[] };
   related: string[];
   ctaTitle: string;
   seoTitle: string;
@@ -67,6 +70,177 @@ export type SolutionContent = {
 };
 
 export const SOLUTION_PAGES: SolutionContent[] = [
+  {
+    slug: "visite-technique",
+    navLabel: "Visite technique",
+    navDesc: "Le relevé avant travaux, avant le devis et la pose",
+    navIcon: ClipboardCheck,
+    navGroup: "Préparer",
+    plan: {
+      badge: "Pro",
+      title: "La Visite technique est disponible à partir de la formule Pro",
+      text: "Elle n'est pas incluse dans la formule Essentiel. Les formules Pro, Business et Entreprise y donnent accès, et l'essai gratuit de 14 jours permet de la tester avant de choisir.",
+      bullets: [
+        "Essentiel : réception, réserves, signature sur site et PDF.",
+        "Pro, Business, Entreprise : visites techniques photovoltaïque, PAC air/air et PAC air/eau incluses.",
+        "Le passage d'une formule à l'autre se fait depuis l'espace Abonnement, sans perdre les visites déjà réalisées.",
+      ],
+    },
+    eyebrow: "PVIA · Visite technique · À partir de Pro",
+    h1: "La visite technique avant travaux, structurée comme une vraie étude terrain.",
+    subtitle:
+      "Avant de chiffrer et avant de poser, la visite technique fixe ce qui a été vu sur place : configuration, contraintes, photos repérées et points de vigilance. Le relevé est rattaché au chantier dès sa création, donc il reste disponible jusqu'à la réception.",
+    heroBullets: [
+      "Inclus à partir de Pro",
+      "Photovoltaïque",
+      "PAC air/air",
+      "PAC air/eau",
+      "Mode terrain",
+      "Contraintes",
+    ],
+    heroVisual: "chantier",
+    problem: {
+      items: [
+        "Le relevé se fait sur un carnet ou dans les notes du téléphone, puis se perd avant le chiffrage.",
+        "Chaque technicien relève ce qu'il pense important : deux visites du même type ne contiennent pas les mêmes informations.",
+        "Les photos de toiture, de tableau électrique ou d'emplacement de groupe restent sur le téléphone.",
+        "Une contrainte vue sur place (accès, distance de liaison, nature de couverture) ressort en cours de pose.",
+        "Le jour de la réception, personne ne retrouve ce qui avait été constaté avant travaux.",
+      ],
+      transition:
+        "PVIA transforme la visite technique en étape complète du dossier : un questionnaire adapté au type d'installation, des photos attendues et des contraintes consignées, rattachés au chantier.",
+    },
+    answer: {
+      title: "Un questionnaire par type d'installation, pas un formulaire générique",
+      text: "Vous choisissez le type de visite : photovoltaïque, PAC air/air ou PAC air/eau. PVIA affiche alors les sections correspondantes, et masque les questions qui ne s'appliquent pas à la configuration relevée.",
+      points: [
+        "Photovoltaïque : bâtiment et toiture, pans, accès et sécurité, tableau électrique, cheminements, segments, contraintes.",
+        "PAC air/air : configuration, pièces à traiter, emplacement du groupe extérieur, liaisons, électricité, contraintes.",
+        "PAC air/eau : installation existante, émetteurs, logement, emplacement, hydraulique, eau chaude sanitaire, électricité, contraintes.",
+        "Les questions dépendantes n'apparaissent que si elles ont un sens : le relevé reste court sur le terrain.",
+      ],
+      visual: "phone",
+    },
+    flow: {
+      title: "Le déroulé d'une visite technique dans PVIA",
+      description:
+        "La visite est créée depuis le bureau ou depuis le terrain, puis exécutée sur mobile et clôturée par une validation.",
+      steps: [
+        "Créer la visite",
+        "Choisir le type",
+        "Rattacher le chantier",
+        "Relever sur place",
+        "Photos repérées",
+        "Consigner les contraintes",
+        "Terminer",
+        "Valider",
+      ],
+    },
+    features: {
+      title: "Ce que couvre la visite technique",
+      description:
+        "Les fonctionnalités réellement disponibles dans le module Visites techniques de PVIA.",
+      items: [
+        {
+          icon: ClipboardCheck,
+          title: "Trois types de visites",
+          text: "Photovoltaïque, PAC air/air et PAC air/eau, chacun avec ses sections et ses questions propres.",
+        },
+        {
+          icon: Smartphone,
+          title: "Mode terrain dédié",
+          text: "Un parcours en étapes, pensé pour être rempli debout sur un chantier, avec la progression visible.",
+        },
+        {
+          icon: Camera,
+          title: "Photos attendues",
+          text: "Les prises de vue à réaliser sont listées. Une photo peut être marquée comme impossible, avec sa raison.",
+        },
+        {
+          icon: MapPin,
+          title: "Repérage et compression",
+          text: "Les photos sont compressées avant envoi et conservent les informations de prise de vue quand elles sont disponibles.",
+        },
+        {
+          icon: ShieldCheck,
+          title: "Contraintes techniques",
+          text: "Chaque point bloquant ou à surveiller est consigné avec sa nature, pour être vu avant l'intervention.",
+        },
+        {
+          icon: Building2,
+          title: "Rattachement au chantier",
+          text: "La visite est reliée au chantier dès sa création, et reste consultable dans son dossier.",
+        },
+        {
+          icon: CheckCircle2,
+          title: "Statuts et validation",
+          text: "En cours, terminée puis validée : une visite validée n'est plus modifiable et sert de référence.",
+        },
+        {
+          icon: Users,
+          title: "Attribution",
+          text: "La visite est affectée à un membre de l'équipe, qui la retrouve dans sa liste de visites.",
+        },
+      ],
+    },
+    outcomes: {
+      title: "Ce que l'entreprise y gagne",
+      items: [
+        {
+          title: "Des chiffrages appuyés sur du réel",
+          text: "Le devis part d'un relevé structuré, pas d'un souvenir de visite.",
+        },
+        {
+          title: "Moins de mauvaises surprises à la pose",
+          text: "Les contraintes d'accès, d'électricité ou de liaison sont connues avant l'intervention.",
+        },
+        {
+          title: "Des relevés homogènes",
+          text: "Deux techniciens différents produisent la même qualité d'information sur le même type d'installation.",
+        },
+        {
+          title: "Une continuité jusqu'à la réception",
+          text: "La visite reste dans le dossier du chantier, à côté des interventions, du PV et des réserves.",
+        },
+      ],
+    },
+    scenario: {
+      title: "Un exemple concret",
+      intro:
+        "Une demande d'installation photovoltaïque sur une maison individuelle, avec une visite technique avant chiffrage.",
+      steps: [
+        {
+          when: "Au bureau",
+          text: "Le conducteur crée la visite technique pour le client, choisit le type photovoltaïque et l'affecte au technicien. Le chantier est créé ou rattaché à cette occasion.",
+        },
+        {
+          when: "Sur place",
+          text: "Le technicien ouvre le mode terrain et déroule les sections : toiture, pans, accès, tableau électrique, cheminements.",
+        },
+        {
+          when: "Pendant le relevé",
+          text: "Il prend les photos attendues. Le local technique n'est pas accessible : la photo est marquée comme impossible avec sa raison.",
+        },
+        {
+          when: "Avant de partir",
+          text: "Il consigne deux contraintes : accès nacelle nécessaire et tableau à mettre à niveau.",
+        },
+        {
+          when: "Retour au bureau",
+          text: "Le conducteur relit la visite, la marque terminée puis la valide. Elle devient la référence du dossier.",
+        },
+        {
+          when: "Plus tard",
+          text: "Le jour de la réception, la visite technique reste consultable dans le dossier du chantier, à côté du PV et des réserves.",
+        },
+      ],
+    },
+    related: ["chantiers", "terrain", "pv-reception"],
+    ctaTitle: "Préparez vos poses à partir de ce qui a réellement été vu sur place.",
+    seoTitle: "Visite technique PV et PAC — relevé avant travaux | PVIA",
+    seoDescription:
+      "Réalisez vos visites techniques photovoltaïque, PAC air/air et PAC air/eau dans PVIA : questionnaire par type d'installation, photos attendues, contraintes techniques et rattachement au chantier. Inclus à partir de la formule Pro.",
+  },
   {
     slug: "pv-reception",
     navLabel: "PV de réception",
@@ -146,7 +320,7 @@ export const SOLUTION_PAGES: SolutionContent[] = [
       ],
     },
     compare: true,
-    related: ["reserves", "signature-pdf", "espace-client"],
+    related: ["reserves", "signature-pdf", "visite-technique"],
     ctaTitle: "Votre prochaine réception peut déjà être plus simple.",
     seoTitle: "Logiciel de PV de réception de travaux — PVIA",
     seoDescription:
@@ -304,7 +478,7 @@ export const SOLUTION_PAGES: SolutionContent[] = [
       ],
     },
     compare: true,
-    related: ["pv-reception", "chantiers", "planning"],
+    related: ["pv-reception", "visite-technique", "chantiers"],
     ctaTitle: "Faites entrer PVIA sur vos chantiers.",
     seoTitle: "Application de réception de chantier sur mobile — Mode terrain PVIA",
     seoDescription:
@@ -536,7 +710,7 @@ export const SOLUTION_PAGES: SolutionContent[] = [
       ],
     },
     compare: true,
-    related: ["planning", "terrain", "equipes"],
+    related: ["visite-technique", "planning", "terrain"],
     ctaTitle: "Rassemblez vos chantiers dans un seul dossier.",
     seoTitle: "Logiciel de suivi de chantier et dossiers travaux — PVIA",
     seoDescription:
@@ -777,5 +951,5 @@ export function getSolutionPage(slug: string): SolutionContent | undefined {
 }
 
 export const SOLUTION_GROUPS: { title: SolutionContent["navGroup"]; items: SolutionContent[] }[] = (
-  ["Réception", "Terrain", "Collaboration", "Pilotage"] as const
+  ["Préparer", "Réception", "Terrain", "Collaboration", "Pilotage"] as const
 ).map((title) => ({ title, items: SOLUTION_PAGES.filter((p) => p.navGroup === title) }));

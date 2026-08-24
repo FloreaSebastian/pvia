@@ -20,6 +20,7 @@ import {
 import { Logo } from "@/components/landing/Logo";
 import { SOLUTIONS } from "@/components/landing/solutions-data";
 import { SOLUTION_GROUPS, SOLUTION_PAGES } from "@/components/landing/solutions/content";
+import { PlanBadge } from "@/components/landing/solutions/sections";
 import type { LucideIcon } from "lucide-react";
 
 type NavLink = { label: string; href: string; desc?: string; icon?: LucideIcon; group?: string };
@@ -183,8 +184,11 @@ function SolutionsMegaMenu() {
                           <p.navIcon aria-hidden className="h-3.5 w-3.5" />
                         </span>
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-foreground">
-                            {p.navLabel}
+                          <span className="flex items-center gap-1.5">
+                            <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                              {p.navLabel}
+                            </span>
+                            {p.plan && <PlanBadge label={p.plan.badge} />}
                           </span>
                           <span className="block text-xs leading-snug text-muted-foreground">
                             {p.navDesc}
