@@ -2,9 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ClipboardList, Plus, Search, SlidersHorizontal, Loader2, MapPin, CalendarClock,
-  User as UserIcon, ChevronRight, X, ClipboardCheck,
+  User as UserIcon, ChevronRight, X, ClipboardCheck, Sparkles,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { useSubscription } from "@/hooks/use-subscription";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,7 +81,9 @@ function fmtDate(iso: string | null): string {
 
 function VisitesTechniquesPage() {
   const { activeCompanyId, activeRole } = useCompany();
-  const canManage = isManageRole(activeRole);
+  const { hasFeature, isLoading: planLoading } = useSubscription();
+  const planAllowed = hasFeature("technical_visits");
+  const canManage = isManageRole(activeRole) && planAllowed;
 
   const listFn = useServerFn(listTechnicalVisits);
   const assigneesFn = useServerFn(listVisitAssignees);
@@ -190,6 +193,22 @@ function VisitesTechniquesPage() {
           ) : null}
         </div>
       </header>
+
+      {!planLoading && !planAllowed ? (
+        <Card className="flex min-w-0 flex-col gap-3 border-dashed border-primary/40 bg-primary/5 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            La visite technique est incluse à partir du plan Pro
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Vos visites déjà enregistrées restent consultables. La création de nouvelles visites
+            nécessite un plan Pro, Business ou Entreprise.
+          </p>
+          <Button asChild className="h-11 self-start">
+            <Link to="/billing">Voir les formules</Link>
+          </Button>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {kpiCards.map((k) => (
