@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Camera,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
   Download,
   FileText,
@@ -319,7 +320,7 @@ export const SOLUTION_PAGES: SolutionContent[] = [
       ],
     },
     compare: true,
-    related: ["reserves", "signature-pdf", "espace-client"],
+    related: ["reserves", "signature-pdf", "visite-technique"],
     ctaTitle: "Votre prochaine réception peut déjà être plus simple.",
     seoTitle: "Logiciel de PV de réception de travaux — PVIA",
     seoDescription:
@@ -477,7 +478,7 @@ export const SOLUTION_PAGES: SolutionContent[] = [
       ],
     },
     compare: true,
-    related: ["pv-reception", "chantiers", "planning"],
+    related: ["pv-reception", "visite-technique", "chantiers"],
     ctaTitle: "Faites entrer PVIA sur vos chantiers.",
     seoTitle: "Application de réception de chantier sur mobile — Mode terrain PVIA",
     seoDescription:
@@ -709,7 +710,7 @@ export const SOLUTION_PAGES: SolutionContent[] = [
       ],
     },
     compare: true,
-    related: ["planning", "terrain", "equipes"],
+    related: ["visite-technique", "planning", "terrain"],
     ctaTitle: "Rassemblez vos chantiers dans un seul dossier.",
     seoTitle: "Logiciel de suivi de chantier et dossiers travaux — PVIA",
     seoDescription:
@@ -950,5 +951,5 @@ export function getSolutionPage(slug: string): SolutionContent | undefined {
 }
 
 export const SOLUTION_GROUPS: { title: SolutionContent["navGroup"]; items: SolutionContent[] }[] = (
-  ["Réception", "Terrain", "Collaboration", "Pilotage"] as const
+  ["Préparer", "Réception", "Terrain", "Collaboration", "Pilotage"] as const
 ).map((title) => ({ title, items: SOLUTION_PAGES.filter((p) => p.navGroup === title) }));
