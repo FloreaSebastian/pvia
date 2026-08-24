@@ -56,6 +56,8 @@ export function Pricing({ as = "h2" }: { as?: "h1" | "h2" } = {}) {
           </div>
         </div>
 
+        <h2 className="sr-only">Nos formules d'abonnement</h2>
+
         <div className="mt-14 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {PUBLIC_PLANS.map((p, i) => {
             const amount = interval === "annual" ? p.annual : p.monthly;
