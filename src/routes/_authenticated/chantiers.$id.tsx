@@ -25,6 +25,7 @@ import {
 } from "@/lib/chantier-detail.functions";
 import { reopenChantier, updateChantier, CHANTIER_STATUSES } from "@/lib/chantiers.functions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChantierVisitesTab } from "@/components/visites/ChantierVisitesTab";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -354,7 +355,7 @@ function ChantierDetailPage() {
   const [docsOpen, setDocsOpen] = useState(false);
 
   // tabs (controlled to allow KPI deep-link)
-  const [tabValue, setTabValue] = useState<"overview" | "dossier" | "photos">("overview");
+  const [tabValue, setTabValue] = useState<"overview" | "dossier" | "photos" | "visites">("overview");
 
 
   // progress dialog
@@ -755,11 +756,12 @@ function ChantierDetailPage() {
         />
       </div>
 
-      <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier" | "photos")} className="w-full">
-        <TabsList className="sticky top-12 z-30 grid h-auto w-full grid-cols-3 border-b border-border bg-background/95 p-1 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
+      <Tabs value={tabValue} onValueChange={(v) => setTabValue(v as "overview" | "dossier" | "photos" | "visites")} className="w-full">
+        <TabsList className="sticky top-12 z-30 grid h-auto w-full grid-cols-4 border-b border-border bg-background/95 p-1 shadow-sm backdrop-blur md:static md:top-auto md:inline-flex md:w-auto md:border-0 md:bg-muted md:shadow-none">
           <TabsTrigger value="overview" className="min-h-11 md:min-h-0">Vue</TabsTrigger>
           <TabsTrigger value="dossier" className="min-h-11 md:min-h-0">Dossier</TabsTrigger>
           <TabsTrigger value="photos" className="min-h-11 md:min-h-0">Photos</TabsTrigger>
+          <TabsTrigger value="visites" className="min-h-11 md:min-h-0">Visites</TabsTrigger>
 
         </TabsList>
 
@@ -1177,6 +1179,9 @@ function ChantierDetailPage() {
         </TabsContent>
         <TabsContent value="photos" className="mt-3 md:mt-4">
           {activeCompanyId && <ChantierPhotosTab companyId={activeCompanyId} chantierId={id} canWrite={canWrite && !isLocked} />}
+        </TabsContent>
+        <TabsContent value="visites" className="mt-3 md:mt-4">
+          {activeCompanyId && <ChantierVisitesTab companyId={activeCompanyId} chantierId={id} canCreate={canWrite} />}
         </TabsContent>
       </Tabs>
 

@@ -206,7 +206,7 @@ function NouvelleVisitePage() {
       });
 
       if (res.ok === false) {
-        setDuplicates(res.duplicates as Duplicate[]);
+        setDuplicates(res.duplicates as unknown as Duplicate[]);
         setForceNew(false);
         toast.warning("Un chantier similaire existe déjà pour ce client.");
         return;
