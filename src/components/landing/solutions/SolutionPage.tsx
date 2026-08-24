@@ -7,6 +7,7 @@ import {
   FeatureGridSection,
   FlowSection,
   OutcomesSection,
+  PlanNoticeSection,
   ProblemSection,
   RelatedSolutions,
   ScenarioSection,
