@@ -563,6 +563,7 @@ function NouvelleVisitePage() {
           </Button>
         )}
       </div>
+      </FeatureGate>
     </div>
   );
 }
