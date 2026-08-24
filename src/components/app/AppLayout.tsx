@@ -22,6 +22,7 @@ import {
   Activity,
   Rocket,
   ClipboardCheck,
+  ClipboardList,
   Mail,
   Shield,
   History,
