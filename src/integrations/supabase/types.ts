@@ -961,7 +961,6 @@ export type Database = {
           created_at: string
           id: string
           invite_expires_at: string | null
-          invite_token: string | null
           invite_token_hash: string | null
           invited_by: string | null
           invited_email: string | null
@@ -975,7 +974,6 @@ export type Database = {
           created_at?: string
           id?: string
           invite_expires_at?: string | null
-          invite_token?: string | null
           invite_token_hash?: string | null
           invited_by?: string | null
           invited_email?: string | null
@@ -989,7 +987,6 @@ export type Database = {
           created_at?: string
           id?: string
           invite_expires_at?: string | null
-          invite_token?: string | null
           invite_token_hash?: string | null
           invited_by?: string | null
           invited_email?: string | null
