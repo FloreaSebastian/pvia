@@ -9,6 +9,7 @@ import {
   CompareSection,
   Section,
   SectionHeading,
+  PlanBadge,
   SolutionCta,
 } from "@/components/landing/solutions/sections";
 import { DashboardMockup } from "@/components/landing/mockups";
@@ -91,7 +92,7 @@ export function SolutionsHub() {
           <SectionHeading
             eyebrow="Explorer PVIA"
             title="Chaque partie du travail a sa solution."
-            description="Neuf pages pour comprendre précisément comment PVIA traite chaque étape de votre réception."
+            description="Dix pages pour comprendre précisément comment PVIA traite chaque étape de votre réception."
           />
           <div className="mt-10 space-y-10">
             {SOLUTION_GROUPS.map((group) => (
@@ -114,6 +115,7 @@ export function SolutionsHub() {
                           <span className="min-w-0 truncate text-base font-semibold text-foreground">
                             {p.navLabel}
                           </span>
+                          {p.plan && <PlanBadge label={p.plan.badge} />}
                           <ArrowRight
                             aria-hidden
                             className="ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"

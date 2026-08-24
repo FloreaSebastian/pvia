@@ -6,6 +6,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "./audit.server";
+import { assertPlanFeature } from "./plan-guard.server";
 import {
   AnswerEntrySchema,
   ConstraintPayloadSchema,
@@ -212,6 +213,7 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
+    await assertPlanFeature(data.companyId, "technical_visits", userId);
 
     const { data: existing } = await supabase
       .from("technical_visits")
