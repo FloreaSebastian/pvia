@@ -2455,6 +2455,359 @@ export type Database = {
         }
         Relationships: []
       }
+      technical_visit_answers: {
+        Row: {
+          company_id: string
+          created_at: string
+          field_key: string
+          id: string
+          section_key: string
+          updated_at: string
+          value: Json | null
+          visit_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          field_key: string
+          id?: string
+          section_key: string
+          updated_at?: string
+          value?: Json | null
+          visit_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          field_key?: string
+          id?: string
+          section_key?: string
+          updated_at?: string
+          value?: Json | null
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_visit_answers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_visit_answers_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "technical_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_visit_constraints: {
+        Row: {
+          category: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          level: string
+          photo_paths: string[]
+          recommendation: string | null
+          section_key: string | null
+          title: string
+          updated_at: string
+          visit_id: string
+        }
+        Insert: {
+          category: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          level?: string
+          photo_paths?: string[]
+          recommendation?: string | null
+          section_key?: string | null
+          title: string
+          updated_at?: string
+          visit_id: string
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          level?: string
+          photo_paths?: string[]
+          recommendation?: string | null
+          section_key?: string | null
+          title?: string
+          updated_at?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_visit_constraints_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_visit_constraints_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "technical_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_visit_photo_skips: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          justification: string
+          reason: string
+          section_key: string
+          slot_key: string
+          updated_at: string
+          visit_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          justification: string
+          reason: string
+          section_key: string
+          slot_key: string
+          updated_at?: string
+          visit_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          justification?: string
+          reason?: string
+          section_key?: string
+          slot_key?: string
+          updated_at?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_visit_photo_skips_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_visit_photo_skips_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "technical_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_visit_photos: {
+        Row: {
+          accuracy: number | null
+          caption: string | null
+          comment: string | null
+          company_id: string
+          created_at: string
+          exif_metadata: Json | null
+          file_hash: string | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          section_key: string
+          slot_key: string
+          storage_path: string
+          taken_at: string | null
+          updated_at: string
+          uploaded_by: string | null
+          visit_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          caption?: string | null
+          comment?: string | null
+          company_id: string
+          created_at?: string
+          exif_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          section_key: string
+          slot_key: string
+          storage_path: string
+          taken_at?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          visit_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          caption?: string | null
+          comment?: string | null
+          company_id?: string
+          created_at?: string
+          exif_metadata?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          section_key?: string
+          slot_key?: string
+          storage_path?: string
+          taken_at?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_visit_photos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_visit_photos_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "technical_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_visits: {
+        Row: {
+          assigned_to: string | null
+          calendar_event_id: string | null
+          chantier_id: string
+          client_id: string | null
+          company_id: string
+          completed_at: string | null
+          completion_percent: number
+          created_at: string
+          created_by: string | null
+          id: string
+          idempotency_key: string | null
+          prep_notes: string | null
+          reference: string
+          scheduled_at: string | null
+          site_address: string | null
+          site_contact_name: string | null
+          site_contact_phone: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          visit_type: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          calendar_event_id?: string | null
+          chantier_id: string
+          client_id?: string | null
+          company_id: string
+          completed_at?: string | null
+          completion_percent?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          idempotency_key?: string | null
+          prep_notes?: string | null
+          reference?: string
+          scheduled_at?: string | null
+          site_address?: string | null
+          site_contact_name?: string | null
+          site_contact_phone?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          visit_type: string
+        }
+        Update: {
+          assigned_to?: string | null
+          calendar_event_id?: string | null
+          chantier_id?: string
+          client_id?: string | null
+          company_id?: string
+          completed_at?: string | null
+          completion_percent?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          idempotency_key?: string | null
+          prep_notes?: string | null
+          reference?: string
+          scheduled_at?: string | null
+          site_address?: string | null
+          site_contact_name?: string | null
+          site_contact_phone?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          visit_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_visits_calendar_event_id_fkey"
+            columns: ["calendar_event_id"]
+            isOneToOne: false
+            referencedRelation: "chantier_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_visits_chantier_id_fkey"
+            columns: ["chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_visits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_visits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_preferences: {
         Row: {
           animations_enabled: boolean
@@ -2634,8 +2987,16 @@ export type Database = {
       can_add_member: { Args: { _company_id: string }; Returns: boolean }
       can_create_company: { Args: { _user_id: string }; Returns: boolean }
       can_create_pv: { Args: { _company_id: string }; Returns: boolean }
+      can_edit_technical_visit: {
+        Args: { _user_id: string; _visit_id: string }
+        Returns: boolean
+      }
       can_manage_company: {
         Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_technical_visit: {
+        Args: { _user_id: string; _visit_id: string }
         Returns: boolean
       }
       cleanup_analytics_events: { Args: never; Returns: undefined }

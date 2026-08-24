@@ -126,7 +126,24 @@ export type AuditAction =
   // Espace Client V2 — pilotage entreprise
   | "client.portal_invited"
   | "client.portal_reinvited"
-  | "client.portal_linked";
+  | "client.portal_linked"
+  // Visites techniques
+  | "visite.create"
+  | "visite.update"
+  | "visite.answers_saved"
+  | "visite.photo_added"
+  | "visite.photo_deleted"
+  | "visite.photo_skipped"
+  | "visite.constraint_added"
+  | "visite.constraint_updated"
+  | "visite.constraint_deleted"
+  | "visite.started"
+  | "visite.completed"
+  | "visite.validated"
+  | "visite.reopened"
+  | "visite.archived"
+  | "visite.deleted"
+  | "visite.report_generated";
 
 
 export type AuditActor = "system" | "user" | "client" | "email" | "pdf" | "signature" | "push" | "cron";
