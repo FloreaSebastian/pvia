@@ -21,6 +21,66 @@ import {
 import type { SolutionContent, VisualKey } from "@/components/landing/solutions/content";
 import { SOLUTION_PAGES } from "@/components/landing/solutions/content";
 
+/** Pastille « formule requise » (ex. Pro) utilisée dans la navigation et les pages. */
+export function PlanBadge({ label, className = "" }: { label: string; className?: string }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-primary ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Encart de restriction commerciale : la solution requiert une formule minimale. */
+export function PlanNoticeSection({
+  badge,
+  title,
+  text,
+  bullets,
+}: {
+  badge: string;
+  title: string;
+  text: string;
+  bullets: string[];
+}) {
+  return (
+    <Section bordered muted>
+      <div className="rounded-2xl border border-primary/30 bg-card p-6 shadow-elevation-sm sm:p-8">
+        <div className="flex flex-wrap items-center gap-2">
+          <PlanBadge label={badge} />
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Formule requise
+          </span>
+        </div>
+        <h2 className="mt-3 text-balance text-xl tracking-tight text-foreground sm:text-2xl">
+          {title}
+        </h2>
+        <p className="mt-3 max-w-3xl text-pretty text-muted-foreground">{text}</p>
+        <ul className="mt-5 space-y-2.5">
+          {bullets.map((b) => (
+            <li key={b} className="flex min-w-0 items-start gap-2 text-sm">
+              <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0 break-words text-foreground/80">{b}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+          <Button size="lg" className="min-h-12 w-full sm:w-auto" asChild>
+            <Link to="/tarifs">
+              Voir les formules <ArrowRight aria-hidden className="ml-1 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button size="lg" variant="outline" className="min-h-12 w-full sm:w-auto" asChild>
+            <Link to="/signup">Essayer 14 jours gratuitement</Link>
+          </Button>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+
 /** Rend la maquette produit correspondant à une clé. */
 export function SolutionVisual({ name, className = "" }: { name: VisualKey; className?: string }) {
   switch (name) {
