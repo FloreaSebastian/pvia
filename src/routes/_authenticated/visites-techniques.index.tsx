@@ -135,7 +135,7 @@ function VisitesTechniquesPage() {
             limit: PAGE,
           },
         });
-        setRows((prev) => (append ? [...prev, ...(res.visits as VisitRow[])] : (res.visits as VisitRow[])));
+        setRows((prev) => (append ? [...prev, ...(res.visits as unknown as VisitRow[])] : (res.visits as unknown as VisitRow[])));
         setKpis(res.kpis);
         setHasMore(res.hasMore);
         setOffset(nextOffset);
