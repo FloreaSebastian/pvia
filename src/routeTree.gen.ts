@@ -97,6 +97,7 @@ import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/
 import { Route as ApiPublicHealthDeepRouteImport } from './routes/api/public/health.deep'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as ApiPublicAuthSendEmailHookRouteImport } from './routes/api/public/auth/send-email-hook'
+import { Route as AuthenticatedVisitesTechniquesIdTerrainRouteImport } from './routes/_authenticated/visites-techniques.$id_.terrain'
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id_.levee-reserves'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id_.historique'
 import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
@@ -583,6 +584,12 @@ const ApiPublicAuthSendEmailHookRoute =
     path: '/api/public/auth/send-email-hook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedVisitesTechniquesIdTerrainRoute =
+  AuthenticatedVisitesTechniquesIdTerrainRouteImport.update({
+    id: '/visites-techniques/$id_/terrain',
+    path: '/visites-techniques/$id/terrain',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPvIdLeveeReservesRoute =
   AuthenticatedPvIdLeveeReservesRouteImport.update({
     id: '/pv/$id_/levee-reserves',
@@ -701,6 +708,7 @@ export interface FileRoutesByFullPath {
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
+  '/visites-techniques/$id/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
@@ -792,6 +800,7 @@ export interface FileRoutesByTo {
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
+  '/visites-techniques/$id/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
@@ -889,6 +898,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
   '/_authenticated/pv/$id_/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/_authenticated/pv/$id_/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
+  '/_authenticated/visites-techniques/$id_/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
@@ -986,6 +996,7 @@ export interface FileRouteTypes {
     | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
+    | '/visites-techniques/$id/terrain'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
     | '/api/public/health/deep'
@@ -1077,6 +1088,7 @@ export interface FileRouteTypes {
     | '/admin/support/$companyId'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
+    | '/visites-techniques/$id/terrain'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
     | '/api/public/health/deep'
@@ -1173,6 +1185,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/support/$companyId'
     | '/_authenticated/pv/$id_/historique'
     | '/_authenticated/pv/$id_/levee-reserves'
+    | '/_authenticated/visites-techniques/$id_/terrain'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
     | '/api/public/health/deep'
@@ -1850,6 +1863,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAuthSendEmailHookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/visites-techniques/$id_/terrain': {
+      id: '/_authenticated/visites-techniques/$id_/terrain'
+      path: '/visites-techniques/$id/terrain'
+      fullPath: '/visites-techniques/$id/terrain'
+      preLoaderRoute: typeof AuthenticatedVisitesTechniquesIdTerrainRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/pv/$id_/levee-reserves': {
       id: '/_authenticated/pv/$id_/levee-reserves'
       path: '/pv/$id/levee-reserves'
@@ -2014,6 +2034,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedVisitesTechniquesIndexRoute: typeof AuthenticatedVisitesTechniquesIndexRoute
   AuthenticatedPvIdHistoriqueRoute: typeof AuthenticatedPvIdHistoriqueRoute
   AuthenticatedPvIdLeveeReservesRoute: typeof AuthenticatedPvIdLeveeReservesRoute
+  AuthenticatedVisitesTechniquesIdTerrainRoute: typeof AuthenticatedVisitesTechniquesIdTerrainRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -2058,6 +2079,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedVisitesTechniquesIndexRoute,
   AuthenticatedPvIdHistoriqueRoute: AuthenticatedPvIdHistoriqueRoute,
   AuthenticatedPvIdLeveeReservesRoute: AuthenticatedPvIdLeveeReservesRoute,
+  AuthenticatedVisitesTechniquesIdTerrainRoute:
+    AuthenticatedVisitesTechniquesIdTerrainRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
