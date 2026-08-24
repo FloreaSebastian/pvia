@@ -131,7 +131,7 @@ export const getTechnicalVisit = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertIsMember(supabase, data.companyId, userId);
 
-    const { data: visit, error } = await supabase
+    const { data: visitRow, error } = await supabase
       .from("technical_visits")
       .select(
         "*,chantier:chantiers(id,reference,name,address,address_line1,postal_code,city,status,type)," +
@@ -141,7 +141,8 @@ export const getTechnicalVisit = createServerFn({ method: "POST" })
       .eq("company_id", data.companyId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!visit) throw new Error("Visite introuvable.");
+    if (!visitRow) throw new Error("Visite introuvable.");
+    const visit = visitRow as unknown as Record<string, any>;
 
     const [answersRes, photosRes, skipsRes, constraintsRes, editableRes] = await Promise.all([
       supabase.from("technical_visit_answers").select("section_key,field_key,value").eq("visit_id", data.visitId),
