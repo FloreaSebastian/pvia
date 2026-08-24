@@ -51,12 +51,14 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedAccountSuspendedRouteImport } from './routes/_authenticated/account-suspended'
+import { Route as AuthenticatedVisitesTechniquesIndexRouteImport } from './routes/_authenticated/visites-techniques.index'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as AuthenticatedChantiersIndexRouteImport } from './routes/_authenticated/chantiers.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as AuthenticatedVisitesTechniquesNouvelleRouteImport } from './routes/_authenticated/visites-techniques.nouvelle'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 import { Route as AuthenticatedParametresSecuriteRouteImport } from './routes/_authenticated/parametres.securite'
@@ -314,6 +316,12 @@ const AuthenticatedAccountSuspendedRoute =
     path: '/account-suspended',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedVisitesTechniquesIndexRoute =
+  AuthenticatedVisitesTechniquesIndexRouteImport.update({
+    id: '/visites-techniques/',
+    path: '/visites-techniques/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPvIndexRoute = AuthenticatedPvIndexRouteImport.update({
   id: '/pv/',
   path: '/pv/',
@@ -346,6 +354,12 @@ const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedVisitesTechniquesNouvelleRoute =
+  AuthenticatedVisitesTechniquesNouvelleRouteImport.update({
+    id: '/visites-techniques/nouvelle',
+    path: '/visites-techniques/nouvelle',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPvNewRoute = AuthenticatedPvNewRouteImport.update({
   id: '/pv/new',
   path: '/pv/new',
@@ -674,12 +688,14 @@ export interface FileRoutesByFullPath {
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
+  '/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
+  '/visites-techniques/': typeof AuthenticatedVisitesTechniquesIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
@@ -763,12 +779,14 @@ export interface FileRoutesByTo {
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
+  '/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/chantiers': typeof AuthenticatedChantiersIndexRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
+  '/visites-techniques': typeof AuthenticatedVisitesTechniquesIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
@@ -858,12 +876,14 @@ export interface FileRoutesById {
   '/_authenticated/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
+  '/_authenticated/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
+  '/_authenticated/visites-techniques/': typeof AuthenticatedVisitesTechniquesIndexRoute
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/_authenticated/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
@@ -953,12 +973,14 @@ export interface FileRouteTypes {
     | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
+    | '/visites-techniques/nouvelle'
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/chantiers/'
     | '/parametres/'
     | '/pv/'
+    | '/visites-techniques/'
     | '/admin/companies/$id'
     | '/admin/go-live/report'
     | '/admin/support/$companyId'
@@ -1042,12 +1064,14 @@ export interface FileRouteTypes {
     | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
+    | '/visites-techniques/nouvelle'
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/chantiers'
     | '/parametres'
     | '/pv'
+    | '/visites-techniques'
     | '/admin/companies/$id'
     | '/admin/go-live/report'
     | '/admin/support/$companyId'
@@ -1136,12 +1160,14 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/securite'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
+    | '/_authenticated/visites-techniques/nouvelle'
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/_authenticated/chantiers/'
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
+    | '/_authenticated/visites-techniques/'
     | '/_authenticated/admin/companies/$id'
     | '/_authenticated/admin/go-live/report'
     | '/_authenticated/admin/support/$companyId'
@@ -1502,6 +1528,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountSuspendedRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/visites-techniques/': {
+      id: '/_authenticated/visites-techniques/'
+      path: '/visites-techniques'
+      fullPath: '/visites-techniques/'
+      preLoaderRoute: typeof AuthenticatedVisitesTechniquesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/pv/': {
       id: '/_authenticated/pv/'
       path: '/pv'
@@ -1543,6 +1576,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/health'
       preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/visites-techniques/nouvelle': {
+      id: '/_authenticated/visites-techniques/nouvelle'
+      path: '/visites-techniques/nouvelle'
+      fullPath: '/visites-techniques/nouvelle'
+      preLoaderRoute: typeof AuthenticatedVisitesTechniquesNouvelleRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/pv/new': {
       id: '/_authenticated/pv/new'
@@ -1968,8 +2008,10 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChantiersCalendrierRoute: typeof AuthenticatedChantiersCalendrierRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRoute
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
+  AuthenticatedVisitesTechniquesNouvelleRoute: typeof AuthenticatedVisitesTechniquesNouvelleRoute
   AuthenticatedChantiersIndexRoute: typeof AuthenticatedChantiersIndexRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
+  AuthenticatedVisitesTechniquesIndexRoute: typeof AuthenticatedVisitesTechniquesIndexRoute
   AuthenticatedPvIdHistoriqueRoute: typeof AuthenticatedPvIdHistoriqueRoute
   AuthenticatedPvIdLeveeReservesRoute: typeof AuthenticatedPvIdLeveeReservesRoute
 }
@@ -2008,8 +2050,12 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChantiersCalendrierRoute: AuthenticatedChantiersCalendrierRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRoute,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
+  AuthenticatedVisitesTechniquesNouvelleRoute:
+    AuthenticatedVisitesTechniquesNouvelleRoute,
   AuthenticatedChantiersIndexRoute: AuthenticatedChantiersIndexRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
+  AuthenticatedVisitesTechniquesIndexRoute:
+    AuthenticatedVisitesTechniquesIndexRoute,
   AuthenticatedPvIdHistoriqueRoute: AuthenticatedPvIdHistoriqueRoute,
   AuthenticatedPvIdLeveeReservesRoute: AuthenticatedPvIdLeveeReservesRoute,
 }
