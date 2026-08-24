@@ -51,6 +51,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedAccountSuspendedRouteImport } from './routes/_authenticated/account-suspended'
+import { Route as AuthenticatedVisitesTechniquesIndexRouteImport } from './routes/_authenticated/visites-techniques.index'
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as AuthenticatedChantiersIndexRouteImport } from './routes/_authenticated/chantiers.index'
@@ -312,6 +313,12 @@ const AuthenticatedAccountSuspendedRoute =
   AuthenticatedAccountSuspendedRouteImport.update({
     id: '/account-suspended',
     path: '/account-suspended',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedVisitesTechniquesIndexRoute =
+  AuthenticatedVisitesTechniquesIndexRouteImport.update({
+    id: '/visites-techniques/',
+    path: '/visites-techniques/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedPvIndexRoute = AuthenticatedPvIndexRouteImport.update({
@@ -680,6 +687,7 @@ export interface FileRoutesByFullPath {
   '/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
+  '/visites-techniques/': typeof AuthenticatedVisitesTechniquesIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
@@ -769,6 +777,7 @@ export interface FileRoutesByTo {
   '/chantiers': typeof AuthenticatedChantiersIndexRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
+  '/visites-techniques': typeof AuthenticatedVisitesTechniquesIndexRoute
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
@@ -864,6 +873,7 @@ export interface FileRoutesById {
   '/_authenticated/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
+  '/_authenticated/visites-techniques/': typeof AuthenticatedVisitesTechniquesIndexRoute
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/_authenticated/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
@@ -959,6 +969,7 @@ export interface FileRouteTypes {
     | '/chantiers/'
     | '/parametres/'
     | '/pv/'
+    | '/visites-techniques/'
     | '/admin/companies/$id'
     | '/admin/go-live/report'
     | '/admin/support/$companyId'
@@ -1048,6 +1059,7 @@ export interface FileRouteTypes {
     | '/chantiers'
     | '/parametres'
     | '/pv'
+    | '/visites-techniques'
     | '/admin/companies/$id'
     | '/admin/go-live/report'
     | '/admin/support/$companyId'
@@ -1142,6 +1154,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chantiers/'
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
+    | '/_authenticated/visites-techniques/'
     | '/_authenticated/admin/companies/$id'
     | '/_authenticated/admin/go-live/report'
     | '/_authenticated/admin/support/$companyId'
@@ -1500,6 +1513,13 @@ declare module '@tanstack/react-router' {
       path: '/account-suspended'
       fullPath: '/account-suspended'
       preLoaderRoute: typeof AuthenticatedAccountSuspendedRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/visites-techniques/': {
+      id: '/_authenticated/visites-techniques/'
+      path: '/visites-techniques'
+      fullPath: '/visites-techniques/'
+      preLoaderRoute: typeof AuthenticatedVisitesTechniquesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/pv/': {
@@ -1970,6 +1990,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedChantiersIndexRoute: typeof AuthenticatedChantiersIndexRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
+  AuthenticatedVisitesTechniquesIndexRoute: typeof AuthenticatedVisitesTechniquesIndexRoute
   AuthenticatedPvIdHistoriqueRoute: typeof AuthenticatedPvIdHistoriqueRoute
   AuthenticatedPvIdLeveeReservesRoute: typeof AuthenticatedPvIdLeveeReservesRoute
 }
@@ -2010,6 +2031,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
   AuthenticatedChantiersIndexRoute: AuthenticatedChantiersIndexRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
+  AuthenticatedVisitesTechniquesIndexRoute:
+    AuthenticatedVisitesTechniquesIndexRoute,
   AuthenticatedPvIdHistoriqueRoute: AuthenticatedPvIdHistoriqueRoute,
   AuthenticatedPvIdLeveeReservesRoute: AuthenticatedPvIdLeveeReservesRoute,
 }
