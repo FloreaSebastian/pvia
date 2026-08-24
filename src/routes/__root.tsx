@@ -80,6 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "PVIA — Réception de travaux intelligente" },
       { name: "description", content: "Créez, signez et envoyez vos procès-verbaux de réception depuis le terrain." },
+      { name: "google-site-verification", content: "TQJFnvDZHA9ShvV3f_ynMorYFbbspVT-Hpche8ucD5Y" },
       { name: "theme-color", content: "#1e40af" },
       { name: "application-name", content: "PVIA" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
