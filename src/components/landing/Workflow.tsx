@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 
 const STEPS = [
+  "Visite technique",
   "Chantier",
   "Intervention",
   "Photos",
