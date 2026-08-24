@@ -59,6 +59,7 @@ import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AuthenticatedVisitesTechniquesNouvelleRouteImport } from './routes/_authenticated/visites-techniques.nouvelle'
+import { Route as AuthenticatedVisitesTechniquesIdRouteImport } from './routes/_authenticated/visites-techniques.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
 import { Route as AuthenticatedPvIdRouteImport } from './routes/_authenticated/pv.$id'
 import { Route as AuthenticatedParametresSecuriteRouteImport } from './routes/_authenticated/parametres.securite'
@@ -359,6 +360,12 @@ const AuthenticatedVisitesTechniquesNouvelleRoute =
   AuthenticatedVisitesTechniquesNouvelleRouteImport.update({
     id: '/visites-techniques/nouvelle',
     path: '/visites-techniques/nouvelle',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedVisitesTechniquesIdRoute =
+  AuthenticatedVisitesTechniquesIdRouteImport.update({
+    id: '/visites-techniques/$id',
+    path: '/visites-techniques/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedPvNewRoute = AuthenticatedPvNewRouteImport.update({
@@ -695,6 +702,7 @@ export interface FileRoutesByFullPath {
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
+  '/visites-techniques/$id': typeof AuthenticatedVisitesTechniquesIdRoute
   '/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
@@ -787,6 +795,7 @@ export interface FileRoutesByTo {
   '/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/pv/$id': typeof AuthenticatedPvIdRoute
   '/pv/new': typeof AuthenticatedPvNewRoute
+  '/visites-techniques/$id': typeof AuthenticatedVisitesTechniquesIdRoute
   '/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
@@ -885,6 +894,7 @@ export interface FileRoutesById {
   '/_authenticated/parametres/securite': typeof AuthenticatedParametresSecuriteRoute
   '/_authenticated/pv/$id': typeof AuthenticatedPvIdRoute
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
+  '/_authenticated/visites-techniques/$id': typeof AuthenticatedVisitesTechniquesIdRoute
   '/_authenticated/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
@@ -983,6 +993,7 @@ export interface FileRouteTypes {
     | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
+    | '/visites-techniques/$id'
     | '/visites-techniques/nouvelle'
     | '/api/public/health'
     | '/client/pv/$id'
@@ -1075,6 +1086,7 @@ export interface FileRouteTypes {
     | '/parametres/securite'
     | '/pv/$id'
     | '/pv/new'
+    | '/visites-techniques/$id'
     | '/visites-techniques/nouvelle'
     | '/api/public/health'
     | '/client/pv/$id'
@@ -1172,6 +1184,7 @@ export interface FileRouteTypes {
     | '/_authenticated/parametres/securite'
     | '/_authenticated/pv/$id'
     | '/_authenticated/pv/new'
+    | '/_authenticated/visites-techniques/$id'
     | '/_authenticated/visites-techniques/nouvelle'
     | '/api/public/health'
     | '/client/pv/$id'
@@ -1595,6 +1608,13 @@ declare module '@tanstack/react-router' {
       path: '/visites-techniques/nouvelle'
       fullPath: '/visites-techniques/nouvelle'
       preLoaderRoute: typeof AuthenticatedVisitesTechniquesNouvelleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/visites-techniques/$id': {
+      id: '/_authenticated/visites-techniques/$id'
+      path: '/visites-techniques/$id'
+      fullPath: '/visites-techniques/$id'
+      preLoaderRoute: typeof AuthenticatedVisitesTechniquesIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/pv/new': {
@@ -2028,6 +2048,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChantiersCalendrierRoute: typeof AuthenticatedChantiersCalendrierRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRoute
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
+  AuthenticatedVisitesTechniquesIdRoute: typeof AuthenticatedVisitesTechniquesIdRoute
   AuthenticatedVisitesTechniquesNouvelleRoute: typeof AuthenticatedVisitesTechniquesNouvelleRoute
   AuthenticatedChantiersIndexRoute: typeof AuthenticatedChantiersIndexRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
@@ -2071,6 +2092,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChantiersCalendrierRoute: AuthenticatedChantiersCalendrierRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRoute,
   AuthenticatedPvNewRoute: AuthenticatedPvNewRoute,
+  AuthenticatedVisitesTechniquesIdRoute: AuthenticatedVisitesTechniquesIdRoute,
   AuthenticatedVisitesTechniquesNouvelleRoute:
     AuthenticatedVisitesTechniquesNouvelleRoute,
   AuthenticatedChantiersIndexRoute: AuthenticatedChantiersIndexRoute,
