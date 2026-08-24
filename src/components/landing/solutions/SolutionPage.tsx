@@ -53,7 +53,17 @@ export function SolutionPage({ page }: { page: SolutionContent }) {
 
         <OutcomesSection title={page.outcomes.title} items={page.outcomes.items} />
 
+        {page.plan && (
+          <PlanNoticeSection
+            badge={page.plan.badge}
+            title={page.plan.title}
+            text={page.plan.text}
+            bullets={page.plan.bullets}
+          />
+        )}
+
         {page.compare && <CompareSection />}
+
 
         <ScenarioSection
           title={page.scenario.title}
