@@ -57,6 +57,7 @@ const mainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/pv", label: "Procès-verbaux", icon: FileText },
   { to: "/reserves", label: "Réserves", icon: AlertCircle },
+  { to: "/visites-techniques", label: "Visites techniques", icon: ClipboardList },
   { to: "/chantiers/calendrier", label: "Calendrier", icon: Calendar },
   { to: "/chantiers", label: "Chantiers", icon: HardHat },
   { to: "/clients", label: "Clients", icon: Users },
