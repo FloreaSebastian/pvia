@@ -43,8 +43,13 @@ export function Workflow({
         <ol className="mt-8 flex flex-wrap items-center gap-x-1.5 gap-y-2">
           {STEPS.map((s, i) => (
             <li key={s} className="flex min-w-0 items-center gap-1.5">
-              <span className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground sm:text-sm">
+              <span className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground sm:text-sm">
                 {s}
+                {s === "Visite technique" && (
+                  <span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    Pro
+                  </span>
+                )}
               </span>
               {i < STEPS.length - 1 && (
                 <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

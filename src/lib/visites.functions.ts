@@ -331,6 +331,12 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
           return { ok: true as const, id: race.id, reference: race.reference, chantierId: race.chantier_id, duplicates: [], reused: true };
         }
       }
+      // Compensation : si le chantier vient d'être créé pour cette visite et que
+      // l'insertion de la visite échoue, on le supprime pour ne pas laisser de
+      // chantier orphelin (« fantôme ») dans la liste.
+      if (chantierCreated) {
+        await supabase.from("chantiers").delete().eq("id", chantierId).eq("company_id", data.companyId);
+      }
       throw new Error(vErr?.message ?? "Création de la visite impossible.");
     }
 
