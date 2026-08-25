@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { OWNER_ROLES, isAdminRole } from "@/lib/roles";
+import { Fragment } from "react";
+import { ADMIN_ROLES, isAdminRole } from "@/lib/roles";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import {
@@ -50,7 +51,7 @@ import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 
 function GuardedBillingPage() {
   return (
-    <RouteRoleGuard allow={OWNER_ROLES}>
+    <RouteRoleGuard allow={ADMIN_ROLES}>
       <BillingPage />
     </RouteRoleGuard>
   );
@@ -519,8 +520,8 @@ function BillingPage() {
               </thead>
               <tbody>
                 {COMPARISON.map((section) => (
-                  <>
-                    <tr key={section.title} className="border-b border-border/60 bg-muted/20">
+                  <Fragment key={section.title}>
+                    <tr className="border-b border-border/60 bg-muted/20">
                       <th
                         scope="colgroup"
                         colSpan={plans.length + 1}
@@ -544,7 +545,7 @@ function BillingPage() {
                         ))}
                       </tr>
                     ))}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
