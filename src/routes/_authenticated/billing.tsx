@@ -1,12 +1,34 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
+import { Fragment } from "react";
+import { ADMIN_ROLES, isAdminRole } from "@/lib/roles";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { Check, Loader2, ExternalLink, CreditCard, AlertTriangle, Sparkles, Clock, AlertOctagon } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  Check,
+  Minus,
+  Loader2,
+  ExternalLink,
+  CreditCard,
+  AlertTriangle,
+  Sparkles,
+  Clock,
+  AlertOctagon,
+  ReceiptText,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
@@ -14,23 +36,26 @@ import { createCheckoutSession, createPortalSession } from "@/lib/billing.functi
 import { getStripeEnvironment } from "@/lib/stripe";
 import {
   CONTACT_SALES_EMAIL,
+  COMPARISON,
+  accessStateLabel,
+  annualSavingEur,
+  daysUntil,
   formatEur,
+  formatFrDate,
   type BillingInterval,
   type CheckoutPriceId,
+  type PlanLimitsRow,
 } from "@/lib/plans";
 import { PageHeader } from "@/components/app/PageHeader";
-
-
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 
 function GuardedBillingPage() {
   return (
-    <RouteRoleGuard allow={OWNER_ROLES}>
+    <RouteRoleGuard allow={ADMIN_ROLES}>
       <BillingPage />
     </RouteRoleGuard>
   );
 }
-
 
 /** Filet de sécurité client : n'affiche jamais un message technique. */
 const TECHNICAL_ERROR_RE =
@@ -43,8 +68,82 @@ function safeBillingMessage(e: unknown, fallback: string): string {
 
 export const Route = createFileRoute("/_authenticated/billing")({
   component: GuardedBillingPage,
-  head: () => ({ meta: [{ title: "Facturation — PVIA" }] }),
+  head: () => ({ meta: [{ title: "Facturation & abonnement — PVIA" }] }),
 });
+
+/** Baseline commerciale : ce que chaque formule apporte de plus. */
+const PLAN_PITCH: Record<string, string> = {
+  starter: "Je réalise mes réceptions de travaux.",
+  pro: "Je gère le chantier de la visite technique jusqu'à la réception.",
+  business: "Je pilote plusieurs équipes et un volume important de chantiers.",
+  enterprise: "J'adapte PVIA à mon organisation.",
+};
+
+/** Liste d'arguments dérivée des flags réels de `plan_limits`. */
+function planFeatures(p: PlanLimitsRow, index: number, plans: PlanLimitsRow[]): string[] {
+  const previous = index > 0 ? plans[index - 1] : null;
+  return [
+    p.max_members == null
+      ? "Utilisateurs illimités"
+      : `Jusqu'à ${p.max_members} utilisateur${p.max_members > 1 ? "s" : ""}`,
+    p.max_pv_per_month == null ? "PV illimités" : `${p.max_pv_per_month} PV de réception / mois`,
+    previous ? `Tout ${previous.display_name}` : "Chantiers, clients, photos et réserves",
+    p.can_technical_visits
+      ? "Visites techniques (PV, PAC air/air, air/eau)"
+      : null,
+    p.can_technical_visits ? "Création automatique du chantier depuis la visite" : null,
+    p.can_remote_sign ? "Signature client à distance" : "Signature sur site",
+    "Espace client et levées de réserves",
+    p.can_advanced_stats ? "Statistiques avancées" : null,
+    p.can_export_audit ? "Export de l'historique et de l'audit" : null,
+    p.can_branding ? "Branding personnalisé" : null,
+    p.is_custom_pricing ? "Accompagnement au déploiement et support prioritaire" : null,
+  ].filter(Boolean) as string[];
+}
+
+function UsageTile({
+  label,
+  used,
+  max,
+  unlimited,
+}: {
+  label: string;
+  used: number;
+  max: number | null;
+  unlimited?: boolean;
+}) {
+  const isUnlimited = unlimited || max == null;
+  const pct = isUnlimited || !max ? 0 : Math.min(100, (used / max) * 100);
+  return (
+    <div className="min-w-0 rounded-xl border border-border bg-card/60 p-4">
+      <div className="mb-2 flex items-baseline justify-between gap-2 text-sm">
+        <span className="min-w-0 truncate font-medium">{label}</span>
+        <span className="shrink-0 tabular-nums text-muted-foreground">
+          {isUnlimited ? `${used} · Illimité` : `${used} / ${max}`}
+        </span>
+      </div>
+      {!isUnlimited && <Progress value={pct} />}
+    </div>
+  );
+}
+
+function Cell({ value }: { value: boolean | string }) {
+  if (value === true)
+    return (
+      <span className="inline-flex items-center gap-1 text-success">
+        <Check className="h-4 w-4" aria-hidden />
+        <span className="sr-only">Inclus</span>
+      </span>
+    );
+  if (value === false)
+    return (
+      <span className="inline-flex items-center gap-1 text-muted-foreground/60">
+        <Minus className="h-4 w-4" aria-hidden />
+        <span className="sr-only">Non inclus</span>
+      </span>
+    );
+  return <span className="text-xs font-medium tabular-nums">{value}</span>;
+}
 
 function BillingPage() {
   const { activeCompanyId, activeRole } = useCompany();
@@ -54,11 +153,17 @@ function BillingPage() {
   const portalFn = useServerFn(createPortalSession);
   const [busy, setBusy] = useState<string | null>(null);
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
+  const [pendingDowngrade, setPendingDowngrade] = useState<{ priceId: string; target: PlanLimitsRow } | null>(null);
 
   const canManage = isAdminRole(activeRole);
   const env = getStripeEnvironment();
+  const plans = (allPlans ?? []) as PlanLimitsRow[];
+  const current = (limits as PlanLimitsRow | null) ?? null;
+  const seatsUsed = usage.seats ?? usage.members;
 
-  async function handleUpgrade(priceId: string) {
+  const currentIndex = useMemo(() => plans.findIndex((p) => p.plan === plan), [plans, plan]);
+
+  async function startCheckout(priceId: string) {
     if (!activeCompanyId || !priceId) return;
     setBusy(priceId);
     try {
@@ -72,10 +177,23 @@ function BillingPage() {
       });
       if (url) window.location.href = url;
     } catch (e: any) {
-      toast.error(safeBillingMessage(e, "Impossible de démarrer le paiement pour le moment. Réessayez dans quelques instants."));
+      toast.error(
+        safeBillingMessage(e, "Impossible de démarrer le paiement pour le moment. Réessayez dans quelques instants."),
+      );
     } finally {
       setBusy(null);
     }
+  }
+
+  function handleSelect(priceId: string, target: PlanLimitsRow) {
+    const targetIndex = plans.findIndex((p) => p.plan === target.plan);
+    const isDowngrade = currentIndex >= 0 && targetIndex >= 0 && targetIndex < currentIndex;
+    const seatsOverflow = target.max_members != null && seatsUsed > target.max_members;
+    if (isDowngrade || seatsOverflow) {
+      setPendingDowngrade({ priceId, target });
+      return;
+    }
+    void startCheckout(priceId);
   }
 
   async function handlePortal() {
@@ -105,23 +223,25 @@ function BillingPage() {
     );
   }
 
-  const pvMax = limits?.max_pv_per_month;
-  const membersMax = limits?.max_members;
-  const pvPct = pvMax ? Math.min(100, (usage.pv_this_period / pvMax) * 100) : 0;
-  const memPct = membersMax ? Math.min(100, (usage.members / membersMax) * 100) : 0;
+  const isTrial = access?.state === "trialing";
+  const trialDaysLeft = daysUntil(access?.trial_end);
+  const priceNow =
+    billingInterval === "annual" ? current?.annual_price_eur : current?.monthly_price_eur;
+  const hasSubscription = Boolean(subscription?.stripe_customer_id);
 
   return (
-    <div className="space-y-8 p-4 sm:p-6 lg:p-8">
+    <div className="space-y-8 overflow-x-hidden p-4 sm:p-6 lg:p-8">
       {env === "sandbox" && (
         <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">
           <AlertTriangle className="mr-2 inline h-4 w-4" />
-          Mode test Stripe actif. Utilisez la carte <code className="font-mono">4242 4242 4242 4242</code> (date future, CVC 123).
+          Mode test Stripe actif. Utilisez la carte <code className="font-mono">4242 4242 4242 4242</code> (date future,
+          CVC 123).
         </div>
       )}
 
       <PageHeader
         title="Facturation & abonnement"
-        description="Plan actif, consommation, gestion de l'abonnement."
+        description="Gérez votre formule, votre consommation et votre facturation PVIA."
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
       />
@@ -129,92 +249,122 @@ function BillingPage() {
       {access?.blocked && (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
           <AlertOctagon className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-          <div className="flex-1">
-            <div className="font-medium text-destructive">Abonnement requis ({access.state})</div>
+          <div className="min-w-0 flex-1">
+            <div className="font-medium text-destructive">{accessStateLabel(access.state)}</div>
             <p className="mt-0.5 text-muted-foreground">
-              Création PV, signatures distantes, exports et invitations sont bloqués
-              tant que l'abonnement n'est pas régularisé. La lecture des anciens PV reste possible.
+              Création PV, signatures distantes, exports et invitations sont bloqués tant que l'abonnement n'est pas
+              régularisé. La lecture des anciens documents reste possible.
             </p>
             <Button asChild size="sm" className="mt-3 min-h-[44px]">
-              <Link to="/upgrade-required" search={{ reason: access.state }}>Voir les options</Link>
+              <Link to="/upgrade-required" search={{ reason: access.state }}>
+                Voir les options
+              </Link>
             </Button>
           </div>
         </div>
       )}
 
-
-      {/* Current plan + usage */}
-      <Card className="relative overflow-hidden p-6">
+      {/* ---------------------- Votre abonnement ---------------------- */}
+      <Card className="relative overflow-hidden p-5 sm:p-6">
         <div className="pointer-events-none absolute inset-0 -z-0 opacity-60 bg-[radial-gradient(circle_at_top_right,oklch(var(--primary)/0.12),transparent_55%)]" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Plan actuel</div>
+          <div className="min-w-0">
+            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Votre abonnement</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="bg-brand-gradient bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
-                {limits?.display_name ?? plan}
+              <span className="bg-brand-gradient bg-clip-text text-2xl font-semibold tracking-tight text-transparent sm:text-3xl">
+                {current?.display_name ?? "Essentiel"}
               </span>
-              <Badge variant={access?.state === "active" || access?.state === "trialing" ? "default" : "secondary"}>
-                {access?.state ?? subscription?.status ?? "free"}
+              <Badge variant={access?.state === "active" || isTrial ? "default" : "secondary"}>
+                {accessStateLabel(access?.state)}
               </Badge>
-              {access?.state === "trialing" && (
-                <Badge className="bg-success text-success-foreground hover:bg-success/90"><Sparkles className="mr-1 h-3 w-3" />Essai actif</Badge>
-              )}
-              {subscription?.cancel_at_period_end && (
-                <Badge variant="destructive">Annulation prévue</Badge>
-              )}
+              {subscription?.cancel_at_period_end && <Badge variant="destructive">Annulation prévue</Badge>}
             </div>
-            {access?.trial_end && access.state === "trialing" && (
-              <div className="mt-2 flex items-center gap-1.5 text-sm text-success">
-                <Clock className="h-3.5 w-3.5" />
-                Fin de l'essai gratuit le {new Date(access.trial_end).toLocaleDateString("fr-FR")}
+
+            {current?.is_custom_pricing ? (
+              <div className="mt-1 text-sm text-muted-foreground">Tarification sur devis</div>
+            ) : priceNow != null ? (
+              <div className="mt-1 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
+                {billingInterval === "annual" ? " / an · Facturation annuelle" : " / mois · Facturation mensuelle"}
+              </div>
+            ) : null}
+
+            {isTrial && (
+              <div className="mt-3 rounded-lg border border-success/30 bg-success/5 p-3 text-sm">
+                <div className="flex items-center gap-1.5 font-medium text-success">
+                  <Sparkles className="h-4 w-4" />
+                  Essai {current?.display_name ?? "PVIA"}
+                  {trialDaysLeft != null && ` — ${trialDaysLeft} jour${trialDaysLeft > 1 ? "s" : ""} restant${trialDaysLeft > 1 ? "s" : ""}`}
+                </div>
+                <p className="mt-0.5 text-muted-foreground">
+                  Votre essai se termine le {formatFrDate(access?.trial_end)}.
+                </p>
               </div>
             )}
-            {subscription?.current_period_end && access?.state !== "trialing" && (
-              <div className="mt-2 text-sm text-muted-foreground">
-                {subscription.cancel_at_period_end ? "Accès jusqu'au" : "Renouvellement le"} {new Date(subscription.current_period_end).toLocaleDateString("fr-FR")}
+
+            {subscription?.current_period_end && !isTrial && (
+              <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                {subscription.cancel_at_period_end ? "Accès jusqu'au" : "Prochaine facturation :"}{" "}
+                {formatFrDate(subscription.current_period_end)}
               </div>
             )}
           </div>
 
-          {canManage && subscription?.stripe_customer_id && (
-            <Button variant="outline" onClick={handlePortal} disabled={busy === "portal"} className="min-h-[44px] shadow-sm">
-              {busy === "portal" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-              Gérer mon abonnement
-              <ExternalLink className="ml-2 h-3 w-3" />
-            </Button>
+          {canManage && hasSubscription && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button
+                variant="outline"
+                onClick={handlePortal}
+                disabled={busy === "portal"}
+                className="min-h-[44px] shadow-sm"
+              >
+                {busy === "portal" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="mr-2 h-4 w-4" />
+                )}
+                Gérer mon abonnement
+                <ExternalLink className="ml-2 h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handlePortal}
+                disabled={busy === "portal"}
+                className="min-h-[44px]"
+              >
+                <ReceiptText className="mr-2 h-4 w-4" />
+                Voir mes factures
+              </Button>
+            </div>
           )}
         </div>
 
-        <div className="relative mt-6 grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border border-border bg-card/60 p-4">
-            <div className="mb-2 flex items-baseline justify-between text-sm">
-              <span className="font-medium">PV ce mois-ci</span>
-              <span className="tabular-nums text-muted-foreground">
-                {usage.pv_this_period} / {pvMax ?? "∞"}
+        <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <UsageTile label="PV ce mois-ci" used={usage.pv_this_period} max={current?.max_pv_per_month ?? null} />
+          <UsageTile label="Utilisateurs" used={seatsUsed} max={current?.max_members ?? null} />
+          <div className="min-w-0 rounded-xl border border-border bg-card/60 p-4">
+            <div className="flex items-baseline justify-between gap-2 text-sm">
+              <span className="min-w-0 truncate font-medium">Visites techniques</span>
+              <span className={`shrink-0 ${current?.can_technical_visits ? "text-success" : "text-muted-foreground"}`}>
+                {current?.can_technical_visits ? "Incluses" : "Non incluses"}
               </span>
             </div>
-            <Progress value={pvPct} />
-          </div>
-          <div className="rounded-xl border border-border bg-card/60 p-4">
-            <div className="mb-2 flex items-baseline justify-between text-sm">
-              <span className="font-medium">Membres actifs</span>
-              <span className="tabular-nums text-muted-foreground">
-                {usage.members} / {membersMax ?? "∞"}
-              </span>
-            </div>
-            <Progress value={memPct} />
+            {!current?.can_technical_visits && (
+              <p className="mt-1 text-xs text-muted-foreground">Disponibles à partir du plan Pro.</p>
+            )}
           </div>
         </div>
       </Card>
 
-      {/* Plans */}
+      {/* ---------------------------- Formules ---------------------------- */}
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold tracking-tight">Changer de plan</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Changer de formule</h2>
           <div
             role="group"
             aria-label="Périodicité de facturation"
-            className="inline-flex rounded-full border border-border bg-muted/40 p-1"
+            className="inline-flex max-w-full rounded-full border border-border bg-muted/40 p-1"
           >
             {(["monthly", "annual"] as const).map((i) => (
               <button
@@ -222,7 +372,7 @@ function BillingPage() {
                 type="button"
                 onClick={() => setBillingInterval(i)}
                 aria-pressed={billingInterval === i}
-                className={`min-h-[44px] rounded-full px-4 text-sm font-medium transition ${
+                className={`min-h-[44px] rounded-full px-3 text-sm font-medium transition sm:px-4 ${
                   billingInterval === i
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -230,64 +380,74 @@ function BillingPage() {
               >
                 {i === "monthly" ? "Mensuel" : "Annuel"}
                 {i === "annual" && (
-                  <span className="ml-1.5 text-xs font-semibold text-success">−2 mois</span>
+                  <span className="ml-1.5 hidden text-xs font-semibold text-success sm:inline">2 mois offerts</span>
                 )}
               </button>
             ))}
           </div>
         </div>
+        {billingInterval === "annual" && (
+          <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {allPlans.map((p: any) => {
+          {plans.map((p, index) => {
             const isCurrent = p.plan === plan;
             const custom = Boolean(p.is_custom_pricing);
             const recommended = Boolean(p.recommended);
             const priceId = billingInterval === "annual" ? p.stripe_price_annual : p.stripe_price_monthly;
             const amount = billingInterval === "annual" ? p.annual_price_eur : p.monthly_price_eur;
-            const seatsBlocked =
-              p.max_members != null && (usage.seats ?? usage.members) > p.max_members;
-            const features = [
-              p.max_members == null
-                ? "Utilisateurs illimités"
-                : `${p.max_members} utilisateur${p.max_members > 1 ? "s" : ""}`,
-              p.max_pv_per_month == null ? "PV illimités" : `${p.max_pv_per_month} PV / mois`,
-              p.can_remote_sign && "Signature à distance",
-              p.can_advanced_stats && "Statistiques avancées",
-              p.can_export_audit && "Export historique audit",
-              p.can_branding && "Branding personnalisé",
-            ].filter(Boolean) as string[];
+            const saving = annualSavingEur(p.monthly_price_eur, p.annual_price_eur);
+            const features = planFeatures(p, index, plans);
+            const targetIndex = index;
+            const isDowngrade = currentIndex >= 0 && targetIndex < currentIndex;
 
             return (
               <Card
                 key={p.plan}
-                className={`relative flex flex-col p-6 transition hover:-translate-y-0.5 hover:shadow-brand ${
-                  isCurrent ? "border-primary/60 ring-2 ring-primary/20" : ""
-                } ${recommended && !isCurrent ? "border-primary/30" : ""}`}
+                className={`relative flex min-w-0 flex-col p-5 transition hover:-translate-y-0.5 hover:shadow-brand sm:p-6 ${
+                  isCurrent ? "border-primary/60 ring-2 ring-primary/20" : recommended ? "border-primary/30" : ""
+                }`}
               >
-                {recommended && !isCurrent && (
-                  <div className="absolute -top-2.5 right-4 rounded-full bg-brand-gradient px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground shadow-brand">
-                    Recommandé
-                  </div>
-                )}
-                <div className="flex items-baseline justify-between gap-2">
-                  <div className="text-lg font-semibold tracking-tight">{p.display_name}</div>
-                  {isCurrent && <Badge>Actuel</Badge>}
-                </div>
-                {p.tagline && (
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{p.tagline}</p>
-                )}
-                <div className="mt-3 text-3xl font-semibold tracking-tight">
-                  {custom || amount == null ? (
-                    <span className="text-2xl">Sur devis</span>
-                  ) : (
-                    <>
-                      {formatEur(amount)}
-                      <span className="text-base font-normal text-muted-foreground">
-                        {billingInterval === "annual" ? " / an HT" : " / mois HT"}
-                      </span>
-                    </>
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {recommended && (
+                    <span className="rounded-full bg-brand-gradient px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground shadow-brand">
+                      Recommandé
+                    </span>
+                  )}
+                  {isCurrent && (
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                      Plan actuel
+                    </span>
                   )}
                 </div>
+
+                <div className="text-lg font-semibold tracking-tight">{p.display_name}</div>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {p.tagline ?? PLAN_PITCH[p.plan] ?? ""}
+                </p>
+
+                <div className="mt-3">
+                  <div className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                    {custom || amount == null ? (
+                      <span className="text-2xl">Sur devis</span>
+                    ) : (
+                      <>
+                        <span className="break-words">{formatEur(amount)}</span>
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {billingInterval === "annual" ? " HT / an" : " HT / mois"}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {billingInterval === "annual" && saving && p.monthly_price_eur != null && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      au lieu de {formatEur(p.monthly_price_eur * 12)} ·{" "}
+                      <span className="font-semibold text-success">{formatEur(saving)} économisés</span>
+                    </div>
+                  )}
+                </div>
+
                 <ul className="mt-5 flex-1 space-y-2 text-sm">
                   {features.map((f) => (
                     <li key={f} className="flex items-start gap-2">
@@ -299,6 +459,12 @@ function BillingPage() {
                   ))}
                 </ul>
 
+                {isCurrent && (
+                  <Button className="mt-6 min-h-[44px] w-full" variant="outline" disabled>
+                    Plan actuel
+                  </Button>
+                )}
+
                 {canManage && !isCurrent && custom && (
                   <Button variant="outline" className="mt-6 min-h-[44px] w-full" asChild>
                     <a href={`mailto:${CONTACT_SALES_EMAIL}?subject=Demande%20offre%20Entreprise%20PVIA`}>
@@ -308,22 +474,15 @@ function BillingPage() {
                 )}
 
                 {canManage && !isCurrent && !custom && (
-                  <>
-                    <Button
-                      className={`mt-6 min-h-[44px] w-full ${recommended ? "shadow-brand" : ""}`}
-                      variant={recommended ? "default" : "outline"}
-                      onClick={() => handleUpgrade(priceId)}
-                      disabled={busy === priceId || seatsBlocked || !priceId}
-                    >
-                      {busy === priceId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      {subscription?.stripe_customer_id ? "Basculer" : "S'abonner"}
-                    </Button>
-                    {seatsBlocked && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Trop d'utilisateurs actifs ({usage.seats ?? usage.members}) pour ce plan.
-                      </p>
-                    )}
-                  </>
+                  <Button
+                    className={`mt-6 min-h-[44px] w-full ${recommended ? "shadow-brand" : ""}`}
+                    variant={recommended ? "default" : "outline"}
+                    onClick={() => handleSelect(priceId ?? "", p)}
+                    disabled={busy === priceId || !priceId}
+                  >
+                    {busy === priceId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isDowngrade ? `Revenir à ${p.display_name}` : `Passer à ${p.display_name}`}
+                  </Button>
                 )}
               </Card>
             );
@@ -331,22 +490,118 @@ function BillingPage() {
         </div>
         {!canManage && (
           <p className="mt-4 text-sm text-muted-foreground">
-            Seuls les rôles owner/admin peuvent modifier l'abonnement.
+            Seuls les rôles direction / responsable d'exploitation peuvent modifier l'abonnement.
           </p>
         )}
       </div>
 
+      {/* ------------------------- Comparaison ------------------------- */}
+      <section aria-labelledby="comparaison">
+        <h2 id="comparaison" className="mb-4 text-xl font-semibold tracking-tight">
+          Comparez les formules
+        </h2>
+        <Card className="overflow-hidden p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
+                  <th
+                    scope="col"
+                    className="sticky left-0 z-10 bg-muted/95 px-3 py-3 text-left font-semibold backdrop-blur sm:px-4"
+                  >
+                    Fonctionnalité
+                  </th>
+                  {plans.map((p) => (
+                    <th key={p.plan} scope="col" className="px-2 py-3 text-center font-semibold sm:px-3">
+                      {p.display_name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON.map((section) => (
+                  <Fragment key={section.title}>
+                    <tr className="border-b border-border/60 bg-muted/20">
+                      <th
+                        scope="colgroup"
+                        colSpan={plans.length + 1}
+                        className="sticky left-0 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-4"
+                      >
+                        {section.title}
+                      </th>
+                    </tr>
+                    {section.rows.map((row) => (
+                      <tr key={`${section.title}-${row.label}`} className="border-b border-border/40 last:border-0">
+                        <th
+                          scope="row"
+                          className="sticky left-0 z-10 bg-card px-3 py-2.5 text-left font-normal sm:px-4"
+                        >
+                          {row.label}
+                        </th>
+                        {plans.map((p) => (
+                          <td key={p.plan} className="px-2 py-2.5 text-center sm:px-3">
+                            <Cell value={row.value(p)} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Faites défiler le tableau horizontalement sur mobile — la colonne des fonctionnalités reste visible.
+        </p>
+      </section>
 
       <div className="text-xs text-muted-foreground">
         Paiement sécurisé par Stripe.{" "}
-        <button
-          type="button"
-          className="inline-flex min-h-[44px] items-center px-2 underline"
-          onClick={() => refetch()}
-        >
+        <button type="button" className="inline-flex min-h-[44px] items-center px-2 underline" onClick={() => refetch()}>
           Rafraîchir
         </button>
       </div>
+
+      {/* --------------------- Confirmation downgrade --------------------- */}
+      <AlertDialog open={!!pendingDowngrade} onOpenChange={(o) => !o && setPendingDowngrade(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Cette formule autorise{" "}
+              {pendingDowngrade?.target.max_members == null
+                ? "un nombre illimité d'utilisateurs"
+                : `${pendingDowngrade?.target.max_members} utilisateur${(pendingDowngrade?.target.max_members ?? 0) > 1 ? "s" : ""}`}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Votre entreprise possède actuellement {seatsUsed} utilisateur{seatsUsed > 1 ? "s" : ""} actif
+                  {seatsUsed > 1 ? "s" : ""} (invitations en attente incluses). Vous devrez adapter votre équipe pour
+                  utiliser la formule {pendingDowngrade?.target.display_name}.
+                </p>
+                {pendingDowngrade && !pendingDowngrade.target.can_technical_visits && (
+                  <p>Les visites techniques ne seront plus créables : les visites existantes restent consultables.</p>
+                )}
+                <p>Aucune donnée historique (PV, réserves, photos, documents) n'est supprimée lors d'un changement de formule.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-[44px]">Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="min-h-[44px]"
+              onClick={() => {
+                const p = pendingDowngrade;
+                setPendingDowngrade(null);
+                if (p) void startCheckout(p.priceId);
+              }}
+            >
+              Continuer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
