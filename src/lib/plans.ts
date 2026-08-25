@@ -154,3 +154,149 @@ export function annualSavingPercent(monthly: number | null, annual: number | nul
   if (full <= annual) return null;
   return Math.round(((full - annual) / full) * 100);
 }
+
+/* ------------------------------------------------------------------ *
+ * État d'abonnement — libellés lisibles (jamais « free » brut en UI)  *
+ * ------------------------------------------------------------------ */
+
+export type AccessStateKey =
+  | "free" | "trialing" | "active" | "canceled_grace" | "past_due" | "unpaid"
+  | "trial_expired" | "canceled" | "incomplete" | "incomplete_expired"
+  | "paused" | "blocked";
+
+export const ACCESS_STATE_LABELS: Record<AccessStateKey, string> = {
+  free: "Aucun abonnement actif",
+  trialing: "Essai en cours",
+  active: "Abonnement actif",
+  canceled_grace: "Annulé — accès jusqu'à la fin de période",
+  past_due: "Paiement en échec",
+  unpaid: "Impayé",
+  trial_expired: "Essai terminé",
+  canceled: "Abonnement annulé",
+  incomplete: "Paiement non finalisé",
+  incomplete_expired: "Paiement expiré",
+  paused: "Abonnement en pause",
+  blocked: "Abonnement bloqué",
+};
+
+export function accessStateLabel(state?: string | null): string {
+  if (!state) return ACCESS_STATE_LABELS.free;
+  return ACCESS_STATE_LABELS[state as AccessStateKey] ?? "Abonnement";
+}
+
+/** Économie annuelle en euros (12 mensualités − prix annuel). */
+export function annualSavingEur(monthly?: number | null, annual?: number | null): number | null {
+  if (!monthly || !annual) return null;
+  const saving = monthly * 12 - annual;
+  return saving > 0 ? saving : null;
+}
+
+/** Jours restants avant une date ISO (0 minimum). */
+export function daysUntil(iso?: string | null): number | null {
+  if (!iso) return null;
+  const diff = new Date(iso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / 86_400_000));
+}
+
+export function formatFrDate(iso?: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/* ------------------------------------------------------------------ *
+ * Matrice de comparaison — dérivée UNIQUEMENT des colonnes réelles     *
+ * de `plan_limits` (source de vérité serveur). Aucune fonctionnalité   *
+ * inventée : chaque ligne pointe soit vers un flag existant, soit vers *
+ * une capacité disponible sur toutes les formules.                     *
+ * ------------------------------------------------------------------ */
+
+export type PlanLimitsRow = {
+  plan: string;
+  display_name: string;
+  tagline?: string | null;
+  monthly_price_eur: number | null;
+  annual_price_eur: number | null;
+  max_members: number | null;
+  max_pv_per_month: number | null;
+  can_remote_sign: boolean;
+  can_advanced_stats: boolean;
+  can_export_audit: boolean;
+  can_branding: boolean;
+  can_technical_visits: boolean;
+  is_custom_pricing?: boolean;
+  recommended?: boolean;
+  sort_order?: number;
+  stripe_price_monthly?: string | null;
+  stripe_price_annual?: string | null;
+};
+
+/** `true` = inclus, `false` = non inclus, string = limite chiffrée. */
+export type CellValue = boolean | string;
+
+export type ComparisonRow = { label: string; value: (p: PlanLimitsRow) => CellValue };
+export type ComparisonSection = { title: string; rows: ComparisonRow[] };
+
+const seats = (p: PlanLimitsRow) =>
+  p.is_custom_pricing || p.max_members == null
+    ? "Illimité"
+    : `${p.max_members} utilisateur${p.max_members > 1 ? "s" : ""}`;
+
+export const COMPARISON: ComparisonSection[] = [
+  {
+    title: "Chantier",
+    rows: [
+      { label: "Gestion des chantiers", value: () => true },
+      { label: "Clients", value: () => true },
+      { label: "Calendrier chantier", value: () => true },
+      { label: "Affectation des techniciens", value: () => true },
+      { label: "Multi-équipes (utilisateurs)", value: seats },
+    ],
+  },
+  {
+    title: "Visite technique",
+    rows: [
+      { label: "Visites techniques", value: (p) => p.can_technical_visits },
+      { label: "Photovoltaïque", value: (p) => p.can_technical_visits },
+      { label: "PAC air/air", value: (p) => p.can_technical_visits },
+      { label: "PAC air/eau", value: (p) => p.can_technical_visits },
+      { label: "Photos de visite", value: (p) => p.can_technical_visits },
+      { label: "Création automatique du chantier", value: (p) => p.can_technical_visits },
+    ],
+  },
+  {
+    title: "Réception",
+    rows: [
+      {
+        label: "PV de réception",
+        value: (p) => (p.max_pv_per_month == null ? "Illimités" : `${p.max_pv_per_month} / mois`),
+      },
+      { label: "Photos de réserve", value: () => true },
+      { label: "Réserves", value: () => true },
+      { label: "Signature sur site", value: () => true },
+      { label: "Signature à distance", value: (p) => p.can_remote_sign },
+      { label: "Génération PDF", value: () => true },
+      { label: "Levées de réserves", value: () => true },
+    ],
+  },
+  {
+    title: "Client",
+    rows: [
+      { label: "Envoi des documents", value: () => true },
+      { label: "Espace client", value: () => true },
+      { label: "Signature client à distance", value: (p) => p.can_remote_sign },
+      { label: "Validation / refus des levées", value: () => true },
+      { label: "Historique client", value: () => true },
+    ],
+  },
+  {
+    title: "Pilotage",
+    rows: [
+      { label: "Statistiques", value: (p) => (p.can_advanced_stats ? "Avancées" : "De base") },
+      { label: "Historique des PV", value: () => true },
+      { label: "Journal d'audit", value: () => true },
+      { label: "Export de l'audit", value: (p) => p.can_export_audit },
+      { label: "Notifications e-mail & push", value: () => true },
+      { label: "Branding personnalisé", value: (p) => p.can_branding },
+    ],
+  },
+];
