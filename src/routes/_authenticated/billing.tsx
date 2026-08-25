@@ -599,8 +599,7 @@ function BillingPage() {
               Continuer
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogFooter>
-      </AlertDialogContent>
+        </AlertDialogContent>
       </AlertDialog>
     </div>
   );
