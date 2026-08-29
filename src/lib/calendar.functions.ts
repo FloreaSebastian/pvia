@@ -53,7 +53,8 @@ export const createCalendarToken = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(data.companyId, context.userId);
-    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, context.userId);
+    // Exception assumée : paramètre de compte non consommateur (préparation/réactivation),
+    // autorisé même en lecture seule métier. La production de documents reste bloquée.
     const token = "cal_" + crypto.randomBytes(20).toString("base64url");
     const { data: row, error } = await supabaseAdmin
       .from("integration_calendar_tokens")

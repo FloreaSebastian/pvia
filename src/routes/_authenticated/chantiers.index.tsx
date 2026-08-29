@@ -1,4 +1,4 @@
-import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
+import { WriteAccessGate, LockedActionButton, useWriteAccess } from "@/components/billing/WriteAccessGate";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, ArrowRight, SlidersHorizontal, MoreHorizontal } from "lucide-react";
@@ -114,6 +114,7 @@ function ChantiersPage() {
   }, []);
   const formCompact = formWidth > 0 && formWidth < 380;
   const canWrite = can("manage");
+  const { blocked: writeBlocked } = useWriteAccess();
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const createFn = useServerFn(createChantierFn);
   const updateFn = useServerFn(updateChantierFn);
@@ -268,12 +269,18 @@ function ChantiersPage() {
             </p>
           </div>
           {canWrite && (
-            <DialogTrigger asChild>
-              <span><WriteAccessGate label="Nouveau chantier"><Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
-                <Plus className="h-4 w-4" />
-                <span>Nouveau</span>
-              </Button></WriteAccessGate></span>
-            </DialogTrigger>
+            writeBlocked ? (
+              <LockedActionButton label="Nouveau chantier" size="sm" className="h-10 shrink-0">
+                Nouveau
+              </LockedActionButton>
+            ) : (
+              <DialogTrigger asChild>
+                <Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
+                  <Plus className="h-4 w-4" />
+                  <span>Nouveau</span>
+                </Button>
+              </DialogTrigger>
+            )
           )}
         </header>
 

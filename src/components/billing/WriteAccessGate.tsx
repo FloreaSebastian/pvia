@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,9 +14,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSubscription } from "@/hooks/use-subscription";
 
+export type RestrictedCopy = { title: string; body: string; cta: string };
+
 /** Copie métier alignée sur l'état d'accès réel (jamais « aucun abonnement »). */
-export function restrictedCopy(state: string | undefined) {
-  const payment = state === "past_due" || state === "unpaid" || state === "incomplete";
+export function restrictedCopy(state: string | undefined): RestrictedCopy {
+  const payment =
+    state === "past_due" || state === "unpaid" || state === "incomplete" || state === "incomplete_expired";
   return payment
     ? {
         title: "Votre abonnement nécessite votre attention",
@@ -33,63 +36,79 @@ export function restrictedCopy(state: string | undefined) {
 }
 
 /**
- * Encapsule une action de création/modification.
- * En accès restreint, l'action reste visible mais verrouillée : un clic explique
- * la situation et renvoie vers /billing. Le serveur reste la source de vérité.
+ * Source unique côté UI. Le serveur (assertCompanyWriteAccess) et la base
+ * (RLS company_has_write_access) restent la sécurité réelle.
  */
-export function WriteAccessGate({
-  children,
-  label = "Action indisponible",
-}: {
-  children: ReactNode;
-  label?: string;
-}) {
+export function useWriteAccess() {
   const { blocked, access, isLoading } = useSubscription();
-  const [open, setOpen] = useState(false);
+  return { blocked: Boolean(blocked), isLoading, copy: restrictedCopy(access?.state) };
+}
 
-  if (isLoading || !blocked) return <>{children}</>;
-  const copy = restrictedCopy(access?.state);
+/**
+ * Bouton de remplacement affiché à la place d'une action de création/modification
+ * lorsque l'entreprise est en lecture seule. C'est un vrai <button> : clic souris,
+ * tap tactile, Enter/Espace et focus visible fonctionnent nativement (aucun
+ * pointer-events-none, aucune composition Radix fragile).
+ */
+export function LockedActionButton({
+  label,
+  children,
+  ...buttonProps
+}: { label: string } & ButtonProps) {
+  const [open, setOpen] = useState(false);
+  const { copy } = useWriteAccess();
 
   return (
     <>
-      <span
-        className="inline-flex cursor-not-allowed opacity-60 [&_a]:pointer-events-none [&_button]:pointer-events-none"
+      <Button
+        {...buttonProps}
+        type="button"
+        variant={buttonProps.variant ?? "outline"}
         onClick={(e) => {
           e.preventDefault();
-          e.stopPropagation();
           setOpen(true);
         }}
-        role="button"
-        tabIndex={0}
-        aria-label={`${label} — ${copy.title}`}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setOpen(true);
-          }
-        }}
+        aria-haspopup="dialog"
+        title={copy.title}
       >
-        {children}
-      </span>
+        <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="truncate">{children ?? label}</span>
+        <span className="sr-only"> — action verrouillée, abonnement requis</span>
+      </Button>
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent className="max-w-[min(28rem,calc(100vw-2rem))]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <Lock className="h-4 w-4 shrink-0" />
-              {copy.title}
-            </AlertDialogTitle>
-            <AlertDialogDescription>{copy.body}</AlertDialogDescription>
+            <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {copy.body} Action concernée : {label.toLowerCase()}.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="min-h-[44px]">Fermer</AlertDialogCancel>
             <AlertDialogAction asChild className="min-h-[44px]">
-              <Button asChild>
-                <Link to="/billing">{copy.cta}</Link>
-              </Button>
+              <Link to="/billing">{copy.cta}</Link>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   );
+}
+
+/**
+ * Remplace entièrement l'action par un bouton verrouillé quand l'écriture est
+ * suspendue. Ne wrappe jamais les enfants : pas d'interception d'événements.
+ */
+export function WriteAccessGate({
+  label,
+  children,
+  lockedProps,
+}: {
+  label: string;
+  children: ReactNode;
+  lockedProps?: ButtonProps;
+}) {
+  const { blocked, isLoading } = useWriteAccess();
+  if (isLoading || !blocked) return <>{children}</>;
+  return <LockedActionButton label={label} {...lockedProps} />;
 }

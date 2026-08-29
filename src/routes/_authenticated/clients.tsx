@@ -1,4 +1,4 @@
-import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
+import { LockedActionButton, useWriteAccess } from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download, Sparkles, MoreVertical } from "lucide-react";
@@ -74,6 +74,7 @@ function ClientsPage() {
   const [portal, setPortal] = useState<Record<string, PortalStatus["state"]>>({});
 
   const canWrite = can("manage");
+  const { blocked: writeBlocked } = useWriteAccess();
   const canAdmin = can("admin");
   const createFn = useServerFn(createClientFn);
   const updateFn = useServerFn(updateClientFn);
@@ -300,9 +301,12 @@ function ClientsPage() {
           className="border-0 bg-transparent px-0 py-0"
           actions={
             canWrite ? (
+              writeBlocked ? (
+                <LockedActionButton label="Nouveau client">Nouveau client</LockedActionButton>
+              ) : (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
-                  <span><WriteAccessGate label="Nouveau client"><Button onClick={openNew} className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button></WriteAccessGate></span>
+                  <Button onClick={openNew} className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button>
                 </DialogTrigger>
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                   <DialogHeader><DialogTitle>{editing ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
@@ -317,6 +321,7 @@ function ClientsPage() {
                   </form>
                 </DialogContent>
               </Dialog>
+              )
             ) : null
           }
         />
@@ -556,7 +561,11 @@ function ClientsPage() {
             </p>
           </div>
           {canWrite && !query && typeFilter === "all" && scope === "active" && (
-            <Button onClick={openNew} className="mt-2 shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button>
+            writeBlocked ? (
+              <LockedActionButton label="Nouveau client" className="mt-2">Nouveau client</LockedActionButton>
+            ) : (
+              <Button onClick={openNew} className="mt-2 shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button>
+            )
           )}
         </Card>
       )}

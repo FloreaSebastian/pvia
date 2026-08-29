@@ -1,3 +1,4 @@
+import { LockedActionButton, useWriteAccess } from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -380,6 +381,8 @@ function TeamPage() {
   }
 
   const isAdmin = can("admin");
+
+  const { blocked: writeBlocked } = useWriteAccess();
   const isDirecteur = isOwnerRole(activeRole);
 
   /** Droits d'action ligne par ligne (miroir UI des règles serveur/RLS). */
@@ -525,7 +528,11 @@ function TeamPage() {
             Gérez les membres, les rôles BTP et les accès de votre entreprise.
           </p>
         </div>
-        {isAdmin && (
+        {isAdmin && (writeBlocked ? (
+          <LockedActionButton label="Inviter un membre" className="h-11 w-full sm:w-auto">
+            Inviter un membre
+          </LockedActionButton>
+        ) : (
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
             <DialogTrigger asChild>
               <Button className="h-11 w-full shadow-brand sm:w-auto">
@@ -599,7 +606,7 @@ function TeamPage() {
               </form>
             </DialogContent>
           </Dialog>
-        )}
+        ))}
       </div>
 
       {loading ? (

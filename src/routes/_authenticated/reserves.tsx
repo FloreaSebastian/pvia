@@ -1,3 +1,4 @@
+import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
@@ -586,12 +587,14 @@ function ReservesPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button asChild size="sm" className="h-11 shrink-0 sm:h-9">
-            <Link to="/pv">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Nouvelle réserve</span>
-            </Link>
-          </Button>
+          <WriteAccessGate label="Nouvelle réserve" lockedProps={{ size: "sm", className: "h-11 shrink-0 sm:h-9" }}>
+            <Button asChild size="sm" className="h-11 shrink-0 sm:h-9">
+              <Link to="/pv">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nouvelle réserve</span>
+              </Link>
+            </Button>
+          </WriteAccessGate>
         </div>
       </div>
 

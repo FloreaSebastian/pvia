@@ -3002,6 +3002,18 @@ export type Database = {
         Args: { _user_id: string; _visit_id: string }
         Returns: boolean
       }
+      can_write_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_write_company_admin: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_write_company_member: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
       cleanup_analytics_events: { Args: never; Returns: undefined }
       cleanup_client_auth: { Args: never; Returns: undefined }
       cleanup_rate_limits: { Args: never; Returns: number }

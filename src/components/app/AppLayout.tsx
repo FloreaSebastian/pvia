@@ -1,3 +1,4 @@
+import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -256,11 +257,13 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
 
         {canWrite && (
           <div className="px-3 pt-3">
+            <WriteAccessGate label="Nouveau PV" lockedProps={{ className: "min-h-11 w-full lg:min-h-9", size: "sm" }}>
             <Link to="/pv/new" search={{ fresh: 1 }} onClick={() => setOpen(false)} className="block">
               <Button className="min-h-11 w-full shadow-brand lg:min-h-9" size="sm">
                 <Plus className="h-4 w-4" /> Nouveau PV
               </Button>
             </Link>
+            </WriteAccessGate>
           </div>
         )}
 
@@ -344,12 +347,16 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
               <Search className="h-5 w-5" />
             </button>
             {canWrite && (
-              <Link to="/pv/new" search={{ fresh: 1 }} className="hidden xs:block">
+              <div className="hidden xs:block">
+              <WriteAccessGate label="Créer un PV" lockedProps={{ size: "sm", className: "touch-target" }}>
+              <Link to="/pv/new" search={{ fresh: 1 }}>
                 <Button size="sm" className="touch-target shadow-elevation-sm">
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">Créer un PV</span>
                 </Button>
               </Link>
+              </WriteAccessGate>
+              </div>
             )}
             <NotificationsBell />
 
