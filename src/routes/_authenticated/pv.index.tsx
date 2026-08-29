@@ -99,6 +99,7 @@ function reservesCount(p: Pv) {
 function PvList() {
   const { activeCompanyId } = useCompany();
   const navigate = useNavigate();
+  const { deny } = useBlockedActionGuard();
   const [items, setItems] = useState<Pv[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilterId>("all");
