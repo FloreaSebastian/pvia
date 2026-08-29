@@ -741,6 +741,8 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
       throw new Error("Accès refusé.");
     }
 
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess((photo as any).company_id as string, userId);
+
     // Ensure PDF exists (regenerate if missing). New lifts populate
     // `pdf_client_url`; `pdf_url` only exists on legacy rows. Need either.
     if (!(report as any).pdf_client_url && !report.pdf_url) {
@@ -973,6 +975,8 @@ export const reopenReserveLiftReport = createServerFn({ method: "POST" })
         "Accès refusé : seul un directeur ou un responsable d'exploitation peut réouvrir une levée.",
       );
     }
+
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(report.company_id as string, userId);
 
     // Best-effort cleanup of stored PDFs so the report doesn't leak stale documents.
     const pdfMain = report.pdf_url ?? null;

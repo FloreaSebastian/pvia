@@ -183,6 +183,8 @@ export const inviteClientToPortal = createServerFn({ method: "POST" })
       throw new Error("Vous n'avez pas les droits pour inviter ce client.");
     }
 
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
+
     // Les quotas restent serveur ; le message affiché reste métier (aucun nom
     // de bucket interne, aucune seconde brute exposée au client).
     try {
