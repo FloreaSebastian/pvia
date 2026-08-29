@@ -20,28 +20,31 @@ export function SubscriptionBanner() {
   if (isLoading || !access) return null;
 
   if (blocked) {
+    const payment =
+      access.state === "past_due" || access.state === "unpaid" || access.state === "incomplete";
     return (
       <div className="flex flex-wrap items-center gap-3 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
         <AlertTriangle className="h-4 w-4 shrink-0" />
         <div className="min-w-0 flex-1">
-          <span className="font-semibold">Accès restreint — lecture seule.</span>{" "}
+          <span className="font-semibold">
+            {payment ? "Votre abonnement nécessite votre attention" : "Votre accès est limité"} —
+          </span>{" "}
           <span className="text-destructive/80">
-            {access.state === "trial_expired"
-              ? "Votre essai gratuit de 14 jours est terminé."
-              : access.state === "past_due" || access.state === "unpaid"
-                ? "Un problème de paiement bloque votre abonnement."
-                : "Aucun abonnement actif sur ce compte."}
+            {payment
+              ? "Vos données restent accessibles, mais les nouvelles créations et modifications sont temporairement suspendues."
+              : "Votre essai est terminé. Vos données restent accessibles, mais la création et la modification sont suspendues."}
           </span>
         </div>
         <Link
           to="/billing"
-          className="min-h-[36px] rounded-md border border-destructive/40 bg-background/60 px-3 py-1 font-medium text-destructive hover:bg-background"
+          className="min-h-[44px] inline-flex items-center rounded-md border border-destructive/40 bg-background/60 px-3 py-1 font-medium text-destructive hover:bg-background"
         >
-          Choisir un abonnement
+          {payment ? "Régulariser mon abonnement" : "Choisir une formule"}
         </Link>
       </div>
     );
   }
+
 
   if (isTrialing) {
     const d = daysLeft(access.trial_end);
