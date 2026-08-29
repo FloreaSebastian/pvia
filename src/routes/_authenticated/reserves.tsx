@@ -1,4 +1,4 @@
-import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
+import { WriteAccessGate, useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
@@ -161,6 +161,7 @@ function useReserveRefs(items: Row[]): Map<string, string> {
 
 function ReservesPage() {
   const { activeCompanyId, activeRole } = useCompany();
+  const { deny, dialog: lockedDialog } = useBlockedActionGuard();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [items, setItems] = useState<Row[]>([]);
@@ -328,6 +329,7 @@ function ReservesPage() {
   );
 
   async function setStatus(id: string, status: string) {
+    if (deny("changer le statut d\u2019une réserve")) return;
     if (!activeCompanyId) return;
     try {
       await updateStatusFn({ data: { companyId: activeCompanyId, id, status: status as Status } });
@@ -339,6 +341,7 @@ function ReservesPage() {
   }
 
   async function quickAssign(id: string, userId: string | null) {
+    if (deny("assigner une réserve")) return;
     if (!activeCompanyId) return;
     try {
       await assignFn({ data: { companyId: activeCompanyId, id, assignedTo: userId } });
@@ -350,6 +353,7 @@ function ReservesPage() {
   }
 
   function remove(id: string) {
+    if (deny("supprimer une réserve")) return;
     setConfirmDelete({ ids: [id] });
   }
 
@@ -397,6 +401,7 @@ function ReservesPage() {
   }
 
   async function bulkStatus(status: Status) {
+    if (deny("modifier plusieurs réserves")) return;
     if (!activeCompanyId || selected.size === 0) return;
     try {
       await bulkFn({ data: { companyId: activeCompanyId, ids: [...selected], status } });
@@ -409,6 +414,7 @@ function ReservesPage() {
   }
 
   function bulkRemove() {
+    if (deny("supprimer plusieurs réserves")) return;
     if (selected.size === 0) return;
     setConfirmDelete({ ids: [...selected] });
   }
@@ -568,6 +574,7 @@ function ReservesPage() {
   // Drag-and-drop for Kanban
   const [dragId, setDragId] = useState<string | null>(null);
   async function onKanbanDrop(targetStatus: Status) {
+    if (deny("déplacer une réserve")) return;
     if (!dragId) return;
     const id = dragId;
     setDragId(null);
@@ -1280,6 +1287,7 @@ function KanbanCard({
           </span>
         )}
       </div>
+      {lockedDialog}
     </div>
   );
 }
