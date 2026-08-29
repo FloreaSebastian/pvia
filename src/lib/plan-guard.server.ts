@@ -59,13 +59,12 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
   ]);
 
   if (!sub) {
-    // Aucun abonnement Stripe : l'entreprise vit sur son essai gratuit de 14 j.
-    // Pas de formule gratuite permanente — à l'expiration, lecture seule.
-    const trialEndIso =
-      ((company as any)?.trial_ends_at as string | null) ??
-      ((company as any)?.created_at
-        ? new Date(new Date((company as any).created_at as string).getTime() + 14 * 86_400_000).toISOString()
-        : null);
+    // Aucun abonnement Stripe : l'entreprise vit sur son essai gratuit de 14 j
+    // porté par `companies.trial_ends_at` (défaut now() + 14 j, backfill effectué).
+    // Pas de formule gratuite permanente, et AUCUN fallback dérivé de created_at :
+    // une date absente = lecture seule (fail-closed), identique au SQL
+    // `company_has_write_access`.
+    const trialEndIso = ((company as any)?.trial_ends_at as string | null) ?? null;
     const active = trialEndIso ? new Date(trialEndIso).getTime() > Date.now() : false;
     return {
       state: active ? "trialing" : "trial_expired",
@@ -91,12 +90,24 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
     status: (sub.status as string | null) ?? null,
   };
 
+  /** Tolérance de synchro Stripe : un renouvellement normal met quelques
+   *  minutes à arriver par webhook. Au-delà de 3 jours, la ligne est
+   *  considérée périmée et l'écriture est refusée (anti fail-open). */
+  const SYNC_GRACE_MS = 3 * 86_400_000;
+
   switch (sub.status) {
     case "trialing":
-      if (trialEnd && trialEnd < now) return { ...base, state: "trial_expired", blocked: true };
+      // Fail-closed : `trialing` sans date de fin = donnée non fiable.
+      if (!trialEnd || trialEnd < now) return { ...base, state: "trial_expired", blocked: true };
       return { ...base, state: "trialing", blocked: false };
-    case "active":
+    case "active": {
+      // `active` seul ne suffit pas : si le webhook de renouvellement n'est
+      // jamais arrivé, la période payée peut être terminée depuis longtemps.
+      const stale = periodEnd !== null && periodEnd < now - SYNC_GRACE_MS;
+      if (stale) return { ...base, state: "blocked", blocked: true };
       return { ...base, state: "active", blocked: false };
+    }
+
     case "past_due":
       return { ...base, state: "past_due", blocked: true };
     case "unpaid":

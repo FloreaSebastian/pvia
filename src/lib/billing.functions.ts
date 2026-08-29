@@ -269,3 +269,96 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
   });
 
 
+/* ------------------- Resynchronisation Stripe (retour Checkout/Portal) ------------------- */
+
+const SyncSchema = z.object({ companyId: z.string().uuid(), environment: EnvSchema });
+
+/**
+ * Réconcilie la ligne `subscriptions` avec Stripe à la demande.
+ * Utilisée au retour de Checkout/Portal pour ne pas dépendre du délai webhook :
+ * après paiement, l'utilisateur retrouve immédiatement l'écriture sans avoir à
+ * se déconnecter/reconnecter. Lecture Stripe uniquement + upsert de la ligne :
+ * aucune garde d'écriture d'abonnement ici (sinon un compte expiré ne pourrait
+ * jamais se réactiver). Réservée aux admins de l'entreprise.
+ */
+export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => SyncSchema.parse(i))
+  .handler(async ({ data, context }) => {
+    await assertCompanyAdmin(data.companyId, context.userId);
+
+    const { data: existing } = await supabaseAdmin
+      .from("subscriptions")
+      .select("stripe_customer_id,user_id")
+      .eq("company_id", data.companyId)
+      .eq("environment", data.environment)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const customerId = (existing as any)?.stripe_customer_id as string | undefined;
+    if (!customerId) return { synced: false as const };
+
+    const stripe = createStripeClient(data.environment);
+    let sub: any = null;
+    try {
+      const list = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 5,
+        expand: ["data.items.data.price"],
+      });
+      sub = list.data
+        .slice()
+        .sort((a: any, b: any) => (b.created ?? 0) - (a.created ?? 0))[0] ?? null;
+    } catch (e) {
+      throw sanitizeStripeError(e, BILLING_MESSAGES.portal);
+    }
+    if (!sub) return { synced: false as const };
+
+    const { priceToPlan } = await import("./stripe.server");
+    const item = sub.items?.data?.[0];
+    const plan = priceToPlan(item?.price) ?? null;
+    const toIso = (s: number | null | undefined) => (s ? new Date(s * 1000).toISOString() : null);
+
+    const { error } = await supabaseAdmin.from("subscriptions").upsert(
+      {
+        company_id: data.companyId,
+        user_id: (existing as any)?.user_id ?? context.userId,
+        stripe_subscription_id: sub.id,
+        stripe_customer_id: customerId,
+        ...(plan ? { plan } : {}),
+        status: sub.status,
+        current_period_start: toIso(item?.current_period_start ?? sub.current_period_start),
+        current_period_end: toIso(item?.current_period_end ?? sub.current_period_end),
+        cancel_at_period_end: Boolean(sub.cancel_at_period_end),
+        trial_end: toIso(sub.trial_end),
+        environment: data.environment,
+        updated_at: new Date().toISOString(),
+      } as never,
+      { onConflict: "stripe_subscription_id" },
+    );
+    if (error) throw new Error("La synchronisation de l'abonnement a échoué. Réessayez dans quelques instants.");
+
+    // Une réactivation payante lève une éventuelle suspension automatique
+    // posée lors de l'annulation (`company.auto_suspended`).
+    if (sub.status === "active" || sub.status === "trialing") {
+      const { data: comp } = await supabaseAdmin
+        .from("companies")
+        .select("suspended_at,support_status")
+        .eq("id", data.companyId)
+        .maybeSingle();
+      if ((comp as any)?.suspended_at && (comp as any)?.support_status !== "blocked") {
+        await supabaseAdmin.from("companies").update({ suspended_at: null } as never).eq("id", data.companyId);
+        await writeAuditLog({
+          companyId: data.companyId,
+          userId: context.userId,
+          entityType: "company",
+          action: "company.auto_unsuspended",
+          metadata: { reason: "subscription_reactivated", status: sub.status },
+        });
+      }
+    }
+
+    return { synced: true as const, status: sub.status as string };
+  });
