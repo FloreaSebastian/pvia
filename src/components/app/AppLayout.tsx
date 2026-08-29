@@ -37,6 +37,7 @@ import { NotificationsBell } from "@/components/app/NotificationsBell";
 import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
+import { SubscriptionBanner } from "@/components/app/SubscriptionBanner";
 import { useCompany } from "@/hooks/use-company";
 import { useViewport } from "@/hooks/use-viewport";
 import { ImmersiveProvider, useImmersive } from "@/hooks/use-immersive";
