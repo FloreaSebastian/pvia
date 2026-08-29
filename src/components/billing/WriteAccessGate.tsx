@@ -162,6 +162,6 @@ export function useBlockedActionGuard() {
     </AlertDialog>
   );
 
-  return { blocked, guard, dialog };
+  return { blocked, guard, deny, dialog };
 }
 
