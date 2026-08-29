@@ -680,6 +680,7 @@ function ChantierCalendarPage() {
 
   async function removeEvt() {
     if (!activeCompanyId || !evtForm.id) return;
+    if (denyWrite("suppression d'un événement")) return;
     try {
       await deleteEvtFn({ data: { companyId: activeCompanyId, id: evtForm.id } });
       toast.success("Supprimé");
@@ -689,6 +690,7 @@ function ChantierCalendarPage() {
   }
   async function duplicateEvt() {
     if (!activeCompanyId || !evtForm.id) return;
+    if (denyWrite("duplication d'un événement")) return;
     try {
       await duplicateFn({ data: { companyId: activeCompanyId, id: evtForm.id } });
       toast.success("Événement dupliqué");
@@ -702,6 +704,7 @@ function ChantierCalendarPage() {
 
   async function commitReschedule(id: string, start: Date, end: Date | null) {
     if (!activeCompanyId) return;
+    if (denyWrite("déplacement d'un événement")) { await load(); return; }
     try {
       await rescheduleFn({ data: { companyId: activeCompanyId, id, start_at: start.toISOString(), end_at: end ? end.toISOString() : null } });
       toast.success("Événement déplacé");
@@ -710,6 +713,7 @@ function ChantierCalendarPage() {
   }
   async function commitResize(id: string, end: Date) {
     if (!activeCompanyId) return;
+    if (denyWrite("redimensionnement d'un événement")) { await load(); return; }
     try {
       await resizeFn({ data: { companyId: activeCompanyId, id, end_at: end.toISOString() } });
       toast.success("Durée mise à jour");
@@ -2731,6 +2735,7 @@ function EventActionPopover({
   onSaved: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const { deny: denyQuick } = useBlockedActionGuard();
   const isSystem = evt.event_type.startsWith("system_");
   const readOnly = !canWrite || isSystem;
   const c = colorOf(evt);
@@ -2744,6 +2749,7 @@ function EventActionPopover({
 
   async function patchStatus(next: "termine" | "annule") {
     if (readOnly) return;
+    if (denyQuick("changement de statut d'un événement")) return;
     setBusy(true);
     try {
       await updateEvtFn({ data: { companyId, id: evt.id, data: {
@@ -2764,6 +2770,7 @@ function EventActionPopover({
 
   async function duplicate() {
     if (readOnly) return;
+    if (denyQuick("duplication d'un événement")) return;
     setBusy(true);
     try {
       await duplicateFn({ data: { companyId, id: evt.id } });
@@ -2776,6 +2783,7 @@ function EventActionPopover({
 
   async function remove() {
     if (readOnly || !isAdmin) return;
+    if (denyQuick("suppression d'un événement")) return;
     if (!confirm("Supprimer cet événement ?")) return;
     setBusy(true);
     try {

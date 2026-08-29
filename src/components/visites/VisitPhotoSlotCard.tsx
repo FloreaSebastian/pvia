@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useBillingGate } from "@/components/billing/BillingGate";
 import { useServerFn } from "@tanstack/react-start";
 import { addVisitPhoto, deleteVisitPhoto, skipVisitPhoto, removeVisitPhotoSkip } from "@/lib/visites.functions";
 import { compressImageFile } from "@/lib/image-compress";
@@ -75,6 +76,7 @@ export function VisitPhotoSlotCard({
   const [skipText, setSkipText] = useState("");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
+  const { requireWrite } = useBillingGate();
   const addFn = useServerFn(addVisitPhoto);
   const delFn = useServerFn(deleteVisitPhoto);
   const skipFn = useServerFn(skipVisitPhoto);
@@ -85,6 +87,12 @@ export function VisitPhotoSlotCard({
 
   async function upload(list: FileList | null) {
     if (!list || list.length === 0 || busy) return;
+    // Pré-check abonnement AVANT tout upload Storage : aucune écriture ne part
+    // si l'entreprise est en lecture seule.
+    if (!requireWrite("ajouter une photo de visite")) {
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     setBusy(true);
     const gps = await tryGetGps();
     let ok = 0;
@@ -155,6 +163,7 @@ export function VisitPhotoSlotCard({
   }
 
   async function confirmSkip() {
+    if (!requireWrite("justifier une photo impossible")) return;
     if (skipText.trim().length < 3) {
       toast.error("Précisez le motif (3 caractères minimum).");
       return;
@@ -182,6 +191,7 @@ export function VisitPhotoSlotCard({
   }
 
   async function undoSkip() {
+    if (!requireWrite("annuler un motif de photo")) return;
     setBusy(true);
     try {
       await unskipFn({ data: { companyId, visitId, slot_key: slot.answerKey } });
@@ -194,6 +204,7 @@ export function VisitPhotoSlotCard({
   }
 
   async function removePhoto(photoId: string) {
+    if (!requireWrite("supprimer une photo de visite")) return;
     setBusy(true);
     try {
       await delFn({ data: { companyId, visitId, photoId } });

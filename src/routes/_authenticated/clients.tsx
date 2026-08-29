@@ -380,7 +380,7 @@ function ClientsPage() {
           </div>
           <span className="text-xs tabular-nums text-muted-foreground">{filtered.length}</span>
           {canWrite && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setImportOpen(true)} aria-label="Importer des clients avec l'IA">
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => { if (deny("importer des clients")) return; setImportOpen(true); }} aria-label="Importer des clients avec l'IA">
               <Sparkles className="h-3.5 w-3.5" /> Import IA
             </Button>
           )}
@@ -435,7 +435,7 @@ function ClientsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setImportOpen(true)}
+            onClick={() => { if (deny("importer des clients")) return; setImportOpen(true); }}
             className="h-11 w-full gap-1.5"
             data-testid="clients-import-button"
             aria-label="Importer des clients avec l'IA"

@@ -9,6 +9,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { useBillingGate } from "@/components/billing/BillingGate";
 import { toast } from "sonner";
 import { listChantierPhotos, createChantierPhoto, deleteChantierPhoto } from "@/lib/chantier-photos.functions";
 import { tryGetGps, readExif, sanitizeExifForUpload } from "@/lib/photo-exif";
@@ -65,6 +66,7 @@ export function ChantierPhotosTab({
   const [defaultType, setDefaultType] = useState<PhotoType>("before");
   const [lightbox, setLightbox] = useState<Photo | null>(null);
 
+  const { requireWrite } = useBillingGate();
   const listFn = useServerFn(listChantierPhotos);
   const createFn = useServerFn(createChantierPhoto);
   const deleteFn = useServerFn(deleteChantierPhoto);
@@ -80,9 +82,15 @@ export function ChantierPhotosTab({
 
   useEffect(() => { void reload(); }, [reload]);
 
-  function openUpload(type: PhotoType) { setDefaultType(type); setUploadOpen(true); }
+  function openUpload(type: PhotoType) {
+    // Interception AVANT ouverture du formulaire (pas d'upload inutile).
+    if (!requireWrite("ajouter une photo de chantier")) return;
+    setDefaultType(type);
+    setUploadOpen(true);
+  }
 
   async function handleDelete(p: Photo) {
+    if (!requireWrite("supprimer une photo de chantier")) return;
     if (!confirm(`Supprimer la photo ${p.label ?? ""} ?`)) return;
     try {
       await deleteFn({ data: { companyId, id: p.id } });
@@ -226,6 +234,7 @@ function UploadSheet({
   onUploaded: () => Promise<void>;
   createFn: ReturnType<typeof useServerFn<typeof createChantierPhoto>>;
 }) {
+  const { requireWrite } = useBillingGate();
   const [type, setType] = useState<PhotoType>(defaultType);
   const [caption, setCaption] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -249,6 +258,7 @@ function UploadSheet({
     e.preventDefault();
     if (uploading) return;
     if (files.length === 0) { toast.error("Sélectionnez au moins une photo"); return; }
+    if (!requireWrite("envoyer des photos de chantier")) return;
     setUploading(true);
     setProgress(0);
 

@@ -1,4 +1,4 @@
-import { LockedActionButton, useWriteAccess } from "@/components/billing/WriteAccessGate";
+import { LockedActionButton, useWriteAccess, useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -269,6 +269,7 @@ function TeamPage() {
   }
 
   async function cancelInvite(m: Member) {
+    if (denyWrite("annuler une invitation")) return;
     setBusyId(m.id);
     const { error } = await supabase
       .from("company_members")
@@ -295,6 +296,7 @@ function TeamPage() {
   }
 
   async function changeRole(id: string, role: CompanyRoleValue) {
+    if (denyWrite("modifier le rôle d’un membre")) return;
     const prev = members.find((m) => m.id === id);
     setBusyId(id);
     const { data: updated, error } = await supabase
@@ -324,6 +326,7 @@ function TeamPage() {
   }
 
   async function toggleStatus(m: Member) {
+    if (denyWrite("suspendre ou réactiver un membre")) return;
     const next = m.status === "suspended" ? "active" : "suspended";
     setBusyId(m.id);
     const { data: updated, error } = await supabase
@@ -353,6 +356,7 @@ function TeamPage() {
   }
 
   async function remove(m: Member) {
+    if (denyWrite("retirer un membre")) return;
     setBusyId(m.id);
     const { data: deleted, error } = await supabase
       .from("company_members")
@@ -383,6 +387,7 @@ function TeamPage() {
   const isAdmin = can("admin");
 
   const { blocked: writeBlocked } = useWriteAccess();
+  const { deny: denyWrite } = useBlockedActionGuard();
   const isDirecteur = isOwnerRole(activeRole);
 
   /** Droits d'action ligne par ligne (miroir UI des règles serveur/RLS). */
