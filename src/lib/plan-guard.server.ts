@@ -102,8 +102,16 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
     case "unpaid":
       return { ...base, state: "unpaid", blocked: true };
     case "canceled":
-      if (periodEnd && periodEnd > now) return { ...base, state: "canceled_grace", blocked: false };
+      // Résiliation programmée en fin de période : Stripe pousse
+      // `cancel_at_period_end = true` + `current_period_end` futur via webhook.
+      // On n'accorde le sursis QUE dans ce cas précis : un vieux statut
+      // `canceled` avec une période future incohérente (résiliation immédiate,
+      // remboursement, désynchronisation) reste bloqué (fail-closed).
+      if (periodEnd && periodEnd > now && base.cancel_at_period_end) {
+        return { ...base, state: "canceled_grace", blocked: false };
+      }
       return { ...base, state: "canceled", blocked: true };
+
     case "incomplete":
       return { ...base, state: "incomplete", blocked: true };
     case "incomplete_expired":
