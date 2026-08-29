@@ -93,6 +93,7 @@ export const updateCompanyBranding = createServerFn({ method: "POST" })
     if (!m || (!isAdminRole(m.role))) {
       throw new Error("Seuls les administrateurs peuvent modifier l'entreprise.");
     }
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
 
     // Load previous to detect what changed (for audit categorization + legacy address)
     const { data: prev } = await supabaseAdmin
