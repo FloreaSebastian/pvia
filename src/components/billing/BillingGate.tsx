@@ -78,8 +78,15 @@ export function useBillingGate(): BillingGateApi {
 
 type Copy = { title: string; body: string; cta: string; secondary: string; tone: "danger" | "warn" };
 
-const PAYMENT_STATES = new Set(["past_due", "unpaid", "incomplete", "incomplete_expired"]);
-const ENDED_STATES = new Set(["canceled", "paused"]);
+/**
+ * États réellement régularisables via le portail Stripe (un abonnement existe
+ * et une facture peut être payée). `incomplete_expired` et `paused` en sont
+ * exclus : aucun parcours de reprise n'est implémenté côté portail, il faut
+ * repasser par le choix d'une formule (checkout).
+ */
+const PAYMENT_STATES = new Set(["past_due", "unpaid", "incomplete"]);
+const ENDED_STATES = new Set(["canceled", "paused", "incomplete_expired"]);
+const TRIAL_STATES = new Set(["trial_expired", "free"]);
 
 export function subscriptionCopy(state?: string | null): Copy {
   const s = state ?? "blocked";
@@ -97,21 +104,33 @@ export function subscriptionCopy(state?: string | null): Copy {
     return {
       title: "Votre abonnement est terminé",
       body:
-        "Vos données sont conservées et restent consultables. Réactivez un abonnement pour retrouver la création et la modification.",
-      cta: "Réactiver mon abonnement",
+        "Vos données sont conservées et restent consultables. Choisissez une formule pour retrouver la création et la modification.",
+      cta: "Choisir une formule",
       secondary: "Continuer en lecture seule",
       tone: "danger",
     };
   }
+  if (TRIAL_STATES.has(s)) {
+    return {
+      title: "Votre essai est terminé",
+      body:
+        "Vos données restent accessibles, mais la création et la modification sont suspendues. Choisissez une formule pour continuer à utiliser PVIA.",
+      cta: "Choisir ma formule",
+      secondary: "Continuer en lecture seule",
+      tone: "danger",
+    };
+  }
+  // État inconnu / générique : on n'affirme jamais « essai terminé ».
   return {
-    title: "Votre essai est terminé",
+    title: "Abonnement requis",
     body:
-      "Vos données restent accessibles, mais la création et la modification sont suspendues. Choisissez une formule pour continuer à utiliser PVIA.",
-    cta: "Choisir ma formule",
+      "Vos données restent accessibles, mais la création et la modification sont suspendues. Activez une formule pour reprendre la saisie.",
+    cta: "Voir les formules",
     secondary: "Continuer en lecture seule",
     tone: "danger",
   };
 }
+
 
 /* ------------------------------------------------------------------ *
  * Provider                                                            *
