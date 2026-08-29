@@ -83,18 +83,16 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // HTML navigations: NetworkFirst with offline fallback
+  // HTML navigations: réseau uniquement (jamais de HTML mis en cache : un document
+  // périmé référencerait des chunks JS supprimés après déploiement). Hors ligne →
+  // page /offline.html dédiée.
   if (isHtmlRequest(request)) {
     event.respondWith(
       (async () => {
         try {
-          const fresh = await fetch(request);
-          const cache = await caches.open(HTML_CACHE);
-          cache.put(request, fresh.clone()).catch(() => {});
-          return fresh;
+          const preload = event.preloadResponse ? await event.preloadResponse : null;
+          return preload || (await fetch(request));
         } catch {
-          const cached = await caches.match(request);
-          if (cached) return cached;
           const offline = await caches.match(OFFLINE_URL);
           return (
             offline ||
@@ -108,6 +106,7 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
 
   // Static assets: StaleWhileRevalidate
   if (isSameOriginStatic(url)) {
