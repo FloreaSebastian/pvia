@@ -1289,7 +1289,7 @@ function KanbanCard({
           </span>
         )}
       </div>
-      {lockedDialog}
+
     </div>
   );
 }
