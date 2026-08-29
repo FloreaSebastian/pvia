@@ -1,3 +1,4 @@
+import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -74,12 +75,14 @@ export function ChantierVisitesTab({
   return (
     <div className="min-w-0 space-y-3">
       {canCreate ? (
+        <WriteAccessGate label="Nouvelle visite technique" lockedProps={{ className: "h-11 w-full sm:w-auto" }}>
         <Button asChild variant="outline" className="h-11 w-full sm:w-auto">
           <Link to="/visites-techniques/nouvelle">
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
             Nouvelle visite technique
           </Link>
         </Button>
+        </WriteAccessGate>
       ) : null}
 
       {rows.length === 0 ? (

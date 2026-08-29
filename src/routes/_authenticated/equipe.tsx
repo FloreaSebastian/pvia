@@ -381,6 +381,8 @@ function TeamPage() {
   }
 
   const isAdmin = can("admin");
+
+  const { blocked: writeBlocked } = useWriteAccess();
   const isDirecteur = isOwnerRole(activeRole);
 
   /** Droits d'action ligne par ligne (miroir UI des règles serveur/RLS). */
