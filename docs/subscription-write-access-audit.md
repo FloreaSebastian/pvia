@@ -35,9 +35,9 @@ abonnement valide (essai 14 jours glissants inclus)**.
 | Situation | Écriture |
 | --- | --- |
 | `suspended_at` non nul, ou `support_status = 'blocked'` | ❌ |
-| Aucune ligne `subscriptions` | ✅ tant que `companies.trial_ends_at > now()` (défaut `now() + 14 jours`, legacy `created_at + 14 jours`) |
+| Aucune ligne `subscriptions` | ✅ tant que `companies.trial_ends_at > now()` (défaut `now() + 14 jours` ; backfill unique déjà effectué). `trial_ends_at` NULL ⇒ ❌ **fail-closed** : aucun fallback dérivé de `created_at` n'existe dans le code ni dans le SQL |
 | `trialing` | ✅ tant que `subscriptions.trial_end > now()` (null ⇒ ❌, fail-closed) |
-| `active` | ✅ |
+| `active` | ✅ tant que `current_period_end` n'est pas périmé de plus de 3 jours (`coalesce(current_period_end, now() + 1 day) > now() - interval '3 days'`). Tolérance destinée au délai normal du webhook de renouvellement ; au-delà, la ligne est considérée non synchronisée ⇒ ❌ |
 | `canceled` | ✅ **uniquement** si `cancel_at_period_end = true` ET `current_period_end > now()` (résiliation programmée synchronisée par webhook). Toute autre résiliation ⇒ ❌ |
 | `past_due`, `unpaid`, `incomplete`, `incomplete_expired`, `paused`, statut inconnu | ❌ |
 
@@ -78,7 +78,7 @@ Exceptions intentionnelles (non consommatrices / hors activité métier) :
 | Bucket | Visibilité | Écriture |
 | --- | --- | --- |
 | `pv-assets` (photos chantier, visites techniques, signatures, documents, PDF, réserves) | privé | upload : `can_write_company_member` ; update/delete : `can_write_company` ; lecture : membre de l'entreprise |
-| `company-logos` | public | asset de compte (branding) — exception assumée |
+| `company-logos` | lecture publique | **aucune policy d'écriture sur `storage.objects` pour ce bucket** : ni `anon` ni `authenticated` ne peuvent uploader/modifier/supprimer directement. Les écritures passent exclusivement par `company-logo.functions.ts` (`requireSupabaseAuth` + contrôle admin d'entreprise) avec `supabaseAdmin`. Exception de compte assumée (branding) |
 
 ## 5. Mutations serveur — classification
 
@@ -111,15 +111,42 @@ Exceptions intentionnelles (non consommatrices / hors activité métier) :
 ## 6. Quotas
 
 - Quota PV : `get_company_pv_count_current_period()` compte les PV créés depuis
-  `subscriptions.current_period_start`, ou depuis le début du mois calendaire
-  si aucune période n'est connue. L'historique n'est pas supprimé lors d'un
-  upgrade : seule la fenêtre de comptage suit la période de facturation.
+  le **début du mois calendaire** (`date_trunc('month', now())`). Règle choisie
+  volontairement : un upgrade/proration Stripe modifie
+  `subscriptions.current_period_start`, ce qui remettait auparavant le quota à
+  zéro en milieu de période. La fenêtre est désormais stable et indépendante des
+  changements d'abonnement. L'historique des PV n'est jamais supprimé.
 - Sièges : `enforce_member_seat_quota` (trigger, verrou consultatif par
   entreprise) + `can_add_member()`.
 - Visites techniques : `plan_limits.can_technical_visits` (Pro et supérieur),
   vérifié côté serveur.
 
-## 7. Tests exécutés (SQL, rôle `authenticated`, entreprise de test)
+## 6 bis. Synchronisation Stripe
+
+- Webhook `src/routes/api/public/payments/webhook.ts` (`/api/public/payments/webhook?env=…`) :
+  signature vérifiée, idempotence via `stripe_webhook_events`. Événements traités :
+  `checkout.session.completed`, `customer.subscription.created/updated`
+  (upsert de `status`, `plan`, `current_period_start/end`, `cancel_at_period_end`,
+  `trial_end`), `customer.subscription.deleted` (→ `canceled`),
+  `invoice.payment_failed` (→ `past_due`).
+- **Aucun cron de réconciliation Stripe n'existe.** C'est la raison de la
+  tolérance de 3 jours sur `active` : elle absorbe un retard de webhook sans
+  autoriser une écriture illimitée si la synchro est cassée.
+- Retour Checkout/Portail : `/billing?status=success&session_id=…` déclenche
+  `syncSubscriptionFromStripe` (admin d'entreprise) qui relit l'abonnement chez
+  Stripe et met la ligne à jour, puis invalide `["billing", activeCompanyId]`.
+  L'utilisateur retrouve l'écriture sans se déconnecter.
+
+## 7. Chemins externes / API / intégrations
+
+| Chemin | État prouvé |
+| --- | --- |
+| `api_keys` (`createApiKey`, `listApiKeys`, `revokeApiKey`) | Gestion admin uniquement. Le helper `validateApiKeyHeader` **n'a aucun appelant** dans le code : aucune route n'accepte aujourd'hui une clé API, donc aucun chemin d'écriture métier externe |
+| `webhooks` / `webhook_deliveries` | Sortants uniquement (`enqueue_webhook_event`, drain). Ne créent pas de contenu métier |
+| Routes `src/routes/api/public/*` | `health`, `health.deep`, `auth/send-email-hook`, `calendar/$token` (lecture ICS par token), `payments/webhook`, `hooks/*` (crons internes : emails, rappels, drain, essais expirants). Aucune ne crée de PV/chantier/client pour le compte d'un utilisateur |
+| Écritures Supabase directes depuis le navigateur | Couvertes par les policies RLS gardées (section 3) |
+
+## 8. Tests exécutés (SQL, rôle `authenticated`, entreprise de test)
 
 | Scénario | Résultat |
 | --- | --- |
@@ -133,7 +160,7 @@ Exceptions intentionnelles (non consommatrices / hors activité métier) :
 
 Transaction annulée : aucune donnée de test résiduelle.
 
-## 8. Checklist pour toute nouvelle mutation
+## 9. Checklist pour toute nouvelle mutation
 
 - [ ] `assertCompanyWriteAccess` appelé avant feature/quota ?
 - [ ] Table couverte par une policy RLS d'écriture gardée ?

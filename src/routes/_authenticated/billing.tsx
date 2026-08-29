@@ -1,8 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Fragment } from "react";
 import { ADMIN_ROLES, isAdminRole } from "@/lib/roles";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   Minus,
@@ -30,9 +30,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
-import { createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
+import { createCheckoutSession, createPortalSession, syncSubscriptionFromStripe } from "@/lib/billing.functions";
 import { getStripeEnvironment } from "@/lib/stripe";
 import {
   CONTACT_SALES_EMAIL,
@@ -70,8 +71,15 @@ function safeBillingMessage(e: unknown, fallback: string): string {
 
 export const Route = createFileRoute("/_authenticated/billing")({
   component: GuardedBillingPage,
+  validateSearch: (s: { status?: string; session_id?: string }): { status?: string; session_id?: string } => {
+    const out: { status?: string; session_id?: string } = {};
+    if (typeof s.status === "string") out.status = s.status;
+    if (typeof s.session_id === "string") out.session_id = s.session_id;
+    return out;
+  },
   head: () => ({ meta: [{ title: "Facturation & abonnement — PVIA" }] }),
 });
+
 
 /** Baseline commerciale : ce que chaque formule apporte de plus. */
 const PLAN_PITCH: Record<string, string> = {
@@ -153,12 +161,52 @@ function BillingPage() {
 
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
+  const syncFn = useServerFn(syncSubscriptionFromStripe);
+  const search = Route.useSearch();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
   const [pendingDowngrade, setPendingDowngrade] = useState<{ priceId: string; target: PlanLimitsRow } | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const canManage = isAdminRole(activeRole);
   const env = getStripeEnvironment();
+
+  // Retour de Checkout / Portail : on ne dépend pas du délai webhook.
+  // On resynchronise depuis Stripe puis on invalide le cache React Query
+  // (clé ["billing", activeCompanyId]) : l'utilisateur retrouve l'écriture
+  // immédiatement, sans déconnexion/reconnexion.
+  const syncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeCompanyId || !canManage) return;
+    const marker = `${activeCompanyId}:${search.session_id ?? search.status ?? ""}`;
+    if (!search.status || syncedRef.current === marker) return;
+    syncedRef.current = marker;
+    let cancelled = false;
+    (async () => {
+      setSyncing(true);
+      try {
+        if (search.status === "success") {
+          await syncFn({ data: { companyId: activeCompanyId, environment: env } });
+        }
+      } catch {
+        /* la resynchro reste best-effort : le webhook fera foi */
+      } finally {
+        await queryClient.invalidateQueries({ queryKey: ["billing", activeCompanyId] });
+        if (!cancelled) {
+          setSyncing(false);
+          if (search.status === "success") toast.success("Abonnement mis à jour.");
+          void navigate({ to: "/billing", search: () => ({}), replace: true });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompanyId, canManage, env, search.status, search.session_id, syncFn, queryClient, navigate]);
+
+
   const plans = (allPlans ?? []) as PlanLimitsRow[];
   const current = (limits as PlanLimitsRow | null) ?? null;
   const seatsUsed = usage.seats ?? usage.members;
@@ -247,6 +295,18 @@ function BillingPage() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
       />
+
+      {syncing && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Synchronisation de votre abonnement…
+        </div>
+      )}
+
 
       {access?.blocked && (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
