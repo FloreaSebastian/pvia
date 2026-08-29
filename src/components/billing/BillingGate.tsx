@@ -365,7 +365,7 @@ function GateDialogView({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
-        className="max-h-[min(90dvh,42rem)] w-[calc(100vw-2rem)] max-w-[28rem] overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6"
+        className="z-[70] max-h-[min(90dvh,42rem)] w-[calc(100vw-2rem)] max-w-[28rem] overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] landscape:max-h-[calc(100dvh-2rem)] sm:p-6"
       >
         <DialogHeader className="text-left">
           <div className="flex items-start gap-3">
