@@ -301,7 +301,7 @@ function ClientsPage() {
             canWrite ? (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={openNew} className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button>
+                  <span><WriteAccessGate label="Nouveau client"><Button onClick={openNew} className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button></WriteAccessGate></span>
                 </DialogTrigger>
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                   <DialogHeader><DialogTitle>{editing ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>
