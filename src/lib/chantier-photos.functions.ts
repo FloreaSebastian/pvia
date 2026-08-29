@@ -15,6 +15,8 @@ async function assertCanManage(sb: SupabaseClient<Database>, companyId: string, 
   const { data, error } = await sb.rpc("can_manage_company", { _company_id: companyId, _user_id: userId });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Droits insuffisants.");
+  await (await import("./plan-guard.server")).assertCompanyWriteAccess(companyId, userId);
+
 }
 
 const PhotoType = z.enum(["before", "during", "after"]);

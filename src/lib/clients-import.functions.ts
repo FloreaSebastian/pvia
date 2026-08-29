@@ -70,6 +70,8 @@ async function assertCanManage(
   });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Droits insuffisants.");
+  await (await import("./plan-guard.server")).assertCompanyWriteAccess(companyId, userId);
+
 }
 
 function normalizeEmail(e: string | null | undefined) {
