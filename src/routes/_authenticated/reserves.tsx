@@ -574,10 +574,13 @@ function ReservesPage() {
   // Drag-and-drop for Kanban
   const [dragId, setDragId] = useState<string | null>(null);
   async function onKanbanDrop(targetStatus: Status) {
-    if (deny("déplacer une réserve")) return;
-    if (!dragId) return;
+    // On relâche toujours l'état de drag, même si l'action est verrouillée,
+    // pour ne pas laisser la colonne en état « en cours de déplacement ».
     const id = dragId;
     setDragId(null);
+    if (deny("déplacer une réserve")) return;
+    if (!id) return;
+
     const r = items.find((x) => x.id === id);
     if (!r || r.status === targetStatus) return;
     await setStatus(id, targetStatus);
