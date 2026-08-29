@@ -9,10 +9,9 @@
  * via src/components/app/PwaRegister.tsx.
  */
 
-const VERSION = "pvia-v1";
+const VERSION = "pvia-v2";
 const STATIC_CACHE = `pvia-static-${VERSION}`;
 const RUNTIME_CACHE = `pvia-runtime-${VERSION}`;
-const HTML_CACHE = `pvia-html-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_URLS = [
@@ -39,13 +38,19 @@ self.addEventListener("activate", (event) => {
       const names = await caches.keys();
       await Promise.all(
         names
+          // purge toute ancienne version ET tout ancien cache HTML (source de
+          // documents périmés référençant des chunks JS supprimés après déploiement)
           .filter((n) => n.startsWith("pvia-") && !n.endsWith(VERSION))
           .map((n) => caches.delete(n))
       );
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable().catch(() => {});
+      }
       await self.clients.claim();
     })()
   );
 });
+
 
 function isHtmlRequest(request) {
   return (
