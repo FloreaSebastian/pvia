@@ -1218,6 +1218,8 @@ export const deleteReserveLiftPhoto = createServerFn({ method: "POST" })
       throw new Error("Accès refusé.");
     }
 
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess((photo as any).company_id as string, userId);
+
     await supabaseAdmin.storage.from("pv-assets").remove([(photo as any).storage_path]).catch(() => {});
     const { error: delErr } = await supabaseAdmin
       .from("reserve_lift_item_photos" as any)
