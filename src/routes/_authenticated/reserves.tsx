@@ -1068,7 +1068,9 @@ function ReservesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {lockedDialog}
     </div>
+
 
   );
 }
