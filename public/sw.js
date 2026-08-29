@@ -1,6 +1,6 @@
 /* PVIA service worker — handwritten, no workbox.
  * Strategy:
- *  - HTML navigations: NetworkFirst with offline fallback to /offline.html
+ *  - HTML navigations: network only (jamais de HTML en cache), fallback /offline.html
  *  - Same-origin static assets (js/css/images/fonts): StaleWhileRevalidate
  *  - Cross-origin: passthrough (no caching)
  *  - Push: shows native notification, opens app on click
@@ -9,10 +9,9 @@
  * via src/components/app/PwaRegister.tsx.
  */
 
-const VERSION = "pvia-v1";
+const VERSION = "pvia-v2";
 const STATIC_CACHE = `pvia-static-${VERSION}`;
 const RUNTIME_CACHE = `pvia-runtime-${VERSION}`;
-const HTML_CACHE = `pvia-html-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_URLS = [
@@ -39,13 +38,19 @@ self.addEventListener("activate", (event) => {
       const names = await caches.keys();
       await Promise.all(
         names
+          // purge toute ancienne version ET tout ancien cache HTML (source de
+          // documents périmés référençant des chunks JS supprimés après déploiement)
           .filter((n) => n.startsWith("pvia-") && !n.endsWith(VERSION))
           .map((n) => caches.delete(n))
       );
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable().catch(() => {});
+      }
       await self.clients.claim();
     })()
   );
 });
+
 
 function isHtmlRequest(request) {
   return (
@@ -78,18 +83,16 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // HTML navigations: NetworkFirst with offline fallback
+  // HTML navigations: réseau uniquement (jamais de HTML mis en cache : un document
+  // périmé référencerait des chunks JS supprimés après déploiement). Hors ligne →
+  // page /offline.html dédiée.
   if (isHtmlRequest(request)) {
     event.respondWith(
       (async () => {
         try {
-          const fresh = await fetch(request);
-          const cache = await caches.open(HTML_CACHE);
-          cache.put(request, fresh.clone()).catch(() => {});
-          return fresh;
+          const preload = event.preloadResponse ? await event.preloadResponse : null;
+          return preload || (await fetch(request));
         } catch {
-          const cached = await caches.match(request);
-          if (cached) return cached;
           const offline = await caches.match(OFFLINE_URL);
           return (
             offline ||
@@ -103,6 +106,7 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
 
   // Static assets: StaleWhileRevalidate
   if (isSameOriginStatic(url)) {
@@ -171,7 +175,21 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-/* Allow the page to ask us to update immediately. */
+/* Allow the page to ask us to update immediately, or to purge asset caches
+ * after a ChunkLoadError (bundle désynchronisé). */
 self.addEventListener("message", (event) => {
-  if (event.data === "SKIP_WAITING") self.skipWaiting();
+  if (event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+    return;
+  }
+  if (event.data === "PVIA_PURGE_CACHES") {
+    event.waitUntil(
+      (async () => {
+        const names = await caches.keys();
+        await Promise.all(
+          names.filter((n) => n.startsWith("pvia-")).map((n) => caches.delete(n))
+        );
+      })()
+    );
+  }
 });
