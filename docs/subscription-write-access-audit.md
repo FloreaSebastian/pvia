@@ -174,28 +174,31 @@ Transaction annulée : aucune donnée de test résiduelle.
 
 ## 10. Écritures directes navigateur (audit exhaustif)
 
-Recherche exhaustive dans `src/**/*.tsx` des `.from(...).insert/update/upsert/
-delete()` et `storage.from(...).upload/remove()` : **26 occurrences**, réparties
+Recomptage fiable (recherche multi-lignes `rg -U --multiline-dotall` sur
+`src/components`, `src/routes` non-serveur et `src/hooks`, couvrant
+`.from(...).insert/update/upsert/delete()`, `storage.from(...).upload/remove/
+move/copy()` et `supabase.rpc(...)`) : **18 écritures navigateur**, réparties
 comme suit (la RLS reste l'autorité finale ; le pré-check UI évite l'erreur
-technique).
+technique). Le chiffre précédent (26) comptait des lignes de code, pas des
+appels, et omettait `VisitPhotoSlotCard`.
 
 | Fichier | Écritures | Pré-check UI |
 | --- | --- | --- |
-| `equipe.tsx` | 8 (membres/invitations) | `deny()` sur annulation d'invitation, changement de rôle, suspension, retrait ; création via UI verrouillée |
+| `equipe.tsx` | 4 (retrait, rôle, suspension, annulation d'invitation) | `deny()` sur chacune ; création via UI verrouillée |
 | `pv.$id.tsx` | 3 (suppression PV + dépendants) | `deny("supprimer le PV")` |
 | `pv.index.tsx` | 1 (suppression PV) | `deny("supprimer un PV")` |
-| `pv.new.tsx` | 2 (rattachement documents brouillon) | route entièrement gardée (accès refusé si lecture seule) |
+| `pv.new.tsx` | 1 (rattachement documents brouillon) | route entièrement gardée (`RestrictedRoute`) |
 | `chantiers.$id.tsx` | 1 (upload document Storage) | `deny("ajouter un document")` |
-| `chantiers.calendrier.tsx` | 2 (préférence de couleur d'affichage) | **exception assumée** : paramètre d'affichage, non métier. Toutes les mutations d'événements (création, édition, statut, duplication, suppression, drag/resize) sont gardées |
+| `chantiers.calendrier.tsx` | 1 (préférence de couleur d'affichage) | **exception assumée** : paramètre d'affichage, non métier. Toutes les mutations d'événements (création, édition, statut, duplication, suppression, drag/resize) sont gardées |
 | `ChantierPhotosTab.tsx` | 1 (upload Storage) | `requireWrite` avant ouverture du formulaire, avant envoi et avant suppression |
-| `parametres.index.tsx` | 3 (profil, `company_settings`) | **exception assumée** : compte/paramètres (section 3) |
-| `NotificationsBell.tsx` | 3 (marquage lu) | **exception assumée** : télémétrie/UX de lecture |
-| `UserPreferencesProvider.tsx` | 2 (`user_preferences`) | **exception assumée** : préférences utilisateur |
+| `VisitPhotoSlotCard.tsx` | 1 (upload Storage photo de visite) | `requireWrite` avant upload ; motif d'impossibilité, annulation et suppression également gardés (server functions) |
+| `parametres.index.tsx` | 2 (profil, `company_settings`) | **exception assumée** : compte/paramètres (section 3) |
+| `NotificationsBell.tsx` | 2 (marquage lu) | **exception assumée** : UX de lecture |
+| `UserPreferencesProvider.tsx` | 1 (`user_preferences`) | **exception assumée** : préférences utilisateur |
 
-Composants avec upload Storage gardés par `requireWrite` avant tout envoi :
-`VisitPhotoSlotCard` (photo, motif d'impossibilité, annulation, suppression),
-`VisitConstraintsPanel` (création/suppression de contrainte),
-`ChantierPhotosTab`.
+`VisitConstraintsPanel` n'écrit pas directement (server functions
+`saveVisitConstraint` / `deleteVisitConstraint`), mais appelle quand même
+`requireWrite` avant l'appel.
 
 ### Limite connue — détection des erreurs RLS
 
