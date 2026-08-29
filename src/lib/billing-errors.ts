@@ -40,9 +40,15 @@ export function classifyBillingError(err: unknown): BillingBlock | null {
   const feat = msg.match(/Fonctionnalité\s+«\s*(.+?)\s*»\s+non incluse/i);
   if (feat) return { kind: "feature", feature: feat[1] ?? null };
 
-  // RLS : uniquement si la contrainte d'abonnement est explicitement nommée.
-  // Une erreur RLS générique (rôle insuffisant, policy, cross-tenant) N'EST PAS
-  // un blocage d'abonnement et doit rester une erreur technique générique.
+  // RLS : PostgREST renvoie normalement un message générique
+  // (« new row violates row-level security policy for table ... ») qui NE nomme
+  // PAS la fonction interne. On ne peut donc PAS s'appuyer dessus pour
+  // reconnaître un blocage d'abonnement : l'UX vient du pré-check
+  // (`useBillingGate.requireWrite` / `useBlockedActionGuard`) et des server
+  // functions (`SUBSCRIPTION_REQUIRED:<state>`). Une erreur RLS générique
+  // (rôle insuffisant, policy, cross-tenant) reste une erreur technique
+  // générique. Le cas ci-dessous n'est qu'un filet pour les rares messages
+  // (RAISE / contrainte CHECK) qui citent explicitement la fonction.
   if (/company_has_write_access/i.test(msg)) return { kind: "subscription", state: "blocked" };
 
   return null;

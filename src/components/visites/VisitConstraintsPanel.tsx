@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { saveVisitConstraint, deleteVisitConstraint } from "@/lib/visites.functions";
 import { ConstraintLevelBadge } from "@/components/visites/VisitStatusBadge";
+import { useBillingGate } from "@/components/billing/BillingGate";
 import {
   CONSTRAINT_CATEGORY_LABEL, CONSTRAINT_LEVEL_META,
   type ConstraintCategory, type ConstraintLevel,
@@ -53,6 +54,7 @@ export function VisitConstraintsPanel({ companyId, visitId, sectionKey, constrai
   const [form, setForm] = useState(EMPTY);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
+  const { requireWrite } = useBillingGate();
   const saveFn = useServerFn(saveVisitConstraint);
   const delFn = useServerFn(deleteVisitConstraint);
 
@@ -73,6 +75,7 @@ export function VisitConstraintsPanel({ companyId, visitId, sectionKey, constrai
   }
 
   async function submit() {
+    if (!requireWrite("enregistrer une contrainte")) return;
     if (!form.title.trim()) {
       toast.error("Le titre est requis.");
       return;
@@ -104,6 +107,7 @@ export function VisitConstraintsPanel({ companyId, visitId, sectionKey, constrai
   }
 
   async function remove(id: string) {
+    if (!requireWrite("supprimer une contrainte")) return;
     setBusy(true);
     try {
       await delFn({ data: { companyId, visitId, constraintId: id } });

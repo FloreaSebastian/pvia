@@ -50,6 +50,7 @@ function TerrainPage() {
   const online = useOnlineStatus();
   const { blocked: billingBlocked, reportError } = useBillingGate();
   const [syncSuspended, setSyncSuspended] = useState(false);
+  const [hasUnsavedBlocked, setHasUnsavedBlocked] = useState(false);
 
   const getFn = useServerFn(getTechnicalVisit);
   const saveFn = useServerFn(saveVisitAnswers);
@@ -143,6 +144,7 @@ function TerrainPage() {
         // Comportement réel : les saisies restent en mémoire sur cet écran,
         // mais rien n'est mis en file d'attente persistante sur l'appareil.
         setSyncSuspended(true);
+        setHasUnsavedBlocked(dirtyRef.current.size > 0);
         reportError(e);
         return;
       }
@@ -236,9 +238,18 @@ function TerrainPage() {
             aria-live="polite"
             className="mt-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive"
           >
-            Enregistrement suspendu — votre abonnement doit être activé ou régularisé. Vos saisies
-            restent affichées sur cet écran mais ne sont pas enregistrées : elles seront perdues si
-            vous quittez la page.
+            {syncSuspended && hasUnsavedBlocked ? (
+              <>
+                Enregistrement suspendu — votre abonnement doit être activé ou régularisé. Les
+                modifications que vous venez de saisir ne sont pas enregistrées : elles restent
+                uniquement affichées sur cet écran et seront perdues si vous quittez la page.
+              </>
+            ) : (
+              <>
+                Mode lecture seule — enregistrement suspendu tant que votre abonnement n'est pas
+                activé ou régularisé. Vos données déjà enregistrées restent consultables.
+              </>
+            )}
           </div>
         )}
         <div className="mt-2 flex items-center gap-2">
@@ -283,7 +294,7 @@ function TerrainPage() {
           ) : null}
         </div>
 
-        {locked ? (
+        {locked && !billingBlocked ? (
           <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
             Lecture seule : cette visite est clôturée ou vous n'êtes pas assigné à sa saisie.
           </p>
