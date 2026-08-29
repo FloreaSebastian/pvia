@@ -92,7 +92,7 @@ const PvNewSearchSchema = z.object({
 });
 
 export const Route = createFileRoute("/_authenticated/pv/new")({
-  component: NewPv,
+  component: NewPvRoute,
   validateSearch: (s) => PvNewSearchSchema.parse(s),
   head: () => ({ meta: [{ title: "Créer un PV — PVIA" }] }),
 });
