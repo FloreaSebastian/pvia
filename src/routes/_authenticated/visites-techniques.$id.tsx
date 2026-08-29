@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
+import { useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
 import { deleteTechnicalVisit, getTechnicalVisit, setVisitStatus } from "@/lib/visites.functions";
@@ -64,6 +65,7 @@ function VisiteDetailPage() {
   const getFn = useServerFn(getTechnicalVisit);
   const statusFn = useServerFn(setVisitStatus);
   const deleteFn = useServerFn(deleteTechnicalVisit);
+  const { deny } = useBlockedActionGuard();
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -266,13 +268,13 @@ function VisiteDetailPage() {
           </Button>
         )}
         {canManage && visit.status === "terminee" ? (
-          <Button variant="outline" className="h-11" onClick={() => changeStatus("validee")} disabled={busy}>
+          <Button variant="outline" className="h-11" onClick={() => { if (deny("valider la visite")) return; void changeStatus("validee"); }} disabled={busy}>
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Check className="mr-2 h-4 w-4" aria-hidden="true" />}
             Valider
           </Button>
         ) : null}
         {canManage && (visit.status === "validee" || visit.status === "terminee") ? (
-          <Button variant="outline" className="h-11" onClick={() => changeStatus("en_cours")} disabled={busy}>
+          <Button variant="outline" className="h-11" onClick={() => { if (deny("reprendre la visite")) return; void changeStatus("en_cours"); }} disabled={busy}>
             <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
             Réouvrir
           </Button>
@@ -282,13 +284,13 @@ function VisiteDetailPage() {
           Rapport
         </Button>
         {canManage && visit.status === "validee" ? (
-          <Button variant="outline" className="h-11" onClick={() => changeStatus("archivee")} disabled={busy}>
+          <Button variant="outline" className="h-11" onClick={() => { if (deny("archiver la visite")) return; void changeStatus("archivee"); }} disabled={busy}>
             <Archive className="mr-2 h-4 w-4" aria-hidden="true" />
             Archiver
           </Button>
         ) : null}
         {canManage && visit.status !== "validee" ? (
-          <Button variant="ghost" className="h-11 text-destructive" onClick={() => setConfirmDelete(true)}>
+          <Button variant="ghost" className="h-11 text-destructive" onClick={() => { if (deny("supprimer la visite")) return; setConfirmDelete(true); }}>
             <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
             Supprimer
           </Button>
