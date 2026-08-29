@@ -296,6 +296,18 @@ function BillingPage() {
         className="border-0 bg-transparent px-0 py-0"
       />
 
+      {syncing && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Synchronisation de votre abonnement…
+        </div>
+      )}
+
+
       {access?.blocked && (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
           <AlertOctagon className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
