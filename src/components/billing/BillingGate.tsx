@@ -209,10 +209,25 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
     setDialog({ kind: "subscription", state: access?.state ?? "blocked", auto: true });
   }, [isLoading, blocked, quiet, activeCompanyId, access?.state]);
 
-  /* L'abonnement redevient valide (retour de paiement, resynchro) → on ferme. */
+  /* L'abonnement redevient valide (paiement, réactivation, resynchro) :
+     on ferme la popup ET on purge les clés de rappel de cette entreprise —
+     sinon un nouveau blocage plus tard dans la même session (même état)
+     serait silencieux. */
   useEffect(() => {
-    if (!blocked && dialog?.kind === "subscription") setDialog(null);
-  }, [blocked, dialog?.kind]);
+    if (blocked || isLoading || !activeCompanyId) return;
+    if (dialog?.kind === "subscription") setDialog(null);
+    promptedRef.current = null;
+    try {
+      const prefix = `pvia:billing-prompt:${activeCompanyId}:`;
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith(prefix)) sessionStorage.removeItem(k);
+      }
+    } catch {
+      /* stockage indisponible */
+    }
+  }, [blocked, isLoading, activeCompanyId, dialog?.kind]);
+
 
   const api = useMemo<BillingGateApi>(
     () => ({
