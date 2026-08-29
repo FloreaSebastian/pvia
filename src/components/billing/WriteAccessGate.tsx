@@ -134,6 +134,14 @@ export function useBlockedActionGuard() {
     };
   }
 
+  /** À placer en première ligne d'un handler de mutation : `if (deny("…")) return;`. */
+  function deny(actionLabel: string): boolean {
+    if (!blocked) return false;
+    setLabel(actionLabel);
+    return true;
+  }
+
+
   const dialog = (
     <AlertDialog open={label !== null} onOpenChange={(o) => !o && setLabel(null)}>
       <AlertDialogContent className="max-w-[min(28rem,calc(100vw-2rem))]">
