@@ -387,9 +387,10 @@ function GateDialogView({
           </ul>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          {accessStateHelp(access?.state)}
-        </p>
+        {dialog?.kind === "subscription" && (
+          <p className="text-xs text-muted-foreground">{accessStateHelp(dialog.state)}</p>
+        )}
+
 
         <DialogFooter className="mt-2 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="ghost" className="min-h-[44px] w-full sm:w-auto" onClick={onClose}>
