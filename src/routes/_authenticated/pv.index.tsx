@@ -1,4 +1,4 @@
-import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
+import { WriteAccessGate, useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
@@ -194,6 +194,7 @@ function PvList() {
     (reserveFilter !== "all" ? 1 : 0);
 
   async function remove(id: string) {
+    if (deny("supprimer un PV")) return;
     if (!confirm("Supprimer ce PV ?")) return;
     const { error } = await supabase.from("pv").delete().eq("id", id);
     if (error) return toast.error(error.message);

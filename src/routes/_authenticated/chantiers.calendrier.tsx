@@ -704,6 +704,7 @@ function ChantierCalendarPage() {
 
   async function commitReschedule(id: string, start: Date, end: Date | null) {
     if (!activeCompanyId) return;
+    if (denyWrite("déplacement d'un événement")) { await load(); return; }
     try {
       await rescheduleFn({ data: { companyId: activeCompanyId, id, start_at: start.toISOString(), end_at: end ? end.toISOString() : null } });
       toast.success("Événement déplacé");
@@ -712,6 +713,7 @@ function ChantierCalendarPage() {
   }
   async function commitResize(id: string, end: Date) {
     if (!activeCompanyId) return;
+    if (denyWrite("redimensionnement d'un événement")) { await load(); return; }
     try {
       await resizeFn({ data: { companyId: activeCompanyId, id, end_at: end.toISOString() } });
       toast.success("Durée mise à jour");
