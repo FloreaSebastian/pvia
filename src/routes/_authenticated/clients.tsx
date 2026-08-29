@@ -320,6 +320,7 @@ function ClientsPage() {
                   </form>
                 </DialogContent>
               </Dialog>
+              )
             ) : null
           }
         />
