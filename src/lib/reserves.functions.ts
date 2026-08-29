@@ -125,6 +125,7 @@ export const updateReserveStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const role = await getRole(supabase, data.companyId, userId);
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
     if (role === "lecture_seule" || role === "assistant_admin") {
       throw new Error("Droits insuffisants pour modifier le statut.");
     }
@@ -192,6 +193,7 @@ export const assignReserve = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const role = await getRole(supabase, data.companyId, userId);
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
     if (!MANAGE_ROLES.includes(role)) {
       throw new Error("Droits insuffisants (conducteur requis).");
     }
@@ -263,6 +265,7 @@ export const bulkUpdateReserves = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const role = await getRole(supabase, data.companyId, userId);
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
     if (!MANAGE_ROLES.includes(role)) {
       throw new Error("Droits insuffisants (conducteur requis).");
     }
@@ -441,6 +444,7 @@ export const deleteReserve = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const role = await getRole(supabase, data.companyId, userId);
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
     if (!ADMIN_ROLES.includes(role)) {
       throw new Error("Droits insuffisants (directeur ou responsable requis).");
     }
