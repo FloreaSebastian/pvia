@@ -112,3 +112,48 @@ export function WriteAccessGate({
   if (isLoading || !blocked) return <>{children}</>;
   return <LockedActionButton label={label} {...lockedProps} />;
 }
+
+/**
+ * Garde générique pour les actions de MODIFICATION / SUPPRESSION / ARCHIVAGE
+ * déjà rendues (icônes, menus « … », lignes de liste). En lecture seule, le
+ * handler n'est jamais exécuté : on ouvre l'explication à la place, ce qui
+ * évite d'ouvrir un formulaire éditable pour échouer ensuite. La consultation
+ * (ouverture d'une fiche, export, PDF) n'est jamais gardée.
+ */
+export function useBlockedActionGuard() {
+  const { blocked, copy } = useWriteAccess();
+  const [label, setLabel] = useState<string | null>(null);
+
+  function guard<A extends unknown[]>(actionLabel: string, fn: (...args: A) => unknown) {
+    return (...args: A) => {
+      if (blocked) {
+        setLabel(actionLabel);
+        return;
+      }
+      return fn(...args);
+    };
+  }
+
+  const dialog = (
+    <AlertDialog open={label !== null} onOpenChange={(o) => !o && setLabel(null)}>
+      <AlertDialogContent className="max-w-[min(28rem,calc(100vw-2rem))]">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {copy.body}
+            {label ? ` Action concernée : ${label}.` : ""}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="min-h-[44px]">Fermer</AlertDialogCancel>
+          <AlertDialogAction asChild className="min-h-[44px]">
+            <Link to="/billing">{copy.cta}</Link>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  return { blocked, guard, dialog };
+}
+
