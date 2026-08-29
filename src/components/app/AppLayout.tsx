@@ -130,8 +130,13 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
       if (mq.matches) setOpen(false);
     };
     sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
+    // Anciennes WebView Samsung/Android n'exposent que addListener/removeListener.
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", sync);
+      return () => mq.removeEventListener("change", sync);
+    }
+    mq.addListener(sync);
+    return () => mq.removeListener(sync);
   }, []);
 
   // Tiroir mobile : Échap ferme, scroll du corps verrouillé, focus déplacé
