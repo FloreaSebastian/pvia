@@ -165,24 +165,46 @@ export type AccessStateKey =
   | "paused" | "blocked";
 
 export const ACCESS_STATE_LABELS: Record<AccessStateKey, string> = {
-  free: "Aucun abonnement actif",
-  trialing: "Essai en cours",
+  free: "Accès restreint",
+  trialing: "Essai gratuit",
   active: "Abonnement actif",
-  canceled_grace: "Annulé — accès jusqu'à la fin de période",
-  past_due: "Paiement en échec",
-  unpaid: "Impayé",
-  trial_expired: "Essai terminé",
-  canceled: "Abonnement annulé",
-  incomplete: "Paiement non finalisé",
-  incomplete_expired: "Paiement expiré",
-  paused: "Abonnement en pause",
-  blocked: "Abonnement bloqué",
+  canceled_grace: "Résiliation programmée — accès jusqu'à la fin de période",
+  past_due: "Abonnement à régulariser",
+  unpaid: "Abonnement à régulariser",
+  trial_expired: "Accès restreint — essai terminé",
+  canceled: "Accès restreint — abonnement résilié",
+  incomplete: "Abonnement à régulariser",
+  incomplete_expired: "Abonnement à régulariser",
+  paused: "Accès restreint — abonnement en pause",
+  blocked: "Accès restreint",
+};
+
+/** Phrase d'explication affichée sous le libellé d'état (jamais « gratuit »). */
+export const ACCESS_STATE_HELP: Record<AccessStateKey, string> = {
+  free: "Choisissez une formule pour activer la création et la modification. Vos données restent accessibles.",
+  trialing: "Activez une formule avant la fin de l'essai pour continuer sans interruption.",
+  active: "Votre abonnement est actif.",
+  canceled_grace: "Votre abonnement est résilié à la fin de la période en cours ; l'accès complet est maintenu jusqu'à cette date.",
+  past_due: "Régularisez votre paiement pour réactiver la création et la modification. Vos données restent accessibles.",
+  unpaid: "Régularisez votre paiement pour réactiver la création et la modification. Vos données restent accessibles.",
+  trial_expired: "Choisissez une formule pour réactiver la création et la modification. Vos données restent accessibles.",
+  canceled: "Choisissez une formule pour réactiver la création et la modification. Vos données restent accessibles.",
+  incomplete: "Finalisez votre paiement pour réactiver la création et la modification. Vos données restent accessibles.",
+  incomplete_expired: "Reprenez un abonnement pour réactiver la création et la modification. Vos données restent accessibles.",
+  paused: "Reprenez votre abonnement pour réactiver la création et la modification. Vos données restent accessibles.",
+  blocked: "Choisissez une formule pour réactiver la création et la modification. Vos données restent accessibles.",
 };
 
 export function accessStateLabel(state?: string | null): string {
   if (!state) return ACCESS_STATE_LABELS.free;
-  return ACCESS_STATE_LABELS[state as AccessStateKey] ?? "Abonnement";
+  return ACCESS_STATE_LABELS[state as AccessStateKey] ?? "Accès restreint";
 }
+
+export function accessStateHelp(state?: string | null): string {
+  if (!state) return ACCESS_STATE_HELP.free;
+  return ACCESS_STATE_HELP[state as AccessStateKey] ?? ACCESS_STATE_HELP.blocked;
+}
+
 
 /** Économie annuelle en euros (12 mensualités − prix annuel). */
 export function annualSavingEur(monthly?: number | null, annual?: number | null): number | null {
