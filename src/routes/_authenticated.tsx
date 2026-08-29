@@ -60,9 +60,11 @@ function AuthenticatedLayout() {
 
   return (
     <CompanyProvider>
-      <AppLayout userEmail={user.email}>
-        <Outlet />
-      </AppLayout>
+      <BillingGateProvider>
+        <AppLayout userEmail={user.email}>
+          <Outlet />
+        </AppLayout>
+      </BillingGateProvider>
     </CompanyProvider>
   );
 }
