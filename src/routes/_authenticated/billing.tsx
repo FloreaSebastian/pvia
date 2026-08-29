@@ -282,12 +282,22 @@ function BillingPage() {
 
             {current?.is_custom_pricing ? (
               <div className="mt-1 text-sm text-muted-foreground">Tarification sur devis</div>
-            ) : priceNow != null ? (
+            ) : subscription && priceNow != null ? (
               <div className="mt-1 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
                 {billingInterval === "annual" ? " / an · Facturation annuelle" : " / mois · Facturation mensuelle"}
               </div>
-            ) : null}
+            ) : isTrial && priceNow != null ? (
+              <div className="mt-1 text-sm text-muted-foreground">
+                Essai gratuit en cours · tarif à l'issue de l'essai :{" "}
+                <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
+                {billingInterval === "annual" ? " / an" : " / mois"}
+              </div>
+            ) : (
+              <div className="mt-1 text-sm text-muted-foreground">
+                Aucun abonnement payant en cours · choisissez une formule ci-dessous
+              </div>
+            )}
 
             {isTrial && (
               <div className="mt-3 rounded-lg border border-success/30 bg-success/5 p-3 text-sm">
