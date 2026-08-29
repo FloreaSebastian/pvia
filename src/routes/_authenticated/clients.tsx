@@ -1,3 +1,4 @@
+import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download, Sparkles, MoreVertical } from "lucide-react";
