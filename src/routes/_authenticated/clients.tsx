@@ -757,6 +757,7 @@ function ClientsPage() {
           onImported={load}
         />
       )}
+      {lockedDialog}
     </div>
   );
 }
