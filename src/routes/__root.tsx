@@ -8,7 +8,10 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
+import { useEffect } from "react";
+
 import appCss from "../styles.css?url";
+import { installChunkRecovery, isChunkLoadError, recoverFromChunkError } from "@/lib/chunk-recovery";
 import { AppToaster } from "@/components/app/AppToaster";
 import { PwaRegister } from "@/components/app/PwaRegister";
 import { AnalyticsTracker } from "@/components/app/AnalyticsTracker";
@@ -41,6 +44,13 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const chunkError = isChunkLoadError(error);
+
+  useEffect(() => {
+    // Bundle désynchronisé après déploiement : une seule tentative de
+    // rechargement propre (purge caches PWA), jamais pour une erreur métier.
+    if (chunkError) recoverFromChunkError(error);
+  }, [chunkError, error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -49,7 +59,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          {chunkError
+            ? "Une nouvelle version de l'application est disponible. Rechargez la page pour continuer."
+            : "Something went wrong on our end. You can try refreshing or head back home."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
