@@ -151,6 +151,14 @@ const STEPS_TAIL_WITH_RES: StepDef[] = [
 
 const DRAFT_KEY = "pvia:draft:new-pv:v2";
 
+function NewPvRoute() {
+  return (
+    <RestrictedRoute action="création d'un procès-verbal" backTo="/pv">
+      <NewPv />
+    </RestrictedRoute>
+  );
+}
+
 function NewPv() {
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
