@@ -308,7 +308,10 @@ function GateDialogView({
 
     if (dialog.kind === "quota") {
       const isPv = dialog.quota === "pv";
-      const used = isPv ? usage.pv_this_period : usage.seats || usage.members;
+      // `seats` est exactement la métrique contrôlée par le serveur
+      // (`get_company_seat_usage` : membres actifs + invitations valides).
+      const used = isPv ? usage.pv_this_period : usage.seats;
+
       const max = isPv ? limits?.max_pv_per_month : limits?.max_members;
       return {
         icon: <Gauge className="h-5 w-5 text-warning" aria-hidden />,
