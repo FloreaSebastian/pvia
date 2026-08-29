@@ -71,9 +71,9 @@ function safeBillingMessage(e: unknown, fallback: string): string {
 
 export const Route = createFileRoute("/_authenticated/billing")({
   component: GuardedBillingPage,
-  validateSearch: (s: Record<string, unknown>) => ({
-    status: typeof s['status'] === "string" ? (s['status'] as string) : undefined,
-    session_id: typeof s['session_id'] === "string" ? (s['session_id'] as string) : undefined,
+  validateSearch: (s: { status?: string; session_id?: string }) => ({
+    status: typeof s.status === "string" ? s.status : undefined,
+    session_id: typeof s.session_id === "string" ? s.session_id : undefined,
   }),
   head: () => ({ meta: [{ title: "Facturation & abonnement — PVIA" }] }),
 });
@@ -195,7 +195,7 @@ function BillingPage() {
         if (!cancelled) {
           setSyncing(false);
           if (search.status === "success") toast.success("Abonnement mis à jour.");
-          void navigate({ to: "/billing", search: {}, replace: true });
+          void navigate({ to: "/billing", search: () => ({}), replace: true });
         }
       }
     })();
