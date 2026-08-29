@@ -37,7 +37,7 @@ abonnement valide (essai 14 jours glissants inclus)**.
 | `suspended_at` non nul, ou `support_status = 'blocked'` | ❌ |
 | Aucune ligne `subscriptions` | ✅ tant que `companies.trial_ends_at > now()` (défaut `now() + 14 jours` ; backfill unique déjà effectué). `trial_ends_at` NULL ⇒ ❌ **fail-closed** : aucun fallback dérivé de `created_at` n'existe dans le code ni dans le SQL |
 | `trialing` | ✅ tant que `subscriptions.trial_end > now()` (null ⇒ ❌, fail-closed) |
-| `active` | ✅ tant que `current_period_end` n'est pas périmé de plus de 3 jours (`coalesce(current_period_end, now() + 1 day) > now() - interval '3 days'`). Tolérance destinée au délai normal du webhook de renouvellement ; au-delà, la ligne est considérée non synchronisée ⇒ ❌ |
+| `active` | ✅ uniquement si `current_period_end` est renseigné (NULL ⇒ ❌ fail-closed) et n'est pas périmé de plus de 3 jours (SQL : `current_period_end IS NOT NULL AND current_period_end > now() - interval '3 days'`). Tolérance destinée au délai normal du webhook de renouvellement ; au-delà, la ligne est considérée non synchronisée ⇒ ❌ |
 | `canceled` | ✅ **uniquement** si `cancel_at_period_end = true` ET `current_period_end > now()` (résiliation programmée synchronisée par webhook). Toute autre résiliation ⇒ ❌ |
 | `past_due`, `unpaid`, `incomplete`, `incomplete_expired`, `paused`, statut inconnu | ❌ |
 
@@ -134,7 +134,10 @@ Exceptions intentionnelles (non consommatrices / hors activité métier) :
   autoriser une écriture illimitée si la synchro est cassée.
 - Retour Checkout/Portail : `/billing?status=success&session_id=…` déclenche
   `syncSubscriptionFromStripe` (admin d'entreprise) qui relit l'abonnement chez
-  Stripe et met la ligne à jour, puis invalide `["billing", activeCompanyId]`.
+  Stripe et met la ligne à jour. La sélection privilégie une subscription
+  exploitable (`active`/`trialing`), puis régularisable (`past_due`/`unpaid`/
+  `paused`), puis `incomplete`, et seulement en dernier recours une ancienne
+  `canceled` — même plus récente — pour ne pas bloquer une réactivation, puis invalide `["billing", activeCompanyId]`.
   L'utilisateur retrouve l'écriture sans se déconnecter.
 
 ## 7. Chemins externes / API / intégrations

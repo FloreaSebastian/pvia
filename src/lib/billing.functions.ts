@@ -305,16 +305,27 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
       const list = await stripe.subscriptions.list({
         customer: customerId,
         status: "all",
-        limit: 5,
+        limit: 20,
         expand: ["data.items.data.price"],
       });
+      // Sélection : on privilégie une subscription réellement exploitable
+      // (active/trialing), puis une régularisable (past_due/unpaid/paused),
+      // et seulement en dernier recours une ancienne canceled — même si
+      // celle-ci est plus récente. Sinon une résiliation postérieure à une
+      // réactivation empêcherait de retrouver l'accès en écriture.
+      const rank = (s: string) =>
+        s === "active" || s === "trialing" ? 0
+        : s === "past_due" || s === "unpaid" || s === "paused" ? 1
+        : s === "incomplete" ? 2
+        : 3;
       sub = list.data
         .slice()
-        .sort((a: any, b: any) => (b.created ?? 0) - (a.created ?? 0))[0] ?? null;
+        .sort((a: any, b: any) => rank(a.status) - rank(b.status) || (b.created ?? 0) - (a.created ?? 0))[0] ?? null;
     } catch (e) {
       throw sanitizeStripeError(e, BILLING_MESSAGES.portal);
     }
     if (!sub) return { synced: false as const };
+
 
     const { priceToPlan } = await import("./stripe.server");
     const item = sub.items?.data?.[0];

@@ -103,10 +103,14 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
     case "active": {
       // `active` seul ne suffit pas : si le webhook de renouvellement n'est
       // jamais arrivé, la période payée peut être terminée depuis longtemps.
-      const stale = periodEnd !== null && periodEnd < now - SYNC_GRACE_MS;
-      if (stale) return { ...base, state: "blocked", blocked: true };
+      // `current_period_end` NULL = donnée non fiable (Stripe fournit toujours
+      // cette date pour un abonnement actif) ⇒ fail-closed. La resynchro
+      // `/billing?status=success` ou le webhook repeuplent le champ.
+      if (periodEnd === null) return { ...base, state: "blocked", blocked: true };
+      if (periodEnd < now - SYNC_GRACE_MS) return { ...base, state: "blocked", blocked: true };
       return { ...base, state: "active", blocked: false };
     }
+
 
     case "past_due":
       return { ...base, state: "past_due", blocked: true };
