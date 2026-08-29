@@ -300,6 +300,9 @@ function ClientsPage() {
           className="border-0 bg-transparent px-0 py-0"
           actions={
             canWrite ? (
+              writeBlocked ? (
+                <LockedActionButton label="Nouveau client">Nouveau client</LockedActionButton>
+              ) : (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button onClick={openNew} className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button>
