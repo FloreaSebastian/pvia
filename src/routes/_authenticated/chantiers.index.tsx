@@ -272,7 +272,7 @@ function ChantiersPage() {
               <span><WriteAccessGate label="Nouveau chantier"><Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
                 <Plus className="h-4 w-4" />
                 <span>Nouveau</span>
-              </Button>
+              </Button></WriteAccessGate></span>
             </DialogTrigger>
           )}
         </header>
