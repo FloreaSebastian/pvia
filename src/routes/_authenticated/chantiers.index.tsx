@@ -527,9 +527,11 @@ function ChantiersPage() {
             </p>
           </div>
           {canWrite && !query && statusFilter === "all" && (
-            <Button onClick={openNew} className="mt-2 shadow-brand">
-              <Plus className="h-4 w-4" /> Nouveau chantier
-            </Button>
+            <WriteAccessGate label="Nouveau chantier">
+              <Button onClick={openNew} className="mt-2 shadow-brand">
+                <Plus className="h-4 w-4" /> Nouveau chantier
+              </Button>
+            </WriteAccessGate>
           )}
         </Card>
       )}
