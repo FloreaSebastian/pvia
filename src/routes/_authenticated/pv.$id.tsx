@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { useEffect, useState, useCallback } from "react";
 import {
   ArrowLeft,
@@ -138,6 +139,7 @@ function PvDetail() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { activeRole } = useCompany();
+  const { deny, dialog: lockedDialog } = useBlockedActionGuard();
   const canViewInternal = isManageRole(activeRole);
   const canReopenLift = isAdminRole(activeRole);
   const sendPv = useServerFn(sendPvToClient);
@@ -286,6 +288,7 @@ function PvDetail() {
   }
 
   async function resendLiftValidatedEmail(reportId: string) {
+    if (deny("renvoyer l\u2019email de levée validée")) return;
     setResendingLiftId(reportId);
     try {
       await resendLiftFn({ data: { reportId } });
@@ -299,6 +302,7 @@ function PvDetail() {
   }
 
   async function resendLiftValidationRequest(reportId: string) {
+    if (deny("relancer la demande de validation")) return;
     setResendingLiftId(reportId);
     try {
       const r = await resendLiftValidationFn({ data: { reportId } });
@@ -332,6 +336,7 @@ function PvDetail() {
   }
 
   async function handleReopenLift(reportId: string) {
+    if (deny("rouvrir une levée de réserves")) return;
     if (!confirm("Réouvrir cette levée ? Le PDF et la signature de l'intervenant seront effacés. Cette action est tracée.")) return;
     setReopeningLiftId(reportId);
     try {
@@ -346,6 +351,7 @@ function PvDetail() {
   }
 
   function handleNewAttemptAfterRejection() {
+    if (deny("relancer une levée de réserves")) return;
     // Open the existing lift dialog scoped to rejected reserves (the dialog
     // already filters reserves with status 'rejetee'). A fresh report is
     // always created on upsert — old history is preserved untouched.
@@ -370,6 +376,7 @@ function PvDetail() {
 
 
   async function handleResendSigned() {
+    if (deny("renvoyer le PV signé")) return;
     if (!pv) return;
     setResendingSigned(true);
     try {
@@ -386,6 +393,7 @@ function PvDetail() {
 
 
   async function changeStatus(status: string) {
+    if (deny("changer le statut du PV")) return;
     if (!pv) return;
     if (status === pv.status) return;
     if (status !== "brouillon" && status !== "archive") {
@@ -404,6 +412,7 @@ function PvDetail() {
 
 
   async function updateReserve(rid: string, status: string) {
+    if (deny("modifier une réserve")) return;
     if (!pv?.company_id) return;
     try {
       await updateReserveFn({
@@ -417,6 +426,7 @@ function PvDetail() {
   }
 
   async function deleteReserve(rid: string) {
+    if (deny("supprimer une réserve")) return;
     if (!pv?.company_id) return;
     if (!confirm("Supprimer cette réserve ?")) return;
     try {
@@ -441,6 +451,7 @@ function PvDetail() {
   }
 
   async function handleRegenerate() {
+    if (deny("régénérer le PDF")) return;
     if (!pv) return;
     setRegenerating(true);
     try {
@@ -456,6 +467,7 @@ function PvDetail() {
 
 
   async function deletePv() {
+    if (deny("supprimer le PV")) return;
     if (!pv) return;
     if (pv.locked_at) return toast.error("Ce PV est signé et verrouillé — suppression interdite.");
     setDeleting(true);
@@ -489,6 +501,7 @@ function PvDetail() {
   }
 
   async function handleSendToClient() {
+    if (deny("envoyer le PV au client")) return;
     if (!pv) return;
     if (!sendEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sendEmail)) {
       toast.error("Email client invalide.");
@@ -1207,6 +1220,7 @@ function DescriptionBlock({ label, text }: { label: string; text: string | null 
           {expanded ? "Voir moins" : "Voir plus"}
         </button>
       )}
+      {lockedDialog}
     </div>
   );
 }
