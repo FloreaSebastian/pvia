@@ -114,6 +114,7 @@ function ChantiersPage() {
   }, []);
   const formCompact = formWidth > 0 && formWidth < 380;
   const canWrite = can("manage");
+  const { blocked: writeBlocked } = useWriteAccess();
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const createFn = useServerFn(createChantierFn);
   const updateFn = useServerFn(updateChantierFn);
