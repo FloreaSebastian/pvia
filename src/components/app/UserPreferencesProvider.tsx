@@ -59,12 +59,16 @@ function writeLocal(p: UserPrefs) {
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [prefs, setPrefs] = useState<UserPrefs>(() => readLocal() ?? DEFAULTS);
+  // Garder le premier rendu identique au SSR ; les préférences locales sont
+  // appliquées juste après hydratation (le script head évite le flash de thème).
+  const [prefs, setPrefs] = useState<UserPrefs>(DEFAULTS);
   const [loading, setLoading] = useState(true);
 
   // Apply on first mount immediately (from cache)
   useEffect(() => {
-    applyToDom(prefs);
+    const local = readLocal();
+    if (local) setPrefs(local);
+    applyToDom(local ?? DEFAULTS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
