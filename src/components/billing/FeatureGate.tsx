@@ -16,13 +16,23 @@ const LABELS: Record<Feature, string> = {
   technical_visits: "Visite technique",
 };
 
-const MIN_PLAN: Partial<Record<Feature, string>> = {
-  remote_sign: "Pro",
-  advanced_stats: "Pro",
-  export_audit: "Pro",
-  technical_visits: "Pro",
-  branding: "Business",
+const FEATURE_COLUMN: Record<Feature, string> = {
+  remote_sign: "can_remote_sign",
+  advanced_stats: "can_advanced_stats",
+  export_audit: "can_export_audit",
+  branding: "can_branding",
+  technical_visits: "can_technical_visits",
 };
+
+/** Plan minimum dérivé de `plan_limits` (source de vérité serveur). */
+function minPlanFor(feature: Feature, allPlans: any[]): string | null {
+  const col = FEATURE_COLUMN[feature];
+  const eligible = (allPlans ?? [])
+    .filter((p) => Boolean(p?.[col]))
+    .sort((a, b) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0));
+  return eligible[0]?.display_name ?? null;
+}
+
 
 /**
  * Affiche les enfants si la formule active inclut `feature` ET que
@@ -35,7 +45,7 @@ export function FeatureGate({
   children,
   fallback,
 }: PropsWithChildren<{ feature: Feature; fallback?: React.ReactNode }>) {
-  const { hasFeature, blocked, access, isLoading } = useSubscription();
+  const { hasFeature, blocked, access, isLoading, allPlans } = useSubscription();
   const { openSubscription, openFeature } = useBillingGate();
 
   if (isLoading) return null;
@@ -45,7 +55,8 @@ export function FeatureGate({
   if (fallback) return <>{fallback}</>;
 
   const copy = subscriptionCopy(access?.state);
-  const minPlan = MIN_PLAN[feature];
+  const minPlan = minPlanFor(feature, allPlans as any[]);
+
 
   return (
     <Card className="flex flex-col items-start gap-3 border-dashed bg-muted/30 p-5 sm:p-6">

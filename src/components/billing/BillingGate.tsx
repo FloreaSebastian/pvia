@@ -78,8 +78,15 @@ export function useBillingGate(): BillingGateApi {
 
 type Copy = { title: string; body: string; cta: string; secondary: string; tone: "danger" | "warn" };
 
-const PAYMENT_STATES = new Set(["past_due", "unpaid", "incomplete", "incomplete_expired"]);
-const ENDED_STATES = new Set(["canceled", "paused"]);
+/**
+ * États réellement régularisables via le portail Stripe (un abonnement existe
+ * et une facture peut être payée). `incomplete_expired` et `paused` en sont
+ * exclus : aucun parcours de reprise n'est implémenté côté portail, il faut
+ * repasser par le choix d'une formule (checkout).
+ */
+const PAYMENT_STATES = new Set(["past_due", "unpaid", "incomplete"]);
+const ENDED_STATES = new Set(["canceled", "paused", "incomplete_expired"]);
+const TRIAL_STATES = new Set(["trial_expired", "free"]);
 
 export function subscriptionCopy(state?: string | null): Copy {
   const s = state ?? "blocked";
@@ -97,21 +104,33 @@ export function subscriptionCopy(state?: string | null): Copy {
     return {
       title: "Votre abonnement est terminé",
       body:
-        "Vos données sont conservées et restent consultables. Réactivez un abonnement pour retrouver la création et la modification.",
-      cta: "Réactiver mon abonnement",
+        "Vos données sont conservées et restent consultables. Choisissez une formule pour retrouver la création et la modification.",
+      cta: "Choisir une formule",
       secondary: "Continuer en lecture seule",
       tone: "danger",
     };
   }
+  if (TRIAL_STATES.has(s)) {
+    return {
+      title: "Votre essai est terminé",
+      body:
+        "Vos données restent accessibles, mais la création et la modification sont suspendues. Choisissez une formule pour continuer à utiliser PVIA.",
+      cta: "Choisir ma formule",
+      secondary: "Continuer en lecture seule",
+      tone: "danger",
+    };
+  }
+  // État inconnu / générique : on n'affirme jamais « essai terminé ».
   return {
-    title: "Votre essai est terminé",
+    title: "Abonnement requis",
     body:
-      "Vos données restent accessibles, mais la création et la modification sont suspendues. Choisissez une formule pour continuer à utiliser PVIA.",
-    cta: "Choisir ma formule",
+      "Vos données restent accessibles, mais la création et la modification sont suspendues. Activez une formule pour reprendre la saisie.",
+    cta: "Voir les formules",
     secondary: "Continuer en lecture seule",
     tone: "danger",
   };
 }
+
 
 /* ------------------------------------------------------------------ *
  * Provider                                                            *
@@ -190,10 +209,25 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
     setDialog({ kind: "subscription", state: access?.state ?? "blocked", auto: true });
   }, [isLoading, blocked, quiet, activeCompanyId, access?.state]);
 
-  /* L'abonnement redevient valide (retour de paiement, resynchro) → on ferme. */
+  /* L'abonnement redevient valide (paiement, réactivation, resynchro) :
+     on ferme la popup ET on purge les clés de rappel de cette entreprise —
+     sinon un nouveau blocage plus tard dans la même session (même état)
+     serait silencieux. */
   useEffect(() => {
-    if (!blocked && dialog?.kind === "subscription") setDialog(null);
-  }, [blocked, dialog?.kind]);
+    if (blocked || isLoading || !activeCompanyId) return;
+    if (dialog?.kind === "subscription") setDialog(null);
+    promptedRef.current = null;
+    try {
+      const prefix = `pvia:billing-prompt:${activeCompanyId}:`;
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith(prefix)) sessionStorage.removeItem(k);
+      }
+    } catch {
+      /* stockage indisponible */
+    }
+  }, [blocked, isLoading, activeCompanyId, dialog?.kind]);
+
 
   const api = useMemo<BillingGateApi>(
     () => ({
@@ -274,7 +308,10 @@ function GateDialogView({
 
     if (dialog.kind === "quota") {
       const isPv = dialog.quota === "pv";
-      const used = isPv ? usage.pv_this_period : usage.seats || usage.members;
+      // `seats` est exactement la métrique contrôlée par le serveur
+      // (`get_company_seat_usage` : membres actifs + invitations valides).
+      const used = isPv ? usage.pv_this_period : usage.seats;
+
       const max = isPv ? limits?.max_pv_per_month : limits?.max_members;
       return {
         icon: <Gauge className="h-5 w-5 text-warning" aria-hidden />,
@@ -300,13 +337,14 @@ function GateDialogView({
         details.push(`Accès restreint depuis ${days} jour${days > 1 ? "s" : ""}`);
       }
     }
-    if (PAYMENT_STATES.has(dialog.state) && access?.current_period_end) {
-      details.push(`Échéance : ${formatFrDate(access.current_period_end)}`);
-    }
+    // Pour past_due / unpaid / incomplete, `current_period_end` est la fin de
+    // période d'abonnement, PAS la date de la facture impayée : on n'affiche
+    // donc aucune date d'échéance ni de « jours de retard » (donnée absente).
     if (ENDED_STATES.has(dialog.state) && access?.current_period_end) {
       details.push(`Fin d'accès : ${formatFrDate(access.current_period_end)}`);
     }
     details.push(`Statut : ${accessStateLabel(dialog.state)}`);
+
     return {
       icon:
         copy.tone === "danger" ? (
@@ -349,9 +387,10 @@ function GateDialogView({
           </ul>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          {accessStateHelp(access?.state)}
-        </p>
+        {dialog?.kind === "subscription" && (
+          <p className="text-xs text-muted-foreground">{accessStateHelp(dialog.state)}</p>
+        )}
+
 
         <DialogFooter className="mt-2 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="ghost" className="min-h-[44px] w-full sm:w-auto" onClick={onClose}>

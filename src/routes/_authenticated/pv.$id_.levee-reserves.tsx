@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import SignaturePad from "react-signature-canvas";
 import { useSignatureResize } from "@/hooks/use-signature-resize";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +34,7 @@ function LeveeReserves() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const createFn = useServerFn(createReserveLift);
+  const { deny } = useBlockedActionGuard();
 
   const [pvNumero, setPvNumero] = useState<string>("");
   const [reserves, setReserves] = useState<Reserve[]>([]);
@@ -146,6 +148,7 @@ function LeveeReserves() {
   }
 
   async function onSubmit(status: "brouillon" | "signe") {
+    if (deny(status === "signe" ? "signer la levée de réserves" : "enregistrer la levée de réserves")) return;
     const ids = Object.keys(selected).filter((id) => selected[id]);
     if (ids.length === 0) return toast.error("Sélectionnez au moins une réserve.");
     if (status === "signe" && companySigRef.current?.isEmpty()) return toast.error("Signature entreprise obligatoire.");

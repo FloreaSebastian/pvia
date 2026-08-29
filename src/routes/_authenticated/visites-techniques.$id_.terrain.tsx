@@ -23,6 +23,8 @@ import type { AnswerMap, AnswerValue } from "@/lib/visites/types";
 import { VisitFieldInput } from "@/components/visites/VisitFieldInput";
 import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "@/components/visites/VisitPhotoSlotCard";
 import { VisitConstraintsPanel, type VisitConstraintRow } from "@/components/visites/VisitConstraintsPanel";
+import { useBillingGate } from "@/components/billing/BillingGate";
+import { classifyBillingError } from "@/lib/billing-errors";
 
 export const Route = createFileRoute("/_authenticated/visites-techniques/$id_/terrain")({
   head: () => ({
@@ -46,6 +48,8 @@ function TerrainPage() {
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
   const online = useOnlineStatus();
+  const { blocked: billingBlocked, reportError } = useBillingGate();
+  const [syncSuspended, setSyncSuspended] = useState(false);
 
   const getFn = useServerFn(getTechnicalVisit);
   const saveFn = useServerFn(saveVisitAnswers);
@@ -132,13 +136,21 @@ function TerrainPage() {
     try {
       await saveFn({ data: { companyId: activeCompanyId, visitId: id, entries } });
       setSavedAt(new Date());
+      setSyncSuspended(false);
     } catch (e: any) {
       for (const e2 of entries) dirtyRef.current.set(e2.field_key, { section_key: e2.section_key, value: e2.value });
+      if (classifyBillingError(e)) {
+        // Comportement réel : les saisies restent en mémoire sur cet écran,
+        // mais rien n'est mis en file d'attente persistante sur l'appareil.
+        setSyncSuspended(true);
+        reportError(e);
+        return;
+      }
       toast.error(e?.message ?? "Enregistrement différé : réessayez.");
     } finally {
       setSaving(false);
     }
-  }, [activeCompanyId, id, saveFn]);
+  }, [activeCompanyId, id, saveFn, reportError]);
 
   useEffect(() => {
     return () => {
@@ -182,7 +194,7 @@ function TerrainPage() {
   const current = sections[Math.min(step, sections.length - 1)];
   const currentProgress = progress.sections.find((s) => s.key === current.section.key);
   const isLast = step >= sections.length - 1;
-  const locked = !canEdit;
+  const locked = !canEdit || billingBlocked;
 
   return (
     <div className="mx-auto w-full max-w-3xl min-w-0 pb-32">
@@ -218,6 +230,17 @@ function TerrainPage() {
             ) : null}
           </div>
         </div>
+        {(syncSuspended || billingBlocked) && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive"
+          >
+            Enregistrement suspendu — votre abonnement doit être activé ou régularisé. Vos saisies
+            restent affichées sur cet écran mais ne sont pas enregistrées : elles seront perdues si
+            vous quittez la page.
+          </div>
+        )}
         <div className="mt-2 flex items-center gap-2">
           <Progress value={progress.percent} className="h-1.5 flex-1" aria-label={`Complétude ${progress.percent}%`} />
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{progress.percent}%</span>
