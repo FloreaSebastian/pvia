@@ -32,6 +32,7 @@ export const sendSignedPvEmail = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
     if (!m) throw new Error("Accès refusé.");
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(pv.company_id, userId);
 
     // EM-M2: prevent double-click / accidental rapid resends.
     const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");
