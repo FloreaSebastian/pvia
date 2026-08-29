@@ -363,6 +363,7 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
         </header>
 
         <SuspensionBanner />
+        <SubscriptionBanner />
 
         <main className="pvia-container min-w-0 py-4 pb-[max(6rem,calc(5rem+env(safe-area-inset-bottom)))] lg:py-8 lg:pb-12">
           {children}
