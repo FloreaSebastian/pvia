@@ -37,7 +37,7 @@ abonnement valide (essai 14 jours glissants inclus)**.
 | `suspended_at` non nul, ou `support_status = 'blocked'` | ❌ |
 | Aucune ligne `subscriptions` | ✅ tant que `companies.trial_ends_at > now()` (défaut `now() + 14 jours` ; backfill unique déjà effectué). `trial_ends_at` NULL ⇒ ❌ **fail-closed** : aucun fallback dérivé de `created_at` n'existe dans le code ni dans le SQL |
 | `trialing` | ✅ tant que `subscriptions.trial_end > now()` (null ⇒ ❌, fail-closed) |
-| `active` | ✅ uniquement si `current_period_end` est renseigné (NULL ⇒ ❌ fail-closed) et n'est pas périmé de plus de 3 jours (`coalesce(current_period_end, now() + 1 day) > now() - interval '3 days'`). Tolérance destinée au délai normal du webhook de renouvellement ; au-delà, la ligne est considérée non synchronisée ⇒ ❌ |
+| `active` | ✅ uniquement si `current_period_end` est renseigné (NULL ⇒ ❌ fail-closed) et n'est pas périmé de plus de 3 jours (SQL : `current_period_end IS NOT NULL AND current_period_end > now() - interval '3 days'`). Tolérance destinée au délai normal du webhook de renouvellement ; au-delà, la ligne est considérée non synchronisée ⇒ ❌ |
 | `canceled` | ✅ **uniquement** si `cancel_at_period_end = true` ET `current_period_end > now()` (résiliation programmée synchronisée par webhook). Toute autre résiliation ⇒ ❌ |
 | `past_due`, `unpaid`, `incomplete`, `incomplete_expired`, `paused`, statut inconnu | ❌ |
 
