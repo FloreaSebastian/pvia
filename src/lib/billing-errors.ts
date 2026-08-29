@@ -40,12 +40,13 @@ export function classifyBillingError(err: unknown): BillingBlock | null {
   const feat = msg.match(/Fonctionnalité\s+«\s*(.+?)\s*»\s+non incluse/i);
   if (feat) return { kind: "feature", feature: feat[1] ?? null };
 
-  // RLS : écriture refusée par `company_has_write_access` / policies.
-  if (/row-level security|new row violates|permission denied for table/i.test(msg)) {
-    return { kind: "subscription", state: "blocked" };
-  }
+  // RLS : uniquement si la contrainte d'abonnement est explicitement nommée.
+  // Une erreur RLS générique (rôle insuffisant, policy, cross-tenant) N'EST PAS
+  // un blocage d'abonnement et doit rester une erreur technique générique.
+  if (/company_has_write_access/i.test(msg)) return { kind: "subscription", state: "blocked" };
 
   return null;
+
 }
 
 const TECHNICAL_PATTERNS: RegExp[] = [
