@@ -337,13 +337,14 @@ function GateDialogView({
         details.push(`Accès restreint depuis ${days} jour${days > 1 ? "s" : ""}`);
       }
     }
-    if (PAYMENT_STATES.has(dialog.state) && access?.current_period_end) {
-      details.push(`Échéance : ${formatFrDate(access.current_period_end)}`);
-    }
+    // Pour past_due / unpaid / incomplete, `current_period_end` est la fin de
+    // période d'abonnement, PAS la date de la facture impayée : on n'affiche
+    // donc aucune date d'échéance ni de « jours de retard » (donnée absente).
     if (ENDED_STATES.has(dialog.state) && access?.current_period_end) {
       details.push(`Fin d'accès : ${formatFrDate(access.current_period_end)}`);
     }
     details.push(`Statut : ${accessStateLabel(dialog.state)}`);
+
     return {
       icon:
         copy.tone === "danger" ? (
