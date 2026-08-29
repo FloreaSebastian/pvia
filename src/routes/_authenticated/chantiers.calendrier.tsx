@@ -185,6 +185,7 @@ function initials(name: string | null | undefined) {
 function ChantierCalendarPage() {
   const { activeCompanyId, can } = useCompany();
   const canWrite = can("manage");
+  const { deny: denyWrite } = useBlockedActionGuard();
   const isAdmin = can("admin");
   const { posture } = useViewport();
 
@@ -578,6 +579,9 @@ function ChantierCalendarPage() {
 
   function openNew(start?: Date, end?: Date) {
     if (!canWrite) return;
+    // Accès restreint (essai expiré, impayé…) : on n'ouvre jamais un formulaire
+    // qui échouerait à l'enregistrement — la popup d'abonnement prend le relais.
+    if (denyWrite("création d'un événement")) return;
     setEvtForm(blankForm({
       start_at: start ? toLocalInput(start) : "",
       end_at: end ? toLocalInput(end) : (start ? toLocalInput(new Date(start.getTime() + 60*60*1000)) : ""),
@@ -586,6 +590,7 @@ function ChantierCalendarPage() {
   }
   function openEdit(e: Evt) {
     if (e.event_type.startsWith("system_")) return;
+    if (denyWrite("modification d'un événement")) return;
     setEvtForm({
       id: e.id, chantier_id: e.chantier_id,
       client_id: e.client_id ?? "", assigned_to: e.assigned_to ?? "",
