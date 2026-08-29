@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, Plus, X, Trash2, Copy, CalendarDays, Search, Pencil, AlertTriangle, Users, Maximize2, Minimize2, CheckCircle2, Clock, Filter, ZoomIn, Eye, MoreHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/card";
