@@ -212,6 +212,10 @@ export const extractWorkReferenceDoc = createServerFn({ method: "POST" })
     if (!(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
       throw new Error("Rôle insuffisant pour importer un document.");
     }
+    // Import/analyse d'un document = exploitation métier consommatrice → garde d'écriture.
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, context.userId);
+
+
 
     // Normalise : accepte Data URL complet OU base64 brut (avec mimeType fourni)
     const normalizedDataUrl = data.dataUrl.startsWith("data:")
