@@ -1,3 +1,4 @@
+import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, MapPin, Building2, CalendarRange, User, ArrowRight, SlidersHorizontal, MoreHorizontal } from "lucide-react";
@@ -268,10 +269,10 @@ function ChantiersPage() {
           </div>
           {canWrite && (
             <DialogTrigger asChild>
-              <Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
+              <span><WriteAccessGate label="Nouveau chantier"><Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
                 <Plus className="h-4 w-4" />
                 <span>Nouveau</span>
-              </Button>
+              </Button></WriteAccessGate></span>
             </DialogTrigger>
           )}
         </header>
@@ -527,9 +528,11 @@ function ChantiersPage() {
             </p>
           </div>
           {canWrite && !query && statusFilter === "all" && (
-            <Button onClick={openNew} className="mt-2 shadow-brand">
-              <Plus className="h-4 w-4" /> Nouveau chantier
-            </Button>
+            <WriteAccessGate label="Nouveau chantier">
+              <Button onClick={openNew} className="mt-2 shadow-brand">
+                <Plus className="h-4 w-4" /> Nouveau chantier
+              </Button>
+            </WriteAccessGate>
           )}
         </Card>
       )}

@@ -1,3 +1,4 @@
+import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download, Sparkles, MoreVertical } from "lucide-react";
@@ -301,7 +302,7 @@ function ClientsPage() {
             canWrite ? (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={openNew} className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button>
+                  <span><WriteAccessGate label="Nouveau client"><Button onClick={openNew} className="shadow-brand"><Plus className="h-4 w-4" /> Nouveau client</Button></WriteAccessGate></span>
                 </DialogTrigger>
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                   <DialogHeader><DialogTitle>{editing ? "Modifier le client" : "Nouveau client"}</DialogTitle></DialogHeader>

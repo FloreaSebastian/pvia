@@ -1,3 +1,4 @@
+import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -183,13 +184,15 @@ function VisitesTechniquesPage() {
             </p>
           </div>
           {canManage ? (
-            <Button asChild className="h-11 shrink-0">
-              <Link to="/visites-techniques/nouvelle">
-                <Plus className="h-4 w-4 sm:mr-2" aria-hidden="true" />
-                <span className="hidden sm:inline">Nouvelle visite</span>
-                <span className="sr-only sm:hidden">Nouvelle visite</span>
-              </Link>
-            </Button>
+            <WriteAccessGate label="Nouvelle visite">
+              <Button asChild className="h-11 shrink-0">
+                <Link to="/visites-techniques/nouvelle">
+                  <Plus className="h-4 w-4 sm:mr-2" aria-hidden="true" />
+                  <span className="hidden sm:inline">Nouvelle visite</span>
+                  <span className="sr-only sm:hidden">Nouvelle visite</span>
+                </Link>
+              </Button>
+            </WriteAccessGate>
           ) : null}
         </div>
       </header>
