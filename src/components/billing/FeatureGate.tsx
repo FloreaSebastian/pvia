@@ -3,6 +3,7 @@ import { Lock, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useSubscription } from "@/hooks/use-subscription";
+import { useBillingGate, subscriptionCopy } from "@/components/billing/BillingGate";
 import type { PropsWithChildren } from "react";
 
 type Feature = "remote_sign" | "advanced_stats" | "export_audit" | "branding" | "technical_visits";
@@ -12,12 +13,22 @@ const LABELS: Record<Feature, string> = {
   advanced_stats: "Statistiques avancées",
   export_audit: "Export de l'historique d'audit",
   branding: "Branding personnalisé",
-  technical_visits: "Visite technique (à partir du plan Pro)",
+  technical_visits: "Visite technique",
+};
+
+const MIN_PLAN: Partial<Record<Feature, string>> = {
+  remote_sign: "Pro",
+  advanced_stats: "Pro",
+  export_audit: "Pro",
+  technical_visits: "Pro",
+  branding: "Business",
 };
 
 /**
- * Renders children if the active plan grants `feature` AND the subscription is usable.
- * Otherwise renders an upgrade card. UI-only — server functions still enforce the gate.
+ * Affiche les enfants si la formule active inclut `feature` ET que
+ * l'abonnement autorise l'écriture. Sinon, carte explicative distinguant
+ * clairement « abonnement à activer » et « fonctionnalité non incluse ».
+ * UI seulement — les server functions appliquent la vraie garde.
  */
 export function FeatureGate({
   feature,
@@ -25,6 +36,7 @@ export function FeatureGate({
   fallback,
 }: PropsWithChildren<{ feature: Feature; fallback?: React.ReactNode }>) {
   const { hasFeature, blocked, access, isLoading } = useSubscription();
+  const { openSubscription, openFeature } = useBillingGate();
 
   if (isLoading) return null;
 
@@ -32,23 +44,38 @@ export function FeatureGate({
   if (allowed) return <>{children}</>;
   if (fallback) return <>{fallback}</>;
 
-  const reason = blocked
-    ? `Abonnement requis (${access?.state ?? "inactif"})`
-    : `Disponible à partir d'un plan supérieur`;
+  const copy = subscriptionCopy(access?.state);
+  const minPlan = MIN_PLAN[feature];
 
   return (
-    <Card className="flex flex-col items-start gap-3 border-dashed bg-muted/30 p-6">
-      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-        <Lock className="h-4 w-4" />
-        {LABELS[feature]}
+    <Card className="flex flex-col items-start gap-3 border-dashed bg-muted/30 p-5 sm:p-6">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Lock className="h-4 w-4 shrink-0" aria-hidden />
+        {blocked ? copy.title : LABELS[feature]}
       </div>
-      <p className="text-sm text-muted-foreground">{reason}</p>
-      <Button asChild size="sm">
-        <Link to="/billing">
-          <Sparkles className="mr-2 h-4 w-4" />
-          Mettre à niveau
-        </Link>
-      </Button>
+      <p className="text-sm text-muted-foreground">
+        {blocked
+          ? copy.body
+          : `Cette fonctionnalité n'est pas incluse dans votre formule actuelle${
+              minPlan ? ` — disponible à partir du plan ${minPlan}` : ""
+            }.`}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" className="min-h-[44px]">
+          <Link to="/billing">
+            <Sparkles className="mr-2 h-4 w-4" aria-hidden />
+            {blocked ? copy.cta : "Changer de formule"}
+          </Link>
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="min-h-[44px]"
+          onClick={() => (blocked ? openSubscription() : openFeature(LABELS[feature]))}
+        >
+          En savoir plus
+        </Button>
+      </div>
     </Card>
   );
 }

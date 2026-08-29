@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { RestrictedRoute } from "@/components/billing/RestrictedRoute";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, ArrowRight, Check, Loader2, Sun, Wind, Droplets, AlertTriangle, Search,
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/visites-techniques/nouvell
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: NouvelleVisitePage,
+  component: NouvelleVisiteRoute,
 });
 
 const TYPE_ICON: Record<VisitType, typeof Sun> = {
@@ -66,6 +67,14 @@ type ChantierRow = {
 type Duplicate = { id: string; reference: string | null; name: string; status: string; reason: string };
 
 const STEPS = ["Métier", "Client", "Chantier", "Planification"] as const;
+
+function NouvelleVisiteRoute() {
+  return (
+    <RestrictedRoute action="création d'une visite technique" backTo="/visites-techniques">
+      <NouvelleVisitePage />
+    </RestrictedRoute>
+  );
+}
 
 function NouvelleVisitePage() {
   const navigate = useNavigate();

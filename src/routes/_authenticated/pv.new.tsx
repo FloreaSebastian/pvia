@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { RestrictedRoute } from "@/components/billing/RestrictedRoute";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import SignaturePad from "react-signature-canvas";
@@ -92,7 +93,7 @@ const PvNewSearchSchema = z.object({
 });
 
 export const Route = createFileRoute("/_authenticated/pv/new")({
-  component: NewPv,
+  component: NewPvRoute,
   validateSearch: (s) => PvNewSearchSchema.parse(s),
   head: () => ({ meta: [{ title: "Créer un PV — PVIA" }] }),
 });
@@ -150,6 +151,14 @@ const STEPS_TAIL_WITH_RES: StepDef[] = [
 ];
 
 const DRAFT_KEY = "pvia:draft:new-pv:v2";
+
+function NewPvRoute() {
+  return (
+    <RestrictedRoute action="création d'un procès-verbal" backTo="/pv">
+      <NewPv />
+    </RestrictedRoute>
+  );
+}
 
 function NewPv() {
   const navigate = useNavigate();
