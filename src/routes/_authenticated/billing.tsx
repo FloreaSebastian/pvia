@@ -71,10 +71,12 @@ function safeBillingMessage(e: unknown, fallback: string): string {
 
 export const Route = createFileRoute("/_authenticated/billing")({
   component: GuardedBillingPage,
-  validateSearch: (s: { status?: string; session_id?: string }) => ({
-    status: typeof s.status === "string" ? s.status : undefined,
-    session_id: typeof s.session_id === "string" ? s.session_id : undefined,
-  }),
+  validateSearch: (s: { status?: string; session_id?: string }): { status?: string; session_id?: string } => {
+    const out: { status?: string; session_id?: string } = {};
+    if (typeof s.status === "string") out.status = s.status;
+    if (typeof s.session_id === "string") out.session_id = s.session_id;
+    return out;
+  },
   head: () => ({ meta: [{ title: "Facturation & abonnement — PVIA" }] }),
 });
 
