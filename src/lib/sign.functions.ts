@@ -80,6 +80,8 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!membership) throw new Error("Accès refusé.");
 
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(pv.company_id, userId);
+
     // Plan gate: remote signature is a Pro/Enterprise feature
     await assertPlanFeature(pv.company_id, "remote_sign");
 

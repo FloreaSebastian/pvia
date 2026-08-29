@@ -43,25 +43,41 @@ export type AccessInfo = {
  * Differentiates between "never paid → free tier" and "paid then lapsed → blocked".
  */
 export async function getAccessState(companyId: string): Promise<AccessInfo> {
-  const { data: sub } = await supabaseAdmin
-    .from("subscriptions")
-    .select("status,plan,current_period_end,trial_end,cancel_at_period_end")
-    .eq("company_id", companyId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: sub }, { data: company }] = await Promise.all([
+    supabaseAdmin
+      .from("subscriptions")
+      .select("status,plan,current_period_end,trial_end,cancel_at_period_end")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("companies")
+      .select("created_at,trial_ends_at")
+      .eq("id", companyId)
+      .maybeSingle(),
+  ]);
 
   if (!sub) {
+    // Aucun abonnement Stripe : l'entreprise vit sur son essai gratuit de 14 j.
+    // Pas de formule gratuite permanente — à l'expiration, lecture seule.
+    const trialEndIso =
+      ((company as any)?.trial_ends_at as string | null) ??
+      ((company as any)?.created_at
+        ? new Date(new Date((company as any).created_at as string).getTime() + 14 * 86_400_000).toISOString()
+        : null);
+    const active = trialEndIso ? new Date(trialEndIso).getTime() > Date.now() : false;
     return {
-      state: "free",
+      state: active ? "trialing" : "trial_expired",
       plan: "starter",
-      blocked: false,
-      trial_end: null,
+      blocked: !active,
+      trial_end: trialEndIso,
       current_period_end: null,
       cancel_at_period_end: false,
-      status: null,
+      status: active ? "trialing" : null,
     };
   }
+
 
   const now = Date.now();
   const periodEnd = sub.current_period_end ? new Date(sub.current_period_end as string).getTime() : null;
@@ -131,6 +147,14 @@ export async function assertSubscriptionUsable(companyId: string, userId?: strin
   }
   return access;
 }
+
+/**
+ * Garde d'écriture centrale : à appeler AVANT toute mutation métier
+ * (création ou modification de contenu). Lecture toujours autorisée.
+ * Ordre canonique : assertCompanyWriteAccess → assertPlanFeature → quota.
+ */
+export const assertCompanyWriteAccess = assertSubscriptionUsable;
+
 
 
 export async function assertCanCreatePv(companyId: string, userId?: string) {

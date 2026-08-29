@@ -741,6 +741,8 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
       throw new Error("Accès refusé.");
     }
 
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(report.company_id as string, userId);
+
     // Ensure PDF exists (regenerate if missing). New lifts populate
     // `pdf_client_url`; `pdf_url` only exists on legacy rows. Need either.
     if (!(report as any).pdf_client_url && !report.pdf_url) {
@@ -973,6 +975,8 @@ export const reopenReserveLiftReport = createServerFn({ method: "POST" })
         "Accès refusé : seul un directeur ou un responsable d'exploitation peut réouvrir une levée.",
       );
     }
+
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(report.company_id as string, userId);
 
     // Best-effort cleanup of stored PDFs so the report doesn't leak stale documents.
     const pdfMain = report.pdf_url ?? null;
@@ -1213,6 +1217,8 @@ export const deleteReserveLiftPhoto = createServerFn({ method: "POST" })
     if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
       throw new Error("Accès refusé.");
     }
+
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess((photo as any).company_id as string, userId);
 
     await supabaseAdmin.storage.from("pv-assets").remove([(photo as any).storage_path]).catch(() => {});
     const { error: delErr } = await supabaseAdmin

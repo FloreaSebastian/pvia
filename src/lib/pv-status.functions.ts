@@ -36,6 +36,7 @@ export const updatePvStatus = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!pv) throw new Error("PV introuvable.");
     if (!pv.company_id) throw new Error("PV sans entreprise.");
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(pv.company_id, userId);
 
     // Role check — manager/admin/owner only
     const { data: m } = await supabaseAdmin

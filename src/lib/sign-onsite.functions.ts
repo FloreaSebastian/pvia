@@ -52,6 +52,8 @@ export const sendOnsiteClientOtp = createServerFn({ method: "POST" })
       throw new Error("Accès refusé.");
     }
 
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
+
     await enforceRateLimit({
       bucket: "onsite.otp.send",
       key: `${data.companyId}:${data.email}`,

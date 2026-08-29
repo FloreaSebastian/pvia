@@ -45,6 +45,8 @@ async function assertCanManage(supabase: SupabaseClient<Database>, companyId: st
   const { data, error } = await supabase.rpc("can_manage_company", { _company_id: companyId, _user_id: userId });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Droits insuffisants.");
+  await (await import("./plan-guard.server")).assertCompanyWriteAccess(companyId, userId);
+
 }
 
 function recompose(line1: string, postal: string, city: string, fallback: string) {

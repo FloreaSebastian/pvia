@@ -37,6 +37,7 @@ import { NotificationsBell } from "@/components/app/NotificationsBell";
 import { InstallPrompt } from "@/components/app/InstallPrompt";
 import { BottomNav } from "@/components/app/BottomNav";
 import { SuspensionBanner } from "@/components/app/SuspensionBanner";
+import { SubscriptionBanner } from "@/components/app/SubscriptionBanner";
 import { useCompany } from "@/hooks/use-company";
 import { useViewport } from "@/hooks/use-viewport";
 import { ImmersiveProvider, useImmersive } from "@/hooks/use-immersive";
@@ -363,6 +364,7 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
         </header>
 
         <SuspensionBanner />
+        <SubscriptionBanner />
 
         <main className="pvia-container min-w-0 py-4 pb-[max(6rem,calc(5rem+env(safe-area-inset-bottom)))] lg:py-8 lg:pb-12">
           {children}

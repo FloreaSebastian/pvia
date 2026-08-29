@@ -368,6 +368,8 @@ export const applyWorkReferenceFields = createServerFn({ method: "POST" })
       throw new Error("Accès refusé.");
     }
 
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(doc.company_id as string, context.userId);
+
     const current = (doc.extracted_data ?? {}) as Record<string, unknown>;
     const next = {
       ...current,
