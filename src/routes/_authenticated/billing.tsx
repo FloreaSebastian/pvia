@@ -332,7 +332,7 @@ function BillingPage() {
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="bg-brand-gradient bg-clip-text text-2xl font-semibold tracking-tight text-transparent sm:text-3xl">
                 {access?.blocked
-                  ? "Aucune formule active"
+                  ? accessStateLabel(access.state)
                   : isTrial
                     ? `Essai ${current?.display_name ?? "PVIA"}`
                     : (current?.display_name ?? "Formule")}
