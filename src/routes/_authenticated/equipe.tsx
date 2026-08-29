@@ -606,7 +606,7 @@ function TeamPage() {
               </form>
             </DialogContent>
           </Dialog>
-        )}
+        ))}
       </div>
 
       {loading ? (
