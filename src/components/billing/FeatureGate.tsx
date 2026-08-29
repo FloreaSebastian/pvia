@@ -45,7 +45,7 @@ export function FeatureGate({
   children,
   fallback,
 }: PropsWithChildren<{ feature: Feature; fallback?: React.ReactNode }>) {
-  const { hasFeature, blocked, access, isLoading } = useSubscription();
+  const { hasFeature, blocked, access, isLoading, allPlans } = useSubscription();
   const { openSubscription, openFeature } = useBillingGate();
 
   if (isLoading) return null;
@@ -55,7 +55,8 @@ export function FeatureGate({
   if (fallback) return <>{fallback}</>;
 
   const copy = subscriptionCopy(access?.state);
-  const minPlan = MIN_PLAN[feature];
+  const minPlan = minPlanFor(feature, allPlans as any[]);
+
 
   return (
     <Card className="flex flex-col items-start gap-3 border-dashed bg-muted/30 p-5 sm:p-6">
