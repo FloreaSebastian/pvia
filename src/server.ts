@@ -18,12 +18,36 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
-function brandedErrorResponse(): Response {
-  return new Response(renderErrorPage(), {
+function newRequestId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return Math.random().toString(36).slice(2, 12);
+  }
+}
+
+/** Log serveur uniquement : id, méthode, chemin (sans query ni en-têtes) + erreur brute. */
+function logSsrError(requestId: string, request: Request, error: unknown): void {
+  let pathname = "unknown";
+  try {
+    pathname = new URL(request.url).pathname;
+  } catch {
+    /* noop */
+  }
+  console.error(`[ssr-500] id=${requestId} method=${request.method} route=${pathname}`, error);
+}
+
+function brandedErrorResponse(requestId: string): Response {
+  return new Response(renderErrorPage(requestId), {
     status: 500,
-    headers: { "content-type": "text/html; charset=utf-8" },
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "x-request-id": requestId,
+      "cache-control": "no-store",
+    },
   });
 }
+
 
 function isCatastrophicSsrErrorBody(body: string, responseStatus: number): boolean {
   let payload: unknown;
