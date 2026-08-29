@@ -314,14 +314,35 @@ function BillingPage() {
           <div className="min-w-0 flex-1">
             <div className="font-medium text-destructive">{accessStateLabel(access.state)}</div>
             <p className="mt-0.5 text-muted-foreground">{accessStateHelp(access.state)}</p>
-            <Button asChild size="sm" className="mt-3 min-h-[44px]">
-              <Link to="/upgrade-required" search={{ reason: access.state }}>
-                Voir les options
-              </Link>
-            </Button>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              {/* past_due / unpaid / incomplete : régularisation réelle via le
+                  portail Stripe (facture impayée, moyen de paiement). */}
+              {canManage &&
+                hasSubscription &&
+                ["past_due", "unpaid", "incomplete"].includes(access.state ?? "") && (
+                  <Button
+                    onClick={handlePortal}
+                    disabled={busy === "portal"}
+                    className="min-h-[44px]"
+                  >
+                    {busy === "portal" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="mr-2 h-4 w-4" />
+                    )}
+                    Régulariser mon abonnement
+                  </Button>
+                )}
+              <Button asChild size="sm" variant="outline" className="min-h-[44px]">
+                <Link to="/upgrade-required" search={{ reason: access.state }}>
+                  Voir les options
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
       )}
+
 
       {/* ---------------------- Votre abonnement ---------------------- */}
       <Card className="relative overflow-hidden p-5 sm:p-6">
