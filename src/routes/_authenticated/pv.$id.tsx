@@ -1153,6 +1153,7 @@ function PvDetail() {
           }}
         />
       )}
+      {lockedDialog}
     </div>
   );
 }
@@ -1220,7 +1221,6 @@ function DescriptionBlock({ label, text }: { label: string; text: string | null 
           {expanded ? "Voir moins" : "Voir plus"}
         </button>
       )}
-      {lockedDialog}
     </div>
   );
 }
