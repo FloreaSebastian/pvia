@@ -268,12 +268,18 @@ function ChantiersPage() {
             </p>
           </div>
           {canWrite && (
-            <DialogTrigger asChild>
-              <span><WriteAccessGate label="Nouveau chantier"><Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
-                <Plus className="h-4 w-4" />
-                <span>Nouveau</span>
-              </Button></WriteAccessGate></span>
-            </DialogTrigger>
+            writeBlocked ? (
+              <LockedActionButton label="Nouveau chantier" size="sm" className="h-10 shrink-0">
+                Nouveau
+              </LockedActionButton>
+            ) : (
+              <DialogTrigger asChild>
+                <Button onClick={openNew} size="sm" className="h-10 shrink-0 shadow-brand">
+                  <Plus className="h-4 w-4" />
+                  <span>Nouveau</span>
+                </Button>
+              </DialogTrigger>
+            )
           )}
         </header>
 
