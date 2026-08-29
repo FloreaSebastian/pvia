@@ -52,17 +52,27 @@ function read(): Viewport {
   };
 }
 
+const SSR_VIEWPORT: Viewport = {
+  width: 1280,
+  height: 800,
+  posture: "desktop",
+  isCompact: false,
+  isMobile: false,
+  isFoldOpen: false,
+  isDesktop: true,
+  isLandscape: true,
+};
+
 /**
  * Recalcule l'interface immédiatement lors d'un changement de posture
  * (ouverture/fermeture d'un Fold, rotation, ouverture du clavier),
  * sans rechargement ni changement de route.
  */
 export function useViewport(): Viewport {
-  const [vp, setVp] = React.useState<Viewport>(() =>
-    typeof window === "undefined"
-      ? { width: 1280, height: 800, posture: "desktop", isCompact: false, isMobile: false, isFoldOpen: false, isDesktop: true, isLandscape: true }
-      : read(),
-  );
+  // Le premier rendu client doit être strictement identique au SSR. Lire le
+  // viewport dans l'initializer produisait un arbre mobile différent du HTML
+  // serveur et pouvait faire tomber l'hydratation dans la root error boundary.
+  const [vp, setVp] = React.useState<Viewport>(SSR_VIEWPORT);
 
   React.useEffect(() => {
     let frame = 0;

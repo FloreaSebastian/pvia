@@ -11,7 +11,7 @@ import {
 import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
-import { installChunkRecovery, isChunkLoadError, recoverFromChunkError } from "@/lib/chunk-recovery";
+import { isChunkLoadError, recoverFromChunkError } from "@/lib/chunk-recovery";
 import { AppToaster } from "@/components/app/AppToaster";
 import { PwaRegister } from "@/components/app/PwaRegister";
 import { AnalyticsTracker } from "@/components/app/AnalyticsTracker";
@@ -56,12 +56,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          Cette page n’a pas pu être chargée
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {chunkError
             ? "Une nouvelle version de l'application est disponible. Rechargez la page pour continuer."
-            : "Something went wrong on our end. You can try refreshing or head back home."}
+            : "Une erreur inattendue est survenue. Réessayez dans quelques instants ou revenez à l’accueil."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -71,13 +71,19 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            Réessayer
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Go home
+            Accueil
+          </a>
+          <a
+            href="/login"
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Se connecter
           </a>
         </div>
       </div>

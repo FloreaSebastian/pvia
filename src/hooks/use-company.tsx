@@ -30,12 +30,29 @@ type Ctx = {
 const CompanyContext = createContext<Ctx | null>(null);
 const LS_KEY = "pvia:activeCompany";
 
+function readStoredCompanyId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(LS_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeCompanyId(id: string): void {
+  try {
+    window.localStorage.setItem(LS_KEY, id);
+  } catch {
+    // Le stockage peut être indisponible dans certaines WebView/tablettes.
+  }
+}
+
 export function CompanyProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [activeCompanyId, setActiveId] = useState<string | null>(
-    () => (typeof window !== "undefined" ? localStorage.getItem(LS_KEY) : null),
-  );
+  // Valeur déterministe au SSR et au premier rendu client. La préférence
+  // locale est restaurée dans refresh(), après hydratation.
+  const [activeCompanyId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
@@ -52,10 +69,13 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       .eq("status", "active");
     const list = ((data as unknown) as Membership[]) ?? [];
     setMemberships(list);
-    if (list.length && (!activeCompanyId || !list.find((m) => m.company_id === activeCompanyId))) {
+    const preferredCompanyId = activeCompanyId ?? readStoredCompanyId();
+    if (list.length && (!preferredCompanyId || !list.find((m) => m.company_id === preferredCompanyId))) {
       const id = list[0].company_id;
       setActiveId(id);
-      localStorage.setItem(LS_KEY, id);
+      storeCompanyId(id);
+    } else if (preferredCompanyId !== activeCompanyId) {
+      setActiveId(preferredCompanyId);
     }
     setLoading(false);
   }
@@ -67,7 +87,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   function setActiveCompanyId(id: string) {
     setActiveId(id);
-    localStorage.setItem(LS_KEY, id);
+    storeCompanyId(id);
   }
 
   const activeRole = useMemo(
