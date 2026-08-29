@@ -175,7 +175,21 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-/* Allow the page to ask us to update immediately. */
+/* Allow the page to ask us to update immediately, or to purge asset caches
+ * after a ChunkLoadError (bundle désynchronisé). */
 self.addEventListener("message", (event) => {
-  if (event.data === "SKIP_WAITING") self.skipWaiting();
+  if (event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+    return;
+  }
+  if (event.data === "PVIA_PURGE_CACHES") {
+    event.waitUntil(
+      (async () => {
+        const names = await caches.keys();
+        await Promise.all(
+          names.filter((n) => n.startsWith("pvia-")).map((n) => caches.delete(n))
+        );
+      })()
+    );
+  }
 });
