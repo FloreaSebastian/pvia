@@ -72,7 +72,7 @@ export function SubscriptionBanner() {
         </div>
         <Link
           to="/billing"
-          className="inline-flex min-h-[36px] items-center rounded-md border border-current/30 bg-background/60 px-3 py-1 font-medium hover:bg-background"
+          className="inline-flex min-h-[44px] items-center rounded-md border border-current/30 bg-background/60 px-3 py-1 font-medium hover:bg-background"
         >
           Voir les formules
         </Link>
