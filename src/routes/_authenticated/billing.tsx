@@ -340,7 +340,9 @@ function BillingPage() {
               <Badge variant={access?.state === "active" || isTrial ? "default" : "destructive"}>
                 {isTrial && trialDaysLeft != null
                   ? `Essai gratuit — ${trialDaysLeft} jour${trialDaysLeft > 1 ? "s" : ""} restant${trialDaysLeft > 1 ? "s" : ""}`
-                  : accessStateLabel(access?.state)}
+                  : access?.blocked
+                    ? "Lecture seule"
+                    : accessStateLabel(access?.state)}
               </Badge>
               {subscription?.cancel_at_period_end && <Badge variant="secondary">Annulation prévue</Badge>}
             </div>
