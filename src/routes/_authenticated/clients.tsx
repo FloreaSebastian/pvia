@@ -1,4 +1,4 @@
-import { LockedActionButton, useWriteAccess } from "@/components/billing/WriteAccessGate";
+import { LockedActionButton, useWriteAccess, useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Search, X, LayoutGrid, List, Mail, Phone, MapPin, Users, Building2, User, Archive, ArchiveRestore, Download, Sparkles, MoreVertical } from "lucide-react";
@@ -75,6 +75,7 @@ function ClientsPage() {
 
   const canWrite = can("manage");
   const { blocked: writeBlocked } = useWriteAccess();
+  const { deny, dialog: lockedDialog } = useBlockedActionGuard();
   const canAdmin = can("admin");
   const createFn = useServerFn(createClientFn);
   const updateFn = useServerFn(updateClientFn);
@@ -144,6 +145,7 @@ function ClientsPage() {
     setOpen(true);
   }
   function openEdit(c: Client) {
+    if (deny("modifier un client")) return;
     setEditing(c);
     setForm({
       client_type: (c.client_type ?? "particulier") as "particulier" | "entreprise",
@@ -179,6 +181,7 @@ function ClientsPage() {
     }
   }
   function askArchive(c: Client) {
+    if (deny("archiver un client")) return;
     setArchiveTarget(c);
     setArchiveReason("");
   }
@@ -198,6 +201,7 @@ function ClientsPage() {
     }
   }
   async function restore(c: Client) {
+    if (deny("restaurer un client")) return;
     if (!activeCompanyId || restoringId) return;
     setRestoringId(c.id);
     try {
@@ -753,6 +757,7 @@ function ClientsPage() {
           onImported={load}
         />
       )}
+      {lockedDialog}
     </div>
   );
 }

@@ -177,6 +177,8 @@ export const reopenChantier = createServerFn({ method: "POST" })
     if (!role || !(ADMIN_REOPEN_ROLES as readonly string[]).includes(role)) {
       throw new Error("Seul un directeur ou responsable d'exploitation peut réouvrir un chantier.");
     }
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
+
     const { data: prev } = await supabase
       .from("chantiers").select("status,company_id").eq("id", data.id).maybeSingle();
     if (!prev || prev.company_id !== data.companyId) throw new Error("Chantier introuvable.");

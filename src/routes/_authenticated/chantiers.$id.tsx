@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MapPin, Calendar as CalendarIcon, Plus, FileText, StickyNote, Paperclip, Clock, CheckCircle2, AlertCircle, Trash2, Building2, User, Phone, Mail, Upload, ExternalLink, Sparkles, Pencil, Info, Copy, Pin, PinOff, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -123,7 +124,9 @@ function ChantierDetailPage() {
   });
   const [editClients, setEditClients] = useState<{ id: string; name: string; company_name: string | null; client_type: string | null }[]>([]);
 
+  const { deny, dialog: lockedDialog } = useBlockedActionGuard();
   function openEditChantier() {
+    if (deny("modifier le chantier")) return;
     if (!d) return;
     const c = d.chantier as any;
     setEditForm({
@@ -184,6 +187,7 @@ function ChantierDetailPage() {
 
 
   async function handleReopen() {
+    if (deny("réouvrir le chantier")) return;
     if (!activeCompanyId) return;
     if (!confirm("Réouvrir ce chantier ? Il repassera en « En cours ».")) return;
     setReopenLoading(true);
@@ -197,6 +201,7 @@ function ChantierDetailPage() {
   }
 
   async function runAutoPlanning(replace = false) {
+    if (deny("générer le planning")) return;
     if (!activeCompanyId) return;
     if (!replace && !confirm("Créer un planning automatique (6 événements) ? Vous pourrez ensuite modifier chaque étape.")) return;
     setAutoPlanLoading(true);
@@ -247,8 +252,9 @@ function ChantierDetailPage() {
   const [evtEditing, setEvtEditing] = useState<string | null>(null);
   const emptyEvt = { title: "", description: "", event_type: "intervention", status: "prevu", start_at: "", end_at: "", all_day: false, location: "", color: "", assigned_to: "", reminder_at: "" };
   const [evtForm, setEvtForm] = useState(emptyEvt);
-  function openNewEvt() { setEvtEditing(null); setEvtForm(emptyEvt); setEvtOpen(true); }
+  function openNewEvt() { if (deny("créer un événement")) return; setEvtEditing(null); setEvtForm(emptyEvt); setEvtOpen(true); }
   function openEditEvt(e: Detail["events"][number]) {
+    if (deny("modifier un événement")) return;
     setEvtEditing(e.id);
     setEvtForm({
       title: e.title, description: e.description ?? "", event_type: e.event_type,
@@ -289,6 +295,7 @@ function ChantierDetailPage() {
     } finally { setSavingEvt(false); }
   }
   async function removeEvt(eid: string) {
+    if (deny("supprimer un événement")) return;
     if (!activeCompanyId || deletingEvtId) return;
     if (!confirm("Supprimer cet événement ?")) return;
     setDeletingEvtId(eid);
@@ -305,8 +312,9 @@ function ChantierDetailPage() {
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const emptyNote = { note: "", visibility: "internal" as "internal" | "client", priority: "normal" as "low" | "normal" | "high", reminder_at: "" };
   const [noteForm, setNoteForm] = useState(emptyNote);
-  function openNewNote() { setNoteEditing(null); setNoteForm(emptyNote); setNoteOpen(true); }
+  function openNewNote() { if (deny("créer une note")) return; setNoteEditing(null); setNoteForm(emptyNote); setNoteOpen(true); }
   function openEditNote(n: { id: string; note: string; visibility: string; priority: string; reminder_at: string | null }) {
+    if (deny("modifier une note")) return;
     setNoteEditing(n.id);
     setNoteForm({
       note: n.note,
@@ -340,6 +348,7 @@ function ChantierDetailPage() {
     finally { setSavingNote(false); }
   }
   async function removeNote(nid: string) {
+    if (deny("supprimer une note")) return;
     if (!activeCompanyId || deletingNoteId) return;
     if (!confirm("Supprimer cette note ?")) return;
     setDeletingNoteId(nid);
@@ -363,6 +372,7 @@ function ChantierDetailPage() {
   const [progressValue, setProgressValue] = useState<number>(0);
   const [savingProgress, setSavingProgress] = useState(false);
   async function saveProgress(value?: number) {
+    if (deny("modifier l\u2019avancement")) return;
     if (!activeCompanyId || savingProgress) return;
     setSavingProgress(true);
     try {
@@ -380,6 +390,7 @@ function ChantierDetailPage() {
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [docCategory, setDocCategory] = useState<typeof DOC_CATEGORIES[number]["value"]>("autre");
   async function handleFileUpload(file: File) {
+    if (deny("ajouter un document")) return;
     if (!activeCompanyId || uploading) return;
     setUploading(true);
     try {
@@ -399,6 +410,7 @@ function ChantierDetailPage() {
     } finally { setUploading(false); }
   }
   async function removeDoc(did: string) {
+    if (deny("supprimer un document")) return;
     if (!activeCompanyId || deletingDocId) return;
     if (!confirm("Supprimer ce document ?")) return;
     setDeletingDocId(did);
@@ -411,6 +423,7 @@ function ChantierDetailPage() {
   const [notesPrio, setNotesPrio] = useState<"all" | "low" | "normal" | "high">("all");
   const [notesVis, setNotesVis] = useState<"all" | "internal" | "client">("all");
   async function togglePin(nid: string, pinned: boolean) {
+    if (deny("épingler une note")) return;
     if (!activeCompanyId) return;
     try { await togglePinFn({ data: { companyId: activeCompanyId, id: nid, pinned: !pinned } }); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
@@ -420,6 +433,7 @@ function ChantierDetailPage() {
   const [timelineAllOpen, setTimelineAllOpen] = useState(false);
 
   async function renameDoc(did: string, current: string) {
+    if (deny("renommer un document")) return;
     if (!activeCompanyId) return;
     const next = window.prompt("Nouveau nom du document", current);
     if (!next || next.trim() === current.trim()) return;
@@ -429,11 +443,13 @@ function ChantierDetailPage() {
 
   // Event detail actions
   async function duplicateEvt(eid: string) {
+    if (deny("dupliquer un événement")) return;
     if (!activeCompanyId) return;
     try { await duplicateEvtFn({ data: { companyId: activeCompanyId, id: eid } }); toast.success("Événement dupliqué"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
   }
   async function completeEvt(eid: string) {
+    if (deny("terminer un événement")) return;
     if (!activeCompanyId) return;
     try { await completeEvtFn({ data: { companyId: activeCompanyId, id: eid } }); toast.success("Marqué terminé"); await reload(); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Échec"); }
@@ -1682,6 +1698,7 @@ function ChantierDetailPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+      {lockedDialog}
     </div>
 
   );

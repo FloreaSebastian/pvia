@@ -38,6 +38,8 @@ import {
   CONTACT_SALES_EMAIL,
   COMPARISON,
   accessStateLabel,
+  accessStateHelp,
+
   annualSavingEur,
   daysUntil,
   formatEur,
@@ -251,10 +253,7 @@ function BillingPage() {
           <AlertOctagon className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div className="min-w-0 flex-1">
             <div className="font-medium text-destructive">{accessStateLabel(access.state)}</div>
-            <p className="mt-0.5 text-muted-foreground">
-              Création PV, signatures distantes, exports et invitations sont bloqués tant que l'abonnement n'est pas
-              régularisé. La lecture des anciens documents reste possible.
-            </p>
+            <p className="mt-0.5 text-muted-foreground">{accessStateHelp(access.state)}</p>
             <Button asChild size="sm" className="mt-3 min-h-[44px]">
               <Link to="/upgrade-required" search={{ reason: access.state }}>
                 Voir les options
@@ -272,15 +271,23 @@ function BillingPage() {
             <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Votre abonnement</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="bg-brand-gradient bg-clip-text text-2xl font-semibold tracking-tight text-transparent sm:text-3xl">
-                {current?.display_name ?? "Essentiel"}
+                {access?.blocked
+                  ? "Aucune formule active"
+                  : isTrial
+                    ? `Essai ${current?.display_name ?? "PVIA"}`
+                    : (current?.display_name ?? "Formule")}
               </span>
-              <Badge variant={access?.state === "active" || isTrial ? "default" : "secondary"}>
-                {accessStateLabel(access?.state)}
+              <Badge variant={access?.state === "active" || isTrial ? "default" : "destructive"}>
+                {isTrial && trialDaysLeft != null
+                  ? `Essai gratuit — ${trialDaysLeft} jour${trialDaysLeft > 1 ? "s" : ""} restant${trialDaysLeft > 1 ? "s" : ""}`
+                  : accessStateLabel(access?.state)}
               </Badge>
-              {subscription?.cancel_at_period_end && <Badge variant="destructive">Annulation prévue</Badge>}
+              {subscription?.cancel_at_period_end && <Badge variant="secondary">Annulation prévue</Badge>}
             </div>
 
-            {current?.is_custom_pricing ? (
+            {access?.blocked ? (
+              <div className="mt-1 text-sm text-muted-foreground">{accessStateHelp(access.state)}</div>
+            ) : current?.is_custom_pricing ? (
               <div className="mt-1 text-sm text-muted-foreground">Tarification sur devis</div>
             ) : subscription && priceNow != null ? (
               <div className="mt-1 text-sm text-muted-foreground">
@@ -295,9 +302,10 @@ function BillingPage() {
               </div>
             ) : (
               <div className="mt-1 text-sm text-muted-foreground">
-                Aucun abonnement payant en cours · choisissez une formule ci-dessous
+                Choisissez une formule ci-dessous pour activer votre abonnement.
               </div>
             )}
+
 
             {isTrial && (
               <div className="mt-3 rounded-lg border border-success/30 bg-success/5 p-3 text-sm">
