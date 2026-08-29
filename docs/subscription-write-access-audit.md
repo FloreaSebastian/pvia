@@ -171,3 +171,56 @@ Transaction annulée : aucune donnée de test résiduelle.
       (`WriteAccessGate` / `useBlockedActionGuard`) ?
 - [ ] Lecture/export non impactés ?
 - [ ] Testé en `active`, `trialing`, `expired`, `past_due` ?
+
+## 10. Écritures directes navigateur (audit exhaustif)
+
+Recherche exhaustive dans `src/**/*.tsx` des `.from(...).insert/update/upsert/
+delete()` et `storage.from(...).upload/remove()` : **26 occurrences**, réparties
+comme suit (la RLS reste l'autorité finale ; le pré-check UI évite l'erreur
+technique).
+
+| Fichier | Écritures | Pré-check UI |
+| --- | --- | --- |
+| `equipe.tsx` | 8 (membres/invitations) | `deny()` sur annulation d'invitation, changement de rôle, suspension, retrait ; création via UI verrouillée |
+| `pv.$id.tsx` | 3 (suppression PV + dépendants) | `deny("supprimer le PV")` |
+| `pv.index.tsx` | 1 (suppression PV) | `deny("supprimer un PV")` |
+| `pv.new.tsx` | 2 (rattachement documents brouillon) | route entièrement gardée (accès refusé si lecture seule) |
+| `chantiers.$id.tsx` | 1 (upload document Storage) | `deny("ajouter un document")` |
+| `chantiers.calendrier.tsx` | 2 (préférence de couleur d'affichage) | **exception assumée** : paramètre d'affichage, non métier. Toutes les mutations d'événements (création, édition, statut, duplication, suppression, drag/resize) sont gardées |
+| `ChantierPhotosTab.tsx` | 1 (upload Storage) | `requireWrite` avant ouverture du formulaire, avant envoi et avant suppression |
+| `parametres.index.tsx` | 3 (profil, `company_settings`) | **exception assumée** : compte/paramètres (section 3) |
+| `NotificationsBell.tsx` | 3 (marquage lu) | **exception assumée** : télémétrie/UX de lecture |
+| `UserPreferencesProvider.tsx` | 2 (`user_preferences`) | **exception assumée** : préférences utilisateur |
+
+Composants avec upload Storage gardés par `requireWrite` avant tout envoi :
+`VisitPhotoSlotCard` (photo, motif d'impossibilité, annulation, suppression),
+`VisitConstraintsPanel` (création/suppression de contrainte),
+`ChantierPhotosTab`.
+
+### Limite connue — détection des erreurs RLS
+
+PostgREST renvoie un message générique (`new row violates row-level security
+policy for table ...`) qui **ne nomme pas** `company_has_write_access`. On ne
+peut donc pas déduire de façon fiable « abonnement expiré » d'une erreur RLS :
+l'UX vient du pré-check (`useBillingGate.requireWrite`,
+`useBlockedActionGuard`) et des server functions
+(`SUBSCRIPTION_REQUIRED:<state>`). Une erreur RLS générique reste affichée
+comme une erreur technique neutre — pas de fausse attribution à l'abonnement.
+
+### Mode terrain (visite technique)
+
+Aucune file d'attente hors-ligne persistante. Si un enregistrement échoue pour
+raison d'abonnement, les saisies sont restaurées **en mémoire** et le message
+distingue deux cas : entrée déjà en lecture seule (aucune saisie perdue) vs.
+échec après saisie (modifications non enregistrées, perdues en quittant).
+
+### `/billing` — état `incomplete`
+
+Le bouton « Régulariser mon abonnement » n'est rendu que si un
+`stripe_customer_id` existe. Sans client Stripe exploitable, l'utilisateur voit
+les formules et « Voir les options » (checkout) : aucun bouton mort.
+
+### Tests non effectués
+
+Runtime authentifié, transitions Stripe réelles (portail, réactivation) et
+rejeu hors-ligne restent non testés dans cet environnement.
