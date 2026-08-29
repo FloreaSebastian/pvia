@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/app/AppLayout";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { CompanyProvider } from "@/hooks/use-company";
 import { getOnboardingStatus } from "@/lib/onboarding.functions";
+import { BillingGateProvider } from "@/components/billing/BillingGate";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
