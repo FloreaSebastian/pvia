@@ -57,7 +57,8 @@ export const updatePvEmailSettings = createServerFn({ method: "POST" })
     if (!isAdminRole((member as any).role)) {
       throw new Error("Seuls les administrateurs peuvent modifier les destinataires des PV.");
     }
-    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, context.userId);
+    // Exception assumée : paramètre de compte non consommateur (préparation/réactivation),
+    // autorisé même en lecture seule métier. La production de documents reste bloquée.
     const patch: Record<string, unknown> = {};
     if (data.pv_email_recipients !== undefined) patch.pv_email_recipients = data.pv_email_recipients;
     if (data.pv_email_cc !== undefined) patch.pv_email_cc = data.pv_email_cc;

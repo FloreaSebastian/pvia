@@ -65,7 +65,8 @@ export const savePvNumberingSettings = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const userId = context.userId;
     await requireAdmin(data.companyId, userId);
-    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
+    // Exception assumée : paramètre de compte non consommateur (préparation/réactivation),
+    // autorisé même en lecture seule métier. La production de documents reste bloquée.
 
     const update: Record<string, unknown> = {
       company_id: data.companyId,
