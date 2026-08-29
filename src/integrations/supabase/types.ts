@@ -863,6 +863,7 @@ export type Database = {
           suspended_at: string | null
           suspended_by: string | null
           suspension_reason: string | null
+          trial_ends_at: string | null
           updated_at: string
           vat_number: string | null
           website: string | null
@@ -892,6 +893,7 @@ export type Database = {
           suspended_at?: string | null
           suspended_by?: string | null
           suspension_reason?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
           vat_number?: string | null
           website?: string | null
@@ -921,6 +923,7 @@ export type Database = {
           suspended_at?: string | null
           suspended_by?: string | null
           suspension_reason?: string | null
+          trial_ends_at?: string | null
           updated_at?: string
           vat_number?: string | null
           website?: string | null
@@ -3002,6 +3005,10 @@ export type Database = {
       cleanup_analytics_events: { Args: never; Returns: undefined }
       cleanup_client_auth: { Args: never; Returns: undefined }
       cleanup_rate_limits: { Args: never; Returns: number }
+      company_has_write_access: {
+        Args: { _company_id: string }
+        Returns: boolean
+      }
       consume_signature_otp: {
         Args: { p_code_hash: string; p_otp_id: string }
         Returns: Json
