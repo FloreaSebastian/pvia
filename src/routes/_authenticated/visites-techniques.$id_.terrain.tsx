@@ -150,7 +150,7 @@ function TerrainPage() {
     } finally {
       setSaving(false);
     }
-  }, [activeCompanyId, id, saveFn]);
+  }, [activeCompanyId, id, saveFn, reportError]);
 
   useEffect(() => {
     return () => {
