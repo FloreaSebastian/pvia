@@ -1,6 +1,6 @@
 /* PVIA service worker — handwritten, no workbox.
  * Strategy:
- *  - HTML navigations: NetworkFirst with offline fallback to /offline.html
+ *  - HTML navigations: network only (jamais de HTML en cache), fallback /offline.html
  *  - Same-origin static assets (js/css/images/fonts): StaleWhileRevalidate
  *  - Cross-origin: passthrough (no caching)
  *  - Push: shows native notification, opens app on click
