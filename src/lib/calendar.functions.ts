@@ -53,6 +53,7 @@ export const createCalendarToken = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(data.companyId, context.userId);
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, context.userId);
     const token = "cal_" + crypto.randomBytes(20).toString("base64url");
     const { data: row, error } = await supabaseAdmin
       .from("integration_calendar_tokens")
