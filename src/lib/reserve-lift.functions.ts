@@ -741,7 +741,7 @@ export const resendValidatedReserveLiftEmail = createServerFn({ method: "POST" }
       throw new Error("Accès refusé.");
     }
 
-    await (await import("./plan-guard.server")).assertCompanyWriteAccess((photo as any).company_id as string, userId);
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(report.company_id as string, userId);
 
     // Ensure PDF exists (regenerate if missing). New lifts populate
     // `pdf_client_url`; `pdf_url` only exists on legacy rows. Need either.
