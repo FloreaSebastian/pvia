@@ -148,6 +148,14 @@ export async function assertSubscriptionUsable(companyId: string, userId?: strin
   return access;
 }
 
+/**
+ * Garde d'écriture centrale : à appeler AVANT toute mutation métier
+ * (création ou modification de contenu). Lecture toujours autorisée.
+ * Ordre canonique : assertCompanyWriteAccess → assertPlanFeature → quota.
+ */
+export const assertCompanyWriteAccess = assertSubscriptionUsable;
+
+
 
 export async function assertCanCreatePv(companyId: string, userId?: string) {
   await assertSubscriptionUsable(companyId, userId);
