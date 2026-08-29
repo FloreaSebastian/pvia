@@ -65,6 +65,7 @@ export const savePvNumberingSettings = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const userId = context.userId;
     await requireAdmin(data.companyId, userId);
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(data.companyId, userId);
 
     const update: Record<string, unknown> = {
       company_id: data.companyId,
