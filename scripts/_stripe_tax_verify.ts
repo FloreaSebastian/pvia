@@ -2,7 +2,7 @@ import { createStripeClient } from "../src/lib/stripe.server";
 const s = createStripeClient("sandbox");
 const regs: any = await (s as any).tax.registrations.list({ limit: 20 });
 if (!regs.data.some((r: any) => r.country === "FR" && r.status === "active")) {
-  const r = await (s as any).tax.registrations.create({ country: "FR", country_options: { fr: { type: "standard" } }, active_from: "now" });
+  const r = await (s as any).tax.registrations.create({ country: "FR", country_options: { fr: { type: "standard", standard: { place_of_supply_scheme: "standard" } } }, active_from: "now" });
   console.log("created FR registration (sandbox)", r.id, r.status);
 }
 const cust = await s.customers.create({ email: "tva-test@example.com", address: { country: "FR", line1: "1 rue de Test", city: "Paris", postal_code: "75001" }, name: "Test TVA" });
