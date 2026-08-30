@@ -17,7 +17,7 @@ export function PricingPreview() {
           </h2>
           <p className="mt-3 text-pretty text-muted-foreground">
             {TRIAL_DAYS} jours d'essai gratuits, sans engagement. Facturation annuelle : deux mois
-            offerts.
+            offerts. Prix HT, TVA {VAT_RATE_LABEL} en sus.
           </p>
         </div>
 
