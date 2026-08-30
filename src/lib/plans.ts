@@ -149,14 +149,23 @@ export function formatEur(amount: number): string {
 
 /* ------------------------------------------------------------------ *
  * TVA — tous les tarifs PVIA sont exprimés HORS TAXES (B2B).           *
- * Le taux légal français en vigueur est appliqué en supplément et      *
- * calculé/affiché par Stripe Tax au paiement et sur les factures.      *
- * Ces helpers ne servent qu'à l'affichage indicatif dans l'UI.         *
+ *                                                                      *
+ * ATTENTION : les helpers ci-dessous produisent un TTC **indicatif      *
+ * pour une facturation en France au taux normal actuel (20 %)**.       *
+ * Ce n'est PAS le montant fiscal définitif : Stripe Tax calcule la      *
+ * taxe réelle au paiement selon l'adresse de facturation et le statut  *
+ * TVA du client (autoliquidation possible dans l'UE avec un numéro     *
+ * intracommunautaire valide). Toute UI utilisant ces helpers doit le   *
+ * dire explicitement.                                                  *
  * ------------------------------------------------------------------ */
 
-/** Taux de TVA standard français en vigueur (indicatif UI). */
+/** Taux normal français en vigueur — usage UI indicatif uniquement. */
 export const VAT_RATE = 0.2;
 export const VAT_RATE_LABEL = "20 %";
+
+/** Mention standard à afficher à côté de tout TTC calculé côté UI. */
+export const VAT_DISCLAIMER =
+  "TTC indicatif pour une facturation en France au taux actuel de 20 % ; le montant fiscal définitif est calculé par Stripe selon l'adresse et le statut TVA du client.";
 
 const eurPrecise = new Intl.NumberFormat("fr-FR", {
   style: "currency",
