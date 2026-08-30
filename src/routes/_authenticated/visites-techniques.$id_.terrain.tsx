@@ -253,6 +253,16 @@ function TerrainPage() {
             ) : null}
           </div>
         </div>
+        {!online && pendingCount > 0 && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300"
+          >
+            {pendingCount} réponse{pendingCount > 1 ? "s" : ""} en attente d'enregistrement. Elles seront envoyées
+            automatiquement au retour du réseau : ne fermez pas cette page tant que la connexion n'est pas rétablie.
+          </div>
+        )}
         {(syncSuspended || billingBlocked) && (
           <div
             role="status"
