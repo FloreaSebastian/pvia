@@ -98,6 +98,11 @@ export function Pricing({ as = "h2" }: { as?: "h1" | "h2" } = {}) {
                     </>
                   )}
                 </div>
+                {amount != null && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    soit {formatEurCents(vatBreakdown(amount).ttc)} TTC (TVA {VAT_RATE_LABEL})
+                  </p>
+                )}
                 {interval === "annual" && saving != null && (
                   <p className="mt-1 text-xs font-medium text-primary">
                     Soit {saving}% d'économie par rapport au mensuel
