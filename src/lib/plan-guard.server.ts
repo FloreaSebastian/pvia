@@ -53,9 +53,10 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
       .maybeSingle(),
     supabaseAdmin
       .from("companies")
-      .select("created_at,trial_ends_at")
+      .select("created_at,trial_ends_at,trial_started_at")
       .eq("id", companyId)
       .maybeSingle(),
+
   ]);
 
   if (!sub) {
