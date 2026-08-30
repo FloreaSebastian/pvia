@@ -33,12 +33,56 @@ lancement (P0-1 ci-dessous).
   l'activation », faux depuis que `companies.trial_started_at` a un
   `DEFAULT now()` (l'essai démarre à la **création de l'entreprise**).
 - Corrigé : `src/routes/_authenticated/billing.tsx` affiche désormais, via
-  `trialNoticeFor(isTrial, trialDaysLeft)` :
-  - essai en cours → jours restants + « démarré à la création de votre
-    entreprise, choisir ou changer de formule ne le prolonge pas » ;
-  - sinon → « activation payante immédiate, sans nouvelle période d'essai ».
-- La variable `trialEligible` (structurellement `false`) n'est plus utilisée
-  pour piloter la copie.
+  `trialNoticeFor(isTrial, trialDaysLeft)`, une copie alignée sur la règle
+  unique décrite ci-dessous.
+
+### P1-2 — Choisir une formule pendant l'essai facturait immédiatement
+- **Défaut certain** : `createCheckoutSession` calculait
+  `trialDays = isTrialEligible() ? 14 : undefined`. Comme `trial_started_at` a
+  un `DEFAULT now()`, `isTrialEligible()` est **toujours false** : un client en
+  J1 qui choisissait Starter était **prélevé immédiatement**, en contradiction
+  avec la promesse « 14 jours gratuits ».
+- **Règle unique retenue (code + UI + Stripe)** : l'essai est **interne**, court
+  de la création de l'entreprise à `companies.trial_ends_at`, et n'est jamais
+  ni prolongé ni réattribué. Un Checkout pendant l'essai n'ajoute **aucun**
+  `trial_period_days` mais **aligne** l'abonnement Stripe sur la date de fin
+  d'essai existante via `subscription_data.trial_end` — première facture à
+  `trial_ends_at`, jamais avant.
+- **Exception technique documentée** : Stripe exige un `trial_end` à plus de
+  48 h. Dans les 48 dernières heures de l'essai, l'abonnement démarre payant
+  immédiatement ; l'écran `/billing` l'annonce explicitement à J-2.
+- Après consommation/expiration de l'essai : activation = paiement immédiat,
+  sans nouvelle période d'essai (inchangé).
+
+### P1-3 — Fonctions internes exécutables par des visiteurs non connectés
+- Le linter Supabase signalait **56** fonctions `SECURITY DEFINER` du schéma
+  `public` exécutables par le rôle `anon`.
+- Aucune de ces fonctions n'est appelée depuis le navigateur (aucun `.rpc(`
+  dans `src/components`, `src/hooks`, `src/routes`) : tous les appels passent
+  par des server functions authentifiées ou par le rôle serveur.
+- Migration appliquée : `REVOKE ALL ... FROM PUBLIC, anon` sur toutes les
+  fonctions de `public`, puis `GRANT EXECUTE` explicite à `authenticated` et
+  `service_role` (les fonctions de trigger n'obtiennent aucun grant : les
+  privilèges des triggers sont contrôlés à leur création, pas à leur
+  déclenchement).
+- Seconde migration : les fonctions strictement serveur
+  (`consume_signature_otp`, `resolve_client_identity`, `enqueue_webhook_event`,
+  `increment_rate_limit`, `cleanup_*`, `_chantier_audit`,
+  `generate_chantier_reference`, `generate_next_reserve_lift_number`,
+  `company_trial_consumed`, `has_active_subscription`) sont désormais réservées
+  à `service_role`.
+- Résultat linter : **119 → 54** avertissements.
+
+### P1-4 — Perte possible de saisie en mode terrain hors connexion
+- **Défaut certain** : en cas d'échec réseau, `flush()` remettait les réponses
+  dans la mémoire de l'écran, sans reprise automatique au retour du réseau ni
+  avertissement avant fermeture de la page — perte silencieuse possible.
+- Corrigé dans `src/routes/_authenticated/visites-techniques.$id_.terrain.tsx` :
+  compteur de réponses en attente, ré-envoi automatique dès le retour en ligne,
+  bandeau « X réponses en attente… ne fermez pas cette page » et garde
+  `beforeunload` (`useUnsavedGuard`).
+- Il n'y a toujours **aucune outbox persistante** : le comportement est
+  désormais explicite pour l'utilisateur plutôt que silencieux.
 
 ## Invariant vérifié : 1 entreprise = 1 seul essai de 14 jours à vie
 
@@ -46,10 +90,13 @@ lancement (P0-1 ci-dessous).
   **0 ligne NULL** sur 2 entreprises.
 - Trigger `companies_lock_trial_started_at` présent sur `public.companies`
   (vérifié via `pg_trigger`) : la preuve ne peut être remise à NULL ni modifiée.
-- `isTrialEligible()` (`src/lib/plan-guard.server.ts`) → fail-closed, exige
-  `trial_started_at IS NULL` : le checkout Stripe n'ajoute
-  `trial_period_days: 14` que dans ce cas, donc jamais pour une entreprise
-  existante.
+- `isTrialEligible()` (`src/lib/plan-guard.server.ts`) → fail-closed ; le
+  checkout n'accorde donc **jamais** de `trial_period_days`.
+- Parité SQL vérifiée sur la définition réelle de
+  `public.company_has_write_access` : sans abonnement Stripe, l'écriture est
+  autorisée tant que `companies.trial_ends_at > now()` (donc J1→J14 pour une
+  entreprise créée aujourd'hui), et refusée ensuite ; `trialing` exige à la fois
+  `subscriptions.trial_end` et `companies.trial_ends_at` dans le futur.
 - Webhook Stripe (`src/routes/api/public/payments/webhook.ts`) : un `trialing`
   reçu pour une entreprise ayant déjà consommé son essai est journalisé
   (`billing.trial_reuse_blocked`) et **ne prolonge jamais**
