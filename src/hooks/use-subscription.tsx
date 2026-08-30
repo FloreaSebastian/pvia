@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useCompany } from "./use-company";
 import { getCompanyBilling } from "@/lib/billing.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ export function useSubscription() {
   // montés simultanément. Supabase réutilise un canal de même topic : le second
   // appel à `.on()` arriverait alors après le `.subscribe()` du premier.
   const realtimeInstanceId = useId().replace(/:/g, "");
+  const realtimeEffectSequence = useRef(0);
 
   const query = useQuery({
     queryKey: ["billing", activeCompanyId],
@@ -23,8 +24,12 @@ export function useSubscription() {
 
   useEffect(() => {
     if (!activeCompanyId) return;
+    // Le suffixe par exécution couvre aussi le double montage d'effet de React
+    // en développement : removeChannel est asynchrone et l'ancien canal peut
+    // encore être enregistré lorsque l'effet suivant démarre.
+    realtimeEffectSequence.current += 1;
     const ch = supabase
-      .channel(`billing-${activeCompanyId}-${realtimeInstanceId}`)
+      .channel(`billing-${activeCompanyId}-${realtimeInstanceId}-${realtimeEffectSequence.current}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "subscriptions", filter: `company_id=eq.${activeCompanyId}` },
