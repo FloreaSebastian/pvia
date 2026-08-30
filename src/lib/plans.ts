@@ -147,6 +147,36 @@ export function formatEur(amount: number): string {
   return eur.format(amount);
 }
 
+/* ------------------------------------------------------------------ *
+ * TVA — tous les tarifs PVIA sont exprimés HORS TAXES (B2B).           *
+ * Le taux légal français en vigueur est appliqué en supplément et      *
+ * calculé/affiché par Stripe Tax au paiement et sur les factures.      *
+ * Ces helpers ne servent qu'à l'affichage indicatif dans l'UI.         *
+ * ------------------------------------------------------------------ */
+
+/** Taux de TVA standard français en vigueur (indicatif UI). */
+export const VAT_RATE = 0.2;
+export const VAT_RATE_LABEL = "20 %";
+
+const eurPrecise = new Intl.NumberFormat("fr-FR", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Formatte un montant en euros avec centimes (ex. « 22,80 € »). */
+export function formatEurCents(amount: number): string {
+  return eurPrecise.format(amount);
+}
+
+/** Décomposition HT / TVA / TTC, arrondie au centime. */
+export function vatBreakdown(ht: number): { ht: number; vat: number; ttc: number } {
+  const vat = Math.round(ht * VAT_RATE * 100) / 100;
+  const ttc = Math.round((ht + vat) * 100) / 100;
+  return { ht, vat, ttc };
+}
+
 /** Économie annuelle en % par rapport à 12 mensualités. */
 export function annualSavingPercent(monthly: number | null, annual: number | null): number | null {
   if (!monthly || !annual) return null;
