@@ -5,26 +5,26 @@ utilisateur réelle modifiée, aucun paiement live déclenché.
 
 ## Verdict
 
-**GO SOUS RÉSERVE** — le code est prêt, mais la version actuellement **publiée
-sur https://pvia.fr est périmée** et contient encore le crash Realtime corrigé
-depuis. La publication d'un build à jour est une action obligatoire avant
-lancement (P0-1 ci-dessous).
+**CODE PRÊT — VALIDATION J0 EXTERNE REQUISE.** Aucun P0/P1 code ouvert.
+Le crash Realtime `/dashboard` (Galaxy Z Fold) fait l'objet d'une
+**validation appareil réel par le propriétaire** : il ne s'agit pas d'un test
+automatisé. Les points restants sont des validations externes (publication,
+Stripe live, DNS/emails, tests manuels), listés en fin de document.
 
-## P0 — bloquants
+## P0 — état
 
-### P0-1 — Production publie encore un bundle contenant le crash Realtime
-- **Preuve** : `public.app_errors`, 30 occurrences le 2026-08-30 entre 06:00 et
-  06:26 UTC, route `/dashboard`, message
-  `cannot add \`postgres_changes\` callbacks for realtime:billing-<companyId> after \`subscribe()\``,
-  stack pointant vers `https://pvia.fr/assets/index-m2R6A5oa.js`.
-- **Analyse** : le topic du canal est `billing-<companyId>` **sans suffixe**.
-  Le code source actuel (`src/hooks/use-subscription.tsx`) génère
-  `billing-<companyId>-<useId>-<seq>`, unique par instance et par exécution
-  d'effet. Les erreurs proviennent donc du bundle publié, pas du code courant.
-- **Action obligatoire** : publier le build courant, puis re-tester
-  `/dashboard` sur le Galaxy Z Fold (plié/déplié) et vérifier qu'aucune
-  nouvelle ligne `app_errors` avec ce message n'apparaît.
+### P0-1 — Crash Realtime `/dashboard` (canal `billing-<companyId>`) — RÉSOLU
+- **Cause** : `use-subscription.tsx` réutilisait un topic Supabase Realtime
+  identique entre plusieurs consommateurs → `cannot add postgres_changes
+  callbacks ... after subscribe()`.
+- **Correctif** : topic unique par instance et par exécution d'effet
+  (`billing-<companyId>-<useId>-<seq>`), `refetch` stable, suppression protégée.
+- **Statut** : **validation appareil réel par le propriétaire** (Galaxy Z
+  Fold 8). Aucun test automatisé n'a reproduit l'appareil.
+- **Reste** : publier le build correctif pour que https://pvia.fr cesse de
+  servir l'ancien bundle.
 - **Rollback** : republier la version précédente depuis l'historique Lovable.
+
 
 ## Règle « 14 jours gratuits complets » — implémentation définitive
 
