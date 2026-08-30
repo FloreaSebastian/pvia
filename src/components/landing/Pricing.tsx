@@ -33,8 +33,10 @@ export function Pricing({ as = "h2" }: { as?: "h1" | "h2" } = {}) {
             {TRIAL_DAYS} jours d'essai gratuit, sans carte bancaire. Résiliable à tout moment.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Tarifs professionnels indiqués hors taxes (HT). TVA {VAT_RATE_LABEL} en sus pour la France, calculée et
-            détaillée au paiement et sur la facture. Offre Entreprise : tarif sur devis, également HT.
+            Tarifs professionnels indiqués hors taxes (HT). Les montants TTC affichés sont indicatifs pour une
+            facturation en France au taux actuel de {VAT_RATE_LABEL} ; le montant fiscal définitif est calculé par
+            Stripe au paiement selon l'adresse et le statut TVA du client (autoliquidation possible dans l'UE avec un
+            numéro de TVA valide). Offre Entreprise : tarif sur devis, également HT.
           </p>
 
           <div
