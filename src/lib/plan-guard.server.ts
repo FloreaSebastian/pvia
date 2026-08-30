@@ -261,3 +261,20 @@ export async function getCompanyPlan(companyId: string): Promise<string> {
   const { data } = await supabaseAdmin.rpc("get_company_plan", { _company_id: companyId });
   return (data as string) || "starter";
 }
+
+/**
+ * Invariant commercial : UNE entreprise = UN SEUL essai de 14 jours à vie.
+ * La preuve est `companies.trial_started_at`, persistante et verrouillée en
+ * base (trigger `companies_lock_trial_started_at`) : elle ne peut jamais
+ * revenir à NULL, quel que soit le plan Stripe courant. Fail-closed :
+ * entreprise introuvable ⇒ essai considéré consommé.
+ */
+export async function isTrialEligible(companyId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("companies")
+    .select("trial_started_at")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (error || !data) return false;
+  return (data as any).trial_started_at == null;
+}
