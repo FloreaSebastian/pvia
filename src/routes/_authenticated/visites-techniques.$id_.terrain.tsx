@@ -25,6 +25,7 @@ import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "
 import { VisitConstraintsPanel, type VisitConstraintRow } from "@/components/visites/VisitConstraintsPanel";
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { classifyBillingError } from "@/lib/billing-errors";
+import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
 
 export const Route = createFileRoute("/_authenticated/visites-techniques/$id_/terrain")({
   head: () => ({
