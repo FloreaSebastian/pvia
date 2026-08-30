@@ -605,7 +605,7 @@ function BillingPage() {
                   </div>
                   {!custom && amount != null && (
                     <div className="mt-1 text-xs text-muted-foreground">
-                      soit {formatEurCents(vatBreakdown(amount).ttc)} TTC
+                      soit {formatEurCents(vatBreakdown(amount).ttc)} TTC indicatif France
                       {billingInterval === "annual" ? " / an" : " / mois"} (TVA {VAT_RATE_LABEL} :{" "}
                       {formatEurCents(vatBreakdown(amount).vat)})
                     </div>
