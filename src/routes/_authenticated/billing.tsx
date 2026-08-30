@@ -157,7 +157,7 @@ function Cell({ value }: { value: boolean | string }) {
 
 function BillingPage() {
   const { activeCompanyId, activeRole } = useCompany();
-  const { plan, limits, usage, subscription, allPlans, access, trialEligible, isLoading, refetch } = useSubscription();
+  const { plan, limits, usage, subscription, allPlans, access, isLoading, refetch } = useSubscription();
 
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
