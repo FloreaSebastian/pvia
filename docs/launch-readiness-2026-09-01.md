@@ -5,26 +5,26 @@ utilisateur réelle modifiée, aucun paiement live déclenché.
 
 ## Verdict
 
-**GO SOUS RÉSERVE** — le code est prêt, mais la version actuellement **publiée
-sur https://pvia.fr est périmée** et contient encore le crash Realtime corrigé
-depuis. La publication d'un build à jour est une action obligatoire avant
-lancement (P0-1 ci-dessous).
+**CODE PRÊT — VALIDATION J0 EXTERNE REQUISE.** Aucun P0/P1 code ouvert.
+Le crash Realtime `/dashboard` (Galaxy Z Fold) fait l'objet d'une
+**validation appareil réel par le propriétaire** : il ne s'agit pas d'un test
+automatisé. Les points restants sont des validations externes (publication,
+Stripe live, DNS/emails, tests manuels), listés en fin de document.
 
-## P0 — bloquants
+## P0 — état
 
-### P0-1 — Production publie encore un bundle contenant le crash Realtime
-- **Preuve** : `public.app_errors`, 30 occurrences le 2026-08-30 entre 06:00 et
-  06:26 UTC, route `/dashboard`, message
-  `cannot add \`postgres_changes\` callbacks for realtime:billing-<companyId> after \`subscribe()\``,
-  stack pointant vers `https://pvia.fr/assets/index-m2R6A5oa.js`.
-- **Analyse** : le topic du canal est `billing-<companyId>` **sans suffixe**.
-  Le code source actuel (`src/hooks/use-subscription.tsx`) génère
-  `billing-<companyId>-<useId>-<seq>`, unique par instance et par exécution
-  d'effet. Les erreurs proviennent donc du bundle publié, pas du code courant.
-- **Action obligatoire** : publier le build courant, puis re-tester
-  `/dashboard` sur le Galaxy Z Fold (plié/déplié) et vérifier qu'aucune
-  nouvelle ligne `app_errors` avec ce message n'apparaît.
+### P0-1 — Crash Realtime `/dashboard` (canal `billing-<companyId>`) — RÉSOLU
+- **Cause** : `use-subscription.tsx` réutilisait un topic Supabase Realtime
+  identique entre plusieurs consommateurs → `cannot add postgres_changes
+  callbacks ... after subscribe()`.
+- **Correctif** : topic unique par instance et par exécution d'effet
+  (`billing-<companyId>-<useId>-<seq>`), `refetch` stable, suppression protégée.
+- **Statut** : **validation appareil réel par le propriétaire** (Galaxy Z
+  Fold 8). Aucun test automatisé n'a reproduit l'appareil.
+- **Reste** : publier le build correctif pour que https://pvia.fr cesse de
+  servir l'ancien bundle.
 - **Rollback** : republier la version précédente depuis l'historique Lovable.
+
 
 ## Règle « 14 jours gratuits complets » — implémentation définitive
 
@@ -252,3 +252,54 @@ chantiers, billing, réserves, visites techniques, équipe.
   `DROP TRIGGER companies_lock_trial_started_at ON public.companies;` puis
   `ALTER TABLE public.companies DROP COLUMN trial_started_at;` — à n'exécuter
   qu'en cas d'incident avéré, cela supprimerait la preuve d'essai.
+
+## Audit UX onboarding / premier succès (passage final)
+
+Parcours vérifié statiquement : landing → `/tarifs` → `/signup` →
+`/_authenticated/onboarding` → `/dashboard`.
+
+- **Corrigé** : l'onboarding ne mentionnait nulle part l'essai. Ajout de deux
+  phrases dans `src/routes/_authenticated/onboarding.tsx` — étape 1 (« l'essai
+  de 14 jours démarre à la création de votre entreprise, sans carte bancaire »)
+  et étape finale (essai en cours, premier chantier → premier PV, choix d'une
+  formule dans « Facturation » à la fin, données toujours consultables).
+- **Compte à rebours** : `SubscriptionBanner` (monté une seule fois dans
+  `AppLayout`) affiche « Essai gratuit — X jours restants » + date de fin +
+  CTA non bloquant « Voir les formules » ; passage en style urgent à ≤ 3 jours.
+- **Scénario « inscrit sans formule Stripe »** : `getAccessState()` renvoie
+  `trialing` / `blocked:false` tant que `companies.trial_ends_at > now()`.
+  Aucun écran utilisateur n'affiche « Aucun abonnement actif » — cette phrase
+  n'existe que dans l'espace admin plateforme (`admin-support.functions.ts`,
+  `admin.companies.$id.tsx`), invisible pour le client.
+- **Après expiration** : bannière rouge + popup `BillingGate` avec copie FR et
+  CTA `/billing` ; lectures conservées ; les écrans dont l'objet unique est la
+  création (`/pv/new`, visites techniques) passent par `RestrictedRoute`.
+- **États vides** : présents et actionnables sur dashboard (PV, chantiers),
+  `/clients`, `/chantiers`, `/pv`, `/reserves`, `/visites-techniques`.
+- **Emails** : liens construits sur `PUBLIC_APP_URL` avec repli
+  `https://pvia.fr`, expéditeur `RESEND_FROM_EMAIL` avec repli
+  `noreply@pvia.fr` — aucune mention preview/lovable.
+
+## Checklist J0 (à exécuter par le propriétaire)
+
+Prouvé par le code (aucune action) :
+- Garde d'écriture fail-closed, essai unique par entreprise, quotas de sièges
+  et de PV, RLS active sur toutes les tables `public`.
+- Service worker : HTML network-only, caches versionnés, purge des anciens
+  caches, `clients.claim()` — une publication n'est pas bloquée par l'ancien JS.
+- 404/500/offline en français, identifiant de diagnostic, aucun message
+  Stripe/Supabase brut côté utilisateur.
+
+Action humaine externe requise :
+1. Publier le build correctif, puis vider/recharger sur un appareil Android
+   installé en PWA et vérifier `/dashboard`.
+2. DNS et domaine de production actifs (`pvia.fr`, `www.pvia.fr`).
+3. Variables d'environnement de production présentes (voir section dédiée).
+4. Stripe **LIVE** : clé + endpoint webhook configuré et testé (événement de
+   test reçu, ligne `subscriptions` créée).
+5. Resend : domaine expéditeur vérifié, envoi réel de test.
+6. Cron essai (J-3 / J-1) et drains emails/webhooks planifiés avec `CRON_SECRET`.
+7. Test d'inscription réelle de bout en bout (compte + entreprise + dashboard).
+8. Test de paiement réel minimal, pendant l'essai puis après essai.
+9. Test de signature client réelle + réception du PDF par email.
+10. Sauvegarde/rollback : point de restauration noté avant publication.

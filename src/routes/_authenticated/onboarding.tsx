@@ -293,6 +293,10 @@ function OnboardingPage() {
             <p className="text-sm text-muted-foreground">
               Quelques informations pour configurer votre espace et vos PV. Cela prend moins de 2 minutes.
             </p>
+            <p className="text-sm text-muted-foreground">
+              Votre essai gratuit de 14 jours démarre à la création de votre entreprise : toutes les fonctions
+              prévues sont disponibles immédiatement, sans carte bancaire.
+            </p>
             <Button className="mt-4" onClick={() => setStep(2)}>
               Commencer <ArrowRight className="h-4 w-4" />
             </Button>
@@ -493,6 +497,11 @@ function OnboardingPage() {
             <h2 className="font-display text-2xl font-bold">Tout est prêt</h2>
             <p className="text-sm text-muted-foreground">
               Votre espace PVIA est configuré. Vos informations entreprise seront utilisées automatiquement sur vos PV, emails et exports.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Votre essai gratuit de 14 jours est en cours. Créez votre premier chantier, puis votre premier PV
+              depuis le tableau de bord. À la fin de l'essai, choisissez une formule dans « Facturation » pour
+              continuer à créer et modifier ; vos données restent consultables.
             </p>
             <Button onClick={finish} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
