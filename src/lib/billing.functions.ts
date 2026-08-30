@@ -133,8 +133,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       }
     }
 
-    // Only offer the 14-day trial on first ever checkout for this company.
-    const trialDays = existing?.stripe_customer_id ? undefined : 14;
+    // Invariant : une entreprise = un seul essai de 14 jours à vie.
+    // L'essai est attribué à la création de l'entreprise (`trial_started_at`),
+    // donc un Checkout ne peut plus jamais en accorder un nouveau — quel que
+    // soit le plan, l'upgrade/downgrade, l'annulation ou la réactivation.
+    const trialDays = (await isTrialEligible(data.companyId)) ? 14 : undefined;
+
 
     let session;
     try {
