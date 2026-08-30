@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PUBLIC_PLANS, TRIAL_DAYS, formatEur } from "@/lib/plans";
+import { PUBLIC_PLANS, TRIAL_DAYS, formatEur, VAT_RATE_LABEL } from "@/lib/plans";
 
 /** Aperçu tarifaire compact renvoyant vers /tarifs. */
 export function PricingPreview() {
