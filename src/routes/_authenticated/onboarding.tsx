@@ -293,6 +293,10 @@ function OnboardingPage() {
             <p className="text-sm text-muted-foreground">
               Quelques informations pour configurer votre espace et vos PV. Cela prend moins de 2 minutes.
             </p>
+            <p className="text-sm text-muted-foreground">
+              Votre essai gratuit de 14 jours démarre à la création de votre entreprise : toutes les fonctions
+              prévues sont disponibles immédiatement, sans carte bancaire.
+            </p>
             <Button className="mt-4" onClick={() => setStep(2)}>
               Commencer <ArrowRight className="h-4 w-4" />
             </Button>
