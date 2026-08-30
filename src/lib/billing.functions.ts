@@ -134,19 +134,21 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     }
 
     // Invariant : une entreprise = un seul essai de 14 jours à vie.
-    // L'essai est INTERNE : il est attribué à la création de l'entreprise
-    // (`companies.trial_started_at` + `trial_ends_at`), donc `isTrialEligible`
-    // est structurellement false et un Checkout n'accorde JAMAIS un nouveau
-    // `trial_period_days`.
+    // L'essai est INTERNE : attribué à la création de l'entreprise
+    // (`companies.trial_started_at` + `trial_ends_at`). Un Checkout n'accorde
+    // JAMAIS un nouveau `trial_period_days`.
     //
-    // En revanche, choisir une formule PENDANT l'essai ne doit pas facturer
-    // immédiatement : on aligne l'abonnement Stripe sur la date de fin d'essai
-    // EXISTANTE (`trial_end`), jamais recalculée, jamais prolongée. Première
-    // facture = `companies.trial_ends_at`.
+    // Règle commerciale : 14 jours gratuits COMPLETS. Choisir une formule
+    // pendant l'essai aligne l'abonnement Stripe sur la date de fin d'essai
+    // EXISTANTE (`trial_end`) : première facture = `companies.trial_ends_at`,
+    // jamais avant, jamais après.
     //
-    // Limite Stripe : `trial_end` doit être au moins 48 h dans le futur. Entre
-    // J-2 et la fin de l'essai, l'abonnement démarre donc payant immédiatement
-    // (l'essai reste, lui, valable jusqu'à sa date via `trial_ends_at`).
+    // Contrainte Stripe : `subscription_data.trial_end` doit être au moins
+    // 48 h dans le futur. Dans les 48 dernières heures de l'essai, il est donc
+    // impossible de créer un abonnement qui ne facture pas avant la fin de
+    // l'essai : on REFUSE le Checkout (aucun prélèvement anticipé) et l'UI
+    // invite à activer à la fin de l'essai. L'essai n'est ni prolongé ni
+    // réinitialisé.
     const { data: companyTrial } = await supabaseAdmin
       .from("companies")
       .select("trial_ends_at")
@@ -156,10 +158,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       ? new Date((companyTrial as any).trial_ends_at as string).getTime()
       : null;
     const STRIPE_MIN_TRIAL_MS = 48 * 3_600_000;
-    const alignedTrialEnd =
-      trialEndsAtMs && trialEndsAtMs > Date.now() + STRIPE_MIN_TRIAL_MS
-        ? Math.floor(trialEndsAtMs / 1000)
-        : undefined;
+    const trialInProgress = trialEndsAtMs !== null && trialEndsAtMs > Date.now();
+    if (trialInProgress && trialEndsAtMs! <= Date.now() + STRIPE_MIN_TRIAL_MS) {
+      throw new Error(
+        "Votre essai gratuit se termine dans moins de 48 heures : l'activation d'une formule sera possible dès sa fin, sans aucun prélèvement d'ici là.",
+      );
+    }
+    const alignedTrialEnd = trialInProgress ? Math.floor(trialEndsAtMs! / 1000) : undefined;
+
     // Conservé pour l'audit : doit toujours valoir false hors anomalie.
     const legacyTrialEligible = await isTrialEligible(data.companyId);
 

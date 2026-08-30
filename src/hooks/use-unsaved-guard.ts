@@ -1,9 +1,10 @@
 import { useEffect } from "react";
+import { useBlocker } from "@tanstack/react-router";
 
 /**
- * Warn before leaving the tab if there are unsaved changes (native dialog).
- * Doesn't intercept in-app navigation — pair with a confirm() in the click
- * handler if you need to block client-side route changes.
+ * Protège contre la perte de saisies non enregistrées :
+ * - fermeture / rechargement de l'onglet (dialogue natif `beforeunload`) ;
+ * - navigation interne TanStack Router (confirmation explicite).
  */
 export function useUnsavedGuard(dirty: boolean, message = "Modifications non enregistrées. Quitter quand même ?") {
   useEffect(() => {
@@ -16,4 +17,10 @@ export function useUnsavedGuard(dirty: boolean, message = "Modifications non enr
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty, message]);
+
+  useBlocker({
+    shouldBlockFn: () => (typeof window === "undefined" ? false : !window.confirm(message)),
+    enableBeforeUnload: false,
+    disabled: !dirty,
+  });
 }

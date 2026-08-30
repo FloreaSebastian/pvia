@@ -215,24 +215,42 @@ function BillingPage() {
   // l'entreprise, pas à l'activation d'une formule. Il ne peut jamais être
   // prolongé ni réattribué (companies.trial_started_at a un DEFAULT now() et
   // est verrouillé en base), donc la copie s'appuie sur l'état d'accès réel.
-  // Choisir une formule pendant l'essai n'entraîne aucun prélèvement avant la
-  // date de fin d'essai : l'abonnement Stripe est aligné sur cette date exacte
-  // (sauf dans les 48 dernières heures, contrainte technique Stripe).
+  // Choisir une formule pendant l'essai n'entraîne AUCUN prélèvement avant la
+  // date de fin d'essai : l'abonnement Stripe est aligné sur cette date exacte.
+  // Dans les 48 dernières heures, Stripe n'accepte plus cet alignement :
+  // l'activation est donc bloquée jusqu'à la fin de l'essai (jamais de
+  // prélèvement anticipé, jamais de prolongation).
   const trialNoticeFor = (inProgress: boolean, daysLeft: number | null) =>
     inProgress
       ? `Votre essai gratuit de 14 jours est en cours${
           daysLeft !== null ? ` (${daysLeft} jour${daysLeft > 1 ? "s" : ""} restant${daysLeft > 1 ? "s" : ""})` : ""
-        }. Il a démarré à la création de votre entreprise : choisir une formule maintenant ne le prolonge pas, ne le réinitialise pas et n'entraîne aucun prélèvement avant la fin de l'essai${
-          daysLeft !== null && daysLeft <= 2 ? " (dans les dernières 48 h, l'abonnement démarre immédiatement)" : ""
-        }.`
+        }. Il a démarré à la création de votre entreprise : choisir une formule maintenant ne le prolonge pas, ne le réinitialise pas et n'entraîne aucun prélèvement avant la fin de l'essai — la première facture est émise à cette date exacte.`
       : "Votre essai gratuit de 14 jours a déjà été utilisé : activer ou changer de formule démarre un abonnement payant immédiatement, sans nouvelle période d'essai.";
+
 
 
 
   const currentIndex = useMemo(() => plans.findIndex((p) => p.plan === plan), [plans, plan]);
 
+  // Stripe refuse un `trial_end` à moins de 48 h : pendant cette fenêtre, on
+  // bloque l'activation plutôt que de facturer avant la fin de l'essai.
+  const trialEndMs = access?.trial_end ? new Date(access.trial_end).getTime() : null;
+  const checkoutLockedUntilTrialEnd =
+    access?.state === "trialing" &&
+    trialEndMs !== null &&
+    trialEndMs > Date.now() &&
+    trialEndMs <= Date.now() + 48 * 3_600_000;
+  const trialEndLabel = trialEndMs ? new Date(trialEndMs).toLocaleDateString("fr-FR") : null;
+
   async function startCheckout(priceId: string) {
     if (!activeCompanyId || !priceId) return;
+    if (checkoutLockedUntilTrialEnd) {
+      toast.info(
+        `Votre essai gratuit se termine le ${trialEndLabel} : l'activation d'une formule sera possible dès cette date, sans aucun prélèvement d'ici là.`,
+      );
+      return;
+    }
+
     setBusy(priceId);
     try {
       const { url } = await checkoutFn({
@@ -509,6 +527,13 @@ function BillingPage() {
           <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
         )}
         <p className="mb-4 text-sm text-muted-foreground">{trialNoticeFor(isTrial, trialDaysLeft)}</p>
+        {checkoutLockedUntilTrialEnd && (
+          <p className="mb-4 text-sm font-medium">
+            Votre essai se termine le {trialEndLabel} : l'activation d'une formule sera possible dès cette date. Aucun
+            prélèvement n'est effectué avant la fin de votre essai.
+          </p>
+        )}
+
 
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

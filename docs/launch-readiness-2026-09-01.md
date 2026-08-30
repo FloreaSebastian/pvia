@@ -26,7 +26,31 @@ lancement (P0-1 ci-dessous).
   nouvelle ligne `app_errors` avec ce message n'apparaît.
 - **Rollback** : republier la version précédente depuis l'historique Lovable.
 
+## Règle « 14 jours gratuits complets » — implémentation définitive
+
+- L'essai est **interne** : `companies.trial_started_at` (DEFAULT `now()`,
+  verrouillé par trigger) + `companies.trial_ends_at`. Un seul essai à vie.
+- Choisir une formule pendant l'essai : `createCheckoutSession` lit
+  `companies.trial_ends_at` et passe `subscription_data.trial_end` **égal à
+  cette date exacte**. Première facture = fin d'essai. Jamais de
+  `trial_period_days`, jamais de prolongation, jamais de réinitialisation.
+- Contrainte Stripe : `trial_end` doit être ≥ 48 h dans le futur. Dans les
+  48 dernières heures, il est impossible de créer un abonnement qui ne facture
+  pas avant la fin de l'essai → **le Checkout est refusé** (serveur + UI) avec
+  un message clair : activation possible dès la fin de l'essai, aucun
+  prélèvement d'ici là. Aucune exception de facturation anticipée.
+- Copie alignée : `/billing`, CGV (`src/routes/cgv.tsx`).
+
 ## P1 — corrigés dans ce passage
+
+- **Mode terrain (concurrence)** : `flush()` ne vide plus la file avant l'appel
+  serveur. Snapshot par identité : une saisie n'est retirée de la file que si
+  elle n'a pas été remplacée pendant la requête ; verrou `inFlightRef` contre
+  les envois concurrents (autosave + reprise réseau) ; pas de boucle de retry
+  quand l'erreur est de type facturation/lecture seule.
+- **`useUnsavedGuard`** protège désormais la navigation interne
+  (`useBlocker` TanStack Router) **et** `beforeunload`.
+
 
 ### P1-1 — Copie d'essai incohérente sur `/billing`
 - L'écran affichait encore « Votre essai gratuit de 14 jours démarre à
@@ -161,17 +185,36 @@ Cause : destinataires de **test** en `@example.com`, refusés par Resend.
 reprises fonctionnent. Aucune correction appliquée (aucun défaut certain),
 aucun email en `dead`, aucun webhook en échec.
 
-## Linter Supabase — classement
+## Linter Supabase — classement (après resserrage ciblé)
 
 - Avant : **119** avertissements — 1 « extension in public », 56 fonctions
   `SECURITY DEFINER` exécutables par `anon`, 62 par `authenticated`.
-- Corrigé (P1-3) : les 56 `anon` et 11 fonctions strictement serveur.
-- Reste : **54** — 1 extension dans `public` (déplacement non tenté à 48 h du
-  lancement : risque de casse supérieur au gain) et 53 fonctions
-  `SECURITY DEFINER` appelées légitimement par des utilisateurs connectés
-  (`can_manage_company`, `is_company_admin`, `get_company_role`,
-  `can_create_pv`, `generate_next_pv_number`, `has_role`, …). Elles sont toutes
-  auto-cadrées sur `auth.uid()` / l'appartenance à l'entreprise. **P2 accepté.**
+- Après : **23** — 1 extension dans `public` (déplacement non tenté à 48 h du
+  lancement : risque supérieur au gain) et 22 fonctions exécutables par les
+  utilisateurs connectés, toutes prouvées nécessaires.
+- Preuves du resserrage :
+  - `information_schema.role_table_grants` pour `anon` dans `public` : **0
+    ligne**. Aucun flux public ne passe par PostgREST en anonyme ; la signature
+    distante, l'OTP, l'espace client passwordless et les webhooks passent tous
+    par des server functions utilisant le rôle serveur
+    (`supabaseAdmin.rpc("consume_signature_otp" | "resolve_client_identity" |
+    "increment_rate_limit" | "generate_next_reserve_lift_number")` —
+    `signature-otp.server.ts`, `client-identity.server.ts`,
+    `rate-limit.server.ts`, `reserve-lift.functions.ts`).
+  - Aucune policy RLS ne référence une fonction retirée (requête sur
+    `pg_policies`, 0 ligne).
+  - Liste blanche `authenticated` = fonctions référencées par les policies RLS
+    (`has_role`, `is_company_member`, `is_company_admin`, `is_company_owner`,
+    `is_platform_admin`, `can_manage_company`, `can_write_company*`,
+    `company_has_write_access`, `can_edit_technical_visit`) ∪ fonctions
+    réellement appelées via `.rpc(` avec le client utilisateur (`can_add_member`,
+    `can_create_pv`, `can_read_technical_visit`, `generate_next_pv_number`,
+    `get_company_*`, `has_plan_feature`, `next_chantier_photo_label`).
+  - Les fonctions de trigger ne sont plus appelables directement : Postgres
+    vérifie `EXECUTE` au `CREATE TRIGGER`, pas au déclenchement.
+- Toutes ces modifications sont des migrations versionnées dans
+  `supabase/migrations/`, rejouables sur une base neuve.
+
 
 ## P2 — à surveiller, non bloquant
 

@@ -74,6 +74,9 @@ function TerrainPage() {
 
   const dirtyRef = useRef<Map<string, { section_key: string; value: AnswerValue }>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Empêche deux envois concurrents (autosave + reprise réseau). */
+  const inFlightRef = useRef(false);
+
 
   // Aucune file d'attente persistante sur l'appareil : tant qu'une saisie n'est
   // pas confirmée, quitter la page la perd. On avertit explicitement.
@@ -137,24 +140,33 @@ function TerrainPage() {
 
   const flush = useCallback(async () => {
     if (!activeCompanyId || dirtyRef.current.size === 0) return;
-    const entries = Array.from(dirtyRef.current.entries()).map(([field_key, v]) => ({
+    if (inFlightRef.current) return;
+    // Snapshot par identité : on n'efface une saisie de la file qu'à la
+    // condition qu'elle n'ait PAS été remplacée par une nouvelle valeur
+    // pendant l'appel serveur (sinon un succès effacerait une saisie
+    // jamais envoyée).
+    const snapshot = Array.from(dirtyRef.current.entries());
+    const entries = snapshot.map(([field_key, v]) => ({
       field_key,
       section_key: v.section_key,
       value: v.value,
     }));
-    dirtyRef.current.clear();
+    inFlightRef.current = true;
     setSaving(true);
     try {
       await saveFn({ data: { companyId: activeCompanyId, visitId: id, entries } });
+      for (const [key, ref] of snapshot) {
+        if (dirtyRef.current.get(key) === ref) dirtyRef.current.delete(key);
+      }
       setSavedAt(new Date());
       setSyncSuspended(false);
       setPendingCount(dirtyRef.current.size);
     } catch (e: any) {
-      for (const e2 of entries) dirtyRef.current.set(e2.field_key, { section_key: e2.section_key, value: e2.value });
       setPendingCount(dirtyRef.current.size);
       if (classifyBillingError(e)) {
         // Comportement réel : les saisies restent en mémoire sur cet écran,
         // mais rien n'est mis en file d'attente persistante sur l'appareil.
+        // On ne relance pas de boucle de retry tant que l'accès est bloqué.
         setSyncSuspended(true);
         setHasUnsavedBlocked(dirtyRef.current.size > 0);
         reportError(e);
@@ -162,9 +174,11 @@ function TerrainPage() {
       }
       toast.error(e?.message ?? "Enregistrement différé : réessayez.");
     } finally {
+      inFlightRef.current = false;
       setSaving(false);
     }
   }, [activeCompanyId, id, saveFn, reportError]);
+
 
   useEffect(() => {
     return () => {
