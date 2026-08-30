@@ -8,7 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 
 import appCss from "../styles.css?url";
@@ -49,6 +49,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const reportCrash = useServerFn(reportClientCrash);
   const chunkError = isChunkLoadError(error);
   const [diagnosticId, setDiagnosticId] = useState<string | null>(null);
+  const crashReportStarted = useRef(false);
 
   useEffect(() => {
     // Bundle désynchronisé après déploiement : une seule tentative de
@@ -57,7 +58,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   }, [chunkError, error]);
 
   useEffect(() => {
-    if (chunkError || typeof window === "undefined") return;
+    if (chunkError || typeof window === "undefined" || crashReportStarted.current) return;
+    crashReportStarted.current = true;
     const randomPart =
       typeof globalThis.crypto?.randomUUID === "function"
         ? globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 12)
