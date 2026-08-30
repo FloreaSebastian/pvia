@@ -44,6 +44,9 @@ import {
   annualSavingEur,
   daysUntil,
   formatEur,
+  formatEurCents,
+  vatBreakdown,
+  VAT_RATE_LABEL,
   formatFrDate,
   type BillingInterval,
   type CheckoutPriceId,
@@ -412,12 +415,19 @@ function BillingPage() {
               <div className="mt-1 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
                 {billingInterval === "annual" ? " / an · Facturation annuelle" : " / mois · Facturation mensuelle"}
+                <span className="block text-xs">
+                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC (TVA {VAT_RATE_LABEL} :{" "}
+                  {formatEurCents(vatBreakdown(priceNow).vat)})
+                </span>
               </div>
             ) : isTrial && priceNow != null ? (
               <div className="mt-1 text-sm text-muted-foreground">
                 Essai gratuit en cours · tarif à l'issue de l'essai :{" "}
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
                 {billingInterval === "annual" ? " / an" : " / mois"}
+                <span className="block text-xs">
+                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC (TVA {VAT_RATE_LABEL})
+                </span>
               </div>
             ) : (
               <div className="mt-1 text-sm text-muted-foreground">
@@ -527,6 +537,12 @@ function BillingPage() {
           <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
         )}
         <p className="mb-4 text-sm text-muted-foreground">{trialNoticeFor(isTrial, trialDaysLeft)}</p>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Tous les tarifs sont indiqués <span className="font-medium text-foreground">hors taxes</span>. La TVA
+          applicable ({VAT_RATE_LABEL} en France) est calculée et affichée par Stripe avant validation du paiement, puis
+          détaillée sur chaque facture. Les entreprises de l'UE hors France disposant d'un numéro de TVA
+          intracommunautaire valide peuvent bénéficier de l'autoliquidation.
+        </p>
         {checkoutLockedUntilTrialEnd && (
           <p className="mb-4 text-sm font-medium">
             Votre essai se termine le {trialEndLabel} : l'activation d'une formule sera possible dès cette date. Aucun
@@ -586,6 +602,13 @@ function BillingPage() {
                       </>
                     )}
                   </div>
+                  {!custom && amount != null && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      soit {formatEurCents(vatBreakdown(amount).ttc)} TTC
+                      {billingInterval === "annual" ? " / an" : " / mois"} (TVA {VAT_RATE_LABEL} :{" "}
+                      {formatEurCents(vatBreakdown(amount).vat)})
+                    </div>
+                  )}
                   {billingInterval === "annual" && saving && p.monthly_price_eur != null && (
                     <div className="mt-1 text-xs text-muted-foreground">
                       au lieu de {formatEur(p.monthly_price_eur * 12)} ·{" "}
