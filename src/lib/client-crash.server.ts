@@ -2,6 +2,7 @@ import { captureError } from "./monitoring.server";
 
 type ClientCrashInput = {
   route: string;
+  diagnosticId: string;
   message: string;
   stack?: string;
 };
@@ -24,7 +25,7 @@ export async function recordClientCrash(input: ClientCrashInput, userId: string)
     source: `client:react-boundary:${route}`,
     error,
     severity: "critical",
-    context: { route },
+    context: { route, diagnosticId: input.diagnosticId },
     userId,
   });
 }

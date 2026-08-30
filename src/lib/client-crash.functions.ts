@@ -8,6 +8,7 @@ export const reportClientCrash = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z.object({
       route: z.string().max(500),
+      diagnosticId: z.string().regex(/^PVIA-[A-Z0-9-]{8,80}$/),
       message: z.string().max(2_000),
       stack: z.string().max(12_000).optional(),
     }).parse(input),

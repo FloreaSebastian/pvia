@@ -8,7 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 
 import appCss from "../styles.css?url";
@@ -48,6 +48,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   const reportCrash = useServerFn(reportClientCrash);
   const chunkError = isChunkLoadError(error);
+  const [diagnosticId, setDiagnosticId] = useState<string | null>(null);
+  const crashReportStarted = useRef(false);
 
   useEffect(() => {
     // Bundle désynchronisé après déploiement : une seule tentative de
@@ -56,10 +58,18 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   }, [chunkError, error]);
 
   useEffect(() => {
-    if (chunkError || typeof window === "undefined") return;
+    if (chunkError || typeof window === "undefined" || crashReportStarted.current) return;
+    crashReportStarted.current = true;
+    const randomPart =
+      typeof globalThis.crypto?.randomUUID === "function"
+        ? globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    const nextDiagnosticId = `PVIA-${randomPart.toUpperCase()}`;
+    setDiagnosticId(nextDiagnosticId);
     reportCrash({
       data: {
         route: window.location.pathname,
+        diagnosticId: nextDiagnosticId,
         message: error.message || error.name || "Client runtime error",
         stack: error.stack,
       },
@@ -79,6 +89,11 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             ? "Une nouvelle version de l'application est disponible. Rechargez la page pour continuer."
             : "Une erreur inattendue est survenue. Réessayez dans quelques instants ou revenez à l’accueil."}
         </p>
+        {diagnosticId && (
+          <p className="mt-3 font-mono text-xs text-muted-foreground">
+            Référence diagnostic&nbsp;: {diagnosticId}
+          </p>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
