@@ -252,3 +252,54 @@ chantiers, billing, réserves, visites techniques, équipe.
   `DROP TRIGGER companies_lock_trial_started_at ON public.companies;` puis
   `ALTER TABLE public.companies DROP COLUMN trial_started_at;` — à n'exécuter
   qu'en cas d'incident avéré, cela supprimerait la preuve d'essai.
+
+## Audit UX onboarding / premier succès (passage final)
+
+Parcours vérifié statiquement : landing → `/tarifs` → `/signup` →
+`/_authenticated/onboarding` → `/dashboard`.
+
+- **Corrigé** : l'onboarding ne mentionnait nulle part l'essai. Ajout de deux
+  phrases dans `src/routes/_authenticated/onboarding.tsx` — étape 1 (« l'essai
+  de 14 jours démarre à la création de votre entreprise, sans carte bancaire »)
+  et étape finale (essai en cours, premier chantier → premier PV, choix d'une
+  formule dans « Facturation » à la fin, données toujours consultables).
+- **Compte à rebours** : `SubscriptionBanner` (monté une seule fois dans
+  `AppLayout`) affiche « Essai gratuit — X jours restants » + date de fin +
+  CTA non bloquant « Voir les formules » ; passage en style urgent à ≤ 3 jours.
+- **Scénario « inscrit sans formule Stripe »** : `getAccessState()` renvoie
+  `trialing` / `blocked:false` tant que `companies.trial_ends_at > now()`.
+  Aucun écran utilisateur n'affiche « Aucun abonnement actif » — cette phrase
+  n'existe que dans l'espace admin plateforme (`admin-support.functions.ts`,
+  `admin.companies.$id.tsx`), invisible pour le client.
+- **Après expiration** : bannière rouge + popup `BillingGate` avec copie FR et
+  CTA `/billing` ; lectures conservées ; les écrans dont l'objet unique est la
+  création (`/pv/new`, visites techniques) passent par `RestrictedRoute`.
+- **États vides** : présents et actionnables sur dashboard (PV, chantiers),
+  `/clients`, `/chantiers`, `/pv`, `/reserves`, `/visites-techniques`.
+- **Emails** : liens construits sur `PUBLIC_APP_URL` avec repli
+  `https://pvia.fr`, expéditeur `RESEND_FROM_EMAIL` avec repli
+  `noreply@pvia.fr` — aucune mention preview/lovable.
+
+## Checklist J0 (à exécuter par le propriétaire)
+
+Prouvé par le code (aucune action) :
+- Garde d'écriture fail-closed, essai unique par entreprise, quotas de sièges
+  et de PV, RLS active sur toutes les tables `public`.
+- Service worker : HTML network-only, caches versionnés, purge des anciens
+  caches, `clients.claim()` — une publication n'est pas bloquée par l'ancien JS.
+- 404/500/offline en français, identifiant de diagnostic, aucun message
+  Stripe/Supabase brut côté utilisateur.
+
+Action humaine externe requise :
+1. Publier le build correctif, puis vider/recharger sur un appareil Android
+   installé en PWA et vérifier `/dashboard`.
+2. DNS et domaine de production actifs (`pvia.fr`, `www.pvia.fr`).
+3. Variables d'environnement de production présentes (voir section dédiée).
+4. Stripe **LIVE** : clé + endpoint webhook configuré et testé (événement de
+   test reçu, ligne `subscriptions` créée).
+5. Resend : domaine expéditeur vérifié, envoi réel de test.
+6. Cron essai (J-3 / J-1) et drains emails/webhooks planifiés avec `CRON_SECRET`.
+7. Test d'inscription réelle de bout en bout (compte + entreprise + dashboard).
+8. Test de paiement réel minimal, pendant l'essai puis après essai.
+9. Test de signature client réelle + réception du PDF par email.
+10. Sauvegarde/rollback : point de restauration noté avant publication.
