@@ -174,7 +174,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         success_url: `${data.returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${data.returnUrl}?status=cancel`,
         subscription_data: {
-          ...(trialDays ? { trial_period_days: trialDays } : {}),
+          ...(alignedTrialEnd ? { trial_end: alignedTrialEnd } : {}),
           metadata: { companyId: data.companyId, userId },
         },
         metadata: { companyId: data.companyId, userId },
@@ -188,7 +188,13 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       userId,
       entityType: "subscription",
       action: "billing.checkout_started",
-      metadata: { plan: data.priceId, environment: data.environment, trial_days: trialDays ?? 0 },
+      metadata: {
+        plan: data.priceId,
+        environment: data.environment,
+        trial_days: 0,
+        aligned_trial_end: alignedTrialEnd ?? null,
+        legacy_trial_eligible: legacyTrialEligible,
+      },
     });
 
     return { url: session.url, trialDays: trialDays ?? 0 };
