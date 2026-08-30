@@ -40,8 +40,12 @@ function CGVPage() {
       <h2>2. Souscription</h2>
       <p>
         Le client souscrit à un abonnement mensuel ou annuel après création d'un compte. Un essai
-        gratuit de 14 jours sans engagement est proposé.
+        gratuit unique de 14 jours sans engagement est accordé à chaque entreprise, à compter de sa
+        création. Cet essai ne peut être ni prolongé, ni réinitialisé, ni accordé une seconde fois.
+        Choisir une formule pendant l'essai ne supprime pas les jours restants : aucun prélèvement
+        n'est effectué avant la date de fin d'essai.
       </p>
+
 
       <h2>3. Tarifs & paiement</h2>
       <p>
