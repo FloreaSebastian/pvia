@@ -87,6 +87,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const email = user?.email ?? undefined;
 
     const stripe = createStripeClient(data.environment);
+    // Fail-closed LIVE : aucun encaissement tant que l'enregistrement TVA
+    // France n'est pas actif sur le compte Stripe (sandbox non bloquée).
+    await assertTaxComplianceReady(data.environment, stripe);
+
     const price = await (async () => {
       try {
         const prices = await stripe.prices.list({ lookup_keys: [data.priceId], limit: 1 });
