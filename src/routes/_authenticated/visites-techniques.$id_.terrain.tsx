@@ -68,9 +68,18 @@ function TerrainPage() {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  /** Nombre de champs saisis non encore confirmés côté serveur (mémoire écran). */
+  const [pendingCount, setPendingCount] = useState(0);
 
   const dirtyRef = useRef<Map<string, { section_key: string; value: AnswerValue }>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Aucune file d'attente persistante sur l'appareil : tant qu'une saisie n'est
+  // pas confirmée, quitter la page la perd. On avertit explicitement.
+  useUnsavedGuard(
+    pendingCount > 0,
+    "Des réponses ne sont pas encore enregistrées (connexion indisponible). Quitter cette page les perdra.",
+  );
 
   const reload = useCallback(async () => {
     if (!activeCompanyId) return;
