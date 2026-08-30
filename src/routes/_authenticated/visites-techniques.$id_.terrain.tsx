@@ -74,6 +74,9 @@ function TerrainPage() {
 
   const dirtyRef = useRef<Map<string, { section_key: string; value: AnswerValue }>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Empêche deux envois concurrents (autosave + reprise réseau). */
+  const inFlightRef = useRef(false);
+
 
   // Aucune file d'attente persistante sur l'appareil : tant qu'une saisie n'est
   // pas confirmée, quitter la page la perd. On avertit explicitement.
