@@ -157,7 +157,7 @@ function Cell({ value }: { value: boolean | string }) {
 
 function BillingPage() {
   const { activeCompanyId, activeRole } = useCompany();
-  const { plan, limits, usage, subscription, allPlans, access, trialEligible, isLoading, refetch } = useSubscription();
+  const { plan, limits, usage, subscription, allPlans, access, isLoading, refetch } = useSubscription();
 
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
@@ -210,6 +210,19 @@ function BillingPage() {
   const plans = (allPlans ?? []) as PlanLimitsRow[];
   const current = (limits as PlanLimitsRow | null) ?? null;
   const seatsUsed = usage.seats ?? usage.members;
+
+  // Invariant commercial : l'essai de 14 jours démarre à la CRÉATION de
+  // l'entreprise, pas à l'activation d'une formule. Il ne peut jamais être
+  // prolongé ni réattribué (companies.trial_started_at a un DEFAULT now() et
+  // est verrouillé en base), donc la copie s'appuie sur l'état d'accès réel.
+  const trialNoticeFor = (inProgress: boolean, daysLeft: number | null) =>
+    inProgress
+      ? `Votre essai gratuit de 14 jours est en cours${
+          daysLeft !== null ? ` (${daysLeft} jour${daysLeft > 1 ? "s" : ""} restant${daysLeft > 1 ? "s" : ""})` : ""
+        }. Il a démarré à la création de votre entreprise : choisir ou changer de formule ne le prolonge pas et ne le réinitialise pas.`
+      : "Votre essai gratuit de 14 jours a déjà été utilisé : activer ou changer de formule démarre un abonnement payant immédiatement, sans nouvelle période d'essai.";
+
+
 
   const currentIndex = useMemo(() => plans.findIndex((p) => p.plan === plan), [plans, plan]);
 
@@ -490,11 +503,8 @@ function BillingPage() {
         {billingInterval === "annual" && (
           <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
         )}
-        <p className="mb-4 text-sm text-muted-foreground">
-          {trialEligible
-            ? "Votre essai gratuit de 14 jours démarre à l'activation. Un seul essai par entreprise."
-            : "Votre essai gratuit de 14 jours a déjà été utilisé : changer de formule active un abonnement payant immédiatement, sans nouvelle période d'essai."}
-        </p>
+        <p className="mb-4 text-sm text-muted-foreground">{trialNoticeFor(isTrial, trialDaysLeft)}</p>
+
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((p, index) => {
