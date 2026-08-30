@@ -503,7 +503,7 @@ function BillingPage() {
         {billingInterval === "annual" && (
           <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
         )}
-        <p className="mb-4 text-sm text-muted-foreground">{trialNotice}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{trialNoticeFor(isTrial, trialDaysLeft)}</p>
 
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
