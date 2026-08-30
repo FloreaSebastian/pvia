@@ -25,6 +25,7 @@ import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "
 import { VisitConstraintsPanel, type VisitConstraintRow } from "@/components/visites/VisitConstraintsPanel";
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { classifyBillingError } from "@/lib/billing-errors";
+import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
 
 export const Route = createFileRoute("/_authenticated/visites-techniques/$id_/terrain")({
   head: () => ({
@@ -68,9 +69,18 @@ function TerrainPage() {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  /** Nombre de champs saisis non encore confirmés côté serveur (mémoire écran). */
+  const [pendingCount, setPendingCount] = useState(0);
 
   const dirtyRef = useRef<Map<string, { section_key: string; value: AnswerValue }>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Aucune file d'attente persistante sur l'appareil : tant qu'une saisie n'est
+  // pas confirmée, quitter la page la perd. On avertit explicitement.
+  useUnsavedGuard(
+    pendingCount > 0,
+    "Des réponses ne sont pas encore enregistrées (connexion indisponible). Quitter cette page les perdra.",
+  );
 
   const reload = useCallback(async () => {
     if (!activeCompanyId) return;
@@ -138,8 +148,10 @@ function TerrainPage() {
       await saveFn({ data: { companyId: activeCompanyId, visitId: id, entries } });
       setSavedAt(new Date());
       setSyncSuspended(false);
+      setPendingCount(dirtyRef.current.size);
     } catch (e: any) {
       for (const e2 of entries) dirtyRef.current.set(e2.field_key, { section_key: e2.section_key, value: e2.value });
+      setPendingCount(dirtyRef.current.size);
       if (classifyBillingError(e)) {
         // Comportement réel : les saisies restent en mémoire sur cet écran,
         // mais rien n'est mis en file d'attente persistante sur l'appareil.
@@ -160,9 +172,18 @@ function TerrainPage() {
     };
   }, []);
 
+  // Reprise automatique dès que le réseau revient : sans cela les réponses
+  // saisies hors connexion restaient en mémoire jusqu'à la frappe suivante.
+  useEffect(() => {
+    if (!online) return;
+    if (dirtyRef.current.size === 0) return;
+    void flush();
+  }, [online, flush]);
+
   function onFieldChange(sectionKey: string, answerKey: string, value: AnswerValue) {
     setAnswers((prev) => ({ ...prev, [answerKey]: value }));
     dirtyRef.current.set(answerKey, { section_key: sectionKey, value });
+    setPendingCount(dirtyRef.current.size);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => void flush(), 900);
   }
@@ -232,6 +253,16 @@ function TerrainPage() {
             ) : null}
           </div>
         </div>
+        {!online && pendingCount > 0 && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300"
+          >
+            {pendingCount} réponse{pendingCount > 1 ? "s" : ""} en attente d'enregistrement. Elles seront envoyées
+            automatiquement au retour du réseau : ne fermez pas cette page tant que la connexion n'est pas rétablie.
+          </div>
+        )}
         {(syncSuspended || billingBlocked) && (
           <div
             role="status"
