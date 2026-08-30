@@ -149,27 +149,56 @@ Présents : `APP_ENV`, `PUBLIC_APP_URL`, `STRIPE_LIVE_API_KEY`,
 `production` dans `.env.production` : les builds de production sélectionnent
 donc Stripe **live**, les builds preview restent en **sandbox**.
 
+## Emails en échec — classés (aucune PII exposée)
+
+Les **5** lignes `email_logs.status = 'failed'` (1 `signed_to_client` du
+2026-08-23, 4 `billing_payment_failed` du 2026-08-22) portent toutes la **même**
+erreur Resend :
+`422 validation_error — Invalid \`to\` field ... domains like example.com`.
+
+Cause : destinataires de **test** en `@example.com`, refusés par Resend.
+**Aucun défaut applicatif** : l'envoi, la journalisation et le compteur de
+reprises fonctionnent. Aucune correction appliquée (aucun défaut certain),
+aucun email en `dead`, aucun webhook en échec.
+
+## Linter Supabase — classement
+
+- Avant : **119** avertissements — 1 « extension in public », 56 fonctions
+  `SECURITY DEFINER` exécutables par `anon`, 62 par `authenticated`.
+- Corrigé (P1-3) : les 56 `anon` et 11 fonctions strictement serveur.
+- Reste : **54** — 1 extension dans `public` (déplacement non tenté à 48 h du
+  lancement : risque de casse supérieur au gain) et 53 fonctions
+  `SECURITY DEFINER` appelées légitimement par des utilisateurs connectés
+  (`can_manage_company`, `is_company_admin`, `get_company_role`,
+  `can_create_pv`, `generate_next_pv_number`, `has_role`, …). Elles sont toutes
+  auto-cadrées sur `auth.uid()` / l'appartenance à l'entreprise. **P2 accepté.**
+
 ## P2 — à surveiller, non bloquant
 
-- 5 emails en statut `failed` (dernier le 2026-08-23) : à inspecter dans le
-  cockpit admin ; aucun email en `dead`, aucun webhook en échec.
-- 119 avertissements du linter Supabase, préexistants et hors périmètre de
-  cette mission.
 - Aucune ligne `subscriptions` en base : le parcours Stripe live n'a jamais été
   exécuté de bout en bout.
+- 1 extension installée dans le schéma `public` (linter).
 
-## Tests manuels restants (obligatoires avant ouverture commerciale)
+## NON TESTÉ (à faire manuellement avant ouverture commerciale)
+
+L'environnement d'audit est **signé déconnecté**
+(`LOVABLE_BROWSER_AUTH_STATUS=signed_out`) : aucun parcours authentifié runtime
+n'a pu être exécuté. Vérifications statiques uniquement pour dashboard, PV,
+chantiers, billing, réserves, visites techniques, équipe.
 
 1. Publier, puis parcours authentifié complet sur Galaxy Z Fold (écran externe,
    interne, dépliage à chaud) : `/dashboard`, `/pv`, `/chantiers`, `/billing`.
-2. Un checkout Stripe **live** réel (petit montant) : vérifier l'absence
-   d'essai, l'arrivée du webhook, la ligne `subscriptions` et le passage en
-   écriture autorisée.
-3. Portail Stripe : annulation → grâce jusqu'à `current_period_end` →
+2. Un checkout Stripe **live** réel (petit montant) **pendant l'essai** :
+   vérifier que Stripe affiche « premier paiement le <trial_ends_at> » et
+   qu'aucun prélèvement immédiat n'a lieu, puis l'arrivée du webhook et la
+   ligne `subscriptions`.
+3. Un checkout après essai consommé : prélèvement immédiat attendu.
+4. Portail Stripe : annulation → grâce jusqu'à `current_period_end` →
    lecture seule après échéance.
-4. Signature client à distance + OTP, envoi du PDF signé par email.
-5. Mode terrain hors ligne : saisie, retour réseau, absence de perte de données
-   (aucune outbox persistante, cf. `docs/subscription-write-access-audit.md`).
+5. Signature client à distance + OTP, envoi du PDF signé par email (chemin
+   public tokenisé, non soumis à la garde d'écriture par conception).
+6. Mode terrain hors ligne : saisie, coupure réseau, retour réseau → les
+   réponses en attente doivent partir automatiquement (P1-4).
 
 ## Plan de rollback
 
