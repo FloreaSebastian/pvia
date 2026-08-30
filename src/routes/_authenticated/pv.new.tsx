@@ -244,7 +244,10 @@ function NewPv() {
   });
 
   // Clef stable côté brouillon pour rattacher les documents importés avant création du PV.
-  const [draftKey] = useState(() => `draft-${crypto.randomUUID()}`);
+  const [draftKey] = useState(() => {
+    const uuid = globalThis.crypto?.randomUUID?.();
+    return `draft-${uuid ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+  });
 
   // UI state — Client / Chantier steps
   const [clientSearch, setClientSearch] = useState("");
