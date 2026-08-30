@@ -99,6 +99,32 @@ async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { au
     .maybeSingle();
   const prevStatus: string | null = prevRow?.status ?? null;
 
+  // Invariant commercial : une entreprise = un seul essai de 14 jours à vie.
+  // Un `trialing` renvoyé par Stripe pour une entreprise ayant déjà consommé
+  // son essai ne rouvre AUCUN droit gratuit : on synchronise la ligne telle
+  // quelle (traçabilité) mais `companies.trial_ends_at` n'est jamais prolongé
+  // et l'accès reste évalué fail-closed par `company_has_write_access` /
+  // `getAccessState`. On journalise l'incohérence pour audit.
+  if (subscription.status === "trialing") {
+    const { data: comp } = await db
+      .from("companies")
+      .select("trial_started_at,trial_ends_at")
+      .eq("id", companyId)
+      .maybeSingle();
+    const consumed =
+      comp?.trial_started_at != null &&
+      (!comp?.trial_ends_at || new Date(comp.trial_ends_at).getTime() <= Date.now());
+    if (consumed) {
+      await audit({
+        companyId, userId,
+        entityType: "subscription",
+        entityId: subscription.id,
+        action: "billing.trial_reuse_blocked",
+        metadata: { environment: env, stripe_trial_end: row.trial_end },
+      });
+    }
+  }
+
   const { error } = await db
     .from("subscriptions")
     .upsert(row, { onConflict: "stripe_subscription_id" });
