@@ -197,7 +197,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       },
     });
 
-    return { url: session.url, trialDays: trialDays ?? 0 };
+    return { url: session.url, trialDays: 0, trialEnd: alignedTrialEnd ?? null };
   });
 
 
