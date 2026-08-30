@@ -18,7 +18,12 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/sign/pv/$token")({
   component: SignPage,
-  head: () => ({ meta: [{ title: "Signature électronique — PVIA" }] }),
+  head: () => ({
+    meta: [
+      { title: "Signature électronique — PVIA" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
 });
 
 type LoadedData = Awaited<ReturnType<typeof getPvByToken>>;
