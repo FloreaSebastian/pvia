@@ -527,6 +527,13 @@ function BillingPage() {
           <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
         )}
         <p className="mb-4 text-sm text-muted-foreground">{trialNoticeFor(isTrial, trialDaysLeft)}</p>
+        {checkoutLockedUntilTrialEnd && (
+          <p className="mb-4 text-sm font-medium">
+            Votre essai se termine le {trialEndLabel} : l'activation d'une formule sera possible dès cette date. Aucun
+            prélèvement n'est effectué avant la fin de votre essai.
+          </p>
+        )}
+
 
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
