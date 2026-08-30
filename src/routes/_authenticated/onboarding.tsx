@@ -498,6 +498,11 @@ function OnboardingPage() {
             <p className="text-sm text-muted-foreground">
               Votre espace PVIA est configuré. Vos informations entreprise seront utilisées automatiquement sur vos PV, emails et exports.
             </p>
+            <p className="text-sm text-muted-foreground">
+              Votre essai gratuit de 14 jours est en cours. Créez votre premier chantier, puis votre premier PV
+              depuis le tableau de bord. À la fin de l'essai, choisissez une formule dans « Facturation » pour
+              continuer à créer et modifier ; vos données restent consultables.
+            </p>
             <Button onClick={finish} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               Accéder au tableau de bord
