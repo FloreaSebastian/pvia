@@ -232,8 +232,25 @@ function BillingPage() {
 
   const currentIndex = useMemo(() => plans.findIndex((p) => p.plan === plan), [plans, plan]);
 
+  // Stripe refuse un `trial_end` à moins de 48 h : pendant cette fenêtre, on
+  // bloque l'activation plutôt que de facturer avant la fin de l'essai.
+  const trialEndMs = access?.trial_end ? new Date(access.trial_end).getTime() : null;
+  const checkoutLockedUntilTrialEnd =
+    access?.state === "trialing" &&
+    trialEndMs !== null &&
+    trialEndMs > Date.now() &&
+    trialEndMs <= Date.now() + 48 * 3_600_000;
+  const trialEndLabel = trialEndMs ? new Date(trialEndMs).toLocaleDateString("fr-FR") : null;
+
   async function startCheckout(priceId: string) {
     if (!activeCompanyId || !priceId) return;
+    if (checkoutLockedUntilTrialEnd) {
+      toast.info(
+        `Votre essai gratuit se termine le ${trialEndLabel} : l'activation d'une formule sera possible dès cette date, sans aucun prélèvement d'ici là.`,
+      );
+      return;
+    }
+
     setBusy(priceId);
     try {
       const { url } = await checkoutFn({
