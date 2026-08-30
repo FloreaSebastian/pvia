@@ -45,14 +45,15 @@ function alreadyRecovered(): boolean {
 
 async function purgeCaches(): Promise<void> {
   try {
-    if ("serviceWorker" in navigator) {
+    if (typeof navigator !== "undefined" && navigator.serviceWorker?.getRegistration) {
       const reg = await navigator.serviceWorker.getRegistration();
       reg?.active?.postMessage("PVIA_PURGE_CACHES");
       await reg?.update().catch(() => {});
     }
-    if ("caches" in window) {
-      const names = await caches.keys();
-      await Promise.all(names.filter((n) => n.startsWith("pvia-")).map((n) => caches.delete(n)));
+    const cacheStorage = typeof window !== "undefined" ? window.caches : undefined;
+    if (cacheStorage && typeof cacheStorage.keys === "function") {
+      const names = await cacheStorage.keys();
+      await Promise.all(names.filter((n) => n.startsWith("pvia-")).map((n) => cacheStorage.delete(n)));
     }
   } catch {
     /* best effort */

@@ -22,7 +22,11 @@ export function InstallPrompt({ companyId }: { companyId?: string | null }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (isPwaUnsafeHost() || isStandalone()) return;
-    if (localStorage.getItem(DISMISS_KEY)) return;
+    try {
+      if (localStorage.getItem(DISMISS_KEY)) return;
+    } catch {
+      // Certains WebViews bloquent le stockage en navigation privée.
+    }
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
@@ -61,7 +65,11 @@ export function InstallPrompt({ companyId }: { companyId?: string | null }) {
   }, [companyId, log]);
 
   function dismiss() {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    try {
+      localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    } catch {
+      // Le prompt reste fermable si le stockage est indisponible.
+    }
     setDeferred(null);
     setShowIosHint(false);
   }

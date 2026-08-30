@@ -44,7 +44,7 @@ export function isIos(): boolean {
 export function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
   return (
-    window.matchMedia?.("(display-mode: standalone)").matches ||
+    window.matchMedia?.("(display-mode: standalone)")?.matches === true ||
     // iOS legacy
     (navigator as unknown as { standalone?: boolean }).standalone === true
   );
