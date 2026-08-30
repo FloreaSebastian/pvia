@@ -26,7 +26,31 @@ lancement (P0-1 ci-dessous).
   nouvelle ligne `app_errors` avec ce message n'apparaît.
 - **Rollback** : republier la version précédente depuis l'historique Lovable.
 
+## Règle « 14 jours gratuits complets » — implémentation définitive
+
+- L'essai est **interne** : `companies.trial_started_at` (DEFAULT `now()`,
+  verrouillé par trigger) + `companies.trial_ends_at`. Un seul essai à vie.
+- Choisir une formule pendant l'essai : `createCheckoutSession` lit
+  `companies.trial_ends_at` et passe `subscription_data.trial_end` **égal à
+  cette date exacte**. Première facture = fin d'essai. Jamais de
+  `trial_period_days`, jamais de prolongation, jamais de réinitialisation.
+- Contrainte Stripe : `trial_end` doit être ≥ 48 h dans le futur. Dans les
+  48 dernières heures, il est impossible de créer un abonnement qui ne facture
+  pas avant la fin de l'essai → **le Checkout est refusé** (serveur + UI) avec
+  un message clair : activation possible dès la fin de l'essai, aucun
+  prélèvement d'ici là. Aucune exception de facturation anticipée.
+- Copie alignée : `/billing`, CGV (`src/routes/cgv.tsx`).
+
 ## P1 — corrigés dans ce passage
+
+- **Mode terrain (concurrence)** : `flush()` ne vide plus la file avant l'appel
+  serveur. Snapshot par identité : une saisie n'est retirée de la file que si
+  elle n'a pas été remplacée pendant la requête ; verrou `inFlightRef` contre
+  les envois concurrents (autosave + reprise réseau) ; pas de boucle de retry
+  quand l'erreur est de type facturation/lecture seule.
+- **`useUnsavedGuard`** protège désormais la navigation interne
+  (`useBlocker` TanStack Router) **et** `beforeunload`.
+
 
 ### P1-1 — Copie d'essai incohérente sur `/billing`
 - L'écran affichait encore « Votre essai gratuit de 14 jours démarre à
