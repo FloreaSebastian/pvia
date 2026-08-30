@@ -16,6 +16,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { sendEmailWithRetryLog } from "./email-sender.server";
 import {
+import { getPublicAppUrl } from "./app-url.server";
   getCompanyBrandingSettings,
   normalizeHex,
   DEFAULT_BRANDING_SETTINGS,
@@ -163,7 +164,7 @@ async function loadReserveCtx(reserveId: string): Promise<ReserveCtx | null> {
     supabaseAdmin.from("companies").select("name").eq("id", r.company_id).maybeSingle(),
     getCompanyBrandingSettings(r.company_id),
   ]);
-  const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+  const appUrl = getPublicAppUrl();
   return {
     reserveId: r.id as string,
     companyId: r.company_id as string,

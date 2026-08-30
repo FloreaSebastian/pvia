@@ -11,6 +11,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import {
+import { getPublicAppUrl } from "./app-url.server";
   getCompanyBrandingSettings,
   normalizeHex,
   DEFAULT_BRANDING_SETTINGS,
@@ -115,7 +116,7 @@ export async function sendReserveLiftValidationRequestEmail(opts: {
     return { ok: false, recipient: null, error: "Aucun destinataire" };
   }
 
-  const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+  const appUrl = getPublicAppUrl();
   const validateUrl = `${appUrl}/client/pv/${pv!.id}/levee-reserves/${report.id}`;
   const companyName = company?.name || "PVIA";
   const clientName = client?.name || "Cher client";

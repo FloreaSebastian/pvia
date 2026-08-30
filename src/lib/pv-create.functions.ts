@@ -17,6 +17,7 @@ import { firePushToCompany } from "./push.server";
 import { buildAndStorePvPdf } from "./pdf.server";
 import { getCompanyBranding } from "./branding.server";
 import {
+import { getPublicAppUrl } from "./app-url.server";
   PHOTO_MAX_BYTES,
   PHOTO_MAX_COUNT,
   PHOTO_ALLOWED_MIMES,
@@ -702,7 +703,7 @@ export const createPv = createServerFn({ method: "POST" })
           });
           throw new Error(`Échec persistance du lien de signature : ${tokErr.message}`);
         }
-        const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+        const appUrl = getPublicAppUrl();
         remoteSignUrl = `${appUrl}/sign/pv/${token}`;
         const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
         const [{ data: company }, { data: clientRow }] = await Promise.all([

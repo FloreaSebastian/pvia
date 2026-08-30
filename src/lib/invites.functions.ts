@@ -7,6 +7,7 @@ import { writeAuditLog } from "./audit.server";
 import { assertCanAddMember } from "./plan-guard.server";
 import { firePushToCompany } from "./push.server";
 import { enforceRateLimit, getClientIp } from "./rate-limit.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 const InviteSchema = z.object({
   companyId: z.string().uuid(),
@@ -144,7 +145,7 @@ export const sendInvite = createServerFn({ method: "POST" })
     }
 
 
-    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+    const appUrl = getPublicAppUrl();
     const acceptUrl = `${appUrl}/invite/${token}`;
 
     const html = renderEmail({

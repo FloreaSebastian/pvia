@@ -13,6 +13,7 @@ import {
   timingSafeEqual,
 } from "@/lib/client-auth.server";
 import { sendEnterpriseLoginCodeEmail } from "@/lib/email.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 const LoginCodeSchema = z.object({
   email: z.string().email().max(255),
@@ -86,7 +87,7 @@ export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
       return NEUTRAL_RESPONSE;
     }
 
-    const appUrl = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || "https://pvia.fr";
+    const appUrl = getPublicAppUrl();
     const { data: linkData, error } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email,

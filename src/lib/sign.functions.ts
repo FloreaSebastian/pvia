@@ -14,6 +14,7 @@ import { decodeAndValidateImage } from "./image-validate.server";
 import { generateSignToken, sha256Hex, SIGN_CONSENT_TEXT_V1 } from "./sign-token.server";
 import { sendOnsiteOtpEmail } from "./email.server";
 import {
+import { getPublicAppUrl } from "./app-url.server";
   createSignatureOtp,
   verifySignatureOtp,
   assertSignatureOtpVerified,
@@ -153,7 +154,7 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       .eq("id", pv.id);
     if (updErr) throw new Error(updErr.message);
 
-    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+    const appUrl = getPublicAppUrl();
     const signUrl = `${appUrl}/sign/pv/${token}`;
 
     const html = renderSignEmail({
