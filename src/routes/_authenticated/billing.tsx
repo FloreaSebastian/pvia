@@ -412,12 +412,19 @@ function BillingPage() {
               <div className="mt-1 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
                 {billingInterval === "annual" ? " / an · Facturation annuelle" : " / mois · Facturation mensuelle"}
+                <span className="block text-xs">
+                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC (TVA {VAT_RATE_LABEL} :{" "}
+                  {formatEurCents(vatBreakdown(priceNow).vat)})
+                </span>
               </div>
             ) : isTrial && priceNow != null ? (
               <div className="mt-1 text-sm text-muted-foreground">
                 Essai gratuit en cours · tarif à l'issue de l'essai :{" "}
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
                 {billingInterval === "annual" ? " / an" : " / mois"}
+                <span className="block text-xs">
+                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC (TVA {VAT_RATE_LABEL})
+                </span>
               </div>
             ) : (
               <div className="mt-1 text-sm text-muted-foreground">
