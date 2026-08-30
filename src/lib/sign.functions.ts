@@ -14,12 +14,12 @@ import { decodeAndValidateImage } from "./image-validate.server";
 import { generateSignToken, sha256Hex, SIGN_CONSENT_TEXT_V1 } from "./sign-token.server";
 import { sendOnsiteOtpEmail } from "./email.server";
 import {
-import { getPublicAppUrl } from "./app-url.server";
   createSignatureOtp,
   verifySignatureOtp,
   assertSignatureOtpVerified,
   maskEmail,
 } from "./signature-otp.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),

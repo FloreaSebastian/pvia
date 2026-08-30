@@ -16,12 +16,12 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { sendEmailWithRetryLog } from "./email-sender.server";
 import {
-import { getPublicAppUrl } from "./app-url.server";
   getCompanyBrandingSettings,
   normalizeHex,
   DEFAULT_BRANDING_SETTINGS,
   type CompanyBrandingSettings,
 } from "./branding.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 /* ─── helpers ─────────────────────────────────────────────────────────── */
 

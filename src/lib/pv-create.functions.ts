@@ -17,7 +17,6 @@ import { firePushToCompany } from "./push.server";
 import { buildAndStorePvPdf } from "./pdf.server";
 import { getCompanyBranding } from "./branding.server";
 import {
-import { getPublicAppUrl } from "./app-url.server";
   PHOTO_MAX_BYTES,
   PHOTO_MAX_COUNT,
   PHOTO_ALLOWED_MIMES,
@@ -28,6 +27,7 @@ import { getPublicAppUrl } from "./app-url.server";
   normMime,
   safeFilename,
 } from "./pv-create.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 const PhotoSchema = z.object({
   base64: z.string().min(1).max(6_000_000),     // ~4.5 MB raw after decode
