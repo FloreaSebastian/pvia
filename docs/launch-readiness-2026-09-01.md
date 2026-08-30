@@ -303,3 +303,68 @@ Action humaine externe requise :
 8. Test de paiement réel minimal, pendant l'essai puis après essai.
 9. Test de signature client réelle + réception du PDF par email.
 10. Sauvegarde/rollback : point de restauration noté avant publication.
+
+## TVA — audit et corrections (passage facturation)
+
+### Règle retenue (unique, code / UI / Stripe)
+
+Tous les tarifs PVIA sont des montants **HT** destinés à une clientèle
+professionnelle. La TVA française **20 %** s'ajoute au prix HT :
+
+| Formule    | HT / mois | TVA 20 % | TTC / mois | HT / an  | TVA 20 % | TTC / an   |
+| ---------- | --------- | -------- | ---------- | -------- | -------- | ---------- |
+| Starter    | 19,00 €   | 3,80 €   | 22,80 €    | 190,00 € | 38,00 €  | 228,00 €   |
+| Pro        | 59,00 €   | 11,80 €  | 70,80 €    | 590,00 € | 118,00 € | 708,00 €   |
+| Business   | 149,00 €  | 29,80 €  | 178,80 €   | 1 490,00 €| 298,00 € | 1 788,00 € |
+| Entreprise | sur devis | —        | —          | sur devis| —        | —          |
+
+Vérifié : les prix Stripe correspondent bien aux montants HT affichés
+(1900 / 5900 / 14900 centimes en mensuel, 19000 / 59000 / 149000 en annuel).
+Aucun tarif économique n'a été modifié.
+
+### Corrections appliquées
+
+- **Stripe (sandbox + live)** : `tax_behavior` passé de `unspecified` à
+  `exclusive` sur tous les Prices (les montants sont donc traités comme HT et
+  la TVA est ajoutée, jamais extraite). Tax codes déjà corrects
+  (`txcd_10103001`, SaaS). Aucun paiement effectué.
+- **Checkout** (`src/lib/billing.functions.ts`) : ajout de
+  `automatic_tax: { enabled: true }`, `billing_address_collection: "required"`,
+  `customer_update: { address: "auto", name: "auto" }` et
+  `tax_id_collection: { enabled: true, required: "if_supported" }`.
+  Stripe calcule, affiche et facture la TVA ; l'adresse et le numéro de TVA
+  sont persistés sur le Customer, donc les renouvellements restent corrects.
+  Aucune taxe n'est codée en dur côté application. La logique d'essai
+  (`trial_end` aligné sur `companies.trial_ends_at`) est inchangée.
+- **UI** : helpers `VAT_RATE`, `VAT_RATE_LABEL`, `vatBreakdown()`,
+  `formatEurCents()` dans `src/lib/plans.ts`. Affichage « soit X € TTC (TVA
+  20 %) » sur `/billing` (abonnement en cours, essai, cartes de formules) et
+  sur `/tarifs` ; mention « Prix HT, TVA 20 % en sus » sur l'aperçu tarifaire
+  de la page d'accueil et bandeau explicatif sur `/billing`.
+- **CGV** (`src/routes/cgv.tsx`) : article 3 réécrit « Tarifs, TVA & paiement »
+  — prix HT, TVA 20 % en sus avec exemple chiffré, affichage HT/TVA/TTC avant
+  paiement et sur facture, autoliquidation UE hors France, Entreprise HT.
+
+### Preuve de calcul (environnement test, aucun paiement)
+
+`tax.calculations` Stripe sandbox, client FR, ligne 1900 c HT exclusive :
+`HT = 1900`, `TVA = 380` (taux `20.0`), `TTC = 2280` — conforme au tableau.
+La session Checkout de test créée pour la vérification a été expirée et le
+client de test supprimé.
+
+### Action externe obligatoire avant encaissement réel (P0)
+
+`tax.registrations` est **vide en LIVE** (et l'était en sandbox). Sans
+enregistrement TVA France actif, Stripe Tax calcule **0 €** de TVA même avec
+`automatic_tax` activé.
+
+À faire par le propriétaire dans le Dashboard Stripe **live** :
+1. Renseigner l'adresse complète du siège (origine) et le numéro de TVA
+   intracommunautaire de l'entreprise.
+2. Ajouter l'enregistrement fiscal : Tax → Registrations → France (régime
+   standard), avec la date d'effet correspondant à l'immatriculation réelle.
+3. Vérifier que les factures Stripe affichent HT / TVA 20 % / TTC et les
+   mentions légales (numéro de TVA du vendeur).
+4. Effectuer un premier paiement réel de contrôle et vérifier la facture.
+
+Tant que le point 2 n'est pas fait, la TVA ne sera pas collectée en production.
