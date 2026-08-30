@@ -368,3 +368,74 @@ enregistrement TVA France actif, Stripe Tax calcule **0 €** de TVA même avec
 4. Effectuer un premier paiement réel de contrôle et vérifier la facture.
 
 Tant que le point 2 n'est pas fait, la TVA ne sera pas collectée en production.
+
+## TVA — passe corrective (revue du diff fdd3af0)
+
+Aucun paiement réel, aucune modification live d'objets Stripe, aucune publication.
+
+### 1. Formulation « 20 % » — corrigée (indicative, non universelle)
+Les helpers `VAT_RATE` / `vatBreakdown()` restent fixes à 20 % **pour l'affichage
+uniquement** et sont désormais documentés comme tels (`src/lib/plans.ts`, nouvelle
+constante `VAT_DISCLAIMER`). Tous les textes disent maintenant « TTC indicatif
+pour une facturation en France au taux actuel de 20 % ; le montant fiscal
+définitif est calculé par Stripe selon l'adresse et le statut TVA » :
+`/billing`, `Pricing.tsx`, `PricingPreview.tsx`. L'autoliquidation UE reste
+mentionnée. Plus aucune promesse « TVA 20 % » comme résultat universel.
+
+### 2. `tax_id_collection.required` — supporté (preuve runtime)
+- SDK `stripe@22.0.2`, API `2026-03-25.dahlia` : type
+  `SessionCreateParams.TaxIdCollection.required?: 'if_supported' | 'never'`.
+- Session **sandbox** créée via les paramètres EXACTS de production
+  (`mode=subscription`, `automatic_tax`, `billing_address_collection=required`,
+  `customer_update`, `tax_id_collection`) : `status=open`, réponse
+  `tax_id_collection: {"enabled":true,"required":"if_supported"}`,
+  `automatic_tax.status=requires_location_inputs` (normal : adresse non encore
+  saisie). Session expirée et customer de test supprimé. Paramètre conservé.
+
+### 3. Périmètre réel du `tax_behavior=exclusive`
+Inventaire complet des Prices des deux comptes (lecture seule) :
+
+| Env | Prices | Détail |
+|-----|--------|--------|
+| Sandbox | 8 | 6 PVIA actifs + 2 **inactifs** : `enterprise_monthly` (199 €, produit PVIA Entreprise) et un ancien Price PVIA Pro 49 € sans lookup_key |
+| Live | 8 | idem (mêmes 2 inactifs) |
+
+Tous en `exclusive`. **Aucun Price d'un autre produit/compte tiers n'a été
+touché** : les 2 Prices hors périmètre initial appartiennent à PVIA et sont
+inactifs. Aucune modification supplémentaire effectuée pendant cette passe.
+
+### 4. Lookup keys et montants (vérifiés en sandbox ET live)
+`starter_monthly` 1900 / `starter_annual` 19000 · `pro_monthly` 5900 /
+`pro_annual` 59000 · `business_monthly` 14900 / `business_annual` 149000
+(centimes, EUR, HT). Annuel = 10 mensualités → « 2 mois offerts » exact.
+
+### 5. Factures — formulation conditionnée
+Plus aucune promesse « détaillée sur chaque facture » : les textes indiquent que
+Stripe calcule la taxe au paiement et la reprend sur la facture, ce qui ne
+deviendra effectif en production qu'après enregistrement fiscal actif.
+
+### 6. CGV
+Article 3 : « La TVA au taux légal applicable s'ajoute au prix HT ; à titre
+indicatif, le taux normal en France est actuellement de 20 % » + mention
+explicite que les TTC du site sont indicatifs avant calcul Stripe.
+
+### 7. Garde LIVE fail-closed (nouveau)
+`assertTaxComplianceReady(env, stripe)` dans `src/lib/stripe.server.ts`, appelée
+au début de `createCheckoutSession` : en **live uniquement**, elle vérifie via
+`tax.registrations.list({status:'active'})` la présence d'un enregistrement
+**FR actif**, avec cache 10 min par isolate (coût négligeable) et fail-closed
+en cas d'erreur API. Message FR neutre invitant à contacter contact@pvia.fr.
+Sandbox/dev jamais bloqués.
+
+Preuve runtime : `sandbox: registration FR active=true → garde PASSE` ;
+`live: registration FR active=false → garde BLOQUE`. Aucun enregistrement live
+n'a été créé (P0 externe, action du propriétaire dans Stripe).
+
+### 8. Vérifications finales
+`bunx tsgo --noEmit` : OK. Scripts d'audit temporaires supprimés.
+
+### Verdict TVA
+**GO CODE / NO-GO ENCAISSEMENT LIVE** : le code est conforme et désormais
+protégé — aucun paiement live ne peut passer sans TVA. Le lancement commercial
+reste bloqué tant que le propriétaire n'a pas activé l'enregistrement TVA France
+dans Stripe LIVE (puis vérifié une facture réelle HT / TVA / TTC).
