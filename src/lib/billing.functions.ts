@@ -179,6 +179,17 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         line_items: [{ price: price.id, quantity: 1 }],
         success_url: `${data.returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${data.returnUrl}?status=cancel`,
+        // TVA : les Stripe Prices PVIA sont HT (`tax_behavior: exclusive`).
+        // Stripe Tax calcule et affiche la TVA (20 % en France) en supplément
+        // avant validation. Aucune taxe n'est codée en dur côté application.
+        automatic_tax: { enabled: true },
+        // Nécessaire au calcul de la TVA : adresse de facturation du client.
+        billing_address_collection: "required",
+        // Persiste l'adresse / le nom sur le Customer → factures et
+        // renouvellements conservent une TVA correcte.
+        customer_update: { address: "auto", name: "auto" },
+        // B2B : numéro de TVA intracommunautaire (autoliquidation hors France).
+        tax_id_collection: { enabled: true, required: "if_supported" },
         subscription_data: {
           ...(alignedTrialEnd ? { trial_end: alignedTrialEnd } : {}),
           metadata: { companyId: data.companyId, userId },
