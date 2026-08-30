@@ -211,6 +211,22 @@ function BillingPage() {
   const current = (limits as PlanLimitsRow | null) ?? null;
   const seatsUsed = usage.seats ?? usage.members;
 
+  // Invariant commercial : l'essai de 14 jours démarre à la CRÉATION de
+  // l'entreprise, pas à l'activation d'une formule. Il ne peut jamais être
+  // prolongé ni réattribué. `trialEligible` reste exposé pour l'audit mais est
+  // structurellement false (companies.trial_started_at a un DEFAULT now()),
+  // donc la copie s'appuie sur l'état d'accès réel.
+  const trialInProgress = access?.state === "trialing";
+  const trialDaysLeft = access?.trial_end
+    ? Math.max(0, Math.ceil((new Date(access.trial_end).getTime() - Date.now()) / 86_400_000))
+    : null;
+  const trialNotice = trialInProgress
+    ? `Votre essai gratuit de 14 jours est en cours${
+        trialDaysLeft !== null ? ` (${trialDaysLeft} jour${trialDaysLeft > 1 ? "s" : ""} restant${trialDaysLeft > 1 ? "s" : ""})` : ""
+      }. Il a démarré à la création de votre entreprise : choisir ou changer de formule ne le prolonge pas et ne le réinitialise pas.`
+    : "Votre essai gratuit de 14 jours a déjà été utilisé : activer ou changer de formule démarre un abonnement payant immédiatement, sans nouvelle période d'essai.";
+
+
   const currentIndex = useMemo(() => plans.findIndex((p) => p.plan === plan), [plans, plan]);
 
   async function startCheckout(priceId: string) {
