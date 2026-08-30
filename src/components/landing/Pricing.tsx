@@ -8,6 +8,9 @@ import {
   CONTACT_SALES_EMAIL,
   TRIAL_DAYS,
   formatEur,
+  formatEurCents,
+  vatBreakdown,
+  VAT_RATE_LABEL,
   annualSavingPercent,
   type BillingInterval,
 } from "@/lib/plans";
