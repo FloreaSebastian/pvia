@@ -506,11 +506,8 @@ function BillingPage() {
         {billingInterval === "annual" && (
           <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
         )}
-        <p className="mb-4 text-sm text-muted-foreground">
-          {trialEligible
-            ? "Votre essai gratuit de 14 jours démarre à l'activation. Un seul essai par entreprise."
-            : "Votre essai gratuit de 14 jours a déjà été utilisé : changer de formule active un abonnement payant immédiatement, sans nouvelle période d'essai."}
-        </p>
+        <p className="mb-4 text-sm text-muted-foreground">{trialNotice}</p>
+
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((p, index) => {
