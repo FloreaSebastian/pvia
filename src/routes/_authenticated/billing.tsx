@@ -426,7 +426,7 @@ function BillingPage() {
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
                 {billingInterval === "annual" ? " / an" : " / mois"}
                 <span className="block text-xs">
-                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC (TVA {VAT_RATE_LABEL})
+                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC indicatif France (TVA {VAT_RATE_LABEL})
                 </span>
               </div>
             ) : (
