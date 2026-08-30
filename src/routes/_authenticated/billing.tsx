@@ -157,7 +157,7 @@ function Cell({ value }: { value: boolean | string }) {
 
 function BillingPage() {
   const { activeCompanyId, activeRole } = useCompany();
-  const { plan, limits, usage, subscription, allPlans, access, isLoading, refetch } = useSubscription();
+  const { plan, limits, usage, subscription, allPlans, access, trialEligible, isLoading, refetch } = useSubscription();
 
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
@@ -490,6 +490,11 @@ function BillingPage() {
         {billingInterval === "annual" && (
           <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
         )}
+        <p className="mb-4 text-sm text-muted-foreground">
+          {trialEligible
+            ? "Votre essai gratuit de 14 jours démarre à l'activation. Un seul essai par entreprise."
+            : "Votre essai gratuit de 14 jours a déjà été utilisé : changer de formule active un abonnement payant immédiatement, sans nouvelle période d'essai."}
+        </p>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((p, index) => {

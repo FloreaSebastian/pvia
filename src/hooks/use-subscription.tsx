@@ -51,6 +51,8 @@ export function useSubscription() {
     subscription: query.data?.subscription ?? null,
     allPlans: query.data?.allPlans ?? [],
     access,
+    /** Une entreprise = un seul essai à vie. */
+    trialEligible: query.data?.trialEligible ?? false,
     blocked: access?.blocked ?? false,
     isTrialing: access?.state === "trialing",
     /** True if current plan grants this feature. */
