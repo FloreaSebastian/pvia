@@ -165,6 +165,52 @@ export function assertStripeEnvConsistent(env: StripeEnv): void {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Garde de conformité fiscale LIVE (TVA).
+ *
+ * Stripe Tax ne peut collecter la TVA que si le compte possède un
+ * enregistrement fiscal ACTIF pour le pays concerné. Sans enregistrement
+ * France actif, une session Checkout LIVE encaisserait un paiement à 0 %
+ * de TVA — irréversible et non conforme. On échoue donc en amont (live
+ * uniquement ; sandbox/dev ne sont jamais bloqués).
+ *
+ * Le résultat est mis en cache 10 minutes par isolate : au plus un appel
+ * API supplémentaire par tranche de 10 min, coût négligeable.
+ * ------------------------------------------------------------------ */
+
+const TAX_READY_TTL_MS = 10 * 60_000;
+let _taxReadyCache: { ok: boolean; at: number } | null = null;
+
+export const TAX_NOT_READY_MESSAGE =
+  "Le paiement en ligne est momentanément indisponible : la configuration de facturation (TVA) de PVIA est en cours de finalisation. Écrivez-nous à contact@pvia.fr, nous activons votre formule manuellement.";
+
+/** `true` si un enregistrement TVA France actif existe sur le compte Stripe. */
+export async function hasActiveFrenchTaxRegistration(stripe: Stripe): Promise<boolean> {
+  const regs = await (stripe as unknown as {
+    tax: { registrations: { list: (p: Record<string, unknown>) => Promise<{ data: Array<{ country?: string; status?: string }> }> } };
+  }).tax.registrations.list({ status: "active", limit: 100 });
+  return regs.data.some((r) => r.country === "FR" && r.status === "active");
+}
+
+/** Fail-closed en LIVE tant qu'aucun enregistrement TVA France actif n'existe. */
+export async function assertTaxComplianceReady(env: StripeEnv, stripe: Stripe): Promise<void> {
+  if (env !== "live") return;
+  const now = Date.now();
+  if (_taxReadyCache && now - _taxReadyCache.at < TAX_READY_TTL_MS) {
+    if (_taxReadyCache.ok) return;
+    throw new Error(TAX_NOT_READY_MESSAGE);
+  }
+  let ok = false;
+  try {
+    ok = await hasActiveFrenchTaxRegistration(stripe);
+  } catch (e) {
+    console.error("[billing] lecture des enregistrements fiscaux Stripe impossible:", e);
+    ok = false; // fail-closed
+  }
+  _taxReadyCache = { ok, at: now };
+  if (!ok) throw new Error(TAX_NOT_READY_MESSAGE);
+}
+
 
 /* ------------------------------------------------------------------ *
  * Sanitisation des erreurs Stripe (P0 audit billing).

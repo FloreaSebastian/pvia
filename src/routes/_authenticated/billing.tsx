@@ -416,7 +416,7 @@ function BillingPage() {
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
                 {billingInterval === "annual" ? " / an · Facturation annuelle" : " / mois · Facturation mensuelle"}
                 <span className="block text-xs">
-                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC (TVA {VAT_RATE_LABEL} :{" "}
+                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC indicatif France (TVA {VAT_RATE_LABEL} :{" "}
                   {formatEurCents(vatBreakdown(priceNow).vat)})
                 </span>
               </div>
@@ -426,7 +426,7 @@ function BillingPage() {
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
                 {billingInterval === "annual" ? " / an" : " / mois"}
                 <span className="block text-xs">
-                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC (TVA {VAT_RATE_LABEL})
+                  soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC indicatif France (TVA {VAT_RATE_LABEL})
                 </span>
               </div>
             ) : (
@@ -538,10 +538,11 @@ function BillingPage() {
         )}
         <p className="mb-4 text-sm text-muted-foreground">{trialNoticeFor(isTrial, trialDaysLeft)}</p>
         <p className="mb-4 text-sm text-muted-foreground">
-          Tous les tarifs sont indiqués <span className="font-medium text-foreground">hors taxes</span>. La TVA
-          applicable ({VAT_RATE_LABEL} en France) est calculée et affichée par Stripe avant validation du paiement, puis
-          détaillée sur chaque facture. Les entreprises de l'UE hors France disposant d'un numéro de TVA
-          intracommunautaire valide peuvent bénéficier de l'autoliquidation.
+          Tous les tarifs sont indiqués <span className="font-medium text-foreground">hors taxes</span>. Les montants
+          TTC affichés ici sont indicatifs pour une facturation en France au taux actuel de {VAT_RATE_LABEL} ; le
+          montant fiscal définitif est calculé par Stripe avant validation du paiement, selon l'adresse de facturation
+          et le statut TVA renseignés, puis repris sur la facture. Les entreprises de l'UE hors France disposant d'un
+          numéro de TVA intracommunautaire valide peuvent bénéficier de l'autoliquidation.
         </p>
         {checkoutLockedUntilTrialEnd && (
           <p className="mb-4 text-sm font-medium">
@@ -604,7 +605,7 @@ function BillingPage() {
                   </div>
                   {!custom && amount != null && (
                     <div className="mt-1 text-xs text-muted-foreground">
-                      soit {formatEurCents(vatBreakdown(amount).ttc)} TTC
+                      soit {formatEurCents(vatBreakdown(amount).ttc)} TTC indicatif France
                       {billingInterval === "annual" ? " / an" : " / mois"} (TVA {VAT_RATE_LABEL} :{" "}
                       {formatEurCents(vatBreakdown(amount).vat)})
                     </div>

@@ -17,7 +17,8 @@ export function PricingPreview() {
           </h2>
           <p className="mt-3 text-pretty text-muted-foreground">
             {TRIAL_DAYS} jours d'essai gratuits, sans engagement. Facturation annuelle : deux mois
-            offerts. Prix HT, TVA {VAT_RATE_LABEL} en sus.
+            offerts. Prix HT ; TVA en sus au taux applicable ({VAT_RATE_LABEL} en France
+            actuellement), calculée par Stripe au paiement.
           </p>
         </div>
 

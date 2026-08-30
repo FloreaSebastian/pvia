@@ -3,7 +3,7 @@ import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from 
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { createStripeClient, sanitizeStripeError, BILLING_MESSAGES, type StripeEnv } from "./stripe.server";
+import { createStripeClient, sanitizeStripeError, assertTaxComplianceReady, BILLING_MESSAGES, type StripeEnv } from "./stripe.server";
 import { writeAuditLog } from "./audit.server";
 import { getAccessState, isTrialEligible } from "./plan-guard.server";
 
@@ -87,6 +87,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const email = user?.email ?? undefined;
 
     const stripe = createStripeClient(data.environment);
+    // Fail-closed LIVE : aucun encaissement tant que l'enregistrement TVA
+    // France n'est pas actif sur le compte Stripe (sandbox non bloquée).
+    await assertTaxComplianceReady(data.environment, stripe);
+
     const price = await (async () => {
       try {
         const prices = await stripe.prices.list({ lookup_keys: [data.priceId], limit: 1 });
@@ -180,8 +184,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         success_url: `${data.returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${data.returnUrl}?status=cancel`,
         // TVA : les Stripe Prices PVIA sont HT (`tax_behavior: exclusive`).
-        // Stripe Tax calcule et affiche la TVA (20 % en France) en supplément
-        // avant validation. Aucune taxe n'est codée en dur côté application.
+        // Stripe Tax détermine le taux applicable DYNAMIQUEMENT selon
+        // l'adresse de facturation et le statut TVA du client (20 % pour un
+        // client France ; autoliquidation possible dans l'UE avec numéro
+        // valide). Aucun taux n'est codé en dur côté application.
         automatic_tax: { enabled: true },
         // Nécessaire au calcul de la TVA : adresse de facturation du client.
         billing_address_collection: "required",
@@ -189,6 +195,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         // renouvellements conservent une TVA correcte.
         customer_update: { address: "auto", name: "auto" },
         // B2B : numéro de TVA intracommunautaire (autoliquidation hors France).
+        // `required` est supporté par l'API 2026-03-25.dahlia / SDK 22.0.2
+        // (vérifié en runtime sur une session sandbox).
         tax_id_collection: { enabled: true, required: "if_supported" },
         subscription_data: {
           ...(alignedTrialEnd ? { trial_end: alignedTrialEnd } : {}),
