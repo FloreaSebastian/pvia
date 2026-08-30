@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { useCompany } from "./use-company";
 import { getCompanyBilling } from "@/lib/billing.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 export function useSubscription() {
   const { activeCompanyId } = useCompany();
   const fetchBilling = useServerFn(getCompanyBilling);
+  // Plusieurs consommateurs (provider, bannière, feature gates) peuvent être
+  // montés simultanément. Supabase réutilise un canal de même topic : le second
+  // appel à `.on()` arriverait alors après le `.subscribe()` du premier.
+  const realtimeInstanceId = useId().replace(/:/g, "");
 
   const query = useQuery({
     queryKey: ["billing", activeCompanyId],
@@ -15,21 +19,22 @@ export function useSubscription() {
     enabled: !!activeCompanyId,
     staleTime: 60_000,
   });
+  const { refetch } = query;
 
   useEffect(() => {
     if (!activeCompanyId) return;
     const ch = supabase
-      .channel(`billing-${activeCompanyId}`)
+      .channel(`billing-${activeCompanyId}-${realtimeInstanceId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "subscriptions", filter: `company_id=eq.${activeCompanyId}` },
-        () => query.refetch(),
+        () => void refetch(),
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(ch);
+      void supabase.removeChannel(ch);
     };
-  }, [activeCompanyId, query]);
+  }, [activeCompanyId, realtimeInstanceId, refetch]);
 
   const access = query.data?.access ?? null;
 
