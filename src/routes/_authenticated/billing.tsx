@@ -538,10 +538,11 @@ function BillingPage() {
         )}
         <p className="mb-4 text-sm text-muted-foreground">{trialNoticeFor(isTrial, trialDaysLeft)}</p>
         <p className="mb-4 text-sm text-muted-foreground">
-          Tous les tarifs sont indiqués <span className="font-medium text-foreground">hors taxes</span>. La TVA
-          applicable ({VAT_RATE_LABEL} en France) est calculée et affichée par Stripe avant validation du paiement, puis
-          détaillée sur chaque facture. Les entreprises de l'UE hors France disposant d'un numéro de TVA
-          intracommunautaire valide peuvent bénéficier de l'autoliquidation.
+          Tous les tarifs sont indiqués <span className="font-medium text-foreground">hors taxes</span>. Les montants
+          TTC affichés ici sont indicatifs pour une facturation en France au taux actuel de {VAT_RATE_LABEL} ; le
+          montant fiscal définitif est calculé par Stripe avant validation du paiement, selon l'adresse de facturation
+          et le statut TVA renseignés, puis repris sur la facture. Les entreprises de l'UE hors France disposant d'un
+          numéro de TVA intracommunautaire valide peuvent bénéficier de l'autoliquidation.
         </p>
         {checkoutLockedUntilTrialEnd && (
           <p className="mb-4 text-sm font-medium">
