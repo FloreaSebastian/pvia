@@ -592,6 +592,13 @@ function BillingPage() {
                       </>
                     )}
                   </div>
+                  {!custom && amount != null && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      soit {formatEurCents(vatBreakdown(amount).ttc)} TTC
+                      {billingInterval === "annual" ? " / an" : " / mois"} (TVA {VAT_RATE_LABEL} :{" "}
+                      {formatEurCents(vatBreakdown(amount).vat)})
+                    </div>
+                  )}
                   {billingInterval === "annual" && saving && p.monthly_price_eur != null && (
                     <div className="mt-1 text-xs text-muted-foreground">
                       au lieu de {formatEur(p.monthly_price_eur * 12)} ·{" "}
