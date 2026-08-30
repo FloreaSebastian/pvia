@@ -32,6 +32,10 @@ export function Pricing({ as = "h2" }: { as?: "h1" | "h2" } = {}) {
           <p className="mt-4 text-muted-foreground">
             {TRIAL_DAYS} jours d'essai gratuit, sans carte bancaire. Résiliable à tout moment.
           </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Tarifs professionnels indiqués hors taxes (HT). TVA {VAT_RATE_LABEL} en sus pour la France, calculée et
+            détaillée au paiement et sur la facture. Offre Entreprise : tarif sur devis, également HT.
+          </p>
 
           <div
             role="group"
