@@ -215,11 +215,16 @@ function BillingPage() {
   // l'entreprise, pas à l'activation d'une formule. Il ne peut jamais être
   // prolongé ni réattribué (companies.trial_started_at a un DEFAULT now() et
   // est verrouillé en base), donc la copie s'appuie sur l'état d'accès réel.
+  // Choisir une formule pendant l'essai n'entraîne aucun prélèvement avant la
+  // date de fin d'essai : l'abonnement Stripe est aligné sur cette date exacte
+  // (sauf dans les 48 dernières heures, contrainte technique Stripe).
   const trialNoticeFor = (inProgress: boolean, daysLeft: number | null) =>
     inProgress
       ? `Votre essai gratuit de 14 jours est en cours${
           daysLeft !== null ? ` (${daysLeft} jour${daysLeft > 1 ? "s" : ""} restant${daysLeft > 1 ? "s" : ""})` : ""
-        }. Il a démarré à la création de votre entreprise : choisir ou changer de formule ne le prolonge pas et ne le réinitialise pas.`
+        }. Il a démarré à la création de votre entreprise : choisir une formule maintenant ne le prolonge pas, ne le réinitialise pas et n'entraîne aucun prélèvement avant la fin de l'essai${
+          daysLeft !== null && daysLeft <= 2 ? " (dans les dernières 48 h, l'abonnement démarre immédiatement)" : ""
+        }.`
       : "Votre essai gratuit de 14 jours a déjà été utilisé : activer ou changer de formule démarre un abonnement payant immédiatement, sans nouvelle période d'essai.";
 
 
