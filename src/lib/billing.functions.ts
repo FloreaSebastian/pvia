@@ -134,10 +134,35 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     }
 
     // Invariant : une entreprise = un seul essai de 14 jours à vie.
-    // L'essai est attribué à la création de l'entreprise (`trial_started_at`),
-    // donc un Checkout ne peut plus jamais en accorder un nouveau — quel que
-    // soit le plan, l'upgrade/downgrade, l'annulation ou la réactivation.
-    const trialDays = (await isTrialEligible(data.companyId)) ? 14 : undefined;
+    // L'essai est INTERNE : il est attribué à la création de l'entreprise
+    // (`companies.trial_started_at` + `trial_ends_at`), donc `isTrialEligible`
+    // est structurellement false et un Checkout n'accorde JAMAIS un nouveau
+    // `trial_period_days`.
+    //
+    // En revanche, choisir une formule PENDANT l'essai ne doit pas facturer
+    // immédiatement : on aligne l'abonnement Stripe sur la date de fin d'essai
+    // EXISTANTE (`trial_end`), jamais recalculée, jamais prolongée. Première
+    // facture = `companies.trial_ends_at`.
+    //
+    // Limite Stripe : `trial_end` doit être au moins 48 h dans le futur. Entre
+    // J-2 et la fin de l'essai, l'abonnement démarre donc payant immédiatement
+    // (l'essai reste, lui, valable jusqu'à sa date via `trial_ends_at`).
+    const { data: companyTrial } = await supabaseAdmin
+      .from("companies")
+      .select("trial_ends_at")
+      .eq("id", data.companyId)
+      .maybeSingle();
+    const trialEndsAtMs = (companyTrial as any)?.trial_ends_at
+      ? new Date((companyTrial as any).trial_ends_at as string).getTime()
+      : null;
+    const STRIPE_MIN_TRIAL_MS = 48 * 3_600_000;
+    const alignedTrialEnd =
+      trialEndsAtMs && trialEndsAtMs > Date.now() + STRIPE_MIN_TRIAL_MS
+        ? Math.floor(trialEndsAtMs / 1000)
+        : undefined;
+    // Conservé pour l'audit : doit toujours valoir false hors anomalie.
+    const legacyTrialEligible = await isTrialEligible(data.companyId);
+
 
 
     let session;
