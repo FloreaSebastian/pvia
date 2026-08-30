@@ -53,9 +53,10 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
       .maybeSingle(),
     supabaseAdmin
       .from("companies")
-      .select("created_at,trial_ends_at")
+      .select("created_at,trial_ends_at,trial_started_at")
       .eq("id", companyId)
       .maybeSingle(),
+
   ]);
 
   if (!sub) {
@@ -95,11 +96,23 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
    *  considérée périmée et l'écriture est refusée (anti fail-open). */
   const SYNC_GRACE_MS = 3 * 86_400_000;
 
+  // Invariant commercial : une entreprise = un seul essai à vie. La fenêtre
+  // d'essai locale (`companies.trial_ends_at`) est la seule autorité. Si Stripe
+  // renvoie `trialing` alors que cette fenêtre est terminée (nouvelle
+  // subscription d'essai injectée, réactivation, incohérence de sync), on
+  // refuse l'accès gratuit — fail-closed, parité avec `company_has_write_access`.
+  const companyTrialEndIso = ((company as any)?.trial_ends_at as string | null) ?? null;
+  const companyTrialActive = companyTrialEndIso
+    ? new Date(companyTrialEndIso).getTime() > now
+    : false;
+
   switch (sub.status) {
     case "trialing":
       // Fail-closed : `trialing` sans date de fin = donnée non fiable.
       if (!trialEnd || trialEnd < now) return { ...base, state: "trial_expired", blocked: true };
+      if (!companyTrialActive) return { ...base, state: "trial_expired", blocked: true };
       return { ...base, state: "trialing", blocked: false };
+
     case "active": {
       // `active` seul ne suffit pas : si le webhook de renouvellement n'est
       // jamais arrivé, la période payée peut être terminée depuis longtemps.
@@ -247,4 +260,21 @@ export async function assertPlanFeature(companyId: string, feature: PlanFeature,
 export async function getCompanyPlan(companyId: string): Promise<string> {
   const { data } = await supabaseAdmin.rpc("get_company_plan", { _company_id: companyId });
   return (data as string) || "starter";
+}
+
+/**
+ * Invariant commercial : UNE entreprise = UN SEUL essai de 14 jours à vie.
+ * La preuve est `companies.trial_started_at`, persistante et verrouillée en
+ * base (trigger `companies_lock_trial_started_at`) : elle ne peut jamais
+ * revenir à NULL, quel que soit le plan Stripe courant. Fail-closed :
+ * entreprise introuvable ⇒ essai considéré consommé.
+ */
+export async function isTrialEligible(companyId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("companies")
+    .select("trial_started_at")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (error || !data) return false;
+  return (data as any).trial_started_at == null;
 }

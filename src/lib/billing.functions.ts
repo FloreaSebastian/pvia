@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createStripeClient, sanitizeStripeError, BILLING_MESSAGES, type StripeEnv } from "./stripe.server";
 import { writeAuditLog } from "./audit.server";
-import { getAccessState } from "./plan-guard.server";
+import { getAccessState, isTrialEligible } from "./plan-guard.server";
 
 
 const EnvSchema = z.enum(["sandbox", "live"]);
@@ -133,8 +133,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       }
     }
 
-    // Only offer the 14-day trial on first ever checkout for this company.
-    const trialDays = existing?.stripe_customer_id ? undefined : 14;
+    // Invariant : une entreprise = un seul essai de 14 jours à vie.
+    // L'essai est attribué à la création de l'entreprise (`trial_started_at`),
+    // donc un Checkout ne peut plus jamais en accorder un nouveau — quel que
+    // soit le plan, l'upgrade/downgrade, l'annulation ou la réactivation.
+    const trialDays = (await isTrialEligible(data.companyId)) ? 14 : undefined;
+
 
     let session;
     try {
@@ -240,6 +244,7 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
       supabaseAdmin.rpc("get_company_seat_usage" as never, { _company_id: data.companyId } as never),
       getAccessState(data.companyId),
     ]);
+    const trialEligible = await isTrialEligible(data.companyId);
 
     const plan = (planRes.data as string) || "starter";
     const allLimits = (limitsRes.data ?? []) as any[];
@@ -260,6 +265,8 @@ export const getCompanyBilling = createServerFn({ method: "POST" })
         .sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99)),
       subscription,
       access,
+      /** Une entreprise = un seul essai à vie : false ⇒ activation payante. */
+      trialEligible,
       usage: {
         pv_this_period: Number(pvCountRes.data ?? 0),
         members: Number(memberCountRes.data ?? 0),

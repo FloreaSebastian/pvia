@@ -227,3 +227,22 @@ les formules et « Voir les options » (checkout) : aucun bouton mort.
 
 Runtime authentifié, transitions Stripe réelles (portail, réactivation) et
 rejeu hors-ligne restent non testés dans cet environnement.
+
+## Invariant : une entreprise = un seul essai à vie
+
+- Preuve persistante : `companies.trial_started_at` (défaut `now()`), verrouillée par le
+  trigger `companies_lock_trial_started_at` (BEFORE INSERT/UPDATE) — impossible de la
+  remettre à NULL ou de la modifier par un workflow normal.
+- Éligibilité : `public.company_trial_consumed(uuid)` (SQL) et `isTrialEligible()`
+  (`src/lib/plan-guard.server.ts`) — fail-closed si l'entreprise est introuvable.
+- Checkout Stripe (`createCheckoutSession`) n'envoie `trial_period_days: 14` que si
+  l'entreprise est éligible à son tout premier essai ; sinon activation payante immédiate,
+  quel que soit l'upgrade/downgrade, mensuel↔annuel, annulation/réactivation, past_due.
+- Webhook : un `trialing` Stripe ne prolonge jamais `companies.trial_ends_at` ;
+  l'incohérence est journalisée (`billing.trial_reuse_blocked`) et l'accès reste évalué
+  fail-closed par `company_has_write_access` / `getAccessState` (un `trialing` hors
+  fenêtre d'essai locale = lecture seule).
+- Backfill : toutes les entreprises existantes ont été marquées essai consommé
+  (`trial_ends_at - 14 j`, sinon `created_at`), sans prolongation des essais en cours.
+- Portée : la règle est au niveau `company`, jamais utilisateur — rejoindre une autre
+  entreprise ne modifie pas son historique d'essai.
