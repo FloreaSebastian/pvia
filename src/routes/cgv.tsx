@@ -51,10 +51,12 @@ function CGVPage() {
       <p>
         Les tarifs en vigueur sont publiés sur la page <a href="/tarifs">/tarifs</a>. Tous les prix
         sont indiqués <strong>hors taxes (HT)</strong>, à destination d'une clientèle
-        professionnelle. La TVA française au taux légal en vigueur (20 %) s'ajoute au prix HT :
-        par exemple 19,00 € HT + 3,80 € de TVA = 22,80 € TTC par mois. Le montant HT, la TVA et le
-        montant TTC sont affichés avant validation du paiement et détaillés sur chaque facture.
-        Les clients professionnels établis dans un autre État membre de l'Union européenne et
+        professionnelle. La TVA au taux légal applicable s'ajoute au prix HT ; à titre indicatif,
+        le taux normal en France est actuellement de 20 % (par exemple 19,00 € HT + 3,80 € de TVA
+        = 22,80 € TTC par mois). Les montants TTC affichés sur le site le sont à titre indicatif
+        avant calcul par Stripe : le montant fiscal définitif est déterminé au paiement selon
+        l'adresse de facturation et le statut TVA du client, puis repris sur la facture. Les
+        clients professionnels établis dans un autre État membre de l'Union européenne et
         disposant d'un numéro de TVA intracommunautaire valide peuvent bénéficier de
         l'autoliquidation. L'offre Entreprise est proposée sur devis, également HT.
       </p>
