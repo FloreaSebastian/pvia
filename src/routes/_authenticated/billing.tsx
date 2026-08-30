@@ -527,6 +527,12 @@ function BillingPage() {
           <p className="mb-4 text-sm text-muted-foreground">Soit 2 mois offerts avec la facturation annuelle.</p>
         )}
         <p className="mb-4 text-sm text-muted-foreground">{trialNoticeFor(isTrial, trialDaysLeft)}</p>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Tous les tarifs sont indiqués <span className="font-medium text-foreground">hors taxes</span>. La TVA
+          applicable ({VAT_RATE_LABEL} en France) est calculée et affichée par Stripe avant validation du paiement, puis
+          détaillée sur chaque facture. Les entreprises de l'UE hors France disposant d'un numéro de TVA
+          intracommunautaire valide peuvent bénéficier de l'autoliquidation.
+        </p>
         {checkoutLockedUntilTrialEnd && (
           <p className="mb-4 text-sm font-medium">
             Votre essai se termine le {trialEndLabel} : l'activation d'une formule sera possible dès cette date. Aucun
