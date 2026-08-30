@@ -148,8 +148,10 @@ function TerrainPage() {
       await saveFn({ data: { companyId: activeCompanyId, visitId: id, entries } });
       setSavedAt(new Date());
       setSyncSuspended(false);
+      setPendingCount(dirtyRef.current.size);
     } catch (e: any) {
       for (const e2 of entries) dirtyRef.current.set(e2.field_key, { section_key: e2.section_key, value: e2.value });
+      setPendingCount(dirtyRef.current.size);
       if (classifyBillingError(e)) {
         // Comportement réel : les saisies restent en mémoire sur cet écran,
         // mais rien n'est mis en file d'attente persistante sur l'appareil.
@@ -170,9 +172,18 @@ function TerrainPage() {
     };
   }, []);
 
+  // Reprise automatique dès que le réseau revient : sans cela les réponses
+  // saisies hors connexion restaient en mémoire jusqu'à la frappe suivante.
+  useEffect(() => {
+    if (!online) return;
+    if (dirtyRef.current.size === 0) return;
+    void flush();
+  }, [online, flush]);
+
   function onFieldChange(sectionKey: string, answerKey: string, value: AnswerValue) {
     setAnswers((prev) => ({ ...prev, [answerKey]: value }));
     dirtyRef.current.set(answerKey, { section_key: sectionKey, value });
+    setPendingCount(dirtyRef.current.size);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => void flush(), 900);
   }
