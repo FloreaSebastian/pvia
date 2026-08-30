@@ -96,11 +96,23 @@ export async function getAccessState(companyId: string): Promise<AccessInfo> {
    *  considérée périmée et l'écriture est refusée (anti fail-open). */
   const SYNC_GRACE_MS = 3 * 86_400_000;
 
+  // Invariant commercial : une entreprise = un seul essai à vie. La fenêtre
+  // d'essai locale (`companies.trial_ends_at`) est la seule autorité. Si Stripe
+  // renvoie `trialing` alors que cette fenêtre est terminée (nouvelle
+  // subscription d'essai injectée, réactivation, incohérence de sync), on
+  // refuse l'accès gratuit — fail-closed, parité avec `company_has_write_access`.
+  const companyTrialEndIso = ((company as any)?.trial_ends_at as string | null) ?? null;
+  const companyTrialActive = companyTrialEndIso
+    ? new Date(companyTrialEndIso).getTime() > now
+    : false;
+
   switch (sub.status) {
     case "trialing":
       // Fail-closed : `trialing` sans date de fin = donnée non fiable.
       if (!trialEnd || trialEnd < now) return { ...base, state: "trial_expired", blocked: true };
+      if (!companyTrialActive) return { ...base, state: "trial_expired", blocked: true };
       return { ...base, state: "trialing", blocked: false };
+
     case "active": {
       // `active` seul ne suffit pas : si le webhook de renouvellement n'est
       // jamais arrivé, la période payée peut être terminée depuis longtemps.
