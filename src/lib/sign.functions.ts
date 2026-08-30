@@ -19,6 +19,7 @@ import {
   assertSignatureOtpVerified,
   maskEmail,
 } from "./signature-otp.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 const PvIdSchema = z.object({
   pvId: z.string().uuid(),
@@ -153,7 +154,7 @@ export const sendPvToClient = createServerFn({ method: "POST" })
       .eq("id", pv.id);
     if (updErr) throw new Error(updErr.message);
 
-    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+    const appUrl = getPublicAppUrl();
     const signUrl = `${appUrl}/sign/pv/${token}`;
 
     const html = renderSignEmail({

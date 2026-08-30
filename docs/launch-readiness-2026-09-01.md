@@ -439,3 +439,95 @@ n'a été créé (P0 externe, action du propriétaire dans Stripe).
 protégé — aucun paiement live ne peut passer sans TVA. Le lancement commercial
 reste bloqué tant que le propriétaire n'a pas activé l'enregistrement TVA France
 dans Stripe LIVE (puis vérifié une facture réelle HT / TVA / TTC).
+
+---
+
+## Passe finale pré-lancement (audit ciblé, sans publication)
+
+### 1. Message de garde TVA — corrigé
+`TAX_NOT_READY_MESSAGE` ne promet plus d'activation manuelle (aucun workflow
+conforme implémenté). Nouveau texte : « Le paiement est momentanément
+indisponible pendant la finalisation de la configuration fiscale. Réessayez
+ultérieurement ou contactez contact@pvia.fr. »
+
+### 2. Inventaire des chemins de création/modification d'abonnement Stripe
+- `stripe.checkout.sessions.create` → `src/lib/billing.functions.ts` (unique) —
+  précédé de `assertTaxComplianceReady()`.
+- `stripe.billingPortal.sessions.create` → `src/lib/billing.functions.ts`.
+- Aucune occurrence de `subscriptions.create/update`, `paymentIntents.*`,
+  `invoices.*` dans `src/`.
+- Portail : `billingPortal.configurations.list` (lecture seule, sandbox + live)
+  renvoie **0 configuration explicite** → configuration Stripe par défaut. Le
+  portail ne peut pas créer un abonnement ; le changement de formule
+  (`subscription_update`) nécessite une configuration produits explicite, non
+  présente. À re-vérifier côté tableau de bord Stripe avant encaissement.
+
+### 3. Propagation de l'erreur de garde jusqu'à /billing — prouvée en runtime
+Un appel réel de fonction serveur (`assertPasswordFallbackAllowed`, erreur
+volontaire) montre que le message d'erreur serveur arrive **intact** côté
+navigateur (pas de page 500 générique). Le message TVA (152 caractères, aucun
+motif technique) traverse donc `safeBillingMessage()` et s'affiche tel quel
+dans le toast de `/billing`.
+
+### 4. Environnement (valeurs non secrètes)
+- `APP_ENV=production`, `VITE_APP_ENV=production` (fichier `.env.production`)
+  → LIVE uniquement en production ; preview/local restent sandbox.
+- **Défaut corrigé (P0)** : `PUBLIC_APP_URL` vaut `pvia.fr` — **sans schéma**.
+  Les liens d'emails auraient été relatifs/inexploitables. Ajout de
+  `src/lib/app-url.server.ts` (`getPublicAppUrl()`) qui normalise (ajout de
+  `https://`, suppression du slash final, `http://` toléré uniquement en local)
+  et remplacement des 10 usages (signature, invitation, PV, réserves, portail
+  client, calendrier, emails billing). Recommandation propriétaire : corriger
+  aussi la valeur du secret en `https://pvia.fr`.
+- Expéditeur : `RESEND_FROM_EMAIL` sinon repli `PVIA <noreply@pvia.fr>`.
+
+### 5. Emails
+Toutes les URLs générées passent désormais par `getPublicAppUrl()` → domaine
+`https://pvia.fr` en production, jamais `lovable.app`/`localhost`. Aucun email
+réel n'a été envoyé.
+
+### 6. SEO / indexation
+`sitemap.xml` servi (URLs `https://pvia.fr/...`), `robots.txt` bloque les zones
+authentifiées et à token. **Correction P1** : ajout de
+`robots: noindex, nofollow` sur `/invite/$token` et `/sign/pv/$token` (les
+autres pages sensibles en avaient déjà).
+
+### 7. Sessions / cookies
+Cookie de session client : `HttpOnly`, `Secure` (hors localhost), `SameSite=Lax`,
+`Path=/`. Aucun token journalisé dans les chemins inspectés.
+
+### 8. Migrations
+142 fichiers versionnés ; les dernières versions appliquées en base
+(`20260830072043`, `072005`, `070955`) correspondent aux fichiers du dépôt.
+Aucune divergence détectée. Aucune donnée métier modifiée.
+
+### 9. app_errors (48 h)
+Une seule signature : le crash Realtime `cannot add postgres_changes ... after
+subscribe()` (`/dashboard`), **dernière occurrence 2026-08-30 06:26 UTC**,
+antérieure au correctif validé sur appareil réel. Aucune nouvelle erreur P0/P1
+depuis.
+
+### 10. Vérifications
+`bunx tsgo --noEmit` : OK. `bun run build` : OK (build propre).
+Smoke HTTP 200 : `/`, `/tarifs`, `/login`, `/signup`, `/cgv`, `/mentions`,
+`/api/public/health`. Responsive 320 / 390 / 1440 sur `/`, `/tarifs`, `/login` :
+aucun débordement horizontal, aucune `pageerror`. Aucun test authentifié réalisé
+(pas de session disponible dans l'environnement).
+
+### 11. Checklist courte
+**J-2 (fait)** : correctifs TVA, URL publique, noindex tokens, typecheck+build,
+smoke public.
+**J-1 (propriétaire)** : corriger la valeur du secret `PUBLIC_APP_URL` en
+`https://pvia.fr` ; activer l'enregistrement TVA France dans Stripe LIVE ;
+vérifier la configuration du Billing Portal (pas de changement de formule non
+désiré) ; tester connexion + email réel (signature, invitation).
+**J0** : publication, puis un achat live réel de contrôle (facture HT / TVA /
+TTC) et surveillance `app_errors`.
+
+### Verdict strict
+- **GO CODE** — typecheck, build, smoke et corrections P0/P1 effectués.
+- **GO/NO-GO PUBLICATION : GO sous réserve** de la correction du secret
+  `PUBLIC_APP_URL` (les liens emails dépendent du repli code, désormais sûr,
+  mais la valeur doit être propre).
+- **NO-GO ENCAISSEMENT** — tant que l'enregistrement TVA France LIVE n'est pas
+  actif, la garde bloque volontairement tout paiement live.

@@ -16,6 +16,7 @@ import {
   DEFAULT_BRANDING_SETTINGS,
   type CompanyBrandingSettings,
 } from "./branding.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -115,7 +116,7 @@ export async function sendReserveLiftValidationRequestEmail(opts: {
     return { ok: false, recipient: null, error: "Aucun destinataire" };
   }
 
-  const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+  const appUrl = getPublicAppUrl();
   const validateUrl = `${appUrl}/client/pv/${pv!.id}/levee-reserves/${report.id}`;
   const companyName = company?.name || "PVIA";
   const clientName = client?.name || "Cher client";

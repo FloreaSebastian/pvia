@@ -13,7 +13,12 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/invite/$token")({
   component: InvitePage,
-  head: () => ({ meta: [{ title: "Rejoindre PVIA" }] }),
+  head: () => ({
+    meta: [
+      { title: "Rejoindre PVIA" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
 });
 
 type InviteInfo =

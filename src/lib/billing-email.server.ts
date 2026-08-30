@@ -11,6 +11,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { writeAuditLog } from "./audit.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -127,7 +128,7 @@ export async function sendPaymentFailedEmail(opts: {
     return { ok: false, recipients: [], error: "no_recipient" };
   }
 
-  const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+  const appUrl = getPublicAppUrl();
   const portalUrl = `${appUrl}/billing`;
   const amount = formatAmount(opts.amountDue ?? null, opts.currency ?? null);
   const subject = `PVIA — Paiement échoué${amount ? ` (${amount})` : ""}`;

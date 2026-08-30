@@ -4,6 +4,7 @@ import { z } from "zod";
 import crypto from "node:crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 async function assertAdmin(companyId: string, userId: string) {
   const { data } = await supabaseAdmin
@@ -33,7 +34,7 @@ export const listCalendarTokens = createServerFn({ method: "POST" })
       .select("id,name,scope,token,revoked_at,last_accessed_at,created_at")
       .eq("company_id", data.companyId)
       .order("created_at", { ascending: false });
-    const base = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+    const base = getPublicAppUrl();
     return {
       tokens: (rows ?? []).map((r) => ({
         ...r,
@@ -67,7 +68,7 @@ export const createCalendarToken = createServerFn({ method: "POST" })
       })
       .select("id,name,scope,token,created_at").single();
     if (error) throw new Error(error.message);
-    const base = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+    const base = getPublicAppUrl();
     return { token: row, url: `${base}/api/public/calendar/${row.token}.ics` };
   });
 

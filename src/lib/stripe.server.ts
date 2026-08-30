@@ -182,7 +182,7 @@ const TAX_READY_TTL_MS = 10 * 60_000;
 let _taxReadyCache: { ok: boolean; at: number } | null = null;
 
 export const TAX_NOT_READY_MESSAGE =
-  "Le paiement en ligne est momentanément indisponible : la configuration de facturation (TVA) de PVIA est en cours de finalisation. Écrivez-nous à contact@pvia.fr, nous activons votre formule manuellement.";
+  "Le paiement est momentanément indisponible pendant la finalisation de la configuration fiscale. Réessayez ultérieurement ou contactez contact@pvia.fr.";
 
 /** `true` si un enregistrement TVA France actif existe sur le compte Stripe. */
 export async function hasActiveFrenchTaxRegistration(stripe: Stripe): Promise<boolean> {

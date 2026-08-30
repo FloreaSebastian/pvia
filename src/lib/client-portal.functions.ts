@@ -15,6 +15,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { isManageRole } from "@/lib/roles";
 import { writeAuditLog } from "./audit.server";
 import { enforceRateLimit } from "./rate-limit.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 /** États affichables côté entreprise. */
 export type PortalState =
@@ -245,7 +246,7 @@ export const inviteClientToPortal = createServerFn({ method: "POST" })
       .eq("id", data.companyId)
       .maybeSingle();
 
-    const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+    const appUrl = getPublicAppUrl();
     const loginUrl = `${appUrl}/client/login`;
 
     const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");

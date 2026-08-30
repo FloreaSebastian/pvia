@@ -27,6 +27,7 @@ import {
   normMime,
   safeFilename,
 } from "./pv-create.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 const PhotoSchema = z.object({
   base64: z.string().min(1).max(6_000_000),     // ~4.5 MB raw after decode
@@ -702,7 +703,7 @@ export const createPv = createServerFn({ method: "POST" })
           });
           throw new Error(`Échec persistance du lien de signature : ${tokErr.message}`);
         }
-        const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+        const appUrl = getPublicAppUrl();
         remoteSignUrl = `${appUrl}/sign/pv/${token}`;
         const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
         const [{ data: company }, { data: clientRow }] = await Promise.all([

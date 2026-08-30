@@ -21,6 +21,7 @@ import {
   DEFAULT_BRANDING_SETTINGS,
   type CompanyBrandingSettings,
 } from "./branding.server";
+import { getPublicAppUrl } from "./app-url.server";
 
 /* ─── helpers ─────────────────────────────────────────────────────────── */
 
@@ -163,7 +164,7 @@ async function loadReserveCtx(reserveId: string): Promise<ReserveCtx | null> {
     supabaseAdmin.from("companies").select("name").eq("id", r.company_id).maybeSingle(),
     getCompanyBrandingSettings(r.company_id),
   ]);
-  const appUrl = (process.env.PUBLIC_APP_URL || "https://pvia.fr").replace(/\/$/, "");
+  const appUrl = getPublicAppUrl();
   return {
     reserveId: r.id as string,
     companyId: r.company_id as string,
