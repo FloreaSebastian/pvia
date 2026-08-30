@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import { useEffect } from "react";
+import { useServerFn } from "@tanstack/react-start";
 
 import appCss from "../styles.css?url";
 import { isChunkLoadError, recoverFromChunkError } from "@/lib/chunk-recovery";
@@ -16,6 +17,7 @@ import { AppToaster } from "@/components/app/AppToaster";
 import { PwaRegister } from "@/components/app/PwaRegister";
 import { AnalyticsTracker } from "@/components/app/AnalyticsTracker";
 import { UserPreferencesProvider } from "@/components/app/UserPreferencesProvider";
+import { reportClientCrash } from "@/lib/client-crash.functions";
 
 const NO_FLASH_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem('pvia.user_prefs.v1')||'{}');var r=document.documentElement;if(p.dark_mode_enabled)r.classList.add('dark');if(p.ui_density)r.dataset.density=p.ui_density;if(p.animations_enabled===false){r.dataset.animations='off';r.style.setProperty('--pvia-motion','0');}}catch(e){}})();`;
 
@@ -44,6 +46,7 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const reportCrash = useServerFn(reportClientCrash);
   const chunkError = isChunkLoadError(error);
 
   useEffect(() => {
@@ -51,6 +54,19 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     // rechargement propre (purge caches PWA), jamais pour une erreur métier.
     if (chunkError) recoverFromChunkError(error);
   }, [chunkError, error]);
+
+  useEffect(() => {
+    if (chunkError || typeof window === "undefined") return;
+    reportCrash({
+      data: {
+        route: window.location.pathname,
+        message: error.message || error.name || "Client runtime error",
+        stack: error.stack,
+      },
+    }).catch((reportError) => {
+      console.warn("Impossible de transmettre le diagnostic client", reportError);
+    });
+  }, [chunkError, error, reportCrash]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

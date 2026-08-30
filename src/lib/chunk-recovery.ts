@@ -45,7 +45,7 @@ function alreadyRecovered(): boolean {
 
 async function purgeCaches(): Promise<void> {
   try {
-    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+    if (typeof navigator !== "undefined" && navigator.serviceWorker?.getRegistration) {
       const reg = await navigator.serviceWorker.getRegistration();
       reg?.active?.postMessage("PVIA_PURGE_CACHES");
       await reg?.update().catch(() => {});

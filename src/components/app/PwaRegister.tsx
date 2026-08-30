@@ -9,22 +9,26 @@ export function PwaRegister() {
     // Filet anti-bundle-périmé : actif même sans service worker.
     installChunkRecovery();
 
-    if (!("serviceWorker" in navigator)) return;
+    if (!("serviceWorker" in navigator) || !navigator.serviceWorker) return;
 
     if (isPwaUnsafeHost()) {
       // Defensive cleanup: if a SW was ever registered in this preview context,
       // unregister it so it can't serve stale content.
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((r) => r.unregister().catch(() => {}));
-      });
+      const getRegistrations = navigator.serviceWorker.getRegistrations?.bind(navigator.serviceWorker);
+      if (getRegistrations) {
+        getRegistrations()
+          .then((regs) => regs.forEach((r) => r.unregister().catch(() => {})))
+          .catch(() => {});
+      }
       return;
     }
 
     let registration: ServiceWorkerRegistration | undefined;
 
     const onLoad = () => {
-      navigator.serviceWorker
-        .register("/sw.js", { scope: "/" })
+      const register = navigator.serviceWorker.register?.bind(navigator.serviceWorker);
+      if (!register) return;
+      register("/sw.js", { scope: "/" })
         .then((reg) => {
           registration = reg;
           // Un nouveau SW installé prend le contrôle immédiatement : évite
