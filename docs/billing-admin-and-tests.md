@@ -250,3 +250,46 @@ LIVE n'existent pas.
 1. Publier le projet pour synchroniser les 6 tarifs vers le compte Stripe LIVE.
 2. Archiver le produit LIVE manuel « Abonament ».
 3. Réaliser le paiement réel de smoke test (action utilisateur explicite).
+
+## Smoke test LIVE — 31/08/2026 (avant paiement réel)
+
+### 1. Catalogue LIVE (prices.list / products.list, livemode=true)
+
+| Formule | lookup_key | Price ID | Montant | Devise | Intervalle | Actif | Produit | tax_behavior | livemode |
+|---|---|---|---|---|---|---|---|---|---|
+| Essentiel mensuel | starter_monthly | price_1UAco1GgaD8JqHXMbsysqzeB | 19,00 € HT | EUR | month | oui | PVIA Essentiel (actif) | unspecified → défaut compte `exclusive` (HT) | true |
+| Essentiel annuel | starter_annual | price_1UAco1GgaD8JqHXMGbgrzHIM | 190,00 € HT | EUR | year | oui | PVIA Essentiel (actif) | idem | true |
+| Pro mensuel | pro_monthly | price_1UAco0GgaD8JqHXM5TwOrdel | 59,00 € HT | EUR | month | oui | PVIA Pro (actif) | idem | true |
+| Pro annuel | pro_annual | price_1UAco0GgaD8JqHXMSo33uVjU | 590,00 € HT | EUR | year | oui | PVIA Pro (actif) | idem | true |
+| Business mensuel | business_monthly | price_1UAco2GgaD8JqHXMIOTBeXK0 | 149,00 € HT | EUR | month | oui | PVIA Business (actif) | idem | true |
+| Business annuel | business_annual | price_1UAco1GgaD8JqHXMRfwqz0k3 | 1 490,00 € HT | EUR | year | oui | PVIA Business (actif) | idem | true |
+
+Tax : `tax.settings` LIVE actif, siège FR, `defaults.tax_behavior = exclusive`,
+enregistrement TVA **FR standard / active** en livemode. Les produits portent le
+code fiscal SaaS `txcd_10103001`.
+
+### 2. Produit obsolète
+`prod_VAxwnwKqi6ltWT` « Abonament » : **archivé (active=false)**, aucun
+`lookup_key` PVIA, aucune formule, aucun Checkout, aucun abonnement PVIA.
+Aucun objet financier historique supprimé.
+
+### 3. Entreprise de smoke test
+`PVIA LIVE SMOKE TEST` — `17b7c914-af36-4106-9ce5-0de0bcfff47d`, environnement
+production, essai unique 14 j attribué (`trial_started_at` 2026-08-31),
+`company_has_write_access = true`, aucun abonnement payant, aucune facture.
+Essai clôturé volontairement (`trial_ends_at = now`, `trial_started_at`
+conservé) afin d'autoriser un encaissement réel immédiat — l'essai reste
+consommé et non renouvelable.
+
+### 4. Checkout LIVE préparé (non payé)
+`cs_live_a14vixf0XMCXwKr6jYESNknFfAUoYzWYBCbTknTToTtDyfETTUn0osnZ87`
+— livemode=true, price `starter_monthly` 1900 EUR/month, customer LIVE
+`cus_VAyrP4v5qgKms8` (metadata companyId/userId), `automatic_tax.enabled=true`
+(`requires_location_inputs` avant saisie d'adresse), adresse de facturation
+requise, collecte TVA intracom `if_supported`, metadata companyId + userId,
+aucun objet TEST.
+
+CATALOG LIVE = PASS
+CHECKOUT LIVE = PASS
+REAL PAYMENT = WAITING FOR USER
+PVIA READY FOR PUBLIC LIVE PAYMENTS = NO
