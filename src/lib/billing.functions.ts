@@ -349,6 +349,16 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
   .inputValidator((i) => SyncSchema.parse(i))
   .handler(async ({ data, context }) => {
     await assertCompanyAdmin(data.companyId, context.userId);
+    // Throttling : la resynchronisation lit Stripe ; un bouton « Actualiser »
+    // ne doit pas pouvoir marteler l'API. 10 appels / 5 min / entreprise.
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit({
+      bucket: "billing_sync",
+      key: data.companyId,
+      limit: 10,
+      windowSec: 300,
+    });
+
 
     const { data: existing } = await supabaseAdmin
       .from("subscriptions")
