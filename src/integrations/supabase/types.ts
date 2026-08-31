@@ -2359,6 +2359,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          billing_interval: string | null
           cancel_at_period_end: boolean
           company_id: string
           created_at: string
@@ -2367,6 +2368,7 @@ export type Database = {
           environment: string
           id: string
           plan: string
+          price_id: string | null
           status: string
           stripe_customer_id: string
           stripe_subscription_id: string
@@ -2375,6 +2377,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          billing_interval?: string | null
           cancel_at_period_end?: boolean
           company_id: string
           created_at?: string
@@ -2383,6 +2386,7 @@ export type Database = {
           environment?: string
           id?: string
           plan: string
+          price_id?: string | null
           status?: string
           stripe_customer_id: string
           stripe_subscription_id: string
@@ -2391,6 +2395,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          billing_interval?: string | null
           cancel_at_period_end?: boolean
           company_id?: string
           created_at?: string
@@ -2399,6 +2404,7 @@ export type Database = {
           environment?: string
           id?: string
           plan?: string
+          price_id?: string | null
           status?: string
           stripe_customer_id?: string
           stripe_subscription_id?: string
