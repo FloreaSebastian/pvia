@@ -46,7 +46,7 @@ export const Route = createFileRoute("/client/pv/$id")({
   head: ({ params }) => ({
     meta: [
       { title: `PV ${params.id.slice(0, 6)} — Espace client | PVIA` },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
 });

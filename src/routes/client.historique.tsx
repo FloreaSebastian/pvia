@@ -37,7 +37,7 @@ export const Route = createFileRoute("/client/historique")({
   head: () => ({
     meta: [
       { title: "Historique — Espace client | PVIA" },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
 });

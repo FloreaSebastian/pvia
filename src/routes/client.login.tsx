@@ -29,7 +29,7 @@ export const Route = createFileRoute("/client/login")({
         content:
           "Accédez à vos procès-verbaux PVIA sans mot de passe. Recevez un code à 6 chiffres par email.",
       },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
 });
