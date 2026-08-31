@@ -65,6 +65,13 @@ export const Route = createFileRoute("/api/public/live-audit-tmp")({
             out.missing = keys.filter((k) => !prices.data.some((p: any) => p.lookup_key === k));
           }
 
+          if (body.action === "catalog") {
+            const prods = await stripe.products.list({ limit: 50 });
+            const prices = await stripe.prices.list({ limit: 100 });
+            out.products = prods.data.map((p: any) => ({ id: p.id, name: p.name, active: p.active, livemode: p.livemode, tax_code: p.tax_code, ext: p.metadata?.lovable_external_id }));
+            out.allPrices = prices.data.map((p: any) => ({ id: p.id, lookup_key: p.lookup_key, ext: p.metadata?.lovable_external_id, amount: p.unit_amount, cur: p.currency, interval: p.recurring?.interval, active: p.active, livemode: p.livemode, tax_behavior: p.tax_behavior, product: p.product }));
+          }
+
           if (body.action === "tax") {
             const regs = await (stripe as any).tax.registrations.list({ limit: 100 });
             out.registrations = regs.data.map((r: any) => ({
