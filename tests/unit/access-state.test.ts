@@ -13,7 +13,7 @@ const sub = (o: Partial<{
 }>) => ({
   status: o.status ?? "active",
   plan: o.plan ?? "pro",
-  current_period_end: o.current_period_end ?? iso(20),
+  current_period_end: "current_period_end" in o ? o.current_period_end! : iso(20),
   trial_end: o.trial_end ?? null,
   cancel_at_period_end: o.cancel_at_period_end ?? false,
 });
