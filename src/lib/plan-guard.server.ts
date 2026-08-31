@@ -68,7 +68,7 @@ export function computeAccessState(
     // une date absente = lecture seule (fail-closed), identique au SQL
     // `company_has_write_access`.
     const trialEndIso = ((company as any)?.trial_ends_at as string | null) ?? null;
-    const active = trialEndIso ? new Date(trialEndIso).getTime() > Date.now() : false;
+    const active = trialEndIso ? new Date(trialEndIso).getTime() > nowMs : false;
     return {
       state: active ? "trialing" : "trial_expired",
       plan: "starter",
@@ -81,7 +81,7 @@ export function computeAccessState(
   }
 
 
-  const now = Date.now();
+  const now = nowMs;
   const periodEnd = sub.current_period_end ? new Date(sub.current_period_end as string).getTime() : null;
   const trialEnd = sub.trial_end ? new Date(sub.trial_end as string).getTime() : null;
 
@@ -107,6 +107,7 @@ export function computeAccessState(
   const companyTrialActive = companyTrialEndIso
     ? new Date(companyTrialEndIso).getTime() > now
     : false;
+
 
   switch (sub.status) {
     case "trialing":
