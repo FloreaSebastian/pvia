@@ -27,7 +27,6 @@ export const Route = createFileRoute("/api/public/tax-setup-tmp")({
               cancel_url: "https://pvia.fr/billing?status=cancel",
               automatic_tax: { enabled: true },
               billing_address_collection: "required",
-              customer_update: { address: "auto", name: "auto" },
               tax_id_collection: { enabled: true, required: "if_supported" },
             });
             const full = await stripe.checkout.sessions.retrieve(session.id, { expand: ["total_details.breakdown"] });
