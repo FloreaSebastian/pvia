@@ -309,6 +309,27 @@ function BillingPage() {
     }
   }
 
+  /** Resynchronisation manuelle : lecture Stripe côté serveur, jamais
+   *  d'écriture de statut depuis le navigateur. Throttlée en base. */
+  async function handleRefresh() {
+    if (!activeCompanyId) return;
+    setSyncing(true);
+    try {
+      await syncFn({ data: { companyId: activeCompanyId, environment: env } });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["billing", activeCompanyId] }),
+        queryClient.invalidateQueries({ queryKey: ["billing-invoices", activeCompanyId] }),
+        queryClient.invalidateQueries({ queryKey: ["billing-timeline", activeCompanyId] }),
+      ]);
+      toast.success("État de facturation actualisé.");
+    } catch (e: any) {
+      toast.error(safeBillingMessage(e, "Actualisation impossible pour le moment. Réessayez dans quelques instants."));
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
