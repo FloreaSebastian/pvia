@@ -74,12 +74,24 @@ async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { au
   const periodStart = item?.current_period_start ?? subscription.current_period_start;
   const periodEnd = item?.current_period_end ?? subscription.current_period_end;
 
+  // Périodicité réelle facturée (affichée dans /billing) : jamais déduite d'un
+  // état d'interface. `lookup_key` est stable sandbox ↔ live.
+  const recurring = item?.price?.recurring;
+  const billingInterval =
+    recurring?.interval === "year"
+      ? "annual"
+      : recurring?.interval === "month"
+        ? "monthly"
+        : null;
+
   const row = {
     company_id: companyId,
     user_id: userId,
     stripe_subscription_id: subscription.id,
     stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id,
     plan,
+    price_id: item?.price?.lookup_key ?? item?.price?.metadata?.lovable_external_id ?? null,
+    billing_interval: billingInterval,
     status: subscription.status,
     current_period_start: tsToIso(periodStart),
     current_period_end: tsToIso(periodEnd),
@@ -88,6 +100,7 @@ async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { au
     environment: env,
     updated_at: new Date().toISOString(),
   };
+
 
   const db = (await getSupabase()) as any;
 
