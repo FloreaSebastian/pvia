@@ -11,6 +11,39 @@ export const Route = createFileRoute("/api/public/tax-setup-tmp")({
         };
         const stripe = getStripeClient("sandbox") as any;
         try {
+          if (body.action === "probe") {
+            const prices = await stripe.prices.list({ limit: 5, active: true });
+            const price = prices.data.find((pr: any) => pr.recurring) ?? prices.data[0];
+            const customer = await stripe.customers.create({
+              email: "tva-probe@pvia.fr",
+              name: "Probe TVA",
+              address: { line1: "1 rue de la Reception", postal_code: "75001", city: "Paris", country: "FR" },
+            });
+            const session = await stripe.checkout.sessions.create({
+              mode: price?.recurring ? "subscription" : "payment",
+              customer: customer.id,
+              line_items: [{ price: price.id, quantity: 1 }],
+              success_url: "https://pvia.fr/billing?status=success",
+              cancel_url: "https://pvia.fr/billing?status=cancel",
+              automatic_tax: { enabled: true },
+              billing_address_collection: "required",
+              customer_update: { address: "auto", name: "auto" },
+              tax_id_collection: { enabled: true, required: "if_supported" },
+            });
+            const full = await stripe.checkout.sessions.retrieve(session.id, { expand: ["total_details.breakdown"] });
+            await stripe.checkout.sessions.expire(session.id).catch(() => {});
+            await stripe.customers.del(customer.id).catch(() => {});
+            return Response.json({
+              ok: true,
+              lookup_key: price?.lookup_key,
+              tax_behavior: price?.tax_behavior,
+              automatic_tax: full.automatic_tax,
+              amount_subtotal: full.amount_subtotal,
+              amount_total: full.amount_total,
+              total_details: full.total_details,
+              currency: full.currency,
+            });
+          }
           if (body.action === "configure") {
             await stripe.tax.settings.update({
               defaults: { tax_behavior: "exclusive", tax_code: "txcd_10103001" },
