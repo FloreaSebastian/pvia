@@ -456,18 +456,46 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     }
   }
 
+  /**
+   * Protection contre les événements hors séquence (retries Stripe, livraisons
+   * désordonnées) : au-delà de 60 s, on ne fait plus confiance au corps de
+   * l'événement, on relit l'abonnement CHEZ STRIPE (source de vérité) avant
+   * d'écrire. Un vieux `updated` ne peut donc pas écraser un état plus récent.
+   */
+  const eventCreatedMs = ((event as any).created ?? 0) * 1000;
+  const stale = eventCreatedMs > 0 && Date.now() - eventCreatedMs > 60_000;
+  async function authoritative(sub: any): Promise<any> {
+    if (!stale || !sub?.id) return sub;
+    try {
+      const stripe = createStripeClient(env);
+      return await stripe.subscriptions.retrieve(sub.id);
+    } catch (e) {
+      console.error("[webhook] stale event refresh failed", e);
+      return sub;
+    }
+  }
+
   switch (event.type) {
     case "checkout.session.completed":
       await handleCheckoutCompleted(event.data.object, env);
       break;
     case "customer.subscription.created":
-    case "customer.subscription.updated": {
-      const sub = event.data.object;
+    case "customer.subscription.updated":
+    case "customer.subscription.paused":
+    case "customer.subscription.resumed": {
+      const sub = await authoritative(event.data.object);
       await upsertSubscription(sub, env);
       // EM-C2 sister-trigger: notify on past_due transitions.
       if (sub?.status === "past_due") {
         await notifyPastDue(sub, env);
       }
+      break;
+    }
+    case "customer.subscription.trial_will_end": {
+      const sub = event.data.object;
+      await upsertSubscription(await authoritative(sub), env, {
+        auditAction: "billing.trial_will_end",
+      });
       break;
     }
     case "customer.subscription.deleted":
@@ -476,10 +504,34 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     case "invoice.payment_failed":
       await notifyPaymentFailed(event.data.object, env);
       break;
+    case "invoice.paid":
+    case "invoice.payment_succeeded": {
+      // Régularisation après échec : Stripe repasse l'abonnement en `active`.
+      // On resynchronise immédiatement au lieu d'attendre `subscription.updated`
+      // (sinon l'entreprise peut rester en lecture seule quelques minutes).
+      const invoice: any = event.data.object;
+      const subId =
+        typeof invoice?.subscription === "string"
+          ? invoice.subscription
+          : (invoice?.subscription?.id ??
+             invoice?.parent?.subscription_details?.subscription ??
+             null);
+      if (subId) {
+        try {
+          const stripe = createStripeClient(env);
+          const fresh = await stripe.subscriptions.retrieve(subId);
+          await upsertSubscription(fresh, env, { auditAction: "billing.payment_recovered" });
+        } catch (e) {
+          console.error("[webhook] invoice.paid resync failed", e);
+        }
+      }
+      break;
+    }
     default:
       console.log("[webhook] unhandled:", event.type);
   }
 }
+
 // Keep noqa-ref for assertStripeEnvConsistent (re-exported for callers)
 void assertStripeEnvConsistent;
 
