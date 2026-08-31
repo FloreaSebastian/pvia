@@ -314,8 +314,16 @@ function BillingPage() {
 
   const isTrial = access?.state === "trialing";
   const trialDaysLeft = daysUntil(access?.trial_end);
+  /** Périodicité RÉELLEMENT facturée (colonne `billing_interval`), jamais
+   *  déduite du sélecteur d'interface. Repli : sélecteur, puis mensuel. */
+  const activeInterval: BillingInterval =
+    (subscription as any)?.billing_interval === "annual"
+      ? "annual"
+      : (subscription as any)?.billing_interval === "monthly"
+        ? "monthly"
+        : billingInterval;
   const priceNow =
-    billingInterval === "annual" ? current?.annual_price_eur : current?.monthly_price_eur;
+    activeInterval === "annual" ? current?.annual_price_eur : current?.monthly_price_eur;
   const hasSubscription = Boolean(subscription?.stripe_customer_id);
 
   return (
@@ -414,7 +422,7 @@ function BillingPage() {
             ) : subscription && priceNow != null ? (
               <div className="mt-1 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
-                {billingInterval === "annual" ? " / an · Facturation annuelle" : " / mois · Facturation mensuelle"}
+                {activeInterval === "annual" ? " / an · Facturation annuelle" : " / mois · Facturation mensuelle"}
                 <span className="block text-xs">
                   soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC indicatif France (TVA {VAT_RATE_LABEL} :{" "}
                   {formatEurCents(vatBreakdown(priceNow).vat)})
@@ -424,7 +432,7 @@ function BillingPage() {
               <div className="mt-1 text-sm text-muted-foreground">
                 Essai gratuit en cours · tarif à l'issue de l'essai :{" "}
                 <span className="font-medium text-foreground">{formatEur(priceNow)} HT</span>
-                {billingInterval === "annual" ? " / an" : " / mois"}
+                {activeInterval === "annual" ? " / an" : " / mois"}
                 <span className="block text-xs">
                   soit {formatEurCents(vatBreakdown(priceNow).ttc)} TTC indicatif France (TVA {VAT_RATE_LABEL})
                 </span>
