@@ -247,7 +247,7 @@ export const inviteClientToPortal = createServerFn({ method: "POST" })
       .maybeSingle();
 
     const appUrl = getPublicAppUrl();
-    const loginUrl = `${appUrl}/client/login`;
+    const loginUrl = `${appUrl}/login?type=client`;
 
     const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");
     await assertNotRecentlySent({
