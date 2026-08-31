@@ -74,12 +74,24 @@ async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { au
   const periodStart = item?.current_period_start ?? subscription.current_period_start;
   const periodEnd = item?.current_period_end ?? subscription.current_period_end;
 
+  // Périodicité réelle facturée (affichée dans /billing) : jamais déduite d'un
+  // état d'interface. `lookup_key` est stable sandbox ↔ live.
+  const recurring = item?.price?.recurring;
+  const billingInterval =
+    recurring?.interval === "year"
+      ? "annual"
+      : recurring?.interval === "month"
+        ? "monthly"
+        : null;
+
   const row = {
     company_id: companyId,
     user_id: userId,
     stripe_subscription_id: subscription.id,
     stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id,
     plan,
+    price_id: item?.price?.lookup_key ?? item?.price?.metadata?.lovable_external_id ?? null,
+    billing_interval: billingInterval,
     status: subscription.status,
     current_period_start: tsToIso(periodStart),
     current_period_end: tsToIso(periodEnd),
@@ -88,6 +100,7 @@ async function upsertSubscription(subscription: any, env: StripeEnv, opts?: { au
     environment: env,
     updated_at: new Date().toISOString(),
   };
+
 
   const db = (await getSupabase()) as any;
 
@@ -273,7 +286,12 @@ async function handleCheckoutCompleted(session: any, env: StripeEnv) {
   }
 }
 
-// ST-C2/C3 + ST-M3: idempotent cancellation with audit + auto-suspend company.
+// ST-C2/C3 : résiliation idempotente + audit.
+// NOTE : plus d'auto-suspension de l'entreprise ici. Une résiliation
+// d'abonnement passe déjà en lecture seule via `company_has_write_access`
+// (SQL) et `getAccessState` (serveur). Marquer `companies.suspended_at`
+// affichait à tort « Compte suspendu » (motif support/plateforme) au lieu
+// de « Abonnement résilié », et polluait l'état support.
 async function markCanceled(subscription: any, env: StripeEnv) {
   await upsertSubscription({ ...subscription, status: "canceled" }, env, {
     auditAction: "stripe.cancel_processed",
@@ -281,32 +299,16 @@ async function markCanceled(subscription: any, env: StripeEnv) {
 
   const companyId = subscription.metadata?.companyId;
   if (companyId) {
-    // ST-M3: auto-suspend the company so RLS guards (plan-guard) block
-    // further writes. Idempotent: only set suspended_at if currently null.
-    try {
-      const db = (await getSupabase()) as any;
-      const { data: existing } = await db
-        .from("companies")
-        .select("id,suspended_at")
-        .eq("id", companyId)
-        .maybeSingle();
-      if (existing && !existing.suspended_at) {
-        await db.from("companies")
-          .update({ suspended_at: new Date().toISOString() })
-          .eq("id", companyId);
-        await audit({
-          companyId,
-          entityType: "company",
-          entityId: companyId,
-          action: "company.auto_suspended",
-          metadata: { reason: "subscription_canceled", subscription_id: subscription.id, environment: env },
-        });
-      }
-    } catch (e) {
-      console.error("[webhook] auto-suspend failed", e);
-    }
+    await audit({
+      companyId,
+      entityType: "company",
+      entityId: companyId,
+      action: "billing.read_only_after_cancel",
+      metadata: { subscription_id: subscription.id, environment: env },
+    });
 
     try {
+
       const { firePushToCompany } = await import("@/lib/push.server");
       firePushToCompany(companyId, {
         title: "Abonnement annulé",
@@ -454,18 +456,46 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     }
   }
 
+  /**
+   * Protection contre les événements hors séquence (retries Stripe, livraisons
+   * désordonnées) : au-delà de 60 s, on ne fait plus confiance au corps de
+   * l'événement, on relit l'abonnement CHEZ STRIPE (source de vérité) avant
+   * d'écrire. Un vieux `updated` ne peut donc pas écraser un état plus récent.
+   */
+  const eventCreatedMs = ((event as any).created ?? 0) * 1000;
+  const stale = eventCreatedMs > 0 && Date.now() - eventCreatedMs > 60_000;
+  async function authoritative(sub: any): Promise<any> {
+    if (!stale || !sub?.id) return sub;
+    try {
+      const stripe = getStripeClient(env);
+      return await stripe.subscriptions.retrieve(sub.id);
+    } catch (e) {
+      console.error("[webhook] stale event refresh failed", e);
+      return sub;
+    }
+  }
+
   switch (event.type) {
     case "checkout.session.completed":
       await handleCheckoutCompleted(event.data.object, env);
       break;
     case "customer.subscription.created":
-    case "customer.subscription.updated": {
-      const sub = event.data.object;
+    case "customer.subscription.updated":
+    case "customer.subscription.paused":
+    case "customer.subscription.resumed": {
+      const sub = await authoritative(event.data.object);
       await upsertSubscription(sub, env);
       // EM-C2 sister-trigger: notify on past_due transitions.
       if (sub?.status === "past_due") {
         await notifyPastDue(sub, env);
       }
+      break;
+    }
+    case "customer.subscription.trial_will_end": {
+      const sub = event.data.object;
+      await upsertSubscription(await authoritative(sub), env, {
+        auditAction: "billing.trial_will_end",
+      });
       break;
     }
     case "customer.subscription.deleted":
@@ -474,10 +504,34 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     case "invoice.payment_failed":
       await notifyPaymentFailed(event.data.object, env);
       break;
+    case "invoice.paid":
+    case "invoice.payment_succeeded": {
+      // Régularisation après échec : Stripe repasse l'abonnement en `active`.
+      // On resynchronise immédiatement au lieu d'attendre `subscription.updated`
+      // (sinon l'entreprise peut rester en lecture seule quelques minutes).
+      const invoice: any = event.data.object;
+      const subId =
+        typeof invoice?.subscription === "string"
+          ? invoice.subscription
+          : (invoice?.subscription?.id ??
+             invoice?.parent?.subscription_details?.subscription ??
+             null);
+      if (subId) {
+        try {
+          const stripe = getStripeClient(env);
+          const fresh = await stripe.subscriptions.retrieve(subId);
+          await upsertSubscription(fresh, env, { auditAction: "billing.payment_recovered" });
+        } catch (e) {
+          console.error("[webhook] invoice.paid resync failed", e);
+        }
+      }
+      break;
+    }
     default:
       console.log("[webhook] unhandled:", event.type);
   }
 }
+
 // Keep noqa-ref for assertStripeEnvConsistent (re-exported for callers)
 void assertStripeEnvConsistent;
 
