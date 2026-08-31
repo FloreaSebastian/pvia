@@ -512,6 +512,15 @@ function BillingPage() {
         </div>
       </Card>
 
+      {/* ------------------ Factures & historique (Stripe) ------------------ */}
+      {canManage && activeCompanyId && hasSubscription && (
+        <>
+          <InvoicesSection companyId={activeCompanyId} />
+          <BillingTimeline companyId={activeCompanyId} />
+        </>
+      )}
+
+
       {/* ---------------------------- Formules ---------------------------- */}
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
