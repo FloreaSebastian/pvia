@@ -44,6 +44,16 @@ export const Route = createFileRoute("/api/public/tax-setup-tmp")({
               currency: full.currency,
             });
           }
+          if (body.action === "legal") {
+            await stripe.accounts.update({
+              business_profile: {
+                name: "PVIA",
+                url: "https://pvia.fr",
+                support_email: "contact@pvia.fr",
+                support_url: "https://pvia.fr/contact",
+              },
+            });
+          }
           if (body.action === "configure") {
             await stripe.tax.settings.update({
               defaults: { tax_behavior: "exclusive", tax_code: "txcd_10103001" },
