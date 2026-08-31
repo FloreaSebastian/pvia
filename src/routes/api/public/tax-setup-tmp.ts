@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/public/tax-setup-tmp")({
             if (!existing.data.some((r: any) => r.country === "FR")) {
               await stripe.tax.registrations.create({
                 country: "FR",
-                country_options: { fr: { type: "standard" } },
+                country_options: { fr: { standard: { place_of_supply_scheme: "standard" }, type: "standard" } },
                 active_from: "now",
               });
             }
