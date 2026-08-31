@@ -18,7 +18,6 @@ Disallow: /upgrade-required
 Disallow: /invite/
 Disallow: /sign/
 Disallow: /client/
-Disallow: /client.
 Disallow: /verify
 
 
