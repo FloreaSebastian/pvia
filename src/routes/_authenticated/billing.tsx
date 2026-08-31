@@ -54,6 +54,9 @@ import {
 } from "@/lib/plans";
 import { PageHeader } from "@/components/app/PageHeader";
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
+import { InvoicesSection } from "@/components/billing/InvoicesSection";
+import { BillingTimeline } from "@/components/billing/BillingTimeline";
+
 
 function GuardedBillingPage() {
   return (
