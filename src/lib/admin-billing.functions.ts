@@ -353,8 +353,61 @@ export const adminRefreshCompanyBilling = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
 
-    const { adminResyncStripeSubscription } = await import("./admin-platform.functions");
-    const result: any = await (adminResyncStripeSubscription as any)({ data: { companyId: data.companyId } });
+    // Relecture Stripe (lecture seule côté Stripe, upsert local uniquement).
+    const { getStripeClient, priceToPlan } = await import("./stripe.server");
+    let recovered = 0;
+    if ((before as any) || true) {
+      const { data: existing } = await supabaseAdmin
+        .from("subscriptions")
+        .select("stripe_customer_id,user_id")
+        .eq("company_id", data.companyId)
+        .eq("environment", env)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const customerId = (existing as any)?.stripe_customer_id as string | undefined;
+      if (customerId) {
+        const stripe = getStripeClient(env);
+        const subs = await stripe.subscriptions.list({
+          customer: customerId,
+          status: "all",
+          limit: 20,
+          expand: ["data.items.data.price"],
+        });
+        for (const s of subs.data as any[]) {
+          const item = s.items?.data?.[0];
+          const planKey = priceToPlan(item?.price);
+          const iso = (u: number | null | undefined) => (u ? new Date(u * 1000).toISOString() : null);
+          await supabaseAdmin.from("subscriptions").upsert(
+            {
+              company_id: data.companyId,
+              user_id: (s.metadata?.userId as string | undefined) ?? (existing as any)?.user_id ?? null,
+              stripe_subscription_id: s.id,
+              stripe_customer_id: customerId,
+              ...(planKey ? { plan: planKey } : {}),
+              price_id: item?.price?.lookup_key ?? null,
+              billing_interval:
+                item?.price?.recurring?.interval === "year"
+                  ? "annual"
+                  : item?.price?.recurring?.interval === "month"
+                    ? "monthly"
+                    : null,
+              status: s.status,
+              current_period_start: iso(item?.current_period_start ?? s.current_period_start),
+              current_period_end: iso(item?.current_period_end ?? s.current_period_end),
+              cancel_at_period_end: Boolean(s.cancel_at_period_end),
+              trial_end: iso(s.trial_end),
+              environment: env,
+              updated_at: new Date().toISOString(),
+            } as never,
+            { onConflict: "stripe_subscription_id" },
+          );
+          recovered += 1;
+        }
+      }
+    }
+    const result = { ok: true, recovered };
+
 
     const { data: after } = await supabaseAdmin
       .from("subscriptions")
