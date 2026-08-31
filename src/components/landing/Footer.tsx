@@ -41,7 +41,7 @@ const columns: { title: string; links: LinkDef[] }[] = [
     title: "Accès & légal",
     links: [
       { label: "Connexion", href: "/login", internal: true },
-      { label: "Espace client", href: "/client/login", internal: true },
+      { label: "Espace client", href: "/login?type=client", internal: true },
       { label: "CGV", href: "/cgv", internal: true },
       { label: "Politique de confidentialité", href: "/confidentialite", internal: true },
       { label: "Mentions légales", href: "/mentions", internal: true },
