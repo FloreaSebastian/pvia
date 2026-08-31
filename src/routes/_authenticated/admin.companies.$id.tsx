@@ -15,7 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Loader2, AlertOctagon, Eye, Trash2 } from "lucide-react";
+import { AdminCompanyBilling } from "@/components/admin/AdminCompanyBilling";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/admin/companies/$id")({
   component: Page,
