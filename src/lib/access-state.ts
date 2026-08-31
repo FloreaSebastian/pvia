@@ -143,3 +143,42 @@ export function computeAccessState(
   }
 }
 
+
+/**
+ * Sélection de l'abonnement FAISANT AUTORITÉ pour une entreprise.
+ *
+ * Une entreprise peut porter plusieurs lignes Stripe (ancien abonnement
+ * résilié, tentative de checkout échouée `incomplete`, réabonnement…).
+ * Prendre bêtement la plus récente ferait basculer en lecture seule une
+ * entreprise pourtant à jour de paiement (ex. une tentative `incomplete`
+ * créée après un abonnement `active`). On classe donc par pouvoir d'accès :
+ * droits ouverts d'abord, puis période la plus lointaine, puis la plus récente.
+ * Doit rester en parité avec le SQL `public.company_has_write_access`.
+ */
+const STATUS_RANK: Record<string, number> = {
+  active: 0,
+  trialing: 0,
+  past_due: 1,
+  canceled: 2,
+  unpaid: 3,
+  paused: 3,
+  incomplete: 4,
+  incomplete_expired: 4,
+};
+
+export type RankableSubscription = NonNullable<SubscriptionSnapshot> & {
+  created_at?: string | null;
+};
+
+export function pickAuthoritativeSubscription<T extends RankableSubscription>(
+  rows: readonly T[] | null | undefined,
+): T | null {
+  if (!rows || rows.length === 0) return null;
+  const score = (r: T) => STATUS_RANK[(r.status ?? "") as string] ?? 5;
+  const time = (v: string | null | undefined) => (v ? new Date(v).getTime() : 0);
+  return [...rows].sort((a, b) =>
+    score(a) - score(b) ||
+    time(b.current_period_end) - time(a.current_period_end) ||
+    time(b.created_at) - time(a.created_at),
+  )[0]!;
+}

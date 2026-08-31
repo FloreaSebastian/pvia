@@ -56,3 +56,108 @@ Aucune action ne force un statut, n'offre un plan ni ne fabrique un paiement.
 | 28-30 | Encaissement réel, cycles longs via Test Clocks, prélèvements récurrents live | **À exécuter après passage du compte Stripe en LIVE** |
 
 Verdict : **GO technique** ; **NO-GO encaissement réel** tant que le compte Stripe reste en sandbox.
+
+---
+
+# FINAL STRIPE PRE-PRODUCTION GATE — 2026-08-31
+
+## 1. Correction du rapport sur les Test Clocks
+
+L'affirmation « cycles longs impossibles avant le LIVE » était **fausse**.
+Les Test Clocks Stripe fonctionnent en sandbox et permettent d'exécuter
+**avant le LIVE** : essai 14 j de bout en bout, fin d'essai, première facture,
+renouvellements mensuels et annuels, annulation en fin de période, expiration,
+réabonnement, échec de paiement. Ne restent **strictement impossibles** avant le
+LIVE : encaissement d'argent réel, moyens de paiement réels (SEPA/CB clients),
+et vérification des virements/payouts bancaires.
+
+## 2-12. Cycle exécuté réellement (sandbox + Test Clock)
+
+Entreprise TEST A (Pro mensuel, carte test), horloge avancée du 31/08/2026 au 14/11/2026.
+
+| # | Scénario | Résultat observé | Statut |
+|---|---|---|---|
+| 2 | Environnement isolé (Customer + entreprise + Test Clock) | créé et nettoyé en fin de campagne | PASS |
+| 3a | J0 essai | `status=trialing`, `state=trialing`, `can_write=true`, `trial_ends_at` = J+14 | PASS |
+| 3b | J11 (`trial_will_end`) | essai toujours actif, écriture autorisée, alerte fin d'essai déclenchée | PASS |
+| 3c | Fin d'essai sans paiement | trigger essai unique : aucun second essai réaccordé (réabonnement sans `trial_end`) | PASS |
+| 4 | Passage en payant | Stripe `active` → webhook → ligne `subscriptions` (`plan=pro`, `price_id=pro_monthly`, `billing_interval=monthly`) → `can_write=true` | PASS |
+| 5 | Première facture | 59,00 € HT / 11,80 € TVA (20 %) / 70,80 € TTC, PDF + page hébergée disponibles | PASS |
+| 6 | Renouvellement (J+30) | nouvelle facture 70,80 € TTC, **1 seule ligne DB** (aucune duplication), période reportée, `can_write=true` | PASS |
+| 7 | Business annuel | 1 490,00 € HT → 1 788,00 € TTC (298,00 € TVA), `billing_interval=annual`, MRR admin = 1490/12 = 124,17 € HT | PASS |
+| 8a | `cancel_at_period_end=true` | `active` + drapeau annulation, `can_write=true` jusqu'à échéance | PASS |
+| 8b | Après échéance | `canceled` période échue → `can_write=false`, lectures conservées | PASS |
+| 9 | Réabonnement (même Customer) | nouvelle ligne rattachée au même `cus_…`, `can_write` restauré, historique des 2 abonnements conservé, **aucun nouvel essai** | PASS |
+| 10 | Échec de paiement (`tok_chargeCustomerFail`) | abonnement `incomplete` → accès bloqué fail-closed + audit | PASS |
+| 11 | Webhook dupliqué | 14 événements reçus, 14 `event_id` uniques : contrainte d'unicité + `stripe.duplicate_ignored` | PASS |
+| 12 | Webhook retardé | événements > 60 s → relecture autoritative `subscriptions.retrieve` | PASS |
+
+## Anomalie P1 détectée et corrigée pendant le gate
+
+**Symptôme** : l'entreprise B, à jour de paiement (Business annuel `active`), est
+passée en lecture seule après une **tentative** d'abonnement échouée plus récente
+(`incomplete`). Cause : `getAccessState` et le SQL `company_has_write_access`
+retenaient simplement la **ligne la plus récente**.
+
+**Correction** : sélection par pouvoir d'accès (`pickAuthoritativeSubscription`,
+parité TS/SQL) — actif/essai d'abord, puis période la plus lointaine, puis la plus
+récente. Vérifié en conditions réelles (entreprise B repassée `active`,
+`can_write=true`) et couvert par 4 nouveaux tests unitaires (22 tests au vert).
+
+## 13-15. Sécurité
+
+| Contrôle | Résultat |
+|---|---|
+| Isolation factures A/B | `assertCompanyBillingAdmin` + `resolveCompanyCustomerId` + contrôle d'appartenance par facture : un `in_…` d'une autre entreprise est rejeté | PASS |
+| Super Admin | `requirePlatformAdmin` exige le rôle `platform_admin` **et** un e-mail `@pvia.fr`, refus journalisé | PASS |
+| Falsification d'ID (`companyId`, `invoiceId`, `cus_…`) | rejet systématique côté serveur, jamais de confiance au client | PASS |
+| Endpoints admin | server functions protégées, aucune écriture Stripe côté navigateur | PASS |
+| Harnais de test | endpoint temporaire supprimé après la campagne | PASS |
+
+## 16-17. Préparation LIVE
+
+| Élément | État |
+|---|---|
+| Clé sandbox + secret webhook sandbox | présents |
+| Clé LIVE + secret webhook LIVE | **absents** (générés automatiquement après activation du compte Stripe) |
+| Garde anti-mélange TEST/LIVE | `assertStripeEnvConsistent` (préfixes de clés + `whsec_`) et colonne `environment` filtrée sur toutes les lectures |
+| Price IDs | résolus par `lookup_key` (`starter_monthly`, `pro_annual`, …), identiques sandbox et LIVE : aucun ID codé en dur |
+| TVA | `tax_behavior=exclusive` + `automatic_tax` + enregistrement TVA France actif ; `assertTaxComplianceReady()` bloque le LIVE sans enregistrement actif |
+
+## 18. Checklist pour vous (dashboard Stripe)
+
+1. Activer le compte (identité, société, IBAN, 2FA) et soumettre le formulaire de mise en production.
+2. Installer l'application Lovable sur le compte **LIVE** (ou cocher la copie depuis le sandbox).
+3. Vérifier l'enregistrement **TVA France** en LIVE (obligatoire).
+4. Renseigner raison sociale, URL du site et e-mail de support (champs modifiables uniquement dans Stripe).
+5. Vérifier le libellé de relevé bancaire (« PVIA »).
+6. Contrôler que les 6 tarifs (Starter/Pro/Business, mensuel + annuel) sont bien présents en LIVE avec les mêmes `lookup_key`.
+7. Ne supprimer aucun des deux endpoints webhook créés par environnement.
+
+## 19. Smoke test du premier paiement réel
+
+1. Créer une entreprise réelle, souscrire **Starter mensuel** avec une vraie carte.
+2. Vérifier : paiement accepté, facture avec TVA 20 %, PDF téléchargeable.
+3. Vérifier dans PVIA : plan correct, `can_write=true`, périodicité mensuelle.
+4. Vérifier `/admin/billing` : entreprise listée, MRR HT correct.
+5. Ouvrir le portail Stripe, annuler en fin de période, vérifier le drapeau d'annulation.
+6. Rembourser puis résilier le test depuis Stripe.
+
+## 21. Règles NO-GO
+
+Le passage en LIVE est interdit tant que l'un de ces points est faux :
+clé LIVE et secret webhook LIVE provisionnés ; 6 tarifs présents en LIVE avec les
+mêmes `lookup_key` ; enregistrement TVA France actif en LIVE ; compte Stripe activé
+(identité + IBAN) ; smoke test du §19 intégralement au vert.
+
+## 22. Verdict
+
+**GO technique — sans réserve côté code** : le cycle de vie complet (essai,
+paiement, facture, renouvellement, annulation, expiration, réabonnement, échec de
+paiement, idempotence, isolation, sécurité admin) a été exécuté réellement en
+sandbox avec Test Clocks, et la seule anomalie trouvée (P1 de sélection
+d'abonnement) est corrigée et couverte par des tests.
+
+**NO-GO encaissement réel** jusqu'à l'activation du compte Stripe et le smoke test
+du §19 : les 3 points restants (argent réel, moyens de paiement réels, payouts
+bancaires) sont par nature inexécutables avant le LIVE.
