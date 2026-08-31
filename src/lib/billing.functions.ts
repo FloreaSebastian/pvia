@@ -402,6 +402,13 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
         stripe_subscription_id: sub.id,
         stripe_customer_id: customerId,
         ...(plan ? { plan } : {}),
+        price_id: item?.price?.lookup_key ?? item?.price?.metadata?.lovable_external_id ?? null,
+        billing_interval:
+          item?.price?.recurring?.interval === "year"
+            ? "annual"
+            : item?.price?.recurring?.interval === "month"
+              ? "monthly"
+              : null,
         status: sub.status,
         current_period_start: toIso(item?.current_period_start ?? sub.current_period_start),
         current_period_end: toIso(item?.current_period_end ?? sub.current_period_end),
