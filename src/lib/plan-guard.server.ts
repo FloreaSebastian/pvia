@@ -154,6 +154,30 @@ export function computeAccessState(
   }
 }
 
+/**
+ * Computes the authoritative access state for a company (lecture base +
+ * décision pure `computeAccessState`).
+ */
+export async function getAccessState(companyId: string): Promise<AccessInfo> {
+  const [{ data: sub }, { data: company }] = await Promise.all([
+    supabaseAdmin
+      .from("subscriptions")
+      .select("status,plan,current_period_end,trial_end,cancel_at_period_end")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("companies")
+      .select("trial_ends_at")
+      .eq("id", companyId)
+      .maybeSingle(),
+  ]);
+  return computeAccessState(sub as SubscriptionSnapshot, company as CompanyTrialSnapshot);
+}
+
+
+
 /** SUBSCRIPTION_REQUIRED:<state> — the prefix lets the UI detect & redirect. */
 export async function assertSubscriptionUsable(companyId: string, userId?: string): Promise<AccessInfo> {
   // Hard block: platform-suspended companies cannot perform write actions.
