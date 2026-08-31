@@ -57,8 +57,8 @@ import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedChantiersIndexRouteImport } from './routes/_authenticated/chantiers.index'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
+import { Route as ApiPublicTaxSetupTmpRouteImport } from './routes/api/public/tax-setup-tmp'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
-import { Route as ApiPublic_taxSetupRouteImport } from './routes/api/public/__tax-setup'
 import { Route as AuthenticatedVisitesTechniquesNouvelleRouteImport } from './routes/_authenticated/visites-techniques.nouvelle'
 import { Route as AuthenticatedVisitesTechniquesIdRouteImport } from './routes/_authenticated/visites-techniques.$id'
 import { Route as AuthenticatedPvNewRouteImport } from './routes/_authenticated/pv.new'
@@ -352,14 +352,14 @@ const ClientPvIdRoute = ClientPvIdRouteImport.update({
   path: '/client/pv/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTaxSetupTmpRoute = ApiPublicTaxSetupTmpRouteImport.update({
+  id: '/api/public/tax-setup-tmp',
+  path: '/api/public/tax-setup-tmp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   id: '/api/public/health',
   path: '/api/public/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublic_taxSetupRoute = ApiPublic_taxSetupRouteImport.update({
-  id: '/api/public/__tax-setup',
-  path: '/api/public',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedVisitesTechniquesNouvelleRoute =
@@ -710,8 +710,8 @@ export interface FileRoutesByFullPath {
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/visites-techniques/$id': typeof AuthenticatedVisitesTechniquesIdRoute
   '/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
-  '/api/public': typeof ApiPublic_taxSetupRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
+  '/api/public/tax-setup-tmp': typeof ApiPublicTaxSetupTmpRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/chantiers/': typeof AuthenticatedChantiersIndexRoute
@@ -804,8 +804,8 @@ export interface FileRoutesByTo {
   '/pv/new': typeof AuthenticatedPvNewRoute
   '/visites-techniques/$id': typeof AuthenticatedVisitesTechniquesIdRoute
   '/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
-  '/api/public': typeof ApiPublic_taxSetupRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
+  '/api/public/tax-setup-tmp': typeof ApiPublicTaxSetupTmpRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/chantiers': typeof AuthenticatedChantiersIndexRoute
@@ -904,8 +904,8 @@ export interface FileRoutesById {
   '/_authenticated/pv/new': typeof AuthenticatedPvNewRoute
   '/_authenticated/visites-techniques/$id': typeof AuthenticatedVisitesTechniquesIdRoute
   '/_authenticated/visites-techniques/nouvelle': typeof AuthenticatedVisitesTechniquesNouvelleRoute
-  '/api/public/__tax-setup': typeof ApiPublic_taxSetupRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
+  '/api/public/tax-setup-tmp': typeof ApiPublicTaxSetupTmpRoute
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/_authenticated/chantiers/': typeof AuthenticatedChantiersIndexRoute
@@ -1004,8 +1004,8 @@ export interface FileRouteTypes {
     | '/pv/new'
     | '/visites-techniques/$id'
     | '/visites-techniques/nouvelle'
-    | '/api/public'
     | '/api/public/health'
+    | '/api/public/tax-setup-tmp'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/chantiers/'
@@ -1098,8 +1098,8 @@ export interface FileRouteTypes {
     | '/pv/new'
     | '/visites-techniques/$id'
     | '/visites-techniques/nouvelle'
-    | '/api/public'
     | '/api/public/health'
+    | '/api/public/tax-setup-tmp'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/chantiers'
@@ -1197,8 +1197,8 @@ export interface FileRouteTypes {
     | '/_authenticated/pv/new'
     | '/_authenticated/visites-techniques/$id'
     | '/_authenticated/visites-techniques/nouvelle'
-    | '/api/public/__tax-setup'
     | '/api/public/health'
+    | '/api/public/tax-setup-tmp'
     | '/client/pv/$id'
     | '/sign/pv/$token'
     | '/_authenticated/chantiers/'
@@ -1255,8 +1255,8 @@ export interface RootRouteChildren {
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
-  ApiPublic_taxSetupRoute: typeof ApiPublic_taxSetupRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
+  ApiPublicTaxSetupTmpRoute: typeof ApiPublicTaxSetupTmpRoute
   ClientPvIdRoute: typeof ClientPvIdRoute
   SignPvTokenRoute: typeof SignPvTokenRoute
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
@@ -1609,18 +1609,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientPvIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/tax-setup-tmp': {
+      id: '/api/public/tax-setup-tmp'
+      path: '/api/public/tax-setup-tmp'
+      fullPath: '/api/public/tax-setup-tmp'
+      preLoaderRoute: typeof ApiPublicTaxSetupTmpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/health': {
       id: '/api/public/health'
       path: '/api/public/health'
       fullPath: '/api/public/health'
       preLoaderRoute: typeof ApiPublicHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/__tax-setup': {
-      id: '/api/public/__tax-setup'
-      path: '/api/public'
-      fullPath: '/api/public'
-      preLoaderRoute: typeof ApiPublic_taxSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/visites-techniques/nouvelle': {
@@ -2184,8 +2184,8 @@ const rootRouteChildren: RootRouteChildren = {
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
-  ApiPublic_taxSetupRoute: ApiPublic_taxSetupRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
+  ApiPublicTaxSetupTmpRoute: ApiPublicTaxSetupTmpRoute,
   ClientPvIdRoute: ClientPvIdRoute,
   SignPvTokenRoute: SignPvTokenRoute,
   ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
