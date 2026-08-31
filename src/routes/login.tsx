@@ -37,10 +37,7 @@ export const Route = createFileRoute("/login")({
   beforeLoad: async ({ search }) => {
     if (search.type === "client") {
       const session = await getClientSession();
-      if (session) {
-        const { redirect } = await import("@tanstack/react-router");
-        throw redirect({ to: "/client/dashboard" });
-      }
+      if (session) throw redirect({ to: "/client/dashboard" });
     }
   },
   component: LoginPage,
