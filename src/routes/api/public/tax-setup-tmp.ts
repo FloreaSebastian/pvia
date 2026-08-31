@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getStripeClient } from "@/lib/stripe.server";
 
 // TEMPORAIRE — outil d'administration fiscale Stripe (sandbox). À supprimer.
-export const Route = createFileRoute("/api/public/__tax-setup")({
+export const Route = createFileRoute("/api/public/tax-setup-tmp")({
   server: {
     handlers: {
       POST: async ({ request }) => {
