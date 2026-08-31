@@ -14,6 +14,8 @@ import {
   Clock,
   AlertOctagon,
   ReceiptText,
+  RefreshCw,
+
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +56,9 @@ import {
 } from "@/lib/plans";
 import { PageHeader } from "@/components/app/PageHeader";
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
+import { InvoicesSection } from "@/components/billing/InvoicesSection";
+import { BillingTimeline } from "@/components/billing/BillingTimeline";
+
 
 function GuardedBillingPage() {
   return (
@@ -304,6 +309,27 @@ function BillingPage() {
     }
   }
 
+  /** Resynchronisation manuelle : lecture Stripe côté serveur, jamais
+   *  d'écriture de statut depuis le navigateur. Throttlée en base. */
+  async function handleRefresh() {
+    if (!activeCompanyId) return;
+    setSyncing(true);
+    try {
+      await syncFn({ data: { companyId: activeCompanyId, environment: env } });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["billing", activeCompanyId] }),
+        queryClient.invalidateQueries({ queryKey: ["billing-invoices", activeCompanyId] }),
+        queryClient.invalidateQueries({ queryKey: ["billing-timeline", activeCompanyId] }),
+      ]);
+      toast.success("État de facturation actualisé.");
+    } catch (e: any) {
+      toast.error(safeBillingMessage(e, "Actualisation impossible pour le moment. Réessayez dans quelques instants."));
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -484,13 +510,29 @@ function BillingPage() {
               </Button>
               <Button
                 variant="ghost"
-                onClick={handlePortal}
-                disabled={busy === "portal"}
                 className="min-h-[44px]"
+                onClick={() =>
+                  document.getElementById("factures")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
               >
                 <ReceiptText className="mr-2 h-4 w-4" />
                 Voir mes factures
               </Button>
+              <Button
+                variant="ghost"
+                className="min-h-[44px]"
+                onClick={handleRefresh}
+                disabled={syncing}
+                aria-label="Resynchroniser l'état de facturation depuis Stripe"
+              >
+                {syncing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Actualiser
+              </Button>
+
             </div>
           )}
         </div>
@@ -511,6 +553,15 @@ function BillingPage() {
           </div>
         </div>
       </Card>
+
+      {/* ------------------ Factures & historique (Stripe) ------------------ */}
+      {canManage && activeCompanyId && hasSubscription && (
+        <>
+          <InvoicesSection companyId={activeCompanyId} />
+          <BillingTimeline companyId={activeCompanyId} />
+        </>
+      )}
+
 
       {/* ---------------------------- Formules ---------------------------- */}
       <div>

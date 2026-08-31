@@ -15,7 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Loader2, AlertOctagon, Eye, Trash2 } from "lucide-react";
+import { AdminCompanyBilling } from "@/components/admin/AdminCompanyBilling";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/admin/companies/$id")({
   component: Page,
@@ -216,7 +218,10 @@ function Page() {
           </div>
         </Section>
 
+        <AdminCompanyBilling companyId={id} />
+
         <Section title={`Membres (${d.members.length})`}>
+
           <ul className="divide-y divide-zinc-800 text-sm text-zinc-300">
             {d.members.map((m: any) => (
               <li key={m.id} className="flex items-center justify-between py-1.5">
