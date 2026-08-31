@@ -38,28 +38,30 @@ export type AccessInfo = {
   status: string | null;
 };
 
+/** Ligne d'abonnement minimale nécessaire au calcul d'accès. */
+export type SubscriptionSnapshot = {
+  status: string | null;
+  plan: string | null;
+  current_period_end: string | null;
+  trial_end: string | null;
+  cancel_at_period_end: boolean | null;
+} | null;
+
+/** Fenêtre d'essai portée par l'entreprise (essai unique à vie). */
+export type CompanyTrialSnapshot = { trial_ends_at: string | null } | null;
+
 /**
- * Computes the authoritative access state for a company.
- * Differentiates between "never paid → free tier" and "paid then lapsed → blocked".
+ * Cœur PUR de la décision d'accès (testable sans base).
+ * Toute évolution de règle doit rester en parité avec le SQL
+ * `public.company_has_write_access`.
  */
-export async function getAccessState(companyId: string): Promise<AccessInfo> {
-  const [{ data: sub }, { data: company }] = await Promise.all([
-    supabaseAdmin
-      .from("subscriptions")
-      .select("status,plan,current_period_end,trial_end,cancel_at_period_end")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("companies")
-      .select("created_at,trial_ends_at,trial_started_at")
-      .eq("id", companyId)
-      .maybeSingle(),
-
-  ]);
-
+export function computeAccessState(
+  sub: SubscriptionSnapshot,
+  company: CompanyTrialSnapshot,
+  nowMs: number = Date.now(),
+): AccessInfo {
   if (!sub) {
+
     // Aucun abonnement Stripe : l'entreprise vit sur son essai gratuit de 14 j
     // porté par `companies.trial_ends_at` (défaut now() + 14 j, backfill effectué).
     // Pas de formule gratuite permanente, et AUCUN fallback dérivé de created_at :
