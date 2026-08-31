@@ -216,7 +216,10 @@ function Page() {
           </div>
         </Section>
 
+        <AdminCompanyBilling companyId={id} />
+
         <Section title={`Membres (${d.members.length})`}>
+
           <ul className="divide-y divide-zinc-800 text-sm text-zinc-300">
             {d.members.map((m: any) => (
               <li key={m.id} className="flex items-center justify-between py-1.5">
