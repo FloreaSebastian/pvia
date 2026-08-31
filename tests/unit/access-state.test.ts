@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { computeAccessState } from "../../src/lib/access-state";
+import { computeAccessState, pickAuthoritativeSubscription } from "../../src/lib/access-state";
 
 const NOW = Date.parse("2026-09-01T12:00:00.000Z");
 const iso = (days: number) => new Date(NOW + days * 86_400_000).toISOString();
@@ -122,5 +122,41 @@ describe("computeAccessState — résiliation", () => {
     );
     expect(r.state).toBe("canceled");
     expect(r.blocked).toBe(true);
+  });
+});
+
+describe("pickAuthoritativeSubscription", () => {
+  const row = (o: Partial<any>) => ({
+    status: null, plan: "pro", current_period_end: null, trial_end: null,
+    cancel_at_period_end: false, created_at: "2026-01-01T00:00:00Z", ...o,
+  });
+
+  it("retourne null sans ligne", () => {
+    expect(pickAuthoritativeSubscription([])).toBeNull();
+    expect(pickAuthoritativeSubscription(null)).toBeNull();
+  });
+
+  it("préfère l'abonnement actif à une tentative incomplete plus récente", () => {
+    const picked = pickAuthoritativeSubscription([
+      row({ status: "incomplete", created_at: "2026-06-01T00:00:00Z" }),
+      row({ status: "active", created_at: "2026-01-01T00:00:00Z", current_period_end: "2027-01-01T00:00:00Z" }),
+    ]);
+    expect(picked?.status).toBe("active");
+  });
+
+  it("préfère past_due à canceled", () => {
+    const picked = pickAuthoritativeSubscription([
+      row({ status: "canceled", created_at: "2026-06-01T00:00:00Z" }),
+      row({ status: "past_due" }),
+    ]);
+    expect(picked?.status).toBe("past_due");
+  });
+
+  it("à statut égal, retient la période la plus lointaine", () => {
+    const picked = pickAuthoritativeSubscription([
+      row({ status: "active", current_period_end: "2026-02-01T00:00:00Z" }),
+      row({ status: "active", current_period_end: "2026-09-01T00:00:00Z" }),
+    ]);
+    expect(picked?.current_period_end).toBe("2026-09-01T00:00:00Z");
   });
 });

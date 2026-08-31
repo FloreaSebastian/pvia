@@ -22,6 +22,7 @@ export type {
 } from "./access-state";
 import {
   computeAccessState,
+  pickAuthoritativeSubscription,
   type AccessInfo,
   type SubscriptionSnapshot,
   type CompanyTrialSnapshot,
@@ -33,20 +34,22 @@ export { computeAccessState };
  * décision pure `computeAccessState`).
  */
 export async function getAccessState(companyId: string): Promise<AccessInfo> {
-  const [{ data: sub }, { data: company }] = await Promise.all([
+  const [{ data: rows }, { data: company }] = await Promise.all([
     supabaseAdmin
       .from("subscriptions")
-      .select("status,plan,current_period_end,trial_end,cancel_at_period_end")
+      .select("status,plan,current_period_end,trial_end,cancel_at_period_end,created_at")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(20),
     supabaseAdmin
       .from("companies")
       .select("trial_ends_at")
       .eq("id", companyId)
       .maybeSingle(),
   ]);
+  // Plusieurs lignes possibles (résiliation, tentative échouée, réabonnement) :
+  // on retient celle qui fait autorité, jamais simplement la plus récente.
+  const sub = pickAuthoritativeSubscription(rows as any);
   return computeAccessState(sub as SubscriptionSnapshot, company as CompanyTrialSnapshot);
 }
 
