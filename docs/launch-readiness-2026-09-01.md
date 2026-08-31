@@ -815,3 +815,36 @@ programmée vs immédiate). Résultat : **24 tests unitaires OK** (avec
 
 **Verdict** : CODE/BILLING **GO** — ENCAISSEMENT LIVE **NO-GO** (actions
 propriétaire ci-dessus).
+
+---
+
+## Configuration TVA France — Stripe Sandbox (31/08/2026, 22:5x CEST)
+
+Réalisé par API sur le compte sandbox `acct_1U9lLkGuX3HCQ2i6` :
+
+- **Tax settings** : `head_office.address.country = FR`, `defaults.tax_behavior = exclusive`,
+  `defaults.tax_code = txcd_10103001` (SaaS), statut `active`.
+- **Registration TVA France** : créée et **active**
+  (`country=FR`, `country_options.fr.type=standard`, `place_of_supply_scheme=standard`).
+- **Vérification Checkout (session de test réelle, puis expirée)** :
+  plan Business annuel 1 490,00 € HT → **1 788,00 € TTC**,
+  `total_details.amount_tax = 298,00 €`, taux `VAT France 20 %`,
+  `inclusive: false`, `taxability_reason: standard_rated`,
+  `automatic_tax.status = complete`.
+  → le Checkout affiche bien HT + TVA 20 % + total TTC pour un client France.
+- Note : les Prices ont `tax_behavior: unspecified` ; Stripe applique alors le
+  défaut du compte (`exclusive`), ce que la session de test confirme (TVA ajoutée
+  au-dessus du prix HT, jamais incluse).
+
+### Non réalisable par API (action propriétaire requise, dashboard Stripe)
+
+- Informations légales du compte : raison sociale, forme juridique, SIREN/TVA
+  intracommunautaire, adresse du siège complète, e-mail/URL de support,
+  libellé de relevé bancaire. L'API renvoie
+  « key does not have access to account » : ces champs se règlent uniquement
+  dans le dashboard Stripe (Settings → Business).
+- Mentions légales de facture (footer, numéro de TVA affiché) : Settings →
+  Invoicing → Invoice template.
+- Le même travail (registration TVA FR + infos légales) devra être refait sur le
+  compte **LIVE** après le go-live ; `assertTaxComplianceReady()` bloque tout
+  encaissement live tant que la registration FR n'y est pas active.
