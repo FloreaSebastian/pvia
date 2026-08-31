@@ -40,7 +40,7 @@ export const Route = createFileRoute("/client/verify")({
   head: () => ({
     meta: [
       { title: "Vérification du code — Espace client | PVIA" },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
 });

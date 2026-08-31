@@ -50,7 +50,7 @@ export const Route = createFileRoute("/client/profil")({
   head: () => ({
     meta: [
       { title: "Profil — Espace client | PVIA" },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
 });

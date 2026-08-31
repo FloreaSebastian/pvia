@@ -37,7 +37,7 @@ export const Route = createFileRoute("/client/pv/$id_/levee-reserves/$liftId")({
   head: () => ({
     meta: [
       { title: "Levée de réserves — Espace client | PVIA" },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
 });

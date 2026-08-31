@@ -47,7 +47,7 @@ export const Route = createFileRoute("/client/dashboard")({
         content:
           "Espace client PVIA : consultez, signez et téléchargez vos procès-verbaux de réception, toutes entreprises confondues.",
       },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
 });

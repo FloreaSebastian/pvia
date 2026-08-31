@@ -46,7 +46,7 @@ export const Route = createFileRoute("/verify")({
         content:
           "Étape de vérification sécurisée par code à usage unique pour accéder à votre compte PVIA.",
       },
-      { name: "robots", content: "noindex" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
 });
