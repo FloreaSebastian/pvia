@@ -161,3 +161,92 @@ d'abonnement) est corrigée et couverte par des tests.
 **NO-GO encaissement réel** jusqu'à l'activation du compte Stripe et le smoke test
 du §19 : les 3 points restants (argent réel, moyens de paiement réels, payouts
 bancaires) sont par nature inexécutables avant le LIVE.
+
+---
+
+## STRIPE LIVE SMOKE TEST — 2026-08-31 (phase 1 : pré-paiement)
+
+Compte Stripe LIVE : `acct_1UAbi9GgaD8JqHXM` (FR, EUR, charges & payouts activés).
+Go-live Lovable : 5/5 étapes complétées.
+
+### 1. Isolation d'environnement — PASS
+| Élément | État |
+|---|---|
+| STRIPE_LIVE_API_KEY | CONFIGURÉ |
+| STRIPE_SANDBOX_API_KEY | CONFIGURÉ |
+| PAYMENTS_LIVE_WEBHOOK_SECRET | CONFIGURÉ (préfixe `whsec_` vérifié) |
+| PAYMENTS_SANDBOX_WEBHOOK_SECRET | CONFIGURÉ (préfixe `whsec_` vérifié) |
+| APP_ENV serveur | `production` |
+| VITE_APP_ENV (.env.production) | `production` → `getStripeEnvironment()` = `live` |
+| Publishable token production | `pk_live_…` (`.env.production`) |
+| Price IDs codés en dur | aucun : uniquement des `lookup_key` (`starter_monthly`…) résolus côté serveur |
+| Mélange TEST/LIVE | aucun (aucun `sk_test`/`price_…` dans le code) |
+
+Aucune valeur de secret n'est affichée ni journalisée.
+
+### 2. Prix LIVE — **FAIL (bloquant)**
+Interrogation réelle du compte LIVE : `prices.list({ lookup_keys: [...6 clés...] })`
+renvoie **0 résultat**. Les 6 tarifs (Essentiel 19/190, Pro 59/590, Business 149/1490)
+n'existent que dans l'environnement TEST ; la synchronisation TEST → LIVE du catalogue
+Lovable Payments s'effectue **au moment de la publication du projet**.
+
+Anomalie annexe détectée sur le compte LIVE : un produit créé manuellement
+`« Abonament »` (19,00 € / mois, `tax_behavior: unspecified`, sans `lookup_key`).
+Il n'est pas utilisé par PVIA (résolution par `lookup_key` uniquement) mais doit être
+archivé dans le dashboard Stripe pour éviter toute confusion comptable.
+
+### 3. Stripe Tax LIVE — PASS
+- `tax.settings` LIVE : `status: active`, siège **FR**, `tax_behavior` par défaut **exclusive** (HT).
+- `tax.registrations` LIVE : **FR / standard / active** (`livemode: true`).
+- Checkout : `automatic_tax.enabled`, `billing_address_collection: required`,
+  `customer_update`, `tax_id_collection` (autoliquidation UE) — aucun taux codé en dur.
+- Garde `assertTaxComplianceReady()` : fail-closed LIVE sans enregistrement FR actif → satisfaite.
+
+### 4. Webhook LIVE — PASS
+- Endpoint applicatif : `https://project--…lovable.app/api/public/payments/webhook?env=live`
+  — HTTPS, `status: enabled`, `livemode: true`.
+- Événements : `customer.subscription.created/updated/deleted`, `checkout.session.completed`,
+  `checkout.session.async_payment_succeeded/failed`, `invoice.paid`, `invoice.payment_failed`.
+- Endpoint analytics Lovable (`api.lovable.dev/...`) présent en parallèle — normal, ne pas supprimer.
+- Vérification de signature réelle : POST sans signature → **400**, POST avec signature
+  invalide → **400**. Aucun traitement sans signature valide.
+- Idempotence : insertion unique dans `stripe_webhook_events` conservée (validée en TEST).
+- Aucun secret dans les logs (erreurs Stripe sanitisées via `sanitizeStripeError`).
+
+### 5→17. Smoke test réel — **NON EXÉCUTÉ (bloqué par §2)**
+Entreprise « PVIA LIVE SMOKE TEST », essai, Checkout LIVE, paiement, facture, webhook,
+entitlements, /billing, /admin/billing, Customer Portal : impossibles tant que les prix
+LIVE n'existent pas.
+
+### 18. Sécurité (revue statique, sans toucher aux clients réels) — PASS
+- `/admin/billing` : `requirePlatformAdmin` = rôle `platform_admin` **ET** domaine `@pvia.fr`
+  (les deux conditions, jamais le domaine seul) ; refus journalisé en `audit_logs`.
+- Utilisateur standard, admin d'entreprise et owner : refusés (aucun rôle entreprise
+  n'ouvre le cockpit global).
+- Factures : `assertCompanyBillingAdmin` + filtre `company_id` → aucune facture d'une
+  autre entreprise accessible.
+- Portal : session créée uniquement à partir du `stripe_customer_id` de l'entreprise
+  du demandeur, après contrôle du rôle admin → usurpation impossible.
+
+### Tableau de synthèse (phase 1)
+| Contrôle | Verdict |
+|---|---|
+| Environment isolation | PASS |
+| LIVE Prices | **FAIL** |
+| Stripe Tax LIVE | PASS |
+| Checkout LIVE | BLOQUÉ |
+| Real payment | **WAITING FOR USER** |
+| LIVE Webhooks | PASS |
+| Subscription synchronization | non testé (LIVE) |
+| Invoice / Invoice PDF | non testé (LIVE) |
+| Customer Portal | non testé (LIVE) |
+| PVIA entitlements | non testé (LIVE) |
+| Billing UI / Admin Billing | non testé (LIVE) |
+| Security | PASS |
+
+**PVIA READY FOR PUBLIC LIVE PAYMENTS = NO**
+
+Éléments bloquants :
+1. Publier le projet pour synchroniser les 6 tarifs vers le compte Stripe LIVE.
+2. Archiver le produit LIVE manuel « Abonament ».
+3. Réaliser le paiement réel de smoke test (action utilisateur explicite).
