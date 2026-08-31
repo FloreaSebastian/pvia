@@ -487,13 +487,29 @@ function BillingPage() {
               </Button>
               <Button
                 variant="ghost"
-                onClick={handlePortal}
-                disabled={busy === "portal"}
                 className="min-h-[44px]"
+                onClick={() =>
+                  document.getElementById("factures")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
               >
                 <ReceiptText className="mr-2 h-4 w-4" />
                 Voir mes factures
               </Button>
+              <Button
+                variant="ghost"
+                className="min-h-[44px]"
+                onClick={handleRefresh}
+                disabled={syncing}
+                aria-label="Resynchroniser l'état de facturation depuis Stripe"
+              >
+                {syncing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Actualiser
+              </Button>
+
             </div>
           )}
         </div>
