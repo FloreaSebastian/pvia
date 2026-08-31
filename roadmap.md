@@ -1,4 +1,4 @@
 - [x] Reconnecter Stripe (sandbox provisionné via intégration intégrée)
-- [ ] Créer les produits/prix PVIA (Essentiel/Pro/Business, mensuel+annuel, EUR HT) dans le nouveau compte test
-- [ ] Vérifier que le checkout/portail existants pointent sur les nouveaux lookup keys
-- [ ] Mettre à jour docs/launch-readiness-2026-09-01.md (reconnexion, état TVA live, portail)
+- [x] Créer les produits/prix PVIA (Essentiel/Pro/Business, mensuel+annuel, EUR HT) dans le nouveau compte test
+- [x] Vérifier que le checkout/portail existants pointent sur les nouveaux lookup keys
+- [x] Mettre à jour docs/launch-readiness-2026-09-01.md (reconnexion, état TVA live, portail)

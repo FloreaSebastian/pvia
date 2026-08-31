@@ -715,3 +715,43 @@ affirmé sur les parcours connectés.
 4. **Après publication** : un achat live de contrôle (vérifier facture
    HT / TVA 20 % / TTC), un email réel bout-en-bout (invitation + signature),
    puis surveillance `app_errors`.
+
+---
+
+## ADDENDUM — 2026-08-31 22:20 UTC — Reconnexion des paiements intégrés
+
+**Contexte** : l'intégration de paiements avait été déconnectée, supprimant les
+identifiants des anciens comptes (`acct_1TZZ0yPOYS9fvO25` sandbox,
+`acct_1TaruUAhyA8e2Fra` live). Toute référence à ces comptes dans les sections
+précédentes de ce rapport est désormais **obsolète**.
+
+### Faits vérifiés ce jour
+
+1. **Reconnexion effectuée** : nouvel environnement de test provisionné
+   (compte sandbox `acct_1U9lLkGuX3HCQ2i6`). Aucune configuration manuelle.
+2. **Catalogue recréé dans le nouveau compte test** — identifiants de prix
+   identiques à ceux attendus par le code (`src/lib/billing.functions.ts`,
+   résolution par `lookup_keys`) :
+   - `pvia_essentiel` → `starter_monthly` (19,00 €/mois HT), `starter_annual` (190,00 €/an HT)
+   - `pvia_pro` → `pro_monthly` (59,00 €/mois HT), `pro_annual` (590,00 €/an HT)
+   - `pvia_business` → `business_monthly` (149,00 €/mois HT), `business_annual` (1 490,00 €/an HT)
+   - Code fiscal `txcd_10103001` (services logiciels) sur les 3 produits.
+3. **Checkout / portail** : aucun changement de code requis — les lookup keys
+   correspondent. La garde TVA `assertTaxComplianceReady` et
+   `automatic_tax: { enabled: true }` restent en place.
+4. **Go-live (statut lu ce jour)** : étape 1 « claim account » en cours ;
+   étapes 2–5 non démarrées. Aucune clé live, aucun webhook live.
+
+### Verdicts mis à jour (2026-08-31 22:20 UTC)
+
+| Axe | Verdict | Détail |
+|---|---|---|
+| **CODE / PUBLICATION** | **GO** | Build OK, checkout test fonctionnel dès connexion. |
+| **ENCAISSEMENT TEST** | **GO** | Catalogue test complet ; carte 4242… utilisable en preview. |
+| **ENCAISSEMENT LIVE** | **NO-GO** | Go-live non complété : claim du compte, onboarding, installation de l'app et provisionnement des clés live restants. L'enregistrement TVA France LIVE devra être **recréé** sur le nouveau compte (l'ancien enregistrement a disparu avec l'ancienne intégration). |
+
+### Actions restantes (propriétaire)
+
+1. Onglet Paiements → terminer les étapes de mise en production (claim + onboarding).
+2. Sur le compte live : activer l'enregistrement TVA France (Tax → Registrations) et configurer le Billing Portal (switching désactivé).
+3. Publier pour synchroniser le catalogue vers le live, puis achat réel de contrôle J0.
