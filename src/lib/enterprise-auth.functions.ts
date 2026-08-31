@@ -171,11 +171,9 @@ export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
   .inputValidator((d) => LoginCodeSchema.parse(d))
   .handler(async ({ data }) => {
     const startedAt = Date.now();
-    try {
-      return await runSendEnterpriseLoginCode(data);
-    } finally {
-      await padToMinDuration(startedAt, ENTERPRISE_LOGIN_MIN_RESPONSE_MS);
-    }
+    const result = await runSendEnterpriseLoginCode(data);
+    await padToMinDuration(startedAt, ENTERPRISE_LOGIN_MIN_RESPONSE_MS);
+    return result;
   });
 
 /**
