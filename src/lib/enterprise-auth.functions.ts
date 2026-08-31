@@ -11,6 +11,7 @@ import {
   normalizeEmail,
   sha256Hex,
   timingSafeEqual,
+  padToMinDuration,
 } from "@/lib/client-auth.server";
 import { sendEnterpriseLoginCodeEmail } from "@/lib/email.server";
 import { getPublicAppUrl } from "./app-url.server";
@@ -46,9 +47,11 @@ async function findAuthUserByEmail(email: string) {
  */
 const NEUTRAL_RESPONSE = { ok: true as const, neutral: true as const };
 
-export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
-  .inputValidator((d) => LoginCodeSchema.parse(d))
-  .handler(async ({ data }) => {
+/** Minimum uniform response time (anti-enumeration timing oracle). */
+const ENTERPRISE_LOGIN_MIN_RESPONSE_MS = 2200;
+
+async function runSendEnterpriseLoginCode(data: { email: string }) {
+  {
     const email = normalizeEmail(data.email);
     const ip = getClientIp() ?? "unknown";
     const ua = getClientUA();
@@ -161,6 +164,16 @@ export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
     });
 
     return NEUTRAL_RESPONSE;
+  }
+}
+
+export const sendEnterpriseLoginCode = createServerFn({ method: "POST" })
+  .inputValidator((d) => LoginCodeSchema.parse(d))
+  .handler(async ({ data }) => {
+    const startedAt = Date.now();
+    const result = await runSendEnterpriseLoginCode(data);
+    await padToMinDuration(startedAt, ENTERPRISE_LOGIN_MIN_RESPONSE_MS);
+    return result;
   });
 
 /**
