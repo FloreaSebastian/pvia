@@ -11,6 +11,9 @@ Disallow: /reserves
 Disallow: /statistiques
 Disallow: /historique
 Disallow: /terrain
+Disallow: /visites-techniques
+Disallow: /onboarding
+Disallow: /account-suspended
 Disallow: /billing
 Disallow: /admin/
 Disallow: /parametres

@@ -533,126 +533,185 @@ TTC) et surveillance `app_errors`.
   actif, la garde bloque volontairement tout paiement live.
 
 ---
+---
 
-## Passe finale pré-publication — 31/08/2026 (commit 95975f2)
+## Passe finale pré-publication — 31/08/2026 12:40 UTC
 
-Aucune publication, aucun paiement, aucune écriture Stripe LIVE.
+Périmètre : **aucune publication, aucun paiement, aucune écriture Stripe**
+(sandbox comme LIVE). Toutes les lectures Stripe ci-dessous sont des appels
+`retrieve` / `list` uniquement. Le fait que le go-live Stripe soit marqué
+« completed » **n'autorise pas** l'encaissement : voir §4.
 
 ### 1. PUBLIC_APP_URL
-`PUBLIC_APP_URL` **existe déjà** en variable de projet : l'outillage agent ne
-peut que *créer* une variable, jamais écraser une valeur existante. **Je ne l'ai
-donc pas modifiée.**
-Action propriétaire (1 min, sans publication) : *Project Settings → Secrets →
-`PUBLIC_APP_URL`* → valeur exacte `https://pvia.fr` (pas de slash final).
+La variable existe déjà côté projet ; l'outillage dont je dispose ne peut que
+*créer* une variable absente, pas écraser une valeur existante. **Je ne l'ai
+donc pas modifiée et je ne prétends pas l'avoir fait.**
 
-Preuve runtime du repli sûr : `tests/unit/app-url.test.ts` (`bun test`,
-6 tests / 14 assertions, **tous verts**) :
-- `normalizeAppUrl('pvia.fr')` → `https://pvia.fr`
-- `normalizeAppUrl('https://pvia.fr/')` → `https://pvia.fr`
-- `normalizeAppUrl('')` / `'   '` / `undefined` / `null` → `https://pvia.fr`
-- `http://pvia.fr` → `https://pvia.fr` ; `http://localhost:8080` conservé
-- aucune valeur testée ne produit une URL relative.
-Conséquence : même si le secret reste `pvia.fr`, **aucun lien email ne peut être
-relatif ni non-https**. Le point est donc cosmétique/config, pas bloquant.
+Emplacement exact pour le propriétaire : **Project Settings → Secrets →
+`PUBLIC_APP_URL`** → valeur `https://pvia.fr` (schéma inclus, sans slash final).
 
-### 2. Liens sortants
-`process.env.PUBLIC_APP_URL` n'est lu qu'à 4 endroits : `app-url.server.ts`
-(normalisation), `app-env.server.ts` (heuristique d'environnement),
-`go-live.functions.ts` (rapport admin) et `health.deep.ts` (présence).
-Les **11** constructions de liens hors application passent toutes par
-`getPublicAppUrl()` : `sign.functions`, `invites.functions`,
+Le helper reste fail-safe indépendamment de cette valeur.
+Preuve exécutée (`bun test tests/unit/app-url.test.ts` → **6 pass / 0 fail /
+14 assertions**) :
+
+| Entrée | Sortie |
+| --- | --- |
+| `'pvia.fr'` | `https://pvia.fr` |
+| `'https://pvia.fr/'` | `https://pvia.fr` |
+| `''`, `'   '`, `undefined`, `null` | `https://pvia.fr` |
+| `'http://pvia.fr'` | `https://pvia.fr` (forçage https hors local) |
+| `'http://localhost:8080'` | inchangé (dev) |
+
+Aucune entrée testée ne produit d'URL relative → **le secret mal formé ne peut
+pas casser un lien email**. Point de propreté, non bloquant.
+
+### 2. Usages de PUBLIC_APP_URL et liens sortants
+`process.env.PUBLIC_APP_URL` n'est lu qu'à **4 endroits** :
+`app-url.server.ts:33` (normalisation), `app-env.server.ts:20` (heuristique
+d'environnement), `go-live.functions.ts:138-170` (rapport admin interne),
+`api/public/health.deep.ts:81` (présence booléenne).
+
+Les **11** modules construisant des liens envoyés hors application passent tous
+par `getPublicAppUrl()` : `sign.functions`, `invites.functions`,
 `client-portal.functions`, `calendar.functions`, `enterprise-auth.functions`,
 `pv-create.functions`, `email.server`, `billing-email.server`,
-`reserve-email.server`, `reserve-lift-validation-email.server`.
-Recherche globale `lovable.app` / `localhost` / `127.0.0.1` : aucune occurrence
-dans un lien utilisateur — uniquement détection d'environnement
+`reserve-email.server`, `reserve-lift-validation-email.server`
+(+ `app-url.server` lui-même). Aucun lien construit hors de ce helper.
+**Aucune correction nécessaire.**
+
+### 3. Stripe Billing Portal — audit read-only
+`billingPortal.configurations.list` exécuté sur les deux comptes :
+
+- **Sandbox** (`acct_1TZZ0yPOYS9fvO25`, FR) : **1** configuration,
+  `bpc_1UAUK8POYS9fvO25wTwVqzIk`, `active: true`, `is_default: true` →
+  `subscription_update.enabled: **false**`, `default_allowed_updates: []`,
+  `subscription_pause.enabled: false`, `subscription_cancel: true / at_period_end`.
+  Le changement de formule via portail est donc **désactivé** en sandbox.
+- **LIVE** (`acct_1TaruUAhyA8e2Fra`, FR, `charges_enabled: true`) :
+  **0 configuration** retournée. L'API ne renvoie pas la configuration
+  implicite par défaut du compte : **la configuration LIVE réellement
+  appliquée n'est pas prouvable en lecture seule**.
+
+Le code n'envoie aucun paramètre `configuration` à
+`billingPortal.sessions.create` (`billing.functions.ts:257`) : le portail LIVE
+suivra donc le défaut du compte, inconnu. **Ce point n'est PAS prouvé →
+validation manuelle obligatoire avant encaissement.**
+
+**Risque à noter** : le chemin portail (`createPortalSession`) n'est
+volontairement pas couvert par la garde TVA (§5), car il ne crée pas
+d'abonnement. Si le portail LIVE autorisait « Switch plans », un changement de
+formule pourrait contourner la garde fiscale. Vérification propriétaire :
+*Stripe Dashboard LIVE → Settings → Billing → Customer portal* → « Customers
+can switch plans » **désactivé**.
+
+### 4. TVA France LIVE (lecture seule)
+`tax.registrations.list({ limit: 100 })`, **tous statuts confondus** :
+
+- Sandbox → `[{ country: "FR", status: "active" }]`
+- **LIVE → `[]` (aucun enregistrement, ni actif ni programmé)**
+
+Rien n'a été créé. → **NO-GO ENCAISSEMENT maintenu**, indépendamment du statut
+« go-live completed » du connecteur Stripe.
+
+### 5. Chemins de création d'abonnement / checkout (recherche repo entière)
+Inventaire exhaustif des appels Stripe du dépôt :
+
+| Fichier:ligne | Appel | Nature |
+| --- | --- | --- |
+| `billing.functions.ts:180` | `checkout.sessions.create` | **seule création d'abonnement** |
+| `billing.functions.ts:257` | `billingPortal.sessions.create` | gestion (voir §3) |
+| `billing.functions.ts:96` | `prices.list` | lecture |
+| `billing.functions.ts:130` | `customers.create` | client, même handler gardé |
+| `billing.functions.ts:368` | `subscriptions.list` | lecture (resync) |
+| `api/public/payments/webhook.ts:261` | `subscriptions.retrieve` | lecture |
+| `admin-platform.functions.ts:440/456` | `customers.search`, `subscriptions.list` | lecture |
+
+Aucune occurrence de `subscriptions.create/update`, `paymentIntents.*`,
+`invoices.*`. **Aucune Edge Function Supabase** (`supabase/functions` absent).
+Aucune route publique ni chemin service-role ne crée d'abonnement.
+
+La garde `assertTaxComplianceReady(env, stripe)` est appelée à
+`billing.functions.ts:92`, dans le **même handler linéaire**, **avant** la
+création du client (l.130) et de la session (l.180) — aucun retour anticipé ni
+branche alternative entre les deux. Couverture confirmée.
+
+### 6. Emails — templates et rendus dynamiques
+Recherche globale `lovable.app` / `localhost` / `127.0.0.1` sur `src` et
+`public` : **aucune occurrence dans un contenu email**. Les correspondances
+restantes sont exclusivement techniques : détection d'environnement
 (`analytics.ts`, `app-env.server.ts`, `stripe.ts`, `pwa.ts`), garde SSRF
-(`webhooks.server.ts`), flag cookie `Secure` (`client-auth.server.ts`) et
-stockage preview Supabase (fichier généré). Seules URL absolues codées en dur :
-`https://pvia.fr` (canonical/OG/sitemap) et endpoints tiers légitimes
-(`api.resend.com`, `connector-gateway.lovable.dev`). **Aucune correction
-nécessaire.**
+(`webhooks.server.ts:49`), flag cookie `Secure` (`client-auth.server.ts:79`),
+commentaires.
 
-### 3. Billing Portal (audit approfondi)
-`billingPortal.configurations.list` renvoie 0 en sandbox **et** en live : aucune
-configuration explicite, l'API ne liste pas la configuration par défaut du
-compte. Sonde sandbox (création puis suppression d'un client de test, aucun
-paiement) → `session.configuration = bpc_...`, récupérée en lecture :
-- `subscription_update.enabled = **false**` (`default_allowed_updates: []`)
-- `subscription_pause.enabled = false`
-- `subscription_cancel.enabled = true`, `mode: at_period_end`
-- `payment_method_update`, `invoice_history`, `customer_update` activés.
-Donc en sandbox le portail **ne permet aucun changement/création de formule** et
-ne contourne pas la garde fiscale. Le compte LIVE est un **autre** compte Stripe
-et sa configuration par défaut ne peut pas être lue sans écriture live :
-**non prouvé → validation manuelle obligatoire avant encaissement**
-(Stripe Dashboard LIVE → Billing → Customer portal → « Switch plans » désactivé).
-
-### 4. TVA LIVE (lecture seule)
-`tax.registrations.list` : sandbox → `[{country: FR, status: active}]` ;
-**live → liste vide**. L'enregistrement TVA France LIVE est toujours absent.
-→ **NO-GO ENCAISSEMENT maintenu**. Rien créé.
-
-### 5. Couverture de la garde TVA (recherche repo entière)
-Un seul chemin de création : `stripe.checkout.sessions.create`
-(`src/lib/billing.functions.ts:180`), précédé de
-`assertTaxComplianceReady(env, stripe)` ligne 92. Autres appels Stripe du dépôt,
-tous **en lecture** : `subscriptions.retrieve` (webhook),
-`customers.search` + `subscriptions.list` (admin plateforme). Aucune occurrence
-de `subscriptions.create/update`, `paymentIntents.*`, `invoices.*` ; aucune
-Edge Function Supabase ; aucune route publique ou service-role créant un
-abonnement.
-
-### 6. Emails / templates
-Vérifié au-delà des fichiers portant `PUBLIC_APP_URL` : rendus dynamiques
-(`email.server.ts`, `billing-email.server.ts`, `reserve-*.server.ts`) — toutes
-les URL sont interpolées depuis `getPublicAppUrl()`. Aucun `lovable.app`,
-`localhost` ni `127.0.0.1` dans un contenu email. Aucun email réel envoyé.
+URL absolues codées en dur dans `src` : `https://pvia.fr` (38 — canonical, OG,
+JSON-LD, sitemap) et uniquement des tiers légitimes (`api.resend.com`,
+`js.stripe.com`, `connector-gateway.lovable.dev`, `api-adresse.data.gouv.fr`,
+`recherche-entreprises.api.gouv.fr`, `fonts.googleapis.com`, `schema.org`,
+`cnil.fr`, webhooks Slack/Discord/Zapier saisis par l'utilisateur).
+`https://votre-app.com` est un simple `placeholder` de champ de saisie
+(`parametres.api.tsx:308`). **Aucun email réel envoyé.**
 
 ### 7. SEO / routes à token
-`noindex, nofollow` désormais explicite sur toutes les routes publiques
-sensibles : `invite/$token`, `sign/pv/$token`, `verify`, `client/verify`,
-`client/login`, `client/dashboard`, `client/historique`, `client/profil`,
-`client/pv/$id`, `client/pv/$id/levee-reserves/$liftId` (auparavant `noindex`
-seul sur les routes `client.*` et `verify`). `public/robots.txt` complété :
-`Disallow: /client/` et `Disallow: /verify`. `sitemap.xml` : 29 URL, toutes
-publiques marketing/légales — **aucune** route authentifiée ni à token.
+`noindex, nofollow` vérifié présent sur **les 10** routes publiques sensibles :
+`invite/$token`, `sign/pv/$token`, `verify`, `client/verify`, `client/login`,
+`client/dashboard`, `client/historique`, `client/profil`, `client/pv/$id`,
+`client/pv/$id/levee-reserves/$liftId`.
 
-### 8. app_errors (jusqu'au 31/08/2026)
-Fenêtre 72 h : une seule signature, l'ancien crash Realtime
-`cannot add postgres_changes ... after subscribe()` (`/dashboard`), dernière
-occurrence **2026-08-30 06:26 UTC**, antérieure au correctif validé sur appareil
-réel. **Aucune nouvelle erreur P0/P1.** Incident Fold non rouvert.
+`public/robots.txt` complété cette passe : ajout de `/visites-techniques`,
+`/onboarding`, `/account-suspended` (en plus de `/client/` et `/verify`).
+Vérifié servi en HTTP 200.
 
-### 9. Vérifications finales
-`rm -rf .output dist node_modules/.vite .tanstack` puis `bunx tsgo --noEmit`
-(OK) et `bun run build` (OK, 21 s). `bun test tests/unit/app-url.test.ts` : 6/6.
-Smoke HTTP **200** : `/`, `/tarifs`, `/login`, `/signup`, `/cgv`, `/mentions`,
-`/confidentialite`, `/fonctionnalites`, `/contact`, `/sitemap.xml`,
-`/robots.txt`, `/api/public/health`. Responsive 320 / 390 / 1440 px sur
-homepage, tarifs, login, signup : `scrollWidth - innerWidth = 0` partout,
-aucune `pageerror` (une erreur de chunk transitoire au premier run, disparue au
-run suivant : conséquence du cache Vite supprimé, absente du build).
-**Aucun test authentifié réalisé** (pas de session disponible).
+`sitemap.xml` : **29 URL**, toutes marketing/légales publiques ; filtrage sur
+`token|client/|verify|dashboard|admin|billing|invite|sign/|parametres` →
+**aucune correspondance**.
+
+### 8. app_errors jusqu'au 31/08/2026
+Agrégation sur 10 jours :
+
+- **Ancien incident (clos)** : `cannot add postgres_changes callbacks for
+  realtime:billing-…` — 30 occurrences, `critical`,
+  `client:react-boundary:/dashboard`, **toutes le 2026-08-30 entre 06:00 et
+  07:00 UTC**, antérieures au correctif `useId()` validé sur appareil réel.
+  Non rouvert.
+- **Ancien bruit de déploiement (clos)** : `Invalid server function ID` —
+  22/08, `error`, dû à des IDs de server functions périmés lors d'un rebuild.
+  Aucune récurrence depuis.
+- **Nouveau depuis le dernier audit : AUCUN.** Zéro erreur enregistrée après le
+  2026-08-30 07:00 UTC.
+
+### 9. Vérifications (clean build)
+`rm -rf .output dist node_modules/.vite .tanstack` puis :
+- `bunx tsgo --noEmit` → **OK**, 0 erreur.
+- `bun run build` → **OK**, built in 18.79 s.
+- `bun test tests/unit/app-url.test.ts` → **6/6**.
+
+Smoke HTTP, **200 sur les 12** : `/`, `/tarifs`, `/login`, `/signup`, `/cgv`,
+`/mentions`, `/confidentialite`, `/fonctionnalites`, `/contact`,
+`/sitemap.xml`, `/robots.txt`, `/api/public/health`.
+
+Responsive Playwright 320 / 390 / 1440 px sur `/`, `/tarifs`, `/login`,
+`/signup` : `scrollWidth - innerWidth = 0` sur les 12 combinaisons, **aucune
+`pageerror`**.
+
+**Aucun test authentifié réalisé** (pas de session disponible) — rien n'est
+affirmé sur les parcours connectés.
 
 ### VERDICT FINAL SÉPARÉ
-- **CODE : GO.** Typecheck, clean build, tests unitaires, smoke et responsive
-  verts ; aucune régression ; aucun P0/P1 ouvert dans le code.
-- **PUBLICATION : GO.** Rien dans le code ne bloque la mise en ligne. La garde
-  fiscale empêche seule le Checkout LIVE, ce qui est le comportement voulu.
-- **EMAILS : GO.** Tous les liens sont absolus et https par construction, avec
-  repli prouvé sur `https://pvia.fr`. Réserve non bloquante : aucun email réel
-  n'a été envoyé de bout en bout.
-- **ENCAISSEMENT : NO-GO.** Enregistrement TVA France LIVE absent (vérifié en
-  lecture seule ce jour) + configuration du Billing Portal LIVE non prouvée.
+
+| Domaine | Verdict | Motif |
+| --- | --- | --- |
+| **CODE** | **GO** | Typecheck, clean build, tests unitaires, 12 smokes, responsive : tous verts. Aucun P0/P1 ouvert. |
+| **PUBLICATION** | **GO** | Rien dans le code ne bloque la mise en ligne. La garde fiscale bloque le seul Checkout LIVE — comportement voulu, pas un défaut. |
+| **EMAILS** | **GO** | Tous les liens sont absolus et https par construction, repli `https://pvia.fr` prouvé par test. Réserve non bloquante : aucun envoi réel bout-en-bout vérifié. |
+| **ENCAISSEMENT** | **NO-GO** | Enregistrement TVA France LIVE **inexistant** (vérifié en lecture seule ce jour) **et** configuration Billing Portal LIVE non prouvable. |
 
 ### Actions humaines réellement restantes
-1. *Project Settings → Secrets* : `PUBLIC_APP_URL` = `https://pvia.fr`
-   (propreté ; le repli code est déjà sûr).
-2. Stripe **LIVE** : créer l'enregistrement TVA France (Tax → Registrations).
-   Sans lui, tout Checkout live est bloqué volontairement.
-3. Stripe **LIVE** Dashboard : vérifier Customer portal → « Switch plans »
-   désactivé (prouvé en sandbox uniquement).
-4. Après publication : un achat live de contrôle (facture HT / TVA 20 % / TTC)
-   et un email réel de bout en bout (invitation + signature), puis surveillance
-   `app_errors`.
+1. **Project Settings → Secrets** : `PUBLIC_APP_URL` = `https://pvia.fr`
+   (propreté ; le repli code est déjà sûr — non bloquant).
+2. **Stripe LIVE → Tax → Registrations** : créer l'enregistrement TVA France.
+   Bloquant encaissement.
+3. **Stripe LIVE → Settings → Billing → Customer portal** : confirmer
+   « Customers can switch plans » désactivé. Bloquant encaissement.
+4. **Après publication** : un achat live de contrôle (vérifier facture
+   HT / TVA 20 % / TTC), un email réel bout-en-bout (invitation + signature),
+   puis surveillance `app_errors`.
