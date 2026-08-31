@@ -755,3 +755,63 @@ précédentes de ce rapport est désormais **obsolète**.
 1. Onglet Paiements → terminer les étapes de mise en production (claim + onboarding).
 2. Sur le compte live : activer l'enregistrement TVA France (Tax → Registrations) et configurer le Billing Portal (switching désactivé).
 3. Publier pour synchroniser le catalogue vers le live, puis achat réel de contrôle J0.
+
+---
+
+## AUDIT & FINALISATION STRIPE / BILLING — 2026-09-01
+
+### 1. Ce qui était déjà conforme (vérifié, non modifié)
+
+| Exigence | Preuve |
+|---|---|
+| Essai 14 j unique par entreprise | `companies.trial_started_at` + trigger `companies_lock_trial_started_at`, `company_trial_consumed()`, audit `billing.trial_reuse_blocked` dans le webhook |
+| Lecture seule après essai/résiliation | `computeAccessState` (TS) et `company_has_write_access` (SQL) en parité ; lectures jamais bloquées |
+| Blocage backend réel (pas seulement UI) | Toutes les policies d'écriture passent par `can_write_company*` → `company_has_write_access` (chantiers, pv, réserves, photos, documents, clients, visites, levées, membres) |
+| Quotas sièges / PV | `enforce_member_seat_quota` (verrou consultatif, anti-course), `can_create_pv`, `get_company_pv_count_current_period` |
+| Prix et plans côté serveur | `plan_limits` = source de vérité ; résolution Stripe par `lookup_key` (stable sandbox ↔ live) |
+| Idempotence webhook | Table `stripe_webhook_events` (conflit clé primaire → événement ignoré + audit) |
+| Prix HT + TVA | `tax_behavior=exclusive`, `automatic_tax`, garde `assertTaxComplianceReady` en live |
+
+### 2. Défauts trouvés et corrigés ce jour
+
+1. **Périodicité affichée fausse** — la page `/billing` affichait « Facturation
+   mensuelle/annuelle » d'après le sélecteur d'interface, pas d'après
+   l'abonnement réel. Ajout des colonnes `subscriptions.price_id` et
+   `subscriptions.billing_interval`, alimentées par le webhook et par la
+   resynchronisation Stripe ; l'encart « Votre abonnement » utilise désormais
+   la périodicité réellement facturée.
+2. **Événements Stripe manquants** — `invoice.paid` /
+   `invoice.payment_succeeded` (régularisation après impayé),
+   `customer.subscription.trial_will_end`, `paused`, `resumed` n'étaient pas
+   traités. Une entreprise qui régularisait restait en lecture seule jusqu'au
+   prochain `subscription.updated`. Désormais resynchronisation immédiate
+   depuis Stripe.
+3. **Événements hors séquence** — un `customer.subscription.updated` retardé
+   pouvait écraser un état plus récent. Au-delà de 60 s d'âge, l'abonnement est
+   relu chez Stripe (source de vérité) avant écriture.
+4. **Message trompeur à la résiliation** — le webhook posait
+   `companies.suspended_at`, ce qui affichait « Compte suspendu » (motif
+   support/plateforme) au lieu de « Abonnement résilié ». Supprimé : la lecture
+   seule est déjà garantie par la RLS et le garde serveur. Audit
+   `billing.read_only_after_cancel` conservé. Aucune entreprise n'était
+   concernée en base (0 ligne suspendue).
+
+### 3. Tests automatisés ajoutés
+
+`tests/unit/access-state.test.ts` — 18 scénarios sur la matrice d'accès
+(essai en cours / expiré / absent, réutilisation d'essai refusée, `active` sans
+échéance → fail-closed, tolérance de synchro 3 j, `past_due`, `unpaid`,
+`incomplete`, `incomplete_expired`, `paused`, statut inconnu, résiliation
+programmée vs immédiate). Résultat : **24 tests unitaires OK** (avec
+`app-url.test.ts`), typecheck propre.
+
+### 4. Points restants hors code (propriétaire)
+
+- Go-live paiements (claim du compte + onboarding) : non fait → encaissement
+  réel impossible.
+- Enregistrement TVA France sur le compte live : à créer.
+- Billing Portal live : configuration à valider (annulation, moyen de paiement,
+  changement de formule).
+
+**Verdict** : CODE/BILLING **GO** — ENCAISSEMENT LIVE **NO-GO** (actions
+propriétaire ci-dessus).
