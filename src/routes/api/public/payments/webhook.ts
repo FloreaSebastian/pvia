@@ -467,7 +467,7 @@ async function handleWebhook(req: Request, env: StripeEnv) {
   async function authoritative(sub: any): Promise<any> {
     if (!stale || !sub?.id) return sub;
     try {
-      const stripe = createStripeClient(env);
+      const stripe = getStripeClient(env);
       return await stripe.subscriptions.retrieve(sub.id);
     } catch (e) {
       console.error("[webhook] stale event refresh failed", e);
@@ -518,7 +518,7 @@ async function handleWebhook(req: Request, env: StripeEnv) {
              null);
       if (subId) {
         try {
-          const stripe = createStripeClient(env);
+          const stripe = getStripeClient(env);
           const fresh = await stripe.subscriptions.retrieve(subId);
           await upsertSubscription(fresh, env, { auditAction: "billing.payment_recovered" });
         } catch (e) {
