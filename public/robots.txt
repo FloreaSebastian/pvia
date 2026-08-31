@@ -17,5 +17,9 @@ Disallow: /parametres
 Disallow: /upgrade-required
 Disallow: /invite/
 Disallow: /sign/
+Disallow: /client/
+Disallow: /client.
+Disallow: /verify
+
 
 Sitemap: https://pvia.fr/sitemap.xml
