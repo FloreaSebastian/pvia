@@ -532,13 +532,16 @@ function NewPv() {
     setNewReserve({ nature: "", description: "", work_to_execute: "", severity: "mineure", due_date: "", photos: [] });
   }
 
-  async function compressAndBuild(files: FileList): Promise<ReservePhoto[]> {
+  // IMPORTANT : `files` doit être un File[] figé, jamais une FileList vivante.
+  // L'input est réinitialisé (`e.target.value = ""`) juste après l'appel, ce qui
+  // vide la FileList : l'itérer après un `await` ne donnerait plus aucune photo.
+  async function compressAndBuild(files: File[]): Promise<ReservePhoto[]> {
     const out: ReservePhoto[] = [];
     let compressedCount = 0;
     let geoCount = 0;
     const browserGps = await tryGetGps();
     const deviceInfo = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 480) : "";
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       let finalFile = file;
       try {
         const r = await compressImageFile(file);
@@ -585,8 +588,8 @@ function NewPv() {
     return out;
   }
 
-  async function addReservePhotos(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  async function addReservePhotos(files: File[]) {
+    if (files.length === 0) return;
     const next = await compressAndBuild(files);
     setNewReserve((r) => ({ ...r, photos: [...r.photos, ...next] }));
   }
@@ -603,8 +606,8 @@ function NewPv() {
     );
   }
 
-  async function addPhotosToExistingReserve(reserveIdx: number, files: FileList | null) {
-    if (!files || files.length === 0) return;
+  async function addPhotosToExistingReserve(reserveIdx: number, files: File[]) {
+    if (files.length === 0) return;
     const next = await compressAndBuild(files);
     setReserves((rs) =>
       rs.map((r, i) => (i === reserveIdx ? { ...r, photos: [...r.photos, ...next] } : r)),
@@ -1744,7 +1747,11 @@ function NewPv() {
                             capture="environment"
                             multiple
                             className="hidden"
-                            onChange={(e) => { addReservePhotos(e.target.files); e.target.value = ""; }}
+                            onChange={(e) => {
+                              const picked = e.target.files ? Array.from(e.target.files) : [];
+                              e.target.value = "";
+                              void addReservePhotos(picked);
+                            }}
                           />
                         </label>
                       </div>
@@ -1830,7 +1837,11 @@ function NewPv() {
                                 capture="environment"
                                 multiple
                                 className="hidden"
-                                onChange={(e) => { addPhotosToExistingReserve(i, e.target.files); e.target.value = ""; }}
+                                onChange={(e) => {
+                                  const picked = e.target.files ? Array.from(e.target.files) : [];
+                                  e.target.value = "";
+                                  void addPhotosToExistingReserve(i, picked);
+                                }}
                               />
                             </label>
                           </div>
