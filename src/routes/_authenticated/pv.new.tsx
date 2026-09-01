@@ -586,8 +586,10 @@ function NewPv() {
   }
 
   async function addReservePhotos(files: FileList | null) {
+    console.log("DBG addReservePhotos", files?.length);
     if (!files || files.length === 0) return;
     const next = await compressAndBuild(files);
+    console.log("DBG built", next.length);
     setNewReserve((r) => ({ ...r, photos: [...r.photos, ...next] }));
   }
 
