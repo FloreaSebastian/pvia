@@ -35,7 +35,7 @@ function Frame({
         <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />
         <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />
         <span className="ml-2 truncate text-[10px] font-medium text-muted-foreground">
-          app.pvia.fr
+          pvia.fr
         </span>
       </div>
       <div className="min-w-0">{children}</div>
