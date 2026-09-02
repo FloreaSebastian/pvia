@@ -524,7 +524,19 @@ export const verifyRemoteClientOtp = createServerFn({ method: "POST" })
       expectedMode: "remote",
     });
 
+    // Persistance de la preuve d'identité : sans elle, le garde-fou de
+    // finalisation PDF (`assertPvFinalizedForPdf`) refuse de générer le PDF
+    // signé après une signature à distance.
+    await supabaseAdmin
+      .from("pv")
+      .update({
+        client_identity_verified_at: new Date().toISOString(),
+        client_identity_verified_by: `otp_email:${otp.email}`,
+      })
+      .eq("id", pv.id);
+
     await writeAuditLog({
+
       companyId: pv.company_id,
       pvId: pv.id,
       entityType: "pv",

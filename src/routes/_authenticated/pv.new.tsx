@@ -50,6 +50,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
+import { useSubscription } from "@/hooks/use-subscription";
 import { useServerFn } from "@tanstack/react-start";
 import { createPv } from "@/lib/pv-create.functions";
 import { createClient as createClientFn } from "@/lib/clients.functions";
@@ -163,6 +164,8 @@ function NewPvRoute() {
 function NewPv() {
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
+  const { hasFeature } = useSubscription();
+  const canRemoteSign = hasFeature("remote_sign");
   const createPvFn = useServerFn(createPv);
   const getBrandingFn = useServerFn(getCompanyBrandingFn);
   const getNumberingFn = useServerFn(getPvNumberingSettings);
@@ -624,6 +627,20 @@ function NewPv() {
     setWithReserves(value);
   }
 
+  /**
+   * Exporte le tracé du pad en PNG.
+   * `getTrimmedCanvas()` de react-signature-canvas 1.1.0-alpha lève une erreur
+   * dans certains navigateurs ; on retombe alors sur le canvas brut, qui reste
+   * une signature parfaitement exploitable.
+   */
+  function padToDataUrl(pad: SignaturePad): string {
+    try {
+      return pad.getTrimmedCanvas().toDataURL("image/png");
+    } catch {
+      return pad.getCanvas().toDataURL("image/png");
+    }
+  }
+
   function readSignature(ref: typeof companySigRef, emptyMessage: string): string | null {
     const pad = ref.current;
     if (!pad) {
@@ -635,7 +652,7 @@ function NewPv() {
         toast.error(emptyMessage);
         return null;
       }
-      return pad.getTrimmedCanvas().toDataURL("image/png");
+      return padToDataUrl(pad);
     } catch {
       toast.error("Impossible d'enregistrer la signature. Réessayez.");
       return null;
@@ -646,11 +663,12 @@ function NewPv() {
     const pad = ref.current;
     if (!pad) return;
     try {
-      onSync(pad.isEmpty() ? null : pad.getTrimmedCanvas().toDataURL("image/png"));
+      onSync(pad.isEmpty() ? null : padToDataUrl(pad));
     } catch {
       onSync(null);
     }
   }
+
 
   function saveCompanySignature() {
     const dataUrl = readSignature(companySigRef, "Signez dans le cadre entreprise avant de valider la signature.");
@@ -944,6 +962,9 @@ function NewPv() {
     // onsite → signature client + OTP vérifié.
     let signaturesError: string | null = null;
     if (!signatureMode) signaturesError = "Choisissez le mode de signature.";
+    else if (signatureMode === "remote" && !canRemoteSign)
+      signaturesError = "« Signature à distance » non incluse dans votre formule.";
+
     else if (!companySignatureDataUrl) signaturesError = "Validez la signature entreprise.";
     else if (signatureMode === "remote" && !onsiteOtpEmail.trim()) signaturesError = "Email client requis pour la signature à distance.";
     else if (signatureMode === "onsite" && !clientSignatureDataUrl) signaturesError = "Validez la signature client.";
@@ -958,7 +979,7 @@ function NewPv() {
       [ID_SIGNATURES]: signaturesError,
       [ID_APERCU]: signaturesError ? "Complétez les signatures avant d'accéder à l'aperçu." : null,
     };
-  }, [brandingComplete, form, withReserves, reserves, signatureMode, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpEmail, onsiteOtpVerified]);
+  }, [brandingComplete, form, withReserves, reserves, signatureMode, canRemoteSign, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpEmail, onsiteOtpVerified]);
 
   // Résumé court par étape — affiché dans le stepper et la checklist finale.
   const stepSummaries = useMemo<Record<string, string>>(() => {
@@ -1867,11 +1888,19 @@ function NewPv() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <ModeCard
                       active={signatureMode === "remote"}
-                      onClick={() => setSignatureMode("remote")}
+                      onClick={() => {
+                        if (!canRemoteSign) {
+                          toast.error("« Signature à distance » n'est pas incluse dans votre formule actuelle.");
+                          return;
+                        }
+                        setSignatureMode("remote");
+                      }}
                       icon={<MonitorSmartphone className="h-6 w-6" />}
                       title="Signature à distance"
-                      badge="Recommandé"
-                      desc="Le client reçoit un lien sécurisé par email et signe depuis son propre appareil."
+                      badge={canRemoteSign ? "Recommandé" : "Formule supérieure"}
+                      desc={canRemoteSign
+                        ? "Le client reçoit un lien sécurisé par email et signe depuis son propre appareil."
+                        : "Incluse à partir de la formule Pro. Le client reçoit un lien sécurisé par email."}
                     />
                     <ModeCard
                       active={signatureMode === "onsite"}

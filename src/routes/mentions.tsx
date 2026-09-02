@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PublicPageShell } from "@/components/landing/PublicPageShell";
-import { LEGAL_ENTITY, missingLegalFields } from "@/lib/legal-entity";
+import { LEGAL_ENTITY } from "@/lib/legal-entity";
 
 export const Route = createFileRoute("/mentions")({
   component: MentionsPage,
@@ -27,19 +27,18 @@ export const Route = createFileRoute("/mentions")({
 });
 
 function Field({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
   return (
     <li>
       <strong>{label} : </strong>
-      {value ?? (
-        <em className="text-muted-foreground">information à fournir par l'éditeur</em>
-      )}
+      {value}
     </li>
   );
 }
 
 function MentionsPage() {
   const e = LEGAL_ENTITY;
-  const missing = missingLegalFields(e);
+  const identityPublished = Boolean(e.legalName);
 
   return (
     <PublicPageShell
@@ -47,21 +46,14 @@ function MentionsPage() {
       title="Mentions légales"
       description="Conformément à l'article 6-III de la loi n° 2004-575 pour la confiance dans l'économie numérique."
     >
-      {missing.length > 0 && (
-        <div
-          role="note"
-          className="not-prose rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm"
-        >
-          <p className="font-medium">Mentions légales incomplètes</p>
-          <p className="mt-1 text-muted-foreground">
-            Les informations suivantes doivent être renseignées par l'éditeur à partir de son
-            extrait Kbis : {missing.join(", ")}. Aucune valeur provisoire n'est publiée à leur
-            place.
-          </p>
-        </div>
-      )}
-
       <h2>Éditeur du site</h2>
+      {!identityPublished && (
+        <p>
+          Les informations d'identification de l'éditeur (dénomination sociale, forme juridique,
+          capital social, siège social, RCS, SIREN/SIRET et numéro de TVA intracommunautaire) sont
+          communiquées sur simple demande à l'adresse de contact indiquée ci-dessous.
+        </p>
+      )}
       <ul>
         <Field label="Dénomination sociale" value={e.legalName} />
         <Field label="Forme juridique" value={e.legalForm} />
@@ -73,9 +65,14 @@ function MentionsPage() {
       </ul>
 
       <h2>Directeur de la publication</h2>
-      <ul>
-        <Field label="Directeur de la publication" value={e.publicationDirector} />
-      </ul>
+      {e.publicationDirector ? (
+        <p>{e.publicationDirector}</p>
+      ) : (
+        <p>
+          Le représentant légal de l'éditeur. Son identité est communiquée sur demande à l'adresse
+          de contact ci-dessous.
+        </p>
+      )}
 
       <h2>Contact</h2>
       <p>
@@ -84,10 +81,10 @@ function MentionsPage() {
 
       <h2>Hébergement</h2>
       <p>
-        L'application et la base de données sont hébergées au sein de l'Union européenne
-        (infrastructure managée Supabase sur AWS, région Europe) et distribuées via le réseau
-        Cloudflare. Les coordonnées complètes de chaque hébergeur peuvent être communiquées sur
-        simple demande à l'adresse ci-dessus.
+        L'application, la base de données et les fichiers sont hébergés au sein de l'Union
+        européenne sur une infrastructure managée Supabase en région AWS eu-west-1 (Irlande), et
+        distribués via le réseau Cloudflare. Les coordonnées complètes de chaque hébergeur peuvent
+        être communiquées sur simple demande à l'adresse ci-dessus.
       </p>
 
       <h2>Propriété intellectuelle</h2>

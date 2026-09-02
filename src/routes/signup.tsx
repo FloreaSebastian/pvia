@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { AuthShell } from "@/components/auth/AuthShell";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { signUpProfessional, MIN_PASSWORD_LENGTH } from "@/lib/signup.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/signup")({
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/signup")({
 
 function SignupPage() {
   const navigate = useNavigate();
+  const submitSignup = useServerFn(signUpProfessional);
   const [fullName, setFullName] = useState("");
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
@@ -43,21 +45,32 @@ function SignupPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { full_name: fullName, company_name: company },
-      },
-    });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await submitSignup({
+        data: {
+          email,
+          password,
+          fullName,
+          companyName: company,
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+      toast.success("Compte créé. Vérifiez vos emails pour confirmer.");
+      navigate({ to: "/login" });
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "Inscription impossible.";
+      // Les erreurs de validation Zod remontent en JSON : on extrait le message utile.
+      let message = raw;
+      try {
+        const parsed = JSON.parse(raw) as Array<{ message?: string }>;
+        if (Array.isArray(parsed) && parsed[0]?.message) message = parsed[0].message;
+      } catch {
+        /* message brut */
+      }
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
-    toast.success("Compte créé. Vérifiez vos emails pour confirmer.");
-    navigate({ to: "/login" });
   }
 
   return (
@@ -126,7 +139,7 @@ function SignupPage() {
               name="new-password"
               type="password"
               autoComplete="new-password"
-              minLength={12}
+              minLength={MIN_PASSWORD_LENGTH}
               required
               aria-describedby="password-help"
               value={password}

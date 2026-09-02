@@ -48,24 +48,27 @@ function SecuritePage() {
 
       <h2>Hébergement et localisation des données</h2>
       <p>
-        La base de données, les fichiers (photos, PDF) et l'application sont hébergés dans l'Union
-        européenne sur une infrastructure managée Supabase (AWS, région Europe), distribuée via
-        Cloudflare.
+        La base de données, les fichiers (photos, PDF) et l'application sont hébergés sur une
+        infrastructure managée Supabase déployée en région <strong>AWS eu-west-1 (Irlande)</strong>,
+        au sein de l'Union européenne, et distribués via le réseau Cloudflare.
       </p>
       <p>
-        Certains sous-traitants nécessaires au service peuvent traiter des données depuis des pays
-        tiers, sous clauses contractuelles types : <strong>Stripe</strong> (paiement et facturation)
-        et <strong>Resend</strong> (envoi des emails transactionnels). Nous ne pouvons donc pas
+        Certains sous-traitants nécessaires au service peuvent traiter des données en dehors de
+        l'Union européenne : <strong>Stripe</strong> (paiement et facturation) et{" "}
+        <strong>Resend</strong> (envoi des emails transactionnels). Nous ne pouvons donc pas
         affirmer qu'aucune donnée ne quitte l'Union européenne. La liste à jour des sous-traitants
-        est disponible sur demande.
+        et de leurs garanties de transfert est disponible sur demande.
       </p>
 
       <h2>Chiffrement</h2>
       <ul>
-        <li>Transit : HTTPS/TLS sur toutes les connexions, HSTS activé.</li>
         <li>
-          Au repos : chiffrement AES-256 assuré par l'hébergeur sur les volumes de base de données
-          et le stockage de fichiers.
+          Transit : HTTPS/TLS sur toutes les connexions, avec en-tête HSTS
+          (<code>max-age=31536000; includeSubDomains</code>).
+        </li>
+        <li>
+          Au repos : chiffrement des volumes de base de données et du stockage de fichiers assuré
+          par l'hébergeur, selon ses propres garanties.
         </li>
         <li>
           Fichiers sensibles : accès uniquement via des URL signées à durée de vie courte, jamais en
