@@ -84,21 +84,59 @@ function SignupPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="name">Nom complet</Label>
-              <Input id="name" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              <Input
+                id="name"
+                name="name"
+                autoComplete="name"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="company">Entreprise</Label>
-              <Input id="company" required value={company} onChange={(e) => setCompany(e.target.value)} />
+              <Input
+                id="company"
+                name="organization"
+                autoComplete="organization"
+                required
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="email">Email pro</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@entreprise.fr" />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vous@entreprise.fr"
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">Mot de passe</Label>
-            <Input id="password" type="password" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} />
-            <p className="text-xs text-muted-foreground">Minimum 6 caractères.</p>
+            <Label htmlFor="password">Mot de passe de secours</Label>
+            <Input
+              id="password"
+              name="new-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={12}
+              required
+              aria-describedby="password-help"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <p id="password-help" className="text-xs text-muted-foreground">
+              12 caractères minimum. Vous vous connecterez normalement par code à usage unique
+              envoyé par email ; ce mot de passe sert uniquement de solution de secours si vous ne
+              recevez pas le code.
+            </p>
           </div>
           <Button type="submit" className="h-11 w-full shadow-brand" disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
