@@ -122,8 +122,16 @@ export const createPv = createServerFn({ method: "POST" })
     if (!member) throw new Error("Accès refusé.");
 
     // 1a. Suspension + plan quota gate (throws COMPANY_SUSPENDED:* or SUBSCRIPTION_REQUIRED:*)
-    const { assertCanCreatePv } = await import("./plan-guard.server");
+    const { assertCanCreatePv, assertPlanFeature } = await import("./plan-guard.server");
     await assertCanCreatePv(data.companyId, userId);
+
+    // 1a-bis. La signature à distance est une fonctionnalité payante : elle doit
+    // être vérifiée ici aussi, sinon le plan Essentiel peut l'utiliser via la
+    // création de PV alors que le renvoi de lien est bloqué.
+    if (data.signature_mode === "remote") {
+      await assertPlanFeature(data.companyId, "remote_sign", userId);
+    }
+
 
     // 1b. Company branding completeness (server-authoritative)
     const branding = await getCompanyBranding(data.companyId);

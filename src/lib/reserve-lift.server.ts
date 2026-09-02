@@ -169,14 +169,19 @@ export async function buildAndStoreReserveLiftPdf(
   const client = (clientRes as any).data;
   const chantier = (chantierRes as any).data;
 
+  // pdf-lib exige des composantes strictement dans [0,1] : sans clamp, une
+  // couleur de marque claire (bleu > 0.6) produisait 1.018 et faisait échouer
+  // toute la génération du PDF de levée.
+  const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
   const PRIMARY = (() => {
     const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
-    return rgb(r, g, b);
+    return rgb(clamp01(r), clamp01(g), clamp01(b));
   })();
   const HEADER_BG = (() => {
     const [r, g, b] = hexToRgb01(branding.pdf_brand_color || branding.brand_color);
-    return rgb(r * 0.05 + 0.95, g * 0.05 + 0.95, b * 0.05 + 0.97);
+    return rgb(clamp01(r * 0.05 + 0.95), clamp01(g * 0.05 + 0.95), clamp01(b * 0.05 + 0.97));
   })();
+
 
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Levée de réserves ${report.numero}${isInternal ? " (interne)" : ""}`);
