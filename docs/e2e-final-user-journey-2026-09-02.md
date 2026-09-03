@@ -100,3 +100,36 @@ Le domaine a été rattaché au projet par le propriétaire. État réel vérifi
 **Incident app.pvia.fr (ex-P0 « 502/NXDOMAIN ») : RÉSOLU.** Le domaine est provisionné, vérifié, en HTTPS valide, et redirige proprement vers le domaine canonique.
 
 `PVIA APPLICATION READY FOR FIRST REAL CUSTOMERS` reste conditionné à un rejeu runtime du chemin de signature distante après le correctif #7, et `STRIPE REAL PAYMENT SMOKE TEST` reste **NOT EXECUTED**.
+
+## Passe P1 — 2026-09-03 : CTA de formule après expiration de l'essai
+
+**Cause racine.** `/billing` désactivait le CTA sur `p.plan === plan`, où `plan`
+provient de `get_company_plan` (valeur interne mémorisée, « starter » par défaut).
+Après expiration de l'essai et sans abonnement Stripe, la carte Essentiel
+affichait « Plan actuel » et un bouton désactivé : impossible de souscrire la
+formule sélectionnée.
+
+**Correctifs.**
+- `src/lib/billing-plan-cta.ts` (nouveau) : décision pure `paidCoveredPlan` /
+  `regularizePlan` / `planCtaKind`. Une carte n'est « Plan actuel » désactivée
+  que si un abonnement Stripe valide (`active` / `trialing` / sursis de
+  résiliation) couvre cette formule.
+- `src/routes/_authenticated/billing.tsx` : badge « Votre formule » vs « Plan
+  actuel », CTA « Activer <formule> » lançant le Checkout officiel (mensuel ou
+  annuel selon le sélecteur, sans nouvelle période d'essai), CTA « Régulariser
+  le paiement » (portail Stripe) pour `past_due` / `unpaid` / `incomplete`,
+  index de downgrade recalculé sur la formule réellement payée, libellé tronqué
+  (`truncate`) pour éviter tout débordement.
+- `src/lib/billing.functions.ts` : tout Checkout est refusé lorsqu'un abonnement
+  existant est `past_due` / `unpaid` (redirection portail) — anti-doublon.
+
+**Tests.** `tests/unit/billing-plan-cta.test.ts` — 12 cas couvrant essai expiré,
+canceled échu, unpaid, past_due, incomplete / incomplete_expired, paused, active,
+trialing valide, essai interne, abonnement actif sur une autre formule, devis.
+Suite complète : 45 tests / 0 échec. Typecheck et build OK.
+
+**Non rejoué (BLOCKED).** Vérification runtime navigateur sur un compte expiré :
+la création de session de test authentifiée est indisponible dans cet
+environnement (plusieurs comptes auth, minting refusé). Aucun paiement réel
+effectué. Données de test créées puis intégralement purgées (entreprise
+temporaire `E2E-P1-20260903 EXPIRED` supprimée, 0 ligne résiduelle).
