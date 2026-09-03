@@ -102,38 +102,21 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     if (!price) throw new Error("Cette offre n'est pas disponible actuellement.");
 
 
-    // Reuse existing customer if any
-    const { data: existing } = await supabaseAdmin
+    // Garde anti-doublon : on inspecte TOUTES les lignes d'abonnement de
+    // l'entreprise pour cet environnement (pas uniquement la plus récente, ni
+    // uniquement la formule demandée) — un abonnement actif sur une autre
+    // formule doit passer par le portail, pas par un second Checkout.
+    const { data: existingRows } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id,plan,status")
+      .select("stripe_customer_id,plan,status,created_at")
       .eq("company_id", data.companyId)
-      .eq("environment", data.environment)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("environment", data.environment);
 
-    // Abonnement impayé existant (quel que soit le plan) → régularisation par
-    // le portail Stripe, jamais un second abonnement.
-    if (existing && ["past_due", "unpaid"].includes(String((existing as any).status))) {
-      throw new Error(
-        "Votre abonnement en cours présente un paiement en attente. Utilisez « Gérer mon abonnement » pour le régulariser.",
-      );
-    }
+    const guard = decideCheckoutGuard((existingRows ?? []) as any, targetPlan);
+    if (guard.block) throw new Error(guard.block);
 
-    // Abonnement déjà actif sur ce plan → passer par le portail (évite le doublon).
-    if (
-      existing &&
-      (existing as any).plan === targetPlan &&
-      ["active", "trialing", "past_due"].includes(String((existing as any).status))
-    ) {
-      throw new Error(
-        "Vous êtes déjà abonné à ce plan. Utilisez « Gérer mon abonnement » pour modifier la périodicité ou le moyen de paiement.",
+    let customerId = guard.customerId ?? undefined;
 
-      );
-    }
-
-
-    let customerId = existing?.stripe_customer_id as string | undefined;
     if (!customerId) {
       try {
         const customer = await stripe.customers.create({
