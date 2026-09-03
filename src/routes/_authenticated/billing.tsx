@@ -716,13 +716,28 @@ function BillingPage() {
                   ))}
                 </ul>
 
-                {isCurrent && (
+                {isActivePlan && (
                   <Button className="mt-6 min-h-[44px] w-full" variant="outline" disabled>
                     Plan actuel
                   </Button>
                 )}
 
-                {canManage && !isCurrent && custom && (
+                {canManage && !isActivePlan && needsRegularize && (
+                  <Button
+                    className="mt-6 min-h-[44px] w-full"
+                    onClick={handlePortal}
+                    disabled={busy === "portal"}
+                  >
+                    {busy === "portal" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="mr-2 h-4 w-4" />
+                    )}
+                    Régulariser le paiement
+                  </Button>
+                )}
+
+                {canManage && !isActivePlan && !needsRegularize && custom && (
                   <Button variant="outline" className="mt-6 min-h-[44px] w-full" asChild>
                     <a href={`mailto:${CONTACT_SALES_EMAIL}?subject=Demande%20offre%20Entreprise%20PVIA`}>
                       Nous contacter
@@ -730,17 +745,24 @@ function BillingPage() {
                   </Button>
                 )}
 
-                {canManage && !isCurrent && !custom && (
+                {canManage && !isActivePlan && !needsRegularize && !custom && (
                   <Button
-                    className={`mt-6 min-h-[44px] w-full ${recommended ? "shadow-brand" : ""}`}
-                    variant={recommended ? "default" : "outline"}
+                    className={`mt-6 min-h-[44px] w-full ${recommended || isSelected ? "shadow-brand" : ""}`}
+                    variant={recommended || isSelected ? "default" : "outline"}
                     onClick={() => handleSelect(priceId ?? "", p)}
                     disabled={busy === priceId || !priceId}
                   >
                     {busy === priceId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isDowngrade ? `Revenir à ${p.display_name}` : `Passer à ${p.display_name}`}
+                    <span className="truncate">
+                      {isSelected
+                        ? `Activer ${p.display_name}`
+                        : isDowngrade
+                          ? `Revenir à ${p.display_name}`
+                          : `Passer à ${p.display_name}`}
+                    </span>
                   </Button>
                 )}
+
               </Card>
             );
           })}
