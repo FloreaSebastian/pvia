@@ -37,6 +37,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
 import { createCheckoutSession, createPortalSession, syncSubscriptionFromStripe } from "@/lib/billing.functions";
 import { getStripeEnvironment } from "@/lib/stripe";
+import { paidCoveredPlan, regularizePlan } from "@/lib/billing-plan-cta";
 import {
   CONTACT_SALES_EMAIL,
   COMPARISON,
@@ -639,8 +640,8 @@ function BillingPage() {
           {plans.map((p, index) => {
             const isSelected = p.plan === plan;
             /** Désactivation UNIQUEMENT si un abonnement réel couvre la formule. */
-            const isActivePlan = paidCoveredPlan === p.plan;
-            const needsRegularize = regularizePlan === p.plan;
+            const isActivePlan = paidPlan === p.plan;
+            const needsRegularize = !isActivePlan && toRegularize === p.plan;
             const custom = Boolean(p.is_custom_pricing);
             const recommended = Boolean(p.recommended);
             const priceId = billingInterval === "annual" ? p.stripe_price_annual : p.stripe_price_monthly;
