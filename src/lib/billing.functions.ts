@@ -152,17 +152,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       .select("trial_ends_at")
       .eq("id", data.companyId)
       .maybeSingle();
-    const trialEndsAtMs = (companyTrial as any)?.trial_ends_at
-      ? new Date((companyTrial as any).trial_ends_at as string).getTime()
-      : null;
-    const STRIPE_MIN_TRIAL_MS = 48 * 3_600_000;
-    const trialInProgress = trialEndsAtMs !== null && trialEndsAtMs > Date.now();
-    if (trialInProgress && trialEndsAtMs! <= Date.now() + STRIPE_MIN_TRIAL_MS) {
-      throw new Error(
-        "Votre essai gratuit se termine dans moins de 48 heures : l'activation d'une formule sera possible dès sa fin, sans aucun prélèvement d'ici là.",
-      );
-    }
-    const alignedTrialEnd = trialInProgress ? Math.floor(trialEndsAtMs! / 1000) : undefined;
+    const alignment = computeTrialAlignment(
+      ((companyTrial as any)?.trial_ends_at as string | null) ?? null,
+    );
+    if (alignment.block) throw new Error(alignment.block);
+    const alignedTrialEnd = alignment.trialEnd ?? undefined;
+
 
     // Conservé pour l'audit : doit toujours valoir false hors anomalie.
     const legacyTrialEligible = await isTrialEligible(data.companyId);
