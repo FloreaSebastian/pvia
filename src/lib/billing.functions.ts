@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createStripeClient, sanitizeStripeError, assertTaxComplianceReady, BILLING_MESSAGES, type StripeEnv } from "./stripe.server";
 import { writeAuditLog } from "./audit.server";
 import { getAccessState, isTrialEligible } from "./plan-guard.server";
+import { decideCheckoutGuard, computeTrialAlignment } from "./billing-checkout-guard";
+
 
 
 const EnvSchema = z.enum(["sandbox", "live"]);
@@ -102,38 +104,21 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     if (!price) throw new Error("Cette offre n'est pas disponible actuellement.");
 
 
-    // Reuse existing customer if any
-    const { data: existing } = await supabaseAdmin
+    // Garde anti-doublon : on inspecte TOUTES les lignes d'abonnement de
+    // l'entreprise pour cet environnement (pas uniquement la plus récente, ni
+    // uniquement la formule demandée) — un abonnement actif sur une autre
+    // formule doit passer par le portail, pas par un second Checkout.
+    const { data: existingRows } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id,plan,status")
+      .select("stripe_customer_id,plan,status,created_at")
       .eq("company_id", data.companyId)
-      .eq("environment", data.environment)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("environment", data.environment);
 
-    // Abonnement impayé existant (quel que soit le plan) → régularisation par
-    // le portail Stripe, jamais un second abonnement.
-    if (existing && ["past_due", "unpaid"].includes(String((existing as any).status))) {
-      throw new Error(
-        "Votre abonnement en cours présente un paiement en attente. Utilisez « Gérer mon abonnement » pour le régulariser.",
-      );
-    }
+    const guard = decideCheckoutGuard((existingRows ?? []) as any, targetPlan);
+    if (guard.block) throw new Error(guard.block);
 
-    // Abonnement déjà actif sur ce plan → passer par le portail (évite le doublon).
-    if (
-      existing &&
-      (existing as any).plan === targetPlan &&
-      ["active", "trialing", "past_due"].includes(String((existing as any).status))
-    ) {
-      throw new Error(
-        "Vous êtes déjà abonné à ce plan. Utilisez « Gérer mon abonnement » pour modifier la périodicité ou le moyen de paiement.",
+    let customerId = guard.customerId ?? undefined;
 
-      );
-    }
-
-
-    let customerId = existing?.stripe_customer_id as string | undefined;
     if (!customerId) {
       try {
         const customer = await stripe.customers.create({
@@ -167,17 +152,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       .select("trial_ends_at")
       .eq("id", data.companyId)
       .maybeSingle();
-    const trialEndsAtMs = (companyTrial as any)?.trial_ends_at
-      ? new Date((companyTrial as any).trial_ends_at as string).getTime()
-      : null;
-    const STRIPE_MIN_TRIAL_MS = 48 * 3_600_000;
-    const trialInProgress = trialEndsAtMs !== null && trialEndsAtMs > Date.now();
-    if (trialInProgress && trialEndsAtMs! <= Date.now() + STRIPE_MIN_TRIAL_MS) {
-      throw new Error(
-        "Votre essai gratuit se termine dans moins de 48 heures : l'activation d'une formule sera possible dès sa fin, sans aucun prélèvement d'ici là.",
-      );
-    }
-    const alignedTrialEnd = trialInProgress ? Math.floor(trialEndsAtMs! / 1000) : undefined;
+    const alignment = computeTrialAlignment(
+      ((companyTrial as any)?.trial_ends_at as string | null) ?? null,
+    );
+    if (alignment.block) throw new Error(alignment.block);
+    const alignedTrialEnd = alignment.trialEnd ?? undefined;
+
 
     // Conservé pour l'audit : doit toujours valoir false hors anomalie.
     const legacyTrialEligible = await isTrialEligible(data.companyId);
@@ -249,16 +229,22 @@ export const createPortalSession = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertCompanyAdmin(data.companyId, context.userId);
 
-    const { data: sub } = await supabaseAdmin
+    // On inspecte TOUTES les lignes de l'entreprise pour cet environnement :
+    // la plus récente peut être une tentative sans Customer Stripe, ce qui
+    // priverait à tort d'accès au portail un abonnement impayé à régulariser.
+    const { data: portalRows } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id,created_at")
       .eq("company_id", data.companyId)
       .eq("environment", data.environment)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
+
+    const sub = (portalRows ?? []).find((r: any) => r.stripe_customer_id) as
+      | { stripe_customer_id: string }
+      | undefined;
 
     if (!sub?.stripe_customer_id) throw new Error("Aucun abonnement à gérer.");
+
 
     const stripe = createStripeClient(data.environment);
     let portal;
