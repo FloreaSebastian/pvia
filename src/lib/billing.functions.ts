@@ -167,14 +167,21 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
 
 
+    // L'URL de retour vient du navigateur : jamais transmise telle quelle à
+    // Stripe (redirection ouverte post-paiement). Origine de confiance +
+    // chemin /billing forcé.
+    const safeReturnUrl = resolveBillingReturnUrl(data.returnUrl, getPublicAppUrl());
+
     let session;
     try {
       session = await stripe.checkout.sessions.create({
+
         mode: "subscription",
         customer: customerId,
         line_items: [{ price: price.id, quantity: 1 }],
-        success_url: `${data.returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${data.returnUrl}?status=cancel`,
+        success_url: `${safeReturnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${safeReturnUrl}?status=cancel`,
+
         // TVA : les Stripe Prices PVIA sont HT (`tax_behavior: exclusive`).
         // Stripe Tax détermine le taux applicable DYNAMIQUEMENT selon
         // l'adresse de facturation et le statut TVA du client (20 % pour un
