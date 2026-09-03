@@ -392,7 +392,17 @@ export const createPv = createServerFn({ method: "POST" })
       if (!pvErr && ins) { pvIns = ins; break; }
       lastErr = pvErr ?? { message: "inconnue" };
     }
-    if (!pvIns) throw new Error(`Création PV : ${lastErr?.message ?? "inconnue"}`);
+    if (!pvIns) {
+      // Garde atomique en base (trigger `pv_enforce_month_quota`) : message métier.
+      if (lastErr?.message?.includes("PV_QUOTA_EXCEEDED")) {
+        const err = new Error(
+          "Quota de PV atteint pour ce mois-ci. Passez au plan supérieur pour continuer.",
+        );
+        (err as { code?: string }).code = "PV_QUOTA";
+        throw err;
+      }
+      throw new Error(`Création PV : ${lastErr?.message ?? "inconnue"}`);
+    }
 
     const pvId = pvIns.id;
 

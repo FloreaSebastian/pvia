@@ -31,8 +31,11 @@ async function requireAdmin(companyId: string, userId: string) {
   if (!data || (!isAdminRole(data.role))) {
     throw new Error("Réservé aux administrateurs.");
   }
-  const { assertSubscriptionUsable } = await import("./plan-guard.server");
+  const { assertSubscriptionUsable, assertPlanFeature } = await import("./plan-guard.server");
   await assertSubscriptionUsable(companyId, userId);
+  // Branding avancé (couleurs, filigrane, versions) réservé aux formules qui
+  // l'incluent. Les logos de base restent gérés ailleurs (PDF légaux).
+  await assertPlanFeature(companyId, "branding", userId);
 }
 
 export const publishBrandingSettings = createServerFn({ method: "POST" })

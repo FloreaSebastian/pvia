@@ -17,7 +17,9 @@ export async function assertCanManage(sb: SB, companyId: string, userId: string)
   const { data, error } = await sb.rpc("can_manage_company", { _company_id: companyId, _user_id: userId });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Droits insuffisants.");
-  await (await import("./plan-guard.server")).assertCompanyWriteAccess(companyId, userId);
+  const guard = await import("./plan-guard.server");
+  await guard.assertCompanyWriteAccess(companyId, userId);
+  await guard.assertPlanFeature(companyId, "technical_visits", userId);
 }
 
 export async function assertIsMember(sb: SB, companyId: string, userId: string) {
@@ -42,7 +44,9 @@ export async function loadVisitScoped(sb: SB, companyId: string, visitId: string
 /** Droit d'écriture terrain : rôle de gestion OU technicien assigné, hors visite figée. */
 export async function assertCanEditVisit(sb: SB, companyId: string, visitId: string, userId: string) {
   const visit = await loadVisitScoped(sb, companyId, visitId);
-  await (await import("./plan-guard.server")).assertCompanyWriteAccess(companyId, userId);
+  const guard = await import("./plan-guard.server");
+  await guard.assertCompanyWriteAccess(companyId, userId);
+  await guard.assertPlanFeature(companyId, "technical_visits", userId);
   const { data, error } = await sb.rpc("can_edit_technical_visit", { _visit_id: visitId, _user_id: userId });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) {

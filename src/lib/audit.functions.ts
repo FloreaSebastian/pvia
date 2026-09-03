@@ -171,8 +171,9 @@ export const exportPvAuditPdf = createServerFn({ method: "POST" })
       throw new Error("Seuls owner et admin peuvent exporter l'historique complet.");
     }
     if (pv.company_id) {
-      const { assertSubscriptionUsable } = await import("./plan-guard.server");
+      const { assertSubscriptionUsable, assertPlanFeature } = await import("./plan-guard.server");
       await assertSubscriptionUsable(pv.company_id, context.userId);
+      await assertPlanFeature(pv.company_id, "export_audit", context.userId);
     }
 
     // Fetch the full PV record + related context
@@ -415,8 +416,9 @@ export const exportCompanyAuditPdf = createServerFn({ method: "POST" })
     if (!isAdminRole(role)) {
       throw new Error("Seuls owner et admin peuvent exporter l'historique entreprise.");
     }
-    const { assertSubscriptionUsable } = await import("./plan-guard.server");
+    const { assertSubscriptionUsable, assertPlanFeature } = await import("./plan-guard.server");
     await assertSubscriptionUsable(data.companyId, context.userId);
+    await assertPlanFeature(data.companyId, "export_audit", context.userId);
 
     const [{ data: company }, { data: exporter }] = await Promise.all([
       supabaseAdmin.from("companies").select("name,siret,address").eq("id", data.companyId).maybeSingle(),

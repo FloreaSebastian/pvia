@@ -23,6 +23,7 @@ import { useCompany } from "@/hooks/use-company";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/app/PageHeader";
+import { FeatureGate } from "@/components/billing/FeatureGate";
 
 export const Route = createFileRoute("/_authenticated/statistiques")({
   component: StatistiquesPage,
@@ -95,6 +96,16 @@ function KpiCard({
 }
 
 function StatistiquesPage() {
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      <FeatureGate feature="advanced_stats">
+        <StatistiquesContent />
+      </FeatureGate>
+    </div>
+  );
+}
+
+function StatistiquesContent() {
   const { activeCompanyId, activeRole } = useCompany();
   const fetchStats = useServerFn(getCompanyStats);
   const exportCsv = useServerFn(exportCompanyStatsCsv);

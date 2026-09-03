@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Activity, Search, Download, Loader2, ShieldCheck, Webhook, Mail,
-  ChevronLeft, ChevronRight, FileText, UserCircle2, Filter,
+  ChevronLeft, ChevronRight, FileText, UserCircle2, Filter, Lock,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
+import { useSubscription } from "@/hooks/use-subscription";
 import { supabase } from "@/integrations/supabase/client";
 import { listCompanyAuditLogs, exportCompanyAuditPdf } from "@/lib/audit.functions";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,8 @@ function AuditMonitoring() {
   const { activeCompanyId } = useCompany();
   const listFn = useServerFn(listCompanyAuditLogs);
   const exportFn = useServerFn(exportCompanyAuditPdf);
+  const { hasFeature } = useSubscription();
+  const canExportAudit = hasFeature("export_audit");
 
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
@@ -170,10 +173,19 @@ function AuditMonitoring() {
               <Badge variant="secondary" className="ml-2 text-[10px]">Lecture limitée</Badge>
             )}
           </div>
-          <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || !logs.length}>
-            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            Exporter PDF
-          </Button>
+          {canExportAudit ? (
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || !logs.length}>
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Exporter PDF
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/billing">
+                <Lock className="mr-2 h-4 w-4" aria-hidden />
+                Export PDF — changer de formule
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -179,6 +179,11 @@ export const getCompanyStats = createServerFn({ method: "POST" })
   .inputValidator((i) => InputSchema.parse(i))
   .handler(async ({ data, context }) => {
     await assertMember(data.companyId, context.userId);
+    // Les statistiques avancées ne sont pas incluses dans toutes les formules.
+    {
+      const { assertPlanFeature } = await import("./plan-guard.server");
+      await assertPlanFeature(data.companyId, "advanced_stats", context.userId);
+    }
 
     const { from, to } = resolveRange(data);
     const current = await computeCoreKpis(data.companyId, from, to, data.pvType, data.userId);

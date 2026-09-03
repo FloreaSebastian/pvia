@@ -1892,6 +1892,27 @@ export type Database = {
           },
         ]
       }
+      pv_quota_ledger: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          pv_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          pv_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          pv_id?: string | null
+        }
+        Relationships: []
+      }
       pv_reserves: {
         Row: {
           assigned_to: string | null
@@ -2996,6 +3017,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      business_month_start: { Args: never; Returns: string }
       can_add_member: { Args: { _company_id: string }; Returns: boolean }
       can_create_company: { Args: { _user_id: string }; Returns: boolean }
       can_create_pv: { Args: { _company_id: string }; Returns: boolean }

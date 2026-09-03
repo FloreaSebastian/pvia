@@ -208,3 +208,59 @@ Aucune modification de l'abonnement réel, aucun débit, remboursement, annulati
 | — | Vérification runtime navigateur authentifiée | **BLOCKED** | Aucune session disponible ; refus d'usurper le compte propriétaire de production |
 
 **Fichiers modifiés** : `src/lib/billing-return-url.ts` (nouveau), `src/lib/billing.functions.ts` (URLs de retour), `src/routes/api/public/payments/webhook.ts` (remboursements/litiges), `tests/unit/billing-return-url.test.ts` (nouveau), `tests/unit/billing-lifecycle.test.ts` (nouveau).
+
+---
+
+## Audit droits & quotas formule Essentiel — 2026-09-03
+
+Périmètre : droits Essentiel, gates des formules supérieures, quota 10 PV/mois,
+limite 1 utilisateur. Aucun paiement, aucune modification de l'abonnement réel.
+
+### Défauts réels corrigés
+
+| # | Constat | Correctif |
+|---|---------|-----------|
+| 1 | `getCompanyStats` (page /statistiques) ne vérifiait pas `advanced_stats` : Essentiel accédait aux statistiques avancées. **FAIL → corrigé** | `src/lib/stats.functions.ts` : `assertPlanFeature("advanced_stats")` ; UI `FeatureGate` dans `src/routes/_authenticated/statistiques.tsx` |
+| 2 | Exports d'audit PDF (PV + entreprise) sans garde `export_audit`. **FAIL → corrigé** | `src/lib/audit.functions.ts` (2 handlers) ; CTA de mise à niveau dans `src/routes/_authenticated/parametres.audit.tsx` |
+| 3 | Mutations de visites techniques après création sans vérification de la capacité `technical_visits` (contournement après downgrade). **FAIL → corrigé** | `src/lib/visites.server.ts` : `assertPlanFeature` dans `assertCanManage` et `assertCanEditVisit` |
+| 4 | Branding avancé (couleurs/filigrane/versions) non gardé par `branding`. **FAIL → corrigé** | `src/lib/branding-settings.functions.ts` (`requireAdmin`) |
+| 5 | Quota mensuel compté en UTC (`date_trunc('month', now())`) au lieu du mois métier Europe/Paris. **FAIL → corrigé** | Migration : `public.business_month_start()` + `get_company_pv_count_current_period` |
+| 6 | Quota contournable : le compteur portait sur les lignes `pv` présentes ⇒ supprimer un PV redonnait du quota. **FAIL → corrigé** | Journal immuable `public.pv_quota_ledger` (une ligne par création, sans FK, conservée après suppression) + backfill |
+| 7 | Contrôle de quota applicatif non atomique (deux créations simultanées au seuil). **FAIL → corrigé** | Trigger `BEFORE INSERT pv_enforce_month_quota` avec `pg_advisory_xact_lock` par entreprise ; message métier remonté par `src/lib/pv-create.functions.ts` |
+
+### Preuves déterministes
+
+Test bac à sable SQL (société isolée, transaction **intégralement annulée**, aucun résidu) :
+
+```
+plan=starter blocked_at=11 count_after_delete=10 can_create=f
+```
+
+- PV 1 → 10 acceptés, **11e refusé en base** (`PV_QUOTA_EXCEEDED`, errcode `check_violation`) — PASS
+- Après suppression des 10 PV, consommation du mois toujours à 10 et `can_create_pv=false` — PASS (contournement par suppression fermé)
+- Compteur = journal `pv_quota_ledger` sur mois Europe/Paris (`2026-08-31 22:00:00+00` = 1er sept. 00:00 Paris) — PASS
+- Backfill vérifié : 5 PV existants ⇒ 5 lignes de journal, aucune donnée réelle modifiée — PASS
+
+### Limite 1 utilisateur
+
+Trigger existant `enforce_member_seat_quota` : verrou `pg_advisory_xact_lock` par
+entreprise, comptage des membres actifs **et** des invitations non expirées,
+refus au-delà de `plan_limits.max_members` (Essentiel = 1, Pro = 5). Vérifié par
+lecture de la définition SQL — PASS (code), non rejoué en runtime pour ne pas
+créer de comptes.
+
+### BLOCKED
+
+- Runtime authentifié navigateur : `LOVABLE_BROWSER_AUTH_STATUS=signed_out`, aucune
+  session de test isolée disponible ⇒ contrôles UI mobiles/Fold des bandeaux de
+  quota non rejoués cette passe. Les gates UI ajoutés réutilisent `FeatureGate`
+  (déjà responsive, CTA ≥44px) et le message d'erreur quota est métier, sans trace technique.
+- `changement de formule` : flux Checkout/webhook déjà couvert par
+  `tests/unit/billing-checkout-guard.test.ts` et `billing-lifecycle.test.ts` — inchangé ici.
+
+### Qualité
+
+- `bun test` : 74 tests unitaires PASS, 136 assertions (les 13 « échecs » sont les
+  specs Playwright, hors périmètre du runner unitaire).
+- `tsgo --noEmit` : OK. Build : OK.
+- Aucun artefact de test persistant (transaction annulée), aucun secret journalisé.
