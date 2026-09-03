@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { resolveEmailRedirect } from "@/lib/signup.functions";
+import { describe, expect, it } from "bun:test";
+import { resolveEmailRedirect } from "../../src/lib/signup.functions";
 
 const CANON = "https://pvia.fr";
 
