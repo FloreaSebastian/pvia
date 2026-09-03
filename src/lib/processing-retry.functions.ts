@@ -65,11 +65,21 @@ export const retryReserveLiftPdfGeneration = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: report } = await supabaseAdmin
       .from("reserve_lift_reports")
-      .select("id,company_id,pv_id")
+      .select("id,company_id,pv_id,pdf_client_url,pdf_internal_url")
       .eq("id", data.reportId)
       .maybeSingle();
     if (!report?.company_id) throw new Error("Levée introuvable.");
     await assertMember(report.company_id, context.userId);
+    // Anti-abus : la génération PDF est coûteuse ; on borne les tentatives
+    // par utilisateur et par rapport.
+    const { enforceRateLimit } = await import("@/lib/rate-limit.server");
+    await enforceRateLimit({
+      bucket: "lift_pdf_retry",
+      key: `${context.userId}:${report.id}`,
+      limit: 5,
+      windowSec: 600,
+    });
+
 
     const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
     const { buildAndStoreReserveLiftPdfs } = await import("@/lib/reserve-lift.server");
