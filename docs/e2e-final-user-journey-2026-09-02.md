@@ -264,3 +264,94 @@ créer de comptes.
   specs Playwright, hors périmètre du runner unitaire).
 - `tsgo --noEmit` : OK. Build : OK.
 - Aucun artefact de test persistant (transaction annulée), aucun secret journalisé.
+
+## Clôture rigoureuse audit Essentiel — 03/09/2026
+
+### 1. Séparation des runners (PASS / BLOCKED)
+
+- `bun test tests/unit` (script `test` / `test:unit`) : **PASS — 74 tests, 0 échec,
+  136 assertions, 7 fichiers**. Aucun test valide exclu : seul le périmètre du
+  runner a été borné aux tests unitaires.
+- `bunx playwright test --project=desktop` : **BLOCKED (environnement)** — 72 specs
+  ne démarrent pas :
+  `browserType.launch: Executable doesn't exist at /opt/ms-playwright/chromium_headless_shell-1228/...`.
+  Il ne s'agit pas d'un échec fonctionnel : le binaire Chromium correspondant à la
+  version Playwright du projet est absent du bac à sable. La CI GitHub installe les
+  navigateurs et reste la référence d'exécution.
+
+### 2. Limite de sièges — transaction annulée (PASS)
+
+Bac à sable `ZZ SEAT SANDBOX` (société fictive, aucun compte auth réel, rollback total) :
+
+```
+plan=starter seats_after_owner=1 can_add=f;
+S2_invite_active=REFUSED(OK);
+S3_insert_expired_invite=REFUSED;   (invitation supplémentaire refusée même expirée à l'émission)
+S4_suspended_inserted=OK seats=1;   (membre désactivé non compté)
+S5_reactivate=REFUSED(OK);
+S6_accept=REFUSED(OK);
+pro_plan=pro pro_blocked_at=6 pro_seats=5 can_add=f
+```
+
+**Défaut trouvé et corrigé** : `enforce_member_seat_quota` considérait toute
+invitation comme « déjà comptée » à l'activation, y compris une invitation
+**expirée** (qui, elle, ne consomme pas de siège). Scénario de contournement :
+invitation émise siège libre → expiration → siège pris par un autre membre →
+acceptation tardive = 2 sièges sur Essentiel. Migration appliquée : le contrôle
+de quota est rejoué quand l'ancienne invitation est expirée. Rejeu bac à sable :
+
+```
+seats=1; accept_expired_invite=REFUSED(OK);
+```
+
+Concurrence : sérialisation par `pg_advisory_xact_lock('pvia_seats:<company>')`
+dans le trigger BEFORE INSERT/UPDATE OF status — deux activations simultanées sont
+mises en file et la seconde est refusée au seuil. Vérifié par définition SQL
+(deux sessions simultanées non disponibles dans ce bac à sable).
+
+### 3. Gate `remote_sign` sur Essentiel (PASS)
+
+- Serveur : `sendPvToClient` → `assertPlanFeature(company, "remote_sign")`
+  (`src/lib/sign.functions.ts:87`) et création PV en mode distant →
+  `assertPlanFeature(..., "remote_sign", userId)` (`src/lib/pv-create.functions.ts:132`).
+  Appel direct sans passer par l'UI : refusé.
+- UI : `pv.new.tsx` bloque la sélection du mode « distant » (`canRemoteSign`),
+  affiche « Formule supérieure » et invalide l'étape.
+- Signature **sur site** : aucun gate de formule (`signPvByToken` / parcours onsite),
+  OTP inclus — reste autorisée sur Essentiel.
+
+### 4. Immutabilité du journal `pv_quota_ledger` (PASS après correctif)
+
+- RLS active, **une seule** policy (SELECT). Privilèges corrigés par migration :
+  `authenticated` = SELECT seul, `anon` = aucun accès, `service_role` = ALL.
+- Contrainte `UNIQUE (pv_id)`, **0 doublon**, backfill cohérent (`pv=5`, `ledger=5`).
+- Fonctions `pv_enforce_month_quota`, `pv_record_quota_usage`,
+  `get_company_pv_count_current_period`, `business_month_start` :
+  `SET search_path = public`, EXECUTE révoqué pour `anon`/`authenticated`
+  (vérifié : `has_function_privilege('authenticated', ...) = false`).
+- Comportement (transaction annulée) :
+
+```
+after_internal_rollback ledger=0 pv=0;   (création échouée ⇒ aucun quota consommé)
+after_create ledger=1;
+after_user_delete ledger=1 count_period=1;  (suppression utilisateur ⇒ quota consommé)
+after_server_compensation count_period=0;
+blocked_at=11 err=PV_QUOTA_EXCEEDED: 10 / 10 PV ce mois-ci
+```
+
+Correctif code : le rollback interne de `pv-create` (création jamais aboutie mais
+ligne PV déjà insérée) supprime désormais aussi l'entrée de journal
+(`src/lib/pv-create.functions.ts`, chemin `service_role` uniquement). Une
+suppression utilisateur d'un PV réellement créé continue de consommer le quota.
+
+### 5. Rendu responsive authentifié — BLOCKED
+
+`LOVABLE_BROWSER_AUTH_STATUS=signed_out` et seuls des comptes réels existent :
+aucune session de test isolée ne peut être ouverte sans usurper un compte réel,
+ce qui est exclu. Statut conservé **BLOCKED**, non converti en PASS.
+
+### Qualité
+
+- `bun test tests/unit` : 74 PASS / 0 FAIL. `tsgo --noEmit` : OK. Build : OK.
+- Aucun paiement, aucun changement d'abonnement, aucune donnée réelle modifiée ;
+  tous les bacs à sable SQL sont annulés.
