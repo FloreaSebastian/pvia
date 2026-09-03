@@ -43,6 +43,7 @@ import { isAdminRole, isManageRole } from "@/lib/roles";
 import { toast } from "sonner";
 import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
 import { useServerFn } from "@tanstack/react-start";
+import { retryReserveLiftPdfGeneration } from "@/lib/processing-retry.functions";
 import { sendPvToClient } from "@/lib/sign.functions";
 import { updatePvStatus } from "@/lib/pv-status.functions";
 import { regeneratePvPdf, getPvPdfSignedUrl } from "@/lib/pdf.functions";
@@ -151,6 +152,7 @@ function PvDetail() {
   const logAction = useServerFn(logUserAction);
   const listLiftsFn = useServerFn(listReserveLifts);
   const getLiftPdfFn = useServerFn(getReserveLiftPdfUrl);
+  const retryLiftPdfFn = useServerFn(retryReserveLiftPdfGeneration);
   const resendLiftFn = useServerFn(resendValidatedReserveLiftEmail);
   const resendLiftValidationFn = useServerFn(resendReserveLiftValidationEmail);
   const reopenLiftFn = useServerFn(reopenReserveLiftReport);
@@ -180,11 +182,12 @@ function PvDetail() {
   const [sendingClient, setSendingClient] = useState(false);
   const [lastSignUrl, setLastSignUrl] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [regenLiftId, setRegenLiftId] = useState<string | null>(null);
   const [emailLogs, setEmailLogs] = useState<Array<{ id: string; recipient_email: string; email_type: string; status: string; error_message: string | null; subject: string | null; sent_at: string | null; created_at: string }>>([]);
   const [resendingSigned, setResendingSigned] = useState(false);
   const [lastEvent, setLastEvent] = useState<{ action: string; created_at: string; user_name: string | null } | null>(null);
   const [auditTotal, setAuditTotal] = useState<number>(0);
-  const [lifts, setLifts] = useState<Array<{ id: string; numero: string; status: string; signed_at: string | null; pdf_url: string | null; pdf_internal_url?: string | null; pdf_client_url?: string | null; created_at: string; client_validated_at?: string | null; client_validated_email?: string | null; client_rejected_at?: string | null; client_signature?: string | null; validation_mode?: string | null }>>([]);
+  const [lifts, setLifts] = useState<Array<{ id: string; numero: string; status: string; signed_at: string | null; pdf_url: string | null; pdf_internal_url?: string | null; pdf_client_url?: string | null; pdf_generation_status?: string | null; created_at: string; client_validated_at?: string | null; client_validated_email?: string | null; client_rejected_at?: string | null; client_signature?: string | null; validation_mode?: string | null }>>([]);
   const fetchAuditFn = useServerFn(listPvAuditLogs);
 
 
@@ -465,6 +468,20 @@ function PvDetail() {
     }
   }
 
+
+  async function handleRegenerateLiftPdf(liftId: string) {
+    if (deny("régénérer le PDF de levée")) return;
+    setRegenLiftId(liftId);
+    try {
+      await retryLiftPdfFn({ data: { reportId: liftId } });
+      toast.success("PDF de levée régénéré");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de la régénération du PDF de levée");
+    } finally {
+      setRegenLiftId(null);
+    }
+  }
 
   async function deletePv() {
     if (deny("supprimer le PV")) return;
@@ -1011,6 +1028,12 @@ function PvDetail() {
                           <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => exportLiftExpertise(l.id)} disabled={exportingLiftId === l.id} title="ZIP : PDFs + photos originales + manifest.json (GPS, EXIF, SHA-256) + audit trail — réservé aux rôles opérationnels">
                             {exportingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
                             Export expertise
+                          </Button>
+                        )}
+                        {!editable && (l.pdf_generation_status === "failed" || (!hasClientPdf && (validated || rejected))) && (
+                          <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => handleRegenerateLiftPdf(l.id)} disabled={regenLiftId === l.id}>
+                            {regenLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                            {regenLiftId === l.id ? "Génération…" : "Régénérer le PDF"}
                           </Button>
                         )}
                         {validated && (

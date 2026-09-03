@@ -33,6 +33,39 @@ const SignupSchema = z.object({
 
 export type SignupInput = z.infer<typeof SignupSchema>;
 
+/**
+ * Destination de confirmation email : jamais l'URL brute du navigateur.
+ * On ne conserve que le CHEMIN interne demandé, recollé sur une origine
+ * de confiance (origine canonique, ou origine de la requête si preview /
+ * localhost). Toute origine externe est ignorée.
+ */
+export function resolveEmailRedirect(
+  requested: string | undefined,
+  requestOrigin: string | undefined,
+  canonical: string,
+): string {
+  const isTrusted = (origin: string) =>
+    origin === canonical ||
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin) ||
+    /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.lovable\.app$/i.test(origin);
+
+  const base = requestOrigin && isTrusted(requestOrigin) ? requestOrigin : canonical;
+
+  let path = "/dashboard";
+  if (requested) {
+    try {
+      const u = new URL(requested);
+      // L'origine fournie n'est jamais réutilisée : seul le chemin l'est,
+      // et uniquement si l'origine était elle-même de confiance.
+      if (isTrusted(u.origin)) path = `${u.pathname}${u.search}`;
+    } catch {
+      /* URL invalide → chemin par défaut */
+    }
+  }
+  if (!path.startsWith("/") || path.startsWith("//")) path = "/dashboard";
+  return `${base}${path}`;
+}
+
 export const signUpProfessional = createServerFn({ method: "POST" })
   .inputValidator((input) => SignupSchema.parse(input))
   .handler(async ({ data }) => {
@@ -49,14 +82,25 @@ export const signUpProfessional = createServerFn({ method: "POST" })
       auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
     });
 
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { getPublicAppUrl } = await import("@/lib/app-url.server");
+    let requestOrigin: string | undefined;
+    try {
+      requestOrigin = new URL(getRequest().url).origin;
+    } catch {
+      requestOrigin = undefined;
+    }
+    const emailRedirectTo = resolveEmailRedirect(data.redirectTo, requestOrigin, getPublicAppUrl());
+
     const { error } = await supabasePublic.auth.signUp({
       email,
       password: data.password,
       options: {
-        emailRedirectTo: data.redirectTo,
+        emailRedirectTo,
         data: { full_name: data.fullName, company_name: data.companyName },
       },
     });
+
 
     if (error) {
       // Anti-énumération : on ne révèle jamais qu'un compte existe déjà.

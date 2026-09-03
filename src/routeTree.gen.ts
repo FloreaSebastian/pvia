@@ -31,6 +31,7 @@ import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
+import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
@@ -214,6 +215,11 @@ const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => SolutionsRoute,
+} as any)
+const ClientIndexRoute = ClientIndexRouteImport.update({
+  id: '/client/',
+  path: '/client/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const SolutionsSlugRoute = SolutionsSlugRouteImport.update({
   id: '/$slug',
@@ -675,6 +681,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
+  '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
@@ -770,6 +777,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
+  '/client': typeof ClientIndexRoute
   '/solutions': typeof SolutionsIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
@@ -867,6 +875,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
+  '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
@@ -966,6 +975,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/legal/privacy'
     | '/solutions/$slug'
+    | '/client/'
     | '/solutions/'
     | '/admin/billing'
     | '/admin/companies'
@@ -1061,6 +1071,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/legal/privacy'
     | '/solutions/$slug'
+    | '/client'
     | '/solutions'
     | '/admin/billing'
     | '/admin/companies'
@@ -1157,6 +1168,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/legal/privacy'
     | '/solutions/$slug'
+    | '/client/'
     | '/solutions/'
     | '/_authenticated/admin/billing'
     | '/_authenticated/admin/companies'
@@ -1243,6 +1255,7 @@ export interface RootRouteChildren {
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
+  ClientIndexRoute: typeof ClientIndexRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ClientPvIdRoute: typeof ClientPvIdRoute
   SignPvTokenRoute: typeof SignPvTokenRoute
@@ -1413,6 +1426,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/solutions/'
       preLoaderRoute: typeof SolutionsIndexRouteImport
       parentRoute: typeof SolutionsRoute
+    }
+    '/client/': {
+      id: '/client/'
+      path: '/client'
+      fullPath: '/client/'
+      preLoaderRoute: typeof ClientIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/solutions/$slug': {
       id: '/solutions/$slug'
@@ -2164,6 +2184,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
+  ClientIndexRoute: ClientIndexRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ClientPvIdRoute: ClientPvIdRoute,
   SignPvTokenRoute: SignPvTokenRoute,

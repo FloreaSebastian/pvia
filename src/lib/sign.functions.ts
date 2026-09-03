@@ -527,13 +527,26 @@ export const verifyRemoteClientOtp = createServerFn({ method: "POST" })
     // Persistance de la preuve d'identité : sans elle, le garde-fou de
     // finalisation PDF (`assertPvFinalizedForPdf`) refuse de générer le PDF
     // signé après une signature à distance.
-    await supabaseAdmin
+    // L'écriture est bornée au PV du lien ET à l'état « non signé » : aucune
+    // écriture tardive après signature. L'erreur et le nombre de lignes sont
+    // vérifiés — sans preuve persistée, pas d'audit « vérifié » ni d'ok:true.
+    const { data: updated, error: proofError } = await supabaseAdmin
       .from("pv")
       .update({
         client_identity_verified_at: new Date().toISOString(),
         client_identity_verified_by: `otp_email:${otp.email}`,
       })
-      .eq("id", pv.id);
+      .eq("id", pv.id)
+      .is("client_signature", null)
+      .select("id");
+    if (proofError) {
+      throw new Error(`Preuve d'identité non enregistrée : ${proofError.message}`);
+    }
+    if (!updated || updated.length !== 1) {
+      throw new Error("Preuve d'identité non enregistrée. Veuillez recommencer la vérification.");
+    }
+
+
 
     await writeAuditLog({
 
