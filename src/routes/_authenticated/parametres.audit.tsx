@@ -170,10 +170,19 @@ function AuditMonitoring() {
               <Badge variant="secondary" className="ml-2 text-[10px]">Lecture limitée</Badge>
             )}
           </div>
-          <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || !logs.length}>
-            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            Exporter PDF
-          </Button>
+          {canExportAudit ? (
+            <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || !logs.length}>
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Exporter PDF
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/billing">
+                <Lock className="mr-2 h-4 w-4" aria-hidden />
+                Export PDF — changer de formule
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
