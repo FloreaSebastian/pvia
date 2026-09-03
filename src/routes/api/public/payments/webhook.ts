@@ -414,7 +414,69 @@ async function notifyPastDue(subscription: any, env: StripeEnv) {
   }
 }
 
+/**
+ * Remboursement / litige : traçabilité seule, aucun effet sur les droits.
+ * Voir la note de politique produit dans le `switch` ci-dessous.
+ * Aucune donnée bancaire sensible n'est stockée.
+ */
+export async function resolveDisputeCompanyId(
+  object: any,
+  lookupBySubscription: (subId: string) => Promise<string | null>,
+  lookupByCustomer: (customerId: string) => Promise<string | null>,
+): Promise<string | null> {
+  const direct = object?.metadata?.companyId ?? null;
+  if (direct) return direct;
+  const subId =
+    typeof object?.subscription === "string" ? object.subscription : object?.subscription?.id ?? null;
+  if (subId) {
+    const byS = await lookupBySubscription(subId);
+    if (byS) return byS;
+  }
+  const customerId = typeof object?.customer === "string" ? object.customer : object?.customer?.id ?? null;
+  if (customerId) return await lookupByCustomer(customerId);
+  return null;
+}
+
+async function handleRefundOrDispute(eventType: string, object: any, env: StripeEnv) {
+  const db = (await getSupabase()) as any;
+  const companyId = await resolveDisputeCompanyId(
+    object,
+    async (subId) => {
+      const { data } = await db
+        .from("subscriptions").select("company_id")
+        .eq("stripe_subscription_id", subId).maybeSingle();
+      return data?.company_id ?? null;
+    },
+    async (customerId) => {
+      const { data } = await db
+        .from("subscriptions").select("company_id")
+        .eq("stripe_customer_id", customerId)
+        .eq("environment", env)
+        .order("created_at", { ascending: false })
+        .limit(1).maybeSingle();
+      return data?.company_id ?? null;
+    },
+  );
+
+  await audit({
+    companyId,
+    entityType: eventType.startsWith("charge.dispute") ? "dispute" : "refund",
+    entityId: object?.id ?? "unknown",
+    action: `billing.${eventType.replace(/\./g, "_")}`,
+    metadata: {
+      environment: env,
+      // Montants et statuts uniquement — jamais de donnée carte.
+      amount: object?.amount ?? object?.amount_refunded ?? null,
+      currency: object?.currency ?? null,
+      status: object?.status ?? null,
+      reason: object?.reason ?? null,
+      access_policy: "unchanged_by_design",
+    },
+  });
+}
+
 async function handleWebhook(req: Request, env: StripeEnv) {
+
   // ST-C4: refuse to process if env credentials are missing/mismatched.
   const envReport = checkStripeEnv(env);
   if (!envReport.ok) {
