@@ -85,3 +85,5 @@ Le domaine a été rattaché au projet par le propriétaire. État réel vérifi
 2. Définir app.pvia.fr comme primaire : pvia.fr redirigerait alors vers app.pvia.fr, y compris les pages marketing — à arbitrer.
 
 Le smoke test de contenu sur app.pvia.fr est **NON EXÉCUTABLE** tant que le primaire reste pvia.fr (chaque route y est une redirection) ; le contenu servi après redirection est celui déjà validé sur pvia.fr.
+
+`PVIA APPLICATION READY FOR FIRST REAL CUSTOMERS` reste conditionné à un rejeu runtime du chemin de signature distante après le correctif #7, et `STRIPE REAL PAYMENT SMOKE TEST` reste **NOT EXECUTED**.
