@@ -133,3 +133,26 @@ la création de session de test authentifiée est indisponible dans cet
 environnement (plusieurs comptes auth, minting refusé). Aucun paiement réel
 effectué. Données de test créées puis intégralement purgées (entreprise
 temporaire `E2E-P1-20260903 EXPIRED` supprimée, 0 ligne résiduelle).
+
+## Revue de cloture P1 billing - 2026-09-03
+
+| # | Controle | Verdict |
+|---|---|---|
+| 1 | Publication du correctif sur pvia.fr | **PASS** - publication declenchee et servie (HTTP 200) |
+| 2 | Bundle deploye contient le correctif | **PASS** - `assets/billing-iluEu96m.js` contient « Votre formule », « Activer », « Regulariser le paiement » (ancien bundle `billing-UbBkDKru.js` : seulement « Plan actuel ») |
+| 3 | Controle runtime navigateur authentifie | **BLOCKED** - la generation de session de test est refusee : le projet a plusieurs utilisateurs auth et le mode cible exige une approbation utilisateur indisponible ici. Aucun compte reel n'a ete usurpe. |
+| 3bis | Controle runtime serveur/BDD sur locataire de test expire | **PASS** - entreprise de test `ZZ-P1-CLOSURE EXPIRED` (essai termine depuis 16 j) : `get_company_plan` = `starter`, `company_has_write_access` = `false` - exactement la situation du bug ; la carte Essentiel est desormais actionnable (`planCtaKind` -> `activate`). |
+| 4a | Essentiel memorise + `trial_expired` + aucune subscription -> Checkout possible | **PASS** (tests unitaires) |
+| 4b | `monthly` / `annual` utilisent les six Price IDs officiels | **PASS** - parite `PLAN_PRICE_IDS` <-> `CHECKOUT_PRICE_IDS` |
+| 4c | Aucun `trial_end` / `trial_period_days` apres essai expire | **PASS** - `computeTrialAlignment` renvoie `trialEnd: null` (essai absent, termine ou invalide) |
+| 4d | `past_due` / `unpaid` / `incomplete` -> portail, refus de Checkout | **PASS** - `decideCheckoutGuard` |
+| 4e | Droits bloques au retour/annulation de Checkout sans webhook valide | **PASS** - `computeAccessState` reste `blocked` |
+| 5 | Anti-doublon multi-formule et hors derniere ligne | **PASS** - la garde inspecte TOUTES les lignes de l'entreprise/environnement ; un abonnement actif ou impaye sur une AUTRE formule bloque le Checkout et renvoie au portail |
+| 6 | Purge des donnees de test | **PASS** - entreprise de test supprimee par cascade (0 entreprise, 0 membre residuels) ; aucun objet Stripe cree |
+
+Durcissement complementaire : `createPortalSession` selectionne desormais le
+Customer Stripe le plus recent parmi TOUTES les lignes, au lieu de la derniere
+ligne seulement (une tentative sans Customer privait a tort du portail).
+
+Tests : 59 unitaires, 0 echec, 98 assertions. Typecheck OK. Build OK.
+**Aucun paiement reel n'a ete effectue.**
