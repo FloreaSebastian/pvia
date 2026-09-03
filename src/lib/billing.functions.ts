@@ -229,16 +229,22 @@ export const createPortalSession = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertCompanyAdmin(data.companyId, context.userId);
 
-    const { data: sub } = await supabaseAdmin
+    // On inspecte TOUTES les lignes de l'entreprise pour cet environnement :
+    // la plus récente peut être une tentative sans Customer Stripe, ce qui
+    // priverait à tort d'accès au portail un abonnement impayé à régulariser.
+    const { data: portalRows } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id,created_at")
       .eq("company_id", data.companyId)
       .eq("environment", data.environment)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
+
+    const sub = (portalRows ?? []).find((r: any) => r.stripe_customer_id) as
+      | { stripe_customer_id: string }
+      | undefined;
 
     if (!sub?.stripe_customer_id) throw new Error("Aucun abonnement à gérer.");
+
 
     const stripe = createStripeClient(data.environment);
     let portal;
