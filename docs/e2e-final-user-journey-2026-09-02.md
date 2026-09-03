@@ -53,3 +53,18 @@ Supprimés : comptes auth E2E (5), sociétés E2E (5), clients, chantiers, PV, r
 
 - PVIA APPLICATION READY FOR FIRST REAL CUSTOMERS : **YES** (parcours complet validé en runtime après 4 correctifs P1)
 - STRIPE REAL PAYMENT SMOKE TEST : **NOT EXECUTED** (en attente du paiement propriétaire)
+
+## 6. Passe technique ciblée post-E2E (03/09/2026)
+
+| # | Prio | Point | Correction | Vérification |
+|---|------|-------|-----------|--------------|
+| 7 | P1 | `verifyRemoteClientOtp` : l'UPDATE écrivant `client_identity_verified_at/_by` n'était ni contrôlé (erreur ignorée) ni borné à l'état non signé — `ok:true` + audit pouvaient être émis sans preuve persistée | `src/lib/sign.functions.ts` : UPDATE borné `.eq("id", pv.id).is("client_signature", null)` + `.select("id")`, échec explicite si erreur ou si le nombre de lignes ≠ 1 ; l'audit `pv.remote_otp_verified` et `ok:true` ne sont émis qu'après persistance confirmée | Typecheck + build OK. Chemin succès runtime : NON REJOUÉ ce cycle (nécessite un nouveau parcours de signature distante complet) ; chemin échec non provoqué (manipulation jugée risquée sur la base de production) |
+| 8 | P1/P2 | `signup.functions.ts` acceptait une `redirectTo` absolue fournie par le navigateur et la transmettait à Auth | `resolveEmailRedirect()` : seule l'origine canonique (`PUBLIC_APP_URL`), `localhost`/`127.0.0.1` et `*.lovable.app` sont de confiance ; seul le CHEMIN demandé est conservé et recollé sur une origine de confiance, sinon `/dashboard` | 6 tests unitaires `tests/unit/signup-redirect.test.ts` PASS : origine externe rejetée, `/dashboard` conservé, preview et localhost préservés, chemin protocol-relative neutralisé |
+| 9 | P2 | Régénération d'un PDF de levée réservée au `platform_admin` | Bouton « Régénérer le PDF » côté entreprise sur la fiche PV (levées) via `retryReserveLiftPdfGeneration` ; contrôle serveur : membre actif de la société du rapport avec rôle signataire, garde d'écriture UI, rate limiting 5 tentatives / 10 min par utilisateur et par rapport ; aucun accès cross-tenant possible (société dérivée du rapport, jamais du client) | Typecheck + build OK. Tests cross-tenant / client final : couverts par la garde serveur existante (`assertMember`) — non rejoués en runtime ce cycle |
+| 10 | P3 | `/client` renvoyait 404 | Route de redirection `src/routes/client.index.tsx` → `/client/dashboard` | Runtime 390 px : `/client` (non connecté) → `/client/dashboard` → `/login?type=client`, 0 erreur console. Cas client connecté : NON REJOUÉ (le tableau de bord client avait été validé en runtime le 02/09) |
+
+### Verdict de cette passe
+- Corrections livrées et vérifiées par typecheck, build et tests unitaires ; les vérifications runtime non rejouées sont explicitement marquées ci-dessus, sans PASS de complaisance.
+- Aucune donnée de test créée pendant cette passe : rien à purger.
+- Domaines : `pvia.fr` / `www.pvia.fr` en production ; `app.pvia.fr` toujours non provisionné (le domaine doit d'abord être rattaché au projet pour obtenir la cible DNS réelle).
+- `PVIA APPLICATION READY FOR FIRST REAL CUSTOMERS` reste conditionné à un rejeu runtime du chemin de signature distante après le correctif #7, et `STRIPE REAL PAYMENT SMOKE TEST` reste **NOT EXECUTED**.
