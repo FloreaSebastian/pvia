@@ -66,3 +66,32 @@ export function decideCheckoutGuard(
   // canceled / incomplete_expired / paused / aucune ligne → Checkout autorisé.
   return { block: null, customerId };
 }
+
+/* ------------------------------------------------------------------ *
+ * Alignement d'essai — logique PURE.
+ *
+ * Invariant : un Checkout n'accorde JAMAIS un nouvel essai. Il peut
+ * uniquement s'aligner sur la fenêtre d'essai INTERNE encore en cours
+ * (`companies.trial_ends_at`). Essai terminé ou absent ⇒ aucun `trial_end`,
+ * aucun `trial_period_days` : facturation immédiate.
+ * ------------------------------------------------------------------ */
+
+export const STRIPE_MIN_TRIAL_MS = 48 * 3_600_000;
+
+export const TRIAL_TOO_CLOSE_MESSAGE =
+  "Votre essai gratuit se termine dans moins de 48 heures : l'activation d'une formule sera possible dès sa fin, sans aucun prélèvement d'ici là.";
+
+export type TrialAlignment =
+  | { block: string; trialEnd: null }
+  | { block: null; trialEnd: number | null };
+
+export function computeTrialAlignment(
+  trialEndsAtIso: string | null | undefined,
+  nowMs: number = Date.now(),
+): TrialAlignment {
+  const ms = trialEndsAtIso ? new Date(trialEndsAtIso).getTime() : null;
+  const inProgress = ms !== null && Number.isFinite(ms) && ms > nowMs;
+  if (!inProgress) return { block: null, trialEnd: null };
+  if (ms! <= nowMs + STRIPE_MIN_TRIAL_MS) return { block: TRIAL_TOO_CLOSE_MESSAGE, trialEnd: null };
+  return { block: null, trialEnd: Math.floor(ms! / 1000) };
+}
