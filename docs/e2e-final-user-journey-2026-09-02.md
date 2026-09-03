@@ -66,5 +66,24 @@ Supprimés : comptes auth E2E (5), sociétés E2E (5), clients, chantiers, PV, r
 ### Verdict de cette passe
 - Corrections livrées et vérifiées par typecheck, build et tests unitaires ; les vérifications runtime non rejouées sont explicitement marquées ci-dessus, sans PASS de complaisance.
 - Aucune donnée de test créée pendant cette passe : rien à purger.
-- Domaines : `pvia.fr` / `www.pvia.fr` en production ; `app.pvia.fr` toujours non provisionné (le domaine doit d'abord être rattaché au projet pour obtenir la cible DNS réelle).
-- `PVIA APPLICATION READY FOR FIRST REAL CUSTOMERS` reste conditionné à un rejeu runtime du chemin de signature distante après le correctif #7, et `STRIPE REAL PAYMENT SMOKE TEST` reste **NOT EXECUTED**.
+- Domaines : voir §7 (app.pvia.fr désormais provisionné).
+
+## 7. Provisionnement app.pvia.fr (03/09/2026)
+
+Le domaine a été rattaché au projet par le propriétaire. État réel vérifié :
+
+| Contrôle | Résultat |
+|---|---|
+| Statut Lovable | **active** (connecté, projet publié) |
+| Enregistrement A `app.pvia.fr` → `185.158.133.1` | attendu = observé, **ok** |
+| TXT `_lovable.app.pvia.fr` (preuve de propriété) | attendu = observé, **vérifié** |
+| Nameservers zone pvia.fr (one.com) | ok |
+| HTTPS / HSTS sur app.pvia.fr | HSTS `max-age=31536000; includeSubDomains` |
+
+**Contrainte d'architecture constatée en runtime :** Lovable ne permet pas de servir des routes différentes par domaine. Un domaine non primaire redirige (302) vers le domaine primaire : toutes les routes testées sur app.pvia.fr (`/`, `/login`, `/signup`, `/client`, `/dashboard`, `/tarifs`) renvoient actuellement vers `pvia.fr`, qui reste le primaire. Le domaine primaire n'a **pas** été changé (autorisation supplémentaire requise). Deux options pour le propriétaire :
+1. Garder l'état actuel : pvia.fr sert site + application, app.pvia.fr redirige proprement (plus de NXDOMAIN/502 — l'incident historique est résolu au sens DNS/HTTPS).
+2. Définir app.pvia.fr comme primaire : pvia.fr redirigerait alors vers app.pvia.fr, y compris les pages marketing — à arbitrer.
+
+Le smoke test de contenu sur app.pvia.fr est **NON EXÉCUTABLE** tant que le primaire reste pvia.fr (chaque route y est une redirection) ; le contenu servi après redirection est celui déjà validé sur pvia.fr.
+
+`PVIA APPLICATION READY FOR FIRST REAL CUSTOMERS` reste conditionné à un rejeu runtime du chemin de signature distante après le correctif #7, et `STRIPE REAL PAYMENT SMOKE TEST` reste **NOT EXECUTED**.
