@@ -527,8 +527,28 @@ async function handleWebhook(req: Request, env: StripeEnv) {
       }
       break;
     }
+    /**
+     * Remboursements et litiges — POLITIQUE PRODUIT EXPLICITE :
+     * ces événements sont TRACÉS (audit + notification interne) mais ne
+     * modifient JAMAIS directement les droits d'accès. La coupure d'accès
+     * reste pilotée exclusivement par l'état de l'abonnement Stripe
+     * (`customer.subscription.updated/deleted` → `company_has_write_access`).
+     * Un remboursement partiel, un geste commercial ou un litige en cours ne
+     * doivent pas couper l'écriture d'une entreprise dont l'abonnement est
+     * encore actif. Aucune donnée bancaire n'est journalisée (jamais de PAN,
+     * ni d'empreinte de carte) : uniquement montant, devise et identifiants
+     * Stripe.
+     */
+    case "charge.refunded":
+    case "refund.updated":
+    case "refund.created":
+    case "charge.dispute.created":
+    case "charge.dispute.closed":
+      await handleRefundOrDispute(event.type, event.data.object, env);
+      break;
     default:
       console.log("[webhook] unhandled:", event.type);
+
   }
 }
 
