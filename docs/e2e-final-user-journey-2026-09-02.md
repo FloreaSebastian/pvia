@@ -177,3 +177,34 @@ Contrôle strictement en lecture : aucune écriture, aucun paiement, aucune rela
 | Vérification runtime navigateur authentifiée | **BLOCKED** — `LOVABLE_BROWSER_AUTH_STATUS=signed_out` et le seul compte membre de la société est celui du propriétaire réel ; aucune session n'a été créée afin de ne pas usurper un compte de production |
 
 Identifiants masqués ; aucune donnée bancaire ni secret Stripe exposé.
+
+## Audit cycle de vie facturation (non destructif) — 2026-09-03 05:12 UTC
+
+Aucune modification de l'abonnement réel, aucun débit, remboursement, annulation ni ouverture de portail au nom du propriétaire.
+
+| # | Invariant | Résultat | Preuve |
+|---|---|---|---|
+| 1 | `invoice.paid` / `invoice.payment_succeeded` resynchronise la période et maintient `active` | **PASS** | `webhook.ts` relit l'abonnement chez Stripe puis upsert (`billing.payment_recovered`) ; tests `billing-lifecycle` (renouvellement) |
+| 1 | `invoice.payment_failed` → `past_due` + accès coupé, sans incohérence | **PASS** | `notifyPaymentFailed` écrit `status=past_due` (jamais sur une ligne `canceled`) ; `computeAccessState` bloque `past_due`/`unpaid` |
+| 1 | Pas de double facture / double journalisation / double notification | **PASS** | Upsert `onConflict=stripe_subscription_id` ; notifications émises uniquement sur transition `prevStatus !== newStatus` ; email d'échec idempotent par `invoice_id` |
+| 2 | Même event reçu N fois → un seul effet | **PASS** | Insert dans `stripe_webhook_events` avant traitement ; conflit `23505` → sortie immédiate + audit `stripe.duplicate_ignored`. Contrainte vérifiée : `stripe_webhook_events_pkey PRIMARY KEY (event_id)` |
+| 2 | Événements hors séquence : l'état le plus récent gagne | **PASS** | Tout événement de plus de 60 s est ignoré au profit d'une relecture Stripe (`authoritative()`), source de vérité ; `pickAuthoritativeSubscription` empêche qu'une ligne `canceled`/`incomplete` plus récente masque un abonnement actif (tests dédiés) |
+| 2 | Signature Stripe obligatoire, rejeu ancien refusé | **PASS** | `verifyWebhook` : HMAC-SHA256 constant sur `t.body`, tolérance 300 s, tous les `v1` acceptés (rotation), plus garde `checkStripeEnv` avant traitement |
+| 3 | `cancel_at_period_end=true` conserve l'accès jusqu'à `current_period_end` | **PASS** | `computeAccessState` → `canceled_grace` non bloquant ; parité SQL `company_has_write_access` ; tests dédiés |
+| 3 | Fin de période → écriture coupée, lecture conservée | **PASS** | `canceled` + période passée → `blocked` ; aucune suppression de données, aucune suspension d'entreprise (retirée volontairement de `markCanceled`) |
+| 3 | Réactivation avant échéance sans doublon | **PASS** | Upsert sur le même `stripe_subscription_id` ; `syncSubscriptionFromStripe` privilégie `active`/`trialing` |
+| 4 | URL de retour portail/Checkout sûre | **CORRIGÉ → PASS** | L'URL venait du navigateur et était transmise telle quelle à Stripe (redirection ouverte post-paiement). Nouveau module pur `src/lib/billing-return-url.ts` : origine restreinte (pvia.fr et sous-domaines, previews Lovable, localhost), chemin forcé `/billing`, repli canonique. 6 tests |
+| 4 | Portail réservé owner/admin | **PASS** | `assertCompanyAdmin` (rôles `ADMIN_ROLES`, membre actif) |
+| 4 | Customer Stripe appartient à la société courante, pas de cross-tenant | **PASS** | Le `customer` est lu en base par `company_id` + `environment` ; aucun `customer_id` accepté depuis le navigateur (schéma Zod : `companyId`, `environment`, `returnUrl` uniquement) |
+| 5 | `charge.refunded`, `refund.created/updated`, `charge.dispute.created/closed` | **CORRIGÉ → PASS** | Auparavant non traités (log générique). Handler explicite `handleRefundOrDispute` : résolution société via subscription puis customer, audit `billing.charge_refunded` / `billing.charge_dispute_created`… |
+| 5 | Politique documentée : pas de coupure arbitraire des droits | **PASS** | Règle inscrite dans le code : les remboursements/litiges sont **tracés uniquement** ; l'accès reste piloté par l'état de l'abonnement (`subscription.updated/deleted`) |
+| 5 | Audit sans donnée bancaire | **PASS** | Metadata limitée à `amount`, `currency`, `status`, `reason`, `environment` ; aucun PAN ni empreinte de carte |
+| 6 | Essentiel mensuel payé = Price LIVE officiel 19 € HT / 22,80 € TTC | **PASS** | Facture LIVE `in_…Xh8xphie` 1900 + 380 = 2280 EUR (contrôle 03:20 UTC) ; base : `price_id=starter_monthly`, `billing_interval=monthly` |
+| 6 | Six Price IDs LIVE actifs cohérents, EUR, `tax_behavior=exclusive`, aucun Price test en prod | **PASS** | Catalogue LIVE vérifié le 2026-09-03 (`livemode=true`, six lookup_keys officiels, TVA France active, code SaaS `txcd_10103001`) ; le serveur ne résout que les six lookup_keys de `CheckoutSchema` |
+| 7 | Ancienne session Business ouverte | **PASS (constat)** | `open`/`unpaid`, aucun abonnement ni facture rattaché, aucune ligne `subscriptions` correspondante → ne peut ouvrir aucun droit ; expiration Stripe automatique sous 24 h. Non fermée manuellement |
+| 8 | Aucun doublon en base | **PASS** | 1 seule ligne LIVE (`rows_for_company=1`) ; `stripe_webhook_events` : 1 event distinct par type LIVE |
+| 8 | Tests / typecheck / build | **PASS** | `bun test tests/unit` → **74 tests, 0 échec** ; typecheck sans erreur |
+| 8 | Purge des artefacts de test | **PASS** | Aucun objet Stripe ni locataire créé durant cet audit |
+| — | Vérification runtime navigateur authentifiée | **BLOCKED** | Aucune session disponible ; refus d'usurper le compte propriétaire de production |
+
+**Fichiers modifiés** : `src/lib/billing-return-url.ts` (nouveau), `src/lib/billing.functions.ts` (URLs de retour), `src/routes/api/public/payments/webhook.ts` (remboursements/litiges), `tests/unit/billing-return-url.test.ts` (nouveau), `tests/unit/billing-lifecycle.test.ts` (nouveau).
