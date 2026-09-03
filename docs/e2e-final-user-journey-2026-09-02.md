@@ -156,3 +156,24 @@ ligne seulement (une tentative sans Customer privait a tort du portail).
 
 Tests : 59 unitaires, 0 echec, 98 assertions. Typecheck OK. Build OK.
 **Aucun paiement reel n'a ete effectue.**
+
+## Vérification post-paiement réel LIVE — 2026-09-03 03:20 UTC (lecture seule)
+
+Contrôle strictement en lecture : aucune écriture, aucun paiement, aucune relance.
+
+| Contrôle | Résultat |
+|---|---|
+| Checkout LIVE abouti | **PASS** — session `cs_live_a17tjGV2gD…` `complete` / `paid` (03:08:23 UTC) |
+| Facture | **PASS** — `in_…Xh8xphie` `paid`, 19,00 € HT + 3,80 € TVA = **22,80 € TTC** (03:09:37 UTC) |
+| Abonnement Stripe | **PASS** — `sub_…MyyBqUj0B` `active`, lookup_key `starter_monthly`, 1900 EUR / mois |
+| Webhooks traités | **PASS** — `checkout.session.completed` (03:10:05), `invoice.paid` (03:10:05), `customer.subscription.created` (03:10:06) enregistrés dans `stripe_webhook_events` |
+| Cohérence base ↔ Stripe | **PASS** — `stripe_customer_id` `cus_…C2XaWsfC`, `stripe_subscription_id` identique, plan `starter`, `price_id` `starter_monthly`, `billing_interval` `monthly`, statut `active`, période 2026-09-03 03:09:37 → 2026-10-03 03:09:37 UTC, `cancel_at_period_end=false` |
+| Plan interne synchronisé | **PASS** — `get_company_plan` → `starter` via la ligne LIVE active |
+| Accès en écriture réactivé par le webhook seul | **PASS** — `company_has_write_access` : branche `active` + `current_period_end` futur ; aucune activation manuelle, journal d'audit `stripe.checkout_completed` → `subscription.active` (03:10:06 → 03:10:09) |
+| Doublon d'abonnement | **PASS** — 1 seule ligne en base, 1 seul abonnement Stripe pour ce client |
+| Doublon de facture / paiement | **PASS** — 1 seule facture payée sur l'ensemble des Customers de la société |
+| Session Checkout ouverte résiduelle | **ATTENTION (non bloquant)** — une session `open` / `unpaid` du 03:08 UTC (tentative Business abandonnée à 02:42, Customer `cus_…DdHLXDi5Aqs`) ; aucune souscription ni facture rattachée, expiration automatique Stripe sous 24 h. Non modifiée (contrôle en lecture seule). |
+| Affichage `/billing` | **PASS (déterministe)** — rejeu des décisions pures sur les données réelles : `computeAccessState` → `active` (non bloqué), `paidCoveredPlan` → `starter`, CTA « **Plan actuel** » sur Essentiel, « Changer de formule » sur Pro/Business, « Nous contacter » sur Entreprise |
+| Vérification runtime navigateur authentifiée | **BLOCKED** — `LOVABLE_BROWSER_AUTH_STATUS=signed_out` et le seul compte membre de la société est celui du propriétaire réel ; aucune session n'a été créée afin de ne pas usurper un compte de production |
+
+Identifiants masqués ; aucune donnée bancaire ni secret Stripe exposé.
