@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "test": "bun test tests/unit",
+    "test:unit": "bun test tests/unit",
     "format": "prettier --write .",
     "test:e2e": "playwright test --project=desktop",
     "test:e2e:mobile": "E2E_VARIANT=mobile playwright test --project=mobile",

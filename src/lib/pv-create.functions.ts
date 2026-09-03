@@ -458,6 +458,10 @@ export const createPv = createServerFn({ method: "POST" })
           await supabaseAdmin.storage.from("pv-assets").remove(allPaths);
         }
         await supabaseAdmin.from("pv").delete().eq("id", pvId);
+        // Rollback interne (création jamais aboutie) : le quota ne doit pas
+        // être consommé. Compensation réservée à ce chemin serveur — une
+        // suppression utilisateur d'un PV réellement créé reste comptée.
+        await supabaseAdmin.from("pv_quota_ledger" as never).delete().eq("pv_id", pvId);
       } catch (e) {
         console.error("[pv-create] rollback failed", reason, e);
       }
