@@ -638,7 +638,10 @@ function BillingPage() {
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((p, index) => {
-            const isCurrent = p.plan === plan;
+            const isSelected = p.plan === plan;
+            /** Désactivation UNIQUEMENT si un abonnement réel couvre la formule. */
+            const isActivePlan = paidCoveredPlan === p.plan;
+            const needsRegularize = regularizePlan === p.plan;
             const custom = Boolean(p.is_custom_pricing);
             const recommended = Boolean(p.recommended);
             const priceId = billingInterval === "annual" ? p.stripe_price_annual : p.stripe_price_monthly;
@@ -652,7 +655,7 @@ function BillingPage() {
               <Card
                 key={p.plan}
                 className={`relative flex min-w-0 flex-col p-5 transition hover:-translate-y-0.5 hover:shadow-brand sm:p-6 ${
-                  isCurrent ? "border-primary/60 ring-2 ring-primary/20" : recommended ? "border-primary/30" : ""
+                  isSelected ? "border-primary/60 ring-2 ring-primary/20" : recommended ? "border-primary/30" : ""
                 }`}
               >
                 <div className="mb-2 flex flex-wrap gap-1.5">
@@ -661,12 +664,13 @@ function BillingPage() {
                       Recommandé
                     </span>
                   )}
-                  {isCurrent && (
+                  {isSelected && (
                     <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                      Plan actuel
+                      {isActivePlan ? "Plan actuel" : "Votre formule"}
                     </span>
                   )}
                 </div>
+
 
                 <div className="text-lg font-semibold tracking-tight">{p.display_name}</div>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
