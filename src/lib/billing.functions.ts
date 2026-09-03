@@ -112,6 +112,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
 
+    // Abonnement impayé existant (quel que soit le plan) → régularisation par
+    // le portail Stripe, jamais un second abonnement.
+    if (existing && ["past_due", "unpaid"].includes(String((existing as any).status))) {
+      throw new Error(
+        "Votre abonnement en cours présente un paiement en attente. Utilisez « Gérer mon abonnement » pour le régulariser.",
+      );
+    }
+
     // Abonnement déjà actif sur ce plan → passer par le portail (évite le doublon).
     if (
       existing &&
@@ -120,6 +128,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     ) {
       throw new Error(
         "Vous êtes déjà abonné à ce plan. Utilisez « Gérer mon abonnement » pour modifier la périodicité ou le moyen de paiement.",
+
       );
     }
 

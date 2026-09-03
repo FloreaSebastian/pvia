@@ -37,6 +37,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
 import { createCheckoutSession, createPortalSession, syncSubscriptionFromStripe } from "@/lib/billing.functions";
 import { getStripeEnvironment } from "@/lib/stripe";
+import { paidCoveredPlan, regularizePlan } from "@/lib/billing-plan-cta";
 import {
   CONTACT_SALES_EMAIL,
   COMPARISON,
@@ -238,7 +239,30 @@ function BillingPage() {
 
 
 
-  const currentIndex = useMemo(() => plans.findIndex((p) => p.plan === plan), [plans, plan]);
+  /**
+   * Formule RÉELLEMENT couverte par un abonnement Stripe payé/valide.
+   * `plan` (get_company_plan) n'est qu'une valeur interne mémorisée : après
+   * expiration de l'essai, elle vaut encore « starter » sans qu'aucun
+   * abonnement n'existe. Elle ne doit donc jamais rendre une carte inactive.
+   * Décision centralisée et testée dans `@/lib/billing-plan-cta`.
+   */
+  const subForCta = subscription
+    ? { status: ((subscription as any).status ?? null) as string | null, plan: ((subscription as any).plan ?? null) as string | null }
+    : null;
+  const paidPlan = useMemo(
+    () => paidCoveredPlan(subForCta, access?.state, plan),
+    [subForCta?.status, subForCta?.plan, access?.state, plan],
+  );
+  /** Abonnement existant à régulariser (impayé) : portail Stripe, jamais un
+   *  nouveau Checkout — évite les abonnements doublons. */
+  const toRegularize = regularizePlan(subForCta, access?.state, plan);
+
+  const currentIndex = useMemo(
+    () => plans.findIndex((p) => p.plan === (paidPlan ?? "")),
+    [plans, paidPlan],
+  );
+
+
 
   // Stripe refuse un `trial_end` à moins de 48 h : pendant cette fenêtre, on
   // bloque l'activation plutôt que de facturer avant la fin de l'essai.
@@ -614,7 +638,10 @@ function BillingPage() {
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((p, index) => {
-            const isCurrent = p.plan === plan;
+            const isSelected = p.plan === plan;
+            /** Désactivation UNIQUEMENT si un abonnement réel couvre la formule. */
+            const isActivePlan = paidPlan === p.plan;
+            const needsRegularize = !isActivePlan && toRegularize === p.plan;
             const custom = Boolean(p.is_custom_pricing);
             const recommended = Boolean(p.recommended);
             const priceId = billingInterval === "annual" ? p.stripe_price_annual : p.stripe_price_monthly;
@@ -628,7 +655,7 @@ function BillingPage() {
               <Card
                 key={p.plan}
                 className={`relative flex min-w-0 flex-col p-5 transition hover:-translate-y-0.5 hover:shadow-brand sm:p-6 ${
-                  isCurrent ? "border-primary/60 ring-2 ring-primary/20" : recommended ? "border-primary/30" : ""
+                  isSelected ? "border-primary/60 ring-2 ring-primary/20" : recommended ? "border-primary/30" : ""
                 }`}
               >
                 <div className="mb-2 flex flex-wrap gap-1.5">
@@ -637,12 +664,13 @@ function BillingPage() {
                       Recommandé
                     </span>
                   )}
-                  {isCurrent && (
+                  {isSelected && (
                     <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                      Plan actuel
+                      {isActivePlan ? "Plan actuel" : "Votre formule"}
                     </span>
                   )}
                 </div>
+
 
                 <div className="text-lg font-semibold tracking-tight">{p.display_name}</div>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -688,13 +716,28 @@ function BillingPage() {
                   ))}
                 </ul>
 
-                {isCurrent && (
+                {isActivePlan && (
                   <Button className="mt-6 min-h-[44px] w-full" variant="outline" disabled>
                     Plan actuel
                   </Button>
                 )}
 
-                {canManage && !isCurrent && custom && (
+                {canManage && !isActivePlan && needsRegularize && (
+                  <Button
+                    className="mt-6 min-h-[44px] w-full"
+                    onClick={handlePortal}
+                    disabled={busy === "portal"}
+                  >
+                    {busy === "portal" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="mr-2 h-4 w-4" />
+                    )}
+                    Régulariser le paiement
+                  </Button>
+                )}
+
+                {canManage && !isActivePlan && !needsRegularize && custom && (
                   <Button variant="outline" className="mt-6 min-h-[44px] w-full" asChild>
                     <a href={`mailto:${CONTACT_SALES_EMAIL}?subject=Demande%20offre%20Entreprise%20PVIA`}>
                       Nous contacter
@@ -702,17 +745,24 @@ function BillingPage() {
                   </Button>
                 )}
 
-                {canManage && !isCurrent && !custom && (
+                {canManage && !isActivePlan && !needsRegularize && !custom && (
                   <Button
-                    className={`mt-6 min-h-[44px] w-full ${recommended ? "shadow-brand" : ""}`}
-                    variant={recommended ? "default" : "outline"}
+                    className={`mt-6 min-h-[44px] w-full ${recommended || isSelected ? "shadow-brand" : ""}`}
+                    variant={recommended || isSelected ? "default" : "outline"}
                     onClick={() => handleSelect(priceId ?? "", p)}
                     disabled={busy === priceId || !priceId}
                   >
                     {busy === priceId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isDowngrade ? `Revenir à ${p.display_name}` : `Passer à ${p.display_name}`}
+                    <span className="truncate">
+                      {isSelected
+                        ? `Activer ${p.display_name}`
+                        : isDowngrade
+                          ? `Revenir à ${p.display_name}`
+                          : `Passer à ${p.display_name}`}
+                    </span>
                   </Button>
                 )}
+
               </Card>
             );
           })}
