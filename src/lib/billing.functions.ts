@@ -261,7 +261,7 @@ export const createPortalSession = createServerFn({ method: "POST" })
     try {
       portal = await stripe.billingPortal.sessions.create({
         customer: sub.stripe_customer_id,
-        return_url: data.returnUrl,
+        return_url: resolveBillingReturnUrl(data.returnUrl, getPublicAppUrl()),
       });
     } catch (e) {
       throw sanitizeStripeError(e, BILLING_MESSAGES.portal);
