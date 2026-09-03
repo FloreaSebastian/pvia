@@ -80,10 +80,23 @@ Le domaine a été rattaché au projet par le propriétaire. État réel vérifi
 | Nameservers zone pvia.fr (one.com) | ok |
 | HTTPS / HSTS sur app.pvia.fr | HSTS `max-age=31536000; includeSubDomains` |
 
-**Contrainte d'architecture constatée en runtime :** Lovable ne permet pas de servir des routes différentes par domaine. Un domaine non primaire redirige (302) vers le domaine primaire : toutes les routes testées sur app.pvia.fr (`/`, `/login`, `/signup`, `/client`, `/dashboard`, `/tarifs`) renvoient actuellement vers `pvia.fr`, qui reste le primaire. Le domaine primaire n'a **pas** été changé (autorisation supplémentaire requise). Deux options pour le propriétaire :
-1. Garder l'état actuel : pvia.fr sert site + application, app.pvia.fr redirige proprement (plus de NXDOMAIN/502 — l'incident historique est résolu au sens DNS/HTTPS).
-2. Définir app.pvia.fr comme primaire : pvia.fr redirigerait alors vers app.pvia.fr, y compris les pages marketing — à arbitrer.
+**Contrainte d'architecture constatée en runtime :** Lovable ne permet pas de servir des routes différentes par domaine. Un domaine non primaire redirige (302) vers le domaine primaire : toutes les routes testées sur app.pvia.fr (`/`, `/login`, `/signup`, `/client`, `/dashboard`, `/tarifs`) renvoient actuellement vers `pvia.fr`, qui reste le primaire.
 
-Le smoke test de contenu sur app.pvia.fr est **NON EXÉCUTABLE** tant que le primaire reste pvia.fr (chaque route y est une redirection) ; le contenu servi après redirection est celui déjà validé sur pvia.fr.
+**Décision finale du propriétaire (03/09/2026) :** pvia.fr reste le domaine primaire et canonique (contenu public + application). app.pvia.fr est le point d'entrée applicatif convivial qui redirige proprement. Aucun changement de primaire.
+
+**Contrôles de clôture app.pvia.fr — tous PASS :**
+
+| # | Contrôle | Résultat |
+|---|---|---|
+| 1 | `/` → `https://pvia.fr/` | **302, un seul saut** |
+| 2 | `/login` → `https://pvia.fr/login` | **302** |
+| 3 | `/login?type=client` → `https://pvia.fr/login?type=client` | **302, chemin ET query conservés** |
+| 4 | `/signup` → `https://pvia.fr/signup` | **302** |
+| 5 | `/client` non connecté → chaîne `/client` → `/client/dashboard` → … → `/login?type=client` | **200 final, 4 sauts, aucune boucle** |
+| 6 | Boucle / downgrade HTTP / 502 / 404 | **Aucun** (HTTP→HTTPS direct vers pvia.fr) |
+| 7 | SSL + HSTS | **Certificat CN=app.pvia.fr, Google Trust Services, valide du 03/09/2026 au 02/12/2026 ; HSTS `max-age=31536000; includeSubDomains`** |
+| 8 | Codes documentés | Toutes les redirections app.pvia.fr sont des **302 (temporaires)** — aucune n'est déclarée permanente |
+
+**Incident app.pvia.fr (ex-P0 « 502/NXDOMAIN ») : RÉSOLU.** Le domaine est provisionné, vérifié, en HTTPS valide, et redirige proprement vers le domaine canonique.
 
 `PVIA APPLICATION READY FOR FIRST REAL CUSTOMERS` reste conditionné à un rejeu runtime du chemin de signature distante après le correctif #7, et `STRIPE REAL PAYMENT SMOKE TEST` reste **NOT EXECUTED**.
