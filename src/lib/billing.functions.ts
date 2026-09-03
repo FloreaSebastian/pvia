@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createStripeClient, sanitizeStripeError, assertTaxComplianceReady, BILLING_MESSAGES, type StripeEnv } from "./stripe.server";
 import { writeAuditLog } from "./audit.server";
 import { getAccessState, isTrialEligible } from "./plan-guard.server";
+import { decideCheckoutGuard } from "./billing-checkout-guard";
+
 
 
 const EnvSchema = z.enum(["sandbox", "live"]);
