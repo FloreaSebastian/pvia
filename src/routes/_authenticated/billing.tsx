@@ -238,7 +238,31 @@ function BillingPage() {
 
 
 
-  const currentIndex = useMemo(() => plans.findIndex((p) => p.plan === plan), [plans, plan]);
+  /**
+   * Formule RÉELLEMENT couverte par un abonnement Stripe payé/valide.
+   * `plan` (get_company_plan) n'est qu'une valeur interne mémorisée : après
+   * expiration de l'essai, elle vaut encore « starter » sans qu'aucun
+   * abonnement n'existe. Elle ne doit donc jamais rendre une carte inactive.
+   */
+  const subStatus = ((subscription as any)?.status ?? null) as string | null;
+  const subPlan = ((subscription as any)?.plan ?? null) as string | null;
+  const paidCoveredPlan = useMemo(() => {
+    if (!subscription || !subStatus) return null;
+    const accessOpenByStripe = ["active", "trialing", "canceled_grace"].includes(access?.state ?? "");
+    const stripeValid = ["active", "trialing", "canceled"].includes(subStatus);
+    return accessOpenByStripe && stripeValid ? (subPlan ?? plan) : null;
+  }, [subscription, subStatus, subPlan, access?.state, plan]);
+
+  /** Abonnement existant à régulariser (impayé) : portail Stripe, jamais un
+   *  nouveau Checkout — évite les abonnements doublons. */
+  const regularizePlan =
+    subscription && ["past_due", "unpaid", "incomplete"].includes(access?.state ?? "") ? (subPlan ?? plan) : null;
+
+  const currentIndex = useMemo(
+    () => plans.findIndex((p) => p.plan === (paidCoveredPlan ?? "")),
+    [plans, paidCoveredPlan],
+  );
+
 
   // Stripe refuse un `trial_end` à moins de 48 h : pendant cette fenêtre, on
   // bloque l'activation plutôt que de facturer avant la fin de l'essai.
