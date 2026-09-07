@@ -6,9 +6,12 @@ import {
   hasPermission,
   maskChantier,
   maskClientContact,
+  mapWorkspaceAssignment,
+  normalizePermissionOverrides,
   normalizePermissions,
   permissionsFromPreset,
 } from "../../src/lib/subcontractor-permissions";
+import { matchesAudience } from "../../src/lib/auth-code-audience";
 import { ADMIN_ROLES, OWNER_ROLES, isAdminRole } from "../../src/lib/roles";
 
 describe("rôles internes autorisés à administrer les sous-traitants", () => {
