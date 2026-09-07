@@ -117,3 +117,98 @@ describe("masquage serveur des données", () => {
     expect(JSON.stringify(allowed)).not.toContain("a@b.fr");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Non-régression : correctifs du 07/09/2026 (workspace, overrides, OTP)
+// ---------------------------------------------------------------------------
+
+describe("workspace : masquage du chantier", () => {
+  const row = {
+    permission_overrides: {},
+    chantiers: {
+      id: "c1",
+      reference: "CH0001AA",
+      name: "Chantier test",
+      address: "12 rue Secrète",
+      city: "Paris",
+      postal_code: "75001",
+      description: "Note interne",
+    },
+  };
+
+  it("sans chantier.details, aucune adresse ni description n'est renvoyée", () => {
+    const { chantier } = mapWorkspaceAssignment(row, { "chantier.view": true });
+    expect(chantier).toBeTruthy();
+    expect(chantier!.address ?? null).toBeNull();
+    expect((chantier as Record<string, unknown>)["description"] ?? null).toBeNull();
+    expect(JSON.stringify(chantier)).not.toContain("rue Secrète");
+    expect(JSON.stringify(chantier)).not.toContain("Note interne");
+  });
+
+  it("avec chantier.details, l'adresse est renvoyée", () => {
+    const { chantier } = mapWorkspaceAssignment(row, {
+      "chantier.view": true,
+      "chantier.details": true,
+    });
+    expect(chantier!.address).toBe("12 rue Secrète");
+  });
+
+  it("une surcharge false retire l'adresse même si la relation l'accorde", () => {
+    const { chantier } = mapWorkspaceAssignment(
+      { ...row, permission_overrides: { "chantier.details": false } },
+      { "chantier.view": true, "chantier.details": true },
+    );
+    expect(chantier!.address ?? null).toBeNull();
+  });
+});
+
+describe("normalizePermissionOverrides", () => {
+  it("conserve true ET false", () => {
+    const out = normalizePermissionOverrides({
+      "chantier.details": false,
+      "photo.create": true,
+    });
+    expect(out["chantier.details"]).toBe(false);
+    expect(out["photo.create"]).toBe(true);
+  });
+
+  it("ignore les clés inconnues et les valeurs non booléennes", () => {
+    const out = normalizePermissionOverrides({
+      "company.billing": true,
+      "team.manage": false,
+      "chantier.view": "yes",
+      "photo.view": 1,
+    } as unknown);
+    expect(Object.keys(out)).toEqual([]);
+  });
+
+  it("un false persisté retire réellement le droit hérité", () => {
+    const persisted = normalizePermissionOverrides({ "chantier.details": false });
+    const eff = effectivePermissions(
+      { "chantier.view": true, "chantier.details": true },
+      persisted,
+    );
+    expect(eff["chantier.details"]).toBeFalsy();
+    expect(eff["chantier.view"]).toBe(true);
+  });
+});
+
+describe("séparation des codes de connexion (audience)", () => {
+  it("un code professionnel est refusé dans le parcours sous-traitant", () => {
+    expect(matchesAudience({ audience: "professional" }, "subcontractor")).toBe(false);
+  });
+
+  it("un code sous-traitant est refusé dans le parcours professionnel", () => {
+    expect(matchesAudience({ audience: "subcontractor" }, "professional")).toBe(false);
+  });
+
+  it("chaque code reste valide dans son propre contexte", () => {
+    expect(matchesAudience({ audience: "professional" }, "professional")).toBe(true);
+    expect(matchesAudience({ audience: "subcontractor" }, "subcontractor")).toBe(true);
+  });
+
+  it("les codes historiques sans contexte restent professionnels", () => {
+    expect(matchesAudience({ audience: null }, "professional")).toBe(true);
+    expect(matchesAudience({}, "subcontractor")).toBe(false);
+  });
+});
