@@ -23,10 +23,10 @@ import { toast } from "sonner";
  * Il n'accorde jamais de droit : les permissions restent déterminées
  * côté serveur (RLS, sessions, middlewares).
  */
-type AudienceType = "professional" | "client";
+type AudienceType = "professional" | "client" | "subcontractor";
 
 const searchSchema = z.object({
-  type: z.enum(["professional", "client"]).optional(),
+  type: z.enum(["professional", "client", "subcontractor"]).optional(),
 });
 
 export const Route = createFileRoute("/login")({
