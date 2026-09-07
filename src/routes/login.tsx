@@ -232,18 +232,22 @@ function LoginPage() {
           className="mt-6"
         >
           <h2 className="font-display text-lg font-semibold">
-            {isPro ? "Espace professionnel" : "Espace client"}
+            {isPro ? "Espace professionnel" : isSub ? "Espace sous-traitant" : "Espace client"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {isPro
               ? "Gérez vos chantiers, procès-verbaux, réserves, visites techniques et votre équipe depuis votre espace PVIA."
-              : "Retrouvez les documents et procès-verbaux partagés avec vous par votre professionnel."}
+              : isSub
+                ? "Consultez vos interventions, vos chantiers affectés, ajoutez photos et comptes-rendus depuis le terrain."
+                : "Retrouvez les documents et procès-verbaux partagés avec vous par votre professionnel."}
           </p>
           <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
             {isPro
               ? "Pour les entreprises et équipes terrain"
-              : "Pour les clients de professionnels utilisant PVIA"}
+              : isSub
+                ? "Pour les entreprises partenaires invitées par un professionnel"
+                : "Pour les clients de professionnels utilisant PVIA"}
           </p>
 
           <form onSubmit={onSubmit} className="mt-5 space-y-4">
