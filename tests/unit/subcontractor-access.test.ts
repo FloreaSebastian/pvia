@@ -169,10 +169,10 @@ describe("normalizePermissionOverrides", () => {
   it("conserve true ET false", () => {
     const out = normalizePermissionOverrides({
       "chantier.details": false,
-      "photo.create": true,
+      "chantier.photos.add": true,
     });
     expect(out["chantier.details"]).toBe(false);
-    expect(out["photo.create"]).toBe(true);
+    expect(out["chantier.photos.add"]).toBe(true);
   });
 
   it("ignore les clés inconnues et les valeurs non booléennes", () => {
