@@ -33,8 +33,17 @@ export type SubcontractorMembershipCtx = {
   subcontractorCompanyName: string;
   subcontractorUserId: string;
   jobTitle: string | null;
+  /** Nom lisible de la personne (journal d'audit). */
+  fullName: string | null;
+  email: string | null;
   permissions: SubcontractorPermissionMap;
 };
+
+/** Libellé lisible de l'acteur pour le journal d'audit. */
+export function actorLabel(m: SubcontractorMembershipCtx): string {
+  const person = m.fullName || m.email || "Sous-traitant";
+  return m.subcontractorCompanyName ? `${person} — ${m.subcontractorCompanyName}` : person;
+}
 
 /** Identité sous-traitante liée au compte connecté (ou null). */
 export async function getSubcontractorIdentity(userId: string) {
@@ -71,6 +80,8 @@ export async function listActiveMemberships(userId: string): Promise<Subcontract
       subcontractorCompanyName: (m.subcontractor_companies?.name as string) ?? "",
       subcontractorUserId: identity.id as string,
       jobTitle: (m.job_title as string) ?? null,
+      fullName: (identity.full_name as string) ?? null,
+      email: (identity.email as string) ?? null,
       permissions: effectivePermissions(m.permissions),
     }));
 }

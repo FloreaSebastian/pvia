@@ -37,6 +37,10 @@ function AuthenticatedLayout() {
     const onWhitelisted = ONBOARDING_WHITELIST.some(
       (p) => location.pathname === p || location.pathname.startsWith(p + "/"),
     );
+    if (status.isSubcontractorOnly) {
+      navigate({ to: "/sous-traitant", replace: true });
+      return;
+    }
     const needsOnboarding = !status.profileComplete || (status.needsCompanyStep && !status.companyComplete);
     if (needsOnboarding && !onWhitelisted) {
       navigate({ to: "/onboarding" });

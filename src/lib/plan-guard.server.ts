@@ -161,6 +161,19 @@ export async function assertPlanFeature(companyId: string, feature: PlanFeature,
   }
 }
 
+/**
+ * Lecture seule : la formule inclut-elle la fonctionnalité ?
+ * Fail-closed (false) en cas d'erreur. N'écrit aucun journal.
+ */
+export async function hasPlanFeature(companyId: string, feature: PlanFeature): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.rpc("has_plan_feature", {
+    _company_id: companyId,
+    _feature: feature,
+  });
+  if (error) return false;
+  return data === true;
+}
+
 export async function getCompanyPlan(companyId: string): Promise<string> {
   const { data } = await supabaseAdmin.rpc("get_company_plan", { _company_id: companyId });
   return (data as string) || "starter";

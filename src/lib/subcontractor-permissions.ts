@@ -178,3 +178,52 @@ export const MISSION_OPTIONS = [
   { value: "livraison", label: "Livraison" },
   { value: "autre", label: "Autre" },
 ] as const;
+
+/* --------------------------------------------------------------------------
+ * Masquage des données servies au sous-traitant.
+ * Le filtrage est fait AVANT l'envoi réseau : une donnée non autorisée n'est
+ * jamais présente dans la réponse (jamais un simple masquage d'affichage).
+ * ------------------------------------------------------------------------ */
+
+export type MaskedChantier = {
+  id: string;
+  reference: string | null;
+  name: string | null;
+  status: string | null;
+  city: string | null;
+  postal_code: string | null;
+  address: string | null;
+  description: string | null;
+};
+
+export function maskChantier(
+  chantier: Record<string, unknown> | null | undefined,
+  perms: SubcontractorPermissionMap,
+): MaskedChantier | null {
+  if (!chantier) return null;
+  const detailed = hasPermission(perms, "chantier.details");
+  const str = (v: unknown) => (typeof v === "string" ? v : null);
+  return {
+    id: String(chantier["id"] ?? ""),
+    reference: str(chantier["reference"]),
+    name: str(chantier["name"]),
+    status: str(chantier["status"]),
+    city: str(chantier["city"]),
+    postal_code: str(chantier["postal_code"]),
+    address: detailed ? str(chantier["address"]) : null,
+    description: detailed ? str(chantier["description"]) : null,
+  };
+}
+
+/** Contact client : rien n'est renvoyé sans la permission dédiée. */
+export function maskClientContact(
+  client: Record<string, unknown> | null | undefined,
+  perms: SubcontractorPermissionMap,
+): { name: string; phone: string | null } | null {
+  if (!client || !hasPermission(perms, "client.contact.view")) return null;
+  const phone = client["phone"];
+  return {
+    name: String(client["name"] ?? ""),
+    phone: typeof phone === "string" && phone ? phone : null,
+  };
+}
