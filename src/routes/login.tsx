@@ -1,7 +1,7 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { ArrowRight, Building2, Loader2, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, Building2, HardHat, Loader2, ShieldCheck, UserRound } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { useServerFn } from "@tanstack/react-start";
 import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { sendClientLoginCode, getClientSession } from "@/lib/client-auth.functions";
+import { sendSubcontractorLoginCode } from "@/lib/subcontractor-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
 import { setRememberMePreference, getRememberMePreference } from "@/lib/remember-me";
 import { useAuth } from "@/hooks/use-auth";
