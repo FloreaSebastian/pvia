@@ -263,6 +263,19 @@ export const acceptSubcontractorInvite = createServerFn({ method: "POST" })
     if (!membership) throw new Error("Invitation invalide.");
 
     const nowIso = new Date().toISOString();
+
+    // Compare-and-set : l'invitation est consommée AVANT toute autre écriture.
+    // Deux acceptations concurrentes ne peuvent donc pas aboutir toutes les deux.
+    const { data: claimed } = await supabaseAdmin
+      .from("subcontractor_invites")
+      .update({ used_at: nowIso })
+      .eq("id", invite.id)
+      .is("used_at", null)
+      .is("revoked_at", null)
+      .select("id")
+      .maybeSingle();
+    if (!claimed) throw new Error("Invitation invalide.");
+
     await supabaseAdmin
       .from("subcontractor_users")
       .update({ user_id: userId, last_login_at: nowIso })
@@ -272,8 +285,6 @@ export const acceptSubcontractorInvite = createServerFn({ method: "POST" })
       .from("subcontractor_memberships")
       .update({ status: "active", accepted_at: nowIso, revoked_at: null, suspended_at: null })
       .eq("id", membership.id);
-
-    await supabaseAdmin.from("subcontractor_invites").update({ used_at: nowIso }).eq("id", invite.id);
 
     await writeAuditLog({
       companyId: membership.company_id,

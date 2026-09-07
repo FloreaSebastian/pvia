@@ -1,7 +1,7 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { ArrowRight, Building2, Loader2, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, Building2, HardHat, Loader2, ShieldCheck, UserRound } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { useServerFn } from "@tanstack/react-start";
 import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
 import { sendClientLoginCode, getClientSession } from "@/lib/client-auth.functions";
+import { sendSubcontractorLoginCode } from "@/lib/subcontractor-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
 import { setRememberMePreference, getRememberMePreference } from "@/lib/remember-me";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,10 +24,10 @@ import { toast } from "sonner";
  * Il n'accorde jamais de droit : les permissions restent déterminées
  * côté serveur (RLS, sessions, middlewares).
  */
-type AudienceType = "professional" | "client";
+type AudienceType = "professional" | "client" | "subcontractor";
 
 const searchSchema = z.object({
-  type: z.enum(["professional", "client"]).optional(),
+  type: z.enum(["professional", "client", "subcontractor"]).optional(),
 });
 
 export const Route = createFileRoute("/login")({
@@ -70,6 +71,7 @@ function LoginPage() {
   const logEvent = useServerFn(logUserAuthEvent);
   const sendProCode = useServerFn(sendEnterpriseLoginCode);
   const sendClientCode = useServerFn(sendClientLoginCode);
+  const sendSubCode = useServerFn(sendSubcontractorLoginCode);
 
   const [audience, setAudience] = useState<AudienceType>(search.type ?? "professional");
   const [email, setEmail] = useState("");
@@ -82,11 +84,11 @@ function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.type]);
 
-  // Session professionnelle déjà active → on renvoie vers l'application.
+  // Session déjà active → on renvoie vers l'espace correspondant.
   useEffect(() => {
-    if (!authLoading && user && audience === "professional") {
-      navigate({ to: "/dashboard" });
-    }
+    if (authLoading || !user) return;
+    if (audience === "professional") navigate({ to: "/dashboard" });
+    if (audience === "subcontractor") navigate({ to: "/sous-traitant" });
   }, [authLoading, user, audience, navigate]);
 
   function selectAudience(next: AudienceType) {
@@ -107,15 +109,19 @@ function LoginPage() {
         ? "Si un compte existe, un code de connexion a été envoyé."
         : "Si un accès existe pour cet email, un code vient d'être envoyé.";
 
-    const goVerify = () =>
-      audience === "professional"
-        ? navigate({ to: "/verify", search: { email: normalized } })
-        : navigate({ to: "/client/verify", search: { email: normalized } });
+    const goVerify = () => {
+      if (audience === "professional") return navigate({ to: "/verify", search: { email: normalized } });
+      if (audience === "subcontractor")
+        return navigate({ to: "/sous-traitant/verify", search: { email: normalized } });
+      return navigate({ to: "/client/verify", search: { email: normalized } });
+    };
 
     try {
       if (audience === "professional") {
         await sendProCode({ data: { email: normalized } });
         await logEvent({ data: { action: "user.login_code_sent", email: normalized } }).catch(() => {});
+      } else if (audience === "subcontractor") {
+        await sendSubCode({ data: { email: normalized } });
       } else {
         await sendClientCode({ data: { email: normalized } });
       }
@@ -136,12 +142,16 @@ function LoginPage() {
   }
 
   const isPro = audience === "professional";
+  const isSub = audience === "subcontractor";
+
 
   return (
     <AuthShell
       brandHeading={
         isPro ? (
           <>Connexion sans mot de passe.<br />Simple, rapide, sécurisée.</>
+        ) : isSub ? (
+          <>Vos interventions,<br />directement sur le terrain.</>
         ) : (
           <>Vos documents,<br />à portée d'email.</>
         )
@@ -149,7 +159,9 @@ function LoginPage() {
       brandSubtitle={
         isPro
           ? "Recevez un code à 6 chiffres par email. Plus de mot de passe oublié, plus de friction."
-          : "Consultez et signez les procès-verbaux transmis par votre professionnel, sans créer de compte."
+          : isSub
+            ? "Accédez uniquement aux chantiers et interventions qui vous sont affectés par l'entreprise."
+            : "Consultez et signez les procès-verbaux transmis par votre professionnel, sans créer de compte."
       }
       bullets={
         isPro
@@ -158,11 +170,17 @@ function LoginPage() {
               "Conforme RGPD · hébergement EU",
               "Séparation stricte des espaces professionnels et clients",
             ]
-          : [
-              "Connexion par code à usage unique",
-              "Aucun mot de passe à retenir",
-              "Vous n'accédez qu'à vos propres documents",
-            ]
+          : isSub
+            ? [
+                "Connexion par code à usage unique",
+                "Accès limité à vos affectations",
+                "Autorisations définies par l'entreprise donneuse d'ordre",
+              ]
+            : [
+                "Connexion par code à usage unique",
+                "Aucun mot de passe à retenir",
+                "Vous n'accédez qu'à vos propres documents",
+              ]
       }
     >
       <Card className="border-border/60 p-6 shadow-brand sm:p-8">
@@ -177,10 +195,11 @@ function LoginPage() {
         <div
           role="tablist"
           aria-label="Choisissez votre espace"
-          className="mt-6 grid grid-cols-2 gap-1.5 rounded-xl bg-muted/60 p-1.5"
+          className="mt-6 grid grid-cols-1 gap-1.5 rounded-xl bg-muted/60 p-1.5 sm:grid-cols-3"
         >
           {([
             { key: "professional" as const, label: "Professionnel", Icon: Building2 },
+            { key: "subcontractor" as const, label: "Sous-traitant", Icon: HardHat },
             { key: "client" as const, label: "Client", Icon: UserRound },
           ]).map(({ key, label, Icon }) => {
             const active = audience === key;
@@ -213,18 +232,22 @@ function LoginPage() {
           className="mt-6"
         >
           <h2 className="font-display text-lg font-semibold">
-            {isPro ? "Espace professionnel" : "Espace client"}
+            {isPro ? "Espace professionnel" : isSub ? "Espace sous-traitant" : "Espace client"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {isPro
               ? "Gérez vos chantiers, procès-verbaux, réserves, visites techniques et votre équipe depuis votre espace PVIA."
-              : "Retrouvez les documents et procès-verbaux partagés avec vous par votre professionnel."}
+              : isSub
+                ? "Consultez vos interventions, vos chantiers affectés, ajoutez photos et comptes-rendus depuis le terrain."
+                : "Retrouvez les documents et procès-verbaux partagés avec vous par votre professionnel."}
           </p>
           <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
             {isPro
               ? "Pour les entreprises et équipes terrain"
-              : "Pour les clients de professionnels utilisant PVIA"}
+              : isSub
+                ? "Pour les entreprises partenaires invitées par un professionnel"
+                : "Pour les clients de professionnels utilisant PVIA"}
           </p>
 
           <form onSubmit={onSubmit} className="mt-5 space-y-4">

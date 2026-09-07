@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   Search,
+  Handshake,
   HelpCircle,
   AlertCircle,
   Building2,
@@ -81,6 +82,7 @@ const companyMenu: readonly CompanyMenuItem[] = [
   { to: "/parametres", label: "Paramètres", icon: Settings },
   { to: "/entreprise", label: "Entreprise", icon: Building2, adminOnly: true },
   { to: "/equipe", label: "Équipe", icon: UsersRound, adminOnly: true },
+  { to: "/sous-traitants", label: "Sous-traitants", icon: Handshake, adminOnly: true },
   { to: "/billing", label: "Facturation", icon: CreditCard, ownerOnly: true },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
 ] as const;

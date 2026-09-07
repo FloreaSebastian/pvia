@@ -55,7 +55,8 @@ export const getSubcontractorWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const memberships = await listActiveMemberships(context.userId);
-    if (memberships.length === 0) return { memberships: [], assignments: [] };
+    // (pas de retour anticipé : une liste vide de memberships donne simplement
+    // zéro affectation, tout en conservant un type de retour unique)
 
     const { data } = await supabaseAdmin
       .from("subcontractor_assignments")
@@ -244,10 +245,12 @@ export const setSubcontractorAssignmentStatus = createServerFn({ method: "POST" 
     await assertCompanyWritable(assignment.company_id);
 
     const nowIso = new Date().toISOString();
-    const patch: Record<string, unknown> = { status: data.status };
-    if (data.status === "confirmed") patch["confirmed_at"] = nowIso;
-    if (data.status === "in_progress" || data.status === "on_site") patch["started_at"] = nowIso;
-    if (data.status === "done") patch["completed_at"] = nowIso;
+    const patch = {
+      status: data.status,
+      ...(data.status === "confirmed" ? { confirmed_at: nowIso } : {}),
+      ...(data.status === "in_progress" || data.status === "on_site" ? { started_at: nowIso } : {}),
+      ...(data.status === "done" ? { completed_at: nowIso } : {}),
+    };
 
     const { error } = await supabaseAdmin
       .from("subcontractor_assignments")

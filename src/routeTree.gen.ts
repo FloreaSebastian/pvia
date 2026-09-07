@@ -30,8 +30,11 @@ import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
 import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SousTraitantIndexRouteImport } from './routes/sous-traitant.index'
 import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
 import { Route as ClientIndexRouteImport } from './routes/client.index'
+import { Route as SousTraitantVerifyRouteImport } from './routes/sous-traitant.verify'
+import { Route as SousTraitantChantiersRouteImport } from './routes/sous-traitant.chantiers'
 import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
@@ -57,6 +60,8 @@ import { Route as AuthenticatedVisitesTechniquesIndexRouteImport } from './route
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as AuthenticatedChantiersIndexRouteImport } from './routes/_authenticated/chantiers.index'
+import { Route as SousTraitantInvitationTokenRouteImport } from './routes/sous-traitant.invitation.$token'
+import { Route as SousTraitantInterventionIdRouteImport } from './routes/sous-traitant.intervention.$id'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
 import { Route as ClientPvIdRouteImport } from './routes/client.pv.$id'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
@@ -212,6 +217,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SousTraitantIndexRoute = SousTraitantIndexRouteImport.update({
+  id: '/sous-traitant/',
+  path: '/sous-traitant/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -220,6 +230,16 @@ const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
 const ClientIndexRoute = ClientIndexRouteImport.update({
   id: '/client/',
   path: '/client/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SousTraitantVerifyRoute = SousTraitantVerifyRouteImport.update({
+  id: '/sous-traitant/verify',
+  path: '/sous-traitant/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SousTraitantChantiersRoute = SousTraitantChantiersRouteImport.update({
+  id: '/sous-traitant/chantiers',
+  path: '/sous-traitant/chantiers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SolutionsSlugRoute = SolutionsSlugRouteImport.update({
@@ -353,6 +373,18 @@ const AuthenticatedChantiersIndexRoute =
     id: '/chantiers/',
     path: '/chantiers/',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const SousTraitantInvitationTokenRoute =
+  SousTraitantInvitationTokenRouteImport.update({
+    id: '/sous-traitant/invitation/$token',
+    path: '/sous-traitant/invitation/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const SousTraitantInterventionIdRoute =
+  SousTraitantInterventionIdRouteImport.update({
+    id: '/sous-traitant/intervention/$id',
+    path: '/sous-traitant/intervention/$id',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const SignPvTokenRoute = SignPvTokenRouteImport.update({
   id: '/sign/pv/$token',
@@ -689,8 +721,11 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
+  '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
+  '/sous-traitant/': typeof SousTraitantIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -722,6 +757,8 @@ export interface FileRoutesByFullPath {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/sous-traitant/intervention/$id': typeof SousTraitantInterventionIdRoute
+  '/sous-traitant/invitation/$token': typeof SousTraitantInvitationTokenRoute
   '/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
@@ -786,8 +823,11 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
+  '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client': typeof ClientIndexRoute
   '/solutions': typeof SolutionsIndexRoute
+  '/sous-traitant': typeof SousTraitantIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -817,6 +857,8 @@ export interface FileRoutesByTo {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/sous-traitant/intervention/$id': typeof SousTraitantInterventionIdRoute
+  '/sous-traitant/invitation/$token': typeof SousTraitantInvitationTokenRoute
   '/chantiers': typeof AuthenticatedChantiersIndexRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
@@ -885,8 +927,11 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
+  '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
+  '/sous-traitant/': typeof SousTraitantIndexRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/_authenticated/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -918,6 +963,8 @@ export interface FileRoutesById {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/client/pv/$id': typeof ClientPvIdRoute
   '/sign/pv/$token': typeof SignPvTokenRoute
+  '/sous-traitant/intervention/$id': typeof SousTraitantInterventionIdRoute
+  '/sous-traitant/invitation/$token': typeof SousTraitantInvitationTokenRoute
   '/_authenticated/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
@@ -986,8 +1033,11 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/legal/privacy'
     | '/solutions/$slug'
+    | '/sous-traitant/chantiers'
+    | '/sous-traitant/verify'
     | '/client/'
     | '/solutions/'
+    | '/sous-traitant/'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/compliance'
@@ -1019,6 +1069,8 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/sous-traitant/intervention/$id'
+    | '/sous-traitant/invitation/$token'
     | '/chantiers/'
     | '/parametres/'
     | '/pv/'
@@ -1083,8 +1135,11 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/legal/privacy'
     | '/solutions/$slug'
+    | '/sous-traitant/chantiers'
+    | '/sous-traitant/verify'
     | '/client'
     | '/solutions'
+    | '/sous-traitant'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/compliance'
@@ -1114,6 +1169,8 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/sous-traitant/intervention/$id'
+    | '/sous-traitant/invitation/$token'
     | '/chantiers'
     | '/parametres'
     | '/pv'
@@ -1181,8 +1238,11 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/legal/privacy'
     | '/solutions/$slug'
+    | '/sous-traitant/chantiers'
+    | '/sous-traitant/verify'
     | '/client/'
     | '/solutions/'
+    | '/sous-traitant/'
     | '/_authenticated/admin/billing'
     | '/_authenticated/admin/companies'
     | '/_authenticated/admin/compliance'
@@ -1214,6 +1274,8 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/client/pv/$id'
     | '/sign/pv/$token'
+    | '/sous-traitant/intervention/$id'
+    | '/sous-traitant/invitation/$token'
     | '/_authenticated/chantiers/'
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
@@ -1268,10 +1330,15 @@ export interface RootRouteChildren {
   ClientVerifyRoute: typeof ClientVerifyRoute
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
+  SousTraitantChantiersRoute: typeof SousTraitantChantiersRoute
+  SousTraitantVerifyRoute: typeof SousTraitantVerifyRoute
   ClientIndexRoute: typeof ClientIndexRoute
+  SousTraitantIndexRoute: typeof SousTraitantIndexRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ClientPvIdRoute: typeof ClientPvIdRoute
   SignPvTokenRoute: typeof SignPvTokenRoute
+  SousTraitantInterventionIdRoute: typeof SousTraitantInterventionIdRoute
+  SousTraitantInvitationTokenRoute: typeof SousTraitantInvitationTokenRoute
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
   ApiPublicHooksCheckExpiringTrialsRoute: typeof ApiPublicHooksCheckExpiringTrialsRoute
@@ -1433,6 +1500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sous-traitant/': {
+      id: '/sous-traitant/'
+      path: '/sous-traitant'
+      fullPath: '/sous-traitant/'
+      preLoaderRoute: typeof SousTraitantIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/solutions/': {
       id: '/solutions/'
       path: '/'
@@ -1445,6 +1519,20 @@ declare module '@tanstack/react-router' {
       path: '/client'
       fullPath: '/client/'
       preLoaderRoute: typeof ClientIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sous-traitant/verify': {
+      id: '/sous-traitant/verify'
+      path: '/sous-traitant/verify'
+      fullPath: '/sous-traitant/verify'
+      preLoaderRoute: typeof SousTraitantVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sous-traitant/chantiers': {
+      id: '/sous-traitant/chantiers'
+      path: '/sous-traitant/chantiers'
+      fullPath: '/sous-traitant/chantiers'
+      preLoaderRoute: typeof SousTraitantChantiersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/solutions/$slug': {
@@ -1621,6 +1709,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/chantiers/'
       preLoaderRoute: typeof AuthenticatedChantiersIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/sous-traitant/invitation/$token': {
+      id: '/sous-traitant/invitation/$token'
+      path: '/sous-traitant/invitation/$token'
+      fullPath: '/sous-traitant/invitation/$token'
+      preLoaderRoute: typeof SousTraitantInvitationTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sous-traitant/intervention/$id': {
+      id: '/sous-traitant/intervention/$id'
+      path: '/sous-traitant/intervention/$id'
+      fullPath: '/sous-traitant/intervention/$id'
+      preLoaderRoute: typeof SousTraitantInterventionIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/sign/pv/$token': {
       id: '/sign/pv/$token'
@@ -2206,10 +2308,15 @@ const rootRouteChildren: RootRouteChildren = {
   ClientVerifyRoute: ClientVerifyRoute,
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
+  SousTraitantChantiersRoute: SousTraitantChantiersRoute,
+  SousTraitantVerifyRoute: SousTraitantVerifyRoute,
   ClientIndexRoute: ClientIndexRoute,
+  SousTraitantIndexRoute: SousTraitantIndexRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ClientPvIdRoute: ClientPvIdRoute,
   SignPvTokenRoute: SignPvTokenRoute,
+  SousTraitantInterventionIdRoute: SousTraitantInterventionIdRoute,
+  SousTraitantInvitationTokenRoute: SousTraitantInvitationTokenRoute,
   ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
   ApiPublicHooksCheckExpiringTrialsRoute:
