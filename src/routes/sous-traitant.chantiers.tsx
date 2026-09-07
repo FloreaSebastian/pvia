@@ -43,7 +43,7 @@ function SubcontractorChantiers() {
   };
   const rows = (data?.assignments ?? []) as Row[];
   const byChantier = new Map<string, { name: string; reference: string | null; company: string; items: Row[] }>();
-  for (const a of data?.assignments ?? []) {
+  for (const a of rows) {
     const key = a.chantierId;
     const entry = byChantier.get(key) ?? {
       name: a.chantier?.name ?? "",
