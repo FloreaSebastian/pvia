@@ -129,6 +129,26 @@ export function normalizePermissions(raw: unknown): SubcontractorPermissionMap {
 }
 
 /**
+ * Normalisation dédiée aux SURCHARGES d'affectation.
+ *
+ * Contrairement à `normalizePermissions`, un `false` explicite est CONSERVÉ :
+ * c'est ainsi qu'un administrateur retire localement un droit hérité de la
+ * relation. Toute clé inconnue et toute valeur non booléenne sont ignorées.
+ */
+export function normalizePermissionOverrides(raw: unknown): SubcontractorPermissionMap {
+  const out: SubcontractorPermissionMap = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const key of SUBCONTRACTOR_PERMISSIONS) {
+    const v = (raw as Record<string, unknown>)[key];
+    if (v === true) out[key] = true;
+    else if (v === false) out[key] = false;
+  }
+  return out;
+}
+
+
+
+/**
  * Effective = permissions de la relation, restreintes/étendues par les
  * surcharges de l'affectation chantier. Une surcharge `false` retire
  * toujours le droit (principe du moins-disant).
