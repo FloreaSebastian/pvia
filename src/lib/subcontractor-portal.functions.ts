@@ -17,6 +17,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
 import { enforceRateLimit } from "./rate-limit.server";
 import {
+  actorLabel,
   assertCompanyWritable,
   assertPermission,
   getSubcontractorIdentity,
@@ -24,7 +25,11 @@ import {
   requireAssignment,
   requireChantierAccess,
 } from "./subcontractor-guard.server";
-import { SUBCONTRACTOR_PERMISSIONS } from "./subcontractor-permissions";
+import {
+  maskChantier,
+  maskClientContact,
+  SUBCONTRACTOR_PERMISSIONS,
+} from "./subcontractor-permissions";
 
 const BUCKET = "pv-assets";
 
@@ -123,7 +128,7 @@ export const getSubcontractorAssignment = createServerFn({ method: "POST" })
         .select("name,phone")
         .eq("id", chantier.client_id)
         .maybeSingle();
-      if (c) client = { name: c.name, phone: c.phone ?? null };
+      client = maskClientContact(c as Record<string, unknown> | null, permissions);
     }
 
     const photos: any[] = [];
@@ -187,12 +192,17 @@ export const getSubcontractorAssignment = createServerFn({ method: "POST" })
 
     let visit: any = null;
     if (permissions["visit.view"] && assignment.technical_visit_id) {
-      const { data: v } = await supabaseAdmin
-        .from("technical_visits")
-        .select("id,status,scheduled_at,notes")
-        .eq("id", assignment.technical_visit_id)
-        .maybeSingle();
-      visit = v ?? null;
+      // La formule commerciale prime sur la permission : une entreprise dont le
+      // plan n'inclut pas les visites techniques n'expose rien au sous-traitant.
+      const { hasPlanFeature } = await import("./plan-guard.server");
+      if (await hasPlanFeature(assignment.company_id, "technical_visits" as never)) {
+        const { data: v } = await supabaseAdmin
+          .from("technical_visits")
+          .select("id,status,scheduled_at,notes")
+          .eq("id", assignment.technical_visit_id)
+          .maybeSingle();
+        visit = v ?? null;
+      }
     }
 
     let messages: any[] = [];
@@ -210,18 +220,7 @@ export const getSubcontractorAssignment = createServerFn({ method: "POST" })
       assignment,
       companyName: membership.companyName,
       permissions,
-      chantier: chantier
-        ? {
-            id: chantier.id,
-            reference: chantier.reference,
-            name: chantier.name,
-            address: permissions["chantier.details"] ? chantier.address : null,
-            city: chantier.city,
-            postal_code: chantier.postal_code,
-            description: permissions["chantier.details"] ? chantier.description : null,
-            status: chantier.status,
-          }
-        : null,
+      chantier: maskChantier(chantier as Record<string, unknown> | null, permissions),
       client,
       photos,
       documents,
@@ -276,7 +275,12 @@ export const setSubcontractorAssignmentStatus = createServerFn({ method: "POST" 
       entityType: "subcontractor_assignment",
       entityId: assignment.id,
       action: "member.role_changed" as never,
-      metadata: { scope: "subcontractor_assignment_status", status: data.status },
+      metadata: {
+        scope: "subcontractor_assignment_status",
+        status: data.status,
+        actorLabel: actorLabel(membership),
+        chantierId: assignment.chantier_id,
+      },
     });
 
     return { ok: true as const };
@@ -342,7 +346,12 @@ export const addSubcontractorNote = createServerFn({ method: "POST" })
       entityType: "chantier_note",
       entityId: assignment.chantier_id,
       action: "chantier.note_added" as never,
-      metadata: { scope: "subcontractor", membershipId: membership.membershipId },
+      metadata: {
+        scope: "subcontractor",
+        membershipId: membership.membershipId,
+        actorLabel: actorLabel(membership),
+        chantierId: assignment.chantier_id,
+      },
     });
     return { ok: true as const };
   });
@@ -385,6 +394,11 @@ export const uploadSubcontractorPhoto = createServerFn({ method: "POST" })
     const bytes = Uint8Array.from(atob(data.dataBase64), (c) => c.charCodeAt(0));
     if (bytes.byteLength > 6_000_000) throw new Error("Photo trop volumineuse (6 Mo max).");
 
+    // Le content-type déclaré n'est jamais cru : on vérifie la signature binaire.
+    const { sniffImageMime } = await import("./image-validate.server");
+    const sniffed = sniffImageMime(bytes);
+    if (!sniffed || sniffed !== data.contentType) throw new Error("Fichier image invalide.");
+
     const ext = data.contentType === "image/png" ? "png" : data.contentType === "image/webp" ? "webp" : "jpg";
     const path = `${assignment.company_id}/chantiers/${assignment.chantier_id}/subcontractor/${crypto.randomUUID()}.${ext}`;
 
@@ -423,7 +437,13 @@ export const uploadSubcontractorPhoto = createServerFn({ method: "POST" })
       entityType: "chantier_photo",
       entityId: assignment.chantier_id,
       action: "photo.add" as never,
-      metadata: { scope: "subcontractor", membershipId: membership.membershipId },
+      metadata: {
+        scope: "subcontractor",
+        membershipId: membership.membershipId,
+        actorLabel: actorLabel(membership),
+        chantierId: assignment.chantier_id,
+        count: 1,
+      },
     });
 
     return { ok: true as const };
@@ -479,8 +499,10 @@ export const getSubcontractorChantier = createServerFn({ method: "POST" })
       .select("id,reference,name,address,city,postal_code,status,description")
       .eq("id", data.chantierId)
       .maybeSingle();
+    // Sans « fiche chantier », l'adresse et la description ne sont pas renvoyées
+    // (masquage côté serveur, pas côté affichage).
     return {
-      chantier,
+      chantier: maskChantier(chantier as Record<string, unknown> | null, permissions),
       companyName: membership.companyName,
       assignmentIds,
       permissions: SUBCONTRACTOR_PERMISSIONS.filter((p) => permissions[p]),

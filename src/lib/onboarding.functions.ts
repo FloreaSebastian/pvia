@@ -14,6 +14,8 @@ export type OnboardingStatus = {
   companyVerificationSource: "manual" | "siret_sync" | "admin" | null;
   needsCompanyStep: boolean; // false if user is invited member of an already-verified company
   activeCompanyId: string | null;
+  /** Compte rattaché UNIQUEMENT à l'espace sous-traitant (aucun accès pro). */
+  isSubcontractorOnly: boolean;
   companyName: string | null;
   isAdmin: boolean;
 };
@@ -77,6 +79,18 @@ export const getOnboardingStatus = createServerFn({ method: "POST" })
       );
     }
 
+    // Compte sous-traitant : aucun membership interne → l'application
+    // professionnelle lui est fermée (redirection vers son espace dédié).
+    let isSubcontractorOnly = false;
+    if (!activeCompanyId) {
+      const { data: sub } = await supabaseAdmin
+        .from("subcontractor_users")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      isSubcontractorOnly = !!sub;
+    }
+
     // Un membre non-admin d'une entreprise déjà validée n'a besoin que de son profil
     const needsCompanyStep = isAdmin || !companyComplete;
 
@@ -87,6 +101,7 @@ export const getOnboardingStatus = createServerFn({ method: "POST" })
       companyVerificationSource,
       needsCompanyStep,
       activeCompanyId,
+      isSubcontractorOnly,
       companyName,
       isAdmin,
     };
