@@ -247,3 +247,22 @@ export function maskClientContact(
     phone: typeof phone === "string" && phone ? phone : null,
   };
 }
+
+/**
+ * Ligne d'affectation telle que servie au portail sous-traitant (workspace).
+ * Le chantier est masqué AVANT l'envoi réseau, avec les permissions
+ * effectives (relation + surcharges de l'affectation).
+ */
+export function mapWorkspaceAssignment(
+  row: {
+    chantiers?: Record<string, unknown> | null;
+    permission_overrides?: unknown;
+  } & Record<string, unknown>,
+  membershipPermissions: SubcontractorPermissionMap,
+): { permissions: SubcontractorPermissionMap; chantier: MaskedChantier | null } {
+  const permissions = effectivePermissions(
+    membershipPermissions as Record<string, boolean>,
+    row.permission_overrides,
+  );
+  return { permissions, chantier: maskChantier(row.chantiers ?? null, permissions) };
+}

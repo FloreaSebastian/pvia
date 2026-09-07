@@ -26,7 +26,7 @@ import {
   requireChantierAccess,
 } from "./subcontractor-guard.server";
 import {
-  effectivePermissions,
+  mapWorkspaceAssignment,
   maskChantier,
   maskClientContact,
   SUBCONTRACTOR_PERMISSIONS,
@@ -98,16 +98,17 @@ export const getSubcontractorWorkspace = createServerFn({ method: "POST" })
       // Les permissions effectives (relation + surcharges de l'affectation)
       // filtrent le chantier AVANT l'envoi réseau : sans « fiche chantier »,
       // l'adresse et la description ne quittent jamais le serveur.
-      const perms = effectivePermissions(
-        (m?.permissions ?? {}) as Record<string, boolean>,
-        a.permission_overrides,
+      const { permissions: perms, chantier: maskedChantier } = mapWorkspaceAssignment(
+        a,
+        m?.permissions ?? {},
       );
+      void perms;
       return {
         id: a.id as string,
         companyId: a.company_id as string,
         companyName: byCompany.get(a.company_id)?.companyName ?? "",
         chantierId: a.chantier_id as string,
-        chantier: maskChantier(a.chantiers as Record<string, unknown> | null, perms),
+        chantier: maskedChantier,
         mission: a.mission as string,
         status: a.status as string,
         scheduledAt: a.scheduled_at as string | null,
