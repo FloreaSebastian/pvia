@@ -3547,6 +3547,10 @@ export type Database = {
         Returns: boolean
       }
       resolve_client_identity: { Args: { _email: string }; Returns: string }
+      sc_membership_readable: {
+        Args: { _membership_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "user" | "platform_admin"
