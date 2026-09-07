@@ -244,10 +244,12 @@ export const setSubcontractorAssignmentStatus = createServerFn({ method: "POST" 
     await assertCompanyWritable(assignment.company_id);
 
     const nowIso = new Date().toISOString();
-    const patch: Record<string, unknown> = { status: data.status };
-    if (data.status === "confirmed") patch["confirmed_at"] = nowIso;
-    if (data.status === "in_progress" || data.status === "on_site") patch["started_at"] = nowIso;
-    if (data.status === "done") patch["completed_at"] = nowIso;
+    const patch = {
+      status: data.status,
+      ...(data.status === "confirmed" ? { confirmed_at: nowIso } : {}),
+      ...(data.status === "in_progress" || data.status === "on_site" ? { started_at: nowIso } : {}),
+      ...(data.status === "done" ? { completed_at: nowIso } : {}),
+    };
 
     const { error } = await supabaseAdmin
       .from("subcontractor_assignments")
