@@ -1207,6 +1207,7 @@ export type Database = {
       enterprise_auth_codes: {
         Row: {
           attempts: number
+          audience: string
           code_hash: string
           created_at: string
           email: string
@@ -1217,6 +1218,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          audience?: string
           code_hash: string
           created_at?: string
           email: string
@@ -1227,6 +1229,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          audience?: string
           code_hash?: string
           created_at?: string
           email?: string
