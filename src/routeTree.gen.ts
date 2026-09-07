@@ -30,6 +30,7 @@ import { Route as CommentCaMarcheRouteImport } from './routes/comment-ca-marche'
 import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SousTraitantIndexRouteImport } from './routes/sous-traitant.index'
 import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
 import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
@@ -210,6 +211,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SousTraitantIndexRoute = SousTraitantIndexRouteImport.update({
+  id: '/sous-traitant/',
+  path: '/sous-traitant/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
@@ -691,6 +697,7 @@ export interface FileRoutesByFullPath {
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
+  '/sous-traitant/': typeof SousTraitantIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -788,6 +795,7 @@ export interface FileRoutesByTo {
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/client': typeof ClientIndexRoute
   '/solutions': typeof SolutionsIndexRoute
+  '/sous-traitant': typeof SousTraitantIndexRoute
   '/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -887,6 +895,7 @@ export interface FileRoutesById {
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
+  '/sous-traitant/': typeof SousTraitantIndexRoute
   '/_authenticated/admin/billing': typeof AuthenticatedAdminBillingRoute
   '/_authenticated/admin/companies': typeof AuthenticatedAdminCompaniesRouteWithChildren
   '/_authenticated/admin/compliance': typeof AuthenticatedAdminComplianceRoute
@@ -988,6 +997,7 @@ export interface FileRouteTypes {
     | '/solutions/$slug'
     | '/client/'
     | '/solutions/'
+    | '/sous-traitant/'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/compliance'
@@ -1085,6 +1095,7 @@ export interface FileRouteTypes {
     | '/solutions/$slug'
     | '/client'
     | '/solutions'
+    | '/sous-traitant'
     | '/admin/billing'
     | '/admin/companies'
     | '/admin/compliance'
@@ -1183,6 +1194,7 @@ export interface FileRouteTypes {
     | '/solutions/$slug'
     | '/client/'
     | '/solutions/'
+    | '/sous-traitant/'
     | '/_authenticated/admin/billing'
     | '/_authenticated/admin/companies'
     | '/_authenticated/admin/compliance'
@@ -1269,6 +1281,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   ClientIndexRoute: typeof ClientIndexRoute
+  SousTraitantIndexRoute: typeof SousTraitantIndexRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ClientPvIdRoute: typeof ClientPvIdRoute
   SignPvTokenRoute: typeof SignPvTokenRoute
@@ -1431,6 +1444,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sous-traitant/': {
+      id: '/sous-traitant/'
+      path: '/sous-traitant'
+      fullPath: '/sous-traitant/'
+      preLoaderRoute: typeof SousTraitantIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/solutions/': {
@@ -2207,6 +2227,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
   ClientIndexRoute: ClientIndexRoute,
+  SousTraitantIndexRoute: SousTraitantIndexRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ClientPvIdRoute: ClientPvIdRoute,
   SignPvTokenRoute: SignPvTokenRoute,
