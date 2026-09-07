@@ -42,6 +42,7 @@ import { Route as ClientHistoriqueRouteImport } from './routes/client.historique
 import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
 import { Route as AuthenticatedUpgradeRequiredRouteImport } from './routes/_authenticated/upgrade-required'
 import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
+import { Route as AuthenticatedSousTraitantsRouteImport } from './routes/_authenticated/sous-traitants'
 import { Route as AuthenticatedReservesRouteImport } from './routes/_authenticated/reserves'
 import { Route as AuthenticatedParametresRouteImport } from './routes/_authenticated/parametres'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
@@ -271,6 +272,12 @@ const AuthenticatedStatistiquesRoute =
   AuthenticatedStatistiquesRouteImport.update({
     id: '/statistiques',
     path: '/statistiques',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSousTraitantsRoute =
+  AuthenticatedSousTraitantsRouteImport.update({
+    id: '/sous-traitants',
+    path: '/sous-traitants',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedReservesRoute = AuthenticatedReservesRouteImport.update({
@@ -671,6 +678,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/reserves': typeof AuthenticatedReservesRoute
+  '/sous-traitants': typeof AuthenticatedSousTraitantsRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
@@ -767,6 +775,7 @@ export interface FileRoutesByTo {
   '/historique': typeof AuthenticatedHistoriqueRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/reserves': typeof AuthenticatedReservesRoute
+  '/sous-traitants': typeof AuthenticatedSousTraitantsRoute
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
@@ -865,6 +874,7 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/parametres': typeof AuthenticatedParametresRouteWithChildren
   '/_authenticated/reserves': typeof AuthenticatedReservesRoute
+  '/_authenticated/sous-traitants': typeof AuthenticatedSousTraitantsRoute
   '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
@@ -965,6 +975,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/parametres'
     | '/reserves'
+    | '/sous-traitants'
     | '/statistiques'
     | '/upgrade-required'
     | '/client/dashboard'
@@ -1061,6 +1072,7 @@ export interface FileRouteTypes {
     | '/historique'
     | '/onboarding'
     | '/reserves'
+    | '/sous-traitants'
     | '/statistiques'
     | '/upgrade-required'
     | '/client/dashboard'
@@ -1158,6 +1170,7 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/parametres'
     | '/_authenticated/reserves'
+    | '/_authenticated/sous-traitants'
     | '/_authenticated/statistiques'
     | '/_authenticated/upgrade-required'
     | '/client/dashboard'
@@ -1502,6 +1515,13 @@ declare module '@tanstack/react-router' {
       path: '/statistiques'
       fullPath: '/statistiques'
       preLoaderRoute: typeof AuthenticatedStatistiquesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sous-traitants': {
+      id: '/_authenticated/sous-traitants'
+      path: '/sous-traitants'
+      fullPath: '/sous-traitants'
+      preLoaderRoute: typeof AuthenticatedSousTraitantsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/reserves': {
@@ -2049,6 +2069,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedParametresRoute: typeof AuthenticatedParametresRouteWithChildren
   AuthenticatedReservesRoute: typeof AuthenticatedReservesRoute
+  AuthenticatedSousTraitantsRoute: typeof AuthenticatedSousTraitantsRoute
   AuthenticatedStatistiquesRoute: typeof AuthenticatedStatistiquesRoute
   AuthenticatedUpgradeRequiredRoute: typeof AuthenticatedUpgradeRequiredRoute
   AuthenticatedAdminBillingRoute: typeof AuthenticatedAdminBillingRoute
@@ -2089,6 +2110,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedParametresRoute: AuthenticatedParametresRouteWithChildren,
   AuthenticatedReservesRoute: AuthenticatedReservesRoute,
+  AuthenticatedSousTraitantsRoute: AuthenticatedSousTraitantsRoute,
   AuthenticatedStatistiquesRoute: AuthenticatedStatistiquesRoute,
   AuthenticatedUpgradeRequiredRoute: AuthenticatedUpgradeRequiredRoute,
   AuthenticatedAdminBillingRoute: AuthenticatedAdminBillingRoute,
