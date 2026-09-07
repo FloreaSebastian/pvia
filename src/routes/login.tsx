@@ -71,6 +71,79 @@ function LoginPage() {
   const logEvent = useServerFn(logUserAuthEvent);
   const sendProCode = useServerFn(sendEnterpriseLoginCode);
   const sendClientCode = useServerFn(sendClientLoginCode);
+  const sendSubCode = useServerFn(sendSubcontractorLoginCode);
+
+  const [audience, setAudience] = useState<AudienceType>(search.type ?? "professional");
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(() => getRememberMePreference());
+
+  // Synchronise l'onglet avec l'URL (?type=client dans un email par exemple).
+  useEffect(() => {
+    if (search.type && search.type !== audience) setAudience(search.type);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.type]);
+
+  // Session déjà active → on renvoie vers l'espace correspondant.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (audience === "professional") navigate({ to: "/dashboard" });
+    if (audience === "subcontractor") navigate({ to: "/sous-traitant" });
+  }, [authLoading, user, audience, navigate]);
+
+  function selectAudience(next: AudienceType) {
+    setAudience(next);
+    navigate({ to: "/login", search: { type: next }, replace: true });
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (loading) return;
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return;
+    setLoading(true);
+    setRememberMePreference(remember);
+
+    const NEUTRAL =
+      audience === "professional"
+        ? "Si un compte existe, un code de connexion a été envoyé."
+        : "Si un accès existe pour cet email, un code vient d'être envoyé.";
+
+    const goVerify = () => {
+      if (audience === "professional") return navigate({ to: "/verify", search: { email: normalized } });
+      if (audience === "subcontractor")
+        return navigate({ to: "/sous-traitant/verify", search: { email: normalized } });
+      return navigate({ to: "/client/verify", search: { email: normalized } });
+    };
+
+    try {
+      if (audience === "professional") {
+        await sendProCode({ data: { email: normalized } });
+        await logEvent({ data: { action: "user.login_code_sent", email: normalized } }).catch(() => {});
+      } else if (audience === "subcontractor") {
+        await sendSubCode({ data: { email: normalized } });
+      } else {
+        await sendClientCode({ data: { email: normalized } });
+      }
+      toast.success(NEUTRAL);
+      goVerify();
+    } catch (err: unknown) {
+      const msg = String((err as { message?: string })?.message ?? "");
+      if (/rate|limit|trop|patient|429|too many/i.test(msg)) {
+        toast.error("Veuillez patienter avant de redemander un code.");
+      } else {
+        // Anti-énumération : message neutre quelle que soit la cause.
+        toast.success(NEUTRAL);
+        goVerify();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const isPro = audience === "professional";
+  const isSub = audience === "subcontractor";
+
 
   const [audience, setAudience] = useState<AudienceType>(search.type ?? "professional");
   const [email, setEmail] = useState("");
