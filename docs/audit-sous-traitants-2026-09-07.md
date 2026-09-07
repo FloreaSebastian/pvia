@@ -128,3 +128,56 @@ des données).
   se connecter par l'onglet « Sous-traitant », ouvrir l'intervention, ajouter une
   photo, puis retirer l'affectation depuis un second navigateur et rafraîchir.
 - Encaissement Stripe : hors périmètre, volontairement non touché.
+
+---
+
+## N. Seconde passe de correction (07/09/2026, après revue)
+
+### N.1 Défauts corrigés
+
+| # | Sév. | Défaut | Correction | Preuve |
+|---|------|--------|-----------|--------|
+| 8 | P1 | `getSubcontractorWorkspace` renvoyait l'adresse complète du chantier sans le droit « fiche chantier » | Masquage serveur via `mapWorkspaceAssignment` (permissions relation + surcharges) appliqué avant envoi réseau ; tous les autres points d'entrée du portail relus (`maskChantier` / `maskClientContact` déjà appliqués) | 3 tests unitaires |
+| 9 | P1 | Les surcharges à `false` étaient perdues à l'enregistrement (`normalizePermissions` ne gardait que `true`) | Nouvelle `normalizePermissionOverrides` : conserve `true` ET `false`, refuse toute clé inconnue et toute valeur non booléenne ; utilisée à la création et à la modification d'affectation | 3 tests unitaires (dont chemin persistance → permissions effectives) |
+| 10 | P1 | Règles d'accès trop permissives : une intervention annulée, une relation suspendue/révoquée ou une entreprise sous-traitante non active restaient lisibles en accès direct | `sc_assignments_self_read` et `sc_messages_self_read` réécrites ; vérification de relation centralisée dans `sc_membership_readable` (SECURITY DEFINER, filtrée sur `auth.uid()`), nécessaire car les sous-requêtes de policy subissent elles-mêmes les règles d'accès | Scénario base 8/8 (N.2) |
+| 11 | P2 | Codes OTP professionnel et sous-traitant partagés sans contexte | Colonne `audience` (`professional` / `subcontractor`), contrainte, index, valeur par défaut pour les lignes existantes ; écritures, invalidations, lectures et vérifications filtrées par contexte + revérification en mémoire (`matchesAudience`) | 4 tests unitaires |
+| 12 | P2 | URLs signées valables 1 h après révocation | TTL sous-traitant ramené à **120 s** (`SUBCONTRACTOR_SIGNED_URL_TTL`). Compromis documenté : Supabase Storage ne révoque pas une signature déjà émise ; la fenêtre résiduelle passe de 60 min à 2 min, et aucun nouveau lien n'est généré après révocation/suspension/annulation puisque chaque lecture repasse par les gardes. TTL interne entreprise inchangé (1 h) | Contrôle code |
+| 13 | P2 | Visite technique vérifiée sur l'entreprise seulement | Vérification `company_id` **ET** `chantier_id` ; message d'erreur explicite | Contrôle code |
+
+### N.2 Scénario réel en base (données TEST, transaction annulée, 0 reste)
+
+| Contrôle | Attendu | Résultat |
+|---|---|---|
+| Intervention active lue par le sous-traitant | visible | PASS |
+| Intervention annulée | masquée | PASS |
+| Messages d'une intervention active | visibles | PASS |
+| Messages d'une intervention annulée | masqués | PASS |
+| Relation suspendue → intervention | masquée | PASS |
+| Relation suspendue → messages | masqués | PASS |
+| Relation révoquée → intervention | masquée | PASS |
+| Entreprise sous-traitante suspendue → intervention | masquée | PASS |
+
+Vérification finale : aucune entreprise, chantier, relation ni compte de test ne subsiste.
+Aucun paiement, abonnement Stripe LIVE, client réel ou donnée réelle n'a été touché.
+
+### N.3 Recontrôles demandés
+
+- `requireAssignment`, `requireChantierAccess`, `listActiveMemberships` : relation dérivée de la session, statut actif, non révoquée/suspendue, entreprise sous-traitante active, affectation non annulée, tenant jamais lu depuis le navigateur — inchangé et confirmé.
+- Aucun `company_members`, rôle interne, entreprise professionnelle ni essai 14 jours pour un compte sous-traitant (trigger `handle_new_user` + `isSubcontractorOnly`).
+- Suspension, révocation, annulation d'affectation et retrait de permission : effectifs au prochain appel, sans reconnexion.
+- Chantier d'une autre entreprise et chantier non affecté : refusés.
+- Écritures d'administration : `directeur` et `responsable_exploitation` uniquement (`assertAdminWrite` → `is_company_admin`).
+- Images : signatures binaires contrôlées, correspondance obligatoire avec le type déclaré.
+- `technical_visits` : `hasPlanFeature` en lecture (fail-closed) et `assertPlanFeature` en écriture.
+
+### N.4 Tests
+
+`bun test tests/unit` : **96 tests, 0 échec, 252 assertions, 8 fichiers** (10 ajoutés dans cette passe).
+Typecheck et build : OK.
+
+### N.5 Limites restantes (honnêtes)
+
+- **BLOCKED** — parcours navigateur **authentifié** (réception réelle de l'email, saisie du code, navigation portail, appareil photo) : aucune session navigateur ne peut être ouverte dans cet environnement. Le rendu **public** reste sans débordement de 320 px à 768 px.
+- **Non testé en runtime** — expiration réelle d'une URL signée au bout de 120 s (contrôle de code uniquement).
+- **Non testé en runtime** — rejet croisé des codes OTP contre la base réelle (couvert par le filtre SQL `audience` + 4 tests unitaires).
+- Linter base : 25 avertissements, dont 24 préexistants ; le 25e est la nouvelle fonction `sc_membership_readable`, volontairement exécutable par un utilisateur connecté car utilisée par les règles d'accès et strictement limitée à `auth.uid()`.
