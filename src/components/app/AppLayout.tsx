@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   Search,
+  Handshake,
   HelpCircle,
   AlertCircle,
   Building2,
