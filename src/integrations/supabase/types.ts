@@ -2378,6 +2378,387 @@ export type Database = {
         }
         Relationships: []
       }
+      subcontractor_assignments: {
+        Row: {
+          cancelled_at: string | null
+          chantier_event_id: string | null
+          chantier_id: string
+          comment: string | null
+          company_id: string
+          completed_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          membership_id: string
+          mission: string
+          permission_overrides: Json
+          scheduled_at: string | null
+          scheduled_end_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["subcontractor_intervention_status"]
+          technical_visit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          chantier_event_id?: string | null
+          chantier_id: string
+          comment?: string | null
+          company_id: string
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          membership_id: string
+          mission?: string
+          permission_overrides?: Json
+          scheduled_at?: string | null
+          scheduled_end_at?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["subcontractor_intervention_status"]
+          technical_visit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          chantier_event_id?: string | null
+          chantier_id?: string
+          comment?: string | null
+          company_id?: string
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          membership_id?: string
+          mission?: string
+          permission_overrides?: Json
+          scheduled_at?: string | null
+          scheduled_end_at?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["subcontractor_intervention_status"]
+          technical_visit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_assignments_chantier_event_id_fkey"
+            columns: ["chantier_event_id"]
+            isOneToOne: false
+            referencedRelation: "chantier_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_assignments_chantier_id_fkey"
+            columns: ["chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_assignments_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_assignments_technical_visit_id_fkey"
+            columns: ["technical_visit_id"]
+            isOneToOne: false
+            referencedRelation: "technical_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractor_companies: {
+        Row: {
+          address: string | null
+          archived_at: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          siret: string | null
+          status: Database["public"]["Enums"]["subcontractor_status"]
+          trade_name: string | null
+          trades: string[]
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          archived_at?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          siret?: string | null
+          status?: Database["public"]["Enums"]["subcontractor_status"]
+          trade_name?: string | null
+          trades?: string[]
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          archived_at?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          siret?: string | null
+          status?: Database["public"]["Enums"]["subcontractor_status"]
+          trade_name?: string | null
+          trades?: string[]
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractor_invites: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
+          id: string
+          membership_id: string
+          revoked_at: string | null
+          token_hash: string
+          used_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          membership_id: string
+          revoked_at?: string | null
+          token_hash: string
+          used_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          membership_id?: string
+          revoked_at?: string | null
+          token_hash?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_invites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_invites_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractor_memberships: {
+        Row: {
+          accepted_at: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          invited_at: string | null
+          job_title: string | null
+          last_activity_at: string | null
+          permissions: Json
+          preset: string | null
+          revoked_at: string | null
+          status: Database["public"]["Enums"]["subcontractor_status"]
+          subcontractor_company_id: string
+          subcontractor_user_id: string
+          suspended_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invited_at?: string | null
+          job_title?: string | null
+          last_activity_at?: string | null
+          permissions?: Json
+          preset?: string | null
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["subcontractor_status"]
+          subcontractor_company_id: string
+          subcontractor_user_id: string
+          suspended_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invited_at?: string | null
+          job_title?: string | null
+          last_activity_at?: string | null
+          permissions?: Json
+          preset?: string | null
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["subcontractor_status"]
+          subcontractor_company_id?: string
+          subcontractor_user_id?: string
+          suspended_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_memberships_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_memberships_subcontractor_company_id_fkey"
+            columns: ["subcontractor_company_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_memberships_subcontractor_user_id_fkey"
+            columns: ["subcontractor_user_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractor_messages: {
+        Row: {
+          assignment_id: string
+          author_kind: string
+          author_label: string
+          author_user_id: string | null
+          body: string
+          company_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          assignment_id: string
+          author_kind?: string
+          author_label: string
+          author_user_id?: string | null
+          body: string
+          company_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          assignment_id?: string
+          author_kind?: string
+          author_label?: string
+          author_user_id?: string | null
+          body?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_messages_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractor_users: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          last_login_at: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          last_login_at?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          last_login_at?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           billing_interval: string | null
@@ -3135,6 +3516,10 @@ export type Database = {
         Args: { _bucket: string; _key: string; _window_start: string }
         Returns: number
       }
+      is_active_subcontractor: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_company_admin: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
@@ -3170,6 +3555,16 @@ export type Database = {
         | "assistant_admin"
         | "lecture_seule"
       member_status: "active" | "invited" | "suspended"
+      subcontractor_intervention_status:
+        | "to_plan"
+        | "planned"
+        | "confirmed"
+        | "en_route"
+        | "on_site"
+        | "in_progress"
+        | "done"
+        | "cancelled"
+      subcontractor_status: "invited" | "active" | "suspended" | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3307,6 +3702,17 @@ export const Constants = {
         "lecture_seule",
       ],
       member_status: ["active", "invited", "suspended"],
+      subcontractor_intervention_status: [
+        "to_plan",
+        "planned",
+        "confirmed",
+        "en_route",
+        "on_site",
+        "in_progress",
+        "done",
+        "cancelled",
+      ],
+      subcontractor_status: ["invited", "active", "suspended", "archived"],
     },
   },
 } as const
