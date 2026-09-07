@@ -33,7 +33,15 @@ function SubcontractorChantiers() {
     retry: false,
   });
 
-  type Row = NonNullable<typeof data>["assignments"][number];
+  type Row = {
+    id: string;
+    chantierId: string;
+    companyName: string;
+    mission: string;
+    scheduledAt: string | null;
+    chantier?: { name?: string | null; reference?: string | null } | null;
+  };
+  const rows = (data?.assignments ?? []) as Row[];
   const byChantier = new Map<string, { name: string; reference: string | null; company: string; items: Row[] }>();
   for (const a of data?.assignments ?? []) {
     const key = a.chantierId;
