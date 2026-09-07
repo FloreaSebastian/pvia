@@ -98,11 +98,7 @@ export const getSubcontractorWorkspace = createServerFn({ method: "POST" })
       // Les permissions effectives (relation + surcharges de l'affectation)
       // filtrent le chantier AVANT l'envoi réseau : sans « fiche chantier »,
       // l'adresse et la description ne quittent jamais le serveur.
-      const { permissions: perms, chantier: maskedChantier } = mapWorkspaceAssignment(
-        a,
-        m?.permissions ?? {},
-      );
-      void perms;
+      const { chantier: maskedChantier } = mapWorkspaceAssignment(a, m?.permissions ?? {});
       return {
         id: a.id as string,
         companyId: a.company_id as string,
