@@ -33,7 +33,8 @@ function SubcontractorChantiers() {
     retry: false,
   });
 
-  const byChantier = new Map<string, { name: string; reference: string | null; company: string; items: any[] }>();
+  type Row = NonNullable<typeof data>["assignments"][number];
+  const byChantier = new Map<string, { name: string; reference: string | null; company: string; items: Row[] }>();
   for (const a of data?.assignments ?? []) {
     const key = a.chantierId;
     const entry = byChantier.get(key) ?? {
