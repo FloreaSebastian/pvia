@@ -55,7 +55,8 @@ export const getSubcontractorWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const memberships = await listActiveMemberships(context.userId);
-    if (memberships.length === 0) return { memberships: [], assignments: [] };
+    // (pas de retour anticipé : une liste vide de memberships donne simplement
+    // zéro affectation, tout en conservant un type de retour unique)
 
     const { data } = await supabaseAdmin
       .from("subcontractor_assignments")
