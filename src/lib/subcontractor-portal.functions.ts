@@ -169,7 +169,7 @@ export const getSubcontractorAssignment = createServerFn({ method: "POST" })
         if (r.storage_path) {
           const { data: signed } = await supabaseAdmin.storage
             .from(BUCKET)
-            .createSignedUrl(r.storage_path, 3600);
+            .createSignedUrl(r.storage_path, SUBCONTRACTOR_SIGNED_URL_TTL);
           url = signed?.signedUrl ?? null;
         }
         photos.push({ ...r, signed_url: url });
@@ -190,7 +190,7 @@ export const getSubcontractorAssignment = createServerFn({ method: "POST" })
         if (r.storage_path) {
           const { data: signed } = await supabaseAdmin.storage
             .from(BUCKET)
-            .createSignedUrl(r.storage_path, 3600);
+            .createSignedUrl(r.storage_path, SUBCONTRACTOR_SIGNED_URL_TTL);
           url = signed?.signedUrl ?? null;
         }
         documents.push({ ...r, signed_url: url });
