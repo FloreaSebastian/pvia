@@ -150,6 +150,8 @@ function LoginPage() {
       brandHeading={
         isPro ? (
           <>Connexion sans mot de passe.<br />Simple, rapide, sécurisée.</>
+        ) : isSub ? (
+          <>Vos interventions,<br />directement sur le terrain.</>
         ) : (
           <>Vos documents,<br />à portée d'email.</>
         )
@@ -157,7 +159,9 @@ function LoginPage() {
       brandSubtitle={
         isPro
           ? "Recevez un code à 6 chiffres par email. Plus de mot de passe oublié, plus de friction."
-          : "Consultez et signez les procès-verbaux transmis par votre professionnel, sans créer de compte."
+          : isSub
+            ? "Accédez uniquement aux chantiers et interventions qui vous sont affectés par l'entreprise."
+            : "Consultez et signez les procès-verbaux transmis par votre professionnel, sans créer de compte."
       }
       bullets={
         isPro
@@ -166,11 +170,17 @@ function LoginPage() {
               "Conforme RGPD · hébergement EU",
               "Séparation stricte des espaces professionnels et clients",
             ]
-          : [
-              "Connexion par code à usage unique",
-              "Aucun mot de passe à retenir",
-              "Vous n'accédez qu'à vos propres documents",
-            ]
+          : isSub
+            ? [
+                "Connexion par code à usage unique",
+                "Accès limité à vos affectations",
+                "Autorisations définies par l'entreprise donneuse d'ordre",
+              ]
+            : [
+                "Connexion par code à usage unique",
+                "Aucun mot de passe à retenir",
+                "Vous n'accédez qu'à vos propres documents",
+              ]
       }
     >
       <Card className="border-border/60 p-6 shadow-brand sm:p-8">
@@ -185,10 +195,11 @@ function LoginPage() {
         <div
           role="tablist"
           aria-label="Choisissez votre espace"
-          className="mt-6 grid grid-cols-2 gap-1.5 rounded-xl bg-muted/60 p-1.5"
+          className="mt-6 grid grid-cols-1 gap-1.5 rounded-xl bg-muted/60 p-1.5 sm:grid-cols-3"
         >
           {([
             { key: "professional" as const, label: "Professionnel", Icon: Building2 },
+            { key: "subcontractor" as const, label: "Sous-traitant", Icon: HardHat },
             { key: "client" as const, label: "Client", Icon: UserRound },
           ]).map(({ key, label, Icon }) => {
             const active = audience === key;
