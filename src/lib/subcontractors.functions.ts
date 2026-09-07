@@ -20,6 +20,7 @@ import { enforceRateLimit } from "./rate-limit.server";
 import { normalizeEmail, sha256Hex } from "./client-auth.server";
 import { getPublicAppUrl } from "./app-url.server";
 import {
+  normalizePermissionOverrides,
   normalizePermissions,
   permissionsFromPreset,
   SUBCONTRACTOR_PERMISSIONS,

@@ -1207,6 +1207,7 @@ export type Database = {
       enterprise_auth_codes: {
         Row: {
           attempts: number
+          audience: string
           code_hash: string
           created_at: string
           email: string
@@ -1217,6 +1218,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          audience?: string
           code_hash: string
           created_at?: string
           email: string
@@ -1227,6 +1229,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          audience?: string
           code_hash?: string
           created_at?: string
           email?: string
@@ -3544,6 +3547,10 @@ export type Database = {
         Returns: boolean
       }
       resolve_client_identity: { Args: { _email: string }; Returns: string }
+      sc_membership_readable: {
+        Args: { _membership_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "user" | "platform_admin"

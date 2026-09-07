@@ -11,6 +11,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { matchesAudience } from "./auth-code-audience";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "@/lib/audit.server";
@@ -103,6 +104,7 @@ async function runSend(data: { email: string }) {
     .from("enterprise_auth_codes")
     .update({ used_at: new Date().toISOString() })
     .eq("email", email)
+    .eq("audience", "subcontractor")
     .is("used_at", null);
 
   const { error: insErr } = await supabaseAdmin.from("enterprise_auth_codes").insert({
@@ -110,6 +112,7 @@ async function runSend(data: { email: string }) {
     code_hash: codeHash,
     token_hash: tokenHash,
     expires_at: new Date(Date.now() + CODE_TTL_SEC * 1000).toISOString(),
+    audience: "subcontractor",
   });
   if (insErr) return NEUTRAL;
 
@@ -157,14 +160,16 @@ export const verifySubcontractorLoginCode = createServerFn({ method: "POST" })
 
     const { data: row } = await supabaseAdmin
       .from("enterprise_auth_codes")
-      .select("id, code_hash, token_hash, expires_at, attempts, used_at")
+      .select("id, code_hash, token_hash, expires_at, attempts, used_at, audience")
       .eq("email", email)
+      .eq("audience", "subcontractor")
       .is("used_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (!row) throw new Error("Code invalide ou expiré.");
+    // Défense en profondeur : un code du parcours professionnel est refusé ici.
+    if (!row || !matchesAudience(row, "subcontractor")) throw new Error("Code invalide ou expiré.");
     if (new Date(row.expires_at).getTime() < Date.now()) throw new Error("Code expiré. Demandez-en un nouveau.");
     if ((row.attempts ?? 0) >= MAX_ATTEMPTS) throw new Error("Trop de tentatives. Demandez un nouveau code.");
 

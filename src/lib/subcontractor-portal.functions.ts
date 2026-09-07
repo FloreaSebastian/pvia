@@ -26,12 +26,26 @@ import {
   requireChantierAccess,
 } from "./subcontractor-guard.server";
 import {
+  mapWorkspaceAssignment,
   maskChantier,
   maskClientContact,
   SUBCONTRACTOR_PERMISSIONS,
 } from "./subcontractor-permissions";
 
 const BUCKET = "pv-assets";
+
+/**
+ * TTL très court des URLs signées servies au sous-traitant (120 s).
+ *
+ * Compromis assumé : une URL déjà délivrée reste techniquement valide jusqu'à
+ * son expiration (Supabase Storage ne révoque pas une signature émise). En
+ * réduisant à 2 minutes, la fenêtre résiduelle après une révocation, une
+ * suspension ou une annulation d'affectation est négligeable, tout en laissant
+ * le temps d'afficher/télécharger le fichier. Aucun nouveau lien n'est généré
+ * après révocation puisque chaque lecture repasse par les gardes.
+ * Le comportement interne de l'entreprise (1 h) reste inchangé.
+ */
+const SUBCONTRACTOR_SIGNED_URL_TTL = 120;
 
 /** Le compte connecté est-il un sous-traitant ? (utilisé par la redirection UI) */
 export const getSubcontractorContext = createServerFn({ method: "POST" })
@@ -66,8 +80,8 @@ export const getSubcontractorWorkspace = createServerFn({ method: "POST" })
     const { data } = await supabaseAdmin
       .from("subcontractor_assignments")
       .select(
-        "id,company_id,chantier_id,membership_id,mission,status,scheduled_at,scheduled_end_at,comment," +
-          "chantiers!inner(id,reference,name,address,city,postal_code)",
+        "id,company_id,chantier_id,membership_id,mission,status,scheduled_at,scheduled_end_at,comment,permission_overrides," +
+          "chantiers!inner(id,reference,name,address,city,postal_code,status,description)",
       )
       .in(
         "membership_id",
@@ -78,18 +92,26 @@ export const getSubcontractorWorkspace = createServerFn({ method: "POST" })
       .limit(300);
 
     const byCompany = new Map(memberships.map((m) => [m.companyId, m]));
-    const assignments = ((data ?? []) as any[]).map((a) => ({
-      id: a.id as string,
-      companyId: a.company_id as string,
-      companyName: byCompany.get(a.company_id)?.companyName ?? "",
-      chantierId: a.chantier_id as string,
-      chantier: a.chantiers,
-      mission: a.mission as string,
-      status: a.status as string,
-      scheduledAt: a.scheduled_at as string | null,
-      scheduledEndAt: a.scheduled_end_at as string | null,
-      comment: a.comment as string | null,
-    }));
+    const byMembership = new Map(memberships.map((m) => [m.membershipId, m]));
+    const assignments = ((data ?? []) as any[]).map((a) => {
+      const m = byMembership.get(a.membership_id as string);
+      // Les permissions effectives (relation + surcharges de l'affectation)
+      // filtrent le chantier AVANT l'envoi réseau : sans « fiche chantier »,
+      // l'adresse et la description ne quittent jamais le serveur.
+      const { chantier: maskedChantier } = mapWorkspaceAssignment(a, m?.permissions ?? {});
+      return {
+        id: a.id as string,
+        companyId: a.company_id as string,
+        companyName: byCompany.get(a.company_id)?.companyName ?? "",
+        chantierId: a.chantier_id as string,
+        chantier: maskedChantier,
+        mission: a.mission as string,
+        status: a.status as string,
+        scheduledAt: a.scheduled_at as string | null,
+        scheduledEndAt: a.scheduled_end_at as string | null,
+        comment: a.comment as string | null,
+      };
+    });
 
     return {
       memberships: memberships.map((m) => ({
@@ -144,7 +166,7 @@ export const getSubcontractorAssignment = createServerFn({ method: "POST" })
         if (r.storage_path) {
           const { data: signed } = await supabaseAdmin.storage
             .from(BUCKET)
-            .createSignedUrl(r.storage_path, 3600);
+            .createSignedUrl(r.storage_path, SUBCONTRACTOR_SIGNED_URL_TTL);
           url = signed?.signedUrl ?? null;
         }
         photos.push({ ...r, signed_url: url });
@@ -165,7 +187,7 @@ export const getSubcontractorAssignment = createServerFn({ method: "POST" })
         if (r.storage_path) {
           const { data: signed } = await supabaseAdmin.storage
             .from(BUCKET)
-            .createSignedUrl(r.storage_path, 3600);
+            .createSignedUrl(r.storage_path, SUBCONTRACTOR_SIGNED_URL_TTL);
           url = signed?.signedUrl ?? null;
         }
         documents.push({ ...r, signed_url: url });
