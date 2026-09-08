@@ -252,3 +252,123 @@ rafraîchir sans reconnexion.
 **Conclusion honnête** : build publié + schéma base + guards/RLS sont cohérents
 APRÈS les deux corrections ci-dessus, qui doivent être publiées. Le parcours
 connecté réel reste non testé.
+
+---
+
+# Alertes de conformité — planification quotidienne (2026-09-08)
+
+## A. Mécanisme de planification réellement utilisé
+pg_cron + pg_net → `net.http_post` vers une route `/api/public/hooks/*` protégée par l'en-tête
+`x-cron-secret` (secret lu dans `vault.decrypted_secrets`, nom `CRON_SECRET`). C'est exactement
+l'architecture déjà utilisée par `pvia-check-expiring-trials`, `pvia-drain-emails`,
+`pvia-drain-webhooks`, `send-chantier-reminders` et `send-reserve-deadline-reminders`.
+Aucun second système créé.
+
+## B. Horaire + timezone
+8h00 **Europe/Paris**, une fois par jour. pg_cron tourne en UTC : le job est déclenché à
+`0 5,6,7 * * *` UTC et la route ne travaille que lorsque l'heure locale Paris vaut 8
+(`RUN_HOUR_PARIS`). Les bascules heure d'été / heure d'hiver sont donc absorbées sans
+modification de planification (et l'idempotence rend un déclenchement supplémentaire inoffensif).
+
+## C. Fonction / job exécuté
+- Job pg_cron : `pvia-subcontractor-document-expiry` (jobid 11).
+- Route : `POST /api/public/hooks/check-subcontractor-document-expiry`
+  (`src/routes/api/public/hooks/check-subcontractor-document-expiry.ts`).
+- Logique pure et testable : `src/lib/subcontractor-expiry-schedule.ts`.
+
+## D. Preuve que la planification existe côté serveur
+`select jobname, schedule, active from cron.job where jobname='pvia-subcontractor-document-expiry'`
+→ `pvia-subcontractor-document-expiry | 0 5,6,7 * * * | true`.
+
+## E. Matrice des jalons
+| Jours restants (date locale Paris) | Jalon | Alerte |
+|---|---|---|
+| 60 | `j-60` | oui |
+| 30 | `j-30` | oui |
+| 7 | `j-7` | oui |
+| 0 | `j-0` | oui |
+| 1..6, 8..29, 31..59, >60 | — | non |
+| −1 à −6 | — | non |
+| −7, −14, −21, −7n | `expired+7n` | oui (relance hebdomadaire) |
+
+## F. Idempotence
+Contrainte unique `uq_sc_doc_alert (document_id, milestone, expiry_date)` sur
+`subcontractor_document_alerts`. La ligne d'idempotence est insérée **avant** tout envoi :
+un rejeu, un retry pg_net, un redéploiement ou un second déclenchement horaire ne produit
+aucune alerte supplémentaire. Un remplacement crée un nouveau `document_id`, donc une nouvelle
+chronologie, sans réémettre les jalons de l'ancienne version.
+
+## G. Destinataires / canaux
+Notifications in-app (`notifications`) + push (`sendPushToUser`, réutilisé) pour les membres
+internes **actifs** de rôle `directeur` ou `responsable_exploitation` de l'entreprise donneuse
+d'ordre. Aucun sous-traitant, aucun client. Contenu : partenaire, type de pièce, date d'échéance,
+état (« expire bientôt » / « expire aujourd'hui » / « expiré ») et renvoi vers la fiche partenaire,
+onglet Documents. Le lien push pointe vers `/sous-traitants?partenaire=…&onglet=documents` :
+**jamais** une URL Storage signée.
+
+## H. Isolation multi-tenant
+`company_id` et destinataires sont recalculés côté serveur à partir de la pièce ; rien ne vient
+du navigateur. Test avec deux entreprises ayant la même date d'échéance : chaque alerte n'a été
+créée que dans son propre tenant, avec son propre destinataire.
+
+## I. Documents remplacés / archivés / partenaire inactif
+- `archived_at` non nul → aucune alerte.
+- `replaced_by_id` non nul → aucune alerte.
+- Ancienne version encore active mais supplantée par une pièce du même type à échéance plus
+  lointaine → aucune alerte obsolète (`superseded_by_newer`).
+- Règle d'entreprise (`subcontractor_document_rules`) prioritaire sur les drapeaux de la pièce ;
+  pièce non requise → aucune alerte.
+- **Comportement documenté** : partenaire `suspended` ou `archived` (ou `archived_at` renseigné)
+  → plus aucune alerte d'échéance, puisqu'il ne peut plus être affecté.
+
+## J. Logs / observabilité
+Chaque exécution retourne et journalise : `started_at`, `finished_at`, `paris_date`, `paris_hour`,
+`ran`, `scanned`, `planned`, `alerts_created`, `duplicates`, `skipped`, `notifications`, `pushes`,
+`errors`. Une erreur sur une pièce ou sur un destinataire est comptée et journalisée
+(identifiants techniques uniquement, aucune donnée sensible) sans interrompre les autres.
+Journal métier par alerte dans `audit_logs` (`subcontractor_document.expiry_alert_sent` /
+`…expired_alert_sent`).
+
+## K. Tests — PASS/FAIL
+Suite unitaire : `bun test tests/unit` → **130 tests, 0 échec, 354 assertions, 11 fichiers**
+(dont 14 nouveaux dans `tests/unit/subcontractor-expiry-schedule.test.ts`).
+`bunx tsgo --noEmit` : PASS. Build : OK.
+
+Exécutions réelles du job sur données TEST isolées (2 entreprises, 3 partenaires, 12 pièces) :
+
+| # | Scénario | Résultat |
+|---|---|---|
+| 1 | J-60 → 1 alerte ; 2e run → toujours 1 | PASS |
+| 2 | J-30 → 1 | PASS |
+| 3 | J-7 → 1 | PASS |
+| 4 | J0 → 1 | PASS |
+| 5 | J+1 → 0 | PASS |
+| 6 | J+7 → 1 ; 2e run → 0 doublon | PASS |
+| 7 | J+14 → 1 seule | PASS |
+| 8 | pièce archivée / remplacée → 0 | PASS |
+| 9 | nouvelle pièce valide → ancienne échéance neutralisée | PASS |
+| 10 | deux tenants, même date → isolation stricte | PASS |
+| 11 | destinataire suspendu / rôle non habilité → ne reçoit rien | PASS |
+| 12 | échec forcé sur une pièce → les 6 autres alertes partent (`errors: 1`, `notifications: 6`) | PASS |
+| 13 | DST Europe/Paris → date locale correcte | PASS (unitaire) |
+| 14 | conformité d'affectation inchangée après passage du cron (le job ne modifie aucune pièce) | PASS |
+
+Preuve d'idempotence : run 1 → `alerts_created: 7, duplicates: 0` ; run 2 immédiat →
+`alerts_created: 0, duplicates: 7`.
+
+### Défaut trouvé et corrigé
+- **P2 — échec d'écriture d'une notification silencieux.** Cause : le résultat d'erreur de
+  `insert` sur `notifications` n'était pas lu, donc un destinataire en échec était compté comme
+  notifié et `errors` restait à 0. Impact : compteur de destinataires et observabilité faux.
+  Correction minimale : lecture de l'erreur, incrément d'`errors`, journalisation, poursuite de la
+  boucle. Non-régression : test 12 ci-dessus (erreur injectée par trigger temporaire, supprimé).
+
+## L. Données TEST restantes
+0 : entreprises, partenaires, pièces, alertes, notifications, membres et journaux de test
+supprimés ; trigger de test retiré ; garde-fous `company_members` réactivés (`tgenabled = O`).
+
+## M. Points BLOCKED
+- Envoi push réel non observé (aucun appareil abonné dans le jeu TEST) : `pushes: 0`.
+  Le chemin est celui, déjà en production, du job des essais expirants.
+- Première exécution planifiée réelle : le prochain déclenchement utile est le 8 septembre 2026
+  à 8h00 Europe/Paris ; les exécutions à 5h et 7h UTC sortent immédiatement avec `ran: false`.
