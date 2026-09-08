@@ -87,7 +87,7 @@ export const listSubcontractorDocuments = createServerFn({ method: "POST" })
       supabase
         .from("subcontractor_documents")
         .select(
-          "id,doc_type,label,original_filename,mime_type,size_bytes,issue_date,expiry_date,is_required,is_blocking,notes,uploaded_by,uploaded_at,archived_at,replaced_by_id,created_at",
+          "id,doc_type,label,original_filename,mime_type,size_bytes,issue_date,expiry_date,is_required,is_blocking,notes,uploaded_by,uploaded_at,archived_at,replaced_by_id,created_at,review_status,reviewed_by,reviewed_at,rejection_reason,submitted_by_subcontractor_user_id",
         )
         .eq("company_id", data.companyId)
         .eq("subcontractor_company_id", data.subcontractorCompanyId)
@@ -117,7 +117,7 @@ export const listSubcontractorsCompliance = createServerFn({ method: "POST" })
     const [docsRes, rulesRes] = await Promise.all([
       supabase
         .from("subcontractor_documents")
-        .select("id,subcontractor_company_id,doc_type,label,expiry_date,issue_date,is_required,is_blocking,archived_at")
+        .select("id,subcontractor_company_id,doc_type,label,expiry_date,issue_date,is_required,is_blocking,archived_at,review_status,rejection_reason")
         .eq("company_id", data.companyId),
       supabase
         .from("subcontractor_document_rules")

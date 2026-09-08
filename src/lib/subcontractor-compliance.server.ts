@@ -14,7 +14,7 @@ export async function computeComplianceForPartner(
   const [docs, rules] = await Promise.all([
     supabaseAdmin
       .from("subcontractor_documents")
-      .select("id,doc_type,label,expiry_date,issue_date,is_required,is_blocking,archived_at")
+      .select("id,doc_type,label,expiry_date,issue_date,is_required,is_blocking,archived_at,review_status,rejection_reason")
       .eq("company_id", companyId)
       .eq("subcontractor_company_id", subcontractorCompanyId),
     supabaseAdmin
