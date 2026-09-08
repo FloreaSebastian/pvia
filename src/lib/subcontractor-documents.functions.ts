@@ -308,7 +308,7 @@ export const updateSubcontractorDocumentMeta = createServerFn({ method: "POST" }
 
     const { data: row, error } = await supabase
       .from("subcontractor_documents")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.documentId)
       .eq("company_id", data.companyId)
       .select("id,doc_type,label,expiry_date,subcontractor_company_id")
