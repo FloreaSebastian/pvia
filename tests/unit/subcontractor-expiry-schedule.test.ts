@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   alertState,
   daysUntilParis,
+  isUniqueViolation,
   milestoneForDays,
   parisDateString,
   parisHour,
@@ -171,7 +172,7 @@ describe("durcissement cron (2026-09-08)", () => {
   it("refuse un partenaire appartenant à un autre tenant", () => {
     const doc = {
       id: "d1", company_id: "A", subcontractor_company_id: "p1", doc_type: "decennale",
-      label: null, expiry_date: isoInDays(30), is_required: true, is_blocking: true,
+      label: null, expiry_date: expiryAt(30, parisDateString()), is_required: true, is_blocking: true,
       archived_at: null, replaced_by_id: null,
     };
     const { planned, skipped } = planAlerts(
@@ -186,7 +187,7 @@ describe("durcissement cron (2026-09-08)", () => {
   it("ignore une règle documentaire appartenant à un autre tenant", () => {
     const doc = {
       id: "d2", company_id: "A", subcontractor_company_id: "p1", doc_type: "decennale",
-      label: null, expiry_date: isoInDays(30), is_required: true, is_blocking: true,
+      label: null, expiry_date: expiryAt(30, parisDateString()), is_required: true, is_blocking: true,
       archived_at: null, replaced_by_id: null,
     };
     const partners = [{ id: "p1", company_id: "A", name: "OK", status: "active", archived_at: null }];
