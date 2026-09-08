@@ -198,3 +198,20 @@ export function planAlerts(
 export function isUniqueViolation(err: { code?: string | null } | null | undefined): boolean {
   return err?.code === "23505";
 }
+
+/** Canaux de notification suivis par jalon et par destinataire. */
+export type AlertChannel = "inapp" | "push";
+
+/**
+ * Canaux restant à servir pour un destinataire, à partir des livraisons déjà
+ * enregistrées. Chaque canal est idempotent SÉPARÉMENT : un rejeu du job doit
+ * pouvoir renvoyer le push si seul le in-app avait été enregistré la fois
+ * précédente, sans jamais dupliquer la notification in-app.
+ */
+export function pendingChannels(
+  userId: string,
+  prior: { user_id: string; channel: string }[],
+): { inapp: boolean; push: boolean } {
+  const done = new Set(prior.filter((p) => p.user_id === userId).map((p) => p.channel));
+  return { inapp: !done.has("inapp"), push: !done.has("push") };
+}

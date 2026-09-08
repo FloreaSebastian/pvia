@@ -35,6 +35,7 @@ import {
   isUniqueViolation,
   parisDateString,
   parisHour,
+  pendingChannels,
   planAlerts,
   type PlannedAlert,
   type ScheduleDoc,
@@ -235,63 +236,70 @@ async function run(now = new Date()): Promise<RunResult> {
           .in("role", ADMIN_ROLES as unknown as string[]);
         if (adminErr) throw new Error(adminErr.message);
 
-        // Livraisons déjà effectuées pour ce jalon (reprise sans doublon).
-        const already = new Set<string>();
+        // Livraisons déjà effectuées pour ce jalon, PAR CANAL (reprise sans
+        // doublon in-app, mais nouvelle tentative push si elle manque).
+        let prior: { user_id: string; channel: string }[] = [];
         if (resuming) {
-          const { data: prior } = await db
+          const { data: priorRows } = await db
             .from("subcontractor_document_alert_deliveries")
-            .select("user_id")
+            .select("user_id,channel")
             .eq("document_id", alertKey.document_id)
             .eq("milestone", alertKey.milestone)
-            .eq("expiry_date", alertKey.expiry_date)
-            .eq("channel", "inapp");
-          for (const p of (prior ?? []) as { user_id: string }[]) already.add(p.user_id);
+            .eq("expiry_date", alertKey.expiry_date);
+          prior = (priorRows ?? []) as { user_id: string; channel: string }[];
         }
+        const already = new Set(prior.filter((p) => p.channel === "inapp").map((p) => p.user_id));
 
         let delivered = already.size;
         let failed = 0;
 
         for (const m of (admins ?? []) as { user_id: string | null }[]) {
           if (!m.user_id) continue;
-          if (already.has(m.user_id)) {
-            result.already_delivered++;
-            continue;
-          }
-          try {
-            const { error: notifErr } = await db.from("notifications").insert({
-              company_id: a.document.company_id,
-              user_id: m.user_id,
-              type,
-              title,
-              body,
-            });
-            if (notifErr) throw new Error(notifErr.message);
+          const pending = pendingChannels(m.user_id, prior);
 
-            // Marque la livraison APRÈS succès : c'est elle qui garantit
-            // qu'une reprise ne redonnera pas la même alerte à ce destinataire.
-            const { error: delErr } = await db
-              .from("subcontractor_document_alert_deliveries")
-              .insert({
+          if (!pending.inapp) {
+            result.already_delivered++;
+          } else {
+            try {
+              const { error: notifErr } = await db.from("notifications").insert({
                 company_id: a.document.company_id,
                 user_id: m.user_id,
-                channel: "inapp",
-                ...alertKey,
+                type,
+                title,
+                body,
               });
-            if (delErr && !isUniqueViolation(delErr)) throw new Error(delErr.message);
+              if (notifErr) throw new Error(notifErr.message);
 
-            delivered++;
-            result.notifications++;
-          } catch (e) {
-            failed++;
-            result.errors++;
-            console.error("[subcontractor-document-expiry] delivery failed", {
-              documentId: a.document.id,
-              milestone: a.milestone,
-              message: (e as Error).message,
-            });
-            continue;
+              // Marque la livraison APRÈS succès : c'est elle qui garantit
+              // qu'une reprise ne redonnera pas la même alerte à ce destinataire.
+              const { error: delErr } = await db
+                .from("subcontractor_document_alert_deliveries")
+                .insert({
+                  company_id: a.document.company_id,
+                  user_id: m.user_id,
+                  channel: "inapp",
+                  ...alertKey,
+                });
+              if (delErr && !isUniqueViolation(delErr)) throw new Error(delErr.message);
+
+              delivered++;
+              result.notifications++;
+            } catch (e) {
+              failed++;
+              result.errors++;
+              console.error("[subcontractor-document-expiry] delivery failed", {
+                documentId: a.document.id,
+                milestone: a.milestone,
+                message: (e as Error).message,
+              });
+              continue;
+            }
           }
 
+          // Push mobile : même canal que le reste de PVIA (web push VAPID),
+          // best-effort et idempotent par destinataire. Tant qu'aucun push
+          // n'a réellement été remis, un rejeu du job retente l'envoi.
+          if (!pending.push) continue;
           try {
             // Lien vers la FICHE partenaire, jamais une URL Storage signée.
             const r = await sendPushToUser(m.user_id, {
@@ -302,6 +310,19 @@ async function run(now = new Date()): Promise<RunResult> {
               data: { kind: type, subcontractorCompanyId: a.partner.id },
             });
             result.pushes += r.sent;
+            if (r.sent > 0) {
+              const { error: pushDelErr } = await db
+                .from("subcontractor_document_alert_deliveries")
+                .insert({
+                  company_id: a.document.company_id,
+                  user_id: m.user_id,
+                  channel: "push",
+                  ...alertKey,
+                });
+              if (pushDelErr && !isUniqueViolation(pushDelErr)) {
+                console.warn("[subcontractor-document-expiry] push delivery log failed", pushDelErr);
+              }
+            }
           } catch {
             /* push best-effort : n'empêche jamais la notification in-app */
           }

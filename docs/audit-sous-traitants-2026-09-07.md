@@ -455,3 +455,14 @@ Purge : companies/partenaires/pièces/alertes/livraisons/notifications/membres/j
 ## 7. Reste BLOCKED
 - Envoi push réel non observé (aucun appareil abonné dans le jeu TEST).
 - Première exécution planifiée automatique : 8 septembre 2026 à 07:00 UTC.
+
+## N. Alertes de conformité poussées sur téléphone (2026-09-08)
+
+- Canal réutilisé : web push VAPID existant (`sendPushToUser`), même mécanisme que les autres notifications PVIA. Lien vers la fiche partenaire, onglet Documents (jamais d'URL de fichier).
+- Suivi de livraison désormais **par canal** (`inapp` / `push`) dans `subcontractor_document_alert_deliveries` : le push n'est enregistré qu'après un envoi réellement accepté par le service de notification.
+- Preuve rejeu (données de test, purgées) :
+  - Run 1 : `notifications:1, pushes:1, alerts_completed:1`
+  - Run 2 (rejeu immédiat) : `duplicates:1, notifications:0, pushes:0` — aucun doublon.
+  - Run 3 (push manquant simulé) : `already_delivered:1, notifications:0, pushes:1` — l'alerte mobile est bien renvoyée sans redonner la notification in-app.
+- Tests : `bun test tests/unit` → 137 tests, 0 échec, 366 assertions. Typecheck et build OK.
+- Purge vérifiée : 0 entreprise, 0 appareil, 0 notification de test ; trigger de gouvernance réactivé.
