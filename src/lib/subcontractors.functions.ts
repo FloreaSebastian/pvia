@@ -599,7 +599,7 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
         .maybeSingle(),
       supabase
         .from("subcontractor_memberships")
-        .select("id,status,company_id,subcontractor_user_id")
+        .select("id,status,company_id,subcontractor_user_id,subcontractor_company_id")
         .eq("id", data.membershipId)
         .eq("company_id", data.companyId)
         .maybeSingle(),
@@ -622,6 +622,22 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
       if (!visit) throw new Error("Visite technique introuvable pour ce chantier.");
     }
 
+    // Conformité documentaire : recalculée côté serveur, jamais fournie par l'UI.
+    const { computeComplianceForPartner } = await import("./subcontractor-compliance.server");
+    const compliance = await computeComplianceForPartner(
+      data.companyId,
+      (membership as { subcontractor_company_id: string }).subcontractor_company_id,
+    );
+    const overrideReason = (data.complianceOverrideReason ?? "").trim();
+    if (compliance.blockingIssues.length > 0 && overrideReason.length < 5) {
+      throw new Error(
+        `Pièce bloquante non conforme : ${compliance.blockingIssues
+          .map((b) => `${b.label} (${b.reason === "expired" ? "expirée" : "manquante"})`)
+          .join(", ")}. Mettez le dossier à jour ou justifiez une dérogation.`,
+      );
+    }
+    const overridden = compliance.blockingIssues.length > 0 && overrideReason.length >= 5;
+
     const payload = {
       company_id: data.companyId,
       chantier_id: data.chantierId,
@@ -632,7 +648,21 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
       scheduled_end_at: data.scheduledEndAt ?? null,
       comment: data.comment || null,
       permission_overrides: normalizePermissionOverrides(data.permissionOverrides ?? {}) as never,
+      compliance_snapshot: {
+        status: compliance.status,
+        blocking: compliance.blockingIssues,
+        counts: compliance.counts,
+        evaluated_at: new Date().toISOString(),
+      } as never,
+      ...(overridden
+        ? {
+            compliance_override_at: new Date().toISOString(),
+            compliance_override_by: userId,
+            compliance_override_reason: overrideReason.slice(0, 500),
+          }
+        : {}),
     };
+
 
     let id = data.id;
     if (id) {
