@@ -2389,6 +2389,10 @@ export type Database = {
           comment: string | null
           company_id: string
           completed_at: string | null
+          compliance_override_at: string | null
+          compliance_override_by: string | null
+          compliance_override_reason: string | null
+          compliance_snapshot: Json | null
           confirmed_at: string | null
           created_at: string
           created_by: string | null
@@ -2410,6 +2414,10 @@ export type Database = {
           comment?: string | null
           company_id: string
           completed_at?: string | null
+          compliance_override_at?: string | null
+          compliance_override_by?: string | null
+          compliance_override_reason?: string | null
+          compliance_snapshot?: Json | null
           confirmed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -2431,6 +2439,10 @@ export type Database = {
           comment?: string | null
           company_id?: string
           completed_at?: string | null
+          compliance_override_at?: string | null
+          compliance_override_by?: string | null
+          compliance_override_reason?: string | null
+          compliance_snapshot?: Json | null
           confirmed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -2544,6 +2556,199 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractor_document_alerts: {
+        Row: {
+          company_id: string
+          document_id: string
+          expiry_date: string
+          id: string
+          milestone: string
+          recipients: number
+          sent_at: string
+        }
+        Insert: {
+          company_id: string
+          document_id: string
+          expiry_date: string
+          id?: string
+          milestone: string
+          recipients?: number
+          sent_at?: string
+        }
+        Update: {
+          company_id?: string
+          document_id?: string
+          expiry_date?: string
+          id?: string
+          milestone?: string
+          recipients?: number
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_document_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_document_alerts_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractor_document_rules: {
+        Row: {
+          company_id: string
+          created_at: string
+          doc_type: Database["public"]["Enums"]["subcontractor_document_type"]
+          id: string
+          is_blocking: boolean
+          is_required: boolean
+          subcontractor_company_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          doc_type: Database["public"]["Enums"]["subcontractor_document_type"]
+          id?: string
+          is_blocking?: boolean
+          is_required?: boolean
+          subcontractor_company_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["subcontractor_document_type"]
+          id?: string
+          is_blocking?: boolean
+          is_required?: boolean
+          subcontractor_company_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_document_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_document_rules_subcontractor_company_id_fkey"
+            columns: ["subcontractor_company_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcontractor_documents: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          company_id: string
+          created_at: string
+          doc_type: Database["public"]["Enums"]["subcontractor_document_type"]
+          expiry_date: string | null
+          id: string
+          is_blocking: boolean
+          is_required: boolean
+          issue_date: string | null
+          label: string | null
+          metadata: Json
+          mime_type: string
+          notes: string | null
+          original_filename: string
+          replaced_by_id: string | null
+          size_bytes: number
+          storage_path: string
+          subcontractor_company_id: string
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          company_id: string
+          created_at?: string
+          doc_type: Database["public"]["Enums"]["subcontractor_document_type"]
+          expiry_date?: string | null
+          id?: string
+          is_blocking?: boolean
+          is_required?: boolean
+          issue_date?: string | null
+          label?: string | null
+          metadata?: Json
+          mime_type: string
+          notes?: string | null
+          original_filename: string
+          replaced_by_id?: string | null
+          size_bytes?: number
+          storage_path: string
+          subcontractor_company_id: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          company_id?: string
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["subcontractor_document_type"]
+          expiry_date?: string | null
+          id?: string
+          is_blocking?: boolean
+          is_required?: boolean
+          issue_date?: string | null
+          label?: string | null
+          metadata?: Json
+          mime_type?: string
+          notes?: string | null
+          original_filename?: string
+          replaced_by_id?: string | null
+          size_bytes?: number
+          storage_path?: string
+          subcontractor_company_id?: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_documents_replaced_by_id_fkey"
+            columns: ["replaced_by_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_documents_subcontractor_company_id_fkey"
+            columns: ["subcontractor_company_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_companies"
             referencedColumns: ["id"]
           },
         ]
@@ -3562,6 +3767,20 @@ export type Database = {
         | "assistant_admin"
         | "lecture_seule"
       member_status: "active" | "invited" | "suspended"
+      subcontractor_document_type:
+        | "decennale"
+        | "rc_pro"
+        | "kbis"
+        | "urssaf_vigilance"
+        | "attestation_fiscale"
+        | "rge"
+        | "qualipv"
+        | "qualipac"
+        | "qualifelec"
+        | "habilitation_electrique"
+        | "carte_btp"
+        | "autorisation_specifique"
+        | "autre"
       subcontractor_intervention_status:
         | "to_plan"
         | "planned"
@@ -3709,6 +3928,21 @@ export const Constants = {
         "lecture_seule",
       ],
       member_status: ["active", "invited", "suspended"],
+      subcontractor_document_type: [
+        "decennale",
+        "rc_pro",
+        "kbis",
+        "urssaf_vigilance",
+        "attestation_fiscale",
+        "rge",
+        "qualipv",
+        "qualipac",
+        "qualifelec",
+        "habilitation_electrique",
+        "carte_btp",
+        "autorisation_specifique",
+        "autre",
+      ],
       subcontractor_intervention_status: [
         "to_plan",
         "planned",
