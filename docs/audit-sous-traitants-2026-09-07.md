@@ -372,3 +372,86 @@ supprimés ; trigger de test retiré ; garde-fous `company_members` réactivés 
   Le chemin est celui, déjà en production, du job des essais expirants.
 - Première exécution planifiée réelle : le prochain déclenchement utile est le 8 septembre 2026
   à 8h00 Europe/Paris ; les exécutions à 5h et 7h UTC sortent immédiatement avec `ran: false`.
+
+
+---
+
+# Correctif planification & fiabilité des alertes (2026-09-08, seconde passe)
+
+## 1. UNE seule exécution par jour
+Ancien planning `0 5,6,7 * * *` (trois exécutions/jour, pseudo-solution DST) **supprimé**
+(`cron.unschedule`). Nouveau planning : **`0 7 * * *` UTC**, une seule exécution quotidienne
+(8h00 Paris en heure d'hiver, 9h00 en heure d'été). Le garde-fou horaire `RUN_HOUR_PARIS`
+et le paramètre `force=1` ont été supprimés du code.
+La DATE MÉTIER reste calculée **séparément** en `Europe/Paris` (`parisDateString`,
+`daysUntilParis`), donc les jalons sont justes aux deux bascules DST (tests unitaires dédiés).
+
+Preuve en base :
+```
+jobid 12 | pvia-subcontractor-document-expiry | 0 7 * * * | active = true
+```
+
+## 2. P0 découvert et corrigé — TOUTES les tâches planifiées étaient en échec
+`net._http_response` montrait `401 Unauthorized` pour **chaque** appel cron récent :
+le coffre (`vault.decrypted_secrets`) ne contenait ni `CRON_SECRET` ni `pvia_cron_secret`.
+Conséquence : drain e-mails, drain webhooks, rappels chantier, échéances de réserves et
+essais expirants ne s'exécutaient plus.
+Correction : secret partagé `CRON_SECRET_V2` créé dans le coffre et dans les variables
+d'environnement de l'application ; helper commun `src/lib/cron-auth.server.ts`
+(comparaison à temps constant, accepte `CRON_SECRET_V2` ou l'ancien `CRON_SECRET`) ;
+les 6 jobs HTTP repointés sur `CRON_SECRET_V2` via `cron.alter_job`.
+
+## 3. Idempotence retry-safe (schéma additif)
+Migration non destructive :
+- `subcontractor_document_alert_deliveries` — unique
+  `(document_id, milestone, expiry_date, user_id, channel)` : la livraison est enregistrée
+  **après** succès réel ;
+- `subcontractor_document_alerts.completed_at` — le jalon n'est « terminé » que si aucun
+  destinataire n'est resté en échec ; sinon il est **repris** au passage suivant ;
+- `cron_job_runs` — journal d'exécution (started/finished/status/stats/error).
+Accès : livraisons lisibles par les administrateurs du tenant (`is_company_admin`),
+journal d'exécution réservé aux administrateurs plateforme ; écriture service-role seulement.
+
+## 4. Autres corrections de cette passe
+- Conflit unique (`23505`) distingué d'une vraie erreur DB (`isUniqueViolation`) ; un conflit
+  n'est plus compté comme incident, une vraie erreur l'est.
+- Chaque document est traité dans son propre `try` : une erreur n'arrête jamais le lot ;
+  chaque destinataire aussi.
+- Règles documentaires **courantes** du tenant (`subcontractor_document_rules`, filtrées sur
+  `company_id`) prioritaires sur `is_required`/`is_blocking` recopiés sur la pièce.
+- Filtrage tenant explicite même sous service-role : un partenaire ou une règle d'un autre
+  `company_id` que la pièce est rejeté (`partner_unknown`).
+- Partenaires `suspended`/`archived` exclus (règle documentée).
+- Rôles destinataires alignés sur la source de vérité SQL `public.is_company_admin`
+  (`directeur`, `responsable_exploitation`, statut `active`) — vérifié via `pg_proc`.
+- Notification : lien vers la fiche partenaire / onglet Documents, jamais de signed URL.
+
+## 5. Preuves d'exécution RÉELLE en production
+Appels sur `…lovable.app/api/public/hooks/check-subcontractor-document-expiry` (données TEST
+isolées, deux tenants) :
+
+| Run | Résultat |
+|---|---|
+| 1 | `scanned 9, planned 6, alerts_created 6, alerts_completed 6, notifications 6, duplicates 0, errors 0` |
+| 2 (rejeu immédiat) | `alerts_created 0, duplicates 6, notifications 0, errors 0` |
+| 3 (échec partiel simulé) | `alerts_resumed 2, notifications 1, already_delivered 1, duplicates 4, errors 0` |
+
+Le run 3 prouve le point clé : le jalon dont la livraison manquait est **repris** et
+re-notifié, tandis que le destinataire déjà servi n'est **pas** re-notifié.
+
+Matrice observée : `j-60`, `j-7`, `j-0`, `expired+7`, `expired+14` (tenant A) et `j-30`
+(tenant B). Correctement ignorés : pièce archivée, pièce J+1, pièce rendue non requise par la
+règle courante du tenant, pièce d'un partenaire suspendu.
+Isolation : 6 notifications tenant A, 1 notification tenant B, aucune fuite.
+Journal `cron_job_runs` : 3 lignes `status = success` avec start/finish/compteurs.
+
+## 6. Tests, purge, état
+`bun test tests/unit` → **133 tests, 0 échec, 362 assertions, 11 fichiers**
+(3 nouveaux : conflit unique vs erreur DB, partenaire d'un autre tenant, règle d'un autre tenant).
+`bunx tsgo --noEmit` : PASS. Build : OK.
+Purge : companies/partenaires/pièces/alertes/livraisons/notifications/membres/journal de test
+= **0** ligne restante. Aucune donnée réelle, aucun abonnement, aucun objet Stripe touché.
+
+## 7. Reste BLOCKED
+- Envoi push réel non observé (aucun appareil abonné dans le jeu TEST).
+- Première exécution planifiée automatique : 8 septembre 2026 à 07:00 UTC.

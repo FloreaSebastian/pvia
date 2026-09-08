@@ -1150,6 +1150,39 @@ export type Database = {
           },
         ]
       }
+      cron_job_runs: {
+        Row: {
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          job_name: string
+          started_at: string
+          stats: Json
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          job_name: string
+          started_at?: string
+          stats?: Json
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          job_name?: string
+          started_at?: string
+          stats?: Json
+          status?: string
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           company_id: string | null
@@ -2560,9 +2593,54 @@ export type Database = {
           },
         ]
       }
+      subcontractor_document_alert_deliveries: {
+        Row: {
+          channel: string
+          company_id: string
+          created_at: string
+          delivered_at: string
+          document_id: string
+          expiry_date: string
+          id: string
+          milestone: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          company_id: string
+          created_at?: string
+          delivered_at?: string
+          document_id: string
+          expiry_date: string
+          id?: string
+          milestone: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          company_id?: string
+          created_at?: string
+          delivered_at?: string
+          document_id?: string
+          expiry_date?: string
+          id?: string
+          milestone?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_document_alert_deliveries_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subcontractor_document_alerts: {
         Row: {
           company_id: string
+          completed_at: string | null
           document_id: string
           expiry_date: string
           id: string
@@ -2572,6 +2650,7 @@ export type Database = {
         }
         Insert: {
           company_id: string
+          completed_at?: string | null
           document_id: string
           expiry_date: string
           id?: string
@@ -2581,6 +2660,7 @@ export type Database = {
         }
         Update: {
           company_id?: string
+          completed_at?: string | null
           document_id?: string
           expiry_date?: string
           id?: string

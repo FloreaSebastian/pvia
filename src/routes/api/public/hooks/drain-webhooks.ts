@@ -5,10 +5,11 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { drainPendingWebhooks } from "@/lib/retry.server";
+import { isValidCronSecret } from "@/lib/cron-auth.server";
 
 function unauthorized(request: Request): boolean {
   const secret = request.headers.get("x-cron-secret");
-  return !secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET;
+  return !isValidCronSecret(secret);
 }
 
 export const Route = createFileRoute("/api/public/hooks/drain-webhooks")({

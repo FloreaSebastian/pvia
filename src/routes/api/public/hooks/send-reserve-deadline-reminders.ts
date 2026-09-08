@@ -23,6 +23,7 @@ import {
   sendReserveDeadlineNearEmail,
   sendReserveOverdueEmail,
 } from "@/lib/reserve-email.server";
+import { isValidCronSecret } from "@/lib/cron-auth.server";
 
 const ACTIVE_STATUSES = ["ouverte", "en_cours", "rejetee", "en_attente_validation"];
 const MIN_REMINDER_GAP_HOURS = 12;
@@ -151,7 +152,7 @@ export const Route = createFileRoute("/api/public/hooks/send-reserve-deadline-re
     handlers: {
       POST: async ({ request }) => {
         const secret = request.headers.get("x-cron-secret");
-        if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+        if (!isValidCronSecret(secret)) {
           return new Response("Unauthorized", { status: 401 });
         }
         try {
@@ -164,7 +165,7 @@ export const Route = createFileRoute("/api/public/hooks/send-reserve-deadline-re
       },
       GET: async ({ request }) => {
         const secret = request.headers.get("x-cron-secret");
-        if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+        if (!isValidCronSecret(secret)) {
           return new Response("Unauthorized", { status: 401 });
         }
         const r = await run();

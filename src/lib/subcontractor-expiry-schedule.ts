@@ -80,6 +80,8 @@ export type ScheduleDoc = {
 };
 
 export type ScheduleRule = {
+  /** Tenant propriétaire de la règle (contrôlé quand il est fourni). */
+  company_id?: string;
   subcontractor_company_id: string;
   doc_type: string;
   is_required: boolean;
@@ -88,6 +90,8 @@ export type ScheduleRule = {
 
 export type SchedulePartner = {
   id: string;
+  /** Tenant propriétaire du partenaire (contrôlé quand il est fourni). */
+  company_id?: string;
   name: string;
   status: string;
   archived_at: string | null;
@@ -152,7 +156,12 @@ export function planAlerts(
     if (!d.expiry_date) { skip("no_expiry"); continue; }
 
     const partner = partnerById.get(d.subcontractor_company_id);
-    if (!partner) { skip("partner_unknown"); continue; }
+    // Isolation tenant explicite : même sous service-role, un partenaire d'un
+    // autre tenant que la pièce est refusé (jamais de fuite A → B).
+    if (!partner || (partner.company_id && partner.company_id !== d.company_id)) {
+      skip("partner_unknown");
+      continue;
+    }
     // Partenaire suspendu ou archivé : plus aucune alerte (il ne peut plus
     // être affecté ; on n'inonde pas les équipes d'échéances sans objet).
     if (partner.archived_at || partner.status === "suspended" || partner.status === "archived") {
@@ -160,8 +169,13 @@ export function planAlerts(
       continue;
     }
 
+    // Règle documentaire COURANTE du tenant (source de vérité), jamais les
+    // drapeaux recopiés sur la pièce lorsqu'une règle existe.
     const rule = rules.find(
-      (r) => r.subcontractor_company_id === d.subcontractor_company_id && r.doc_type === d.doc_type,
+      (r) =>
+        r.subcontractor_company_id === d.subcontractor_company_id &&
+        r.doc_type === d.doc_type &&
+        (!r.company_id || r.company_id === d.company_id),
     );
     const required = rule ? rule.is_required : (d.is_required ?? false);
     const blocking = rule ? rule.is_required && rule.is_blocking : (d.is_blocking ?? false);
@@ -175,4 +189,12 @@ export function planAlerts(
   }
 
   return { planned, skipped };
+}
+
+/**
+ * Conflit de clé unique Postgres (23505) — c'est une idempotence, pas une
+ * erreur d'exécution : il ne doit jamais être compté comme incident.
+ */
+export function isUniqueViolation(err: { code?: string | null } | null | undefined): boolean {
+  return err?.code === "23505";
 }
