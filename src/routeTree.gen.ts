@@ -34,6 +34,7 @@ import { Route as SousTraitantIndexRouteImport } from './routes/sous-traitant.in
 import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
 import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as SousTraitantVerifyRouteImport } from './routes/sous-traitant.verify'
+import { Route as SousTraitantDocumentsRouteImport } from './routes/sous-traitant.documents'
 import { Route as SousTraitantChantiersRouteImport } from './routes/sous-traitant.chantiers'
 import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
@@ -236,6 +237,11 @@ const ClientIndexRoute = ClientIndexRouteImport.update({
 const SousTraitantVerifyRoute = SousTraitantVerifyRouteImport.update({
   id: '/sous-traitant/verify',
   path: '/sous-traitant/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SousTraitantDocumentsRoute = SousTraitantDocumentsRouteImport.update({
+  id: '/sous-traitant/documents',
+  path: '/sous-traitant/documents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SousTraitantChantiersRoute = SousTraitantChantiersRouteImport.update({
@@ -729,6 +735,7 @@ export interface FileRoutesByFullPath {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/documents': typeof SousTraitantDocumentsRoute
   '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
@@ -832,6 +839,7 @@ export interface FileRoutesByTo {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/documents': typeof SousTraitantDocumentsRoute
   '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client': typeof ClientIndexRoute
   '/solutions': typeof SolutionsIndexRoute
@@ -937,6 +945,7 @@ export interface FileRoutesById {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/documents': typeof SousTraitantDocumentsRoute
   '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
@@ -1044,6 +1053,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/solutions/$slug'
     | '/sous-traitant/chantiers'
+    | '/sous-traitant/documents'
     | '/sous-traitant/verify'
     | '/client/'
     | '/solutions/'
@@ -1147,6 +1157,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/solutions/$slug'
     | '/sous-traitant/chantiers'
+    | '/sous-traitant/documents'
     | '/sous-traitant/verify'
     | '/client'
     | '/solutions'
@@ -1251,6 +1262,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/solutions/$slug'
     | '/sous-traitant/chantiers'
+    | '/sous-traitant/documents'
     | '/sous-traitant/verify'
     | '/client/'
     | '/solutions/'
@@ -1344,6 +1356,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   SousTraitantChantiersRoute: typeof SousTraitantChantiersRoute
+  SousTraitantDocumentsRoute: typeof SousTraitantDocumentsRoute
   SousTraitantVerifyRoute: typeof SousTraitantVerifyRoute
   ClientIndexRoute: typeof ClientIndexRoute
   SousTraitantIndexRoute: typeof SousTraitantIndexRoute
@@ -1540,6 +1553,13 @@ declare module '@tanstack/react-router' {
       path: '/sous-traitant/verify'
       fullPath: '/sous-traitant/verify'
       preLoaderRoute: typeof SousTraitantVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sous-traitant/documents': {
+      id: '/sous-traitant/documents'
+      path: '/sous-traitant/documents'
+      fullPath: '/sous-traitant/documents'
+      preLoaderRoute: typeof SousTraitantDocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sous-traitant/chantiers': {
@@ -2330,6 +2350,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
   SousTraitantChantiersRoute: SousTraitantChantiersRoute,
+  SousTraitantDocumentsRoute: SousTraitantDocumentsRoute,
   SousTraitantVerifyRoute: SousTraitantVerifyRoute,
   ClientIndexRoute: ClientIndexRoute,
   SousTraitantIndexRoute: SousTraitantIndexRoute,
