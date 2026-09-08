@@ -581,6 +581,9 @@ const AssignmentSchema = z.object({
   comment: z.string().trim().max(2000).optional().default(""),
   permissionOverrides: z.record(z.string(), z.boolean()).optional(),
   notify: z.boolean().optional().default(true),
+  /** Justification obligatoire pour affecter malgré une pièce bloquante. */
+  complianceOverrideReason: z.string().trim().max(500).optional(),
+
 });
 
 export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
@@ -599,7 +602,7 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
         .maybeSingle(),
       supabase
         .from("subcontractor_memberships")
-        .select("id,status,company_id,subcontractor_user_id")
+        .select("id,status,company_id,subcontractor_user_id,subcontractor_company_id")
         .eq("id", data.membershipId)
         .eq("company_id", data.companyId)
         .maybeSingle(),
@@ -622,6 +625,22 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
       if (!visit) throw new Error("Visite technique introuvable pour ce chantier.");
     }
 
+    // Conformité documentaire : recalculée côté serveur, jamais fournie par l'UI.
+    const { computeComplianceForPartner } = await import("./subcontractor-compliance.server");
+    const compliance = await computeComplianceForPartner(
+      data.companyId,
+      (membership as { subcontractor_company_id: string }).subcontractor_company_id,
+    );
+    const overrideReason = (data.complianceOverrideReason ?? "").trim();
+    if (compliance.blockingIssues.length > 0 && overrideReason.length < 5) {
+      throw new Error(
+        `Pièce bloquante non conforme : ${compliance.blockingIssues
+          .map((b) => `${b.label} (${b.reason === "expired" ? "expirée" : "manquante"})`)
+          .join(", ")}. Mettez le dossier à jour ou justifiez une dérogation.`,
+      );
+    }
+    const overridden = compliance.blockingIssues.length > 0 && overrideReason.length >= 5;
+
     const payload = {
       company_id: data.companyId,
       chantier_id: data.chantierId,
@@ -632,7 +651,21 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
       scheduled_end_at: data.scheduledEndAt ?? null,
       comment: data.comment || null,
       permission_overrides: normalizePermissionOverrides(data.permissionOverrides ?? {}) as never,
+      compliance_snapshot: {
+        status: compliance.status,
+        blocking: compliance.blockingIssues,
+        counts: compliance.counts,
+        evaluated_at: new Date().toISOString(),
+      } as never,
+      ...(overridden
+        ? {
+            compliance_override_at: new Date().toISOString(),
+            compliance_override_by: userId,
+            compliance_override_reason: overrideReason.slice(0, 500),
+          }
+        : {}),
     };
+
 
     let id = data.id;
     if (id) {
@@ -689,8 +722,26 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
         chantierId: data.chantierId,
         membershipId: data.membershipId,
         mission: data.mission,
+        complianceStatus: compliance.status,
       },
     });
+
+    if (overridden) {
+      await writeAuditLog({
+        companyId: data.companyId,
+        userId,
+        entityType: "subcontractor_assignment",
+        entityId: id!,
+        action: "subcontractor_assignment.compliance_override",
+        metadata: {
+          reason: overrideReason.slice(0, 500),
+          blocking: compliance.blockingIssues,
+          chantierId: data.chantierId,
+          membershipId: data.membershipId,
+        },
+      });
+    }
+
 
     return { ok: true as const, id: id! };
   });

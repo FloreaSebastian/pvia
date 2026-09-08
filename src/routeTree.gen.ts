@@ -101,6 +101,7 @@ import { Route as ApiPublicHooksSendChantierRemindersRouteImport } from './route
 import { Route as ApiPublicHooksHealthRouteImport } from './routes/api/public/hooks/health'
 import { Route as ApiPublicHooksDrainWebhooksRouteImport } from './routes/api/public/hooks/drain-webhooks'
 import { Route as ApiPublicHooksDrainEmailsRouteImport } from './routes/api/public/hooks/drain-emails'
+import { Route as ApiPublicHooksCheckSubcontractorDocumentExpiryRouteImport } from './routes/api/public/hooks/check-subcontractor-document-expiry'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as ApiPublicHealthDeepRouteImport } from './routes/api/public/health.deep'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
@@ -614,6 +615,12 @@ const ApiPublicHooksDrainEmailsRoute =
     path: '/api/public/hooks/drain-emails',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCheckSubcontractorDocumentExpiryRoute =
+  ApiPublicHooksCheckSubcontractorDocumentExpiryRouteImport.update({
+    id: '/api/public/hooks/check-subcontractor-document-expiry',
+    path: '/api/public/hooks/check-subcontractor-document-expiry',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksCheckExpiringTrialsRoute =
   ApiPublicHooksCheckExpiringTrialsRouteImport.update({
     id: '/api/public/hooks/check-expiring-trials',
@@ -773,6 +780,7 @@ export interface FileRoutesByFullPath {
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/check-subcontractor-document-expiry': typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -873,6 +881,7 @@ export interface FileRoutesByTo {
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/check-subcontractor-document-expiry': typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -979,6 +988,7 @@ export interface FileRoutesById {
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
+  '/api/public/hooks/check-subcontractor-document-expiry': typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRoute
   '/api/public/hooks/drain-emails': typeof ApiPublicHooksDrainEmailsRoute
   '/api/public/hooks/drain-webhooks': typeof ApiPublicHooksDrainWebhooksRoute
   '/api/public/hooks/health': typeof ApiPublicHooksHealthRoute
@@ -1085,6 +1095,7 @@ export interface FileRouteTypes {
     | '/api/public/calendar/$token'
     | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/check-subcontractor-document-expiry'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
@@ -1185,6 +1196,7 @@ export interface FileRouteTypes {
     | '/api/public/calendar/$token'
     | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/check-subcontractor-document-expiry'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
@@ -1290,6 +1302,7 @@ export interface FileRouteTypes {
     | '/api/public/calendar/$token'
     | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
+    | '/api/public/hooks/check-subcontractor-document-expiry'
     | '/api/public/hooks/drain-emails'
     | '/api/public/hooks/drain-webhooks'
     | '/api/public/hooks/health'
@@ -1342,6 +1355,7 @@ export interface RootRouteChildren {
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
   ApiPublicHooksCheckExpiringTrialsRoute: typeof ApiPublicHooksCheckExpiringTrialsRoute
+  ApiPublicHooksCheckSubcontractorDocumentExpiryRoute: typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRoute
   ApiPublicHooksDrainEmailsRoute: typeof ApiPublicHooksDrainEmailsRoute
   ApiPublicHooksDrainWebhooksRoute: typeof ApiPublicHooksDrainWebhooksRoute
   ApiPublicHooksHealthRoute: typeof ApiPublicHooksHealthRoute
@@ -1997,6 +2011,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksDrainEmailsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/check-subcontractor-document-expiry': {
+      id: '/api/public/hooks/check-subcontractor-document-expiry'
+      path: '/api/public/hooks/check-subcontractor-document-expiry'
+      fullPath: '/api/public/hooks/check-subcontractor-document-expiry'
+      preLoaderRoute: typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/check-expiring-trials': {
       id: '/api/public/hooks/check-expiring-trials'
       path: '/api/public/hooks/check-expiring-trials'
@@ -2321,6 +2342,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
   ApiPublicHooksCheckExpiringTrialsRoute:
     ApiPublicHooksCheckExpiringTrialsRoute,
+  ApiPublicHooksCheckSubcontractorDocumentExpiryRoute:
+    ApiPublicHooksCheckSubcontractorDocumentExpiryRoute,
   ApiPublicHooksDrainEmailsRoute: ApiPublicHooksDrainEmailsRoute,
   ApiPublicHooksDrainWebhooksRoute: ApiPublicHooksDrainWebhooksRoute,
   ApiPublicHooksHealthRoute: ApiPublicHooksHealthRoute,
