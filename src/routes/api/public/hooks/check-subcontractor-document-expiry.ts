@@ -42,6 +42,7 @@ import {
   type ScheduleRule,
 } from "@/lib/subcontractor-expiry-schedule";
 import { sendPushToUser } from "@/lib/push.server";
+import { isValidCronSecret } from "@/lib/cron-auth.server";
 
 export const JOB_NAME = "pvia-subcontractor-document-expiry";
 
@@ -363,7 +364,7 @@ async function run(now = new Date()): Promise<RunResult> {
 
 async function handle(request: Request) {
   const secret = request.headers.get("x-cron-secret");
-  if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+  if (!isValidCronSecret(secret)) {
     return new Response("Unauthorized", { status: 401 });
   }
   try {

@@ -8,6 +8,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "@/lib/push.server";
+import { isValidCronSecret } from "@/lib/cron-auth.server";
 
 function getDb() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -119,7 +120,7 @@ export const Route = createFileRoute("/api/public/hooks/check-expiring-trials")(
     handlers: {
       POST: async ({ request }) => {
         const secret = request.headers.get("x-cron-secret");
-        if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+        if (!isValidCronSecret(secret)) {
           return new Response("Unauthorized", { status: 401 });
         }
         try {
@@ -132,7 +133,7 @@ export const Route = createFileRoute("/api/public/hooks/check-expiring-trials")(
       },
       GET: async ({ request }) => {
         const secret = request.headers.get("x-cron-secret");
-        if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+        if (!isValidCronSecret(secret)) {
           return new Response("Unauthorized", { status: 401 });
         }
         const r = await run();

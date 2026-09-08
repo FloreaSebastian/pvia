@@ -20,6 +20,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import {
+import { isValidCronSecret } from "@/lib/cron-auth.server";
   sendReserveDeadlineNearEmail,
   sendReserveOverdueEmail,
 } from "@/lib/reserve-email.server";
@@ -151,7 +152,7 @@ export const Route = createFileRoute("/api/public/hooks/send-reserve-deadline-re
     handlers: {
       POST: async ({ request }) => {
         const secret = request.headers.get("x-cron-secret");
-        if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+        if (!isValidCronSecret(secret)) {
           return new Response("Unauthorized", { status: 401 });
         }
         try {
@@ -164,7 +165,7 @@ export const Route = createFileRoute("/api/public/hooks/send-reserve-deadline-re
       },
       GET: async ({ request }) => {
         const secret = request.headers.get("x-cron-secret");
-        if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+        if (!isValidCronSecret(secret)) {
           return new Response("Unauthorized", { status: 401 });
         }
         const r = await run();
