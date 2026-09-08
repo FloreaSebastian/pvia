@@ -540,6 +540,7 @@ export const reviewSubcontractorDocument = createServerFn({ method: "POST" })
         decision: approved ? "approved" : "rejected",
         rejection_reason: approved ? null : data.reason.trim(),
         previous_review_status: (doc as any).review_status,
+        archived_previous_document_ids: archivedPrevious,
         reviewed_at: new Date().toISOString(),
       },
     });
@@ -555,7 +556,12 @@ export const reviewSubcontractorDocument = createServerFn({ method: "POST" })
       tag: `sc-doc-review-${data.documentId}`,
     });
 
-    return { ok: true, reviewStatus: approved ? "approved" : "rejected" };
+    return {
+      ok: true as const,
+      alreadyReviewed: false as const,
+      reviewStatus: approved ? "approved" : "rejected",
+      archivedPrevious,
+    };
   });
 
 /** File « À valider » du Centre de conformité (pièces déposées par les partenaires). */
