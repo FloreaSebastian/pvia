@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Building2,
+  FileText,
   Loader2,
   Mail,
   MoreHorizontal,
@@ -55,6 +56,9 @@ import {
   setSubcontractorMembershipStatus,
   updateSubcontractorMembership,
 } from "@/lib/subcontractors.functions";
+import { ComplianceBadge } from "@/components/subcontractors/ComplianceBadge";
+import { ComplianceDialog } from "@/components/subcontractors/ComplianceDialog";
+import { listSubcontractorsCompliance } from "@/lib/subcontractor-documents.functions";
 import {
   PERMISSION_GROUPS,
   PERMISSION_META,
@@ -115,10 +119,18 @@ function SubcontractorsPage() {
   const [companyDialog, setCompanyDialog] = useState(false);
   const [inviteFor, setInviteFor] = useState<{ id: string; name: string } | null>(null);
   const [permsFor, setPermsFor] = useState<any | null>(null);
+  const [docsFor, setDocsFor] = useState<{ id: string; name: string } | null>(null);
+  const complianceFn = useServerFn(listSubcontractorsCompliance);
 
   const { data, isLoading } = useQuery({
     queryKey: ["subcontractors", activeCompanyId],
     queryFn: () => list({ data: { companyId: activeCompanyId! } }),
+    enabled: !!activeCompanyId,
+  });
+
+  const { data: compliance } = useQuery({
+    queryKey: ["sc-compliance", activeCompanyId],
+    queryFn: () => complianceFn({ data: { companyId: activeCompanyId! } }),
     enabled: !!activeCompanyId,
   });
 
@@ -227,6 +239,9 @@ function SubcontractorsPage() {
                       <Badge className={STATUS_VARIANT[c.status] ?? ""}>
                         {SUBCONTRACTOR_STATUS_LABELS[c.status] ?? c.status}
                       </Badge>
+                      {(compliance as any)?.byPartner?.[c.id] ? (
+                        <ComplianceBadge status={(compliance as any).byPartner[c.id].status} />
+                      ) : null}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {[c.trade_name, c.city, c.phone, c.email].filter(Boolean).join(" · ") || "—"}
@@ -242,6 +257,14 @@ function SubcontractorsPage() {
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      className="h-11 flex-1 sm:flex-none"
+                      onClick={() => setDocsFor({ id: c.id, name: c.name })}
+                    >
+                      <FileText className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                      Documents
+                    </Button>
                     <Button
                       variant="outline"
                       className="h-11 flex-1 sm:flex-none"
