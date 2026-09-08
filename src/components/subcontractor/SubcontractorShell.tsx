@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { CalendarDays, HardHat, Loader2, LogOut } from "lucide-react";
+import { CalendarDays, FileText, HardHat, Loader2, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -93,6 +93,13 @@ export function SubcontractorShell({
             >
               <HardHat className="h-5 w-5" aria-hidden="true" />
               Mes chantiers
+            </Link>
+            <Link
+              to="/sous-traitant/documents"
+              className="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground [&.active]:text-primary"
+            >
+              <FileText className="h-5 w-5" aria-hidden="true" />
+              Mes documents
             </Link>
           </div>
         </nav>

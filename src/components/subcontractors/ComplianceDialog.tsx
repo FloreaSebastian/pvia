@@ -45,6 +45,7 @@ import {
   listSubcontractorDocuments,
   saveSubcontractorDocumentRule,
   uploadSubcontractorDocument,
+  reviewSubcontractorDocument,
 } from "@/lib/subcontractor-documents.functions";
 
 const MAX_MB = 10;
@@ -73,6 +74,22 @@ export function ComplianceDialog({
   const archiveFn = useServerFn(archiveSubcontractorDocument);
   const urlFn = useServerFn(getSubcontractorDocumentUrl);
   const ruleFn = useServerFn(saveSubcontractorDocumentRule);
+  const reviewFn = useServerFn(reviewSubcontractorDocument);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  /** Décision de l'entreprise sur une pièce déposée par le sous-traitant. */
+  const mReview = useMutation({
+    mutationFn: (v: { documentId: string; decision: "approve" | "reject"; reason?: string }) =>
+      reviewFn({ data: { companyId, documentId: v.documentId, decision: v.decision, reason: v.reason ?? "" } }),
+    onSuccess: (_r, v) => {
+      toast.success(v.decision === "approve" ? "Pièce validée." : "Pièce refusée, le sous-traitant est prévenu.");
+      setRejectId(null);
+      setRejectReason("");
+      refresh();
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Décision impossible."),
+  });
 
   const key = ["sc-documents", companyId, partner.id];
   const { data, isLoading } = useQuery({
@@ -255,8 +272,60 @@ export function ComplianceDialog({
                           {d.original_filename} · déposée le {formatFrDate(d.uploaded_at)}
                           {d.expiry_date ? ` · échéance ${formatFrDate(d.expiry_date)}` : ""}
                         </p>
+                        {d.review_status === "pending_review" ? (
+                          <Badge className="mt-1 bg-sky-600 text-white">À vérifier</Badge>
+                        ) : d.review_status === "rejected" ? (
+                          <p className="mt-1 text-sm text-destructive">Refusée — {d.rejection_reason}</p>
+                        ) : null}
+                        {rejectId === d.id && (
+                          <div className="mt-2 space-y-2">
+                            <Label htmlFor={`reject-${d.id}`}>Motif du refus (obligatoire, 5 caractères min.)</Label>
+                            <Textarea
+                              id={`reject-${d.id}`}
+                              rows={2}
+                              value={rejectReason}
+                              onChange={(e) => setRejectReason(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                variant="destructive"
+                                className="h-11"
+                                disabled={mReview.isPending || rejectReason.trim().length < 5}
+                                onClick={() =>
+                                  mReview.mutate({ documentId: d.id, decision: "reject", reason: rejectReason })
+                                }
+                              >
+                                Confirmer le refus
+                              </Button>
+                              <Button variant="ghost" className="h-11" onClick={() => setRejectId(null)}>
+                                Annuler
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        {d.review_status === "pending_review" && (
+                          <>
+                            <Button
+                              className="h-11"
+                              onClick={() => mReview.mutate({ documentId: d.id, decision: "approve" })}
+                              disabled={mReview.isPending}
+                            >
+                              Valider
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              className="h-11"
+                              onClick={() => {
+                                setRejectId(d.id);
+                                setRejectReason("");
+                              }}
+                            >
+                              Refuser
+                            </Button>
+                          </>
+                        )}
                         <Button variant="outline" className="h-11" onClick={() => open(d.id)}>
                           <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
                           Consulter

@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, FileWarning } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FileWarning, Hourglass } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   COMPLIANCE_STATUS_LABELS,
@@ -11,6 +11,7 @@ export function ComplianceBadge({ status }: { status: ComplianceStatus }) {
     compliant: { cls: "bg-green-600 text-white", Icon: CheckCircle2 },
     expiring_soon: { cls: "bg-amber-500 text-white", Icon: Clock },
     incomplete: { cls: "bg-orange-600 text-white", Icon: FileWarning },
+    pending_review: { cls: "bg-sky-600 text-white", Icon: Hourglass },
     blocking: { cls: "bg-destructive text-destructive-foreground", Icon: AlertTriangle },
   };
   const { cls, Icon } = map[status];

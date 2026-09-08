@@ -84,7 +84,14 @@ export function milestoneFor(days: number): string | null {
   return (EXPIRY_ALERT_DAYS as readonly number[]).includes(days) ? `j-${days}` : null;
 }
 
-export type DocumentStatus = "valid" | "expiring_soon" | "expired" | "missing" | "no_expiry";
+export type DocumentStatus =
+  | "valid"
+  | "expiring_soon"
+  | "expired"
+  | "missing"
+  | "no_expiry"
+  | "pending_review"
+  | "rejected";
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
   valid: "Valide",
@@ -92,15 +99,40 @@ export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
   expiring_soon: "Expire bientôt",
   expired: "Expiré",
   missing: "Manquante",
+  pending_review: "À vérifier",
+  rejected: "Refusée",
 };
 
-export type ComplianceStatus = "compliant" | "incomplete" | "expiring_soon" | "blocking";
+/**
+ * État de revue d'une pièce.
+ *
+ * COMPATIBILITÉ HISTORIQUE : toutes les pièces déposées avant l'ouverture du
+ * portail sous-traitant sont `approved` (défaut SQL). Les dépôts admin restent
+ * `approved` (l'entreprise se valide elle-même en déposant). Seuls les dépôts
+ * faits PAR le sous-traitant passent par `pending_review`. Aucun partenaire
+ * aujourd'hui conforme ne devient non conforme.
+ */
+export type ReviewStatus = "pending_review" | "approved" | "rejected";
+
+export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
+  pending_review: "À vérifier",
+  approved: "Validée",
+  rejected: "Refusée",
+};
+
+export type ComplianceStatus =
+  | "compliant"
+  | "incomplete"
+  | "expiring_soon"
+  | "blocking"
+  | "pending_review";
 
 export const COMPLIANCE_STATUS_LABELS: Record<ComplianceStatus, string> = {
   compliant: "Conforme selon vos règles",
   incomplete: "À compléter",
   expiring_soon: "Expire bientôt",
   blocking: "Pièce bloquante non conforme",
+  pending_review: "Pièce à vérifier",
 };
 
 export type ComplianceDocInput = {
@@ -112,6 +144,8 @@ export type ComplianceDocInput = {
   is_required?: boolean | null;
   is_blocking?: boolean | null;
   archived_at?: string | null;
+  review_status?: string | null;
+  rejection_reason?: string | null;
 };
 
 export type ComplianceRuleInput = {
@@ -129,16 +163,34 @@ export type ComplianceLine = {
   required: boolean;
   blocking: boolean;
   status: DocumentStatus;
+  reviewStatus: ReviewStatus | null;
+  rejectionReason: string | null;
   daysToExpiry: number | null;
 };
 
 export type ComplianceSummary = {
   status: ComplianceStatus;
   lines: ComplianceLine[];
-  counts: { valid: number; expiringSoon: number; expired: number; missing: number };
+  counts: {
+    valid: number;
+    expiringSoon: number;
+    expired: number;
+    missing: number;
+    pendingReview: number;
+    rejected: number;
+  };
   nextExpiry: { docType: string; label: string; date: string; daysToExpiry: number } | null;
-  blockingIssues: Array<{ docType: string; label: string; reason: "missing" | "expired" }>;
+  blockingIssues: Array<{
+    docType: string;
+    label: string;
+    reason: "missing" | "expired" | "pending_review" | "rejected";
+  }>;
 };
+
+export function normalizeReviewStatus(value: unknown): ReviewStatus {
+  return value === "pending_review" || value === "rejected" ? value : "approved";
+}
+
 
 /** Jours calendaires entre aujourd'hui (UTC minuit) et une date ISO `YYYY-MM-DD`. */
 export function daysUntil(dateIso: string, now: Date = new Date()): number {
@@ -166,7 +218,15 @@ export function computeCompliance(
 ): ComplianceSummary {
   const active = docs.filter((d) => !d.archived_at);
 
-  // Le document actif le plus récent (échéance la plus lointaine) par type.
+  /**
+   * Version de référence par type : une pièce VALIDÉE prime toujours sur une
+   * pièce en cours de vérification, qui prime sur une pièce refusée. À état de
+   * revue égal, l'échéance la plus lointaine gagne. Un dépôt en attente ne peut
+   * donc jamais dégrader une pièce déjà validée et encore valable.
+   */
+  const rank = (d: ComplianceDocInput) =>
+    ({ approved: 0, pending_review: 1, rejected: 2 })[normalizeReviewStatus(d.review_status)];
+
   const byType = new Map<string, ComplianceDocInput>();
   for (const d of active) {
     const current = byType.get(d.doc_type);
@@ -174,9 +234,13 @@ export function computeCompliance(
       byType.set(d.doc_type, d);
       continue;
     }
-    const a = current.expiry_date ?? "";
-    const b = d.expiry_date ?? "";
-    if (b > a) byType.set(d.doc_type, d);
+    if (rank(d) < rank(current)) {
+      byType.set(d.doc_type, d);
+      continue;
+    }
+    if (rank(d) === rank(current) && (d.expiry_date ?? "") > (current.expiry_date ?? "")) {
+      byType.set(d.doc_type, d);
+    }
   }
 
   const types = new Set<string>([...rules.map((r) => r.doc_type), ...byType.keys()]);
@@ -187,7 +251,14 @@ export function computeCompliance(
     const doc = byType.get(type);
     const required = rule?.is_required ?? doc?.is_required ?? false;
     const blocking = rule?.is_blocking ?? doc?.is_blocking ?? false;
-    const status: DocumentStatus = doc ? documentStatus(doc.expiry_date, now) : "missing";
+    const review = doc ? normalizeReviewStatus(doc.review_status) : null;
+    const status: DocumentStatus = !doc
+      ? "missing"
+      : review === "pending_review"
+        ? "pending_review"
+        : review === "rejected"
+          ? "rejected"
+          : documentStatus(doc.expiry_date, now);
     lines.push({
       docType: type,
       label: docTypeLabel(type, doc?.label),
@@ -197,15 +268,25 @@ export function computeCompliance(
       required,
       blocking,
       status,
+      reviewStatus: review,
+      rejectionReason: review === "rejected" ? (doc?.rejection_reason ?? null) : null,
       daysToExpiry: doc?.expiry_date ? daysUntil(doc.expiry_date, now) : null,
     });
   }
 
   lines.sort((a, b) => {
-    const rank = (l: ComplianceLine) =>
+    const order = (l: ComplianceLine) =>
       (l.blocking ? 0 : l.required ? 1 : 2) * 10 +
-      ({ expired: 0, missing: 1, expiring_soon: 2, valid: 3, no_expiry: 4 } as const)[l.status];
-    return rank(a) - rank(b) || a.label.localeCompare(b.label, "fr");
+      ({
+        expired: 0,
+        rejected: 1,
+        missing: 2,
+        pending_review: 3,
+        expiring_soon: 4,
+        valid: 5,
+        no_expiry: 6,
+      } as const)[l.status];
+    return order(a) - order(b) || a.label.localeCompare(b.label, "fr");
   });
 
   const counts = {
@@ -213,14 +294,27 @@ export function computeCompliance(
     expiringSoon: lines.filter((l) => l.status === "expiring_soon").length,
     expired: lines.filter((l) => l.status === "expired").length,
     missing: lines.filter((l) => l.status === "missing" && l.required).length,
+    // Compteurs de revue : toutes les versions actives concernées, pas
+    // seulement la version de référence (une pièce peut être en attente alors
+    // qu'une version validée reste en vigueur).
+    pendingReview: active.filter((d) => normalizeReviewStatus(d.review_status) === "pending_review").length,
+    rejected: active.filter((d) => normalizeReviewStatus(d.review_status) === "rejected").length,
   };
 
   const blockingIssues = lines
-    .filter((l) => l.blocking && l.required && (l.status === "expired" || l.status === "missing"))
+    .filter(
+      (l) =>
+        l.blocking &&
+        l.required &&
+        (l.status === "expired" ||
+          l.status === "missing" ||
+          l.status === "pending_review" ||
+          l.status === "rejected"),
+    )
     .map((l) => ({
       docType: l.docType,
       label: l.label,
-      reason: (l.status === "expired" ? "expired" : "missing") as "missing" | "expired",
+      reason: l.status as "missing" | "expired" | "pending_review" | "rejected",
     }));
 
   const upcoming = lines
@@ -231,7 +325,10 @@ export function computeCompliance(
   let status: ComplianceStatus = "compliant";
   if (blockingIssues.length > 0) status = "blocking";
   else if (counts.missing > 0 || lines.some((l) => l.required && l.status === "expired")) status = "incomplete";
+  else if (counts.pendingReview > 0 || lines.some((l) => l.required && l.status === "rejected"))
+    status = "pending_review";
   else if (counts.expiringSoon > 0) status = "expiring_soon";
+
 
   return {
     status,

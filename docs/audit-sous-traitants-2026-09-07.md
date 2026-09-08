@@ -466,3 +466,36 @@ Purge : companies/partenaires/pièces/alertes/livraisons/notifications/membres/j
   - Run 3 (push manquant simulé) : `already_delivered:1, notifications:0, pushes:1` — l'alerte mobile est bien renvoyée sans redonner la notification in-app.
 - Tests : `bun test tests/unit` → 137 tests, 0 échec, 366 assertions. Typecheck et build OK.
 - Purge vérifiée : 0 entreprise, 0 appareil, 0 notification de test ; trigger de gouvernance réactivé.
+
+## Portail de conformité collaboratif (2026-09-08)
+
+### Ce qui a été ajouté (sans système parallèle)
+- Migration additive : `subcontractor_documents.review_status` (défaut `approved`),
+  `submitted_by_subcontractor_user_id`, `reviewed_by/reviewed_at`, `rejection_reason`,
+  `review_note` ; table `subcontractor_document_reminders` (RLS lecture admin).
+- `src/lib/subcontractor-compliance.ts` : statuts `pending_review` / `rejected`,
+  compteurs et blocages tenant compte de la revue. Une pièce VALIDÉE encore valable
+  prime sur un nouveau dépôt en attente : aucun partenaire aujourd'hui conforme ne
+  devient non conforme.
+- Portail sous-traitant `/sous-traitant/documents` (`subcontractor-portal-documents.functions.ts`) :
+  tenant et partenaire dérivés de `requireMembership`, dépôt PDF/JPG/PNG sniffé, 10 Mo,
+  Storage privé, lien signé 120 s, dépôt toujours en `pending_review`, remplacement
+  avec archivage, exigences lues dans les règles courantes de l'entreprise.
+- Validation entreprise : `reviewSubcontractorDocument` (admins canoniques via
+  `is_company_admin` + garde d'abonnement), motif ≥ 5 caractères obligatoire au refus,
+  version archivée non revisable, audit systématique, notification in-app + push au
+  partenaire (lien applicatif, jamais d'URL signée).
+- Centre de conformité `/conformite` : KPIs (actifs, conformes, bloqués, à vérifier,
+  échéances 7/30/60 j, expirées), recherche, filtres, file « À valider » avec
+  validation/refus, relance manuelle anti-spam (6 h) tracée dans
+  `subcontractor_document_reminders` + `audit_logs`.
+
+### Tests
+`bun test tests/unit` : 146 pass / 0 fail / 393 assertions (12 fichiers), dont 9 nouveaux
+cas de revue (compatibilité historique, blocage, priorité version validée, archivage,
+priorité des règles courantes). Typecheck et build : OK.
+
+### Encore BLOCKED
+- Parcours authentifiés réels (dépôt depuis un téléphone, validation admin, réception
+  push physique) : session navigateur indisponible dans l'environnement d'audit.
+- Aucune donnée TEST créée lors de cette passe ; Stripe LIVE et données réelles intacts.

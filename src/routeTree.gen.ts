@@ -34,6 +34,7 @@ import { Route as SousTraitantIndexRouteImport } from './routes/sous-traitant.in
 import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
 import { Route as ClientIndexRouteImport } from './routes/client.index'
 import { Route as SousTraitantVerifyRouteImport } from './routes/sous-traitant.verify'
+import { Route as SousTraitantDocumentsRouteImport } from './routes/sous-traitant.documents'
 import { Route as SousTraitantChantiersRouteImport } from './routes/sous-traitant.chantiers'
 import { Route as SolutionsSlugRouteImport } from './routes/solutions.$slug'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
@@ -53,6 +54,7 @@ import { Route as AuthenticatedHistoriqueRouteImport } from './routes/_authentic
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
 import { Route as AuthenticatedEntrepriseRouteImport } from './routes/_authenticated/entreprise'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedConformiteRouteImport } from './routes/_authenticated/conformite'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedAccountSuspendedRouteImport } from './routes/_authenticated/account-suspended'
@@ -238,6 +240,11 @@ const SousTraitantVerifyRoute = SousTraitantVerifyRouteImport.update({
   path: '/sous-traitant/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SousTraitantDocumentsRoute = SousTraitantDocumentsRouteImport.update({
+  id: '/sous-traitant/documents',
+  path: '/sous-traitant/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SousTraitantChantiersRoute = SousTraitantChantiersRouteImport.update({
   id: '/sous-traitant/chantiers',
   path: '/sous-traitant/chantiers',
@@ -334,6 +341,11 @@ const AuthenticatedEntrepriseRoute = AuthenticatedEntrepriseRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedConformiteRoute = AuthenticatedConformiteRouteImport.update({
+  id: '/conformite',
+  path: '/conformite',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedClientsRoute = AuthenticatedClientsRouteImport.update({
@@ -710,6 +722,7 @@ export interface FileRoutesByFullPath {
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/clients': typeof AuthenticatedClientsRoute
+  '/conformite': typeof AuthenticatedConformiteRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/equipe': typeof AuthenticatedEquipeRoute
@@ -729,6 +742,7 @@ export interface FileRoutesByFullPath {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/documents': typeof SousTraitantDocumentsRoute
   '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
@@ -814,6 +828,7 @@ export interface FileRoutesByTo {
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/clients': typeof AuthenticatedClientsRoute
+  '/conformite': typeof AuthenticatedConformiteRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/equipe': typeof AuthenticatedEquipeRoute
@@ -832,6 +847,7 @@ export interface FileRoutesByTo {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/documents': typeof SousTraitantDocumentsRoute
   '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client': typeof ClientIndexRoute
   '/solutions': typeof SolutionsIndexRoute
@@ -918,6 +934,7 @@ export interface FileRoutesById {
   '/_authenticated/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
+  '/_authenticated/conformite': typeof AuthenticatedConformiteRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/entreprise': typeof AuthenticatedEntrepriseRoute
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
@@ -937,6 +954,7 @@ export interface FileRoutesById {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/solutions/$slug': typeof SolutionsSlugRoute
   '/sous-traitant/chantiers': typeof SousTraitantChantiersRoute
+  '/sous-traitant/documents': typeof SousTraitantDocumentsRoute
   '/sous-traitant/verify': typeof SousTraitantVerifyRoute
   '/client/': typeof ClientIndexRoute
   '/solutions/': typeof SolutionsIndexRoute
@@ -1025,6 +1043,7 @@ export interface FileRouteTypes {
     | '/account-suspended'
     | '/billing'
     | '/clients'
+    | '/conformite'
     | '/dashboard'
     | '/entreprise'
     | '/equipe'
@@ -1044,6 +1063,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/solutions/$slug'
     | '/sous-traitant/chantiers'
+    | '/sous-traitant/documents'
     | '/sous-traitant/verify'
     | '/client/'
     | '/solutions/'
@@ -1129,6 +1149,7 @@ export interface FileRouteTypes {
     | '/account-suspended'
     | '/billing'
     | '/clients'
+    | '/conformite'
     | '/dashboard'
     | '/entreprise'
     | '/equipe'
@@ -1147,6 +1168,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/solutions/$slug'
     | '/sous-traitant/chantiers'
+    | '/sous-traitant/documents'
     | '/sous-traitant/verify'
     | '/client'
     | '/solutions'
@@ -1232,6 +1254,7 @@ export interface FileRouteTypes {
     | '/_authenticated/account-suspended'
     | '/_authenticated/billing'
     | '/_authenticated/clients'
+    | '/_authenticated/conformite'
     | '/_authenticated/dashboard'
     | '/_authenticated/entreprise'
     | '/_authenticated/equipe'
@@ -1251,6 +1274,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/solutions/$slug'
     | '/sous-traitant/chantiers'
+    | '/sous-traitant/documents'
     | '/sous-traitant/verify'
     | '/client/'
     | '/solutions/'
@@ -1344,6 +1368,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   SousTraitantChantiersRoute: typeof SousTraitantChantiersRoute
+  SousTraitantDocumentsRoute: typeof SousTraitantDocumentsRoute
   SousTraitantVerifyRoute: typeof SousTraitantVerifyRoute
   ClientIndexRoute: typeof ClientIndexRoute
   SousTraitantIndexRoute: typeof SousTraitantIndexRoute
@@ -1542,6 +1567,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SousTraitantVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sous-traitant/documents': {
+      id: '/sous-traitant/documents'
+      path: '/sous-traitant/documents'
+      fullPath: '/sous-traitant/documents'
+      preLoaderRoute: typeof SousTraitantDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sous-traitant/chantiers': {
       id: '/sous-traitant/chantiers'
       path: '/sous-traitant/chantiers'
@@ -1673,6 +1705,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/conformite': {
+      id: '/_authenticated/conformite'
+      path: '/conformite'
+      fullPath: '/conformite'
+      preLoaderRoute: typeof AuthenticatedConformiteRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/clients': {
@@ -2185,6 +2224,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountSuspendedRoute: typeof AuthenticatedAccountSuspendedRoute
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
+  AuthenticatedConformiteRoute: typeof AuthenticatedConformiteRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEntrepriseRoute: typeof AuthenticatedEntrepriseRoute
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
@@ -2226,6 +2266,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountSuspendedRoute: AuthenticatedAccountSuspendedRoute,
   AuthenticatedBillingRoute: AuthenticatedBillingRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRoute,
+  AuthenticatedConformiteRoute: AuthenticatedConformiteRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEntrepriseRoute: AuthenticatedEntrepriseRoute,
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
@@ -2330,6 +2371,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
   SousTraitantChantiersRoute: SousTraitantChantiersRoute,
+  SousTraitantDocumentsRoute: SousTraitantDocumentsRoute,
   SousTraitantVerifyRoute: SousTraitantVerifyRoute,
   ClientIndexRoute: ClientIndexRoute,
   SousTraitantIndexRoute: SousTraitantIndexRoute,
