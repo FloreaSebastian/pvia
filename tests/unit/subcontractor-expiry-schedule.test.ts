@@ -3,6 +3,7 @@ import {
   alertState,
   daysUntilParis,
   isUniqueViolation,
+  pendingChannels,
   milestoneForDays,
   parisDateString,
   parisHour,
@@ -206,5 +207,34 @@ describe("durcissement cron (2026-09-08)", () => {
       partners,
     );
     expect(none).toHaveLength(0);
+  });
+});
+
+describe("push mobile des alertes de conformité", () => {
+  it("réclame les deux canaux quand rien n'a été livré", () => {
+    expect(pendingChannels("u1", [])).toEqual({ inapp: true, push: true });
+  });
+
+  it("retente le push après un rejeu si seul le in-app est enregistré", () => {
+    expect(pendingChannels("u1", [{ user_id: "u1", channel: "inapp" }])).toEqual({
+      inapp: false,
+      push: true,
+    });
+  });
+
+  it("ne redonne rien quand les deux canaux sont livrés", () => {
+    expect(
+      pendingChannels("u1", [
+        { user_id: "u1", channel: "inapp" },
+        { user_id: "u1", channel: "push" },
+      ]),
+    ).toEqual({ inapp: false, push: false });
+  });
+
+  it("isole les destinataires entre eux", () => {
+    expect(pendingChannels("u2", [{ user_id: "u1", channel: "push" }])).toEqual({
+      inapp: true,
+      push: true,
+    });
   });
 });
