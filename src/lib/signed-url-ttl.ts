@@ -16,3 +16,9 @@ export const SIGNED_URL_PDF_TTL = 60 * 60;
 
 /** Expertise / audit ZIP exports — 1 hour (upper bound). */
 export const SIGNED_URL_EXPORT_TTL = 60 * 60;
+
+/**
+ * Pièces administratives des sous-traitants (décennale, URSSAF, Kbis…).
+ * Données sensibles : lien très court, régénéré à la demande. — 2 minutes.
+ */
+export const SIGNED_URL_ADMIN_DOC_TTL = 120;
