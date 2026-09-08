@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useQueryClient } from "@tanstack/react-query";
+import { SubcontractorNotifications } from "@/components/subcontractor/SubcontractorNotifications";
 
 /**
  * Enveloppe mobile-first de l'espace Sous-traitant.
@@ -54,6 +55,7 @@ export function SubcontractorShell({
           </Link>
           <div className="flex items-center gap-1">
             <span className="hidden text-xs text-muted-foreground sm:inline">Espace sous-traitant</span>
+            {requireAuth && ready && <SubcontractorNotifications />}
             {requireAuth && (
               <Button variant="ghost" size="icon" className="h-11 w-11" onClick={signOut} aria-label="Se déconnecter">
                 <LogOut className="h-4 w-4" aria-hidden="true" />
