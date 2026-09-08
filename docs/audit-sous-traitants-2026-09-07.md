@@ -499,3 +499,37 @@ priorité des règles courantes). Typecheck et build : OK.
 - Parcours authentifiés réels (dépôt depuis un téléphone, validation admin, réception
   push physique) : session navigateur indisponible dans l'environnement d'audit.
 - Aucune donnée TEST créée lors de cette passe ; Stripe LIVE et données réelles intacts.
+
+## Passe corrective avant publication — 8 septembre 2026
+
+Aucune publication, aucun paiement, aucune donnée réelle ni configuration Stripe LIVE n'ont été touchés.
+
+| # | Sévérité | Cause | Impact | Correction | Preuve / test |
+|---|---|---|---|---|---|
+| 1 | P1 | `uploadMyDocument` archivait toutes les versions actives, y compris la dernière validée | Un renouvellement déposé faisait basculer un partenaire couvert en blocage | Un dépôt `pending_review` n'archive plus que les versions `pending_review`/`rejected` ; l'archivage des versions validées se fait à l'approbation | `tests/unit/subcontractor-compliance-review-coexistence.test.ts` (5 cas) |
+| 2 | P1 | `listPendingSubcontractorDocuments` / `getComplianceCenter` utilisaient `assertMember` | Un rôle interne non-admin pouvait lire la file de validation, SIRET et e-mails via l'API | Garde serveur `assertAdmin` (source de vérité `is_company_admin`) | Lecture du code + typecheck ; test API authentifié BLOCKED (voir plus bas) |
+| 3 | P1 | Le portail sous-traitant ne passait par aucun garde d'abonnement | Écriture possible en compte lecture seule | `assertCompanyWritable(companyId)` appelé avant tout envoi de fichier et toute écriture base | Garde canonique partagé avec les écritures internes |
+| 4 | P1 | La revue acceptait toute version non archivée | Double clic / rejeu pouvait ré-décider et re-notifier | Décision atomique conditionnée à `review_status = 'pending_review'` ; retour `alreadyReviewed` sans notification | Code + conditions d'écriture SQL |
+| 5 | P1 | Notifications et push réservés aux membres internes | Les alertes destinées aux sous-traitants étaient illisibles pour eux | Politiques additives `notif_select_subcontractor`, `notif_update_subcontractor`, `push_sub_insert_subcontractor`; `subscribePush` accepte membre interne actif OU sous-traitant actif ; nouveau centre de notifications mobile dans le portail avec activation push réelle | Test SQL transactionnel (rollback) : relation active OK, autre entreprise refusée, suspendu refusé, révoqué refusé, partenaire suspendu refusé |
+| 6 | P1 | `is_active_subcontractor` ne vérifiait pas `archived_at` | Un partenaire archivé conservait l'accès | Fonction renforcée : `sc.archived_at IS NULL` | Test SQL transactionnel « T5 OK » (rollback) |
+| 7 | P2 | Cooldown de relance sans `doc_type` | Une relance Décennale bloquait une relance RC Pro pendant 6 h | Clé logique entreprise + partenaire + motif + type (avec `IS NULL` explicite) + index dédié | Code + index `subcontractor_document_reminders_cooldown_idx` |
+| 8 | P2 | Centre de conformité incomplet | KPI et filtres annoncés absents | 8 KPI cliquables (actifs, conformes, bloqués, à vérifier, <7 j, <30 j, <60 j, expirées), recherche nom + SIRET + e-mail, filtres statut / métier / type de pièce / échéance / en attente / bloquants ; aucun lien signé au listing | Page `/conformite` |
+| 9 | P3 | Motifs de blocage tous rendus « manquante » | Dérogation incompréhensible et audit trompeur | `BLOCKING_REASON_LABELS` : manquante / expirée / à vérifier / refusée | Test unitaire dédié |
+
+### Contrôles complémentaires
+- Stockage `pv-assets` : reste privé, aucun accès public ajouté.
+- Liens signés : TTL 120 s. Une URL déjà émise reste valable jusqu'à cette limite ; toute nouvelle demande après suspension/révocation est refusée immédiatement (dérivation serveur du tenant).
+- Traçabilité conservée : `reviewed_by`, `reviewed_at`, `rejection_reason`, version, tenant, partenaire.
+- Pièces historiques inchangées (`review_status` par défaut `approved`).
+- Aucune nouvelle tarification ni gate arbitraire.
+
+### Résultats exacts
+- `bun test tests/unit` : **152 tests, 0 échec, 406 assertions, 13 fichiers**.
+- `bunx tsgo --noEmit` : OK. Build : OK.
+- Données TEST : 0 (tests SQL exécutés en transaction annulée).
+- Avertissements linter Supabase : 25, identiques avant/après (extension dans `public` + 24 fonctions SECURITY DEFINER exécutables) — préexistants, hors périmètre.
+
+### Encore BLOCKED
+- Parcours authentifié réel (session sous-traitant, OTP e-mail, appel API direct par rôle interne) : `LOVABLE_BROWSER_AUTH_STATUS=signed_out`, aucune session ne peut être créée dans l'environnement.
+- Réception d'un push sur un téléphone physique et permission navigateur/service worker : non reproductible ici.
+- Publication : volontairement non effectuée.
