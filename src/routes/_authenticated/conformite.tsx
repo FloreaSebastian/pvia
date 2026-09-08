@@ -57,16 +57,55 @@ export const Route = createFileRoute("/_authenticated/conformite")({
   }),
 });
 
-type Filter = "all" | "blocking" | "pending_review" | "expiring" | "compliant";
+type Filter =
+  | "all"
+  | "blocking"
+  | "pending_review"
+  | "expiring7"
+  | "expiring30"
+  | "expiring60"
+  | "expired"
+  | "compliant";
 
-function Kpi({ label, value }: { label: string; value: number }) {
-  return (
-    <Card className="p-3">
+function Kpi({
+  label,
+  value,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-display text-2xl font-bold">{value}</p>
+    </>
+  );
+  if (!onClick) return <Card className="p-3">{content}</Card>;
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      aria-pressed={!!active}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`min-h-16 cursor-pointer p-3 text-left transition hover:border-primary/50 ${
+        active ? "border-primary ring-1 ring-primary" : ""
+      }`}
+    >
+      {content}
     </Card>
   );
 }
+
 
 function CompliancePage() {
   const { activeCompanyId } = useCompany();
