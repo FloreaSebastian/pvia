@@ -71,7 +71,7 @@ export async function notifyCompanyAdmins(companyId: string, payload: NotifyPayl
     .select("user_id")
     .eq("company_id", companyId)
     .eq("status", "active")
-    .in("role", COMPANY_ADMIN_ROLES as unknown as string[]);
+    .in("role", COMPANY_ADMIN_ROLES as unknown as never[]);
   const ids = ((data ?? []) as { user_id: string | null }[])
     .map((m) => m.user_id)
     .filter((x): x is string => !!x);
