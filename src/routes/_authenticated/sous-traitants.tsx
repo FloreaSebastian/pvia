@@ -395,6 +395,14 @@ function SubcontractorsPage() {
         pending={mPerms.isPending}
         onSubmit={(v) => mPerms.mutate({ ...v, membershipId: permsFor.id })}
       />
+      {docsFor && activeCompanyId ? (
+        <ComplianceDialog
+          companyId={activeCompanyId}
+          partner={docsFor}
+          onClose={() => setDocsFor(null)}
+        />
+      ) : null}
+
     </div>
   );
 }
