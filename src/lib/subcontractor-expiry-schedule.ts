@@ -80,6 +80,8 @@ export type ScheduleDoc = {
 };
 
 export type ScheduleRule = {
+  /** Tenant propriétaire de la règle (contrôlé quand il est fourni). */
+  company_id?: string;
   subcontractor_company_id: string;
   doc_type: string;
   is_required: boolean;
@@ -88,6 +90,8 @@ export type ScheduleRule = {
 
 export type SchedulePartner = {
   id: string;
+  /** Tenant propriétaire du partenaire (contrôlé quand il est fourni). */
+  company_id?: string;
   name: string;
   status: string;
   archived_at: string | null;
