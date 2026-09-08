@@ -120,6 +120,21 @@ export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
   rejected: "Refusée",
 };
 
+/**
+ * Libellé exact d'un motif de blocage à l'affectation. « pending_review » et
+ * « rejected » ne doivent JAMAIS être affichés comme « manquante » : la
+ * dérogation écrite doit rester compréhensible et auditable.
+ */
+export const BLOCKING_REASON_LABELS: Record<
+  "missing" | "expired" | "pending_review" | "rejected",
+  string
+> = {
+  missing: "manquante",
+  expired: "expirée",
+  pending_review: "à vérifier",
+  rejected: "refusée",
+};
+
 export type ComplianceStatus =
   | "compliant"
   | "incomplete"

@@ -23,7 +23,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ComplianceBadge } from "@/components/subcontractors/ComplianceBadge";
 import { ComplianceDialog } from "@/components/subcontractors/ComplianceDialog";
-import { formatFrDate } from "@/lib/subcontractor-compliance";
+import {
+  docTypeLabel,
+  formatFrDate,
+  SUBCONTRACTOR_DOC_TYPES,
+} from "@/lib/subcontractor-compliance";
 import {
   getComplianceCenter,
   listPendingSubcontractorDocuments,
@@ -57,16 +61,55 @@ export const Route = createFileRoute("/_authenticated/conformite")({
   }),
 });
 
-type Filter = "all" | "blocking" | "pending_review" | "expiring" | "compliant";
+type Filter =
+  | "all"
+  | "blocking"
+  | "pending_review"
+  | "expiring7"
+  | "expiring30"
+  | "expiring60"
+  | "expired"
+  | "compliant";
 
-function Kpi({ label, value }: { label: string; value: number }) {
-  return (
-    <Card className="p-3">
+function Kpi({
+  label,
+  value,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-display text-2xl font-bold">{value}</p>
+    </>
+  );
+  if (!onClick) return <Card className="p-3">{content}</Card>;
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      aria-pressed={!!active}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`min-h-16 cursor-pointer p-3 text-left transition hover:border-primary/50 ${
+        active ? "border-primary ring-1 ring-primary" : ""
+      }`}
+    >
+      {content}
     </Card>
   );
 }
+
 
 function CompliancePage() {
   const { activeCompanyId } = useCompany();
@@ -78,6 +121,8 @@ function CompliancePage() {
 
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [trade, setTrade] = useState("all");
+  const [docType, setDocType] = useState("all");
   const [docsFor, setDocsFor] = useState<{ id: string; name: string } | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -133,18 +178,49 @@ function CompliancePage() {
   });
 
   const partners = center.data?.partners ?? [];
+
+  /** Métiers réellement présents chez ce tenant (pas de liste figée). */
+  const trades = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of partners) for (const t of p.trades ?? []) set.add(t);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "fr"));
+  }, [partners]);
+
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    const digits = needle.replace(/\D/g, "");
+    const withinDays = (p: (typeof partners)[number], n: number) =>
+      p.summary.lines.some(
+        (l) => l.daysToExpiry !== null && l.daysToExpiry >= 0 && l.daysToExpiry <= n,
+      );
     return partners
       .filter((p) => !p.archived)
-      .filter((p) => (needle ? p.name.toLowerCase().includes(needle) : true))
+      .filter((p) => {
+        if (!needle) return true;
+        // Recherche nom + SIRET (chiffres seuls) + e-mail de contact.
+        const siret = (p.siret ?? "").replace(/\D/g, "");
+        return (
+          p.name.toLowerCase().includes(needle) ||
+          (p.email ?? "").toLowerCase().includes(needle) ||
+          (digits.length >= 3 && siret.includes(digits))
+        );
+      })
+      .filter((p) => (trade === "all" ? true : (p.trades ?? []).includes(trade)))
+      .filter((p) =>
+        docType === "all"
+          ? true
+          : p.summary.lines.some((l) => l.docType === docType && l.status !== "valid" && l.status !== "no_expiry"),
+      )
       .filter((p) => {
         if (filter === "all") return true;
-        if (filter === "expiring") return p.summary.counts.expiringSoon > 0;
+        if (filter === "expiring7") return withinDays(p, 7);
+        if (filter === "expiring30") return withinDays(p, 30);
+        if (filter === "expiring60") return withinDays(p, 60);
+        if (filter === "expired") return p.summary.counts.expired > 0;
         if (filter === "pending_review") return p.summary.counts.pendingReview > 0;
         return p.summary.status === filter;
       });
-  }, [partners, q, filter]);
+  }, [partners, q, filter, trade, docType]);
 
   const kpis = center.data?.kpis;
 
@@ -163,13 +239,55 @@ function CompliancePage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-            <Kpi label="Partenaires actifs" value={kpis?.activePartners ?? 0} />
-            <Kpi label="Conformes" value={kpis?.compliant ?? 0} />
-            <Kpi label="Bloqués" value={kpis?.blocked ?? 0} />
-            <Kpi label="À vérifier" value={kpis?.pendingReview ?? 0} />
-            <Kpi label="Échéance < 30 j" value={kpis?.expiring30 ?? 0} />
-            <Kpi label="Expirées" value={kpis?.expired ?? 0} />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+            <Kpi
+              label="Partenaires actifs"
+              value={kpis?.activePartners ?? 0}
+              active={filter === "all"}
+              onClick={() => setFilter("all")}
+            />
+            <Kpi
+              label="Conformes"
+              value={kpis?.compliant ?? 0}
+              active={filter === "compliant"}
+              onClick={() => setFilter("compliant")}
+            />
+            <Kpi
+              label="Bloqués"
+              value={kpis?.blocked ?? 0}
+              active={filter === "blocking"}
+              onClick={() => setFilter("blocking")}
+            />
+            <Kpi
+              label="À vérifier"
+              value={kpis?.pendingReview ?? 0}
+              active={filter === "pending_review"}
+              onClick={() => setFilter("pending_review")}
+            />
+            <Kpi
+              label="Échéance < 7 j"
+              value={kpis?.expiring7 ?? 0}
+              active={filter === "expiring7"}
+              onClick={() => setFilter("expiring7")}
+            />
+            <Kpi
+              label="Échéance < 30 j"
+              value={kpis?.expiring30 ?? 0}
+              active={filter === "expiring30"}
+              onClick={() => setFilter("expiring30")}
+            />
+            <Kpi
+              label="Échéance < 60 j"
+              value={kpis?.expiring60 ?? 0}
+              active={filter === "expiring60"}
+              onClick={() => setFilter("expiring60")}
+            />
+            <Kpi
+              label="Expirées"
+              value={kpis?.expired ?? 0}
+              active={filter === "expired"}
+              onClick={() => setFilter("expired")}
+            />
           </div>
 
           <Tabs defaultValue="partners">
@@ -185,7 +303,7 @@ function CompliancePage() {
             <TabsContent value="partners" className="space-y-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="flex-1">
-                  <Label htmlFor="cc-search">Rechercher un partenaire</Label>
+                  <Label htmlFor="cc-search">Rechercher (nom, SIRET, e-mail)</Label>
                   <div className="relative">
                     <Search
                       className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground"
@@ -196,7 +314,7 @@ function CompliancePage() {
                       className="h-11 pl-9"
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
-                      placeholder="Nom du partenaire"
+                      placeholder="Nom, SIRET ou e-mail"
                     />
                   </div>
                 </div>
@@ -204,9 +322,12 @@ function CompliancePage() {
                   {(
                     [
                       ["all", "Tous"],
-                      ["blocking", "Bloqués"],
-                      ["pending_review", "À vérifier"],
-                      ["expiring", "Échéance proche"],
+                      ["blocking", "Bloquants"],
+                      ["pending_review", "En attente de validation"],
+                      ["expiring7", "< 7 j"],
+                      ["expiring30", "< 30 j"],
+                      ["expiring60", "< 60 j"],
+                      ["expired", "Expirées"],
                       ["compliant", "Conformes"],
                     ] as Array<[Filter, string]>
                   ).map(([key, label]) => (
@@ -220,6 +341,41 @@ function CompliancePage() {
                       {label}
                     </Button>
                   ))}
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="cc-trade">Métier</Label>
+                  <select
+                    id="cc-trade"
+                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={trade}
+                    onChange={(e) => setTrade(e.target.value)}
+                  >
+                    <option value="all">Tous les métiers</option>
+                    {trades.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="cc-doctype">Type de pièce en défaut</Label>
+                  <select
+                    id="cc-doctype"
+                    className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={docType}
+                    onChange={(e) => setDocType(e.target.value)}
+                  >
+                    <option value="all">Tous les types</option>
+                    {SUBCONTRACTOR_DOC_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {docTypeLabel(t)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

@@ -113,6 +113,11 @@ export const uploadMyDocument = createServerFn({ method: "POST" })
   .inputValidator((i) => MyUploadSchema.parse(i))
   .handler(async ({ data, context }) => {
     const m = await requireMembership(context.userId, data.companyId);
+    // Garde d'abonnement canonique de l'entreprise donneuse d'ordre : en
+    // lecture seule (essai expiré, impayé…), AUCUNE écriture n'est acceptée —
+    // contrôle AVANT tout envoi Storage pour ne laisser aucun fichier orphelin.
+    const { assertCompanyWritable } = await import("./subcontractor-guard.server");
+    await assertCompanyWritable(m.companyId);
 
     const bytes = decodeBase64(data.fileBase64, MAX_BYTES);
     const mime = sniffDocumentMime(bytes);
@@ -135,6 +140,7 @@ export const uploadMyDocument = createServerFn({ method: "POST" })
       .from(BUCKET)
       .upload(path, bytes, { contentType: mime, upsert: false });
     if (upErr) throw new Error("Envoi du fichier impossible, réessayez.");
+
 
     const { data: row, error } = await supabaseAdmin
       .from("subcontractor_documents")
@@ -160,7 +166,11 @@ export const uploadMyDocument = createServerFn({ method: "POST" })
       throw new Error("Enregistrement impossible.");
     }
 
-    // Remplacement : la version active précédente du MÊME type est archivée.
+    // Un dépôt « à vérifier » ne retire JAMAIS la couverture d'une version
+    // déjà validée : la dernière `approved` active reste en vigueur pendant la
+    // revue (elle sera archivée à l'APPROBATION de cette nouvelle version).
+    // Seules les versions non approuvées (en attente / refusées) du même type
+    // sont archivées, pour éviter d'empiler des doublons dans la file.
     const { data: replaced } = await supabaseAdmin
       .from("subcontractor_documents")
       .update({ archived_at: new Date().toISOString(), replaced_by_id: row.id } as never)
@@ -169,7 +179,9 @@ export const uploadMyDocument = createServerFn({ method: "POST" })
       .eq("doc_type", data.docType)
       .is("archived_at", null)
       .neq("id", row.id)
+      .in("review_status", ["pending_review", "rejected"])
       .select("id");
+
 
     const label = docTypeLabel(data.docType);
     await writeAuditLog({

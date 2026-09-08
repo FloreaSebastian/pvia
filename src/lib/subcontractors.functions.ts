@@ -16,6 +16,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
+import { BLOCKING_REASON_LABELS } from "./subcontractor-compliance";
 import { enforceRateLimit } from "./rate-limit.server";
 import { normalizeEmail, sha256Hex } from "./client-auth.server";
 import { getPublicAppUrl } from "./app-url.server";
@@ -635,7 +636,7 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
     if (compliance.blockingIssues.length > 0 && overrideReason.length < 5) {
       throw new Error(
         `Pièce bloquante non conforme : ${compliance.blockingIssues
-          .map((b) => `${b.label} (${b.reason === "expired" ? "expirée" : "manquante"})`)
+          .map((b) => `${b.label} (${BLOCKING_REASON_LABELS[b.reason]})`)
           .join(", ")}. Mettez le dossier à jour ou justifiez une dérogation.`,
       );
     }

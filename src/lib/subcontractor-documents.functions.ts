@@ -475,6 +475,9 @@ export const reviewSubcontractorDocument = createServerFn({ method: "POST" })
     const partner = await requirePartner(supabase, data.companyId, (doc as any).subcontractor_company_id);
     const approved = data.decision === "approve";
 
+    // Décision ATOMIQUE : la version doit être encore « à vérifier » au moment
+    // exact de l'écriture. Double clic, rejeu d'appel ou file périmée ne
+    // peuvent donc produire qu'UNE seule décision (et une seule notification).
     const { data: updated, error } = await supabase
       .from("subcontractor_documents")
       .update({
@@ -486,10 +489,38 @@ export const reviewSubcontractorDocument = createServerFn({ method: "POST" })
       } as never)
       .eq("id", data.documentId)
       .eq("company_id", data.companyId)
+      .eq("review_status", "pending_review")
       .is("archived_at", null)
       .select("id")
       .maybeSingle();
-    if (error || !updated) throw new Error("Décision impossible, réessayez.");
+    if (error) throw new Error("Décision impossible, réessayez.");
+    if (!updated) {
+      // Déjà traitée : aucune écriture, aucune notification, aucun doublon.
+      return { ok: true as const, alreadyReviewed: true as const, reviewStatus: (doc as any).review_status as string };
+    }
+
+    // À l'approbation seulement, les anciennes versions VALIDÉES du même type
+    // sont archivées : la nouvelle pièce devient la référence, et la couverture
+    // n'a jamais été interrompue pendant la revue.
+    let archivedPrevious: string[] = [];
+    if (approved) {
+      const { data: olds } = await supabase
+        .from("subcontractor_documents")
+        .update({
+          archived_at: new Date().toISOString(),
+          archived_by: userId,
+          replaced_by_id: data.documentId,
+        } as never)
+        .eq("company_id", data.companyId)
+        .eq("subcontractor_company_id", partner.id)
+        .eq("doc_type", (doc as any).doc_type)
+        .eq("review_status", "approved")
+        .is("archived_at", null)
+        .neq("id", data.documentId)
+        .select("id");
+      archivedPrevious = ((olds ?? []) as any[]).map((o) => o.id as string);
+    }
+
 
     const who = await actorLabel(supabase, userId);
     const label = docTypeLabel((doc as any).doc_type, (doc as any).label);
@@ -509,6 +540,7 @@ export const reviewSubcontractorDocument = createServerFn({ method: "POST" })
         decision: approved ? "approved" : "rejected",
         rejection_reason: approved ? null : data.reason.trim(),
         previous_review_status: (doc as any).review_status,
+        archived_previous_document_ids: archivedPrevious,
         reviewed_at: new Date().toISOString(),
       },
     });
@@ -524,7 +556,12 @@ export const reviewSubcontractorDocument = createServerFn({ method: "POST" })
       tag: `sc-doc-review-${data.documentId}`,
     });
 
-    return { ok: true, reviewStatus: approved ? "approved" : "rejected" };
+    return {
+      ok: true as const,
+      alreadyReviewed: false as const,
+      reviewStatus: approved ? "approved" : "rejected",
+      archivedPrevious,
+    };
   });
 
 /** File « À valider » du Centre de conformité (pièces déposées par les partenaires). */
@@ -533,7 +570,9 @@ export const listPendingSubcontractorDocuments = createServerFn({ method: "POST"
   .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertMember(supabase, data.companyId, userId);
+    // Lecture RESERVEE aux administrateurs : la file contient l'identite des
+    // partenaires et de leurs pieces. Le masquage d'ecran ne suffit pas.
+    await assertAdmin(supabase, data.companyId, userId);
 
     const { data: rows } = await supabase
       .from("subcontractor_documents")
@@ -601,7 +640,8 @@ export const getComplianceCenter = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertMember(supabase, data.companyId, userId);
+    // SIRET, e-mail et conformite globale : administrateurs uniquement.
+    await assertAdmin(supabase, data.companyId, userId);
 
     const [partnersRes, docsRes, rulesRes] = await Promise.all([
       supabase
@@ -698,18 +738,21 @@ export const remindSubcontractorPartner = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const since = new Date(Date.now() - REMINDER_COOLDOWN_HOURS * 3600_000).toISOString();
-    const { data: recent } = await supabaseAdmin
+    // Clé logique d'idempotence : entreprise + partenaire + motif + TYPE de
+    // pièce. Une relance « Décennale manquante » ne bloque donc plus une
+    // relance « RC Pro manquante » pendant 6 heures.
+    let recentQuery = supabaseAdmin
       .from("subcontractor_document_reminders")
       .select("id,created_at")
       .eq("company_id", data.companyId)
       .eq("subcontractor_company_id", data.subcontractorCompanyId)
       .eq("reason", data.reason)
-      .gte("created_at", since)
-      .limit(1);
-    const already = ((recent ?? []) as any[]).find(
-      (r) => true,
-    );
-    if (already) {
+      .gte("created_at", since);
+    recentQuery = data.docType
+      ? recentQuery.eq("doc_type", data.docType)
+      : recentQuery.is("doc_type", null);
+    const { data: recent } = await recentQuery.limit(1);
+    if (((recent ?? []) as any[]).length > 0) {
       return { ok: true, skipped: true as const, recipients: 0 };
     }
 
