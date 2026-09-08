@@ -570,7 +570,9 @@ export const listPendingSubcontractorDocuments = createServerFn({ method: "POST"
   .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertMember(supabase, data.companyId, userId);
+    // Lecture RESERVEE aux administrateurs : la file contient l'identite des
+    // partenaires et de leurs pieces. Le masquage d'ecran ne suffit pas.
+    await assertAdmin(supabase, data.companyId, userId);
 
     const { data: rows } = await supabase
       .from("subcontractor_documents")
@@ -638,7 +640,8 @@ export const getComplianceCenter = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertMember(supabase, data.companyId, userId);
+    // SIRET, e-mail et conformite globale : administrateurs uniquement.
+    await assertAdmin(supabase, data.companyId, userId);
 
     const [partnersRes, docsRes, rulesRes] = await Promise.all([
       supabase
@@ -735,18 +738,21 @@ export const remindSubcontractorPartner = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const since = new Date(Date.now() - REMINDER_COOLDOWN_HOURS * 3600_000).toISOString();
-    const { data: recent } = await supabaseAdmin
+    // Clé logique d'idempotence : entreprise + partenaire + motif + TYPE de
+    // pièce. Une relance « Décennale manquante » ne bloque donc plus une
+    // relance « RC Pro manquante » pendant 6 heures.
+    let recentQuery = supabaseAdmin
       .from("subcontractor_document_reminders")
       .select("id,created_at")
       .eq("company_id", data.companyId)
       .eq("subcontractor_company_id", data.subcontractorCompanyId)
       .eq("reason", data.reason)
-      .gte("created_at", since)
-      .limit(1);
-    const already = ((recent ?? []) as any[]).find(
-      (r) => true,
-    );
-    if (already) {
+      .gte("created_at", since);
+    recentQuery = data.docType
+      ? recentQuery.eq("doc_type", data.docType)
+      : recentQuery.is("doc_type", null);
+    const { data: recent } = await recentQuery.limit(1);
+    if (((recent ?? []) as any[]).length > 0) {
       return { ok: true, skipped: true as const, recipients: 0 };
     }
 
