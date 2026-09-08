@@ -614,11 +614,12 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
       await assertPlanFeature(data.companyId, "technical_visits" as never, userId);
       const { data: visit } = await supabase
         .from("technical_visits")
-        .select("id,company_id")
+        .select("id,company_id,chantier_id")
         .eq("id", data.technicalVisitId)
         .eq("company_id", data.companyId)
+        .eq("chantier_id", data.chantierId)
         .maybeSingle();
-      if (!visit) throw new Error("Visite technique introuvable.");
+      if (!visit) throw new Error("Visite technique introuvable pour ce chantier.");
     }
 
     const payload = {
@@ -630,7 +631,7 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
       scheduled_at: data.scheduledAt ?? null,
       scheduled_end_at: data.scheduledEndAt ?? null,
       comment: data.comment || null,
-      permission_overrides: normalizePermissions(data.permissionOverrides ?? {}) as never,
+      permission_overrides: normalizePermissionOverrides(data.permissionOverrides ?? {}) as never,
     };
 
     let id = data.id;
