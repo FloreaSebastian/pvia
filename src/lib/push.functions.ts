@@ -17,7 +17,8 @@ export const subscribePush = createServerFn({ method: "POST" })
   .inputValidator((i) => SubscribeSchema.parse(i))
   .handler(async ({ data, context }) => {
     await enforceRateLimit({ bucket: "push.subscribe", key: context.userId, limit: 20, windowSec: 3600 });
-    // Verify membership
+    // Autorisation : membre interne actif OU sous-traitant actif de CETTE
+    // entreprise. `companyId` seul n'est jamais une preuve d'appartenance.
     const { data: m } = await supabaseAdmin
       .from("company_members")
       .select("id")
@@ -25,7 +26,13 @@ export const subscribePush = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!m) throw new Error("Accès refusé.");
+    if (!m) {
+      const { data: isSub } = await supabaseAdmin.rpc("is_active_subcontractor", {
+        _company_id: data.companyId,
+        _user_id: context.userId,
+      });
+      if (isSub !== true) throw new Error("Accès refusé.");
+    }
 
     // Upsert by endpoint
     const { error } = await supabaseAdmin

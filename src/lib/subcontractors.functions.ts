@@ -635,7 +635,7 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
     if (compliance.blockingIssues.length > 0 && overrideReason.length < 5) {
       throw new Error(
         `Pièce bloquante non conforme : ${compliance.blockingIssues
-          .map((b) => `${b.label} (${b.reason === "expired" ? "expirée" : "manquante"})`)
+          .map((b) => `${b.label} (${BLOCKING_REASON_LABELS[b.reason]})`)
           .join(", ")}. Mettez le dossier à jour ou justifiez une dérogation.`,
       );
     }
