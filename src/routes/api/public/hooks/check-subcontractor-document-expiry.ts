@@ -1,128 +1,243 @@
 /**
  * Cron — échéances des pièces administratives des sous-traitants.
  *
- * À planifier 1×/jour. Jalons : J-60, J-30, J-7, jour J, puis relance
- * hebdomadaire après expiration.
+ * Réutilise l'architecture cron déjà en place dans PVIA (pg_cron + pg_net →
+ * route `/api/public/hooks/*` protégée par `x-cron-secret`), la table
+ * `notifications` et le fan-out push `sendPushToUser`, comme le job des
+ * essais Stripe expirants. Aucun second système parallèle.
  *
- * Idempotence stricte : une ligne unique (document_id, milestone, expiry_date)
- * dans `subcontractor_document_alerts` — un rejeu du cron n'envoie rien.
+ * Jalons : J-60, J-30, J-7, J0, puis relance hebdomadaire (J+7, J+14, …).
+ * Les jours sont calculés en **date locale Europe/Paris** (DST compris).
  *
- * Destinataires : administrateurs internes de l'entreprise donneuse d'ordre
- * (directeur, responsable exploitation). Aucun sous-traitant notifié en V1.
+ * Idempotence : contrainte unique (document_id, milestone, expiry_date) sur
+ * `subcontractor_document_alerts`. L'insertion se fait AVANT tout envoi ; un
+ * rejeu du cron, un retry ou un redéploiement n'envoie donc rien de plus.
  *
- * Protégé par x-cron-secret.
+ * Destinataires : administrateurs internes actifs de l'entreprise donneuse
+ * d'ordre (directeur, responsable exploitation). Jamais un autre tenant,
+ * jamais le sous-traitant, jamais de lien Storage dans la notification.
+ *
+ * Planification : une fois par jour, 8h00 Europe/Paris. pg_cron tourne en UTC :
+ * le job est déclenché à 05/06/07 UTC et cette route ne travaille qu'à l'heure
+ * locale cible (`RUN_HOUR_PARIS`), ce qui absorbe les bascules été/hiver.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { docTypeLabel, formatFrDate, milestoneFor } from "@/lib/subcontractor-compliance";
+import { docTypeLabel, formatFrDate } from "@/lib/subcontractor-compliance";
+import {
+  parisDateString,
+  parisHour,
+  planAlerts,
+  type PlannedAlert,
+  type ScheduleDoc,
+  type SchedulePartner,
+  type ScheduleRule,
+} from "@/lib/subcontractor-expiry-schedule";
+import { sendPushToUser } from "@/lib/push.server";
+
+/** Heure locale Paris à laquelle le travail réel est effectué. */
+export const RUN_HOUR_PARIS = 8;
 
 function getDb() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!) as any;
 }
 
-function daysUntil(dateIso: string, now: Date): number {
-  const target = Date.parse(`${dateIso.slice(0, 10)}T00:00:00Z`);
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Math.round((target - today) / 86400000);
+export function alertCopy(a: PlannedAlert) {
+  const label = docTypeLabel(a.document.doc_type, a.document.label);
+  const partner = a.partner.name;
+  const date = formatFrDate(a.document.expiry_date);
+  if (a.state === "expired") {
+    const overdue = -a.days;
+    return {
+      type: "subcontractor_document_expired",
+      title: `Pièce expirée — ${partner}`,
+      body: `${label} est expirée depuis le ${date} (${overdue} jour${overdue > 1 ? "s" : ""}).${
+        a.blocking ? " Les nouvelles affectations de ce partenaire sont bloquées." : ""
+      } Ouvrez la fiche partenaire, onglet Documents, pour déposer la nouvelle version.`,
+    };
+  }
+  if (a.state === "expiring_today") {
+    return {
+      type: "subcontractor_document_expiring",
+      title: `Pièce expirant aujourd'hui — ${partner}`,
+      body: `${label} expire aujourd'hui, le ${date}. Ouvrez la fiche partenaire, onglet Documents, pour la remplacer.`,
+    };
+  }
+  return {
+    type: "subcontractor_document_expiring",
+    title: `Pièce à renouveler — ${partner}`,
+    body: `${label} expire le ${date} (dans ${a.days} jour${a.days > 1 ? "s" : ""}). Ouvrez la fiche partenaire, onglet Documents, pour la remplacer.`,
+  };
 }
 
-async function run() {
-  const db = getDb();
-  const now = new Date();
+type RunResult = {
+  started_at: string;
+  finished_at: string;
+  paris_date: string;
+  paris_hour: number;
+  ran: boolean;
+  scanned: number;
+  planned: number;
+  alerts_created: number;
+  skipped: number;
+  duplicates: number;
+  notifications: number;
+  pushes: number;
+  errors: number;
+};
 
-  const { data: docs, error } = await db
-    .from("subcontractor_documents")
-    .select("id,company_id,subcontractor_company_id,doc_type,label,expiry_date,is_required,is_blocking")
-    .is("archived_at", null)
-    .not("expiry_date", "is", null)
-    .limit(2000);
-  if (error) throw new Error(error.message);
-
-  let scanned = 0;
-  let alerted = 0;
-  let skipped = 0;
-
-  for (const d of (docs ?? []) as Array<{
-    id: string; company_id: string; subcontractor_company_id: string;
-    doc_type: string; label: string | null; expiry_date: string;
-    is_required: boolean; is_blocking: boolean;
-  }>) {
-    scanned++;
-    if (!d.is_required) { skipped++; continue; }
-    const days = daysUntil(d.expiry_date, now);
-    const milestone = milestoneFor(days);
-    if (!milestone) { skipped++; continue; }
-
-    // Idempotence : la contrainte unique fait foi.
-    const { error: dupErr } = await db
-      .from("subcontractor_document_alerts")
-      .insert({ company_id: d.company_id, document_id: d.id, milestone, expiry_date: d.expiry_date });
-    if (dupErr) { skipped++; continue; }
-
-    const { data: partner } = await db
-      .from("subcontractor_companies")
-      .select("name")
-      .eq("id", d.subcontractor_company_id)
-      .maybeSingle();
-
-    const label = docTypeLabel(d.doc_type, d.label);
-    const title =
-      days < 0
-        ? `Pièce expirée — ${partner?.name ?? "sous-traitant"}`
-        : days === 0
-          ? `Pièce expirant aujourd'hui — ${partner?.name ?? "sous-traitant"}`
-          : `Pièce à renouveler — ${partner?.name ?? "sous-traitant"}`;
-    const body =
-      days < 0
-        ? `${label} est expirée depuis le ${formatFrDate(d.expiry_date)}.${d.is_blocking ? " Les nouvelles affectations sont bloquées." : ""}`
-        : `${label} expire le ${formatFrDate(d.expiry_date)} (dans ${days} jour${days > 1 ? "s" : ""}).`;
-
-    const { data: admins } = await db
-      .from("company_members")
-      .select("user_id")
-      .eq("company_id", d.company_id)
-      .eq("status", "active")
-      .in("role", ["directeur", "responsable_exploitation"]);
-
-    let recipients = 0;
-    for (const m of (admins ?? []) as { user_id: string | null }[]) {
-      if (!m.user_id) continue;
-      await db.from("notifications").insert({
-        company_id: d.company_id,
-        user_id: m.user_id,
-        type: days < 0 ? "subcontractor_document_expired" : "subcontractor_document_expiring",
-        title,
-        body,
-      });
-      recipients++;
-    }
-
-    await db
-      .from("subcontractor_document_alerts")
-      .update({ recipients })
-      .eq("document_id", d.id)
-      .eq("milestone", milestone)
-      .eq("expiry_date", d.expiry_date);
-
-    await db.from("audit_logs").insert({
-      company_id: d.company_id,
-      user_id: null,
-      entity_type: "subcontractor_document",
-      entity_id: d.id,
-      action: days < 0 ? "subcontractor_document.expired_alert_sent" : "subcontractor_document.expiry_alert_sent",
-      metadata: {
-        actor: "cron",
-        milestone,
-        expiry_date: d.expiry_date,
-        doc_type: d.doc_type,
-        subcontractor_company_id: d.subcontractor_company_id,
-        recipients,
-      },
-    });
-    alerted++;
+async function run(force: boolean, now = new Date()): Promise<RunResult> {
+  const startedAt = new Date();
+  const hour = parisHour(now);
+  const base = {
+    started_at: startedAt.toISOString(),
+    paris_date: parisDateString(now),
+    paris_hour: hour,
+    scanned: 0,
+    planned: 0,
+    alerts_created: 0,
+    skipped: 0,
+    duplicates: 0,
+    notifications: 0,
+    pushes: 0,
+    errors: 0,
+  };
+  if (!force && hour !== RUN_HOUR_PARIS) {
+    return { ...base, ran: false, finished_at: new Date().toISOString() };
   }
 
-  return { scanned, alerted, skipped };
+  const db = getDb();
+
+  const { data: docsRaw, error } = await db
+    .from("subcontractor_documents")
+    .select(
+      "id,company_id,subcontractor_company_id,doc_type,label,expiry_date,is_required,is_blocking,archived_at,replaced_by_id",
+    )
+    .is("archived_at", null)
+    .not("expiry_date", "is", null)
+    .limit(5000);
+  if (error) throw new Error(error.message);
+  const docs = (docsRaw ?? []) as ScheduleDoc[];
+
+  const partnerIds = [...new Set(docs.map((d) => d.subcontractor_company_id))];
+  const [{ data: partnersRaw }, { data: rulesRaw }] = await Promise.all([
+    partnerIds.length
+      ? db.from("subcontractor_companies").select("id,name,status,archived_at").in("id", partnerIds)
+      : Promise.resolve({ data: [] }),
+    partnerIds.length
+      ? db
+          .from("subcontractor_document_rules")
+          .select("subcontractor_company_id,doc_type,is_required,is_blocking")
+          .in("subcontractor_company_id", partnerIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const { planned, skipped } = planAlerts(
+    docs,
+    (rulesRaw ?? []) as ScheduleRule[],
+    (partnersRaw ?? []) as SchedulePartner[],
+    now,
+  );
+
+  const result: RunResult = {
+    ...base,
+    ran: true,
+    finished_at: startedAt.toISOString(),
+    scanned: docs.length,
+    planned: planned.length,
+    skipped: skipped.length,
+  };
+
+  for (const a of planned) {
+    try {
+      // 1) Verrou d'idempotence AVANT tout envoi.
+      const { error: dupErr } = await db.from("subcontractor_document_alerts").insert({
+        company_id: a.document.company_id,
+        document_id: a.document.id,
+        milestone: a.milestone,
+        expiry_date: a.document.expiry_date,
+        recipients: 0,
+      });
+      if (dupErr) {
+        result.duplicates++;
+        continue;
+      }
+
+      const { title, body, type } = alertCopy(a);
+
+      // 2) Destinataires recalculés côté serveur, strictement dans le tenant.
+      const { data: admins } = await db
+        .from("company_members")
+        .select("user_id")
+        .eq("company_id", a.document.company_id)
+        .eq("status", "active")
+        .in("role", ["directeur", "responsable_exploitation"]);
+
+      let recipients = 0;
+      for (const m of (admins ?? []) as { user_id: string | null }[]) {
+        if (!m.user_id) continue;
+        await db.from("notifications").insert({
+          company_id: a.document.company_id,
+          user_id: m.user_id,
+          type,
+          title,
+          body,
+        });
+        recipients++;
+        result.notifications++;
+        try {
+          // Lien vers la FICHE partenaire, jamais une URL Storage signée.
+          const r = await sendPushToUser(m.user_id, {
+            title,
+            body,
+            url: `/sous-traitants?partenaire=${a.partner.id}&onglet=documents`,
+            tag: `sc-doc-${a.document.id}-${a.milestone}`,
+            data: { kind: type, subcontractorCompanyId: a.partner.id },
+          });
+          result.pushes += r.sent;
+        } catch {
+          /* push best-effort : n'empêche jamais la notification in-app */
+        }
+      }
+
+      await db
+        .from("subcontractor_document_alerts")
+        .update({ recipients })
+        .eq("document_id", a.document.id)
+        .eq("milestone", a.milestone)
+        .eq("expiry_date", a.document.expiry_date);
+
+      await db.from("audit_logs").insert({
+        company_id: a.document.company_id,
+        user_id: null,
+        entity_type: "subcontractor_document",
+        entity_id: a.document.id,
+        action: a.state === "expired" ? "subcontractor_document.expired_alert_sent" : "subcontractor_document.expiry_alert_sent",
+        metadata: {
+          actor: "cron",
+          milestone: a.milestone,
+          expiry_date: a.document.expiry_date,
+          doc_type: a.document.doc_type,
+          subcontractor_company_id: a.partner.id,
+          recipients,
+        },
+      });
+      result.alerts_created++;
+    } catch (e) {
+      // Une pièce en erreur ne bloque jamais les suivantes ; aucune donnée
+      // sensible dans le journal (identifiants techniques uniquement).
+      result.errors++;
+      console.error("[subcontractor-document-expiry] document failed", {
+        documentId: a.document.id,
+        milestone: a.milestone,
+        message: (e as Error).message,
+      });
+    }
+  }
+
+  result.finished_at = new Date().toISOString();
+  console.log("[subcontractor-document-expiry] run", result);
+  return result;
 }
 
 async function handle(request: Request) {
@@ -130,11 +245,12 @@ async function handle(request: Request) {
   if (!secret || !process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return new Response("Unauthorized", { status: 401 });
   }
+  const force = new URL(request.url).searchParams.get("force") === "1";
   try {
-    const r = await run();
+    const r = await run(force);
     return Response.json({ ok: true, ...r });
   } catch (e) {
-    console.error("[subcontractor-document-expiry] failed", e);
+    console.error("[subcontractor-document-expiry] failed", (e as Error).message);
     return Response.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }
 }
