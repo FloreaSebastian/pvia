@@ -475,6 +475,9 @@ export const reviewSubcontractorDocument = createServerFn({ method: "POST" })
     const partner = await requirePartner(supabase, data.companyId, (doc as any).subcontractor_company_id);
     const approved = data.decision === "approve";
 
+    // Décision ATOMIQUE : la version doit être encore « à vérifier » au moment
+    // exact de l'écriture. Double clic, rejeu d'appel ou file périmée ne
+    // peuvent donc produire qu'UNE seule décision (et une seule notification).
     const { data: updated, error } = await supabase
       .from("subcontractor_documents")
       .update({
@@ -486,10 +489,38 @@ export const reviewSubcontractorDocument = createServerFn({ method: "POST" })
       } as never)
       .eq("id", data.documentId)
       .eq("company_id", data.companyId)
+      .eq("review_status", "pending_review")
       .is("archived_at", null)
       .select("id")
       .maybeSingle();
-    if (error || !updated) throw new Error("Décision impossible, réessayez.");
+    if (error) throw new Error("Décision impossible, réessayez.");
+    if (!updated) {
+      // Déjà traitée : aucune écriture, aucune notification, aucun doublon.
+      return { ok: true as const, alreadyReviewed: true as const, reviewStatus: (doc as any).review_status as string };
+    }
+
+    // À l'approbation seulement, les anciennes versions VALIDÉES du même type
+    // sont archivées : la nouvelle pièce devient la référence, et la couverture
+    // n'a jamais été interrompue pendant la revue.
+    let archivedPrevious: string[] = [];
+    if (approved) {
+      const { data: olds } = await supabase
+        .from("subcontractor_documents")
+        .update({
+          archived_at: new Date().toISOString(),
+          archived_by: userId,
+          replaced_by_id: data.documentId,
+        } as never)
+        .eq("company_id", data.companyId)
+        .eq("subcontractor_company_id", partner.id)
+        .eq("doc_type", (doc as any).doc_type)
+        .eq("review_status", "approved")
+        .is("archived_at", null)
+        .neq("id", data.documentId)
+        .select("id");
+      archivedPrevious = ((olds ?? []) as any[]).map((o) => o.id as string);
+    }
+
 
     const who = await actorLabel(supabase, userId);
     const label = docTypeLabel((doc as any).doc_type, (doc as any).label);
