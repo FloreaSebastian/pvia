@@ -2685,6 +2685,60 @@ export type Database = {
           },
         ]
       }
+      subcontractor_document_reminders: {
+        Row: {
+          company_id: string
+          created_at: string
+          doc_type:
+            | Database["public"]["Enums"]["subcontractor_document_type"]
+            | null
+          id: string
+          reason: string
+          recipients: number
+          sent_by: string | null
+          subcontractor_company_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          doc_type?:
+            | Database["public"]["Enums"]["subcontractor_document_type"]
+            | null
+          id?: string
+          reason: string
+          recipients?: number
+          sent_by?: string | null
+          subcontractor_company_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          doc_type?:
+            | Database["public"]["Enums"]["subcontractor_document_type"]
+            | null
+          id?: string
+          reason?: string
+          recipients?: number
+          sent_by?: string | null
+          subcontractor_company_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractor_document_reminders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_document_reminders_subcontractor_company_id_fkey"
+            columns: ["subcontractor_company_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subcontractor_document_rules: {
         Row: {
           company_id: string
@@ -2753,10 +2807,16 @@ export type Database = {
           mime_type: string
           notes: string | null
           original_filename: string
+          rejection_reason: string | null
           replaced_by_id: string | null
+          review_note: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           size_bytes: number
           storage_path: string
           subcontractor_company_id: string
+          submitted_by_subcontractor_user_id: string | null
           updated_at: string
           uploaded_at: string
           uploaded_by: string | null
@@ -2777,10 +2837,16 @@ export type Database = {
           mime_type: string
           notes?: string | null
           original_filename: string
+          rejection_reason?: string | null
           replaced_by_id?: string | null
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           size_bytes?: number
           storage_path: string
           subcontractor_company_id: string
+          submitted_by_subcontractor_user_id?: string | null
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
@@ -2801,10 +2867,16 @@ export type Database = {
           mime_type?: string
           notes?: string | null
           original_filename?: string
+          rejection_reason?: string | null
           replaced_by_id?: string | null
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           size_bytes?: number
           storage_path?: string
           subcontractor_company_id?: string
+          submitted_by_subcontractor_user_id?: string | null
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
@@ -2829,6 +2901,13 @@ export type Database = {
             columns: ["subcontractor_company_id"]
             isOneToOne: false
             referencedRelation: "subcontractor_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontractor_documents_submitted_by_subcontractor_user_id_fkey"
+            columns: ["submitted_by_subcontractor_user_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractor_users"
             referencedColumns: ["id"]
           },
         ]
