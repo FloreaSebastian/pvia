@@ -113,6 +113,11 @@ export const uploadMyDocument = createServerFn({ method: "POST" })
   .inputValidator((i) => MyUploadSchema.parse(i))
   .handler(async ({ data, context }) => {
     const m = await requireMembership(context.userId, data.companyId);
+    // Garde d'abonnement canonique de l'entreprise donneuse d'ordre : en
+    // lecture seule (essai expiré, impayé…), AUCUNE écriture n'est acceptée —
+    // contrôle AVANT tout envoi Storage pour ne laisser aucun fichier orphelin.
+    const { assertCompanyWritable } = await import("./subcontractor-guard.server");
+    await assertCompanyWritable(m.companyId);
 
     const bytes = decodeBase64(data.fileBase64, MAX_BYTES);
     const mime = sniffDocumentMime(bytes);
@@ -135,6 +140,7 @@ export const uploadMyDocument = createServerFn({ method: "POST" })
       .from(BUCKET)
       .upload(path, bytes, { contentType: mime, upsert: false });
     if (upErr) throw new Error("Envoi du fichier impossible, réessayez.");
+
 
     const { data: row, error } = await supabaseAdmin
       .from("subcontractor_documents")
