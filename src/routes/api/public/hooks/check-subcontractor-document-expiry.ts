@@ -176,15 +176,26 @@ async function run(force: boolean, now = new Date()): Promise<RunResult> {
       let recipients = 0;
       for (const m of (admins ?? []) as { user_id: string | null }[]) {
         if (!m.user_id) continue;
-        await db.from("notifications").insert({
+        const { error: notifErr } = await db.from("notifications").insert({
           company_id: a.document.company_id,
           user_id: m.user_id,
           type,
           title,
           body,
         });
+        if (notifErr) {
+          // Échec d'un destinataire : compté, journalisé, sans bloquer les autres.
+          result.errors++;
+          console.error("[subcontractor-document-expiry] notification failed", {
+            documentId: a.document.id,
+            milestone: a.milestone,
+            message: notifErr.message,
+          });
+          continue;
+        }
         recipients++;
         result.notifications++;
+
         try {
           // Lien vers la FICHE partenaire, jamais une URL Storage signée.
           const r = await sendPushToUser(m.user_id, {
