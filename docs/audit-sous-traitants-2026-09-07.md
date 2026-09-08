@@ -181,3 +181,74 @@ Typecheck et build : OK.
 - **Non testé en runtime** — expiration réelle d'une URL signée au bout de 120 s (contrôle de code uniquement).
 - **Non testé en runtime** — rejet croisé des codes OTP contre la base réelle (couvert par le filtre SQL `audience` + 4 tests unitaires).
 - Linter base : 25 avertissements, dont 24 préexistants ; le 25e est la nouvelle fonction `sc_membership_readable`, volontairement exécutable par un utilisateur connecté car utilisée par les règles d'accès et strictement limitée à `auth.uid()`.
+
+---
+
+## Validation POST-PUBLICATION — 08/09/2026 (00:55 UTC)
+
+**A. Déploiement testé** : https://pvia.fr (production publiée). Le code publié
+au moment du contrôle contenait 4 des 6 corrections ; 2 écarts réels ont été
+trouvés et corrigés (voir C).
+
+**B. Smoke tests production (navigateur réel, non authentifié)** : PASS
+`/login?type=subcontractor`, `/sous-traitant/verify`,
+`/sous-traitant/invitation/<jeton invalide>` → HTTP 200, contenu attendu,
+aucune erreur console, aucune page blanche. `/sous-traitant` → redirection
+unique vers `/login?type=subcontractor` (pas de boucle).
+
+**C. Les 6 corrections en version publiée**
+1. `getSubcontractorWorkspace` masque le chantier (`mapWorkspaceAssignment` →
+   `maskChantier`) — PASS (code publié).
+2. `permission_overrides` conserve `false` — **FAIL en publié** : la
+   persistance appelait encore `normalizePermissions`. Cause : normaliseur
+   dédié créé mais non branché. Impact : impossible de retirer localement un
+   droit hérité. Correction : `normalizePermissionOverrides` au payload.
+   Non-régression : `tests/unit/subcontractor-assignment-persistence.test.ts`.
+3. RLS affectation `cancelled` illisible — PASS (policy vérifiée en base).
+4. RLS messages d'affectation `cancelled` illisibles — PASS (policy vérifiée).
+5. OTP `audience` professional/subcontractor — PASS (colonne + défaut en base,
+   filtrage aux 3 endroits, 4 tests unitaires).
+6. TTL signed URLs sous-traitant = 120 s — PASS ; liens délivrés uniquement
+   après guards (révocation/suspension/annulation ⇒ plus aucun nouveau lien).
+7. `technicalVisitId` même entreprise ET même chantier — **FAIL en publié** :
+   seul `company_id` était contrôlé. Impact : une visite d'un autre chantier
+   de la même entreprise pouvait être rattachée. Correction : filtre
+   `chantier_id`. Non-régression : même fichier de test.
+
+**D. Migrations** : `enterprise_auth_codes.audience text default 'professional'`
+présent ; `sc_membership_readable()` et les policies `sc_assignments_self_read` /
+`sc_messages_self_read` appliquées avec exclusion `status <> 'cancelled'` et
+relation active (non suspendue, non révoquée, société active). Aucun écart
+schéma/code.
+
+**E. Tests RLS directs** : vérifiés par lecture des prédicats appliqués en base
+(pas de re-jeu navigateur authentifié faute de session — voir K).
+
+**F. OTP cross-scope** : PASS au niveau unitaire + filtrage SQL par `audience`.
+
+**G. Révocation + signed URLs** : PASS au niveau guards/RLS (déjà prouvé 8/8 en
+base le 07/09) ; TTL réduit à 120 s.
+
+**H. Responsive production** : PASS — 320 / 344 (Fold) / 360 / 390 / 768 px,
+aucun overflow horizontal, actions principales accessibles.
+
+**I. Données TEST restantes** : `subcontractor_companies/users/memberships/
+assignments/invites` = 0 ; codes OTP `subcontractor` = 0. Seule subsiste la
+société « PVIA LIVE SMOKE TEST » (31/08), liée au parcours Stripe LIVE du
+propriétaire : NON supprimée volontairement.
+
+**J. Tests** : `bun test tests/unit` → **98 tests, 0 échec, 256 assertions,
+9 fichiers**. Typecheck et build : OK.
+
+**K. BLOCKED** : parcours navigateur authentifié sous-traitant (invitation →
+OTP réel → portail → photo → révocation à chaud). Raison exacte :
+`LOVABLE_BROWSER_AUTH_STATUS=signed_out` et aucun compte sous-traitant réel
+existant. Procédure manuelle : depuis une entreprise TEST, inviter une adresse
+contrôlée, ouvrir le lien reçu, saisir le code à 6 chiffres reçu par email,
+puis vérifier l'accès au chantier affecté, le refus d'un chantier non affecté
+et d'un autre client, enfin retirer le droit / annuler / suspendre et
+rafraîchir sans reconnexion.
+
+**Conclusion honnête** : build publié + schéma base + guards/RLS sont cohérents
+APRÈS les deux corrections ci-dessus, qui doivent être publiées. Le parcours
+connecté réel reste non testé.
