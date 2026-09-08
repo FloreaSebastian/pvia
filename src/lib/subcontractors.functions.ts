@@ -581,6 +581,9 @@ const AssignmentSchema = z.object({
   comment: z.string().trim().max(2000).optional().default(""),
   permissionOverrides: z.record(z.string(), z.boolean()).optional(),
   notify: z.boolean().optional().default(true),
+  /** Justification obligatoire pour affecter malgré une pièce bloquante. */
+  complianceOverrideReason: z.string().trim().max(500).optional(),
+
 });
 
 export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
