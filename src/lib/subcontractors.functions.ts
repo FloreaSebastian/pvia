@@ -16,6 +16,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { writeAuditLog } from "./audit.server";
+import { BLOCKING_REASON_LABELS } from "./subcontractor-compliance";
 import { enforceRateLimit } from "./rate-limit.server";
 import { normalizeEmail, sha256Hex } from "./client-auth.server";
 import { getPublicAppUrl } from "./app-url.server";
