@@ -1,13 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import {
   computeCompliance,
   documentStatus,
   daysUntil,
   docTypeLabel,
   formatFrDate,
+  milestoneFor,
 } from "@/lib/subcontractor-compliance";
 import { sniffDocumentMime, decodeBase64 } from "@/lib/file-sniff";
-import { milestoneFor } from "@/routes/api/public/hooks/check-subcontractor-document-expiry";
 
 const NOW = new Date("2026-09-08T10:00:00Z");
 const iso = (offsetDays: number) =>

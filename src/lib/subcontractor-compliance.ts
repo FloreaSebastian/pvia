@@ -71,6 +71,19 @@ export const EXPIRY_SOON_DAYS = 30;
 /** Relance après expiration : au plus une tous les N jours. */
 export const EXPIRED_REMINDER_DAYS = 7;
 
+/**
+ * Jalon d'alerte applicable aujourd'hui pour une pièce, ou null si aucune
+ * alerte n'est due. Centralisé ici pour rester testable sans le cron.
+ */
+export function milestoneFor(days: number): string | null {
+  if (days < 0) {
+    const overdue = -days;
+    if (overdue % EXPIRED_REMINDER_DAYS !== 0) return null;
+    return `expired+${overdue}`;
+  }
+  return (EXPIRY_ALERT_DAYS as readonly number[]).includes(days) ? `j-${days}` : null;
+}
+
 export type DocumentStatus = "valid" | "expiring_soon" | "expired" | "missing" | "no_expiry";
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {

@@ -14,7 +14,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { docTypeLabel, formatFrDate, EXPIRY_ALERT_DAYS, EXPIRED_REMINDER_DAYS } from "@/lib/subcontractor-compliance";
+import { docTypeLabel, formatFrDate, milestoneFor } from "@/lib/subcontractor-compliance";
 
 function getDb() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!) as any;
@@ -24,16 +24,6 @@ function daysUntil(dateIso: string, now: Date): number {
   const target = Date.parse(`${dateIso.slice(0, 10)}T00:00:00Z`);
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return Math.round((target - today) / 86400000);
-}
-
-/** Jalon applicable, ou null si aucune alerte n'est due aujourd'hui. */
-export function milestoneFor(days: number): string | null {
-  if (days < 0) {
-    const overdue = -days;
-    if (overdue % EXPIRED_REMINDER_DAYS !== 0) return null;
-    return `expired+${overdue}`;
-  }
-  return (EXPIRY_ALERT_DAYS as readonly number[]).includes(days) ? `j-${days}` : null;
 }
 
 async function run() {
