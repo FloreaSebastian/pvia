@@ -190,3 +190,11 @@ export function planAlerts(
 
   return { planned, skipped };
 }
+
+/**
+ * Conflit de clé unique Postgres (23505) — c'est une idempotence, pas une
+ * erreur d'exécution : il ne doit jamais être compté comme incident.
+ */
+export function isUniqueViolation(err: { code?: string | null } | null | undefined): boolean {
+  return err?.code === "23505";
+}

@@ -32,6 +32,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { docTypeLabel, formatFrDate } from "@/lib/subcontractor-compliance";
 import {
+  isUniqueViolation,
   parisDateString,
   parisHour,
   planAlerts,
@@ -49,11 +50,6 @@ export const JOB_NAME = "pvia-subcontractor-document-expiry";
  * canonique `public.is_company_admin` (source de vérité en base).
  */
 export const ADMIN_ROLES = ["directeur", "responsable_exploitation"] as const;
-
-/** Conflit de clé unique Postgres — n'est PAS une erreur d'exécution. */
-export function isUniqueViolation(err: { code?: string | null } | null): boolean {
-  return err?.code === "23505";
-}
 
 function getDb() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!) as any;

@@ -159,3 +159,51 @@ describe("planAlerts", () => {
     expect(planAlerts([doc({ expiry_date: expiryAt(7, today) })], [], [], now).planned).toEqual([]);
   });
 });
+
+describe("durcissement cron (2026-09-08)", () => {
+  it("distingue un conflit unique d'une vraie erreur DB", () => {
+    expect(isUniqueViolation({ code: "23505" })).toBe(true);
+    expect(isUniqueViolation({ code: "42501" })).toBe(false);
+    expect(isUniqueViolation(null)).toBe(false);
+    expect(isUniqueViolation(undefined)).toBe(false);
+  });
+
+  it("refuse un partenaire appartenant à un autre tenant", () => {
+    const doc = {
+      id: "d1", company_id: "A", subcontractor_company_id: "p1", doc_type: "decennale",
+      label: null, expiry_date: isoInDays(30), is_required: true, is_blocking: true,
+      archived_at: null, replaced_by_id: null,
+    };
+    const { planned, skipped } = planAlerts(
+      [doc],
+      [],
+      [{ id: "p1", company_id: "B", name: "Autre tenant", status: "active", archived_at: null }],
+    );
+    expect(planned).toHaveLength(0);
+    expect(skipped[0]?.reason).toBe("partner_unknown");
+  });
+
+  it("ignore une règle documentaire appartenant à un autre tenant", () => {
+    const doc = {
+      id: "d2", company_id: "A", subcontractor_company_id: "p1", doc_type: "decennale",
+      label: null, expiry_date: isoInDays(30), is_required: true, is_blocking: true,
+      archived_at: null, replaced_by_id: null,
+    };
+    const partners = [{ id: "p1", company_id: "A", name: "OK", status: "active", archived_at: null }];
+    // Règle « non requise » mais posée par le tenant B : elle ne doit pas
+    // désactiver l'alerte du tenant A.
+    const { planned } = planAlerts(
+      [doc],
+      [{ company_id: "B", subcontractor_company_id: "p1", doc_type: "decennale", is_required: false, is_blocking: false }],
+      partners,
+    );
+    expect(planned).toHaveLength(1);
+    // La règle courante du bon tenant, elle, fait autorité.
+    const { planned: none } = planAlerts(
+      [doc],
+      [{ company_id: "A", subcontractor_company_id: "p1", doc_type: "decennale", is_required: false, is_blocking: false }],
+      partners,
+    );
+    expect(none).toHaveLength(0);
+  });
+});
