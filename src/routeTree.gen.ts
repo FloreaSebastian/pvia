@@ -54,6 +54,7 @@ import { Route as AuthenticatedHistoriqueRouteImport } from './routes/_authentic
 import { Route as AuthenticatedEquipeRouteImport } from './routes/_authenticated/equipe'
 import { Route as AuthenticatedEntrepriseRouteImport } from './routes/_authenticated/entreprise'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedConformiteRouteImport } from './routes/_authenticated/conformite'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedAccountSuspendedRouteImport } from './routes/_authenticated/account-suspended'
@@ -340,6 +341,11 @@ const AuthenticatedEntrepriseRoute = AuthenticatedEntrepriseRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedConformiteRoute = AuthenticatedConformiteRouteImport.update({
+  id: '/conformite',
+  path: '/conformite',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedClientsRoute = AuthenticatedClientsRouteImport.update({
@@ -716,6 +722,7 @@ export interface FileRoutesByFullPath {
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/clients': typeof AuthenticatedClientsRoute
+  '/conformite': typeof AuthenticatedConformiteRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/equipe': typeof AuthenticatedEquipeRoute
@@ -821,6 +828,7 @@ export interface FileRoutesByTo {
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/clients': typeof AuthenticatedClientsRoute
+  '/conformite': typeof AuthenticatedConformiteRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/entreprise': typeof AuthenticatedEntrepriseRoute
   '/equipe': typeof AuthenticatedEquipeRoute
@@ -926,6 +934,7 @@ export interface FileRoutesById {
   '/_authenticated/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
+  '/_authenticated/conformite': typeof AuthenticatedConformiteRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/entreprise': typeof AuthenticatedEntrepriseRoute
   '/_authenticated/equipe': typeof AuthenticatedEquipeRoute
@@ -1034,6 +1043,7 @@ export interface FileRouteTypes {
     | '/account-suspended'
     | '/billing'
     | '/clients'
+    | '/conformite'
     | '/dashboard'
     | '/entreprise'
     | '/equipe'
@@ -1139,6 +1149,7 @@ export interface FileRouteTypes {
     | '/account-suspended'
     | '/billing'
     | '/clients'
+    | '/conformite'
     | '/dashboard'
     | '/entreprise'
     | '/equipe'
@@ -1243,6 +1254,7 @@ export interface FileRouteTypes {
     | '/_authenticated/account-suspended'
     | '/_authenticated/billing'
     | '/_authenticated/clients'
+    | '/_authenticated/conformite'
     | '/_authenticated/dashboard'
     | '/_authenticated/entreprise'
     | '/_authenticated/equipe'
@@ -1693,6 +1705,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/conformite': {
+      id: '/_authenticated/conformite'
+      path: '/conformite'
+      fullPath: '/conformite'
+      preLoaderRoute: typeof AuthenticatedConformiteRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/clients': {
@@ -2205,6 +2224,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountSuspendedRoute: typeof AuthenticatedAccountSuspendedRoute
   AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
+  AuthenticatedConformiteRoute: typeof AuthenticatedConformiteRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEntrepriseRoute: typeof AuthenticatedEntrepriseRoute
   AuthenticatedEquipeRoute: typeof AuthenticatedEquipeRoute
@@ -2246,6 +2266,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountSuspendedRoute: AuthenticatedAccountSuspendedRoute,
   AuthenticatedBillingRoute: AuthenticatedBillingRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRoute,
+  AuthenticatedConformiteRoute: AuthenticatedConformiteRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEntrepriseRoute: AuthenticatedEntrepriseRoute,
   AuthenticatedEquipeRoute: AuthenticatedEquipeRoute,
