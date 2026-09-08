@@ -84,7 +84,14 @@ export function milestoneFor(days: number): string | null {
   return (EXPIRY_ALERT_DAYS as readonly number[]).includes(days) ? `j-${days}` : null;
 }
 
-export type DocumentStatus = "valid" | "expiring_soon" | "expired" | "missing" | "no_expiry";
+export type DocumentStatus =
+  | "valid"
+  | "expiring_soon"
+  | "expired"
+  | "missing"
+  | "no_expiry"
+  | "pending_review"
+  | "rejected";
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
   valid: "Valide",
@@ -92,15 +99,40 @@ export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
   expiring_soon: "Expire bientôt",
   expired: "Expiré",
   missing: "Manquante",
+  pending_review: "À vérifier",
+  rejected: "Refusée",
 };
 
-export type ComplianceStatus = "compliant" | "incomplete" | "expiring_soon" | "blocking";
+/**
+ * État de revue d'une pièce.
+ *
+ * COMPATIBILITÉ HISTORIQUE : toutes les pièces déposées avant l'ouverture du
+ * portail sous-traitant sont `approved` (défaut SQL). Les dépôts admin restent
+ * `approved` (l'entreprise se valide elle-même en déposant). Seuls les dépôts
+ * faits PAR le sous-traitant passent par `pending_review`. Aucun partenaire
+ * aujourd'hui conforme ne devient non conforme.
+ */
+export type ReviewStatus = "pending_review" | "approved" | "rejected";
+
+export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
+  pending_review: "À vérifier",
+  approved: "Validée",
+  rejected: "Refusée",
+};
+
+export type ComplianceStatus =
+  | "compliant"
+  | "incomplete"
+  | "expiring_soon"
+  | "blocking"
+  | "pending_review";
 
 export const COMPLIANCE_STATUS_LABELS: Record<ComplianceStatus, string> = {
   compliant: "Conforme selon vos règles",
   incomplete: "À compléter",
   expiring_soon: "Expire bientôt",
   blocking: "Pièce bloquante non conforme",
+  pending_review: "Pièce à vérifier",
 };
 
 export type ComplianceDocInput = {
@@ -112,6 +144,8 @@ export type ComplianceDocInput = {
   is_required?: boolean | null;
   is_blocking?: boolean | null;
   archived_at?: string | null;
+  review_status?: string | null;
+  rejection_reason?: string | null;
 };
 
 export type ComplianceRuleInput = {
@@ -129,16 +163,34 @@ export type ComplianceLine = {
   required: boolean;
   blocking: boolean;
   status: DocumentStatus;
+  reviewStatus: ReviewStatus | null;
+  rejectionReason: string | null;
   daysToExpiry: number | null;
 };
 
 export type ComplianceSummary = {
   status: ComplianceStatus;
   lines: ComplianceLine[];
-  counts: { valid: number; expiringSoon: number; expired: number; missing: number };
+  counts: {
+    valid: number;
+    expiringSoon: number;
+    expired: number;
+    missing: number;
+    pendingReview: number;
+    rejected: number;
+  };
   nextExpiry: { docType: string; label: string; date: string; daysToExpiry: number } | null;
-  blockingIssues: Array<{ docType: string; label: string; reason: "missing" | "expired" }>;
+  blockingIssues: Array<{
+    docType: string;
+    label: string;
+    reason: "missing" | "expired" | "pending_review" | "rejected";
+  }>;
 };
+
+export function normalizeReviewStatus(value: unknown): ReviewStatus {
+  return value === "pending_review" || value === "rejected" ? value : "approved";
+}
+
 
 /** Jours calendaires entre aujourd'hui (UTC minuit) et une date ISO `YYYY-MM-DD`. */
 export function daysUntil(dateIso: string, now: Date = new Date()): number {
