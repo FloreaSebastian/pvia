@@ -11,7 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { BellRing, FileCheck2, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
-import { useCompany } from "@/hooks/useCompany";
+import { useCompany } from "@/hooks/use-company";
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 import { ADMIN_ROLES } from "@/lib/roles";
 import { Card } from "@/components/ui/card";
