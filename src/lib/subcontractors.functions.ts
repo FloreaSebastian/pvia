@@ -722,8 +722,26 @@ export const saveSubcontractorAssignment = createServerFn({ method: "POST" })
         chantierId: data.chantierId,
         membershipId: data.membershipId,
         mission: data.mission,
+        complianceStatus: compliance.status,
       },
     });
+
+    if (overridden) {
+      await writeAuditLog({
+        companyId: data.companyId,
+        userId,
+        entityType: "subcontractor_assignment",
+        entityId: id!,
+        action: "subcontractor_assignment.compliance_override",
+        metadata: {
+          reason: overrideReason.slice(0, 500),
+          blocking: compliance.blockingIssues,
+          chantierId: data.chantierId,
+          membershipId: data.membershipId,
+        },
+      });
+    }
+
 
     return { ok: true as const, id: id! };
   });
