@@ -13,13 +13,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { writeAuditLog } from "./audit.server";
 import {
+  assertGeometryVersion,
   assertSolarManage,
   assertSolarMember,
   bumpGeometryVersion,
   loadFullModel,
   loadModelScoped,
   planeGeometryFromRow,
-  readBuildingParams,
   refreshSummary,
   setProvenance,
   syncRoofPlanes,
@@ -43,7 +43,6 @@ const ModelRefSchema = z.object({
 
 export type SolarModelPayload = SolarFullModel;
 
-type SB = Parameters<typeof loadModelScoped>[0];
 
 
 
@@ -198,7 +197,8 @@ export const saveSolarBuilding = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    await loadModelScoped(supabase, data.companyId, data.modelId);
+    const model = await loadModelScoped(supabase, data.companyId, data.modelId);
+    assertGeometryVersion(model, data.expectedGeometryVersion ?? null);
 
     const { data: buildings } = await supabase
       .from("solar_buildings")
@@ -235,9 +235,30 @@ export const saveSolarBuilding = createServerFn({ method: "POST" })
       building = created;
     }
 
-    await syncRoofPlanes(supabase, data.companyId, data.modelId, building, data.params);
+    const planes = await syncRoofPlanes(supabase, data.companyId, data.modelId, building, data.params);
+
+    // Provenance : saisie manuelle du bâtiment et des pans qui en découlent.
+    await setProvenance(supabase, data.companyId, data.modelId, {
+      entity_kind: "building",
+      entity_id: building.id,
+      source_type: "MANUAL",
+      source_provider: "PVIA",
+      source_dataset: "Saisie Solar Studio",
+    });
+    for (const plane of planes) {
+      await setProvenance(supabase, data.companyId, data.modelId, {
+        entity_kind: "roof_plane",
+        entity_id: plane.id,
+        source_type: "AUTO",
+        source_provider: "PVIA",
+        source_dataset: "Toiture paramétrique",
+      });
+    }
+
+    await bumpGeometryVersion(supabase, data.companyId, data.modelId, userId);
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
+
 
 /* -------------------------------- Obstacles ------------------------------- */
 
