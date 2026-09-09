@@ -71,14 +71,16 @@ function RoofPlaneMesh({
 function Walls({ model }: { model: SolarSceneModel }) {
   const geometry = useMemo(() => {
     if (model.footprint.length < 3) return null;
-    const shape = new THREE.Shape(model.footprint.map((p) => new THREE.Vector2(p.x, -p.y)));
+    // repère local (Est, Nord) -> three (x, hauteur, -Nord) après rotation -90° autour de X
+    const shape = new THREE.Shape(model.footprint.map((p) => new THREE.Vector2(p.x, p.y)));
     const geo = new THREE.ExtrudeGeometry(shape, { depth: model.wallHeight, bevelEnabled: false });
     geo.rotateX(-Math.PI / 2);
     return geo;
   }, [model.footprint, model.wallHeight]);
   if (!geometry) return null;
   return (
-    <mesh geometry={geometry} position={[0, model.wallHeight, 0]} castShadow receiveShadow>
+    <mesh geometry={geometry} castShadow receiveShadow>
+
       <meshStandardMaterial color={WALL_COLOR} roughness={0.95} />
     </mesh>
   );
