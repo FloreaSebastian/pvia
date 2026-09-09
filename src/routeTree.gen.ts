@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as TarifsRouteImport } from './routes/tarifs'
 import { Route as SolutionsRouteImport } from './routes/solutions'
-import { Route as SolarPreviewCheckRouteImport } from './routes/solar-preview-check'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
@@ -135,11 +134,6 @@ const TarifsRoute = TarifsRouteImport.update({
 const SolutionsRoute = SolutionsRouteImport.update({
   id: '/solutions',
   path: '/solutions',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SolarPreviewCheckRoute = SolarPreviewCheckRouteImport.update({
-  id: '/solar-preview-check',
-  path: '/solar-preview-check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -756,7 +750,6 @@ export interface FileRoutesByFullPath {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/solar-preview-check': typeof SolarPreviewCheckRoute
   '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
@@ -869,7 +862,6 @@ export interface FileRoutesByTo {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/solar-preview-check': typeof SolarPreviewCheckRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -980,7 +972,6 @@ export interface FileRoutesById {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/solar-preview-check': typeof SolarPreviewCheckRoute
   '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
@@ -1095,7 +1086,6 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
-    | '/solar-preview-check'
     | '/solutions'
     | '/tarifs'
     | '/verify'
@@ -1208,7 +1198,6 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
-    | '/solar-preview-check'
     | '/tarifs'
     | '/verify'
     | '/account-suspended'
@@ -1318,7 +1307,6 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
-    | '/solar-preview-check'
     | '/solutions'
     | '/tarifs'
     | '/verify'
@@ -1433,7 +1421,6 @@ export interface RootRouteChildren {
   SecuriteRoute: typeof SecuriteRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  SolarPreviewCheckRoute: typeof SolarPreviewCheckRoute
   SolutionsRoute: typeof SolutionsRouteWithChildren
   TarifsRoute: typeof TarifsRoute
   VerifyRoute: typeof VerifyRoute
@@ -1489,13 +1476,6 @@ declare module '@tanstack/react-router' {
       path: '/solutions'
       fullPath: '/solutions'
       preLoaderRoute: typeof SolutionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/solar-preview-check': {
-      id: '/solar-preview-check'
-      path: '/solar-preview-check'
-      fullPath: '/solar-preview-check'
-      preLoaderRoute: typeof SolarPreviewCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -2491,7 +2471,6 @@ const rootRouteChildren: RootRouteChildren = {
   SecuriteRoute: SecuriteRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  SolarPreviewCheckRoute: SolarPreviewCheckRoute,
   SolutionsRoute: SolutionsRouteWithChildren,
   TarifsRoute: TarifsRoute,
   VerifyRoute: VerifyRoute,
