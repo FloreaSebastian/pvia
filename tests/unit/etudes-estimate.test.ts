@@ -40,23 +40,26 @@ describe("estimation indicative", () => {
     expect(ESTIMATE_DISCLAIMER).toContain("indicative");
   });
 
-  it("produit une puissance photovoltaïque cohérente avec la surface disponible", () => {
-    const small = computeStudyEstimate("photovoltaique", {
-      conso_annuelle_kwh: 6000,
-      surface_toiture_dispo: 30,
-      orientation: "sud",
-      inclinaison: 30,
-    });
-    const large = computeStudyEstimate("photovoltaique", {
-      conso_annuelle_kwh: 6000,
-      surface_toiture_dispo: 120,
-      orientation: "sud",
-      inclinaison: 30,
-    });
+  it("produit une puissance photovoltaïque bornée par la toiture exploitable", () => {
+    const base = { consommation_annuelle: 20000, orientation: "sud", ombrage: "aucun", objectif: "vente_totale" };
+    const small = computeStudyEstimate("photovoltaique", { ...base, surface_disponible: 20 });
+    const large = computeStudyEstimate("photovoltaique", { ...base, surface_disponible: 120 });
     expect(small.headline).not.toBeNull();
     expect(large.headline).not.toBeNull();
     expect(small.items.length).toBeGreaterThan(0);
     expect(small.headline!.value).not.toBe(large.headline!.value);
+  });
+
+  it("signale l'ombrage fort et l'amiante comme points de vigilance", () => {
+    const e = computeStudyEstimate("photovoltaique", {
+      surface_disponible: 60,
+      consommation_annuelle: 9000,
+      orientation: "sud",
+      ombrage: "fort",
+      amiante_suspecte: "oui",
+    });
+    expect(e.warnings.join(" ")).toContain("Ombrage fort");
+    expect(e.warnings.join(" ")).toContain("Amiante");
   });
 
   it("dimensionne une PAC air/eau selon la surface et la zone climatique", () => {
