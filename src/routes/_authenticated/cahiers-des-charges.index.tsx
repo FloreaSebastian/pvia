@@ -19,6 +19,10 @@ import { isManageRole } from "@/lib/roles";
 import { listStudies } from "@/lib/etudes.functions";
 import { STUDY_TYPE_OPTIONS, getStudyTemplate } from "@/lib/etudes/templates";
 import { STUDY_STATUS_META, type StudyStatus, type StudyType } from "@/lib/etudes/types";
+import {
+  QUOTE_STATUSES, QUOTE_STATUS_META, STUDY_STATUS_FILTERS, isQuoteStatus, type QuoteStatus,
+} from "@/lib/etudes/workflow";
+
 
 export const Route = createFileRoute("/_authenticated/cahiers-des-charges/")({
   head: () => ({
