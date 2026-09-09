@@ -746,27 +746,30 @@ export const convertStudy = createServerFn({ method: "POST" })
     // celui déjà rattaché, sans jamais en produire un second.
     const needChantier = data.create_chantier || data.create_visit;
     let chantierId = study.converted_chantier_id;
+    let chantierCreated = false;
 
     if (needChantier && !chantierId) {
-
       const { data: chantier, error } = await supabase
         .from("chantiers")
         .insert({
           company_id: data.companyId,
+          owner_id: userId,
           client_id: study.client_id,
-          name: study.title ?? template.label,
+          name: (study.title ?? template.label).slice(0, 200),
           type: template.chantierType,
           address: study.site_address,
           address_line1: study.site_address,
           postal_code: study.site_postal_code,
           city: study.site_city,
-          status: "prepare",
+          // Valeur du CHECK chantiers_status_check : « preparation », pas « prepare ».
+          status: "preparation",
           created_by: userId,
         } as never)
         .select("id,reference")
         .single();
       if (error || !chantier) throw new Error(error?.message ?? "Création du chantier impossible.");
       chantierId = (chantier as { id: string }).id;
+      chantierCreated = true;
     }
 
     let visitId = study.converted_visit_id;
@@ -780,6 +783,8 @@ export const convertStudy = createServerFn({ method: "POST" })
         .filter(Boolean)
         .join("\n");
 
+      // Clé déterministe : une double conversion ne peut pas créer deux visites.
+      const idempotencyKey = `etude:${data.studyId}`;
       const { data: visit, error } = await supabase
         .from("technical_visits")
         .insert({
@@ -787,18 +792,38 @@ export const convertStudy = createServerFn({ method: "POST" })
           client_id: study.client_id,
           chantier_id: chantierId,
           visit_type: study.study_type,
-          reference: "",
+          // Pas de reference : la valeur par défaut SQL génère « VT#### ».
           status: "a_planifier",
           site_address: study.site_address,
           assigned_to: study.assigned_to,
           prep_notes: prep.slice(0, 5000),
           created_by: userId,
+          idempotency_key: idempotencyKey,
         } as never)
         .select("id")
         .maybeSingle();
-      if (error) throw new Error(error.message);
-      visitId = (visit as { id: string } | null)?.id ?? null;
+      if (error) {
+        if (error.code === "23505") {
+          const { data: race } = await supabase
+            .from("technical_visits")
+            .select("id")
+            .eq("company_id", data.companyId)
+            .eq("idempotency_key", idempotencyKey)
+            .maybeSingle();
+          visitId = (race as { id: string } | null)?.id ?? null;
+        }
+        if (!visitId) {
+          // Compensation : pas de chantier orphelin si la visite échoue.
+          if (chantierCreated) {
+            await supabase.from("chantiers").delete().eq("id", chantierId).eq("company_id", data.companyId);
+          }
+          throw new Error(error.message);
+        }
+      } else {
+        visitId = (visit as { id: string } | null)?.id ?? null;
+      }
     }
+
 
     await supabase
       .from("technical_studies")
