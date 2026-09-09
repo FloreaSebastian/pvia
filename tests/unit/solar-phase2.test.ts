@@ -90,14 +90,11 @@ describe("Terrain", () => {
 });
 
 describe("Ajustement de plan", () => {
-  it("retrouve un plan incliné bruité", () => {
-    const pts = [];
+  it("retrouve un plan incliné connu", () => {
+    const clean = [];
     for (let x = 0; x < 6; x += 1) {
-      for (let y = 0; y < 6; y += 1) {
-        pts.push({ x, y, z: 2 + 0.5 * x + (x + y) % 2 ? 0 : 0 });
-      }
+      for (let y = 0; y < 6; y += 1) clean.push({ x, y, z: 2 + 0.5 * x });
     }
-    const clean = pts.map((p) => ({ x: p.x, y: p.y, z: 2 + 0.5 * p.x }));
     const fit = fitPlaneRansac(clean, { iterations: 60 });
     expect(fit).not.toBeNull();
     expect(fit!.rmse).toBeLessThan(0.05);
@@ -127,30 +124,23 @@ describe("Ajustement de plan", () => {
 
 describe("Mesures", () => {
   it("calcule distances, hauteurs et surfaces", () => {
-    expect(computeMeasure("distance_3d", [{ x: 0, y: 0, z: 0 }, { x: 3, y: 4, z: 12 }])).toBeCloseTo(13, 9);
-    expect(computeMeasure("distance_horizontal", [{ x: 0, y: 0, z: 0 }, { x: 3, y: 4, z: 12 }])).toBeCloseTo(5, 9);
-    expect(computeMeasure("height", [{ x: 0, y: 0, z: 1 }, { x: 3, y: 4, z: 5 }])).toBeCloseTo(4, 9);
-    expect(
-      polygonArea3([
-        { x: 0, y: 0, z: 0 },
-        { x: 4, y: 0, z: 0 },
-        { x: 4, y: 3, z: 0 },
-        { x: 0, y: 3, z: 0 },
-      ]),
-    ).toBeCloseTo(12, 9);
+    expect(computeMeasure("distance_3d", [[0, 0, 0], [3, 4, 12]])).toBeCloseTo(13, 9);
+    expect(computeMeasure("distance_horizontal", [[0, 0, 0], [3, 4, 12]])).toBeCloseTo(5, 9);
+    expect(computeMeasure("height", [[0, 0, 1], [3, 4, 5]])).toBeCloseTo(4, 9);
+    expect(polygonArea3([[0, 0, 0], [4, 0, 0], [4, 3, 0], [0, 3, 0]])).toBeCloseTo(12, 9);
   });
 
   it("accroche au point le plus proche dans le rayon, sinon rien", () => {
     const candidates = [
-      { kind: "vertex" as const, label: "A", point: { x: 0, y: 0, z: 0 } },
-      { kind: "vertex" as const, label: "B", point: { x: 5, y: 0, z: 0 } },
+      { kind: "endpoint" as const, label: "A", point: [0, 0, 0] as [number, number, number] },
+      { kind: "endpoint" as const, label: "B", point: [5, 0, 0] as [number, number, number] },
     ];
-    expect(findSnap({ x: 0.2, y: 0, z: 0 }, candidates, 0.6)?.label).toBe("A");
-    expect(findSnap({ x: 2.5, y: 0, z: 0 }, candidates, 0.6)).toBeNull();
+    expect(findSnap([0.2, 0, 0], candidates, 0.6)?.label).toBe("A");
+    expect(findSnap([2.5, 0, 0], candidates, 0.6)).toBeNull();
   });
 
   it("retient la mesure terrain et expose l'écart", () => {
-    const d = { estimated: 10, field: 10.4, retained_origin: "field" as const };
+    const d = { value_estimated: 10, value_field: 10.4, retained_origin: "field" as const };
     expect(retainedValue(d)).toBeCloseTo(10.4, 9);
     expect(measurementGap(d)).toBeCloseTo(0.4, 9);
   });
