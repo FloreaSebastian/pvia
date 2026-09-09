@@ -61,7 +61,7 @@ function TypeBadge({ type }: { type: Client["client_type"] }) {
   );
 }
 
-function SectionCard({ icon: Icon, title, action, children }: { icon: React.ElementType; title: string; action?: React.ReactNode; children: React.ReactNode }) {
+function SectionCard({ icon: Icon, title, action, children }: { icon: React.ComponentType<{ className?: string }>; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
