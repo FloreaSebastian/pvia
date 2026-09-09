@@ -74,7 +74,8 @@ export const listStudies = createServerFn({ method: "POST" })
       .range(data.offset, data.offset + data.limit - 1);
     if (error) throw new Error(error.message);
 
-    type ListRow = Record<string, unknown> & {
+    type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+    type ListRow = Record<string, JsonValue> & {
       reference?: string;
       title?: string | null;
       site_address?: string | null;
