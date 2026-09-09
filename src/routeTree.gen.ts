@@ -43,6 +43,7 @@ import { Route as ClientVerifyRouteImport } from './routes/client.verify'
 import { Route as ClientProfilRouteImport } from './routes/client.profil'
 import { Route as ClientLoginRouteImport } from './routes/client.login'
 import { Route as ClientHistoriqueRouteImport } from './routes/client.historique'
+import { Route as ClientEtudesRouteImport } from './routes/client.etudes'
 import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
 import { Route as AuthenticatedUpgradeRequiredRouteImport } from './routes/_authenticated/upgrade-required'
 import { Route as AuthenticatedStatistiquesRouteImport } from './routes/_authenticated/statistiques'
@@ -62,6 +63,7 @@ import { Route as AuthenticatedVisitesTechniquesIndexRouteImport } from './route
 import { Route as AuthenticatedPvIndexRouteImport } from './routes/_authenticated/pv.index'
 import { Route as AuthenticatedParametresIndexRouteImport } from './routes/_authenticated/parametres.index'
 import { Route as AuthenticatedChantiersIndexRouteImport } from './routes/_authenticated/chantiers.index'
+import { Route as AuthenticatedCahiersDesChargesIndexRouteImport } from './routes/_authenticated/cahiers-des-charges.index'
 import { Route as SousTraitantInvitationTokenRouteImport } from './routes/sous-traitant.invitation.$token'
 import { Route as SousTraitantInterventionIdRouteImport } from './routes/sous-traitant.intervention.$id'
 import { Route as SignPvTokenRouteImport } from './routes/sign.pv.$token'
@@ -82,6 +84,8 @@ import { Route as AuthenticatedParametresAuditRouteImport } from './routes/_auth
 import { Route as AuthenticatedParametresApiRouteImport } from './routes/_authenticated/parametres.api'
 import { Route as AuthenticatedChantiersCalendrierRouteImport } from './routes/_authenticated/chantiers.calendrier'
 import { Route as AuthenticatedChantiersIdRouteImport } from './routes/_authenticated/chantiers.$id'
+import { Route as AuthenticatedCahiersDesChargesNouveauRouteImport } from './routes/_authenticated/cahiers-des-charges.nouveau'
+import { Route as AuthenticatedCahiersDesChargesIdRouteImport } from './routes/_authenticated/cahiers-des-charges.$id'
 import { Route as AuthenticatedAdminSystemHealthRouteImport } from './routes/_authenticated/admin.system-health'
 import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
 import { Route as AuthenticatedAdminProductionAuditRouteImport } from './routes/_authenticated/admin.production-audit'
@@ -285,6 +289,11 @@ const ClientHistoriqueRoute = ClientHistoriqueRouteImport.update({
   path: '/client/historique',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientEtudesRoute = ClientEtudesRouteImport.update({
+  id: '/client/etudes',
+  path: '/client/etudes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientDashboardRoute = ClientDashboardRouteImport.update({
   id: '/client/dashboard',
   path: '/client/dashboard',
@@ -385,6 +394,12 @@ const AuthenticatedChantiersIndexRoute =
   AuthenticatedChantiersIndexRouteImport.update({
     id: '/chantiers/',
     path: '/chantiers/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCahiersDesChargesIndexRoute =
+  AuthenticatedCahiersDesChargesIndexRouteImport.update({
+    id: '/cahiers-des-charges/',
+    path: '/cahiers-des-charges/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const SousTraitantInvitationTokenRoute =
@@ -500,6 +515,18 @@ const AuthenticatedChantiersIdRoute =
   AuthenticatedChantiersIdRouteImport.update({
     id: '/chantiers/$id',
     path: '/chantiers/$id',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCahiersDesChargesNouveauRoute =
+  AuthenticatedCahiersDesChargesNouveauRouteImport.update({
+    id: '/cahiers-des-charges/nouveau',
+    path: '/cahiers-des-charges/nouveau',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCahiersDesChargesIdRoute =
+  AuthenticatedCahiersDesChargesIdRouteImport.update({
+    id: '/cahiers-des-charges/$id',
+    path: '/cahiers-des-charges/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminSystemHealthRoute =
@@ -734,6 +761,7 @@ export interface FileRoutesByFullPath {
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/etudes': typeof ClientEtudesRoute
   '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
   '/client/profil': typeof ClientProfilRoute
@@ -760,6 +788,8 @@ export interface FileRoutesByFullPath {
   '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
   '/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
+  '/cahiers-des-charges/$id': typeof AuthenticatedCahiersDesChargesIdRoute
+  '/cahiers-des-charges/nouveau': typeof AuthenticatedCahiersDesChargesNouveauRoute
   '/chantiers/$id': typeof AuthenticatedChantiersIdRoute
   '/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -780,6 +810,7 @@ export interface FileRoutesByFullPath {
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/sous-traitant/intervention/$id': typeof SousTraitantInterventionIdRoute
   '/sous-traitant/invitation/$token': typeof SousTraitantInvitationTokenRoute
+  '/cahiers-des-charges/': typeof AuthenticatedCahiersDesChargesIndexRoute
   '/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/parametres/': typeof AuthenticatedParametresIndexRoute
   '/pv/': typeof AuthenticatedPvIndexRoute
@@ -839,6 +870,7 @@ export interface FileRoutesByTo {
   '/statistiques': typeof AuthenticatedStatistiquesRoute
   '/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/etudes': typeof ClientEtudesRoute
   '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
   '/client/profil': typeof ClientProfilRoute
@@ -863,6 +895,8 @@ export interface FileRoutesByTo {
   '/admin/processing-failures': typeof AuthenticatedAdminProcessingFailuresRoute
   '/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
+  '/cahiers-des-charges/$id': typeof AuthenticatedCahiersDesChargesIdRoute
+  '/cahiers-des-charges/nouveau': typeof AuthenticatedCahiersDesChargesNouveauRoute
   '/chantiers/$id': typeof AuthenticatedChantiersIdRoute
   '/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -883,6 +917,7 @@ export interface FileRoutesByTo {
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/sous-traitant/intervention/$id': typeof SousTraitantInterventionIdRoute
   '/sous-traitant/invitation/$token': typeof SousTraitantInvitationTokenRoute
+  '/cahiers-des-charges': typeof AuthenticatedCahiersDesChargesIndexRoute
   '/chantiers': typeof AuthenticatedChantiersIndexRoute
   '/parametres': typeof AuthenticatedParametresIndexRoute
   '/pv': typeof AuthenticatedPvIndexRoute
@@ -946,6 +981,7 @@ export interface FileRoutesById {
   '/_authenticated/statistiques': typeof AuthenticatedStatistiquesRoute
   '/_authenticated/upgrade-required': typeof AuthenticatedUpgradeRequiredRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/etudes': typeof ClientEtudesRoute
   '/client/historique': typeof ClientHistoriqueRoute
   '/client/login': typeof ClientLoginRoute
   '/client/profil': typeof ClientProfilRoute
@@ -972,6 +1008,8 @@ export interface FileRoutesById {
   '/_authenticated/admin/production-audit': typeof AuthenticatedAdminProductionAuditRoute
   '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRouteWithChildren
   '/_authenticated/admin/system-health': typeof AuthenticatedAdminSystemHealthRoute
+  '/_authenticated/cahiers-des-charges/$id': typeof AuthenticatedCahiersDesChargesIdRoute
+  '/_authenticated/cahiers-des-charges/nouveau': typeof AuthenticatedCahiersDesChargesNouveauRoute
   '/_authenticated/chantiers/$id': typeof AuthenticatedChantiersIdRoute
   '/_authenticated/chantiers/calendrier': typeof AuthenticatedChantiersCalendrierRoute
   '/_authenticated/parametres/api': typeof AuthenticatedParametresApiRoute
@@ -992,6 +1030,7 @@ export interface FileRoutesById {
   '/sign/pv/$token': typeof SignPvTokenRoute
   '/sous-traitant/intervention/$id': typeof SousTraitantInterventionIdRoute
   '/sous-traitant/invitation/$token': typeof SousTraitantInvitationTokenRoute
+  '/_authenticated/cahiers-des-charges/': typeof AuthenticatedCahiersDesChargesIndexRoute
   '/_authenticated/chantiers/': typeof AuthenticatedChantiersIndexRoute
   '/_authenticated/parametres/': typeof AuthenticatedParametresIndexRoute
   '/_authenticated/pv/': typeof AuthenticatedPvIndexRoute
@@ -1055,6 +1094,7 @@ export interface FileRouteTypes {
     | '/statistiques'
     | '/upgrade-required'
     | '/client/dashboard'
+    | '/client/etudes'
     | '/client/historique'
     | '/client/login'
     | '/client/profil'
@@ -1081,6 +1121,8 @@ export interface FileRouteTypes {
     | '/admin/production-audit'
     | '/admin/support'
     | '/admin/system-health'
+    | '/cahiers-des-charges/$id'
+    | '/cahiers-des-charges/nouveau'
     | '/chantiers/$id'
     | '/chantiers/calendrier'
     | '/parametres/api'
@@ -1101,6 +1143,7 @@ export interface FileRouteTypes {
     | '/sign/pv/$token'
     | '/sous-traitant/intervention/$id'
     | '/sous-traitant/invitation/$token'
+    | '/cahiers-des-charges/'
     | '/chantiers/'
     | '/parametres/'
     | '/pv/'
@@ -1160,6 +1203,7 @@ export interface FileRouteTypes {
     | '/statistiques'
     | '/upgrade-required'
     | '/client/dashboard'
+    | '/client/etudes'
     | '/client/historique'
     | '/client/login'
     | '/client/profil'
@@ -1184,6 +1228,8 @@ export interface FileRouteTypes {
     | '/admin/processing-failures'
     | '/admin/production-audit'
     | '/admin/system-health'
+    | '/cahiers-des-charges/$id'
+    | '/cahiers-des-charges/nouveau'
     | '/chantiers/$id'
     | '/chantiers/calendrier'
     | '/parametres/api'
@@ -1204,6 +1250,7 @@ export interface FileRouteTypes {
     | '/sign/pv/$token'
     | '/sous-traitant/intervention/$id'
     | '/sous-traitant/invitation/$token'
+    | '/cahiers-des-charges'
     | '/chantiers'
     | '/parametres'
     | '/pv'
@@ -1266,6 +1313,7 @@ export interface FileRouteTypes {
     | '/_authenticated/statistiques'
     | '/_authenticated/upgrade-required'
     | '/client/dashboard'
+    | '/client/etudes'
     | '/client/historique'
     | '/client/login'
     | '/client/profil'
@@ -1292,6 +1340,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/production-audit'
     | '/_authenticated/admin/support'
     | '/_authenticated/admin/system-health'
+    | '/_authenticated/cahiers-des-charges/$id'
+    | '/_authenticated/cahiers-des-charges/nouveau'
     | '/_authenticated/chantiers/$id'
     | '/_authenticated/chantiers/calendrier'
     | '/_authenticated/parametres/api'
@@ -1312,6 +1362,7 @@ export interface FileRouteTypes {
     | '/sign/pv/$token'
     | '/sous-traitant/intervention/$id'
     | '/sous-traitant/invitation/$token'
+    | '/_authenticated/cahiers-des-charges/'
     | '/_authenticated/chantiers/'
     | '/_authenticated/parametres/'
     | '/_authenticated/pv/'
@@ -1361,6 +1412,7 @@ export interface RootRouteChildren {
   TarifsRoute: typeof TarifsRoute
   VerifyRoute: typeof VerifyRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
+  ClientEtudesRoute: typeof ClientEtudesRoute
   ClientHistoriqueRoute: typeof ClientHistoriqueRoute
   ClientLoginRoute: typeof ClientLoginRoute
   ClientProfilRoute: typeof ClientProfilRoute
@@ -1630,6 +1682,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientHistoriqueRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/client/etudes': {
+      id: '/client/etudes'
+      path: '/client/etudes'
+      fullPath: '/client/etudes'
+      preLoaderRoute: typeof ClientEtudesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/client/dashboard': {
       id: '/client/dashboard'
       path: '/client/dashboard'
@@ -1761,6 +1820,13 @@ declare module '@tanstack/react-router' {
       path: '/chantiers'
       fullPath: '/chantiers/'
       preLoaderRoute: typeof AuthenticatedChantiersIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/cahiers-des-charges/': {
+      id: '/_authenticated/cahiers-des-charges/'
+      path: '/cahiers-des-charges'
+      fullPath: '/cahiers-des-charges/'
+      preLoaderRoute: typeof AuthenticatedCahiersDesChargesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/sous-traitant/invitation/$token': {
@@ -1901,6 +1967,20 @@ declare module '@tanstack/react-router' {
       path: '/chantiers/$id'
       fullPath: '/chantiers/$id'
       preLoaderRoute: typeof AuthenticatedChantiersIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/cahiers-des-charges/nouveau': {
+      id: '/_authenticated/cahiers-des-charges/nouveau'
+      path: '/cahiers-des-charges/nouveau'
+      fullPath: '/cahiers-des-charges/nouveau'
+      preLoaderRoute: typeof AuthenticatedCahiersDesChargesNouveauRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/cahiers-des-charges/$id': {
+      id: '/_authenticated/cahiers-des-charges/$id'
+      path: '/cahiers-des-charges/$id'
+      fullPath: '/cahiers-des-charges/$id'
+      preLoaderRoute: typeof AuthenticatedCahiersDesChargesIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/system-health': {
@@ -2248,12 +2328,15 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminProductionAuditRoute: typeof AuthenticatedAdminProductionAuditRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRouteWithChildren
   AuthenticatedAdminSystemHealthRoute: typeof AuthenticatedAdminSystemHealthRoute
+  AuthenticatedCahiersDesChargesIdRoute: typeof AuthenticatedCahiersDesChargesIdRoute
+  AuthenticatedCahiersDesChargesNouveauRoute: typeof AuthenticatedCahiersDesChargesNouveauRoute
   AuthenticatedChantiersIdRoute: typeof AuthenticatedChantiersIdRoute
   AuthenticatedChantiersCalendrierRoute: typeof AuthenticatedChantiersCalendrierRoute
   AuthenticatedPvIdRoute: typeof AuthenticatedPvIdRoute
   AuthenticatedPvNewRoute: typeof AuthenticatedPvNewRoute
   AuthenticatedVisitesTechniquesIdRoute: typeof AuthenticatedVisitesTechniquesIdRoute
   AuthenticatedVisitesTechniquesNouvelleRoute: typeof AuthenticatedVisitesTechniquesNouvelleRoute
+  AuthenticatedCahiersDesChargesIndexRoute: typeof AuthenticatedCahiersDesChargesIndexRoute
   AuthenticatedChantiersIndexRoute: typeof AuthenticatedChantiersIndexRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
   AuthenticatedVisitesTechniquesIndexRoute: typeof AuthenticatedVisitesTechniquesIndexRoute
@@ -2294,6 +2377,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAdminProductionAuditRoute,
   AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRouteWithChildren,
   AuthenticatedAdminSystemHealthRoute: AuthenticatedAdminSystemHealthRoute,
+  AuthenticatedCahiersDesChargesIdRoute: AuthenticatedCahiersDesChargesIdRoute,
+  AuthenticatedCahiersDesChargesNouveauRoute:
+    AuthenticatedCahiersDesChargesNouveauRoute,
   AuthenticatedChantiersIdRoute: AuthenticatedChantiersIdRoute,
   AuthenticatedChantiersCalendrierRoute: AuthenticatedChantiersCalendrierRoute,
   AuthenticatedPvIdRoute: AuthenticatedPvIdRoute,
@@ -2301,6 +2387,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedVisitesTechniquesIdRoute: AuthenticatedVisitesTechniquesIdRoute,
   AuthenticatedVisitesTechniquesNouvelleRoute:
     AuthenticatedVisitesTechniquesNouvelleRoute,
+  AuthenticatedCahiersDesChargesIndexRoute:
+    AuthenticatedCahiersDesChargesIndexRoute,
   AuthenticatedChantiersIndexRoute: AuthenticatedChantiersIndexRoute,
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
   AuthenticatedVisitesTechniquesIndexRoute:
@@ -2364,6 +2452,7 @@ const rootRouteChildren: RootRouteChildren = {
   TarifsRoute: TarifsRoute,
   VerifyRoute: VerifyRoute,
   ClientDashboardRoute: ClientDashboardRoute,
+  ClientEtudesRoute: ClientEtudesRoute,
   ClientHistoriqueRoute: ClientHistoriqueRoute,
   ClientLoginRoute: ClientLoginRoute,
   ClientProfilRoute: ClientProfilRoute,

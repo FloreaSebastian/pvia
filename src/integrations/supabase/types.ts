@@ -3236,6 +3236,369 @@ export type Database = {
         }
         Relationships: []
       }
+      technical_studies: {
+        Row: {
+          archived_at: string | null
+          assigned_to: string | null
+          client_id: string
+          client_message: string | null
+          company_id: string
+          completion_percent: number
+          converted_at: string | null
+          converted_chantier_id: string | null
+          converted_visit_id: string | null
+          created_at: string
+          created_by: string | null
+          decision: string | null
+          decision_at: string | null
+          decision_reason: string | null
+          duplicated_from: string | null
+          estimate: Json
+          id: string
+          pdf_generated_at: string | null
+          pdf_path: string | null
+          reference: string
+          review_comment: string | null
+          sent_at: string | null
+          sent_to_email: string | null
+          site_address: string | null
+          site_city: string | null
+          site_postal_code: string | null
+          status: string
+          study_type: string
+          submitted_at: string | null
+          summary: string | null
+          title: string | null
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          version: number
+        }
+        Insert: {
+          archived_at?: string | null
+          assigned_to?: string | null
+          client_id: string
+          client_message?: string | null
+          company_id: string
+          completion_percent?: number
+          converted_at?: string | null
+          converted_chantier_id?: string | null
+          converted_visit_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          decision?: string | null
+          decision_at?: string | null
+          decision_reason?: string | null
+          duplicated_from?: string | null
+          estimate?: Json
+          id?: string
+          pdf_generated_at?: string | null
+          pdf_path?: string | null
+          reference: string
+          review_comment?: string | null
+          sent_at?: string | null
+          sent_to_email?: string | null
+          site_address?: string | null
+          site_city?: string | null
+          site_postal_code?: string | null
+          status?: string
+          study_type: string
+          submitted_at?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          version?: number
+        }
+        Update: {
+          archived_at?: string | null
+          assigned_to?: string | null
+          client_id?: string
+          client_message?: string | null
+          company_id?: string
+          completion_percent?: number
+          converted_at?: string | null
+          converted_chantier_id?: string | null
+          converted_visit_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          decision?: string | null
+          decision_at?: string | null
+          decision_reason?: string | null
+          duplicated_from?: string | null
+          estimate?: Json
+          id?: string
+          pdf_generated_at?: string | null
+          pdf_path?: string | null
+          reference?: string
+          review_comment?: string | null
+          sent_at?: string | null
+          sent_to_email?: string | null
+          site_address?: string | null
+          site_city?: string | null
+          site_postal_code?: string | null
+          status?: string
+          study_type?: string
+          submitted_at?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_studies_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_studies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_studies_converted_chantier_id_fkey"
+            columns: ["converted_chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_studies_converted_visit_id_fkey"
+            columns: ["converted_visit_id"]
+            isOneToOne: false
+            referencedRelation: "technical_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_studies_duplicated_from_fkey"
+            columns: ["duplicated_from"]
+            isOneToOne: false
+            referencedRelation: "technical_studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_study_answers: {
+        Row: {
+          company_id: string
+          created_at: string
+          field_key: string
+          id: string
+          section_key: string
+          study_id: string
+          updated_at: string
+          updated_by: string | null
+          value: Json | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          field_key: string
+          id?: string
+          section_key: string
+          study_id: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          field_key?: string
+          id?: string
+          section_key?: string
+          study_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_study_answers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_study_answers_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "technical_studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_study_documents: {
+        Row: {
+          category: string
+          company_id: string
+          created_at: string
+          description: string | null
+          doc_date: string | null
+          id: string
+          kind: string
+          label: string | null
+          mime_type: string
+          size_bytes: number
+          storage_path: string
+          study_id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string
+          company_id: string
+          created_at?: string
+          description?: string | null
+          doc_date?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+          mime_type: string
+          size_bytes?: number
+          storage_path: string
+          study_id: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          doc_date?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+          mime_type?: string
+          size_bytes?: number
+          storage_path?: string
+          study_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_study_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_study_documents_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "technical_studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_study_notes: {
+        Row: {
+          author_id: string | null
+          body: string
+          company_id: string
+          created_at: string
+          id: string
+          study_id: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          company_id: string
+          created_at?: string
+          id?: string
+          study_id: string
+          updated_at?: string
+          visibility: string
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          study_id?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_study_notes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_study_notes_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "technical_studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_study_versions: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          pdf_path: string | null
+          snapshot: Json
+          study_id: string
+          version: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pdf_path?: string | null
+          snapshot: Json
+          study_id: string
+          version: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pdf_path?: string | null
+          snapshot?: Json
+          study_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_study_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_study_versions_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "technical_studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       technical_visit_answers: {
         Row: {
           company_id: string
@@ -3822,6 +4185,10 @@ export type Database = {
       }
       generate_next_reserve_lift_number: {
         Args: { p_pv_id: string }
+        Returns: string
+      }
+      generate_study_reference: {
+        Args: { _company_id: string }
         Returns: string
       }
       get_company_limits: {
