@@ -97,7 +97,7 @@ describe("Ajustement de plan", () => {
     }
     const fit = fitPlaneRansac(clean, { iterations: 60 });
     expect(fit).not.toBeNull();
-    expect(fit!.rmse).toBeLessThan(0.05);
+    expect(fit!.rmse_m).toBeLessThan(0.05);
     expect(fit!.tilt_deg).toBeCloseTo((Math.atan(0.5) * 180) / Math.PI, 1);
   });
 
@@ -105,7 +105,7 @@ describe("Ajustement de plan", () => {
     const pts = Array.from({ length: 30 }, (_, i) => ({ x: i % 6, y: Math.floor(i / 6), z: 1 + 0.2 * (i % 6) }));
     const a = fitPlaneRansac(pts, { iterations: 40 });
     const b = fitPlaneRansac(pts, { iterations: 40 });
-    expect(a?.rmse).toBe(b?.rmse);
+    expect(a?.rmse_m).toBe(b?.rmse_m);
   });
 
   it("simplifie un contour sans le déformer", () => {
