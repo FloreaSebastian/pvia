@@ -46,3 +46,38 @@ Toutes les écritures passent par des server functions authentifiées : garde r�
 - Parcours authentifié réel (création → envoi → espace client) : session navigateur indisponible (`signed_out`).
 - Réception e-mail réelle et rendu PDF sur appareil : non vérifiés.
 - Aucune publication lancée dans ce tour ; Stripe LIVE, abonnements et données réelles non touchés.
+
+---
+
+# Audit de cohérence et corrections — 2026-09-10
+
+## A. Défauts réels trouvés et corrigés
+
+| # | Défaut | Preuve | Correction |
+|---|--------|--------|-----------|
+| 1 | Statut technique et statut commercial mélangés (`accepted`/`refused` dans le cycle du cahier des charges) | lecture `src/lib/etudes.server.ts` | Axe commercial séparé : colonnes `quote_*`, `src/lib/etudes/workflow.ts`, transitions techniques ne créent plus `accepted/refused` (anciens statuts restent lisibles) |
+| 2 | Conversion possible sans devis accepté | lecture `convertStudy` | `assertConversionAllowed` appliqué **côté serveur** + boutons masqués |
+| 3 | Conversion en chantier impossible en pratique : statut `"prepare"` hors du CHECK `chantiers_status_check` | migration `20260617153111` | statut corrigé en `"preparation"`, `owner_id` ajouté |
+| 4 | Visite créée avec `reference: ""` alors que la colonne a un défaut `VT####` | migration `20260824122752` | champ retiré, référence générée par la base |
+| 5 | Double conversion pouvait créer deux visites | absence de clé d'idempotence | clé déterministe `etude:<id>` + reprise sur conflit `23505` + suppression compensatoire du chantier créé |
+| 6 | Visite technique exige un chantier (`chantier_id NOT NULL`) mais l'UI permettait « visite sans chantier » | schéma | le chantier est créé ou réutilisé automatiquement, jamais dupliqué |
+| 7 | Upload direct Storage pouvait laisser un fichier orphelin si l'enregistrement échouait | lecture route détail | suppression compensatoire du fichier |
+| 8 | Autosave : une réponse en échec était perdue | lecture route détail | remise en file + bouton « Réessayer » |
+| 9 | PDF : portée non contractuelle insuffisamment explicite | lecture `etudes-pdf.server.ts` | section « Portee du document » (ni devis, ni engagement, ni validation technique) |
+| 10 | Questionnaires PAC/PV incomplets | lecture templates | champs ajoutés (bilan énergétique, températures de base, émetteurs, ECS, acoustique, alimentation dédiée, gainable conditionnel, etc.) |
+
+## B. Suivi de devis (facultatif)
+
+`quote_status` (`to_prepare`, `prepared`, `sent`, `follow_up`, `accepted`, `refused`, `expired`), référence, montants HT/TTC, dates, commentaire.
+Le tableau de bord du dossier affiche une **prochaine action** unique. Le chantier n'est créé qu'après devis accepté.
+
+## C. Niveaux de preuve (strictement distingués)
+
+- **Testé automatiquement** : workflow, garde de conversion, prochaine action, séparation des axes — `tests/unit/etudes-workflow.test.ts`. Total : **173 tests, 0 échec, 471 assertions, 15 fichiers**. `bunx tsgo --noEmit` OK, `bun run build` OK.
+- **Vérifié par lecture de code/schéma** : RLS et GRANT, IDOR portail client (`etudes-client.functions.ts` : scope client, entreprise non suspendue, statuts visibles, lien signé 120 s), notes internes jamais exportées, chemins Storage préfixés par tenant.
+- **Non testé en exécution** : parcours authentifié complet, réception d'e-mail réelle, rendu PDF sur appareil, responsive sur matériel physique, conversion exécutée en base réelle.
+- **BLOCKED** : session navigateur `signed_out`, donc aucun E2E connecté possible dans ce tour.
+
+## D. Non touché
+
+Stripe (test et LIVE), abonnements, paiements, clients et données réelles. Aucune publication lancée.
