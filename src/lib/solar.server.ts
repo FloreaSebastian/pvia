@@ -20,6 +20,8 @@ import {
 import type { BuildingParams, PlacedModule, RoofPlaneGeometry, SolarQualityLevel } from "./solar/types";
 import { DEFAULT_BUILDING_PARAMS } from "./solar/types";
 import type { TerrainGrid } from "./solar/terrain";
+import type { CoverageStatus } from "./solar/providers/types";
+
 
 type SB = SupabaseClient<Database>;
 
