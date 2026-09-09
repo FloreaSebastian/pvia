@@ -478,9 +478,9 @@ function MeasurePanel({
               <span className="min-w-0">
                 <span className="block font-medium">{m.label ?? m.measure_type}</span>
                 <span className="block text-muted-foreground">
-                  Estimé {formatLength(m.value_estimated ?? m.value_numeric)}
+                  Estimé {formatLength(m.value_estimated ?? m.value_numeric ?? 0 ?? 0)}
                   {m.value_field != null ? ` · terrain ${formatLength(m.value_field)}` : ""} · retenu{" "}
-                  {formatLength(m.value_retained ?? m.value_numeric)}
+                  {formatLength(m.value_retained ?? m.value_numeric ?? 0 ?? 0)}
                 </span>
               </span>
               <div className="flex items-center gap-1">
@@ -525,7 +525,7 @@ function MeasurePanel({
                 variant="ghost"
                 className="min-h-11"
                 disabled={disabled || m.value_retained == null}
-                onClick={() => onConstrain("width_m", m.value_retained ?? m.value_numeric)}
+                onClick={() => onConstrain("width_m", m.value_retained ?? m.value_numeric ?? 0 ?? 0)}
               >
                 Contraindre la largeur
               </Button>
