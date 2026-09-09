@@ -74,26 +74,25 @@ export const listStudies = createServerFn({ method: "POST" })
       .range(data.offset, data.offset + data.limit - 1);
     if (error) throw new Error(error.message);
 
+    type ListRow = Record<string, unknown> & {
+      reference?: string;
+      title?: string | null;
+      site_address?: string | null;
+      site_city?: string | null;
+      client?: { name?: string; company_name?: string; email?: string; phone?: string } | null;
+    };
+    const list = (rows ?? []) as unknown as ListRow[];
+
     const search = data.search.trim().toLowerCase();
     const filtered = !search
-      ? rows ?? []
-      : (rows ?? []).filter((r) => {
-          const c = (r as { client: { name?: string; company_name?: string; email?: string; phone?: string } | null }).client;
-          return [
-            (r as { reference: string }).reference,
-            (r as { title: string | null }).title,
-            (r as { site_address: string | null }).site_address,
-            (r as { site_city: string | null }).site_city,
-            c?.name,
-            c?.company_name,
-            c?.email,
-            c?.phone,
-          ]
+      ? list
+      : list.filter((r) =>
+          [r.reference, r.title, r.site_address, r.site_city, r.client?.name, r.client?.company_name, r.client?.email, r.client?.phone]
             .filter(Boolean)
-            .some((v) => String(v).toLowerCase().includes(search));
-        });
+            .some((v) => String(v).toLowerCase().includes(search)),
+        );
 
-    return { studies: filtered, total: count ?? filtered.length };
+    return { studies: JSON.parse(JSON.stringify(filtered)) as ListRow[], total: count ?? filtered.length };
   });
 
 async function signDocuments(
@@ -140,8 +139,10 @@ export const getStudy = createServerFn({ method: "POST" })
         .order("version", { ascending: false }),
     ]);
 
-    const answers: Record<string, unknown> = {};
-    for (const a of (answersRes.data ?? []) as { field_key: string; value: unknown }[]) answers[a.field_key] = a.value;
+    const answers: Record<string, string | number | boolean | string[] | null> = {};
+    for (const a of (answersRes.data ?? []) as { field_key: string; value: string | number | boolean | string[] | null }[]) {
+      answers[a.field_key] = a.value;
+    }
 
     const type = study.study_type as StudyType;
     const photoSlots = new Set(

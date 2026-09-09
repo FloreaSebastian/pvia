@@ -25,7 +25,6 @@ import {
   Rocket,
   ClipboardCheck,
   ClipboardList,
-  ClipboardCheck,
   Mail,
   Shield,
   History,
