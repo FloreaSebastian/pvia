@@ -36,7 +36,10 @@ export const SaveBuildingSchema = z.object({
   modelId: z.string().uuid(),
   name: z.string().trim().max(120).optional(),
   params: BuildingParamsSchema,
+  /** Détection de conflit : version géométrique connue du client. */
+  expectedGeometryVersion: z.number().int().min(1).nullable().optional(),
 });
+
 
 export const ObstacleInputSchema = z.object({
   companyId: z.string().uuid(),
