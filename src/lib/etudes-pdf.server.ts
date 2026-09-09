@@ -242,12 +242,22 @@ export async function buildStudyPdfBytes(companyId: string, studyId: string): Pr
     for (const d of docs) row(d.category, [d.label, d.doc_date ? formatDate(d.doc_date) : null].filter(Boolean).join(" — ") || "—");
   }
 
+  /* -------------------------------- Portée du document --------------------- */
+  heading("Portee du document");
+  text(
+    "Document non contractuel. Ce cahier des charges est une pre-etude realisee a partir des elements declares par le client. " +
+      "Il ne constitue ni un devis, ni un bon de commande, ni un engagement contractuel, ni une validation technique definitive. " +
+      "Les puissances, quantites et estimations indiquees sont indicatives et devront etre confirmees par une visite technique sur site.",
+    { size: 9.5 },
+  );
+
   /* -------------------------------- Prochaine étape ------------------------- */
   heading("Prochaine étape");
   text(
-    "Ce cahier des charges constitue une pré-étude commerciale. Après votre accord, une visite technique sera planifiee afin de confirmer les elements techniques et d'etablir un devis definitif.",
+    "Apres votre accord commercial, une visite technique sera planifiee afin de confirmer les elements techniques et d'etablir un devis definitif.",
     { size: 10 },
   );
+
 
   /* --------------------------------- Pieds de page -------------------------- */
   const pages = pdf.getPages();
