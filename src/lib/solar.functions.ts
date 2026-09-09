@@ -15,11 +15,15 @@ import { writeAuditLog } from "./audit.server";
 import {
   assertSolarManage,
   assertSolarMember,
+  bumpGeometryVersion,
+  loadFullModel,
   loadModelScoped,
   planeGeometryFromRow,
   readBuildingParams,
+  refreshSummary,
+  setProvenance,
   syncRoofPlanes,
-  type SolarRoofPlaneRow,
+  type SolarFullModel,
 } from "./solar.server";
 import {
   LayoutRequestSchema,
@@ -30,18 +34,17 @@ import {
   VersionSchema,
 } from "./solar/schemas";
 import { gridLayout, type PlaneObstacle } from "./solar/layout";
-import { computeSolarSummary } from "./solar/summary";
 import { DEFAULT_BUILDING_PARAMS, SOLAR_SCHEMA_VERSION } from "./solar/types";
-import type { PlacedModule, RoofPlaneGeometry, SolarQualityLevel } from "./solar/types";
 
 const ModelRefSchema = z.object({
   companyId: z.string().uuid(),
   studyId: z.string().uuid(),
 });
 
-export type SolarModelPayload = Awaited<ReturnType<typeof loadFullModel>>;
+export type SolarModelPayload = SolarFullModel;
 
 type SB = Parameters<typeof loadModelScoped>[0];
+
 
 /* --------------------------------- Lecture -------------------------------- */
 
