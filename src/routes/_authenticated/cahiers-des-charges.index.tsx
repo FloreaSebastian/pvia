@@ -213,13 +213,25 @@ function StudiesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Statut</Label>
+                <Label>Statut du cahier des charges</Label>
                 <Select value={status} onValueChange={(v) => setStatus(v as StudyStatus | "all")}>
                   <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tous les statuts</SelectItem>
-                    {Object.entries(STUDY_STATUS_META).map(([key, meta]) => (
-                      <SelectItem key={key} value={key}>{meta.label}</SelectItem>
+                    {STUDY_STATUS_FILTERS.map((key) => (
+                      <SelectItem key={key} value={key}>{STUDY_STATUS_META[key].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Statut du devis</Label>
+                <Select value={quoteStatus} onValueChange={(v) => setQuoteStatus(v as QuoteStatus | "all")}>
+                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les devis</SelectItem>
+                    {QUOTE_STATUSES.map((key) => (
+                      <SelectItem key={key} value={key}>{QUOTE_STATUS_META[key].label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -235,11 +247,12 @@ function StudiesPage() {
                 <Button
                   variant="ghost"
                   className="min-h-11 w-full gap-2"
-                  onClick={() => { setType("all"); setStatus("all"); setIncludeArchived(false); }}
+                  onClick={() => { setType("all"); setStatus("all"); setQuoteStatus("all"); setIncludeArchived(false); }}
                 >
                   <X className="h-4 w-4" /> Réinitialiser
                 </Button>
               )}
+
             </div>
           </SheetContent>
         </Sheet>
