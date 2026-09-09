@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "motion/react";
-import { LogOut, LayoutDashboard, History, User } from "lucide-react";
+import { LogOut, LayoutDashboard, History, User, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { logoutClientSession } from "@/lib/client-auth.functions";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/client/dashboard", label: "Mes PV", icon: LayoutDashboard },
+  { to: "/client/etudes", label: "Cahiers", icon: ClipboardCheck },
   { to: "/client/historique", label: "Historique", icon: History },
   { to: "/client/profil", label: "Profil", icon: User },
 ] as const;
