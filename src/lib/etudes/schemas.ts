@@ -55,6 +55,11 @@ export const StudyFiltersSchema = z.object({
   search: z.string().trim().max(200).optional().default(""),
   study_type: StudyTypeSchema.nullable().optional(),
   status: StudyStatusSchema.nullable().optional(),
+  quote_status: z
+    .enum(["to_prepare", "prepared", "sent", "follow_up", "accepted", "refused", "expired"])
+    .nullable()
+    .optional(),
+
   client_id: z.string().uuid().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
   include_archived: z.boolean().optional().default(false),
