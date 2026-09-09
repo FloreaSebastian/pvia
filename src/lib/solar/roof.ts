@@ -29,7 +29,8 @@ export function buildingAxes(azimuthDeg: number): { down: Vec3; ridge: Vec3 } {
   const h = azimuthToVector(azimuthDeg);
   // repère 3D : x = Est, y = Nord, z = hauteur
   const down: Vec3 = [h.x, h.y, 0];
-  const ridge: Vec3 = [h.y, -h.x, 0];
+  // (u, v, normale) forme un trièdre direct, normale vers le haut
+  const ridge: Vec3 = [-h.y, h.x, 0];
   return { down, ridge };
 }
 
@@ -46,7 +47,7 @@ function makeFrame(origin: Vec3, u: Vec3, downhill: Vec3, tiltDeg: number): Plan
   const t = tiltDeg * DEG;
   // v monte la pente : opposé de la descente, plus la composante verticale
   const v: Vec3 = [-downhill[0] * Math.cos(t), -downhill[1] * Math.cos(t), Math.sin(t)];
-  const normal = cross(v, u);
+  const normal = cross(u, v);
   return { origin, u, v, normal };
 }
 
