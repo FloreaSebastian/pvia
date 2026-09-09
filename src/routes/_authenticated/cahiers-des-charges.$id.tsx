@@ -257,23 +257,30 @@ function StudyDetailPage() {
         upsert: false,
       });
       if (error) throw new Error(error.message);
-      await addDocFn({
-        data: {
-          companyId: activeCompanyId,
-          studyId: id,
-          document: {
-            kind,
-            category,
-            label: label ?? "",
-            description: "",
-            storage_path: path,
-            mime_type: file.type,
-            size_bytes: file.size,
+      try {
+        await addDocFn({
+          data: {
+            companyId: activeCompanyId,
+            studyId: id,
+            document: {
+              kind,
+              category,
+              label: label ?? "",
+              description: "",
+              storage_path: path,
+              mime_type: file.type,
+              size_bytes: file.size,
+            },
           },
-        },
-      });
+        });
+      } catch (e) {
+        // Compensation : sans ligne en base, le fichier stocké serait orphelin.
+        await supabase.storage.from("pv-assets").remove([path]);
+        throw e;
+      }
       toast.success("Fichier ajouté.");
       await load();
+
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Envoi impossible.");
     } finally {
