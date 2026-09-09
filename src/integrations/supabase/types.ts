@@ -2390,6 +2390,976 @@ export type Database = {
           },
         ]
       }
+      solar_analysis_runs: {
+        Row: {
+          algorithm_version: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          inputs: Json
+          model_id: string
+          results: Json
+          run_type: string
+          solar_source: string | null
+          status: string
+        }
+        Insert: {
+          algorithm_version: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inputs?: Json
+          model_id: string
+          results?: Json
+          run_type: string
+          solar_source?: string | null
+          status?: string
+        }
+        Update: {
+          algorithm_version?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inputs?: Json
+          model_id?: string
+          results?: Json
+          run_type?: string
+          solar_source?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_analysis_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_analysis_runs_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_arrays: {
+        Row: {
+          col_gap_m: number
+          company_id: string
+          created_at: string
+          id: string
+          label: string
+          model_id: string
+          module_catalog_id: string | null
+          orientation: string
+          params: Json
+          roof_plane_id: string
+          row_gap_m: number
+          updated_at: string
+        }
+        Insert: {
+          col_gap_m?: number
+          company_id: string
+          created_at?: string
+          id?: string
+          label?: string
+          model_id: string
+          module_catalog_id?: string | null
+          orientation?: string
+          params?: Json
+          roof_plane_id: string
+          row_gap_m?: number
+          updated_at?: string
+        }
+        Update: {
+          col_gap_m?: number
+          company_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          model_id?: string
+          module_catalog_id?: string | null
+          orientation?: string
+          params?: Json
+          roof_plane_id?: string
+          row_gap_m?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_arrays_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_arrays_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_arrays_module_catalog_id_fkey"
+            columns: ["module_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_arrays_roof_plane_id_fkey"
+            columns: ["roof_plane_id"]
+            isOneToOne: false
+            referencedRelation: "solar_roof_planes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_attachments: {
+        Row: {
+          anchor: Json
+          caption: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          mime_type: string
+          model_id: string
+          size_bytes: number
+          storage_path: string
+          target_id: string | null
+          target_kind: string
+        }
+        Insert: {
+          anchor?: Json
+          caption?: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mime_type: string
+          model_id: string
+          size_bytes?: number
+          storage_path: string
+          target_id?: string | null
+          target_kind: string
+        }
+        Update: {
+          anchor?: Json
+          caption?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mime_type?: string
+          model_id?: string
+          size_bytes?: number
+          storage_path?: string
+          target_id?: string | null
+          target_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_attachments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_attachments_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_buildings: {
+        Row: {
+          company_id: string
+          created_at: string
+          data_source: string
+          footprint: Json
+          ground_z_m: number
+          id: string
+          kind: string
+          model_id: string
+          name: string
+          params: Json
+          position_x_m: number
+          position_y_m: number
+          roof_type: string
+          rotation_deg: number
+          schema_version: number
+          source_date: string | null
+          source_ref: string | null
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+          wall_height_m: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          data_source?: string
+          footprint?: Json
+          ground_z_m?: number
+          id?: string
+          kind?: string
+          model_id: string
+          name?: string
+          params?: Json
+          position_x_m?: number
+          position_y_m?: number
+          roof_type?: string
+          rotation_deg?: number
+          schema_version?: number
+          source_date?: string | null
+          source_ref?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          wall_height_m?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          data_source?: string
+          footprint?: Json
+          ground_z_m?: number
+          id?: string
+          kind?: string
+          model_id?: string
+          name?: string
+          params?: Json
+          position_x_m?: number
+          position_y_m?: number
+          roof_type?: string
+          rotation_deg?: number
+          schema_version?: number
+          source_date?: string | null
+          source_ref?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          wall_height_m?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_buildings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_buildings_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_data_sources: {
+        Row: {
+          api_version: string | null
+          attribution: string | null
+          company_id: string
+          created_at: string
+          dataset: string
+          documented_accuracy: string | null
+          id: string
+          license: string | null
+          model_id: string
+          payload: Json
+          provider: string
+          source_date: string | null
+        }
+        Insert: {
+          api_version?: string | null
+          attribution?: string | null
+          company_id: string
+          created_at?: string
+          dataset: string
+          documented_accuracy?: string | null
+          id?: string
+          license?: string | null
+          model_id: string
+          payload?: Json
+          provider: string
+          source_date?: string | null
+        }
+        Update: {
+          api_version?: string | null
+          attribution?: string | null
+          company_id?: string
+          created_at?: string
+          dataset?: string
+          documented_accuracy?: string | null
+          id?: string
+          license?: string | null
+          model_id?: string
+          payload?: Json
+          provider?: string
+          source_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_data_sources_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_data_sources_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_measurements: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          data_source: string
+          geometry: Json
+          id: string
+          label: string
+          measure_type: string
+          model_id: string
+          pinned: boolean
+          target_id: string | null
+          target_kind: string | null
+          unit: string | null
+          updated_at: string
+          value_numeric: number | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          data_source?: string
+          geometry?: Json
+          id?: string
+          label?: string
+          measure_type: string
+          model_id: string
+          pinned?: boolean
+          target_id?: string | null
+          target_kind?: string | null
+          unit?: string | null
+          updated_at?: string
+          value_numeric?: number | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          data_source?: string
+          geometry?: Json
+          id?: string
+          label?: string
+          measure_type?: string
+          model_id?: string
+          pinned?: boolean
+          target_id?: string | null
+          target_kind?: string | null
+          unit?: string | null
+          updated_at?: string
+          value_numeric?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_measurements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_measurements_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_model_versions: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          model_id: string
+          quality_level: string
+          schema_version: number
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          model_id: string
+          quality_level?: string
+          schema_version?: number
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          model_id?: string
+          quality_level?: string
+          schema_version?: number
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_model_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_model_versions_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_models: {
+        Row: {
+          address: string
+          chantier_id: string | null
+          city: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          geocode_score: number | null
+          geocode_source: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          origin_latitude: number | null
+          origin_longitude: number | null
+          postal_code: string
+          quality_level: string
+          schema_version: number
+          settings: Json
+          status: string
+          study_id: string | null
+          summary: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          address?: string
+          chantier_id?: string | null
+          city?: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          geocode_score?: number | null
+          geocode_source?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          origin_latitude?: number | null
+          origin_longitude?: number | null
+          postal_code?: string
+          quality_level?: string
+          schema_version?: number
+          settings?: Json
+          status?: string
+          study_id?: string | null
+          summary?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          address?: string
+          chantier_id?: string | null
+          city?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          geocode_score?: number | null
+          geocode_source?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          origin_latitude?: number | null
+          origin_longitude?: number | null
+          postal_code?: string
+          quality_level?: string
+          schema_version?: number
+          settings?: Json
+          status?: string
+          study_id?: string | null
+          summary?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_models_chantier_id_fkey"
+            columns: ["chantier_id"]
+            isOneToOne: false
+            referencedRelation: "chantiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_models_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_models_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "technical_studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_module_catalog: {
+        Row: {
+          bypass_diodes: number | null
+          cell_count: number | null
+          company_id: string | null
+          created_at: string
+          datasheet_url: string | null
+          efficiency_pct: number | null
+          electrical: Json
+          height_mm: number
+          id: string
+          is_active: boolean
+          manufacturer: string
+          power_wc: number
+          reference: string
+          technology: string | null
+          thickness_mm: number | null
+          updated_at: string
+          width_mm: number
+        }
+        Insert: {
+          bypass_diodes?: number | null
+          cell_count?: number | null
+          company_id?: string | null
+          created_at?: string
+          datasheet_url?: string | null
+          efficiency_pct?: number | null
+          electrical?: Json
+          height_mm: number
+          id?: string
+          is_active?: boolean
+          manufacturer: string
+          power_wc: number
+          reference: string
+          technology?: string | null
+          thickness_mm?: number | null
+          updated_at?: string
+          width_mm: number
+        }
+        Update: {
+          bypass_diodes?: number | null
+          cell_count?: number | null
+          company_id?: string | null
+          created_at?: string
+          datasheet_url?: string | null
+          efficiency_pct?: number | null
+          electrical?: Json
+          height_mm?: number
+          id?: string
+          is_active?: boolean
+          manufacturer?: string
+          power_wc?: number
+          reference?: string
+          technology?: string | null
+          thickness_mm?: number | null
+          updated_at?: string
+          width_mm?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_module_catalog_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_modules_placed: {
+        Row: {
+          analysis: Json
+          array_id: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          grid_col: number | null
+          grid_row: number | null
+          id: string
+          index_label: number
+          local_u_m: number
+          local_v_m: number
+          model_id: string
+          orientation: string
+          roof_plane_id: string
+          updated_at: string
+        }
+        Insert: {
+          analysis?: Json
+          array_id: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          grid_col?: number | null
+          grid_row?: number | null
+          id?: string
+          index_label?: number
+          local_u_m?: number
+          local_v_m?: number
+          model_id: string
+          orientation?: string
+          roof_plane_id: string
+          updated_at?: string
+        }
+        Update: {
+          analysis?: Json
+          array_id?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          grid_col?: number | null
+          grid_row?: number | null
+          id?: string
+          index_label?: number
+          local_u_m?: number
+          local_v_m?: number
+          model_id?: string
+          orientation?: string
+          roof_plane_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_modules_placed_array_id_fkey"
+            columns: ["array_id"]
+            isOneToOne: false
+            referencedRelation: "solar_arrays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_modules_placed_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_modules_placed_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_modules_placed_roof_plane_id_fkey"
+            columns: ["roof_plane_id"]
+            isOneToOne: false
+            referencedRelation: "solar_roof_planes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_obstacles: {
+        Row: {
+          base_z_m: number
+          casts_shadow: boolean
+          clearance_m: number
+          company_id: string
+          created_at: string
+          data_source: string
+          height_m: number
+          id: string
+          label: string
+          length_m: number
+          model_id: string
+          obstacle_type: string
+          params: Json
+          position_x_m: number
+          position_y_m: number
+          roof_plane_id: string | null
+          rotation_deg: number
+          schema_version: number
+          source_date: string | null
+          source_ref: string | null
+          updated_at: string
+          vegetation_state: string | null
+          verified_at: string | null
+          verified_by: string | null
+          width_m: number
+        }
+        Insert: {
+          base_z_m?: number
+          casts_shadow?: boolean
+          clearance_m?: number
+          company_id: string
+          created_at?: string
+          data_source?: string
+          height_m?: number
+          id?: string
+          label?: string
+          length_m?: number
+          model_id: string
+          obstacle_type: string
+          params?: Json
+          position_x_m?: number
+          position_y_m?: number
+          roof_plane_id?: string | null
+          rotation_deg?: number
+          schema_version?: number
+          source_date?: string | null
+          source_ref?: string | null
+          updated_at?: string
+          vegetation_state?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          width_m?: number
+        }
+        Update: {
+          base_z_m?: number
+          casts_shadow?: boolean
+          clearance_m?: number
+          company_id?: string
+          created_at?: string
+          data_source?: string
+          height_m?: number
+          id?: string
+          label?: string
+          length_m?: number
+          model_id?: string
+          obstacle_type?: string
+          params?: Json
+          position_x_m?: number
+          position_y_m?: number
+          roof_plane_id?: string | null
+          rotation_deg?: number
+          schema_version?: number
+          source_date?: string | null
+          source_ref?: string | null
+          updated_at?: string
+          vegetation_state?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          width_m?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_obstacles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_obstacles_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_obstacles_roof_plane_id_fkey"
+            columns: ["roof_plane_id"]
+            isOneToOne: false
+            referencedRelation: "solar_roof_planes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_roof_planes: {
+        Row: {
+          area_m2: number
+          azimuth_deg: number
+          building_id: string
+          company_id: string
+          covering: string | null
+          created_at: string
+          data_source: string
+          eave_height_m: number | null
+          id: string
+          model_id: string
+          name: string
+          polygon: Json
+          ridge_height_m: number | null
+          schema_version: number
+          source_date: string | null
+          source_ref: string | null
+          tilt_deg: number
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          area_m2?: number
+          azimuth_deg?: number
+          building_id: string
+          company_id: string
+          covering?: string | null
+          created_at?: string
+          data_source?: string
+          eave_height_m?: number | null
+          id?: string
+          model_id: string
+          name?: string
+          polygon?: Json
+          ridge_height_m?: number | null
+          schema_version?: number
+          source_date?: string | null
+          source_ref?: string | null
+          tilt_deg?: number
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          area_m2?: number
+          azimuth_deg?: number
+          building_id?: string
+          company_id?: string
+          covering?: string | null
+          created_at?: string
+          data_source?: string
+          eave_height_m?: number | null
+          id?: string
+          model_id?: string
+          name?: string
+          polygon?: Json
+          ridge_height_m?: number | null
+          schema_version?: number
+          source_date?: string | null
+          source_ref?: string | null
+          tilt_deg?: number
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_roof_planes_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "solar_buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_roof_planes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_roof_planes_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_zones: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          label: string
+          model_id: string
+          polygon: Json
+          roof_plane_id: string | null
+          schema_version: number
+          updated_at: string
+          zone_type: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          label?: string
+          model_id: string
+          polygon?: Json
+          roof_plane_id?: string | null
+          schema_version?: number
+          updated_at?: string
+          zone_type: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          model_id?: string
+          polygon?: Json
+          roof_plane_id?: string | null
+          schema_version?: number
+          updated_at?: string
+          zone_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_zones_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_zones_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_zones_roof_plane_id_fkey"
+            columns: ["roof_plane_id"]
+            isOneToOne: false
+            referencedRelation: "solar_roof_planes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_webhook_events: {
         Row: {
           environment: string

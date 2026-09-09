@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as TarifsRouteImport } from './routes/tarifs'
 import { Route as SolutionsRouteImport } from './routes/solutions'
+import { Route as SolarPreviewCheckRouteImport } from './routes/solar-preview-check'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SecuriteRouteImport } from './routes/securite'
@@ -115,6 +116,7 @@ import { Route as ApiPublicAuthSendEmailHookRouteImport } from './routes/api/pub
 import { Route as AuthenticatedVisitesTechniquesIdTerrainRouteImport } from './routes/_authenticated/visites-techniques.$id_.terrain'
 import { Route as AuthenticatedPvIdLeveeReservesRouteImport } from './routes/_authenticated/pv.$id_.levee-reserves'
 import { Route as AuthenticatedPvIdHistoriqueRouteImport } from './routes/_authenticated/pv.$id_.historique'
+import { Route as AuthenticatedCahiersDesChargesIdSolarStudioRouteImport } from './routes/_authenticated/cahiers-des-charges.$id_.solar-studio'
 import { Route as AuthenticatedAdminSupportCompanyIdRouteImport } from './routes/_authenticated/admin.support.$companyId'
 import { Route as AuthenticatedAdminGoLiveReportRouteImport } from './routes/_authenticated/admin.go-live.report'
 import { Route as AuthenticatedAdminCompaniesIdRouteImport } from './routes/_authenticated/admin.companies.$id'
@@ -133,6 +135,11 @@ const TarifsRoute = TarifsRouteImport.update({
 const SolutionsRoute = SolutionsRouteImport.update({
   id: '/solutions',
   path: '/solutions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolarPreviewCheckRoute = SolarPreviewCheckRouteImport.update({
+  id: '/solar-preview-check',
+  path: '/solar-preview-check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -700,6 +707,12 @@ const AuthenticatedPvIdHistoriqueRoute =
     path: '/pv/$id/historique',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedCahiersDesChargesIdSolarStudioRoute =
+  AuthenticatedCahiersDesChargesIdSolarStudioRouteImport.update({
+    id: '/cahiers-des-charges/$id_/solar-studio',
+    path: '/cahiers-des-charges/$id/solar-studio',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminSupportCompanyIdRoute =
   AuthenticatedAdminSupportCompanyIdRouteImport.update({
     id: '/$companyId',
@@ -743,6 +756,7 @@ export interface FileRoutesByFullPath {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/solar-preview-check': typeof SolarPreviewCheckRoute
   '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
@@ -818,6 +832,7 @@ export interface FileRoutesByFullPath {
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
+  '/cahiers-des-charges/$id/solar-studio': typeof AuthenticatedCahiersDesChargesIdSolarStudioRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/visites-techniques/$id/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
@@ -854,6 +869,7 @@ export interface FileRoutesByTo {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/solar-preview-check': typeof SolarPreviewCheckRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
@@ -925,6 +941,7 @@ export interface FileRoutesByTo {
   '/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
+  '/cahiers-des-charges/$id/solar-studio': typeof AuthenticatedCahiersDesChargesIdSolarStudioRoute
   '/pv/$id/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/pv/$id/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/visites-techniques/$id/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
@@ -963,6 +980,7 @@ export interface FileRoutesById {
   '/securite': typeof SecuriteRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/solar-preview-check': typeof SolarPreviewCheckRoute
   '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
@@ -1038,6 +1056,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/companies/$id': typeof AuthenticatedAdminCompaniesIdRoute
   '/_authenticated/admin/go-live/report': typeof AuthenticatedAdminGoLiveReportRoute
   '/_authenticated/admin/support/$companyId': typeof AuthenticatedAdminSupportCompanyIdRoute
+  '/_authenticated/cahiers-des-charges/$id_/solar-studio': typeof AuthenticatedCahiersDesChargesIdSolarStudioRoute
   '/_authenticated/pv/$id_/historique': typeof AuthenticatedPvIdHistoriqueRoute
   '/_authenticated/pv/$id_/levee-reserves': typeof AuthenticatedPvIdLeveeReservesRoute
   '/_authenticated/visites-techniques/$id_/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
@@ -1076,6 +1095,7 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
+    | '/solar-preview-check'
     | '/solutions'
     | '/tarifs'
     | '/verify'
@@ -1151,6 +1171,7 @@ export interface FileRouteTypes {
     | '/admin/companies/$id'
     | '/admin/go-live/report'
     | '/admin/support/$companyId'
+    | '/cahiers-des-charges/$id/solar-studio'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
     | '/visites-techniques/$id/terrain'
@@ -1187,6 +1208,7 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
+    | '/solar-preview-check'
     | '/tarifs'
     | '/verify'
     | '/account-suspended'
@@ -1258,6 +1280,7 @@ export interface FileRouteTypes {
     | '/admin/companies/$id'
     | '/admin/go-live/report'
     | '/admin/support/$companyId'
+    | '/cahiers-des-charges/$id/solar-studio'
     | '/pv/$id/historique'
     | '/pv/$id/levee-reserves'
     | '/visites-techniques/$id/terrain'
@@ -1295,6 +1318,7 @@ export interface FileRouteTypes {
     | '/securite'
     | '/signup'
     | '/sitemap.xml'
+    | '/solar-preview-check'
     | '/solutions'
     | '/tarifs'
     | '/verify'
@@ -1370,6 +1394,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/companies/$id'
     | '/_authenticated/admin/go-live/report'
     | '/_authenticated/admin/support/$companyId'
+    | '/_authenticated/cahiers-des-charges/$id_/solar-studio'
     | '/_authenticated/pv/$id_/historique'
     | '/_authenticated/pv/$id_/levee-reserves'
     | '/_authenticated/visites-techniques/$id_/terrain'
@@ -1408,6 +1433,7 @@ export interface RootRouteChildren {
   SecuriteRoute: typeof SecuriteRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SolarPreviewCheckRoute: typeof SolarPreviewCheckRoute
   SolutionsRoute: typeof SolutionsRouteWithChildren
   TarifsRoute: typeof TarifsRoute
   VerifyRoute: typeof VerifyRoute
@@ -1463,6 +1489,13 @@ declare module '@tanstack/react-router' {
       path: '/solutions'
       fullPath: '/solutions'
       preLoaderRoute: typeof SolutionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solar-preview-check': {
+      id: '/solar-preview-check'
+      path: '/solar-preview-check'
+      fullPath: '/solar-preview-check'
+      preLoaderRoute: typeof SolarPreviewCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -2186,6 +2219,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPvIdHistoriqueRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/cahiers-des-charges/$id_/solar-studio': {
+      id: '/_authenticated/cahiers-des-charges/$id_/solar-studio'
+      path: '/cahiers-des-charges/$id/solar-studio'
+      fullPath: '/cahiers-des-charges/$id/solar-studio'
+      preLoaderRoute: typeof AuthenticatedCahiersDesChargesIdSolarStudioRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/support/$companyId': {
       id: '/_authenticated/admin/support/$companyId'
       path: '/$companyId'
@@ -2340,6 +2380,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChantiersIndexRoute: typeof AuthenticatedChantiersIndexRoute
   AuthenticatedPvIndexRoute: typeof AuthenticatedPvIndexRoute
   AuthenticatedVisitesTechniquesIndexRoute: typeof AuthenticatedVisitesTechniquesIndexRoute
+  AuthenticatedCahiersDesChargesIdSolarStudioRoute: typeof AuthenticatedCahiersDesChargesIdSolarStudioRoute
   AuthenticatedPvIdHistoriqueRoute: typeof AuthenticatedPvIdHistoriqueRoute
   AuthenticatedPvIdLeveeReservesRoute: typeof AuthenticatedPvIdLeveeReservesRoute
   AuthenticatedVisitesTechniquesIdTerrainRoute: typeof AuthenticatedVisitesTechniquesIdTerrainRoute
@@ -2393,6 +2434,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPvIndexRoute: AuthenticatedPvIndexRoute,
   AuthenticatedVisitesTechniquesIndexRoute:
     AuthenticatedVisitesTechniquesIndexRoute,
+  AuthenticatedCahiersDesChargesIdSolarStudioRoute:
+    AuthenticatedCahiersDesChargesIdSolarStudioRoute,
   AuthenticatedPvIdHistoriqueRoute: AuthenticatedPvIdHistoriqueRoute,
   AuthenticatedPvIdLeveeReservesRoute: AuthenticatedPvIdLeveeReservesRoute,
   AuthenticatedVisitesTechniquesIdTerrainRoute:
@@ -2448,6 +2491,7 @@ const rootRouteChildren: RootRouteChildren = {
   SecuriteRoute: SecuriteRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SolarPreviewCheckRoute: SolarPreviewCheckRoute,
   SolutionsRoute: SolutionsRouteWithChildren,
   TarifsRoute: TarifsRoute,
   VerifyRoute: VerifyRoute,

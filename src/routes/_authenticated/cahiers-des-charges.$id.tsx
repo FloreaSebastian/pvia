@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft, Loader2, FileText, Camera, Calculator, StickyNote, Send, History as HistoryIcon,
-  Trash2, Download, Copy, Archive, CheckCircle2, XCircle, AlertTriangle, Upload, HardHat,
+  Trash2, Download, Copy, Archive, CheckCircle2, XCircle, AlertTriangle, Upload, HardHat, Boxes,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -347,8 +347,24 @@ function StudyDetailPage() {
             <span>Corrections demandées : {study.review_comment as string}</span>
           </div>
         )}
+        {study.study_type === "photovoltaique" && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Modélisation 3D (Solar Studio)</p>
+              <p className="text-xs text-muted-foreground">
+                Toiture, obstacles et implantation photovoltaïque, conservées jusqu'au chantier.
+              </p>
+            </div>
+            <Button asChild variant="outline" className="min-h-11">
+              <Link to="/cahiers-des-charges/$id/solar-studio" params={{ id }}>
+                <Boxes className="mr-2 h-4 w-4" /> Ouvrir Solar Studio
+              </Link>
+            </Button>
+          </div>
+        )}
 
       </header>
+
 
       <Tabs defaultValue="questionnaire">
         <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1">
