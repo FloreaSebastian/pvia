@@ -305,7 +305,7 @@ export interface SolarFullModel {
   measurements: SolarMeasurementRow[];
   provenance: SolarProvenanceRow[];
   quality: ReturnType<typeof buildQualityReport>;
-  coverage: unknown;
+  coverage: { checked_at?: string; items?: CoverageStatus[] } | null;
   summary: ReturnType<typeof computeSolarSummary>;
 }
 
@@ -391,7 +391,9 @@ export async function loadFullModel(sb: SB, companyId: string, modelId: string):
         terrain,
       }),
     ),
-    coverage: (model.settings as { coverage?: unknown } | null)?.coverage ?? null,
+    coverage:
+      (model.settings as { coverage?: { checked_at?: string; items?: CoverageStatus[] } } | null)?.coverage ?? null,
+
     summary: computeSolarSummary(
       geometry.map((g) => g.geo),
       placed,
