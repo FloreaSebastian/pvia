@@ -3257,6 +3257,16 @@ export type Database = {
           id: string
           pdf_generated_at: string | null
           pdf_path: string | null
+          quote_accepted_at: string | null
+          quote_amount_ht: number | null
+          quote_amount_ttc: number | null
+          quote_comment: string | null
+          quote_date: string | null
+          quote_expires_at: string | null
+          quote_reference: string | null
+          quote_sent_at: string | null
+          quote_status: string
+          quote_status_updated_at: string | null
           reference: string
           review_comment: string | null
           sent_at: string | null
@@ -3294,6 +3304,16 @@ export type Database = {
           id?: string
           pdf_generated_at?: string | null
           pdf_path?: string | null
+          quote_accepted_at?: string | null
+          quote_amount_ht?: number | null
+          quote_amount_ttc?: number | null
+          quote_comment?: string | null
+          quote_date?: string | null
+          quote_expires_at?: string | null
+          quote_reference?: string | null
+          quote_sent_at?: string | null
+          quote_status?: string
+          quote_status_updated_at?: string | null
           reference: string
           review_comment?: string | null
           sent_at?: string | null
@@ -3331,6 +3351,16 @@ export type Database = {
           id?: string
           pdf_generated_at?: string | null
           pdf_path?: string | null
+          quote_accepted_at?: string | null
+          quote_amount_ht?: number | null
+          quote_amount_ttc?: number | null
+          quote_comment?: string | null
+          quote_date?: string | null
+          quote_expires_at?: string | null
+          quote_reference?: string | null
+          quote_sent_at?: string | null
+          quote_status?: string
+          quote_status_updated_at?: string | null
           reference?: string
           review_comment?: string | null
           sent_at?: string | null

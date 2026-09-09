@@ -66,10 +66,27 @@ export const STUDY_PV_TEMPLATE: StudyTemplate = {
           { value: "pac", label: "Pompe à chaleur" },
           { value: "ballon_thermo", label: "Ballon thermodynamique" },
         ] },
+        { key: "equipements_actuels", label: "Consommateurs actuels", type: "multiselect", wide: true, options: [
+          { value: "chauffage_elec", label: "Chauffage électrique" },
+          { value: "chauffe_eau", label: "Chauffe-eau électrique" },
+          { value: "climatisation", label: "Climatisation" },
+          { value: "piscine", label: "Piscine" },
+          { value: "vehicule_electrique", label: "Véhicule électrique" },
+          { value: "pac", label: "Pompe à chaleur" },
+        ] },
+        { key: "equipements_futurs", label: "Équipements futurs envisagés", type: "multiselect", wide: true, options: [
+          { value: "chauffage_elec", label: "Chauffage électrique" },
+          { value: "chauffe_eau", label: "Ballon thermodynamique" },
+          { value: "climatisation", label: "Climatisation" },
+          { value: "piscine", label: "Piscine" },
+          { value: "vehicule_electrique", label: "Véhicule électrique" },
+          { value: "pac", label: "Pompe à chaleur" },
+        ] },
         { key: "contexte", label: "Contexte / attentes exprimées", type: "textarea", wide: true },
       ],
       photos: [],
     },
+
     {
       key: "batiment",
       title: "Bâtiment",
@@ -90,7 +107,22 @@ export const STUDY_PV_TEMPLATE: StudyTemplate = {
         },
         { key: "annee_construction", label: "Année de construction", type: "number", min: 1800, max: 2100 },
         { key: "nb_niveaux", label: "Nombre de niveaux", type: "number", min: 1, max: 12 },
+        { key: "surface_habitable", label: "Surface habitable", type: "number", unit: "m²", min: 0, max: 20000 },
+        { key: "nb_occupants", label: "Nombre d'occupants", type: "number", min: 1, max: 50 },
+        {
+          key: "statut_occupant",
+          label: "Statut du demandeur",
+          type: "select",
+          required: true,
+          options: [
+            { value: "proprietaire_occupant", label: "Propriétaire occupant" },
+            { value: "proprietaire_bailleur", label: "Propriétaire bailleur" },
+            { value: "locataire", label: "Locataire (accord propriétaire requis)" },
+            { value: "copropriete", label: "Copropriété" },
+          ],
+        },
         { key: "zone_protegee", label: "Zone protégée / ABF / copropriété", type: "select", options: OUI_NON, help: "Un avis externe peut être obligatoire." },
+
         {
           key: "acces_chantier",
           label: "Accès chantier",
@@ -168,6 +200,19 @@ export const STUDY_PV_TEMPLATE: StudyTemplate = {
           ],
         },
         { key: "hauteur_gouttiere", label: "Hauteur de gouttière", type: "number", unit: "m", min: 0, max: 60 },
+        { key: "nb_pans", label: "Nombre de pans exploitables", type: "number", min: 1, max: 8 },
+        { key: "pan_longueur", label: "Longueur du pan principal", type: "number", unit: "m", min: 0, max: 200 },
+        { key: "pan_largeur", label: "Largeur (rampant) du pan principal", type: "number", unit: "m", min: 0, max: 100 },
+        { key: "obstacles_toiture", label: "Obstacles en toiture", type: "multiselect", wide: true, options: [
+          { value: "cheminee", label: "Cheminée" },
+          { value: "velux", label: "Velux / fenêtre de toit" },
+          { value: "chien_assis", label: "Chien-assis / lucarne" },
+          { value: "antenne", label: "Antenne / parabole" },
+          { value: "ventilation", label: "Sorties de ventilation" },
+          { value: "aucun", label: "Aucun" },
+        ] },
+        { key: "ombrage_origine", label: "Origine de l'ombrage", type: "text", wide: true, visibleIf: [{ field: "ombrage", in: ["faible", "moyen", "fort"] }] },
+
       ],
       photos: [
         { key: "photo_toiture", label: "Toiture", category: "Toiture", required: true, multiple: true },
@@ -185,6 +230,11 @@ export const STUDY_PV_TEMPLATE: StudyTemplate = {
           { value: "mono", label: "Monophasé" },
           { value: "tri", label: "Triphasé" },
         ] },
+        { key: "option_tarifaire", label: "Option tarifaire", type: "select", options: [
+          { value: "base", label: "Base" },
+          { value: "hphc", label: "Heures pleines / heures creuses" },
+          { value: "tempo", label: "Tempo / autre" },
+        ] },
         { key: "tableau_etat", label: "État du tableau électrique", type: "select", options: [
           { value: "recent", label: "Récent / aux normes" },
           { value: "ancien", label: "Ancien mais fonctionnel" },
@@ -201,7 +251,33 @@ export const STUDY_PV_TEMPLATE: StudyTemplate = {
       ],
     },
     {
+      key: "projet",
+      title: "Solution envisagée",
+      short: "Projet",
+      description: "Hypothèses de l'entreprise — à confirmer en visite technique.",
+      fields: [
+        { key: "puissance_envisagee", label: "Puissance envisagée", type: "number", unit: "kWc", min: 0, max: 2000 },
+        { key: "nb_panneaux", label: "Nombre de panneaux envisagés", type: "number", min: 0, max: 5000 },
+        { key: "puissance_unitaire", label: "Puissance unitaire d'un panneau", type: "number", unit: "Wc", min: 100, max: 1000 },
+        { key: "type_onduleur", label: "Type d'onduleur", type: "select", options: [
+          { value: "string", label: "Onduleur central (string)" },
+          { value: "micro_onduleurs", label: "Micro-onduleurs" },
+          { value: "optimiseurs", label: "String + optimiseurs" },
+          { value: "hybride", label: "Onduleur hybride (batterie)" },
+        ] },
+        { key: "batterie_capacite", label: "Capacité de batterie envisagée", type: "number", unit: "kWh", min: 0, max: 200, visibleIf: [{ field: "batterie_souhaitee", equals: true }] },
+        { key: "integration", label: "Mode de pose", type: "select", options: [
+          { value: "surimposition", label: "Surimposition" },
+          { value: "integre", label: "Intégré au bâti" },
+          { value: "lestage", label: "Lestage (toit terrasse)" },
+          { value: "sol", label: "Au sol / ombrière" },
+        ] },
+      ],
+      photos: [],
+    },
+    {
       key: "vigilance",
+
       title: "Points de vigilance",
       short: "Vigilance",
       description: "Éléments à confirmer lors de la visite technique.",

@@ -14,7 +14,7 @@ import {
   CreateStudySchema,
   StudyAnswerEntrySchema,
   StudyConversionSchema,
-  StudyDecisionSchema,
+  StudyQuoteSchema,
   StudyDocumentSchema,
   StudyFiltersSchema,
   StudyNoteSchema,
@@ -22,6 +22,8 @@ import {
   STUDY_ALLOWED_MIMES,
   STUDY_MAX_FILE_BYTES,
 } from "./etudes/schemas";
+import { assertConversionAllowed } from "./etudes/workflow";
+
 import { getStudyTemplate } from "./etudes/templates";
 import { computeStudyEstimate } from "./etudes/estimate";
 import type { StudyType } from "./etudes/types";
@@ -58,6 +60,7 @@ export const listStudies = createServerFn({ method: "POST" })
       .select(
         "id,reference,study_type,status,title,site_address,site_city,site_postal_code,completion_percent," +
           "estimate,assigned_to,created_at,updated_at,sent_at,decision,decision_at,converted_chantier_id,converted_visit_id," +
+          "quote_status,quote_reference,quote_amount_ht,quote_expires_at,quote_status_updated_at," +
           "client:clients(id,name,company_name,client_type,email,phone)",
         { count: "exact" },
       )
@@ -66,6 +69,8 @@ export const listStudies = createServerFn({ method: "POST" })
     if (!data.include_archived) q = q.neq("status", "archived");
     if (data.study_type) q = q.eq("study_type", data.study_type);
     if (data.status) q = q.eq("status", data.status);
+    if (data.quote_status) q = q.eq("quote_status", data.quote_status);
+
     if (data.client_id) q = q.eq("client_id", data.client_id);
     if (data.assigned_to) q = q.eq("assigned_to", data.assigned_to);
 
@@ -504,26 +509,49 @@ export const reviewStudy = createServerFn({ method: "POST" })
     return { ok: true, status: next };
   });
 
-export const recordStudyDecision = createServerFn({ method: "POST" })
+/* ----------------------------- Suivi commercial ------------------------------ */
+
+/**
+ * Statut du devis — axe strictement distinct du statut du cahier des charges.
+ * Aucun chantier, aucune visite technique n'est créé ici : seul l'état
+ * commercial du dossier est mis à jour.
+ */
+export const setStudyQuote = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => StudyDecisionSchema.parse(i))
+  .inputValidator((i) => StudyQuoteSchema.parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertStudyManage(supabase, data.companyId, userId);
     const study = await loadStudyScoped(supabase, data.companyId, data.studyId);
-    assertStudyTransition(study.status, data.decision === "accepted" ? "accepted" : "refused");
+    if (study.status === "archived") throw new Error("Ce cahier des charges est archivé.");
+
+    const now = new Date().toISOString();
+    const patch: Record<string, unknown> = {
+      quote_status: data.quote_status,
+      quote_status_updated_at: now,
+    };
+    for (const key of [
+      "quote_reference",
+      "quote_amount_ht",
+      "quote_amount_ttc",
+      "quote_date",
+      "quote_sent_at",
+      "quote_expires_at",
+      "quote_accepted_at",
+      "quote_comment",
+    ] as const) {
+      if (data[key] !== undefined) patch[key] = data[key];
+    }
+    // Date d'acceptation renseignée automatiquement si l'utilisateur ne l'a pas saisie.
+    if (data.quote_status === "accepted" && !patch.quote_accepted_at && !study.quote_accepted_at) {
+      patch.quote_accepted_at = now.slice(0, 10);
+    }
 
     const { error } = await supabase
       .from("technical_studies")
-      .update({
-        status: data.decision,
-        decision: data.decision,
-        decision_at: new Date().toISOString(),
-        decision_reason: data.reason || null,
-      } as never)
+      .update(patch as never)
       .eq("id", data.studyId)
-      .eq("company_id", data.companyId)
-      .eq("status", study.status);
+      .eq("company_id", data.companyId);
     if (error) throw new Error(error.message);
 
     await writeAuditLog({
@@ -531,11 +559,12 @@ export const recordStudyDecision = createServerFn({ method: "POST" })
       userId,
       entityType: "technical_study",
       entityId: data.studyId,
-      action: data.decision === "accepted" ? "etude.accepted" : "etude.refused",
-      metadata: { reason: data.reason || null },
+      action: `etude.quote_${data.quote_status}`,
+      newValues: patch,
     });
-    return { ok: true };
+    return { ok: true, quote_status: data.quote_status };
   });
+
 
 export const archiveStudy = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -708,14 +737,18 @@ export const convertStudy = createServerFn({ method: "POST" })
     await assertStudyManage(supabase, data.companyId, userId);
     const study = await loadStudyScoped(supabase, data.companyId, data.studyId);
     if (!data.create_chantier && !data.create_visit) throw new Error("Sélectionnez au moins une action.");
-    if (data.create_visit && !data.create_chantier && !study.converted_chantier_id) {
-      throw new Error("Une visite technique nécessite un chantier : créez-le d'abord.");
-    }
+    // Garde métier centrale : rien n'est créé avant que le devis soit accepté.
+    // La règle est appliquée côté serveur, pas seulement en masquant un bouton.
+    assertConversionAllowed(study.quote_status);
 
     const template = getStudyTemplate(study.study_type as StudyType);
+    // La visite technique existante exige un chantier : on le crée ou on réutilise
+    // celui déjà rattaché, sans jamais en produire un second.
+    const needChantier = data.create_chantier || data.create_visit;
     let chantierId = study.converted_chantier_id;
 
-    if (data.create_chantier && !chantierId) {
+    if (needChantier && !chantierId) {
+
       const { data: chantier, error } = await supabase
         .from("chantiers")
         .insert({
