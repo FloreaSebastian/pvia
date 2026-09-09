@@ -291,8 +291,10 @@ function StudiesPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs text-muted-foreground">{r.reference}</span>
                         <StudyStatusBadge status={r.status} />
+                        <QuoteStatusBadge status={r.quote_status} />
                         <Badge variant="outline">{template?.label ?? r.study_type}</Badge>
                         {headline && <Badge variant="secondary">{headline}</Badge>}
+
                       </div>
                       <div className="mt-1 truncate font-medium">{clientLabel(r.client)}</div>
                       {(r.site_address || r.site_city) && (
