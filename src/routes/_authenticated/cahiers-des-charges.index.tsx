@@ -69,6 +69,23 @@ function clientLabel(c: StudyRow["client"]): string {
   return c.client_type === "professionnel" ? c.company_name || c.name : c.name;
 }
 
+const TONE_CLASS: Record<string, string> = {
+  neutral: "bg-muted text-muted-foreground",
+  info: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  warn: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  success: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  danger: "bg-destructive/15 text-destructive",
+  muted: "bg-muted text-muted-foreground",
+};
+
+/** Badge du suivi commercial — distinct du statut du cahier des charges. */
+export function QuoteStatusBadge({ status }: { status: string | null }) {
+  const key = isQuoteStatus(status) ? status : "to_prepare";
+  const meta = QUOTE_STATUS_META[key];
+  return <Badge variant="outline" className={TONE_CLASS[meta.tone]}>{meta.label}</Badge>;
+}
+
+
 export function StudyStatusBadge({ status }: { status: string }) {
   const meta = STUDY_STATUS_META[status as StudyStatus] ?? { label: status, tone: "neutral" as const };
   const tone: Record<string, string> = {
