@@ -52,6 +52,8 @@ type StudyRow = {
   reference: string;
   study_type: string;
   status: string;
+  quote_status: string | null;
+
   title: string | null;
   site_address: string | null;
   site_city: string | null;
