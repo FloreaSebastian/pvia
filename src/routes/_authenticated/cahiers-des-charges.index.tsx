@@ -113,6 +113,7 @@ function StudiesPage() {
   const [debounced, setDebounced] = useState("");
   const [type, setType] = useState<StudyType | "all">("all");
   const [status, setStatus] = useState<StudyStatus | "all">("all");
+  const [quoteStatus, setQuoteStatus] = useState<QuoteStatus | "all">("all");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -132,6 +133,7 @@ function StudiesPage() {
             search: debounced,
             study_type: type === "all" ? null : type,
             status: status === "all" ? null : status,
+            quote_status: quoteStatus === "all" ? null : quoteStatus,
             include_archived: includeArchived,
             offset: nextOffset,
             limit: PAGE,
@@ -146,7 +148,7 @@ function StudiesPage() {
         setLoading(false);
       }
     },
-    [activeCompanyId, debounced, type, status, includeArchived, listFn],
+    [activeCompanyId, debounced, type, status, quoteStatus, includeArchived, listFn],
   );
 
   useEffect(() => {
@@ -160,11 +162,13 @@ function StudiesPage() {
       enCours: byStatus("draft") + byStatus("in_progress"),
       aValider: byStatus("internal_review"),
       envoyes: byStatus("sent"),
-      acceptes: byStatus("accepted"),
+      // KPI commercial : les affaires gagnées se lisent sur l'axe devis.
+      acceptes: rows.filter((r) => r.quote_status === "accepted").length,
     };
   }, [rows, total]);
 
-  const filtersActive = type !== "all" || status !== "all" || includeArchived;
+  const filtersActive = type !== "all" || status !== "all" || quoteStatus !== "all" || includeArchived;
+
 
   return (
     <div className="mx-auto w-full max-w-6xl p-4 pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] lg:p-8">
