@@ -19,6 +19,10 @@ import { isManageRole } from "@/lib/roles";
 import { listStudies } from "@/lib/etudes.functions";
 import { STUDY_TYPE_OPTIONS, getStudyTemplate } from "@/lib/etudes/templates";
 import { STUDY_STATUS_META, type StudyStatus, type StudyType } from "@/lib/etudes/types";
+import {
+  QUOTE_STATUSES, QUOTE_STATUS_META, STUDY_STATUS_FILTERS, isQuoteStatus, type QuoteStatus,
+} from "@/lib/etudes/workflow";
+
 
 export const Route = createFileRoute("/_authenticated/cahiers-des-charges/")({
   head: () => ({
@@ -48,6 +52,8 @@ type StudyRow = {
   reference: string;
   study_type: string;
   status: string;
+  quote_status: string | null;
+
   title: string | null;
   site_address: string | null;
   site_city: string | null;
@@ -62,6 +68,23 @@ function clientLabel(c: StudyRow["client"]): string {
   if (!c) return "Client inconnu";
   return c.client_type === "professionnel" ? c.company_name || c.name : c.name;
 }
+
+const TONE_CLASS: Record<string, string> = {
+  neutral: "bg-muted text-muted-foreground",
+  info: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  warn: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  success: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  danger: "bg-destructive/15 text-destructive",
+  muted: "bg-muted text-muted-foreground",
+};
+
+/** Badge du suivi commercial — distinct du statut du cahier des charges. */
+export function QuoteStatusBadge({ status }: { status: string | null }) {
+  const key = isQuoteStatus(status) ? status : "to_prepare";
+  const meta = QUOTE_STATUS_META[key];
+  return <Badge variant="outline" className={TONE_CLASS[meta.tone]}>{meta.label}</Badge>;
+}
+
 
 export function StudyStatusBadge({ status }: { status: string }) {
   const meta = STUDY_STATUS_META[status as StudyStatus] ?? { label: status, tone: "neutral" as const };
@@ -90,6 +113,7 @@ function StudiesPage() {
   const [debounced, setDebounced] = useState("");
   const [type, setType] = useState<StudyType | "all">("all");
   const [status, setStatus] = useState<StudyStatus | "all">("all");
+  const [quoteStatus, setQuoteStatus] = useState<QuoteStatus | "all">("all");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -109,6 +133,7 @@ function StudiesPage() {
             search: debounced,
             study_type: type === "all" ? null : type,
             status: status === "all" ? null : status,
+            quote_status: quoteStatus === "all" ? null : quoteStatus,
             include_archived: includeArchived,
             offset: nextOffset,
             limit: PAGE,
@@ -123,7 +148,7 @@ function StudiesPage() {
         setLoading(false);
       }
     },
-    [activeCompanyId, debounced, type, status, includeArchived, listFn],
+    [activeCompanyId, debounced, type, status, quoteStatus, includeArchived, listFn],
   );
 
   useEffect(() => {
@@ -137,11 +162,13 @@ function StudiesPage() {
       enCours: byStatus("draft") + byStatus("in_progress"),
       aValider: byStatus("internal_review"),
       envoyes: byStatus("sent"),
-      acceptes: byStatus("accepted"),
+      // KPI commercial : les affaires gagnées se lisent sur l'axe devis.
+      acceptes: rows.filter((r) => r.quote_status === "accepted").length,
     };
   }, [rows, total]);
 
-  const filtersActive = type !== "all" || status !== "all" || includeArchived;
+  const filtersActive = type !== "all" || status !== "all" || quoteStatus !== "all" || includeArchived;
+
 
   return (
     <div className="mx-auto w-full max-w-6xl p-4 pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] lg:p-8">
@@ -213,13 +240,25 @@ function StudiesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Statut</Label>
+                <Label>Statut du cahier des charges</Label>
                 <Select value={status} onValueChange={(v) => setStatus(v as StudyStatus | "all")}>
                   <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tous les statuts</SelectItem>
-                    {Object.entries(STUDY_STATUS_META).map(([key, meta]) => (
-                      <SelectItem key={key} value={key}>{meta.label}</SelectItem>
+                    {STUDY_STATUS_FILTERS.map((key) => (
+                      <SelectItem key={key} value={key}>{STUDY_STATUS_META[key].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Statut du devis</Label>
+                <Select value={quoteStatus} onValueChange={(v) => setQuoteStatus(v as QuoteStatus | "all")}>
+                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les devis</SelectItem>
+                    {QUOTE_STATUSES.map((key) => (
+                      <SelectItem key={key} value={key}>{QUOTE_STATUS_META[key].label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -235,11 +274,12 @@ function StudiesPage() {
                 <Button
                   variant="ghost"
                   className="min-h-11 w-full gap-2"
-                  onClick={() => { setType("all"); setStatus("all"); setIncludeArchived(false); }}
+                  onClick={() => { setType("all"); setStatus("all"); setQuoteStatus("all"); setIncludeArchived(false); }}
                 >
                   <X className="h-4 w-4" /> Réinitialiser
                 </Button>
               )}
+
             </div>
           </SheetContent>
         </Sheet>
@@ -278,8 +318,10 @@ function StudiesPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-xs text-muted-foreground">{r.reference}</span>
                         <StudyStatusBadge status={r.status} />
+                        <QuoteStatusBadge status={r.quote_status} />
                         <Badge variant="outline">{template?.label ?? r.study_type}</Badge>
                         {headline && <Badge variant="secondary">{headline}</Badge>}
+
                       </div>
                       <div className="mt-1 truncate font-medium">{clientLabel(r.client)}</div>
                       {(r.site_address || r.site_city) && (

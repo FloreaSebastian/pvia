@@ -55,6 +55,11 @@ export const StudyFiltersSchema = z.object({
   search: z.string().trim().max(200).optional().default(""),
   study_type: StudyTypeSchema.nullable().optional(),
   status: StudyStatusSchema.nullable().optional(),
+  quote_status: z
+    .enum(["to_prepare", "prepared", "sent", "follow_up", "accepted", "refused", "expired"])
+    .nullable()
+    .optional(),
+
   client_id: z.string().uuid().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
   include_archived: z.boolean().optional().default(false),
@@ -80,19 +85,45 @@ export const StudyNoteSchema = z.object({
   body: z.string().trim().min(1, "Note vide.").max(5000),
 });
 
-export const StudyDecisionSchema = z.object({
+/** Suivi commercial : axe distinct du statut du cahier des charges. */
+export const QuoteStatusSchema = z.enum([
+  "to_prepare",
+  "prepared",
+  "sent",
+  "follow_up",
+  "accepted",
+  "refused",
+  "expired",
+]);
+
+const DateOnly = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide.")
+  .nullable()
+  .optional();
+
+export const StudyQuoteSchema = z.object({
   companyId: z.string().uuid(),
   studyId: z.string().uuid(),
-  decision: z.enum(["accepted", "refused"]),
-  reason: z.string().trim().max(2000).optional().default(""),
+  quote_status: QuoteStatusSchema,
+  quote_reference: z.string().trim().max(80).nullable().optional(),
+  quote_amount_ht: z.number().min(0).max(100_000_000).nullable().optional(),
+  quote_amount_ttc: z.number().min(0).max(100_000_000).nullable().optional(),
+  quote_date: DateOnly,
+  quote_sent_at: DateOnly,
+  quote_expires_at: DateOnly,
+  quote_accepted_at: DateOnly,
+  quote_comment: z.string().trim().max(3000).nullable().optional(),
 });
 
 export const StudyConversionSchema = z.object({
   companyId: z.string().uuid(),
   studyId: z.string().uuid(),
+  /** « Créer une visite technique » réutilise le module existant : le chantier est rattaché ou créé. */
   create_chantier: z.boolean().default(true),
   create_visit: z.boolean().default(false),
 });
+
 
 /** Types MIME acceptés pour les pièces jointes d'une étude. */
 export const STUDY_ALLOWED_MIMES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;

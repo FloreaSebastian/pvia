@@ -39,8 +39,11 @@ export const STUDY_PAC_AIR_EAU_TEMPLATE: StudyTemplate = {
           ],
         },
         { key: "budget_annuel_energie", label: "Budget énergie annuel actuel", type: "number", unit: "€", min: 0, max: 100000 },
+        { key: "conso_energie_actuelle", label: "Consommation annuelle actuelle", type: "number", unit: "kWh (ou litres fioul)", min: 0, max: 500000 },
+        { key: "puissance_chaudiere_existante", label: "Puissance de la chaudière existante", type: "number", unit: "kW", min: 0, max: 500 },
         { key: "nb_occupants", label: "Nombre d'occupants", type: "number", min: 1, max: 30, required: true },
         { key: "contexte", label: "Contexte / attentes exprimées", type: "textarea", wide: true },
+
       ],
       photos: [],
     },
@@ -76,6 +79,20 @@ export const STUDY_PAC_AIR_EAU_TEMPLATE: StudyTemplate = {
           ],
         },
         { key: "altitude", label: "Altitude", type: "number", unit: "m", min: 0, max: 3000 },
+        { key: "temperature_ext_base", label: "Température extérieure de base", type: "number", unit: "°C", min: -30, max: 10, help: "Température de référence du lieu (ex. -7 °C en zone H1)." },
+        { key: "temperature_int_souhaitee", label: "Température intérieure souhaitée", type: "number", unit: "°C", min: 15, max: 26 },
+        {
+          key: "fenetres",
+          label: "Menuiseries / vitrage",
+          type: "select",
+          options: [
+            { value: "simple", label: "Simple vitrage" },
+            { value: "double_ancien", label: "Double vitrage ancien" },
+            { value: "double_recent", label: "Double vitrage récent" },
+            { value: "triple", label: "Triple vitrage" },
+          ],
+        },
+
       ],
       photos: [{ key: "photo_facade", label: "Façade principale", category: "Bâtiment" }],
     },
@@ -98,7 +115,16 @@ export const STUDY_PAC_AIR_EAU_TEMPLATE: StudyTemplate = {
           ],
         },
         { key: "nb_radiateurs", label: "Nombre de radiateurs", type: "number", min: 0, max: 100, visibleIf: [{ field: "emetteurs", in: ["radiateurs_bt", "radiateurs_ht", "mixte"] }] },
+        { key: "regime_radiateurs", label: "Régime de température des radiateurs", type: "select", visibleIf: [{ field: "emetteurs", in: ["radiateurs_bt", "radiateurs_ht", "mixte"] }], options: [
+          { value: "35", label: "≈ 35 °C (basse température)" },
+          { value: "45", label: "≈ 45 °C" },
+          { value: "55", label: "≈ 55 °C" },
+          { value: "65", label: "≈ 65 °C et plus (haute température)" },
+        ] },
+        { key: "surface_plancher_chauffant", label: "Surface de plancher chauffant", type: "number", unit: "m²", min: 0, max: 5000, visibleIf: [{ field: "emetteurs", in: ["plancher_chauffant", "mixte"] }] },
         { key: "production_ecs", label: "Production d'eau chaude sanitaire à intégrer", type: "boolean" },
+        { key: "volume_ecs", label: "Volume de ballon ECS souhaité", type: "number", unit: "L", min: 0, max: 1000, visibleIf: [{ field: "production_ecs", equals: true }] },
+
         { key: "local_technique", label: "Local technique disponible", type: "select", options: [
           { value: "oui", label: "Oui" },
           { value: "exigu", label: "Exigu" },
@@ -124,7 +150,11 @@ export const STUDY_PAC_AIR_EAU_TEMPLATE: StudyTemplate = {
         ] },
         { key: "emplacement_ext", label: "Emplacement unité extérieure", type: "text", wide: true },
         { key: "voisinage_sensible", label: "Voisinage sensible (bruit)", type: "boolean" },
+        { key: "contraintes_acoustiques", label: "Contraintes acoustiques", type: "textarea", wide: true, help: "Distances aux limites, chambre voisine, règlement de copropriété…" },
+        { key: "alimentation_dediee", label: "Ligne électrique dédiée disponible", type: "boolean" },
       ],
+
+
       photos: [
         { key: "photo_tableau", label: "Tableau électrique", category: "Chaufferie" },
         { key: "photo_emplacement_ext", label: "Emplacement extérieur envisagé", category: "Extérieur", required: true },

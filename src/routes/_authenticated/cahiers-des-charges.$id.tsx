@@ -30,14 +30,18 @@ import { resolveSections } from "@/lib/visites/engine";
 import type { AnswerMap, AnswerValue, VisitTemplate } from "@/lib/visites/types";
 import {
   getStudy, saveStudyAnswers, addStudyDocument, deleteStudyDocument, addStudyNote, deleteStudyNote,
-  submitStudyForReview, reviewStudy, recordStudyDecision, archiveStudy, deleteStudy,
+  submitStudyForReview, reviewStudy, setStudyQuote, archiveStudy, deleteStudy,
   generateStudyPdf, sendStudyToClient, convertStudy, duplicateStudy, getStudyHistory, updateStudy,
 } from "@/lib/etudes.functions";
 import { getStudyTemplate } from "@/lib/etudes/templates";
 import { ESTIMATE_DISCLAIMER } from "@/lib/etudes/estimate";
 import { STUDY_DOC_CATEGORIES, STUDY_STATUS_META, type StudyEstimate, type StudyStatus, type StudyType } from "@/lib/etudes/types";
+import {
+  QUOTE_STATUSES, QUOTE_STATUS_META, computeNextAction, isProjectWon, isQuoteStatus, type QuoteStatus,
+} from "@/lib/etudes/workflow";
 import { STUDY_ALLOWED_MIMES, STUDY_MAX_FILE_BYTES } from "@/lib/etudes/schemas";
 import { StudyStatusBadge } from "./cahiers-des-charges.index";
+
 
 export const Route = createFileRoute("/_authenticated/cahiers-des-charges/$id")({
   head: () => ({
@@ -74,7 +78,7 @@ function StudyDetailPage() {
   const delNoteFn = useServerFn(deleteStudyNote);
   const submitFn = useServerFn(submitStudyForReview);
   const reviewFn = useServerFn(reviewStudy);
-  const decisionFn = useServerFn(recordStudyDecision);
+  const quoteFn = useServerFn(setStudyQuote);
   const archiveFn = useServerFn(archiveStudy);
   const deleteFn = useServerFn(deleteStudy);
   const pdfFn = useServerFn(generateStudyPdf);
@@ -95,7 +99,7 @@ function StudyDetailPage() {
   const [estimate, setEstimate] = useState<StudyEstimate | null>(null);
   const [locked, setLocked] = useState(false);
   const [events, setEvents] = useState<{ id: string; action: string; created_at: string }[]>([]);
-  const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
+  const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const pending = useRef<Map<string, { section_key: string; field_key: string; value: AnswerValue }>>(new Map());
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -105,13 +109,51 @@ function StudyDetailPage() {
   const [sendMessage, setSendMessage] = useState("");
   const [sendEmail, setSendEmail] = useState("");
   const [reviewComment, setReviewComment] = useState("");
-  const [decisionReason, setDecisionReason] = useState("");
   const [uploadCategory, setUploadCategory] = useState<string>(STUDY_DOC_CATEGORIES[0]);
+  const [quoteForm, setQuoteForm] = useState({
+    quote_status: "to_prepare" as QuoteStatus,
+    quote_reference: "",
+    quote_amount_ht: "",
+    quote_amount_ttc: "",
+    quote_sent_at: "",
+    quote_expires_at: "",
+    quote_comment: "",
+  });
 
   const status = (study?.status as StudyStatus | undefined) ?? "draft";
+  const rawQuoteStatus = study?.quote_status;
+  const quoteStatus: QuoteStatus = isQuoteStatus(rawQuoteStatus) ? rawQuoteStatus : "to_prepare";
+  const quoteAccepted = isProjectWon(quoteStatus);
   const type = (study?.study_type as StudyType | undefined) ?? "photovoltaique";
   const template = useMemo(() => getStudyTemplate(type), [type]);
   const editable = canManage && !locked && status !== "internal_review" && status !== "sent";
+  const nextAction = computeNextAction({
+    status,
+    quote_status: quoteStatus,
+    completion_percent: progress?.percent ?? 0,
+    missingCount: progress?.missingCount ?? 0,
+    converted_chantier_id: (study?.converted_chantier_id as string | null) ?? null,
+    converted_visit_id: (study?.converted_visit_id as string | null) ?? null,
+  });
+
+  function num(v: string): number | null {
+    const n = Number.parseFloat(v.replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
+  function buildQuotePayload() {
+    return {
+      companyId: activeCompanyId!,
+      studyId: id,
+      quote_status: quoteForm.quote_status,
+      quote_reference: quoteForm.quote_reference.trim() || null,
+      quote_amount_ht: num(quoteForm.quote_amount_ht),
+      quote_amount_ttc: num(quoteForm.quote_amount_ttc),
+      quote_sent_at: quoteForm.quote_sent_at || null,
+      quote_expires_at: quoteForm.quote_expires_at || null,
+      quote_comment: quoteForm.quote_comment.trim() || null,
+    };
+  }
+
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
@@ -128,6 +170,16 @@ function StudyDetailPage() {
       setLocked(res.locked);
       setSummary(((res.study as Record<string, unknown>).summary as string | null) ?? "");
       setSendEmail(((res.client as Record<string, unknown> | null)?.email as string | null) ?? "");
+      const s = res.study as Record<string, unknown>;
+      setQuoteForm({
+        quote_status: isQuoteStatus(s.quote_status) ? s.quote_status : "to_prepare",
+        quote_reference: (s.quote_reference as string | null) ?? "",
+        quote_amount_ht: s.quote_amount_ht == null ? "" : String(s.quote_amount_ht),
+        quote_amount_ttc: s.quote_amount_ttc == null ? "" : String(s.quote_amount_ttc),
+        quote_sent_at: (s.quote_sent_at as string | null) ?? "",
+        quote_expires_at: (s.quote_expires_at as string | null) ?? "",
+        quote_comment: (s.quote_comment as string | null) ?? "",
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Cahier des charges introuvable.");
       navigate({ to: "/cahiers-des-charges" });
@@ -148,12 +200,18 @@ function StudyDetailPage() {
       setProgress((p) => (p ? { ...p, percent: res.completion_percent } : p));
       setEstimate(res.estimate as StudyEstimate);
       setSaving("saved");
-      setTimeout(() => setSaving("idle"), 1500);
+      setTimeout(() => setSaving((v) => (v === "saved" ? "idle" : v)), 1500);
     } catch (e) {
-      setSaving("idle");
+      // Aucune saisie n'est perdue : les réponses non enregistrées repartent
+      // dans la file et seront renvoyées à la prochaine tentative.
+      for (const entry of entries) {
+        if (!pending.current.has(entry.field_key)) pending.current.set(entry.field_key, entry);
+      }
+      setSaving("error");
       toast.error(e instanceof Error ? e.message : "Enregistrement impossible.");
     }
   }, [activeCompanyId, id, saveAnswersFn]);
+
 
   function onAnswer(sectionKey: string, fieldKey: string, value: AnswerValue) {
     setAnswers((a) => ({ ...a, [fieldKey]: value }));
@@ -199,23 +257,30 @@ function StudyDetailPage() {
         upsert: false,
       });
       if (error) throw new Error(error.message);
-      await addDocFn({
-        data: {
-          companyId: activeCompanyId,
-          studyId: id,
-          document: {
-            kind,
-            category,
-            label: label ?? "",
-            description: "",
-            storage_path: path,
-            mime_type: file.type,
-            size_bytes: file.size,
+      try {
+        await addDocFn({
+          data: {
+            companyId: activeCompanyId,
+            studyId: id,
+            document: {
+              kind,
+              category,
+              label: label ?? "",
+              description: "",
+              storage_path: path,
+              mime_type: file.type,
+              size_bytes: file.size,
+            },
           },
-        },
-      });
+        });
+      } catch (e) {
+        // Compensation : sans ligne en base, le fichier stocké serait orphelin.
+        await supabase.storage.from("pv-assets").remove([path]);
+        throw e;
+      }
       toast.success("Fichier ajouté.");
       await load();
+
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Envoi impossible.");
     } finally {
@@ -247,11 +312,17 @@ function StudyDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-xs text-muted-foreground">{String(study.reference)}</span>
           <StudyStatusBadge status={status} />
+          <Badge variant="outline">{QUOTE_STATUS_META[quoteStatus].label}</Badge>
           <Badge variant="outline">{template.label}</Badge>
           {saving !== "idle" && (
-            <span className="text-xs text-muted-foreground">
-              {saving === "saving" ? "Enregistrement…" : "Enregistré"}
+            <span className={cn("text-xs", saving === "error" ? "text-destructive" : "text-muted-foreground")}>
+              {saving === "saving" ? "Enregistrement…" : saving === "error" ? "Non enregistré — nouvel essai à la prochaine saisie" : "Enregistré"}
             </span>
+          )}
+          {saving === "error" && (
+            <Button variant="outline" size="sm" className="min-h-9" onClick={() => void flush()}>
+              Réessayer
+            </Button>
           )}
         </div>
         <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">
@@ -265,12 +336,18 @@ function StudyDetailPage() {
           <Progress value={progress?.percent ?? 0} className="h-2 flex-1" />
           <span className="text-xs tabular-nums text-muted-foreground">{progress?.percent ?? 0} %</span>
         </div>
+        <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Prochaine action</p>
+          <p className="text-sm font-medium">{nextAction.label}</p>
+          <p className="text-xs text-muted-foreground">{nextAction.help}</p>
+        </div>
         {(study.review_comment as string | null) && (
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
             <span>Corrections demandées : {study.review_comment as string}</span>
           </div>
         )}
+
       </header>
 
       <Tabs defaultValue="questionnaire">
@@ -657,53 +734,90 @@ function StudyDetailPage() {
             )}
           </Card>
 
-          {canManage && status === "sent" && (
+          {canManage && status !== "archived" && (
             <Card className="space-y-3 p-4">
-              <h2 className="text-sm font-semibold">Décision commerciale</h2>
-              <Input value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="Motif (facultatif)" className="h-11" />
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  className="min-h-11 gap-2"
-                  disabled={busy}
-                  onClick={() => void run("Cahier des charges accepté.", () => decisionFn({ data: { companyId: activeCompanyId!, studyId: id, decision: "accepted", reason: decisionReason } }))}
-                >
-                  <CheckCircle2 className="h-4 w-4" /> Accepté
-                </Button>
-                <Button
-                  variant="outline"
-                  className="min-h-11 gap-2"
-                  disabled={busy}
-                  onClick={() => void run("Cahier des charges refusé.", () => decisionFn({ data: { companyId: activeCompanyId!, studyId: id, decision: "refused", reason: decisionReason } }))}
-                >
-                  <XCircle className="h-4 w-4" /> Refusé
-                </Button>
+              <div>
+                <h2 className="text-sm font-semibold">Suivi du devis</h2>
+                <p className="text-xs text-muted-foreground">
+                  Suivi commercial facultatif. Il est indépendant du statut du cahier des charges.
+                </p>
               </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="quote-status">Statut du devis</Label>
+                  <Select value={quoteForm.quote_status} onValueChange={(v) => setQuoteForm((f) => ({ ...f, quote_status: v as QuoteStatus }))}>
+                    <SelectTrigger id="quote-status" className="h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {QUOTE_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>{QUOTE_STATUS_META[s].label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="quote-ref">Référence du devis</Label>
+                  <Input id="quote-ref" className="h-11" value={quoteForm.quote_reference} onChange={(e) => setQuoteForm((f) => ({ ...f, quote_reference: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="quote-ht">Montant HT (€)</Label>
+                  <Input id="quote-ht" inputMode="decimal" className="h-11" value={quoteForm.quote_amount_ht} onChange={(e) => setQuoteForm((f) => ({ ...f, quote_amount_ht: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="quote-ttc">Montant TTC (€)</Label>
+                  <Input id="quote-ttc" inputMode="decimal" className="h-11" value={quoteForm.quote_amount_ttc} onChange={(e) => setQuoteForm((f) => ({ ...f, quote_amount_ttc: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="quote-sent">Date d'envoi</Label>
+                  <Input id="quote-sent" type="date" className="h-11" value={quoteForm.quote_sent_at} onChange={(e) => setQuoteForm((f) => ({ ...f, quote_sent_at: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="quote-exp">Date de validité</Label>
+                  <Input id="quote-exp" type="date" className="h-11" value={quoteForm.quote_expires_at} onChange={(e) => setQuoteForm((f) => ({ ...f, quote_expires_at: e.target.value }))} />
+                </div>
+              </div>
+              <Textarea rows={2} value={quoteForm.quote_comment} onChange={(e) => setQuoteForm((f) => ({ ...f, quote_comment: e.target.value }))} placeholder="Commentaire commercial (interne)" />
+              <Button
+                className="min-h-11 gap-2"
+                disabled={busy}
+                onClick={() => void run("Suivi commercial mis à jour.", () => quoteFn({ data: buildQuotePayload() }))}
+              >
+                <CheckCircle2 className="h-4 w-4" /> Enregistrer le suivi
+              </Button>
             </Card>
           )}
 
-          {canManage && status === "accepted" && (
+          {canManage && status !== "archived" && (
             <Card className="space-y-3 p-4">
-              <h2 className="text-sm font-semibold">Conversion</h2>
-              <p className="text-sm text-muted-foreground">
-                Le chantier n'est jamais créé automatiquement : lancez la conversion quand l'affaire est confirmée.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  className="min-h-11 gap-2"
-                  disabled={busy}
-                  onClick={() => void run("Chantier créé.", () => convertFn({ data: { companyId: activeCompanyId!, studyId: id, create_chantier: true, create_visit: false } }))}
-                >
-                  <HardHat className="h-4 w-4" /> Créer le chantier
-                </Button>
-                <Button
-                  variant="outline"
-                  className="min-h-11 gap-2"
-                  disabled={busy}
-                  onClick={() => void run("Chantier et visite technique créés.", () => convertFn({ data: { companyId: activeCompanyId!, studyId: id, create_chantier: true, create_visit: true } }))}
-                >
-                  Chantier + visite technique
-                </Button>
-              </div>
+              <h2 className="text-sm font-semibold">Passage en production</h2>
+              {!quoteAccepted ? (
+                <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                  <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  Aucun chantier ni visite technique ne peut être créé tant que le devis n'est pas marqué « accepté ».
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    La visite technique crée ou réutilise le chantier lié — jamais un second.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      className="min-h-11 gap-2"
+                      disabled={busy || Boolean(study.converted_visit_id)}
+                      onClick={() => void run("Chantier et visite technique créés.", () => convertFn({ data: { companyId: activeCompanyId!, studyId: id, create_chantier: true, create_visit: true } }))}
+                    >
+                      <HardHat className="h-4 w-4" /> Créer la visite technique
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="min-h-11 gap-2"
+                      disabled={busy || Boolean(study.converted_chantier_id)}
+                      onClick={() => void run("Chantier créé.", () => convertFn({ data: { companyId: activeCompanyId!, studyId: id, create_chantier: true, create_visit: false } }))}
+                    >
+                      Créer le chantier seul
+                    </Button>
+                  </div>
+                </>
+              )}
               {(study.converted_chantier_id as string | null) && (
                 <Link
                   to="/chantiers/$id"
@@ -715,6 +829,7 @@ function StudyDetailPage() {
               )}
             </Card>
           )}
+
 
           <Card className="flex flex-wrap gap-2 p-4">
             {canManage && (

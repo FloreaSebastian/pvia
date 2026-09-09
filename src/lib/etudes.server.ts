@@ -122,13 +122,20 @@ export async function refreshStudyState(sb: SB, studyId: string) {
   return { percent: progress.percent, estimate, progress, answers };
 }
 
-/** Transitions autorisées du cycle de vie. */
+/**
+ * Transitions autorisées du CYCLE TECHNIQUE uniquement.
+ * L'axe commercial (devis) vit dans technical_studies.quote_status et n'a
+ * aucune influence ici : un cahier des charges « envoyé » reste « envoyé »
+ * même quand le devis est accepté.
+ * `accepted`/`refused` sont des statuts hérités (avant séparation des axes) :
+ * ils restent lisibles mais ne sont plus une cible de transition.
+ */
 const TRANSITIONS: Record<StudyStatus, StudyStatus[]> = {
   draft: ["in_progress", "archived"],
   in_progress: ["internal_review", "completed", "archived"],
   internal_review: ["in_progress", "completed", "archived"],
   completed: ["sent", "in_progress", "archived"],
-  sent: ["accepted", "refused", "completed", "archived"],
+  sent: ["completed", "archived"],
   accepted: ["archived"],
   refused: ["archived"],
   archived: [],
@@ -140,6 +147,7 @@ export function assertStudyTransition(from: string, to: StudyStatus) {
     throw new Error(`Transition impossible depuis « ${from} ».`);
   }
 }
+
 
 /** Instantané complet figé à chaque envoi client. */
 export async function buildStudySnapshot(sb: SB, studyId: string) {
