@@ -13,13 +13,17 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { writeAuditLog } from "./audit.server";
 import {
+  assertGeometryVersion,
   assertSolarManage,
   assertSolarMember,
+  bumpGeometryVersion,
+  loadFullModel,
   loadModelScoped,
   planeGeometryFromRow,
-  readBuildingParams,
+  refreshSummary,
+  setProvenance,
   syncRoofPlanes,
-  type SolarRoofPlaneRow,
+  type SolarFullModel,
 } from "./solar.server";
 import {
   LayoutRequestSchema,
@@ -30,97 +34,17 @@ import {
   VersionSchema,
 } from "./solar/schemas";
 import { gridLayout, type PlaneObstacle } from "./solar/layout";
-import { computeSolarSummary } from "./solar/summary";
 import { DEFAULT_BUILDING_PARAMS, SOLAR_SCHEMA_VERSION } from "./solar/types";
-import type { PlacedModule, RoofPlaneGeometry, SolarQualityLevel } from "./solar/types";
 
 const ModelRefSchema = z.object({
   companyId: z.string().uuid(),
   studyId: z.string().uuid(),
 });
 
-export type SolarModelPayload = Awaited<ReturnType<typeof loadFullModel>>;
+export type SolarModelPayload = SolarFullModel;
 
-type SB = Parameters<typeof loadModelScoped>[0];
 
-/* --------------------------------- Lecture -------------------------------- */
 
-async function loadFullModel(sb: SB, companyId: string, modelId: string) {
-  const model = await loadModelScoped(sb, companyId, modelId);
-
-  const [buildings, planes, obstacles, arrays, modules, catalog, versions] = await Promise.all([
-    sb.from("solar_buildings").select("*").eq("model_id", modelId).eq("company_id", companyId),
-    sb.from("solar_roof_planes").select("*").eq("model_id", modelId).eq("company_id", companyId).order("name"),
-    sb.from("solar_obstacles").select("*").eq("model_id", modelId).eq("company_id", companyId).order("created_at"),
-    sb.from("solar_arrays").select("*").eq("model_id", modelId).eq("company_id", companyId),
-    sb.from("solar_modules_placed").select("*").eq("model_id", modelId).eq("company_id", companyId),
-    sb
-      .from("solar_module_catalog")
-      .select("*")
-      .or(`company_id.is.null,company_id.eq.${companyId}`)
-      .eq("is_active", true)
-      .order("power_wc", { ascending: false }),
-    sb
-      .from("solar_model_versions")
-      .select("id, version_number, label, quality_level, created_at")
-      .eq("model_id", modelId)
-      .eq("company_id", companyId)
-      .order("version_number", { ascending: false })
-      .limit(20),
-  ]);
-
-  const building = buildings.data?.[0] ?? null;
-  const params = readBuildingParams(building);
-  const planeRows = planes.data ?? [];
-  const geometry = planeRows
-    .map((row) => ({ row, geo: planeGeometryFromRow(row) }))
-    .filter((g): g is { row: SolarRoofPlaneRow; geo: RoofPlaneGeometry } => g.geo !== null);
-
-  const placed: PlacedModule[] = (modules.data ?? []).map((m) => {
-    const plane = geometry.find((g) => g.row.id === m.roof_plane_id);
-    return {
-      id: m.id,
-      roof_plane_key: plane?.geo.key ?? "",
-      grid_row: m.grid_row ?? 0,
-      grid_col: m.grid_col ?? 0,
-      local_u_m: m.local_u_m,
-      local_v_m: m.local_v_m,
-      orientation: m.orientation === "paysage" ? "paysage" : "portrait",
-      enabled: m.enabled,
-    };
-  });
-
-  const mainArray = (arrays.data ?? [])[0] ?? null;
-  const spec = (catalog.data ?? []).find((c) => c.id === mainArray?.module_catalog_id) ?? null;
-
-  return {
-    model,
-    building,
-    params,
-    planes: geometry.map((g) => ({ id: g.row.id, ...g.geo })),
-    obstacles: obstacles.data ?? [],
-    arrays: arrays.data ?? [],
-    modules: placed,
-    catalog: catalog.data ?? [],
-    versions: versions.data ?? [],
-    summary: computeSolarSummary(
-      geometry.map((g) => g.geo),
-      placed,
-      spec,
-      (model.quality_level as SolarQualityLevel) ?? "pre_etude",
-    ),
-  };
-}
-
-async function refreshSummary(sb: SB, companyId: string, modelId: string, userId: string) {
-  const full = await loadFullModel(sb, companyId, modelId);
-  await sb
-    .from("solar_models")
-    .update({ summary: full.summary as never, updated_by: userId })
-    .eq("id", modelId)
-    .eq("company_id", companyId);
-  return full;
-}
 
 /** Charge le modèle d'un cahier des charges. Retourne null s'il n'existe pas encore. */
 export const getSolarModel = createServerFn({ method: "POST" })
@@ -273,7 +197,8 @@ export const saveSolarBuilding = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    await loadModelScoped(supabase, data.companyId, data.modelId);
+    const model = await loadModelScoped(supabase, data.companyId, data.modelId);
+    assertGeometryVersion(model, data.expectedGeometryVersion ?? null);
 
     const { data: buildings } = await supabase
       .from("solar_buildings")
@@ -310,9 +235,30 @@ export const saveSolarBuilding = createServerFn({ method: "POST" })
       building = created;
     }
 
-    await syncRoofPlanes(supabase, data.companyId, data.modelId, building, data.params);
+    const planes = await syncRoofPlanes(supabase, data.companyId, data.modelId, building, data.params);
+
+    // Provenance : saisie manuelle du bâtiment et des pans qui en découlent.
+    await setProvenance(supabase, data.companyId, data.modelId, {
+      entity_kind: "building",
+      entity_id: building.id,
+      source_type: "MANUAL",
+      source_provider: "PVIA",
+      source_dataset: "Saisie Solar Studio",
+    });
+    for (const plane of planes) {
+      await setProvenance(supabase, data.companyId, data.modelId, {
+        entity_kind: "roof_plane",
+        entity_id: plane.id,
+        source_type: "AUTO",
+        source_provider: "PVIA",
+        source_dataset: "Toiture paramétrique",
+      });
+    }
+
+    await bumpGeometryVersion(supabase, data.companyId, data.modelId, userId);
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
+
 
 /* -------------------------------- Obstacles ------------------------------- */
 

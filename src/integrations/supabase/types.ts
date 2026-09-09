@@ -2599,8 +2599,11 @@ export type Database = {
           rotation_deg: number
           schema_version: number
           source_date: string | null
+          source_geometry: Json | null
           source_ref: string | null
+          terrain: Json | null
           updated_at: string
+          user_geometry: Json | null
           verified_at: string | null
           verified_by: string | null
           wall_height_m: number
@@ -2622,8 +2625,11 @@ export type Database = {
           rotation_deg?: number
           schema_version?: number
           source_date?: string | null
+          source_geometry?: Json | null
           source_ref?: string | null
+          terrain?: Json | null
           updated_at?: string
+          user_geometry?: Json | null
           verified_at?: string | null
           verified_by?: string | null
           wall_height_m?: number
@@ -2645,8 +2651,11 @@ export type Database = {
           rotation_deg?: number
           schema_version?: number
           source_date?: string | null
+          source_geometry?: Json | null
           source_ref?: string | null
+          terrain?: Json | null
           updated_at?: string
+          user_geometry?: Json | null
           verified_at?: string | null
           verified_by?: string | null
           wall_height_m?: number
@@ -2728,57 +2737,144 @@ export type Database = {
           },
         ]
       }
+      solar_geo_cache: {
+        Row: {
+          attribution: string | null
+          bbox: Json
+          cache_key: string
+          created_at: string
+          crs: string | null
+          dataset: string
+          dataset_version: string | null
+          expires_at: string | null
+          fetched_at: string
+          id: string
+          license: string | null
+          payload: Json
+          provider: string
+          resolution_m: number | null
+          source_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          attribution?: string | null
+          bbox?: Json
+          cache_key: string
+          created_at?: string
+          crs?: string | null
+          dataset: string
+          dataset_version?: string | null
+          expires_at?: string | null
+          fetched_at?: string
+          id?: string
+          license?: string | null
+          payload?: Json
+          provider: string
+          resolution_m?: number | null
+          source_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attribution?: string | null
+          bbox?: Json
+          cache_key?: string
+          created_at?: string
+          crs?: string | null
+          dataset?: string
+          dataset_version?: string | null
+          expires_at?: string | null
+          fetched_at?: string
+          id?: string
+          license?: string | null
+          payload?: Json
+          provider?: string
+          resolution_m?: number | null
+          source_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       solar_measurements: {
         Row: {
+          category: string
           company_id: string
           created_at: string
           created_by: string | null
           data_source: string
           geometry: Json
+          geometry_version: number | null
           id: string
           label: string
           measure_type: string
           model_id: string
           pinned: boolean
+          retained_origin: string
           target_id: string | null
           target_kind: string | null
           unit: string | null
           updated_at: string
+          value_estimated: number | null
+          value_field: number | null
           value_numeric: number | null
+          value_retained: number | null
+          verification_method: string | null
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
+          category?: string
           company_id: string
           created_at?: string
           created_by?: string | null
           data_source?: string
           geometry?: Json
+          geometry_version?: number | null
           id?: string
           label?: string
           measure_type: string
           model_id: string
           pinned?: boolean
+          retained_origin?: string
           target_id?: string | null
           target_kind?: string | null
           unit?: string | null
           updated_at?: string
+          value_estimated?: number | null
+          value_field?: number | null
           value_numeric?: number | null
+          value_retained?: number | null
+          verification_method?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
+          category?: string
           company_id?: string
           created_at?: string
           created_by?: string | null
           data_source?: string
           geometry?: Json
+          geometry_version?: number | null
           id?: string
           label?: string
           measure_type?: string
           model_id?: string
           pinned?: boolean
+          retained_origin?: string
           target_id?: string | null
           target_kind?: string | null
           unit?: string | null
           updated_at?: string
+          value_estimated?: number | null
+          value_field?: number | null
           value_numeric?: number | null
+          value_retained?: number | null
+          verification_method?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -2854,6 +2950,7 @@ export type Database = {
       solar_models: {
         Row: {
           address: string
+          altitude_source: string | null
           chantier_id: string | null
           city: string
           company_id: string
@@ -2861,24 +2958,33 @@ export type Database = {
           created_by: string | null
           geocode_score: number | null
           geocode_source: string | null
+          geometry_hash: string | null
+          geometry_version: number
           id: string
           latitude: number | null
+          location_confirmed_at: string | null
+          location_confirmed_by: string | null
           longitude: number | null
           name: string
+          origin_altitude_m: number | null
           origin_latitude: number | null
           origin_longitude: number | null
           postal_code: string
+          projected_crs: string | null
           quality_level: string
           schema_version: number
           settings: Json
+          source_crs: string
           status: string
           study_id: string | null
           summary: Json
           updated_at: string
           updated_by: string | null
+          working_crs: string
         }
         Insert: {
           address?: string
+          altitude_source?: string | null
           chantier_id?: string | null
           city?: string
           company_id: string
@@ -2886,24 +2992,33 @@ export type Database = {
           created_by?: string | null
           geocode_score?: number | null
           geocode_source?: string | null
+          geometry_hash?: string | null
+          geometry_version?: number
           id?: string
           latitude?: number | null
+          location_confirmed_at?: string | null
+          location_confirmed_by?: string | null
           longitude?: number | null
           name?: string
+          origin_altitude_m?: number | null
           origin_latitude?: number | null
           origin_longitude?: number | null
           postal_code?: string
+          projected_crs?: string | null
           quality_level?: string
           schema_version?: number
           settings?: Json
+          source_crs?: string
           status?: string
           study_id?: string | null
           summary?: Json
           updated_at?: string
           updated_by?: string | null
+          working_crs?: string
         }
         Update: {
           address?: string
+          altitude_source?: string | null
           chantier_id?: string | null
           city?: string
           company_id?: string
@@ -2911,21 +3026,29 @@ export type Database = {
           created_by?: string | null
           geocode_score?: number | null
           geocode_source?: string | null
+          geometry_hash?: string | null
+          geometry_version?: number
           id?: string
           latitude?: number | null
+          location_confirmed_at?: string | null
+          location_confirmed_by?: string | null
           longitude?: number | null
           name?: string
+          origin_altitude_m?: number | null
           origin_latitude?: number | null
           origin_longitude?: number | null
           postal_code?: string
+          projected_crs?: string | null
           quality_level?: string
           schema_version?: number
           settings?: Json
+          source_crs?: string
           status?: string
           study_id?: string | null
           summary?: Json
           updated_at?: string
           updated_by?: string | null
+          working_crs?: string
         }
         Relationships: [
           {
@@ -3110,6 +3233,7 @@ export type Database = {
           company_id: string
           created_at: string
           data_source: string
+          detection: Json | null
           height_m: number
           id: string
           label: string
@@ -3126,6 +3250,7 @@ export type Database = {
           source_ref: string | null
           updated_at: string
           vegetation_state: string | null
+          verification_status: string
           verified_at: string | null
           verified_by: string | null
           width_m: number
@@ -3137,6 +3262,7 @@ export type Database = {
           company_id: string
           created_at?: string
           data_source?: string
+          detection?: Json | null
           height_m?: number
           id?: string
           label?: string
@@ -3153,6 +3279,7 @@ export type Database = {
           source_ref?: string | null
           updated_at?: string
           vegetation_state?: string | null
+          verification_status?: string
           verified_at?: string | null
           verified_by?: string | null
           width_m?: number
@@ -3164,6 +3291,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           data_source?: string
+          detection?: Json | null
           height_m?: number
           id?: string
           label?: string
@@ -3180,6 +3308,7 @@ export type Database = {
           source_ref?: string | null
           updated_at?: string
           vegetation_state?: string | null
+          verification_status?: string
           verified_at?: string | null
           verified_by?: string | null
           width_m?: number
@@ -3208,6 +3337,168 @@ export type Database = {
           },
         ]
       }
+      solar_processing_jobs: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          finished_at: string | null
+          geometry_version: number | null
+          id: string
+          idempotency_key: string
+          job_type: string
+          model_id: string
+          params: Json
+          progress_label: string | null
+          progress_step: number
+          progress_total: number
+          result: Json
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          geometry_version?: number | null
+          id?: string
+          idempotency_key: string
+          job_type: string
+          model_id: string
+          params?: Json
+          progress_label?: string | null
+          progress_step?: number
+          progress_total?: number
+          result?: Json
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          geometry_version?: number | null
+          id?: string
+          idempotency_key?: string
+          job_type?: string
+          model_id?: string
+          params?: Json
+          progress_label?: string | null
+          progress_step?: number
+          progress_total?: number
+          result?: Json
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_processing_jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_processing_jobs_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_provenance: {
+        Row: {
+          attribute: string
+          company_id: string
+          confidence: string
+          created_at: string
+          entity_id: string
+          entity_kind: string
+          field_measurement_id: string | null
+          id: string
+          metadata: Json
+          model_id: string
+          source_dataset: string | null
+          source_date: string | null
+          source_provider: string | null
+          source_ref: string | null
+          source_type: string
+          updated_at: string
+          verification_method: string | null
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          attribute?: string
+          company_id: string
+          confidence?: string
+          created_at?: string
+          entity_id: string
+          entity_kind: string
+          field_measurement_id?: string | null
+          id?: string
+          metadata?: Json
+          model_id: string
+          source_dataset?: string | null
+          source_date?: string | null
+          source_provider?: string | null
+          source_ref?: string | null
+          source_type?: string
+          updated_at?: string
+          verification_method?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          attribute?: string
+          company_id?: string
+          confidence?: string
+          created_at?: string
+          entity_id?: string
+          entity_kind?: string
+          field_measurement_id?: string | null
+          id?: string
+          metadata?: Json
+          model_id?: string
+          source_dataset?: string | null
+          source_date?: string | null
+          source_provider?: string | null
+          source_ref?: string | null
+          source_type?: string
+          updated_at?: string
+          verification_method?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_provenance_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_provenance_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_roof_planes: {
         Row: {
           area_m2: number
@@ -3217,6 +3508,7 @@ export type Database = {
           covering: string | null
           created_at: string
           data_source: string
+          detection: Json | null
           eave_height_m: number | null
           id: string
           model_id: string
@@ -3225,9 +3517,11 @@ export type Database = {
           ridge_height_m: number | null
           schema_version: number
           source_date: string | null
+          source_geometry: Json | null
           source_ref: string | null
           tilt_deg: number
           updated_at: string
+          verification_status: string
           verified_at: string | null
           verified_by: string | null
         }
@@ -3239,6 +3533,7 @@ export type Database = {
           covering?: string | null
           created_at?: string
           data_source?: string
+          detection?: Json | null
           eave_height_m?: number | null
           id?: string
           model_id: string
@@ -3247,9 +3542,11 @@ export type Database = {
           ridge_height_m?: number | null
           schema_version?: number
           source_date?: string | null
+          source_geometry?: Json | null
           source_ref?: string | null
           tilt_deg?: number
           updated_at?: string
+          verification_status?: string
           verified_at?: string | null
           verified_by?: string | null
         }
@@ -3261,6 +3558,7 @@ export type Database = {
           covering?: string | null
           created_at?: string
           data_source?: string
+          detection?: Json | null
           eave_height_m?: number | null
           id?: string
           model_id?: string
@@ -3269,9 +3567,11 @@ export type Database = {
           ridge_height_m?: number | null
           schema_version?: number
           source_date?: string | null
+          source_geometry?: Json | null
           source_ref?: string | null
           tilt_deg?: number
           updated_at?: string
+          verification_status?: string
           verified_at?: string | null
           verified_by?: string | null
         }

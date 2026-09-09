@@ -41,6 +41,8 @@ import {
 import { azimuthLabel } from "@/lib/solar/geo";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
+import { SitePanel } from "@/components/solar/SitePanel";
+
 
 const SolarScene = lazy(() => import("@/components/solar/SolarScene"));
 
@@ -144,11 +146,20 @@ function SolarStudioPage() {
     if (!companyId || !payload) return;
     await guard(
       async () =>
-        (await saveBuilding({ data: { companyId, modelId: payload.model.id, params: next } })) as Payload,
+        (await saveBuilding({
+          data: {
+            companyId,
+            modelId: payload.model.id,
+            params: next,
+            // Détection de conflit : refus serveur si le modèle a changé ailleurs.
+            expectedGeometryVersion: payload.model.geometry_version,
+          },
+        })) as Payload,
       "Bâtiment enregistré.",
     );
     setDirty(false);
   };
+
 
   const undo = async () => {
     const prev = history.current.pop();
@@ -293,12 +304,18 @@ function SolarStudioPage() {
         </div>
 
         <Tabs defaultValue="batiment" className="min-w-0">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="batiment">Bâtiment</TabsTrigger>
+            <TabsTrigger value="site">Site</TabsTrigger>
             <TabsTrigger value="pans">Pans</TabsTrigger>
             <TabsTrigger value="obstacles">Obstacles</TabsTrigger>
             <TabsTrigger value="pose">Pose</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="site">
+            <SitePanel payload={payload} companyId={companyId} disabled={!canWrite || busy} onPayload={applyPayload} />
+          </TabsContent>
+
 
           <TabsContent value="batiment">
             <Card className="space-y-3 p-3">
