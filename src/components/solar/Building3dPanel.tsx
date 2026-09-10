@@ -142,7 +142,7 @@ export function Building3dPanel({ payload, companyId, disabled, onPayload }: Pro
             <li key={d.dataset_kind} className="flex items-start justify-between gap-2 text-xs">
               <span className="min-w-0">
                 <span className="block font-medium">{d.label}</span>
-                {d.detail && <span className="block text-muted-foreground">{d.detail}</span>}
+                {d.notes && <span className="block text-muted-foreground">{d.notes}</span>}
               </span>
               <Badge variant={d.state === "available" ? "secondary" : "outline"}>
                 {DATASET_STATE_LABEL[d.state]}
