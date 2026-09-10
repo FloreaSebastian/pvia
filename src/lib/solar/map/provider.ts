@@ -10,13 +10,18 @@
  * toucher au moteur géométrique.
  */
 
-export type MapBaseLayer = "plan" | "satellite" | "hybrid" | "photorealistic_3d" | "street_view";
+/**
+ * `tilted` = vue satellite inclinée (Maps JavaScript API, tilt 45°).
+ * Ce n'est PAS la 3D photoréaliste (Photorealistic 3D Maps / bibliothèque
+ * `maps3d`), qui n'est pas utilisée ici et dont la couverture est partielle.
+ */
+export type MapBaseLayer = "plan" | "satellite" | "hybrid" | "tilted" | "street_view";
 
 export const MAP_LAYER_LABEL: Record<MapBaseLayer, string> = {
   plan: "Plan",
   satellite: "Satellite",
   hybrid: "Hybride",
-  photorealistic_3d: "3D réelle",
+  tilted: "Vue inclinée",
   street_view: "Street View",
 };
 
@@ -36,24 +41,156 @@ export const GOOGLE_MAPS_PROVIDER: MapVisualProvider = {
   id: "google_maps",
   name: "Google Maps Platform",
   attribution: "Fond cartographique © Google — Imagerie © Google, Maxar, IGN",
-  layers: ["plan", "satellite", "hybrid", "photorealistic_3d", "street_view"],
+  layers: ["plan", "satellite", "hybrid", "tilted", "street_view"],
   derivativeRestriction:
     "Le fond Google sert au repérage visuel. Aucun contour, maillage 3D ni mesure technique n'est dérivé ni enregistré à partir de son imagerie.",
   isConfigured: () => Boolean(browserMapsKey()),
 };
 
+/* ------------------------------- Clé navigateur --------------------------- */
+
+export type MapKeySource = "pvia" | "lovable_connector" | "none";
+
+/**
+ * Ordre de résolution : la clé PVIA dédiée (autorisée pour pvia.fr) prime sur
+ * la clé du connecteur géré, qui n'est autorisée que sur *.lovable.app.
+ *
+ * Cette clé est publique par construction (elle part dans le navigateur).
+ * Sa sécurité repose exclusivement sur les restrictions Google : referrers
+ * HTTP, APIs autorisées, quotas et alertes.
+ */
 export function browserMapsKey(): string | null {
-  const key = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
-  return key && key.length > 0 ? key : null;
+  const own = import.meta.env["VITE_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
+  if (own && own.length > 0) return own;
+  const managed = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
+  return managed && managed.length > 0 ? managed : null;
+}
+
+export function mapsKeySource(): MapKeySource {
+  const own = import.meta.env["VITE_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
+  if (own && own.length > 0) return "pvia";
+  const managed = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
+  return managed && managed.length > 0 ? "lovable_connector" : "none";
+}
+
+/** Empreinte non réversible pour le diagnostic : jamais la clé complète. */
+export function maskMapsKey(key: string | null): string {
+  if (!key) return "absente";
+  if (key.length <= 8) return "••••";
+  return `${key.slice(0, 4)}…${key.slice(-4)}`;
+}
+
+/** Map ID optionnel (styles cloud). Aucun Map ID de démonstration n'est codé. */
+export function mapsMapId(): string | null {
+  const id = import.meta.env["VITE_GOOGLE_MAPS_MAP_ID"] as string | undefined;
+  return id && id.length > 0 ? id : null;
 }
 
 export function mapsTrackingId(): string {
   return (import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"] as string | undefined) ?? "";
 }
 
+/**
+ * La connexion Google gérée par Lovable est restreinte aux domaines
+ * `*.lovable.app` / `*.lovableproject.com`. Sur un domaine PVIA, elle échouera.
+ */
+export function keyMatchesHost(host: string, source: MapKeySource): boolean {
+  if (source === "none") return false;
+  if (source === "pvia") return true;
+  return /(^|\.)lovable\.app$|(^|\.)lovableproject\.com$|^localhost$|^127\.0\.0\.1$/.test(host);
+}
+
+/* --------------------------- Erreurs compréhensibles ---------------------- */
+
+export interface MapsErrorInfo {
+  /** Code technique Google, conservé pour les journaux. */
+  code: string;
+  /** Message exploitable par un utilisateur métier. */
+  message: string;
+}
+
+export function describeMapsError(code: string): MapsErrorInfo {
+  switch (code) {
+    case "RefererNotAllowedMapError":
+      return {
+        code,
+        message:
+          "Google Maps n'est pas autorisé pour ce domaine. Ajoutez ce domaine aux restrictions de la clé (referrers HTTP).",
+      };
+    case "ApiNotActivatedMapError":
+      return { code, message: "L'API Maps JavaScript n'est pas activée sur le projet Google." };
+    case "InvalidKeyMapError":
+      return { code, message: "La clé Google Maps est invalide ou révoquée." };
+    case "MissingKeyMapError":
+      return { code, message: "Aucune clé Google Maps n'est configurée." };
+    case "ExpiredKeyMapError":
+      return { code, message: "La clé Google Maps a expiré." };
+    case "OverQuotaMapError":
+    case "BillingNotEnabledMapError":
+      return { code, message: "Quota ou facturation Google Maps insuffisants pour ce projet." };
+    case "PLACES_NOT_ENABLED":
+      return { code, message: "L'API Places (New) n'est pas activée sur le projet Google." };
+    case "SCRIPT_LOAD_FAILED":
+      return { code, message: "Google Maps n'a pas pu être chargé (réseau ou domaine non autorisé)." };
+    case "NOT_CONFIGURED":
+      return { code, message: "Aucune clé Google Maps configurée pour ce domaine." };
+    default:
+      return { code, message: "Google Maps indisponible pour le moment." };
+  }
+}
+
+/* ------------------------------ Diagnostic -------------------------------- */
+
+export interface MapsDiagnostics {
+  keyPresent: boolean;
+  keySource: MapKeySource;
+  keyMasked: string;
+  mapId: string | null;
+  host: string;
+  hostAllowedByKey: boolean;
+  apiLoaded: boolean;
+  placesConfigured: boolean;
+  photorealistic3d: "non utilisé";
+  tiltedView: boolean;
+  lastError: MapsErrorInfo | null;
+}
+
+let lastError: MapsErrorInfo | null = null;
+let apiLoaded = false;
+
+export function recordMapsError(code: string): MapsErrorInfo {
+  lastError = describeMapsError(code);
+  console.error(`[google-maps] ${lastError.code}: ${lastError.message}`);
+  return lastError;
+}
+
+export function markMapsLoaded(): void {
+  apiLoaded = true;
+  lastError = null;
+}
+
+export function readMapsDiagnostics(placesConfigured: boolean): MapsDiagnostics {
+  const key = browserMapsKey();
+  const source = mapsKeySource();
+  const host = typeof window === "undefined" ? "" : window.location.hostname;
+  return {
+    keyPresent: Boolean(key),
+    keySource: source,
+    keyMasked: maskMapsKey(key),
+    mapId: mapsMapId(),
+    host,
+    hostAllowedByKey: keyMatchesHost(host, source),
+    apiLoaded,
+    placesConfigured,
+    photorealistic3d: "non utilisé",
+    tiltedView: apiLoaded,
+    lastError,
+  };
+}
+
 /* ------------------------------ Budget d'API ------------------------------ */
 
-export type MapUsageKind = "map_load" | "place_search" | "street_view" | "photorealistic_3d";
+export type MapUsageKind = "map_load" | "place_search" | "street_view" | "tilted";
 
 const USAGE_KEY = "pvia.solar.map.usage";
 
@@ -67,7 +204,7 @@ function today(): string {
 }
 
 function emptyUsage(): MapUsage {
-  return { day: today(), counts: { map_load: 0, place_search: 0, street_view: 0, photorealistic_3d: 0 } };
+  return { day: today(), counts: { map_load: 0, place_search: 0, street_view: 0, tilted: 0 } };
 }
 
 export function readMapUsage(): MapUsage {
@@ -100,5 +237,5 @@ export const MAP_USAGE_LABEL: Record<MapUsageKind, string> = {
   map_load: "Chargements de carte",
   place_search: "Recherches d'adresse",
   street_view: "Sessions Street View",
-  photorealistic_3d: "Sessions 3D réelle",
+  tilted: "Passages en vue inclinée",
 };
