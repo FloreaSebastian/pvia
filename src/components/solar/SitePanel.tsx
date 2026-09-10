@@ -31,6 +31,7 @@ import type { SolarModelPayload } from "@/lib/solar.functions";
 import { CONFIDENCE_META, SOURCE_TYPE_META, VERIFICATION_META, type ConfidenceLevel } from "@/lib/solar/provenance";
 import { formatLength } from "@/lib/solar/units";
 import type { BuildingParams } from "@/lib/solar/types";
+import { Building3dPanel } from "./Building3dPanel";
 
 type Payload = NonNullable<SolarModelPayload>;
 
@@ -224,6 +225,11 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
           </ul>
           {site?.attribution && <p className="text-[11px] text-muted-foreground">{site.attribution}</p>}
         </Card>
+      )}
+
+      {/* ------------------------------- Modèle 3D ------------------------------ */}
+      {located && (
+        <Building3dPanel payload={payload} companyId={companyId} disabled={disabled} onPayload={onPayload} />
       )}
 
       {/* -------------------------------- Traitements --------------------------- */}
