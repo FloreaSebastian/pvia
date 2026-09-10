@@ -413,12 +413,7 @@ export const applySolar3dProposal = createServerFn({ method: "POST" })
     // 4) Panneaux : reprojetés puis vérifiés. Jamais supprimés automatiquement.
     const revalidation = revalidateModules(
       geometries.map(({ geometry }) => ({ key: geometry.key, polygon: geometry.polygon })),
-      full.modules.map((m) => ({
-        id: m.id,
-        roof_plane_key: m.roof_plane_key,
-        local_u_m: m.local_u_m,
-        local_v_m: m.local_v_m,
-      })),
+      full.modules,
     );
 
     await supabase
