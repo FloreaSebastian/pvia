@@ -44,15 +44,21 @@ export interface OverlaySnapModel {
   segments: { kind: SnapKind; a: LocalPoint; b: LocalPoint }[];
 }
 
+/** Sous-ensemble de pan nécessaire à la projection au sol. */
+export type OverlayPlane = Pick<
+  RoofPlaneGeometry,
+  "key" | "name" | "polygon" | "frame" | "azimuth_deg" | "tilt_deg" | "area_m2"
+>;
+
 interface BuildInput {
-  planes: RoofPlaneGeometry[];
+  planes: OverlayPlane[];
   obstacles: { id: string; label: string; type: string; x: number; y: number; w: number; l: number; rotation: number; source: string }[];
   modules: PlacedModule[];
   specByPlaneKey: Record<string, { width_m: number; height_m: number; power_wc: number | null } | undefined>;
   planeSource: Record<string, string>;
 }
 
-function groundRing(plane: RoofPlaneGeometry): LocalPoint[] {
+function groundRing(plane: OverlayPlane): LocalPoint[] {
   return plane.polygon.map((p) => {
     const w = planePointToWorld(plane.frame, p.x, p.y);
     return { x: w[0], y: w[1] };

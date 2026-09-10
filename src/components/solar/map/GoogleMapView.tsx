@@ -1,3 +1,4 @@
+/// <reference types="google.maps" />
 /**
  * Solar Studio — vue cartographique Google avec superposition du modèle PVIA.
  *
