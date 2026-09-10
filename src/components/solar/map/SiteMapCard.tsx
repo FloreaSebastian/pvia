@@ -27,6 +27,7 @@ import {
   MAP_USAGE_LABEL,
   countMapUsage,
   readMapUsage,
+  readMapsDiagnostics,
   type MapBaseLayer,
   type MapUsage,
 } from "@/lib/solar/map/provider";
@@ -45,7 +46,8 @@ interface Props {
   onPayload: (next: Payload) => void;
 }
 
-const LAYERS: MapBaseLayer[] = ["plan", "satellite", "hybrid", "photorealistic_3d"];
+const LAYERS: MapBaseLayer[] = ["plan", "satellite", "hybrid", "tilted"];
+
 
 export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, onSelectPlane, onPayload }: Props) {
   const searchFn = useServerFn(searchMapPlaces);
