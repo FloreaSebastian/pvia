@@ -124,26 +124,26 @@ describe("accrochage et mesure", () => {
 });
 
 describe("configuration et diagnostic cartographique", () => {
-  it("explique un refus de domaine", () => {
+  test("explique un refus de domaine", () => {
     expect(describeMapsError("RefererNotAllowedMapError").message).toContain("domaine");
   });
 
-  it("explique une API non activée", () => {
+  test("explique une API non activée", () => {
     expect(describeMapsError("ApiNotActivatedMapError").message).toContain("activée");
   });
 
-  it("reste compréhensible pour un code inconnu", () => {
+  test("reste compréhensible pour un code inconnu", () => {
     expect(describeMapsError("XYZ").message.length).toBeGreaterThan(0);
   });
 
-  it("ne révèle jamais la clé complète", () => {
+  test("ne révèle jamais la clé complète", () => {
     const masked = maskMapsKey("AIzaSyABCDEFGHIJKLMNOPQRSTUV");
     expect(masked).not.toContain("EFGHIJKLMNOP");
     expect(masked).toContain("…");
     expect(maskMapsKey(null)).toBe("absente");
   });
 
-  it("limite la clé du connecteur géré aux domaines Lovable", () => {
+  test("limite la clé du connecteur géré aux domaines Lovable", () => {
     expect(keyMatchesHost("pvia.fr", "lovable_connector")).toBe(false);
     expect(keyMatchesHost("app.lovable.app", "lovable_connector")).toBe(true);
     expect(keyMatchesHost("pvia.fr", "pvia")).toBe(true);
