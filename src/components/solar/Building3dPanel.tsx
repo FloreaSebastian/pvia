@@ -24,9 +24,9 @@ import {
   DATASET_STATE_LABEL,
   planeQualityLine,
   type EngineDiffRow,
-  type EngineHealth,
   type EngineRoofModel,
 } from "@/lib/solar/engine";
+import type { EngineStatus } from "@/lib/solar/engine.server";
 import type { SolarModelPayload } from "@/lib/solar.functions";
 
 type Payload = NonNullable<SolarModelPayload>;
@@ -59,7 +59,7 @@ export function Building3dPanel({ payload, companyId, disabled, onPayload }: Pro
   const applyFn = useServerFn(applySolar3dProposal);
 
   const model = payload.model;
-  const [engine, setEngine] = useState<EngineHealth | null>(null);
+  const [engine, setEngine] = useState<EngineStatus | null>(null);
   const [job, setJob] = useState<JobRow | null>(null);
   const [proposal, setProposal] = useState<EngineRoofModel | null>(null);
   const [diff, setDiff] = useState<EngineDiffRow[]>([]);
@@ -210,14 +210,14 @@ export function Building3dPanel({ payload, companyId, disabled, onPayload }: Pro
               <li key={d.label} className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{d.label}</span>
                 <span>
-                  {d.before} → {d.after}
+                  {d.current} → {d.proposed}
                 </span>
               </li>
             ))}
           </ul>
           <ul className="space-y-1 text-muted-foreground">
             {proposal.planes.map((p) => (
-              <li key={p.key}>{planeQualityLine(p)}</li>
+              <li key={p.index}>{planeQualityLine(p, proposal.sources[0]?.dataset ?? "LiDAR")}</li>
             ))}
           </ul>
           <p className="text-muted-foreground">
