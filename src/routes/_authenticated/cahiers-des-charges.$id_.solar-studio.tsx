@@ -42,6 +42,7 @@ import { azimuthLabel } from "@/lib/solar/geo";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
 import { SitePanel } from "@/components/solar/SitePanel";
+import { SiteMapCard } from "@/components/solar/map/SiteMapCard";
 
 
 const SolarScene = lazy(() => import("@/components/solar/SolarScene"));
@@ -222,6 +223,7 @@ function SolarStudioPage() {
     );
   }
 
+  const [visualMode, setVisualMode] = useState<"map" | "3d">("map");
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
 
@@ -249,7 +251,35 @@ function SolarStudioPage() {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-3">
-          <Card className="h-[46vh] min-h-[280px] overflow-hidden lg:h-[62vh]">
+          {/* Deux lectures du même modèle : fond cartographique réel, puis maquette technique. */}
+          <div className="flex flex-wrap gap-1.5">
+            {(["map", "3d"] as const).map((m) => (
+              <Button
+                key={m}
+                size="sm"
+                variant={visualMode === m ? "default" : "outline"}
+                className="min-h-11"
+                onClick={() => setVisualMode(m)}
+              >
+                {m === "map" ? "Carte" : "Modèle 3D"}
+              </Button>
+            ))}
+          </div>
+
+          {visualMode === "map" && companyId && (
+            <ClientOnly fallback={<Skeleton className="h-[46vh] w-full" />}>
+              <SiteMapCard
+                payload={payload}
+                companyId={companyId}
+                disabled={!canWrite || busy}
+                selectedPlaneKey={selectedPlaneKey}
+                onSelectPlane={setSelectedPlaneKey}
+                onPayload={applyPayload}
+              />
+            </ClientOnly>
+          )}
+
+          <Card className={`h-[46vh] min-h-[280px] overflow-hidden lg:h-[62vh] ${visualMode === "map" ? "hidden" : ""}`}>
             <ClientOnly fallback={<Skeleton className="h-full w-full" />}>
               <Suspense fallback={<Skeleton className="h-full w-full" />}>
                 {scene && (
