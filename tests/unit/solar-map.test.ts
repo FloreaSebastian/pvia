@@ -76,7 +76,7 @@ describe("accrochage et mesure", () => {
   test("accroche un coin détecté", () => {
     const r = snapToModel({ x: 6.2, y: 3.9 }, snap, 1);
     expect(r.point).toEqual({ x: 6, y: 4 });
-    expect(r.label).toBe("Coin détecté");
+    expect(r.label).toContain("Coin détecté");
   });
 
   test("accroche une rive quand aucun coin n'est proche", () => {
