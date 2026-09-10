@@ -375,11 +375,23 @@ export function GoogleMapView({
         </span>
       )}
 
-      {(error || !ready) && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 p-4 text-center text-xs text-muted-foreground">
-          {error ?? "Chargement de la carte…"}
+      {error && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 bg-background/95 p-4 text-center">
+          <p className="text-sm font-semibold">Google Maps indisponible</p>
+          <p className="text-xs text-muted-foreground">{error.message}</p>
+          <p className="text-xs text-muted-foreground">
+            Le modèle technique PVIA (toiture, panneaux, cotes) reste utilisable dans les autres onglets.
+          </p>
         </div>
       )}
+
+      {!error && !ready && (
+        <div className="absolute inset-0 z-20 animate-pulse bg-muted" aria-label="Chargement de la carte" role="status">
+          <div className="absolute bottom-3 left-3 h-3 w-32 rounded bg-background/60" />
+          <div className="absolute right-3 top-3 h-8 w-8 rounded bg-background/60" />
+        </div>
+      )}
+
     </div>
   );
 }
