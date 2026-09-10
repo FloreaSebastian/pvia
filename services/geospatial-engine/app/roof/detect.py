@@ -148,10 +148,6 @@ def _tilt_azimuth(normal: np.ndarray) -> tuple[float, float]:
 def _alpha_shape(xy: np.ndarray, alpha_m: float) -> list[tuple[float, float]]:
     """Contour concave. Repli sur l'enveloppe convexe si shapely est absent."""
     try:
-        from shapely geometry import MultiPoint  # type: ignore # noqa
-    except Exception:
-        pass
-    try:
         from shapely.geometry import MultiPoint
         from shapely.ops import unary_union
 
