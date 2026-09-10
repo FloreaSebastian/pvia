@@ -104,6 +104,9 @@ export function GoogleMapView({
   const [points, setPoints] = useState<LocalPoint[]>([]);
   const [hover, setHover] = useState<{ point: LocalPoint; label: string | null } | null>(null);
 
+  const selectRef = useRef(onSelectPlane);
+  selectRef.current = onSelectPlane;
+
   const snapModel = useMemo(() => buildSnapModel(features), [features]);
   const state = useRef({ features, modelOpacity, outlineOnly, swipePercent, points, hover, selectedPlaneKey, origin });
   state.current = { features, modelOpacity, outlineOnly, swipePercent, points, hover, selectedPlaneKey, origin };
@@ -217,6 +220,13 @@ export function GoogleMapView({
         overlayRef.current = overlay;
 
         map.addListener("bounds_changed", draw);
+        map.addListener("click", (ev: google.maps.MapMouseEvent) => {
+          const handler = selectRef.current;
+          if (!handler || !ev.latLng) return;
+          const p = toLocal(state.current.origin, { latitude: ev.latLng.lat(), longitude: ev.latLng.lng() });
+          const hit = state.current.features.find((f) => f.kind === "plane" && f.closed && pointInRing(p, f.ring));
+          handler(hit?.planeKey ?? null);
+        });
         map.addListener("idle", () => {
           draw();
           const c = map.getCenter();
@@ -330,31 +340,6 @@ export function GoogleMapView({
         }}
         onDoubleClick={() => setPoints([])}
       />
-
-      {!interactive && (
-        <button
-          type="button"
-          className="absolute inset-0 z-0 cursor-default"
-          aria-label="Sélectionner un pan de toiture"
-          onClick={(e) => {
-            if (!onSelectPlane) return;
-            const projection = overlayRef.current?.getProjection();
-            const host = hostRef.current;
-            if (!projection || !host) return;
-            const rect = host.getBoundingClientRect();
-            const ll = projection.fromContainerPixelToLatLng(
-              new google.maps.Point(e.clientX - rect.left, e.clientY - rect.top),
-            );
-            if (!ll) return;
-            const p = toLocal(origin, { latitude: ll.lat(), longitude: ll.lng() });
-            const hit = features.find(
-              (f) => f.kind === "plane" && f.closed && pointInRing(p, f.ring),
-            );
-            onSelectPlane(hit?.planeKey ?? null);
-          }}
-          style={{ pointerEvents: "none" }}
-        />
-      )}
 
       {hover?.label && (
         <span className="pointer-events-none absolute left-2 top-2 z-20 rounded bg-background/90 px-2 py-1 text-xs font-medium">
