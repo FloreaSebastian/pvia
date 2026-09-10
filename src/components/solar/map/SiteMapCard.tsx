@@ -233,8 +233,9 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                 className="min-h-11"
                 onClick={() => {
                   setLayer(l);
-                  if (l === "photorealistic_3d") setUsage(countMapUsage("photorealistic_3d"));
+                  if (l === "tilted") setUsage(countMapUsage("tilted"));
                 }}
+
               >
                 {MAP_LAYER_LABEL[l]}
               </Button>
