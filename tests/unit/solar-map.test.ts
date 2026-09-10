@@ -65,7 +65,7 @@ describe("superposition PVIA sur fond cartographique", () => {
   });
 
   test("le libellé de couche reste explicite", () => {
-    expect(MAP_LAYER_LABEL.photorealistic_3d.length).toBeGreaterThan(0);
+    expect(MAP_LAYER_LABEL.tilted.length).toBeGreaterThan(0);
     expect(MAP_LAYER_LABEL.satellite).toBe("Satellite");
   });
 });
