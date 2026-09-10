@@ -112,7 +112,7 @@ export interface EngineRoofModel {
   point_cloud_preview: [number, number, number][];
   point_cloud_classification: number[];
   classification_legend: Record<string, string>;
-  metrics: Record<string, unknown>;
+  metrics: Record<string, number | string | boolean | null>;
   sources: {
     provider: string;
     dataset: string;
