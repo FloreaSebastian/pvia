@@ -110,6 +110,9 @@ import { Route as ApiPublicHooksDrainEmailsRouteImport } from './routes/api/publ
 import { Route as ApiPublicHooksCheckSubcontractorDocumentExpiryRouteImport } from './routes/api/public/hooks/check-subcontractor-document-expiry'
 import { Route as ApiPublicHooksCheckExpiringTrialsRouteImport } from './routes/api/public/hooks/check-expiring-trials'
 import { Route as ApiPublicHealthDeepRouteImport } from './routes/api/public/health.deep'
+import { Route as ApiPublicGeospatialProgressRouteImport } from './routes/api/public/geospatial/progress'
+import { Route as ApiPublicGeospatialFinishRouteImport } from './routes/api/public/geospatial/finish'
+import { Route as ApiPublicGeospatialClaimRouteImport } from './routes/api/public/geospatial/claim'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar/$token'
 import { Route as ApiPublicAuthSendEmailHookRouteImport } from './routes/api/public/auth/send-email-hook'
 import { Route as AuthenticatedVisitesTechniquesIdTerrainRouteImport } from './routes/_authenticated/visites-techniques.$id_.terrain'
@@ -672,6 +675,24 @@ const ApiPublicHealthDeepRoute = ApiPublicHealthDeepRouteImport.update({
   path: '/deep',
   getParentRoute: () => ApiPublicHealthRoute,
 } as any)
+const ApiPublicGeospatialProgressRoute =
+  ApiPublicGeospatialProgressRouteImport.update({
+    id: '/api/public/geospatial/progress',
+    path: '/api/public/geospatial/progress',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGeospatialFinishRoute =
+  ApiPublicGeospatialFinishRouteImport.update({
+    id: '/api/public/geospatial/finish',
+    path: '/api/public/geospatial/finish',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicGeospatialClaimRoute =
+  ApiPublicGeospatialClaimRouteImport.update({
+    id: '/api/public/geospatial/claim',
+    path: '/api/public/geospatial/claim',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
   id: '/api/public/calendar/$token',
   path: '/api/public/calendar/$token',
@@ -831,6 +852,9 @@ export interface FileRoutesByFullPath {
   '/visites-techniques/$id/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/geospatial/claim': typeof ApiPublicGeospatialClaimRoute
+  '/api/public/geospatial/finish': typeof ApiPublicGeospatialFinishRoute
+  '/api/public/geospatial/progress': typeof ApiPublicGeospatialProgressRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/check-subcontractor-document-expiry': typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRoute
@@ -939,6 +963,9 @@ export interface FileRoutesByTo {
   '/visites-techniques/$id/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/geospatial/claim': typeof ApiPublicGeospatialClaimRoute
+  '/api/public/geospatial/finish': typeof ApiPublicGeospatialFinishRoute
+  '/api/public/geospatial/progress': typeof ApiPublicGeospatialProgressRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/check-subcontractor-document-expiry': typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRoute
@@ -1053,6 +1080,9 @@ export interface FileRoutesById {
   '/_authenticated/visites-techniques/$id_/terrain': typeof AuthenticatedVisitesTechniquesIdTerrainRoute
   '/api/public/auth/send-email-hook': typeof ApiPublicAuthSendEmailHookRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/geospatial/claim': typeof ApiPublicGeospatialClaimRoute
+  '/api/public/geospatial/finish': typeof ApiPublicGeospatialFinishRoute
+  '/api/public/geospatial/progress': typeof ApiPublicGeospatialProgressRoute
   '/api/public/health/deep': typeof ApiPublicHealthDeepRoute
   '/api/public/hooks/check-expiring-trials': typeof ApiPublicHooksCheckExpiringTrialsRoute
   '/api/public/hooks/check-subcontractor-document-expiry': typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRoute
@@ -1167,6 +1197,9 @@ export interface FileRouteTypes {
     | '/visites-techniques/$id/terrain'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/geospatial/claim'
+    | '/api/public/geospatial/finish'
+    | '/api/public/geospatial/progress'
     | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/check-subcontractor-document-expiry'
@@ -1275,6 +1308,9 @@ export interface FileRouteTypes {
     | '/visites-techniques/$id/terrain'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/geospatial/claim'
+    | '/api/public/geospatial/finish'
+    | '/api/public/geospatial/progress'
     | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/check-subcontractor-document-expiry'
@@ -1388,6 +1424,9 @@ export interface FileRouteTypes {
     | '/_authenticated/visites-techniques/$id_/terrain'
     | '/api/public/auth/send-email-hook'
     | '/api/public/calendar/$token'
+    | '/api/public/geospatial/claim'
+    | '/api/public/geospatial/finish'
+    | '/api/public/geospatial/progress'
     | '/api/public/health/deep'
     | '/api/public/hooks/check-expiring-trials'
     | '/api/public/hooks/check-subcontractor-document-expiry'
@@ -1444,6 +1483,9 @@ export interface RootRouteChildren {
   SousTraitantInvitationTokenRoute: typeof SousTraitantInvitationTokenRoute
   ApiPublicAuthSendEmailHookRoute: typeof ApiPublicAuthSendEmailHookRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
+  ApiPublicGeospatialClaimRoute: typeof ApiPublicGeospatialClaimRoute
+  ApiPublicGeospatialFinishRoute: typeof ApiPublicGeospatialFinishRoute
+  ApiPublicGeospatialProgressRoute: typeof ApiPublicGeospatialProgressRoute
   ApiPublicHooksCheckExpiringTrialsRoute: typeof ApiPublicHooksCheckExpiringTrialsRoute
   ApiPublicHooksCheckSubcontractorDocumentExpiryRoute: typeof ApiPublicHooksCheckSubcontractorDocumentExpiryRoute
   ApiPublicHooksDrainEmailsRoute: typeof ApiPublicHooksDrainEmailsRoute
@@ -2164,6 +2206,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHealthDeepRouteImport
       parentRoute: typeof ApiPublicHealthRoute
     }
+    '/api/public/geospatial/progress': {
+      id: '/api/public/geospatial/progress'
+      path: '/api/public/geospatial/progress'
+      fullPath: '/api/public/geospatial/progress'
+      preLoaderRoute: typeof ApiPublicGeospatialProgressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/geospatial/finish': {
+      id: '/api/public/geospatial/finish'
+      path: '/api/public/geospatial/finish'
+      fullPath: '/api/public/geospatial/finish'
+      preLoaderRoute: typeof ApiPublicGeospatialFinishRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/geospatial/claim': {
+      id: '/api/public/geospatial/claim'
+      path: '/api/public/geospatial/claim'
+      fullPath: '/api/public/geospatial/claim'
+      preLoaderRoute: typeof ApiPublicGeospatialClaimRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/calendar/$token': {
       id: '/api/public/calendar/$token'
       path: '/api/public/calendar/$token'
@@ -2494,6 +2557,9 @@ const rootRouteChildren: RootRouteChildren = {
   SousTraitantInvitationTokenRoute: SousTraitantInvitationTokenRoute,
   ApiPublicAuthSendEmailHookRoute: ApiPublicAuthSendEmailHookRoute,
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
+  ApiPublicGeospatialClaimRoute: ApiPublicGeospatialClaimRoute,
+  ApiPublicGeospatialFinishRoute: ApiPublicGeospatialFinishRoute,
+  ApiPublicGeospatialProgressRoute: ApiPublicGeospatialProgressRoute,
   ApiPublicHooksCheckExpiringTrialsRoute:
     ApiPublicHooksCheckExpiringTrialsRoute,
   ApiPublicHooksCheckSubcontractorDocumentExpiryRoute:
