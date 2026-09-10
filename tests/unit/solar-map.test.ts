@@ -6,7 +6,13 @@ import {
   snapToModel,
   type OverlayPlane,
 } from "../../src/lib/solar/map/overlay-model";
-import { GOOGLE_MAPS_PROVIDER, MAP_LAYER_LABEL } from "../../src/lib/solar/map/provider";
+import {
+  GOOGLE_MAPS_PROVIDER,
+  MAP_LAYER_LABEL,
+  describeMapsError,
+  keyMatchesHost,
+  maskMapsKey,
+} from "../../src/lib/solar/map/provider";
 
 /** Pan horizontal simple : le repère plan coïncide avec le sol. */
 const plane: OverlayPlane = {
@@ -65,7 +71,7 @@ describe("superposition PVIA sur fond cartographique", () => {
   });
 
   test("le libellé de couche reste explicite", () => {
-    expect(MAP_LAYER_LABEL.photorealistic_3d.length).toBeGreaterThan(0);
+    expect(MAP_LAYER_LABEL.tilted.length).toBeGreaterThan(0);
     expect(MAP_LAYER_LABEL.satellite).toBe("Satellite");
   });
 });
@@ -114,5 +120,33 @@ describe("accrochage et mesure", () => {
   test("refuse une mesure incomplète", () => {
     expect(measureOnModel("distance", [{ x: 0, y: 0 }])).toBeNull();
     expect(measureOnModel("area", [{ x: 0, y: 0 }, { x: 1, y: 0 }])).toBeNull();
+  });
+});
+
+describe("configuration et diagnostic cartographique", () => {
+  test("explique un refus de domaine", () => {
+    expect(describeMapsError("RefererNotAllowedMapError").message).toContain("domaine");
+  });
+
+  test("explique une API non activée", () => {
+    expect(describeMapsError("ApiNotActivatedMapError").message).toContain("activée");
+  });
+
+  test("reste compréhensible pour un code inconnu", () => {
+    expect(describeMapsError("XYZ").message.length).toBeGreaterThan(0);
+  });
+
+  test("ne révèle jamais la clé complète", () => {
+    const masked = maskMapsKey("AIzaSyABCDEFGHIJKLMNOPQRSTUV");
+    expect(masked).not.toContain("EFGHIJKLMNOP");
+    expect(masked).toContain("…");
+    expect(maskMapsKey(null)).toBe("absente");
+  });
+
+  test("limite la clé du connecteur géré aux domaines Lovable", () => {
+    expect(keyMatchesHost("pvia.fr", "lovable_connector")).toBe(false);
+    expect(keyMatchesHost("app.lovable.app", "lovable_connector")).toBe(true);
+    expect(keyMatchesHost("pvia.fr", "pvia")).toBe(true);
+    expect(keyMatchesHost("pvia.fr", "none")).toBe(false);
   });
 });

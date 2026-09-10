@@ -15,7 +15,17 @@ import {
   type MapMeasureKind,
   type OverlayFeature,
 } from "@/lib/solar/map/overlay-model";
-import { browserMapsKey, countMapUsage, mapsTrackingId, type MapBaseLayer } from "@/lib/solar/map/provider";
+import {
+  browserMapsKey,
+  countMapUsage,
+  describeMapsError,
+  mapsMapId,
+  mapsTrackingId,
+  markMapsLoaded,
+  recordMapsError,
+  type MapBaseLayer,
+  type MapsErrorInfo,
+} from "@/lib/solar/map/provider";
 
 let loaderPromise: Promise<typeof google.maps> | null = null;
 
@@ -23,28 +33,40 @@ let loaderPromise: Promise<typeof google.maps> | null = null;
 export function loadGoogleMaps(): Promise<typeof google.maps> {
   if (loaderPromise) return loaderPromise;
   const key = browserMapsKey();
-  if (!key) return Promise.reject(new Error("Clé cartographique non configurée."));
+  if (!key) return Promise.reject(new Error("NOT_CONFIGURED"));
   loaderPromise = new Promise((resolve, reject) => {
-    const w = window as unknown as { __pviaMapsReady?: () => void };
-    w.__pviaMapsReady = () => resolve(google.maps);
+    const w = window as unknown as { __pviaMapsReady?: () => void; gm_authFailure?: () => void };
+    w.__pviaMapsReady = () => {
+      markMapsLoaded();
+      resolve(google.maps);
+    };
+    // Google signale les refus de clé/domaine par ce callback global.
+    w.gm_authFailure = () => {
+      recordMapsError("RefererNotAllowedMapError");
+      reject(new Error("RefererNotAllowedMapError"));
+    };
     const script = document.createElement("script");
     const channel = mapsTrackingId();
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&libraries=geometry&callback=__pviaMapsReady${
       channel ? `&channel=${encodeURIComponent(channel)}` : ""
     }`;
     script.async = true;
-    script.onerror = () => reject(new Error("Chargement de la carte impossible."));
+    script.onerror = () => {
+      recordMapsError("SCRIPT_LOAD_FAILED");
+      reject(new Error("SCRIPT_LOAD_FAILED"));
+    };
     document.head.appendChild(script);
     countMapUsage("map_load");
   });
   return loaderPromise;
 }
 
-const MAP_TYPE: Record<Exclude<MapBaseLayer, "photorealistic_3d" | "street_view">, string> = {
+const MAP_TYPE: Record<Exclude<MapBaseLayer, "tilted" | "street_view">, string> = {
   plan: "roadmap",
   satellite: "satellite",
   hybrid: "hybrid",
 };
+
 
 const STYLE: Record<OverlayFeature["kind"], { stroke: string; fill: string; width: number }> = {
   plane: { stroke: "#38bdf8", fill: "rgba(56,189,248,0.28)", width: 2 },
@@ -100,7 +122,7 @@ export function GoogleMapView({
   const mapRef = useRef<google.maps.Map | null>(null);
   const overlayRef = useRef<google.maps.OverlayView | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MapsErrorInfo | null>(null);
   const [ready, setReady] = useState(false);
   const [points, setPoints] = useState<LocalPoint[]>([]);
   const [hover, setHover] = useState<{ point: LocalPoint; label: string | null } | null>(null);
@@ -201,6 +223,7 @@ export function GoogleMapView({
     loadGoogleMaps()
       .then((maps) => {
         if (cancelled || !hostRef.current) return;
+        const mapId = mapsMapId();
         const map = new maps.Map(hostRef.current, {
           center: { lat: origin.latitude, lng: origin.longitude },
           zoom: 20,
@@ -210,7 +233,9 @@ export function GoogleMapView({
           fullscreenControl: false,
           mapTypeControl: false,
           gestureHandling: "greedy",
+          ...(mapId ? { mapId } : {}),
         });
+
         mapRef.current = map;
 
         const overlay = new maps.OverlayView();
@@ -237,7 +262,7 @@ export function GoogleMapView({
         });
         setReady(true);
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: Error) => setError(describeMapsError(e.message)));
     return () => {
       cancelled = true;
     };
@@ -253,7 +278,8 @@ export function GoogleMapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (layer === "photorealistic_3d") {
+    if (layer === "tilted") {
+      // Vue satellite inclinée de Maps JavaScript — pas de 3D photoréaliste.
       map.setMapTypeId(MAP_TYPE.satellite);
       map.setTilt(45);
       return;
@@ -261,6 +287,7 @@ export function GoogleMapView({
     map.setTilt(0);
     map.setMapTypeId(MAP_TYPE[layer as keyof typeof MAP_TYPE] ?? MAP_TYPE.satellite);
   }, [layer]);
+
 
   useEffect(() => {
     const map = mapRef.current;
@@ -348,11 +375,23 @@ export function GoogleMapView({
         </span>
       )}
 
-      {(error || !ready) && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 p-4 text-center text-xs text-muted-foreground">
-          {error ?? "Chargement de la carte…"}
+      {error && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 bg-background/95 p-4 text-center">
+          <p className="text-sm font-semibold">Google Maps indisponible</p>
+          <p className="text-xs text-muted-foreground">{error.message}</p>
+          <p className="text-xs text-muted-foreground">
+            Le modèle technique PVIA (toiture, panneaux, cotes) reste utilisable dans les autres onglets.
+          </p>
         </div>
       )}
+
+      {!error && !ready && (
+        <div className="absolute inset-0 z-20 animate-pulse bg-muted" aria-label="Chargement de la carte" role="status">
+          <div className="absolute bottom-3 left-3 h-3 w-32 rounded bg-background/60" />
+          <div className="absolute right-3 top-3 h-8 w-8 rounded bg-background/60" />
+        </div>
+      )}
+
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
   MAP_USAGE_LABEL,
   countMapUsage,
   readMapUsage,
+  readMapsDiagnostics,
   type MapBaseLayer,
   type MapUsage,
 } from "@/lib/solar/map/provider";
@@ -45,7 +46,8 @@ interface Props {
   onPayload: (next: Payload) => void;
 }
 
-const LAYERS: MapBaseLayer[] = ["plan", "satellite", "hybrid", "photorealistic_3d"];
+const LAYERS: MapBaseLayer[] = ["plan", "satellite", "hybrid", "tilted"];
+
 
 export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, onSelectPlane, onPayload }: Props) {
   const searchFn = useServerFn(searchMapPlaces);
@@ -69,6 +71,9 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
   const [streetView, setStreetView] = useState<{ available: boolean; detail: string } | null>(null);
   const [usage, setUsage] = useState<MapUsage>(() => readMapUsage());
   const [busy, setBusy] = useState(false);
+  const mapConfigured = GOOGLE_MAPS_PROVIDER.isConfigured();
+  const diagnostics = readMapsDiagnostics(true);
+
 
   const origin: LatLon | null = pending
     ? pending
@@ -231,8 +236,9 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                 className="min-h-11"
                 onClick={() => {
                   setLayer(l);
-                  if (l === "photorealistic_3d") setUsage(countMapUsage("photorealistic_3d"));
+                  if (l === "tilted") setUsage(countMapUsage("tilted"));
                 }}
+
               >
                 {MAP_LAYER_LABEL[l]}
               </Button>
@@ -420,12 +426,45 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
               .map((k) => `${MAP_USAGE_LABEL[k]} ${usage.counts[k]}`)
               .join(" · ")}
           </p>
+
+          <details className="rounded-md border p-2 text-[11px] text-muted-foreground">
+            <summary className="min-h-11 cursor-pointer text-xs font-medium text-foreground">
+              Diagnostic cartographie
+            </summary>
+            <ul className="mt-1 space-y-0.5">
+              <li>Clé cartographique : {diagnostics.keyPresent ? diagnostics.keyMasked : "non configurée"}</li>
+              <li>
+                Origine de la clé :{" "}
+                {diagnostics.keySource === "pvia"
+                  ? "clé PVIA dédiée"
+                  : diagnostics.keySource === "lovable_connector"
+                    ? "connexion gérée (domaines *.lovable.app uniquement)"
+                    : "aucune"}
+              </li>
+              <li>
+                Domaine actuel : {diagnostics.host || "inconnu"} —{" "}
+                {diagnostics.hostAllowedByKey ? "compatible avec la clé" : "non couvert par cette clé"}
+              </li>
+              <li>API cartographique chargée : {diagnostics.apiLoaded ? "oui" : "non"}</li>
+              <li>Style personnalisé : {diagnostics.mapId ? "configuré" : "aucun"}</li>
+              <li>3D photoréaliste : non utilisée (la vue inclinée est une vue satellite inclinée)</li>
+              <li>Dernière erreur : {diagnostics.lastError ? diagnostics.lastError.message : "aucune"}</li>
+            </ul>
+          </details>
         </>
       ) : (
         <p className="text-xs text-muted-foreground">
           Recherchez l'adresse du chantier pour afficher la carte et positionner le bâtiment.
         </p>
       )}
+
+      {!mapConfigured && (
+        <p className="rounded-md border p-2 text-xs text-muted-foreground">
+          Fond cartographique non configuré pour ce domaine : la recherche d'adresse et le modèle technique PVIA
+          restent utilisables, seule l'imagerie Google est indisponible.
+        </p>
+      )}
+
     </Card>
   );
 }
