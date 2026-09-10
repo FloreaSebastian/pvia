@@ -2737,6 +2737,100 @@ export type Database = {
           },
         ]
       }
+      solar_engine_results: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          company_id: string
+          created_at: string
+          engine_version: string | null
+          id: string
+          input_hash: string | null
+          job_id: string | null
+          metrics: Json
+          model_id: string
+          payload: Json
+          pipeline_version: string | null
+          result_kind: string
+          result_schema_version: string
+          source_crs: string | null
+          source_dataset: string | null
+          source_date: string | null
+          source_provider: string | null
+          storage_path: string | null
+          updated_at: string
+          working_crs: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          company_id: string
+          created_at?: string
+          engine_version?: string | null
+          id?: string
+          input_hash?: string | null
+          job_id?: string | null
+          metrics?: Json
+          model_id: string
+          payload?: Json
+          pipeline_version?: string | null
+          result_kind: string
+          result_schema_version?: string
+          source_crs?: string | null
+          source_dataset?: string | null
+          source_date?: string | null
+          source_provider?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          working_crs?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          company_id?: string
+          created_at?: string
+          engine_version?: string | null
+          id?: string
+          input_hash?: string | null
+          job_id?: string | null
+          metrics?: Json
+          model_id?: string
+          payload?: Json
+          pipeline_version?: string | null
+          result_kind?: string
+          result_schema_version?: string
+          source_crs?: string | null
+          source_dataset?: string | null
+          source_date?: string | null
+          source_provider?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          working_crs?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_engine_results_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_engine_results_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "solar_processing_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_engine_results_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_geo_cache: {
         Row: {
           attribution: string | null
@@ -3339,64 +3433,109 @@ export type Database = {
       }
       solar_processing_jobs: {
         Row: {
+          attempt_count: number
+          cancel_requested_at: string | null
+          claimed_at: string | null
           company_id: string
           created_at: string
           created_by: string | null
+          engine_version: string | null
+          error_code: string | null
           error_message: string | null
           finished_at: string | null
           geometry_version: number | null
+          heartbeat_at: string | null
           id: string
           idempotency_key: string
+          input_hash: string | null
           job_type: string
+          lease_expires_at: string | null
+          max_attempts: number
+          metrics: Json
           model_id: string
           params: Json
+          pipeline_version: string | null
           progress_label: string | null
+          progress_percent: number
           progress_step: number
           progress_total: number
           result: Json
+          result_version: string | null
+          stage: string | null
           started_at: string | null
           status: string
           updated_at: string
+          worker_id: string | null
         }
         Insert: {
+          attempt_count?: number
+          cancel_requested_at?: string | null
+          claimed_at?: string | null
           company_id: string
           created_at?: string
           created_by?: string | null
+          engine_version?: string | null
+          error_code?: string | null
           error_message?: string | null
           finished_at?: string | null
           geometry_version?: number | null
+          heartbeat_at?: string | null
           id?: string
           idempotency_key: string
+          input_hash?: string | null
           job_type: string
+          lease_expires_at?: string | null
+          max_attempts?: number
+          metrics?: Json
           model_id: string
           params?: Json
+          pipeline_version?: string | null
           progress_label?: string | null
+          progress_percent?: number
           progress_step?: number
           progress_total?: number
           result?: Json
+          result_version?: string | null
+          stage?: string | null
           started_at?: string | null
           status?: string
           updated_at?: string
+          worker_id?: string | null
         }
         Update: {
+          attempt_count?: number
+          cancel_requested_at?: string | null
+          claimed_at?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
+          engine_version?: string | null
+          error_code?: string | null
           error_message?: string | null
           finished_at?: string | null
           geometry_version?: number | null
+          heartbeat_at?: string | null
           id?: string
           idempotency_key?: string
+          input_hash?: string | null
           job_type?: string
+          lease_expires_at?: string | null
+          max_attempts?: number
+          metrics?: Json
           model_id?: string
           params?: Json
+          pipeline_version?: string | null
           progress_label?: string | null
+          progress_percent?: number
           progress_step?: number
           progress_total?: number
           result?: Json
+          result_version?: string | null
+          stage?: string | null
           started_at?: string | null
           status?: string
           updated_at?: string
+          worker_id?: string | null
         }
         Relationships: [
           {
@@ -5580,6 +5719,121 @@ export type Database = {
       resolve_client_identity: { Args: { _email: string }; Returns: string }
       sc_membership_readable: {
         Args: { _membership_id: string }
+        Returns: boolean
+      }
+      solar_claim_job: {
+        Args: {
+          _job_types?: string[]
+          _lease_seconds?: number
+          _worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          cancel_requested_at: string | null
+          claimed_at: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          engine_version: string | null
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          geometry_version: number | null
+          heartbeat_at: string | null
+          id: string
+          idempotency_key: string
+          input_hash: string | null
+          job_type: string
+          lease_expires_at: string | null
+          max_attempts: number
+          metrics: Json
+          model_id: string
+          params: Json
+          pipeline_version: string | null
+          progress_label: string | null
+          progress_percent: number
+          progress_step: number
+          progress_total: number
+          result: Json
+          result_version: string | null
+          stage: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          worker_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "solar_processing_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      solar_job_finish: {
+        Args: {
+          _engine_version?: string
+          _error_code?: string
+          _error_message?: string
+          _job_id: string
+          _metrics?: Json
+          _pipeline_version?: string
+          _result?: Json
+          _result_version?: string
+          _retryable?: boolean
+          _status: string
+          _worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          cancel_requested_at: string | null
+          claimed_at: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          engine_version: string | null
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          geometry_version: number | null
+          heartbeat_at: string | null
+          id: string
+          idempotency_key: string
+          input_hash: string | null
+          job_type: string
+          lease_expires_at: string | null
+          max_attempts: number
+          metrics: Json
+          model_id: string
+          params: Json
+          pipeline_version: string | null
+          progress_label: string | null
+          progress_percent: number
+          progress_step: number
+          progress_total: number
+          result: Json
+          result_version: string | null
+          stage: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          worker_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "solar_processing_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      solar_job_progress: {
+        Args: {
+          _job_id: string
+          _label?: string
+          _lease_seconds?: number
+          _progress_percent: number
+          _stage: string
+          _worker_id: string
+        }
         Returns: boolean
       }
     }
