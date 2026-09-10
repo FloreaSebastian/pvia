@@ -53,3 +53,15 @@ Points de conception :
   tant qu'une connexion avec une clé Google propre, autorisée pour ces domaines, n'aura pas été créée.
 - La 3D photoréaliste est ici une vue satellite inclinée ; le rendu photoréaliste Google
   n'est pas activé et ne doit pas être présenté comme tel.
+
+## Mise à jour — configuration production, sécurité, diagnostic
+
+- Clé navigateur dédiée `VITE_GOOGLE_MAPS_BROWSER_KEY` prioritaire sur la clé du connecteur géré ; `VITE_GOOGLE_MAPS_MAP_ID` optionnel.
+- Erreurs Google traduites en messages métier, capture de `gm_authFailure`, squelette de chargement, message de repli explicite.
+- La couche anciennement nommée « 3D réelle » est renommée « Vue inclinée » : c'est une vue satellite inclinée, pas la 3D photoréaliste.
+- Bloc « Diagnostic cartographie » : clé masquée, origine de clé, domaine et compatibilité, API chargée, style, dernière erreur.
+- Documentation de configuration : `docs/google-maps-solar-studio.md` (referrers, restrictions d'API, quotas, coûts, repli).
+- Vérifications : typecheck OK, 227 tests unitaires / 674 assertions OK.
+
+VERDICT : CODE PRÊT / CONFIGURATION GOOGLE MANQUANTE / NON TESTÉ EN PRODUCTION.
+Aucune clé autorisée pour `pvia.fr` n'est configurée ; le chargement réel de la carte, Places, Street View, mobile/tablette et les coûts réels restent NON TESTÉS.
