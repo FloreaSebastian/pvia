@@ -8,7 +8,7 @@
  */
 import { distance, polygonArea, type LocalPoint } from "../geo";
 import { planePointToWorld } from "../roof";
-import type { PlacedModule, RoofPlaneGeometry, SolarModuleSpec } from "../types";
+import type { PlacedModule, RoofPlaneGeometry } from "../types";
 
 export type OverlayKind = "plane" | "ridge" | "obstacle" | "module" | "forbidden";
 
@@ -48,7 +48,7 @@ interface BuildInput {
   planes: RoofPlaneGeometry[];
   obstacles: { id: string; label: string; type: string; x: number; y: number; w: number; l: number; rotation: number; source: string }[];
   modules: PlacedModule[];
-  specByPlaneKey: Record<string, SolarModuleSpec | undefined>;
+  specByPlaneKey: Record<string, { width_m: number; height_m: number; power_wc: number | null } | undefined>;
   planeSource: Record<string, string>;
 }
 
@@ -154,7 +154,7 @@ export function buildOverlayFeatures(input: BuildInput): OverlayFeature[] {
       ring: corners,
       closed: true,
       source: "Implantation PVIA",
-      detail: [`${spec.power_wc} Wc`],
+      detail: spec.power_wc ? [`${spec.power_wc} Wc`] : [],
       planeKey: plane.key,
     });
   }
