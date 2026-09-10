@@ -262,7 +262,7 @@ export function GoogleMapView({
         });
         setReady(true);
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: Error) => setError(describeMapsError(e.message)));
     return () => {
       cancelled = true;
     };
@@ -278,7 +278,8 @@ export function GoogleMapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (layer === "photorealistic_3d") {
+    if (layer === "tilted") {
+      // Vue satellite inclinée de Maps JavaScript — pas de 3D photoréaliste.
       map.setMapTypeId(MAP_TYPE.satellite);
       map.setTilt(45);
       return;
@@ -286,6 +287,7 @@ export function GoogleMapView({
     map.setTilt(0);
     map.setMapTypeId(MAP_TYPE[layer as keyof typeof MAP_TYPE] ?? MAP_TYPE.satellite);
   }, [layer]);
+
 
   useEffect(() => {
     const map = mapRef.current;
