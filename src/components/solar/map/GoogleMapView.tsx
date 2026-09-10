@@ -122,7 +122,7 @@ export function GoogleMapView({
   const mapRef = useRef<google.maps.Map | null>(null);
   const overlayRef = useRef<google.maps.OverlayView | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MapsErrorInfo | null>(null);
   const [ready, setReady] = useState(false);
   const [points, setPoints] = useState<LocalPoint[]>([]);
   const [hover, setHover] = useState<{ point: LocalPoint; label: string | null } | null>(null);
