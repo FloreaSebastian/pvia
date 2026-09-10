@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/public/geospatial/progress")({
           _worker_id: parsed.data.worker_id,
           _stage: parsed.data.stage,
           _progress_percent: parsed.data.progress_percent,
-          _label: parsed.data.label ?? null,
+          _label: parsed.data.label ?? undefined,
           _lease_seconds: parsed.data.lease_seconds ?? 900,
         });
         if (error) {

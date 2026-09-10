@@ -5,7 +5,8 @@
  * de Solar Studio, différences chiffrées, libellés d'état. Aucune donnée n'est
  * inventée : si le moteur n'est pas configuré, l'état le dit explicitement.
  */
-import type { LocalPoint, PlaneFrame, RoofPlaneGeometry } from "./types";
+import type { LocalPoint } from "./geo";
+import type { PlaneFrame, RoofPlaneGeometry } from "./types";
 
 export const ENGINE_RESULT_SCHEMA = "roof-model-v1";
 

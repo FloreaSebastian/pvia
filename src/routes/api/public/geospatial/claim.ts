@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/public/geospatial/claim")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data, error } = await supabaseAdmin.rpc("solar_claim_job", {
           _worker_id: parsed.data.worker_id,
-          _job_types: parsed.data.job_types ?? null,
+          _job_types: parsed.data.job_types ?? undefined,
           _lease_seconds: parsed.data.lease_seconds ?? 900,
         });
         if (error) {
