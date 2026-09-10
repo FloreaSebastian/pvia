@@ -223,6 +223,7 @@ export function GoogleMapView({
     loadGoogleMaps()
       .then((maps) => {
         if (cancelled || !hostRef.current) return;
+        const mapId = mapsMapId();
         const map = new maps.Map(hostRef.current, {
           center: { lat: origin.latitude, lng: origin.longitude },
           zoom: 20,
@@ -232,7 +233,9 @@ export function GoogleMapView({
           fullscreenControl: false,
           mapTypeControl: false,
           gestureHandling: "greedy",
+          ...(mapId ? { mapId } : {}),
         });
+
         mapRef.current = map;
 
         const overlay = new maps.OverlayView();
