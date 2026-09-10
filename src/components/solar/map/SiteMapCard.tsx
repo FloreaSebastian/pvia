@@ -297,10 +297,11 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
             {split && (
               <div className="h-[46vh] min-h-[260px] overflow-hidden rounded-md border p-2">
                 <PlanView
-                  plane={payload.planes.find((p) => p.key === selectedPlaneKey) ?? payload.planes[0] ?? null}
-                  modules={payload.modules}
+                  plane={scene.planes.find((p) => p.key === selectedPlaneKey) ?? scene.planes[0] ?? null}
+                  modules={scene.modules}
                   obstacles={scene.obstacles}
-                  spec={scene.specByPlaneKey[selectedPlaneKey ?? payload.planes[0]?.key ?? ""]}
+                  spec={scene.specByPlaneKey[selectedPlaneKey ?? scene.planes[0]?.key ?? ""]}
+                  onToggleModule={() => undefined}
                 />
               </div>
             )}
