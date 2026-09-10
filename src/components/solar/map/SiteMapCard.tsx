@@ -71,6 +71,9 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
   const [streetView, setStreetView] = useState<{ available: boolean; detail: string } | null>(null);
   const [usage, setUsage] = useState<MapUsage>(() => readMapUsage());
   const [busy, setBusy] = useState(false);
+  const mapConfigured = GOOGLE_MAPS_PROVIDER.isConfigured();
+  const diagnostics = readMapsDiagnostics(true);
+
 
   const origin: LatLon | null = pending
     ? pending
