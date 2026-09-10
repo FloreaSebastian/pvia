@@ -6,7 +6,13 @@ import {
   snapToModel,
   type OverlayPlane,
 } from "../../src/lib/solar/map/overlay-model";
-import { GOOGLE_MAPS_PROVIDER, MAP_LAYER_LABEL } from "../../src/lib/solar/map/provider";
+import {
+  GOOGLE_MAPS_PROVIDER,
+  MAP_LAYER_LABEL,
+  describeMapsError,
+  keyMatchesHost,
+  maskMapsKey,
+} from "../../src/lib/solar/map/provider";
 
 /** Pan horizontal simple : le repère plan coïncide avec le sol. */
 const plane: OverlayPlane = {
@@ -114,5 +120,33 @@ describe("accrochage et mesure", () => {
   test("refuse une mesure incomplète", () => {
     expect(measureOnModel("distance", [{ x: 0, y: 0 }])).toBeNull();
     expect(measureOnModel("area", [{ x: 0, y: 0 }, { x: 1, y: 0 }])).toBeNull();
+  });
+});
+
+describe("configuration et diagnostic cartographique", () => {
+  it("explique un refus de domaine", () => {
+    expect(describeMapsError("RefererNotAllowedMapError").message).toContain("domaine");
+  });
+
+  it("explique une API non activée", () => {
+    expect(describeMapsError("ApiNotActivatedMapError").message).toContain("activée");
+  });
+
+  it("reste compréhensible pour un code inconnu", () => {
+    expect(describeMapsError("XYZ").message.length).toBeGreaterThan(0);
+  });
+
+  it("ne révèle jamais la clé complète", () => {
+    const masked = maskMapsKey("AIzaSyABCDEFGHIJKLMNOPQRSTUV");
+    expect(masked).not.toContain("EFGHIJKLMNOP");
+    expect(masked).toContain("…");
+    expect(maskMapsKey(null)).toBe("absente");
+  });
+
+  it("limite la clé du connecteur géré aux domaines Lovable", () => {
+    expect(keyMatchesHost("pvia.fr", "lovable_connector")).toBe(false);
+    expect(keyMatchesHost("app.lovable.app", "lovable_connector")).toBe(true);
+    expect(keyMatchesHost("pvia.fr", "pvia")).toBe(true);
+    expect(keyMatchesHost("pvia.fr", "none")).toBe(false);
   });
 });
