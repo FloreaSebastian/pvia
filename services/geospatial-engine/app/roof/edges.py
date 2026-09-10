@@ -20,7 +20,11 @@ def _segment_overlap(a: PlaneResult, b: PlaneResult) -> float:
     by = np.array([p[1] for p in b.contour])
     ox = min(ax.max(), bx.max()) - max(ax.min(), bx.min())
     oy = min(ay.max(), by.max()) - max(ay.min(), by.min())
-    return float(max(min(ox, oy), 0.0))
+    # Deux pans adjacents se touchent : le recouvrement est franc sur un axe et
+    # nul sur l'autre. Un recouvrement négatif sur les deux axes = pans éloignés.
+    if min(ox, oy) < -1.0:
+        return 0.0
+    return float(max(max(ox, oy), 0.0))
 
 
 def derive_edges(planes: list[PlaneResult]) -> list[dict]:

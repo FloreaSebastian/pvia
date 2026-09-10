@@ -153,7 +153,7 @@ def _alpha_shape(xy: np.ndarray, alpha_m: float) -> list[tuple[float, float]]:
 
         pts = MultiPoint([tuple(p) for p in xy])
         # Buffer/erosion : approximation d'alpha-shape robuste et déterministe.
-        shape = unary_union(pts.buffer(alpha_m, quad_segs=4)).buffer(-alpha_m * 0.85, quad_segs=4)
+        shape = unary_union(pts.buffer(alpha_m, quad_segs=4)).buffer(-alpha_m, quad_segs=4)
         if shape.is_empty:
             shape = pts.convex_hull
         if shape.geom_type == "MultiPolygon":
