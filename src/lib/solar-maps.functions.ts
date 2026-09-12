@@ -30,6 +30,17 @@ function credentials(): { lovable: string; connection: string } | null {
   return { lovable, connection };
 }
 
+/**
+ * Clé navigateur PVIA (référent-restreinte côté Google) servie à la demande
+ * aux seuls utilisateurs authentifiés, plutôt qu'en variable publique de build.
+ */
+export const getMapsBrowserKey = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async (): Promise<{ key: string | null }> => {
+    const key = process.env["GOOGLE_API_KEY"] ?? process.env["GOOGLE_MAPS_BROWSER_KEY"] ?? null;
+    return { key: key && key.length > 0 ? key : null };
+  });
+
 export interface MapPlaceCandidate {
   place_id: string;
   label: string;

@@ -59,7 +59,18 @@ export type MapKeySource = "pvia" | "lovable_connector" | "none";
  * Sa sécurité repose exclusivement sur les restrictions Google : referrers
  * HTTP, APIs autorisées, quotas et alertes.
  */
+/**
+ * Clé PVIA transmise au démarrage par le serveur (secret `GOOGLE_API_KEY`),
+ * pour ne pas dépendre d'une variable publique de build.
+ */
+let runtimeKey: string | null = null;
+
+export function setRuntimeMapsKey(key: string | null): void {
+  runtimeKey = key && key.length > 0 ? key : null;
+}
+
 export function browserMapsKey(): string | null {
+  if (runtimeKey) return runtimeKey;
   const own = import.meta.env["VITE_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
   if (own && own.length > 0) return own;
   const managed = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
@@ -67,6 +78,7 @@ export function browserMapsKey(): string | null {
 }
 
 export function mapsKeySource(): MapKeySource {
+  if (runtimeKey) return "pvia";
   const own = import.meta.env["VITE_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
   if (own && own.length > 0) return "pvia";
   const managed = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
