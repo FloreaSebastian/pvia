@@ -224,7 +224,6 @@ function SolarStudioPage() {
     );
   }
 
-  const [visualMode, setVisualMode] = useState<"map" | "3d">("map");
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
 
