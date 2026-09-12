@@ -77,7 +77,28 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
   const [streetView, setStreetView] = useState<{ available: boolean; detail: string } | null>(null);
   const [usage, setUsage] = useState<MapUsage>(() => readMapUsage());
   const [busy, setBusy] = useState(false);
-  const mapConfigured = GOOGLE_MAPS_PROVIDER.isConfigured();
+  const keyFn = useServerFn(getMapsBrowserKey);
+  // La clé navigateur est servie par le serveur : on attend sa réception avant
+  // de conclure que la cartographie n'est pas configurée.
+  const [keyState, setKeyState] = useState<"loading" | "ready">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    keyFn()
+      .then((res) => {
+        if (cancelled) return;
+        setRuntimeMapsKey(res.key);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setKeyState("ready");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [keyFn]);
+
+  const mapConfigured = keyState === "ready" && GOOGLE_MAPS_PROVIDER.isConfigured();
   const diagnostics = readMapsDiagnostics(true);
 
 
