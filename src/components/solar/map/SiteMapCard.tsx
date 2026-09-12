@@ -331,6 +331,7 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                 onSelectPlane={onSelectPlane}
                 onMeasured={(r) => setLastMeasure(r)}
               />
+              )}
             </div>
             {split && (
               <div className="h-[46vh] min-h-[260px] overflow-hidden rounded-md border p-2">
