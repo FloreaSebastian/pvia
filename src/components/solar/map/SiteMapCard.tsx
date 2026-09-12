@@ -312,6 +312,11 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
 
           <div className={split ? "grid gap-2 lg:grid-cols-2" : ""}>
             <div className="h-[46vh] min-h-[260px]">
+              {keyState === "loading" ? (
+                <div className="flex h-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
+                  Préparation de la carte…
+                </div>
+              ) : (
               <GoogleMapView
                 origin={origin}
                 layer={layer}
