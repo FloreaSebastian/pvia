@@ -18,7 +18,12 @@ import { Switch } from "@/components/ui/switch";
 import { GoogleMapView, type MapMeasureResult } from "./GoogleMapView";
 import { PlanView } from "@/components/solar/PlanView";
 import { buildSceneModel } from "@/components/solar/scene-model";
-import { searchMapPlaces, checkStreetViewCoverage, type MapPlaceCandidate } from "@/lib/solar-maps.functions";
+import {
+  searchMapPlaces,
+  checkStreetViewCoverage,
+  getMapsBrowserKey,
+  type MapPlaceCandidate,
+} from "@/lib/solar-maps.functions";
 import { confirmSolarLocation, saveSolarMeasurement } from "@/lib/solar-geo.functions";
 import { buildOverlayFeatures, type MapMeasureKind } from "@/lib/solar/map/overlay-model";
 import {
@@ -28,6 +33,7 @@ import {
   countMapUsage,
   readMapUsage,
   readMapsDiagnostics,
+  setRuntimeMapsKey,
   type MapBaseLayer,
   type MapUsage,
 } from "@/lib/solar/map/provider";
