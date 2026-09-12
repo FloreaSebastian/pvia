@@ -118,6 +118,9 @@ export function GoogleMapView({
   onCameraChange,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  // Google injecte ses propres nœuds DOM : il lui faut un conteneur dédié que
+  // React ne gère jamais, sinon React tente de retirer des nœuds déplacés.
+  const mapDivRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const overlayRef = useRef<google.maps.OverlayView | null>(null);
