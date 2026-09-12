@@ -225,9 +225,9 @@ export function GoogleMapView({
     let cancelled = false;
     loadGoogleMaps()
       .then((maps) => {
-        if (cancelled || !hostRef.current) return;
+        if (cancelled || !mapDivRef.current) return;
         const mapId = mapsMapId();
-        const map = new maps.Map(hostRef.current, {
+        const map = new maps.Map(mapDivRef.current, {
           center: { lat: origin.latitude, lng: origin.longitude },
           zoom: 20,
           mapTypeId: MAP_TYPE.satellite,
@@ -347,6 +347,7 @@ export function GoogleMapView({
 
   return (
     <div ref={hostRef} className="relative h-full w-full overflow-hidden rounded-md bg-muted">
+      <div ref={mapDivRef} className="absolute inset-0" />
       <canvas
         ref={canvasRef}
         className="absolute inset-0 z-10"
