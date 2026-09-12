@@ -17,9 +17,10 @@ présente plus comme telle.
 
 ## 2. Séparation des clés
 
-- **Clé navigateur** : `VITE_GOOGLE_MAPS_BROWSER_KEY` (prioritaire), sinon
-  `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY`. Publique par construction ;
-  sa sécurité repose uniquement sur les restrictions Google.
+- **Clé navigateur** : servie à la demande aux utilisateurs authentifiés depuis
+  le secret serveur `GOOGLE_API_KEY` (repli : `VITE_GOOGLE_MAPS_BROWSER_KEY`,
+  puis `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY`). Publique par
+  construction ; sa sécurité repose uniquement sur les restrictions Google.
 - **Clé serveur** : utilisée par la passerelle Lovable pour Places et Street
   View. Jamais exposée au navigateur, jamais journalisée.
 - **Style optionnel** : `VITE_GOOGLE_MAPS_MAP_ID` (aucun Map ID par défaut).
