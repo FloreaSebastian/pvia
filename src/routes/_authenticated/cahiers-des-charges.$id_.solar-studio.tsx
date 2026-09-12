@@ -95,6 +95,7 @@ function SolarStudioPage() {
   const history = useRef<BuildingParams[]>([]);
   const future = useRef<BuildingParams[]>([]);
   const [historyTick, setHistoryTick] = useState(0);
+  const [visualMode, setVisualMode] = useState<"map" | "3d">("map");
 
   const applyPayload = useCallback((next: Payload) => {
     setPayload(next);
@@ -223,7 +224,6 @@ function SolarStudioPage() {
     );
   }
 
-  const [visualMode, setVisualMode] = useState<"map" | "3d">("map");
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
 
