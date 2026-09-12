@@ -18,7 +18,12 @@ import { Switch } from "@/components/ui/switch";
 import { GoogleMapView, type MapMeasureResult } from "./GoogleMapView";
 import { PlanView } from "@/components/solar/PlanView";
 import { buildSceneModel } from "@/components/solar/scene-model";
-import { searchMapPlaces, checkStreetViewCoverage, type MapPlaceCandidate } from "@/lib/solar-maps.functions";
+import {
+  searchMapPlaces,
+  checkStreetViewCoverage,
+  getMapsBrowserKey,
+  type MapPlaceCandidate,
+} from "@/lib/solar-maps.functions";
 import { confirmSolarLocation, saveSolarMeasurement } from "@/lib/solar-geo.functions";
 import { buildOverlayFeatures, type MapMeasureKind } from "@/lib/solar/map/overlay-model";
 import {
@@ -28,6 +33,7 @@ import {
   countMapUsage,
   readMapUsage,
   readMapsDiagnostics,
+  setRuntimeMapsKey,
   type MapBaseLayer,
   type MapUsage,
 } from "@/lib/solar/map/provider";
@@ -71,7 +77,28 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
   const [streetView, setStreetView] = useState<{ available: boolean; detail: string } | null>(null);
   const [usage, setUsage] = useState<MapUsage>(() => readMapUsage());
   const [busy, setBusy] = useState(false);
-  const mapConfigured = GOOGLE_MAPS_PROVIDER.isConfigured();
+  const keyFn = useServerFn(getMapsBrowserKey);
+  // La clé navigateur est servie par le serveur : on attend sa réception avant
+  // de conclure que la cartographie n'est pas configurée.
+  const [keyState, setKeyState] = useState<"loading" | "ready">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    keyFn()
+      .then((res) => {
+        if (cancelled) return;
+        setRuntimeMapsKey(res.key);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setKeyState("ready");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [keyFn]);
+
+  const mapConfigured = keyState === "ready" && GOOGLE_MAPS_PROVIDER.isConfigured();
   const diagnostics = readMapsDiagnostics(true);
 
 
@@ -285,6 +312,11 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
 
           <div className={split ? "grid gap-2 lg:grid-cols-2" : ""}>
             <div className="h-[46vh] min-h-[260px]">
+              {keyState === "loading" ? (
+                <div className="flex h-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
+                  Préparation de la carte…
+                </div>
+              ) : (
               <GoogleMapView
                 origin={origin}
                 layer={layer}
@@ -299,6 +331,7 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                 onSelectPlane={onSelectPlane}
                 onMeasured={(r) => setLastMeasure(r)}
               />
+              )}
             </div>
             {split && (
               <div className="h-[46vh] min-h-[260px] overflow-hidden rounded-md border p-2">
