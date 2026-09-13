@@ -18,6 +18,11 @@ import {
   refreshSummary,
 } from "@/lib/solar.server";
 import {
+  hasUsableDimensions,
+  MISSING_DIMENSIONS_MESSAGE,
+  type ModuleSnapshot,
+} from "@/lib/solar/module-catalog";
+import {
   EMPTY_RULES_PROFILE,
   generateLayouts,
   validateLayout,
@@ -62,7 +67,7 @@ const BaseSchema = z.object({
 
 const ComputeSchema = BaseSchema.extend({
   planeIds: z.array(z.string().uuid()).min(1).max(12),
-  moduleCatalogId: z.string().uuid(),
+  moduleVariantId: z.string().uuid(),
   rulesProfileId: z.string().uuid().nullable().optional(),
   rules: RulesInputSchema.optional(),
   target: TargetSchema,
@@ -172,15 +177,72 @@ async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: 
   return { planes, idByKey, nameByKey };
 }
 
-async function loadSpec(sb: SB, companyId: string, moduleCatalogId: string): Promise<LayoutModuleSpec> {
+/**
+ * Résout une référence du catalogue : dimensions RÉELLES publiées.
+ * Aucune dimension de repli : sans dimensions, la référence est refusée.
+ */
+async function loadSpec(
+  sb: SB,
+  companyId: string,
+  variantId: string,
+): Promise<{ spec: LayoutModuleSpec; snapshot: ModuleSnapshot }> {
   const { data } = await sb
-    .from("solar_module_catalog")
-    .select("*")
-    .eq("id", moduleCatalogId)
+    .from("solar_module_variants")
+    .select(
+      "id, model, pmax_stc_w, confidence, primary_source, company_id, current_revision_id, series:solar_module_series!inner(name, width_mm, height_mm, depth_mm, weight_kg, manufacturer:solar_manufacturers!inner(name))",
+    )
+    .eq("id", variantId)
     .or(`company_id.is.null,company_id.eq.${companyId}`)
     .maybeSingle();
   if (!data) throw new Error("Panneau introuvable dans le catalogue.");
-  return { id: data.id, width_mm: data.width_mm, height_mm: data.height_mm, power_wc: data.power_wc };
+
+  const row = data as unknown as {
+    id: string;
+    model: string;
+    pmax_stc_w: number | null;
+    confidence: string | null;
+    primary_source: string | null;
+    current_revision_id: string | null;
+    series: {
+      name: string;
+      width_mm: number | null;
+      height_mm: number | null;
+      depth_mm: number | null;
+      weight_kg: number | null;
+      manufacturer: { name: string };
+    };
+  };
+
+  const dims = {
+    width_mm: row.series.width_mm,
+    height_mm: row.series.height_mm,
+    depth_mm: row.series.depth_mm,
+  };
+  if (!hasUsableDimensions(dims)) throw new Error(MISSING_DIMENSIONS_MESSAGE);
+  if (!row.pmax_stc_w) throw new Error("Puissance non publiée pour cette référence.");
+
+  return {
+    spec: {
+      id: row.id,
+      width_mm: dims.width_mm!,
+      height_mm: dims.height_mm!,
+      power_wc: row.pmax_stc_w,
+    },
+    snapshot: {
+      variant_id: row.id,
+      revision_id: row.current_revision_id,
+      manufacturer: row.series.manufacturer.name,
+      series: row.series.name,
+      model: row.model,
+      power_wc: row.pmax_stc_w,
+      width_mm: dims.width_mm!,
+      height_mm: dims.height_mm!,
+      depth_mm: dims.depth_mm,
+      weight_kg: row.series.weight_kg,
+      confidence: (row.confidence as ModuleSnapshot["confidence"]) ?? "to_verify",
+      source: row.primary_source,
+    },
+  };
 }
 
 /* ------------------------------- Catalogue -------------------------------- */
