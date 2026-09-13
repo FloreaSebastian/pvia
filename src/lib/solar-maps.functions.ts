@@ -6,6 +6,7 @@
  * conservée, comme point de référence du projet.
  */
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertSolarMember } from "./solar.server";
@@ -38,9 +39,17 @@ export const getMapsBrowserKey = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async (): Promise<{ key: string | null; source: "pvia" | "pvia_dev" | "none"; buildId: string }> => {
     const buildId = process.env["BUILD_ID"] ?? process.env["VITE_BUILD_ID"] ?? "inconnu";
-    // Séparation stricte : en développement, seule la clé DEV est servie ;
-    // la clé de production n'est jamais transmise à une origine locale.
-    const isDev = process.env["NODE_ENV"] !== "production";
+    // Séparation stricte fondée sur l'origine réelle de l'appel : une origine
+    // locale ne reçoit jamais la clé de production, et inversement.
+    let host = "";
+    try {
+      const req = getRequest();
+      const raw = req.headers.get("origin") ?? req.headers.get("referer") ?? req.url;
+      host = new URL(raw).hostname;
+    } catch {
+      host = "";
+    }
+    const isDev = host === "localhost" || host === "127.0.0.1";
     if (isDev) {
       const dev = process.env["GOOGLE_MAPS_DEV_KEY"] ?? null;
       return { key: dev && dev.length > 0 ? dev : null, source: dev ? "pvia_dev" : "none", buildId };
