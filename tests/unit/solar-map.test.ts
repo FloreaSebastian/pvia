@@ -149,4 +149,15 @@ describe("configuration et diagnostic cartographique", () => {
     expect(keyMatchesHost("pvia.fr", "pvia")).toBe(true);
     expect(keyMatchesHost("pvia.fr", "none")).toBe(false);
   });
+
+  test("sépare strictement clé production et clé développement", () => {
+    // La clé de production ne doit jamais couvrir l'origine locale.
+    expect(keyMatchesHost("localhost", "pvia")).toBe(false);
+    expect(keyMatchesHost("127.0.0.1", "pvia")).toBe(false);
+    expect(keyMatchesHost("www.pvia.fr", "pvia")).toBe(true);
+    // La clé de développement ne doit couvrir que l'origine locale.
+    expect(keyMatchesHost("localhost", "pvia_dev")).toBe(true);
+    expect(keyMatchesHost("pvia.fr", "pvia_dev")).toBe(false);
+    expect(keyMatchesHost("app.pvia.fr", "pvia_dev")).toBe(false);
+  });
 });
