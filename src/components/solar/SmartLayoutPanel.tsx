@@ -33,6 +33,9 @@ import {
   computeSmartLayout,
   getLayoutSetup,
 } from "@/lib/solar-layout.functions";
+import { getModuleShortlist } from "@/lib/solar-catalog.functions";
+import { ModulePicker } from "@/components/solar/ModulePicker";
+import { formatModuleDimensions, type ModuleListItem } from "@/lib/solar/module-catalog";
 import type { LayoutCandidate } from "@/lib/solar-layout";
 
 type Setup = Awaited<ReturnType<typeof getLayoutSetup>>;
@@ -63,8 +66,10 @@ export function SmartLayoutPanel({
   const computeFn = useServerFn(computeSmartLayout);
   const applyFn = useServerFn(applySmartLayout);
 
+  const shortlistFn = useServerFn(getModuleShortlist);
+
   const [setup, setSetup] = useState<Setup | null>(null);
-  const [moduleId, setModuleId] = useState<string>("");
+  const [module, setModule] = useState<ModuleListItem | null>(null);
   const [profileId, setProfileId] = useState<string>("none");
   const [preset, setPreset] = useState<string>("max");
   const [customPower, setCustomPower] = useState("12");
@@ -84,13 +89,16 @@ export function SmartLayoutPanel({
   useEffect(() => {
     if (!companyId) return;
     setupFn({ data: { companyId } })
+      .then((s) => setSetup(s as Setup))
+      .catch(() => toast.error("Profils de règles indisponibles."));
+    // Reprise du dernier panneau utilisé par l'entreprise, sinon d'un favori.
+    shortlistFn({ data: { companyId } })
       .then((s) => {
-        setSetup(s as Setup);
-        const first = (s as Setup).catalog[0];
-        setModuleId((prev) => prev || first?.id || "");
+        const pick = (s.recents[0] ?? s.favorites[0]) as ModuleListItem | undefined;
+        if (pick) setModule((prev) => prev ?? pick);
       })
-      .catch(() => toast.error("Catalogue de panneaux indisponible."));
-  }, [companyId, setupFn]);
+      .catch(() => undefined);
+  }, [companyId, setupFn, shortlistFn]);
 
   const target = useMemo(() => {
     if (preset === "max") return { mode: "max" as const, rounding: "closest" as const };
@@ -99,8 +107,14 @@ export function SmartLayoutPanel({
     return { mode: "power" as const, power_kwc: power, rounding: "closest" as const };
   }, [preset, customPower]);
 
+  // Changer de référence invalide immédiatement les variantes calculées.
+  useEffect(() => {
+    setResult(null);
+    setSelected(null);
+  }, [module?.variant_id, orientation, planeIds, profileId]);
+
   const generate = useCallback(async () => {
-    if (!companyId || !moduleId || !planeIds.length) return;
+    if (!companyId || !module || !planeIds.length) return;
     setBusy(true);
     try {
       const res = (await computeFn({
@@ -108,7 +122,7 @@ export function SmartLayoutPanel({
           companyId,
           modelId,
           planeIds,
-          moduleCatalogId: moduleId,
+          moduleVariantId: module.variant_id,
           rulesProfileId: profileId === "none" ? null : profileId,
           target,
           orientation,
@@ -123,11 +137,11 @@ export function SmartLayoutPanel({
     } finally {
       setBusy(false);
     }
-  }, [companyId, computeFn, modelId, moduleId, orientation, planeIds, profileId, target]);
+  }, [companyId, computeFn, modelId, module, orientation, planeIds, profileId, target]);
 
   const apply = useCallback(
     async (candidate: LayoutCandidate) => {
-      if (!companyId) return;
+      if (!companyId || !module) return;
       setBusy(true);
       try {
         await applyFn({
@@ -135,7 +149,7 @@ export function SmartLayoutPanel({
             companyId,
             modelId,
             planeIds,
-            moduleCatalogId: moduleId,
+            moduleVariantId: module.variant_id,
             rulesProfileId: profileId === "none" ? null : profileId,
             target,
             orientation,
@@ -154,7 +168,7 @@ export function SmartLayoutPanel({
         setBusy(false);
       }
     },
-    [applyFn, companyId, modelId, moduleId, onApplied, orientation, planeIds, profileId, target],
+    [applyFn, companyId, modelId, module, onApplied, orientation, planeIds, profileId, target],
   );
 
   const targetPower = target.mode === "power" ? target.power_kwc : null;
@@ -172,19 +186,17 @@ export function SmartLayoutPanel({
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="smart-module">Panneau</Label>
-            <Select value={moduleId} onValueChange={setModuleId} disabled={disabled || busy}>
-              <SelectTrigger id="smart-module">
-                <SelectValue placeholder="Choisir un panneau" />
-              </SelectTrigger>
-              <SelectContent>
-                {(setup?.catalog ?? []).map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.manufacturer} {m.reference} — {m.power_wc} Wc ({m.width_mm}×{m.height_mm} mm)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ModulePicker
+              companyId={companyId}
+              value={module}
+              disabled={disabled || busy}
+              onChange={setModule}
+            />
+            {module && (
+              <p className="text-xs text-muted-foreground">
+                Géométrie utilisée pour le calcul : {formatModuleDimensions(module)}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -277,7 +289,7 @@ export function SmartLayoutPanel({
             <Button
               type="button"
               className="min-h-11 w-full sm:w-auto"
-              disabled={disabled || busy || !moduleId || !planeIds.length}
+              disabled={disabled || busy || !module || !planeIds.length}
               onClick={generate}
             >
               {busy ? "Calcul en cours…" : "Calculer les implantations"}
