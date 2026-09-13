@@ -47,7 +47,9 @@ export function loadGoogleMaps(): Promise<typeof google.maps> {
     };
     const script = document.createElement("script");
     const channel = mapsTrackingId();
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&libraries=geometry&callback=__pviaMapsReady${
+    // auth_referrer_policy=origin : Google ne reçoit que l'origine (https://pvia.fr),
+    // jamais le chemin. La restriction de clé se fait donc au domaine, sans motif de chemin.
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&libraries=geometry&auth_referrer_policy=origin&callback=__pviaMapsReady${
       channel ? `&channel=${encodeURIComponent(channel)}` : ""
     }`;
     script.async = true;
