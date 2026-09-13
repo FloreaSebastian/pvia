@@ -108,7 +108,9 @@ export function mapsKeySource(): MapKeySource {
   const own = import.meta.env["VITE_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
   if (own && own.length > 0) return "pvia";
   const managed = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
-  return managed && managed.length > 0 ? "lovable_connector" : "none";
+  if (!managed || managed.length === 0) return "none";
+  const host = typeof window === "undefined" ? "" : window.location.hostname;
+  return keyMatchesHost(host, "lovable_connector") ? "lovable_connector" : "none";
 }
 
 /** Identifiant de build, pour savoir quelle version est réellement en ligne. */
