@@ -90,19 +90,20 @@ export interface ModuleListItem {
 }
 
 const MIN_SIDE_MM = 200;
-const MAX_SIDE_MM = 4000;
-const MIN_DEPTH_MM = 10;
-const MAX_DEPTH_MM = 100;
+const MAX_WIDTH_MM = 3000;
+const MAX_HEIGHT_MM = 6000;
+const MIN_DEPTH_MM = 2;
+const MAX_DEPTH_MM = 200;
 const MIN_POWER_W = 10;
 const MAX_POWER_W = 1500;
 
 /** Un panneau n'est utilisable que si ses deux dimensions sont publiées. */
 export function hasUsableDimensions(dim: ModuleDimensions): boolean {
-  return isPlausibleSide(dim.width_mm) && isPlausibleSide(dim.height_mm);
+  return isPlausibleSide(dim.width_mm, MAX_WIDTH_MM) && isPlausibleSide(dim.height_mm, MAX_HEIGHT_MM);
 }
 
-function isPlausibleSide(value: number | null): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= MIN_SIDE_MM && value <= MAX_SIDE_MM;
+function isPlausibleSide(value: number | null, max: number): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= MIN_SIDE_MM && value <= max;
 }
 
 /**
@@ -179,17 +180,17 @@ export function validateCustomModule(input: CustomModuleInput): string[] {
   if (!(input.power_wc >= MIN_POWER_W && input.power_wc <= MAX_POWER_W)) {
     errors.push(`La puissance doit être comprise entre ${MIN_POWER_W} et ${MAX_POWER_W} Wc.`);
   }
-  if (!isPlausibleSide(input.width_mm)) {
-    errors.push(`La largeur doit être comprise entre ${MIN_SIDE_MM} et ${MAX_SIDE_MM} mm.`);
+  if (!isPlausibleSide(input.width_mm, MAX_WIDTH_MM)) {
+    errors.push(`La largeur doit être comprise entre ${MIN_SIDE_MM} et ${MAX_WIDTH_MM} mm.`);
   }
-  if (!isPlausibleSide(input.height_mm)) {
-    errors.push(`La hauteur doit être comprise entre ${MIN_SIDE_MM} et ${MAX_SIDE_MM} mm.`);
+  if (!isPlausibleSide(input.height_mm, MAX_HEIGHT_MM)) {
+    errors.push(`La hauteur doit être comprise entre ${MIN_SIDE_MM} et ${MAX_HEIGHT_MM} mm.`);
   }
   if (input.depth_mm != null && (input.depth_mm < MIN_DEPTH_MM || input.depth_mm > MAX_DEPTH_MM)) {
     errors.push(`L'épaisseur doit être comprise entre ${MIN_DEPTH_MM} et ${MAX_DEPTH_MM} mm.`);
   }
-  if (input.weight_kg != null && (input.weight_kg <= 0 || input.weight_kg > 120)) {
-    errors.push("Le poids doit être compris entre 0 et 120 kg.");
+  if (input.weight_kg != null && (input.weight_kg < 1 || input.weight_kg > 200)) {
+    errors.push("Le poids doit être compris entre 1 et 200 kg.");
   }
   return errors;
 }
