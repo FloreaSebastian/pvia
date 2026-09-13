@@ -2454,12 +2454,15 @@ export type Database = {
           created_at: string
           id: string
           label: string
+          layout_engine_version: string | null
           model_id: string
           module_catalog_id: string | null
           orientation: string
           params: Json
           roof_plane_id: string
           row_gap_m: number
+          rules_profile_id: string | null
+          rules_profile_version: number | null
           updated_at: string
         }
         Insert: {
@@ -2468,12 +2471,15 @@ export type Database = {
           created_at?: string
           id?: string
           label?: string
+          layout_engine_version?: string | null
           model_id: string
           module_catalog_id?: string | null
           orientation?: string
           params?: Json
           roof_plane_id: string
           row_gap_m?: number
+          rules_profile_id?: string | null
+          rules_profile_version?: number | null
           updated_at?: string
         }
         Update: {
@@ -2482,12 +2488,15 @@ export type Database = {
           created_at?: string
           id?: string
           label?: string
+          layout_engine_version?: string | null
           model_id?: string
           module_catalog_id?: string | null
           orientation?: string
           params?: Json
           roof_plane_id?: string
           row_gap_m?: number
+          rules_profile_id?: string | null
+          rules_profile_version?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -2517,6 +2526,13 @@ export type Database = {
             columns: ["roof_plane_id"]
             isOneToOne: false
             referencedRelation: "solar_roof_planes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_arrays_rules_profile_id_fkey"
+            columns: ["rules_profile_id"]
+            isOneToOne: false
+            referencedRelation: "solar_rules_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2888,6 +2904,106 @@ export type Database = {
         }
         Relationships: []
       }
+      solar_layout_variants: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          criteria: Json
+          geometry_version: number
+          id: string
+          is_active: boolean
+          label: string
+          layout_engine_version: string
+          model_id: string
+          module_catalog_id: string | null
+          module_count: number
+          modules: Json
+          orientation_mode: string
+          power_kwc: number
+          rules_profile_id: string | null
+          rules_profile_version: number | null
+          rules_snapshot: Json
+          schema_version: number
+          strategy: string
+          target_mode: string
+          target_power_kwc: number | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          criteria?: Json
+          geometry_version: number
+          id?: string
+          is_active?: boolean
+          label: string
+          layout_engine_version: string
+          model_id: string
+          module_catalog_id?: string | null
+          module_count?: number
+          modules?: Json
+          orientation_mode?: string
+          power_kwc?: number
+          rules_profile_id?: string | null
+          rules_profile_version?: number | null
+          rules_snapshot?: Json
+          schema_version?: number
+          strategy: string
+          target_mode?: string
+          target_power_kwc?: number | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          criteria?: Json
+          geometry_version?: number
+          id?: string
+          is_active?: boolean
+          label?: string
+          layout_engine_version?: string
+          model_id?: string
+          module_catalog_id?: string | null
+          module_count?: number
+          modules?: Json
+          orientation_mode?: string
+          power_kwc?: number
+          rules_profile_id?: string | null
+          rules_profile_version?: number | null
+          rules_snapshot?: Json
+          schema_version?: number
+          strategy?: string
+          target_mode?: string
+          target_power_kwc?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_layout_variants_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_layout_variants_module_catalog_id_fkey"
+            columns: ["module_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_layout_variants_rules_profile_id_fkey"
+            columns: ["rules_profile_id"]
+            isOneToOne: false
+            referencedRelation: "solar_rules_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_measurements: {
         Row: {
           category: string
@@ -3174,18 +3290,25 @@ export type Database = {
           cell_count: number | null
           company_id: string | null
           created_at: string
+          datasheet_date: string | null
+          datasheet_source: string | null
           datasheet_url: string | null
           efficiency_pct: number | null
           electrical: Json
           height_mm: number
           id: string
+          imp_a: number | null
           is_active: boolean
+          isc_a: number | null
           manufacturer: string
           power_wc: number
           reference: string
           technology: string | null
+          temp_coeff_pmax_pct_per_c: number | null
           thickness_mm: number | null
           updated_at: string
+          vmp_v: number | null
+          voc_v: number | null
           width_mm: number
         }
         Insert: {
@@ -3193,18 +3316,25 @@ export type Database = {
           cell_count?: number | null
           company_id?: string | null
           created_at?: string
+          datasheet_date?: string | null
+          datasheet_source?: string | null
           datasheet_url?: string | null
           efficiency_pct?: number | null
           electrical?: Json
           height_mm: number
           id?: string
+          imp_a?: number | null
           is_active?: boolean
+          isc_a?: number | null
           manufacturer: string
           power_wc: number
           reference: string
           technology?: string | null
+          temp_coeff_pmax_pct_per_c?: number | null
           thickness_mm?: number | null
           updated_at?: string
+          vmp_v?: number | null
+          voc_v?: number | null
           width_mm: number
         }
         Update: {
@@ -3212,18 +3342,25 @@ export type Database = {
           cell_count?: number | null
           company_id?: string | null
           created_at?: string
+          datasheet_date?: string | null
+          datasheet_source?: string | null
           datasheet_url?: string | null
           efficiency_pct?: number | null
           electrical?: Json
           height_mm?: number
           id?: string
+          imp_a?: number | null
           is_active?: boolean
+          isc_a?: number | null
           manufacturer?: string
           power_wc?: number
           reference?: string
           technology?: string | null
+          temp_coeff_pmax_pct_per_c?: number | null
           thickness_mm?: number | null
           updated_at?: string
+          vmp_v?: number | null
+          voc_v?: number | null
           width_mm?: number
         }
         Relationships: [
@@ -3232,6 +3369,41 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_module_favorites: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          last_used_at: string | null
+          module_catalog_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          module_catalog_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          module_catalog_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_module_favorites_module_catalog_id_fkey"
+            columns: ["module_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_catalog"
             referencedColumns: ["id"]
           },
         ]
@@ -3253,6 +3425,9 @@ export type Database = {
           orientation: string
           roof_plane_id: string
           updated_at: string
+          validity_cause: string | null
+          validity_status: string
+          variant_id: string | null
         }
         Insert: {
           analysis?: Json
@@ -3270,6 +3445,9 @@ export type Database = {
           orientation?: string
           roof_plane_id: string
           updated_at?: string
+          validity_cause?: string | null
+          validity_status?: string
+          variant_id?: string | null
         }
         Update: {
           analysis?: Json
@@ -3287,6 +3465,9 @@ export type Database = {
           orientation?: string
           roof_plane_id?: string
           updated_at?: string
+          validity_cause?: string | null
+          validity_status?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -3315,6 +3496,13 @@ export type Database = {
             columns: ["roof_plane_id"]
             isOneToOne: false
             referencedRelation: "solar_roof_planes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_modules_placed_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_layout_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -3737,6 +3925,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      solar_rules_profiles: {
+        Row: {
+          col_gap_m: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          eave_m: number
+          hip_m: number
+          id: string
+          is_default: boolean
+          name: string
+          obstacle_m: number
+          ridge_m: number
+          row_gap_m: number
+          updated_at: string
+          valley_m: number
+          verge_m: number
+          version: number
+          walkway_m: number
+        }
+        Insert: {
+          col_gap_m?: number
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          eave_m?: number
+          hip_m?: number
+          id?: string
+          is_default?: boolean
+          name: string
+          obstacle_m?: number
+          ridge_m?: number
+          row_gap_m?: number
+          updated_at?: string
+          valley_m?: number
+          verge_m?: number
+          version?: number
+          walkway_m?: number
+        }
+        Update: {
+          col_gap_m?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          eave_m?: number
+          hip_m?: number
+          id?: string
+          is_default?: boolean
+          name?: string
+          obstacle_m?: number
+          ridge_m?: number
+          row_gap_m?: number
+          updated_at?: string
+          valley_m?: number
+          verge_m?: number
+          version?: number
+          walkway_m?: number
+        }
+        Relationships: []
       }
       solar_zones: {
         Row: {
@@ -5720,6 +5968,15 @@ export type Database = {
       sc_membership_readable: {
         Args: { _membership_id: string }
         Returns: boolean
+      }
+      solar_apply_layout: {
+        Args: {
+          _arrays: Json
+          _company_id: string
+          _expected_geometry_version: number
+          _model_id: string
+        }
+        Returns: Json
       }
       solar_claim_job: {
         Args: {
