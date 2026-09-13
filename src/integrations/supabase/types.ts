@@ -3701,28 +3701,34 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
+          is_favorite: boolean
           last_used_at: string | null
           module_catalog_id: string | null
           module_variant_id: string | null
           updated_at: string
+          use_count: number
         }
         Insert: {
           company_id: string
           created_at?: string
           id?: string
+          is_favorite?: boolean
           last_used_at?: string | null
           module_catalog_id?: string | null
           module_variant_id?: string | null
           updated_at?: string
+          use_count?: number
         }
         Update: {
           company_id?: string
           created_at?: string
           id?: string
+          is_favorite?: boolean
           last_used_at?: string | null
           module_catalog_id?: string | null
           module_variant_id?: string | null
           updated_at?: string
+          use_count?: number
         }
         Relationships: [
           {
@@ -6773,6 +6779,10 @@ export type Database = {
         Returns: Json
       }
       solar_catalog_apply_import: { Args: { _job_id: string }; Returns: Json }
+      solar_catalog_touch_module: {
+        Args: { _company_id: string; _variant_id: string }
+        Returns: undefined
+      }
       solar_claim_job: {
         Args: {
           _job_types?: string[]
