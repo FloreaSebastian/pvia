@@ -365,7 +365,18 @@ export async function loadFullModel(sb: SB, companyId: string, modelId: string):
   });
 
   const mainArray = (arrays.data ?? [])[0] ?? null;
-  const spec = (catalog.data ?? []).find((c) => c.id === mainArray?.module_catalog_id) ?? null;
+  // La référence enregistrée avec l'implantation prime sur le catalogue hérité.
+  const snapshot = mainArray?.module_snapshot as
+    | { power_wc?: number; width_mm?: number; height_mm?: number }
+    | null;
+  const spec =
+    snapshot && typeof snapshot.width_mm === "number" && typeof snapshot.height_mm === "number"
+      ? {
+          power_wc: snapshot.power_wc ?? 0,
+          width_mm: snapshot.width_mm,
+          height_mm: snapshot.height_mm,
+        }
+      : (catalog.data ?? []).find((c) => c.id === mainArray?.module_catalog_id) ?? null;
   const provenanceRows = provenance.data ?? [];
   const terrain = (building?.terrain as unknown as TerrainGrid | null) ?? null;
 
