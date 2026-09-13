@@ -135,9 +135,13 @@ export function mapsTrackingId(): string {
  * `*.lovable.app` / `*.lovableproject.com`. Sur un domaine PVIA, elle échouera.
  */
 export function keyMatchesHost(host: string, source: MapKeySource): boolean {
+  const local = /^localhost$|^127\.0\.0\.1$/.test(host);
   if (source === "none") return false;
-  if (source === "pvia") return true;
-  return /(^|\.)lovable\.app$|(^|\.)lovableproject\.com$|^localhost$|^127\.0\.0\.1$/.test(host);
+  // Clé de développement : strictement l'origine locale.
+  if (source === "pvia_dev") return local;
+  // Clé de production : domaines PVIA, jamais localhost.
+  if (source === "pvia") return !local;
+  return /(^|\.)lovable\.app$|(^|\.)lovableproject\.com$/.test(host) || local;
 }
 
 /* --------------------------- Erreurs compréhensibles ---------------------- */
