@@ -49,7 +49,7 @@ export const GOOGLE_MAPS_PROVIDER: MapVisualProvider = {
 
 /* ------------------------------- Clé navigateur --------------------------- */
 
-export type MapKeySource = "pvia" | "lovable_connector" | "none";
+export type MapKeySource = "pvia" | "pvia_dev" | "lovable_connector" | "none";
 
 /**
  * Ordre de résolution : la clé PVIA dédiée (autorisée pour pvia.fr) prime sur
