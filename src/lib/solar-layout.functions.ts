@@ -253,45 +253,12 @@ export const getLayoutSetup = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarMember(supabase, data.companyId, userId);
-    const [{ data: catalog }, { data: profiles }, { data: favorites }] = await Promise.all([
-      supabase
-        .from("solar_module_catalog")
-        .select("*")
-        .or(`company_id.is.null,company_id.eq.${data.companyId}`)
-        .eq("is_active", true)
-        .order("manufacturer")
-        .order("power_wc", { ascending: false }),
-      supabase.from("solar_rules_profiles").select("*").eq("company_id", data.companyId).order("name"),
-      supabase.from("solar_module_favorites").select("*").eq("company_id", data.companyId),
-    ]);
-    return { catalog: catalog ?? [], profiles: profiles ?? [], favorites: favorites ?? [] };
-  });
-
-export const toggleModuleFavorite = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i) =>
-    z
-      .object({ companyId: z.string().uuid(), moduleCatalogId: z.string().uuid(), favorite: z.boolean() })
-      .parse(i),
-  )
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertSolarManage(supabase, data.companyId, userId);
-    if (!data.favorite) {
-      await supabase
-        .from("solar_module_favorites")
-        .delete()
-        .eq("company_id", data.companyId)
-        .eq("module_catalog_id", data.moduleCatalogId);
-      return { favorite: false };
-    }
-    await supabase
-      .from("solar_module_favorites")
-      .upsert(
-        { company_id: data.companyId, module_catalog_id: data.moduleCatalogId },
-        { onConflict: "company_id,module_catalog_id" },
-      );
-    return { favorite: true };
+    const { data: profiles } = await supabase
+      .from("solar_rules_profiles")
+      .select("*")
+      .eq("company_id", data.companyId)
+      .order("name");
+    return { profiles: profiles ?? [] };
   });
 
 /* --------------------------- Profils de règles ---------------------------- */
