@@ -360,7 +360,7 @@ export function SmartLayoutPanel({
                   <TableHead>kWc</TableHead>
                   <TableHead>Orientation</TableHead>
                   <TableHead>Remplissage</TableHead>
-                  <TableHead>Rangées</TableHead>
+                  <TableHead>Alignement</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -371,7 +371,7 @@ export function SmartLayoutPanel({
                     <TableCell>{c.power_kwc}</TableCell>
                     <TableCell>{c.orientation === "portrait" ? "Portrait" : "Paysage"}</TableCell>
                     <TableCell>{Math.round(c.criteria.fill_ratio * 100)} %</TableCell>
-                    <TableCell>{c.criteria.full_rows}</TableCell>
+                    <TableCell>{Math.round(c.criteria.alignment_ratio * 100)} %</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
