@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.solar_apply_layout(uuid, uuid, integer, jsonb) FROM anon;

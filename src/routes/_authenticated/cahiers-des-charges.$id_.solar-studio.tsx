@@ -41,6 +41,7 @@ import {
 import { azimuthLabel } from "@/lib/solar/geo";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
+import { SmartLayoutPanel } from "@/components/solar/SmartLayoutPanel";
 import { SitePanel } from "@/components/solar/SitePanel";
 import { SiteMapCard } from "@/components/solar/map/SiteMapCard";
 
@@ -334,13 +335,34 @@ function SolarStudioPage() {
         </div>
 
         <Tabs defaultValue="batiment" className="min-w-0">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
             <TabsTrigger value="batiment">Bâtiment</TabsTrigger>
             <TabsTrigger value="site">Site</TabsTrigger>
             <TabsTrigger value="pans">Pans</TabsTrigger>
             <TabsTrigger value="obstacles">Obstacles</TabsTrigger>
             <TabsTrigger value="pose">Pose</TabsTrigger>
+            <TabsTrigger value="implantation">Implantation</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="implantation">
+            <SmartLayoutPanel
+              companyId={companyId}
+              modelId={payload.model.id}
+              planes={payload.planes.map((p) => ({
+                id: p.id,
+                key: p.key,
+                name: p.name,
+                area_m2: p.area_m2,
+              }))}
+              disabled={!canWrite || busy}
+              onApplied={() => {
+                if (!companyId) return;
+                void load({ data: { companyId, studyId: id } }).then((next) =>
+                  applyPayload(next as Payload),
+                );
+              }}
+            />
+          </TabsContent>
 
           <TabsContent value="site">
             <SitePanel payload={payload} companyId={companyId} disabled={!canWrite || busy} onPayload={applyPayload} />
