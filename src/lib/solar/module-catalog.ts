@@ -8,28 +8,37 @@
  */
 
 export type ModuleConfidence =
-  | "manufacturer_verified"
-  | "official_database"
-  | "directory"
-  | "company"
-  | "to_verify";
+  | "constructeur"
+  | "base_officielle"
+  | "annuaire"
+  | "entreprise"
+  | "a_verifier";
 
-export type ModuleStatus = "ACTIVE" | "DISCONTINUED" | "ARCHIVED" | "UNKNOWN";
+export type ModuleStatus = "active" | "discontinued" | "archived" | "unknown";
 
 export const CONFIDENCE_LABELS: Record<ModuleConfidence, string> = {
-  manufacturer_verified: "Vérifié constructeur",
-  official_database: "Vérifié base officielle",
-  directory: "Annuaire",
-  company: "Saisie entreprise",
-  to_verify: "À vérifier",
+  constructeur: "Vérifié constructeur",
+  base_officielle: "Vérifié base officielle",
+  annuaire: "Annuaire",
+  entreprise: "Saisie entreprise",
+  a_verifier: "À vérifier",
 };
 
 export const STATUS_LABELS: Record<ModuleStatus, string> = {
-  ACTIVE: "Commercialisé",
-  DISCONTINUED: "Ancien modèle",
-  ARCHIVED: "Archivé",
-  UNKNOWN: "Statut inconnu",
+  active: "Commercialisé",
+  discontinued: "Ancien modèle",
+  archived: "Archivé",
+  unknown: "Statut non publié",
 };
+
+/** Libellés sûrs même si la source livre un code inattendu. */
+export function confidenceLabel(value: string | null): string {
+  return CONFIDENCE_LABELS[(value ?? "a_verifier") as ModuleConfidence] ?? "À vérifier";
+}
+
+export function statusLabel(value: string | null): string {
+  return STATUS_LABELS[(value ?? "unknown") as ModuleStatus] ?? "Statut non publié";
+}
 
 export const MISSING_DIMENSIONS_MESSAGE =
   "Dimensions manquantes — impossible d'utiliser ce panneau pour l'implantation.";

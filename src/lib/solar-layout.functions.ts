@@ -239,7 +239,7 @@ async function loadSpec(
       height_mm: dims.height_mm!,
       depth_mm: dims.depth_mm,
       weight_kg: row.series.weight_kg,
-      confidence: (row.confidence as ModuleSnapshot["confidence"]) ?? "to_verify",
+      confidence: (row.confidence as ModuleSnapshot["confidence"]) ?? "a_verifier",
       source: row.primary_source,
     },
   };

@@ -31,12 +31,12 @@ import {
   setModuleFavorite,
 } from "@/lib/solar-catalog.functions";
 import {
-  CONFIDENCE_LABELS,
+  confidenceLabel,
   formatModuleDimensions,
   formatModuleMeters,
   hasUsableDimensions,
   MISSING_DIMENSIONS_MESSAGE,
-  STATUS_LABELS,
+  statusLabel,
   type ModuleListItem,
 } from "@/lib/solar/module-catalog";
 
@@ -73,7 +73,7 @@ export function ModulePicker({
       </Button>
       {value && (
         <p className="text-xs text-muted-foreground">
-          {formatModuleMeters(value)} · {CONFIDENCE_LABELS[value.confidence]}
+          {formatModuleMeters(value)} · {confidenceLabel(value.confidence)}
           {value.source ? ` · ${value.source}` : ""}
         </p>
       )}
@@ -342,7 +342,7 @@ function ModuleGroup({
                   {m.is_company && <Badge variant="outline">Entreprise</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {CONFIDENCE_LABELS[m.confidence]} · {STATUS_LABELS[m.status]}
+                  {confidenceLabel(m.confidence)} · {statusLabel(m.status)}
                 </p>
                 {usable ? (
                   <Button type="button" size="sm" className="mt-auto min-h-11" onClick={() => onPick(m)}>
