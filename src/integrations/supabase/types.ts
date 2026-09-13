@@ -1020,6 +1020,7 @@ export type Database = {
           currency: string
           custom_css: string | null
           date_format: string
+          default_module_variant_id: string | null
           email_brand_color: string | null
           email_footer: string
           email_signature: string | null
@@ -1048,6 +1049,7 @@ export type Database = {
           currency?: string
           custom_css?: string | null
           date_format?: string
+          default_module_variant_id?: string | null
           email_brand_color?: string | null
           email_footer?: string
           email_signature?: string | null
@@ -1076,6 +1078,7 @@ export type Database = {
           currency?: string
           custom_css?: string | null
           date_format?: string
+          default_module_variant_id?: string | null
           email_brand_color?: string | null
           email_footer?: string
           email_signature?: string | null
@@ -1095,7 +1098,15 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_default_module_variant_id_fkey"
+            columns: ["default_module_variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_variants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       compliance_checklist_items: {
         Row: {
@@ -2457,6 +2468,9 @@ export type Database = {
           layout_engine_version: string | null
           model_id: string
           module_catalog_id: string | null
+          module_revision_id: string | null
+          module_snapshot: Json | null
+          module_variant_id: string | null
           orientation: string
           params: Json
           roof_plane_id: string
@@ -2474,6 +2488,9 @@ export type Database = {
           layout_engine_version?: string | null
           model_id: string
           module_catalog_id?: string | null
+          module_revision_id?: string | null
+          module_snapshot?: Json | null
+          module_variant_id?: string | null
           orientation?: string
           params?: Json
           roof_plane_id: string
@@ -2491,6 +2508,9 @@ export type Database = {
           layout_engine_version?: string | null
           model_id?: string
           module_catalog_id?: string | null
+          module_revision_id?: string | null
+          module_snapshot?: Json | null
+          module_variant_id?: string | null
           orientation?: string
           params?: Json
           roof_plane_id?: string
@@ -2519,6 +2539,20 @@ export type Database = {
             columns: ["module_catalog_id"]
             isOneToOne: false
             referencedRelation: "solar_module_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_arrays_module_revision_id_fkey"
+            columns: ["module_revision_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_arrays_module_variant_id_fkey"
+            columns: ["module_variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_variants"
             referencedColumns: ["id"]
           },
           {
@@ -2692,6 +2726,190 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      solar_catalog_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          payload: Json
+          variant_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          variant_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_catalog_audit_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_catalog_import_rows: {
+        Row: {
+          bipv: string | null
+          cec_listing_date: string | null
+          cells_parallel: number | null
+          cells_series: number | null
+          created_at: string
+          description: string | null
+          family: string | null
+          id: string
+          imp_a: number | null
+          isc_a: number | null
+          job_id: string | null
+          long_side_m: number | null
+          manufacturer: string
+          model: string
+          module_type: string | null
+          mounting: string | null
+          noct_c: number | null
+          pmax_w: number | null
+          safety_certification: string | null
+          short_side_m: number | null
+          source: string
+          tc_isc: number | null
+          tc_pmax: number | null
+          tc_voc: number | null
+          technology: string | null
+          vmp_v: number | null
+          voc_v: number | null
+        }
+        Insert: {
+          bipv?: string | null
+          cec_listing_date?: string | null
+          cells_parallel?: number | null
+          cells_series?: number | null
+          created_at?: string
+          description?: string | null
+          family?: string | null
+          id?: string
+          imp_a?: number | null
+          isc_a?: number | null
+          job_id?: string | null
+          long_side_m?: number | null
+          manufacturer: string
+          model: string
+          module_type?: string | null
+          mounting?: string | null
+          noct_c?: number | null
+          pmax_w?: number | null
+          safety_certification?: string | null
+          short_side_m?: number | null
+          source: string
+          tc_isc?: number | null
+          tc_pmax?: number | null
+          tc_voc?: number | null
+          technology?: string | null
+          vmp_v?: number | null
+          voc_v?: number | null
+        }
+        Update: {
+          bipv?: string | null
+          cec_listing_date?: string | null
+          cells_parallel?: number | null
+          cells_series?: number | null
+          created_at?: string
+          description?: string | null
+          family?: string | null
+          id?: string
+          imp_a?: number | null
+          isc_a?: number | null
+          job_id?: string | null
+          long_side_m?: number | null
+          manufacturer?: string
+          model?: string
+          module_type?: string | null
+          mounting?: string | null
+          noct_c?: number | null
+          pmax_w?: number | null
+          safety_certification?: string | null
+          short_side_m?: number | null
+          source?: string
+          tc_isc?: number | null
+          tc_pmax?: number | null
+          tc_voc?: number | null
+          technology?: string | null
+          vmp_v?: number | null
+          voc_v?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_catalog_import_rows_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "solar_catalog_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_catalog_jobs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          job_type: string
+          params: Json
+          source: string
+          source_url: string | null
+          source_version: string | null
+          started_at: string | null
+          stats: Json
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_type: string
+          params?: Json
+          source: string
+          source_url?: string | null
+          source_version?: string | null
+          started_at?: string | null
+          stats?: Json
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_type?: string
+          params?: Json
+          source?: string
+          source_url?: string | null
+          source_version?: string | null
+          started_at?: string | null
+          stats?: Json
+          status?: string
+        }
+        Relationships: []
       }
       solar_data_sources: {
         Row: {
@@ -2918,6 +3136,8 @@ export type Database = {
           model_id: string
           module_catalog_id: string | null
           module_count: number
+          module_snapshot: Json | null
+          module_variant_id: string | null
           modules: Json
           orientation_mode: string
           power_kwc: number
@@ -2943,6 +3163,8 @@ export type Database = {
           model_id: string
           module_catalog_id?: string | null
           module_count?: number
+          module_snapshot?: Json | null
+          module_variant_id?: string | null
           modules?: Json
           orientation_mode?: string
           power_kwc?: number
@@ -2968,6 +3190,8 @@ export type Database = {
           model_id?: string
           module_catalog_id?: string | null
           module_count?: number
+          module_snapshot?: Json | null
+          module_variant_id?: string | null
           modules?: Json
           orientation_mode?: string
           power_kwc?: number
@@ -2996,6 +3220,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "solar_layout_variants_module_variant_id_fkey"
+            columns: ["module_variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_variants"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "solar_layout_variants_rules_profile_id_fkey"
             columns: ["rules_profile_id"]
             isOneToOne: false
@@ -3003,6 +3234,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      solar_manufacturers: {
+        Row: {
+          country: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          name_normalized: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          name_normalized?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          name_normalized?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
       }
       solar_measurements: {
         Row: {
@@ -3373,30 +3640,95 @@ export type Database = {
           },
         ]
       }
+      solar_module_conflicts: {
+        Row: {
+          created_at: string
+          field: string
+          id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_source: string | null
+          resolved_value: string | null
+          source_a: string
+          source_b: string
+          status: string
+          value_a: string
+          value_b: string
+          variant_id: string
+        }
+        Insert: {
+          created_at?: string
+          field: string
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_source?: string | null
+          resolved_value?: string | null
+          source_a: string
+          source_b: string
+          status?: string
+          value_a: string
+          value_b: string
+          variant_id: string
+        }
+        Update: {
+          created_at?: string
+          field?: string
+          id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_source?: string | null
+          resolved_value?: string | null
+          source_a?: string
+          source_b?: string
+          status?: string
+          value_a?: string
+          value_b?: string
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_module_conflicts_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_module_favorites: {
         Row: {
           company_id: string
           created_at: string
           id: string
+          is_favorite: boolean
           last_used_at: string | null
-          module_catalog_id: string
+          module_catalog_id: string | null
+          module_variant_id: string | null
           updated_at: string
+          use_count: number
         }
         Insert: {
           company_id: string
           created_at?: string
           id?: string
+          is_favorite?: boolean
           last_used_at?: string | null
-          module_catalog_id: string
+          module_catalog_id?: string | null
+          module_variant_id?: string | null
           updated_at?: string
+          use_count?: number
         }
         Update: {
           company_id?: string
           created_at?: string
           id?: string
+          is_favorite?: boolean
           last_used_at?: string | null
-          module_catalog_id?: string
+          module_catalog_id?: string | null
+          module_variant_id?: string | null
           updated_at?: string
+          use_count?: number
         }
         Relationships: [
           {
@@ -3404,6 +3736,474 @@ export type Database = {
             columns: ["module_catalog_id"]
             isOneToOne: false
             referencedRelation: "solar_module_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_module_favorites_module_variant_id_fkey"
+            columns: ["module_variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_module_field_sources: {
+        Row: {
+          confidence: string
+          created_at: string
+          field: string
+          id: string
+          retrieved_at: string
+          source_label: string | null
+          source_page: string | null
+          source_type: string
+          source_url: string | null
+          value_text: string | null
+          variant_id: string
+        }
+        Insert: {
+          confidence?: string
+          created_at?: string
+          field: string
+          id?: string
+          retrieved_at?: string
+          source_label?: string | null
+          source_page?: string | null
+          source_type: string
+          source_url?: string | null
+          value_text?: string | null
+          variant_id: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          field?: string
+          id?: string
+          retrieved_at?: string
+          source_label?: string | null
+          source_page?: string | null
+          source_type?: string
+          source_url?: string | null
+          value_text?: string | null
+          variant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_module_field_sources_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_module_revisions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          datasheet_checksum: string | null
+          datasheet_date: string | null
+          datasheet_language: string | null
+          datasheet_url: string | null
+          datasheet_version: string | null
+          depth_mm: number | null
+          electrical: Json
+          height_mm: number | null
+          id: string
+          is_current: boolean
+          label: string | null
+          pmax_stc_w: number | null
+          revision_number: number
+          source_type: string
+          variant_id: string
+          weight_kg: number | null
+          width_mm: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          datasheet_checksum?: string | null
+          datasheet_date?: string | null
+          datasheet_language?: string | null
+          datasheet_url?: string | null
+          datasheet_version?: string | null
+          depth_mm?: number | null
+          electrical?: Json
+          height_mm?: number | null
+          id?: string
+          is_current?: boolean
+          label?: string | null
+          pmax_stc_w?: number | null
+          revision_number?: number
+          source_type?: string
+          variant_id: string
+          weight_kg?: number | null
+          width_mm?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          datasheet_checksum?: string | null
+          datasheet_date?: string | null
+          datasheet_language?: string | null
+          datasheet_url?: string | null
+          datasheet_version?: string | null
+          depth_mm?: number | null
+          electrical?: Json
+          height_mm?: number | null
+          id?: string
+          is_current?: boolean
+          label?: string | null
+          pmax_stc_w?: number | null
+          revision_number?: number
+          source_type?: string
+          variant_id?: string
+          weight_kg?: number | null
+          width_mm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_module_revisions_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_module_series: {
+        Row: {
+          backsheet_color: string | null
+          bifacial: boolean
+          bifaciality_factor: number | null
+          busbars: number | null
+          cable_length_mm: number | null
+          cable_section_mm2: number | null
+          cell_count: number | null
+          cell_format: string | null
+          cell_height_mm: number | null
+          cell_layout: string | null
+          cell_width_mm: number | null
+          clamp_zones: Json | null
+          company_id: string | null
+          connector_type: string | null
+          created_at: string
+          created_by: string | null
+          depth_mm: number | null
+          frame_color: string | null
+          frame_material: string | null
+          frame_type: string | null
+          glass_thickness_mm: number | null
+          glass_type: string | null
+          half_cut: boolean | null
+          height_mm: number | null
+          id: string
+          ip_rating: string | null
+          junction_box: string | null
+          manufacturer_id: string
+          model_family: string | null
+          name: string
+          name_normalized: string | null
+          technologies: string[]
+          updated_at: string
+          weight_kg: number | null
+          width_mm: number | null
+        }
+        Insert: {
+          backsheet_color?: string | null
+          bifacial?: boolean
+          bifaciality_factor?: number | null
+          busbars?: number | null
+          cable_length_mm?: number | null
+          cable_section_mm2?: number | null
+          cell_count?: number | null
+          cell_format?: string | null
+          cell_height_mm?: number | null
+          cell_layout?: string | null
+          cell_width_mm?: number | null
+          clamp_zones?: Json | null
+          company_id?: string | null
+          connector_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          depth_mm?: number | null
+          frame_color?: string | null
+          frame_material?: string | null
+          frame_type?: string | null
+          glass_thickness_mm?: number | null
+          glass_type?: string | null
+          half_cut?: boolean | null
+          height_mm?: number | null
+          id?: string
+          ip_rating?: string | null
+          junction_box?: string | null
+          manufacturer_id: string
+          model_family?: string | null
+          name: string
+          name_normalized?: string | null
+          technologies?: string[]
+          updated_at?: string
+          weight_kg?: number | null
+          width_mm?: number | null
+        }
+        Update: {
+          backsheet_color?: string | null
+          bifacial?: boolean
+          bifaciality_factor?: number | null
+          busbars?: number | null
+          cable_length_mm?: number | null
+          cable_section_mm2?: number | null
+          cell_count?: number | null
+          cell_format?: string | null
+          cell_height_mm?: number | null
+          cell_layout?: string | null
+          cell_width_mm?: number | null
+          clamp_zones?: Json | null
+          company_id?: string | null
+          connector_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          depth_mm?: number | null
+          frame_color?: string | null
+          frame_material?: string | null
+          frame_type?: string | null
+          glass_thickness_mm?: number | null
+          glass_type?: string | null
+          half_cut?: boolean | null
+          height_mm?: number | null
+          id?: string
+          ip_rating?: string | null
+          junction_box?: string | null
+          manufacturer_id?: string
+          model_family?: string | null
+          name?: string
+          name_normalized?: string | null
+          technologies?: string[]
+          updated_at?: string
+          weight_kg?: number | null
+          width_mm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_module_series_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_module_series_manufacturer_id_fkey"
+            columns: ["manufacturer_id"]
+            isOneToOne: false
+            referencedRelation: "solar_manufacturers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_module_usage: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          last_used_at: string
+          module_variant_id: string
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          last_used_at?: string
+          module_variant_id: string
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          last_used_at?: string
+          module_variant_id?: string
+          updated_at?: string
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_module_usage_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_module_usage_module_variant_id_fkey"
+            columns: ["module_variant_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_module_variants: {
+        Row: {
+          certifications: string[]
+          company_id: string | null
+          confidence: string
+          created_at: string
+          created_by: string | null
+          current_revision_id: string | null
+          degradation_annual_pct: number | null
+          degradation_first_year_pct: number | null
+          ean: string | null
+          efficiency_pct: number | null
+          id: string
+          imp_a: number | null
+          isc_a: number | null
+          max_series_fuse_a: number | null
+          max_system_voltage_v: number | null
+          mechanical_load_snow_pa: number | null
+          mechanical_load_wind_pa: number | null
+          model: string
+          model_normalized: string | null
+          model_original: string | null
+          noct_c: number | null
+          pmax_stc_w: number
+          power_tolerance_minus_w: number | null
+          power_tolerance_plus_w: number | null
+          primary_source: string | null
+          ptc_w: number | null
+          rear_power_w: number | null
+          search_text: string | null
+          series_id: string
+          sku: string | null
+          source_ref: string | null
+          status: string
+          temp_coeff_isc_pct_per_c: number | null
+          temp_coeff_pmax_pct_per_c: number | null
+          temp_coeff_voc_pct_per_c: number | null
+          temp_max_c: number | null
+          temp_min_c: number | null
+          updated_at: string
+          variant_label: string | null
+          verified_at: string | null
+          vmp_v: number | null
+          voc_v: number | null
+          warranty_performance_years: number | null
+          warranty_product_years: number | null
+        }
+        Insert: {
+          certifications?: string[]
+          company_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by?: string | null
+          current_revision_id?: string | null
+          degradation_annual_pct?: number | null
+          degradation_first_year_pct?: number | null
+          ean?: string | null
+          efficiency_pct?: number | null
+          id?: string
+          imp_a?: number | null
+          isc_a?: number | null
+          max_series_fuse_a?: number | null
+          max_system_voltage_v?: number | null
+          mechanical_load_snow_pa?: number | null
+          mechanical_load_wind_pa?: number | null
+          model: string
+          model_normalized?: string | null
+          model_original?: string | null
+          noct_c?: number | null
+          pmax_stc_w: number
+          power_tolerance_minus_w?: number | null
+          power_tolerance_plus_w?: number | null
+          primary_source?: string | null
+          ptc_w?: number | null
+          rear_power_w?: number | null
+          search_text?: string | null
+          series_id: string
+          sku?: string | null
+          source_ref?: string | null
+          status?: string
+          temp_coeff_isc_pct_per_c?: number | null
+          temp_coeff_pmax_pct_per_c?: number | null
+          temp_coeff_voc_pct_per_c?: number | null
+          temp_max_c?: number | null
+          temp_min_c?: number | null
+          updated_at?: string
+          variant_label?: string | null
+          verified_at?: string | null
+          vmp_v?: number | null
+          voc_v?: number | null
+          warranty_performance_years?: number | null
+          warranty_product_years?: number | null
+        }
+        Update: {
+          certifications?: string[]
+          company_id?: string | null
+          confidence?: string
+          created_at?: string
+          created_by?: string | null
+          current_revision_id?: string | null
+          degradation_annual_pct?: number | null
+          degradation_first_year_pct?: number | null
+          ean?: string | null
+          efficiency_pct?: number | null
+          id?: string
+          imp_a?: number | null
+          isc_a?: number | null
+          max_series_fuse_a?: number | null
+          max_system_voltage_v?: number | null
+          mechanical_load_snow_pa?: number | null
+          mechanical_load_wind_pa?: number | null
+          model?: string
+          model_normalized?: string | null
+          model_original?: string | null
+          noct_c?: number | null
+          pmax_stc_w?: number
+          power_tolerance_minus_w?: number | null
+          power_tolerance_plus_w?: number | null
+          primary_source?: string | null
+          ptc_w?: number | null
+          rear_power_w?: number | null
+          search_text?: string | null
+          series_id?: string
+          sku?: string | null
+          source_ref?: string | null
+          status?: string
+          temp_coeff_isc_pct_per_c?: number | null
+          temp_coeff_pmax_pct_per_c?: number | null
+          temp_coeff_voc_pct_per_c?: number | null
+          temp_max_c?: number | null
+          temp_min_c?: number | null
+          updated_at?: string
+          variant_label?: string | null
+          verified_at?: string | null
+          vmp_v?: number | null
+          voc_v?: number | null
+          warranty_performance_years?: number | null
+          warranty_product_years?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_module_variants_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_module_variants_current_rev_fk"
+            columns: ["current_revision_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_module_variants_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "solar_module_series"
             referencedColumns: ["id"]
           },
         ]
@@ -5978,6 +6778,11 @@ export type Database = {
         }
         Returns: Json
       }
+      solar_catalog_apply_import: { Args: { _job_id: string }; Returns: Json }
+      solar_catalog_touch_module: {
+        Args: { _company_id: string; _variant_id: string }
+        Returns: undefined
+      }
       solar_claim_job: {
         Args: {
           _job_types?: string[]
@@ -6093,6 +6898,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      solar_normalize_text: { Args: { _t: string }; Returns: string }
+      unaccent_safe: { Args: { _t: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "manager" | "user" | "platform_admin"

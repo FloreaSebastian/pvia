@@ -10,6 +10,7 @@ import { Canvas } from "@react-three/fiber";
 import { Grid, OrbitControls, Environment, Lightformer } from "@react-three/drei";
 import * as THREE from "three";
 import type { SolarSceneModel } from "./scene-model";
+import { moduleDepthMeters, moduleSizeMeters } from "@/lib/solar/module-catalog";
 
 const ROOF_COLOR = "#8a5a44";
 const ROOF_SELECTED = "#c2703f";
@@ -94,17 +95,27 @@ function Panels({
   onToggle: (moduleId: string) => void;
 }) {
   const items = useMemo(() => {
-    const out: { id: string; matrix: THREE.Matrix4; enabled: boolean; w: number; h: number }[] = [];
+    const out: {
+      id: string;
+      matrix: THREE.Matrix4;
+      enabled: boolean;
+      w: number;
+      h: number;
+      d: number;
+    }[] = [];
     for (const plane of model.planes) {
       const spec = model.specByPlaneKey[plane.key];
       if (!spec) continue;
+      // Dimensions produit réelles : largeur/hauteur/épaisseur du panneau choisi.
+      const size = moduleSizeMeters(spec, "portrait");
+      const depth = moduleDepthMeters(spec);
       const base = planeMatrix(plane.frame);
       for (const m of model.modules) {
         if (m.roof_plane_key !== plane.key) continue;
-        const w = m.orientation === "portrait" ? spec.width_mm / 1000 : spec.height_mm / 1000;
-        const h = m.orientation === "portrait" ? spec.height_mm / 1000 : spec.width_mm / 1000;
-        const local = new THREE.Matrix4().makeTranslation(m.local_u_m, m.local_v_m, 0.06);
-        out.push({ id: m.id, matrix: base.clone().multiply(local), enabled: m.enabled, w, h });
+        const w = m.orientation === "portrait" ? size.width : size.length;
+        const h = m.orientation === "portrait" ? size.length : size.width;
+        const local = new THREE.Matrix4().makeTranslation(m.local_u_m, m.local_v_m, 0.04 + depth / 2);
+        out.push({ id: m.id, matrix: base.clone().multiply(local), enabled: m.enabled, w, h, d: depth });
       }
     }
     return out;

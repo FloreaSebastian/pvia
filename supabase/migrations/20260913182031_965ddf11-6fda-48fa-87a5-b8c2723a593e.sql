@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.solar_catalog_touch_module(uuid, uuid) FROM anon;

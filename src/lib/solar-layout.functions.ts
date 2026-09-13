@@ -18,6 +18,11 @@ import {
   refreshSummary,
 } from "@/lib/solar.server";
 import {
+  hasUsableDimensions,
+  MISSING_DIMENSIONS_MESSAGE,
+  type ModuleSnapshot,
+} from "@/lib/solar/module-catalog";
+import {
   EMPTY_RULES_PROFILE,
   generateLayouts,
   validateLayout,
@@ -62,7 +67,7 @@ const BaseSchema = z.object({
 
 const ComputeSchema = BaseSchema.extend({
   planeIds: z.array(z.string().uuid()).min(1).max(12),
-  moduleCatalogId: z.string().uuid(),
+  moduleVariantId: z.string().uuid(),
   rulesProfileId: z.string().uuid().nullable().optional(),
   rules: RulesInputSchema.optional(),
   target: TargetSchema,
@@ -172,15 +177,72 @@ async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: 
   return { planes, idByKey, nameByKey };
 }
 
-async function loadSpec(sb: SB, companyId: string, moduleCatalogId: string): Promise<LayoutModuleSpec> {
+/**
+ * Résout une référence du catalogue : dimensions RÉELLES publiées.
+ * Aucune dimension de repli : sans dimensions, la référence est refusée.
+ */
+async function loadSpec(
+  sb: SB,
+  companyId: string,
+  variantId: string,
+): Promise<{ spec: LayoutModuleSpec; snapshot: ModuleSnapshot }> {
   const { data } = await sb
-    .from("solar_module_catalog")
-    .select("*")
-    .eq("id", moduleCatalogId)
+    .from("solar_module_variants")
+    .select(
+      "id, model, pmax_stc_w, confidence, primary_source, company_id, current_revision_id, series:solar_module_series!inner(name, width_mm, height_mm, depth_mm, weight_kg, manufacturer:solar_manufacturers!inner(name))",
+    )
+    .eq("id", variantId)
     .or(`company_id.is.null,company_id.eq.${companyId}`)
     .maybeSingle();
   if (!data) throw new Error("Panneau introuvable dans le catalogue.");
-  return { id: data.id, width_mm: data.width_mm, height_mm: data.height_mm, power_wc: data.power_wc };
+
+  const row = data as unknown as {
+    id: string;
+    model: string;
+    pmax_stc_w: number | null;
+    confidence: string | null;
+    primary_source: string | null;
+    current_revision_id: string | null;
+    series: {
+      name: string;
+      width_mm: number | null;
+      height_mm: number | null;
+      depth_mm: number | null;
+      weight_kg: number | null;
+      manufacturer: { name: string };
+    };
+  };
+
+  const dims = {
+    width_mm: row.series.width_mm,
+    height_mm: row.series.height_mm,
+    depth_mm: row.series.depth_mm,
+  };
+  if (!hasUsableDimensions(dims)) throw new Error(MISSING_DIMENSIONS_MESSAGE);
+  if (!row.pmax_stc_w) throw new Error("Puissance non publiée pour cette référence.");
+
+  return {
+    spec: {
+      id: row.id,
+      width_mm: dims.width_mm!,
+      height_mm: dims.height_mm!,
+      power_wc: row.pmax_stc_w,
+    },
+    snapshot: {
+      variant_id: row.id,
+      revision_id: row.current_revision_id,
+      manufacturer: row.series.manufacturer.name,
+      series: row.series.name,
+      model: row.model,
+      power_wc: row.pmax_stc_w,
+      width_mm: dims.width_mm!,
+      height_mm: dims.height_mm!,
+      depth_mm: dims.depth_mm,
+      weight_kg: row.series.weight_kg,
+      confidence: (row.confidence as ModuleSnapshot["confidence"]) ?? "a_verifier",
+      source: row.primary_source,
+    },
+  };
 }
 
 /* ------------------------------- Catalogue -------------------------------- */
@@ -191,45 +253,12 @@ export const getLayoutSetup = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarMember(supabase, data.companyId, userId);
-    const [{ data: catalog }, { data: profiles }, { data: favorites }] = await Promise.all([
-      supabase
-        .from("solar_module_catalog")
-        .select("*")
-        .or(`company_id.is.null,company_id.eq.${data.companyId}`)
-        .eq("is_active", true)
-        .order("manufacturer")
-        .order("power_wc", { ascending: false }),
-      supabase.from("solar_rules_profiles").select("*").eq("company_id", data.companyId).order("name"),
-      supabase.from("solar_module_favorites").select("*").eq("company_id", data.companyId),
-    ]);
-    return { catalog: catalog ?? [], profiles: profiles ?? [], favorites: favorites ?? [] };
-  });
-
-export const toggleModuleFavorite = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i) =>
-    z
-      .object({ companyId: z.string().uuid(), moduleCatalogId: z.string().uuid(), favorite: z.boolean() })
-      .parse(i),
-  )
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertSolarManage(supabase, data.companyId, userId);
-    if (!data.favorite) {
-      await supabase
-        .from("solar_module_favorites")
-        .delete()
-        .eq("company_id", data.companyId)
-        .eq("module_catalog_id", data.moduleCatalogId);
-      return { favorite: false };
-    }
-    await supabase
-      .from("solar_module_favorites")
-      .upsert(
-        { company_id: data.companyId, module_catalog_id: data.moduleCatalogId },
-        { onConflict: "company_id,module_catalog_id" },
-      );
-    return { favorite: true };
+    const { data: profiles } = await supabase
+      .from("solar_rules_profiles")
+      .select("*")
+      .eq("company_id", data.companyId)
+      .order("name");
+    return { profiles: profiles ?? [] };
   });
 
 /* --------------------------- Profils de règles ---------------------------- */
@@ -293,9 +322,9 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertSolarMember(supabase, data.companyId, userId);
     await loadModelScoped(supabase, data.companyId, data.modelId);
-    const [{ planes, nameByKey }, spec, rules] = await Promise.all([
+    const [{ planes, nameByKey }, { spec }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
-      loadSpec(supabase, data.companyId, data.moduleCatalogId),
+      loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
     ]);
     const result = generateLayouts({
@@ -329,9 +358,9 @@ export const applySmartLayout = createServerFn({ method: "POST" })
     await assertSolarManage(supabase, data.companyId, userId);
     const model = await loadModelScoped(supabase, data.companyId, data.modelId);
 
-    const [{ planes, idByKey }, spec, rules] = await Promise.all([
+    const [{ planes, idByKey }, { spec, snapshot }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
-      loadSpec(supabase, data.companyId, data.moduleCatalogId),
+      loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
     ]);
 
@@ -359,7 +388,7 @@ export const applySmartLayout = createServerFn({ method: "POST" })
           geometryVersion: model.geometry_version,
           label: data.variantLabel ?? chosen.label,
           candidate: chosen,
-          moduleCatalogId: data.moduleCatalogId,
+          moduleVariantId: data.moduleVariantId,
           rules,
           rulesProfileId: data.rulesProfileId ?? null,
           target: data.target,
@@ -377,9 +406,15 @@ export const applySmartLayout = createServerFn({ method: "POST" })
       spec,
       rules,
       idByKey,
-      moduleCatalogId: data.moduleCatalogId,
+      snapshot,
       rulesProfileId: data.rulesProfileId ?? null,
       variantId,
+    });
+
+    // Historique « utilisés récemment » du catalogue.
+    await supabase.rpc("solar_catalog_touch_module", {
+      _company_id: data.companyId,
+      _variant_id: data.moduleVariantId,
     });
 
     const summary = await refreshSummary(supabase, data.companyId, data.modelId, userId);
@@ -411,9 +446,9 @@ export const applyManualLayout = createServerFn({ method: "POST" })
     await assertSolarManage(supabase, data.companyId, userId);
     const model = await loadModelScoped(supabase, data.companyId, data.modelId);
 
-    const [{ planes, idByKey }, spec, rules] = await Promise.all([
+    const [{ planes, idByKey }, { spec, snapshot }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
-      loadSpec(supabase, data.companyId, data.moduleCatalogId),
+      loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
     ]);
 
@@ -427,7 +462,7 @@ export const applyManualLayout = createServerFn({ method: "POST" })
       spec,
       rules,
       idByKey,
-      moduleCatalogId: data.moduleCatalogId,
+      snapshot,
       rulesProfileId: data.rulesProfileId ?? null,
       variantId: null,
     });
@@ -445,7 +480,7 @@ interface WriteArgs {
   spec: LayoutModuleSpec;
   rules: RulesProfile;
   idByKey: Map<string, string>;
-  moduleCatalogId: string;
+  snapshot: ModuleSnapshot;
   rulesProfileId: string | null;
   variantId: string | null;
 }
@@ -458,7 +493,9 @@ async function writeLayout(sb: SB, args: WriteArgs) {
     const planeModules = args.modules.filter((m) => m.plane_key === plane.key);
     return {
       roof_plane_id: args.idByKey.get(plane.key),
-      module_catalog_id: args.moduleCatalogId,
+      module_variant_id: args.snapshot.variant_id,
+      module_revision_id: args.snapshot.revision_id,
+      module_snapshot: args.snapshot,
       label: `Champ ${plane.name}`,
       orientation: planeModules[0]?.orientation ?? "portrait",
       row_gap_m: args.rules.row_gap_m,
@@ -501,7 +538,7 @@ interface VariantArgs {
   geometryVersion: number;
   label: string;
   candidate: LayoutCandidate;
-  moduleCatalogId: string;
+  moduleVariantId: string;
   rules: RulesProfile;
   rulesProfileId: string | null;
   target: z.infer<typeof TargetSchema>;
@@ -519,7 +556,7 @@ async function insertVariant(sb: SB, a: VariantArgs): Promise<string | null> {
     orientation_mode: a.orientation,
     target_mode: a.target.mode,
     ...(a.target.power_kwc !== undefined ? { target_power_kwc: a.target.power_kwc } : {}),
-    module_catalog_id: a.moduleCatalogId,
+    module_variant_id: a.moduleVariantId,
     rules_profile_id: a.rulesProfileId,
     rules_profile_version: a.rules.version,
     rules_snapshot: a.rules as never,
