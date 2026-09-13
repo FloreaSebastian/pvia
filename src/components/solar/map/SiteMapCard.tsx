@@ -87,7 +87,7 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
     keyFn()
       .then((res) => {
         if (cancelled) return;
-        setRuntimeMapsKey(res.key);
+        setRuntimeMapsKey(res.key, res.source === "pvia_dev" ? "pvia_dev" : "pvia");
       })
       .catch(() => undefined)
       .finally(() => {
