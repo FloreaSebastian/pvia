@@ -17,7 +17,6 @@ import {
   planeGeometryFromRow,
   refreshSummary,
 } from "@/lib/solar.server";
-import { writeGuard } from "@/lib/solar-layout.server";
 import {
   EMPTY_RULES_PROFILE,
   generateLayouts,
@@ -27,6 +26,7 @@ import {
   type LayoutPlane,
   type LayoutModuleSpec,
   type RulesProfile,
+  LAYOUT_ENGINE_VERSION,
 } from "@/lib/solar-layout";
 
 type SB = Parameters<typeof assertSolarMember>[0];
@@ -327,7 +327,6 @@ export const applySmartLayout = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    await writeGuard(supabase, data.companyId);
     const model = await loadModelScoped(supabase, data.companyId, data.modelId);
 
     const [{ planes, idByKey }, spec, rules] = await Promise.all([
@@ -410,7 +409,6 @@ export const applyManualLayout = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    await writeGuard(supabase, data.companyId);
     const model = await loadModelScoped(supabase, data.companyId, data.modelId);
 
     const [{ planes, idByKey }, spec, rules] = await Promise.all([
@@ -467,7 +465,7 @@ async function writeLayout(sb: SB, args: WriteArgs) {
       col_gap_m: args.rules.col_gap_m,
       rules_profile_id: args.rulesProfileId,
       rules_profile_version: args.rules.version,
-      layout_engine_version: args.modules[0] ? undefined : undefined,
+      layout_engine_version: LAYOUT_ENGINE_VERSION,
       variant_id: args.variantId,
       params: { rules: args.rules },
       modules: planeModules.map((m) => ({
