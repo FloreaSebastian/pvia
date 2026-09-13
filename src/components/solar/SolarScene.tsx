@@ -10,6 +10,7 @@ import { Canvas } from "@react-three/fiber";
 import { Grid, OrbitControls, Environment, Lightformer } from "@react-three/drei";
 import * as THREE from "three";
 import type { SolarSceneModel } from "./scene-model";
+import { moduleDepthMeters, moduleSizeMeters } from "@/lib/solar/module-catalog";
 
 const ROOF_COLOR = "#8a5a44";
 const ROOF_SELECTED = "#c2703f";
