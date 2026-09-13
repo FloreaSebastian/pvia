@@ -6665,8 +6665,6 @@ export type Database = {
         Args: { _membership_id: string }
         Returns: boolean
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       solar_apply_layout: {
         Args: {
           _arrays: Json
