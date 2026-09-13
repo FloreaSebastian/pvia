@@ -406,7 +406,7 @@ export const createCustomModule = createServerFn({ method: "POST" })
         weight_kg: data.weight_kg ?? null,
         pmax_stc_w: data.power_wc,
         datasheet_url: data.datasheet_url ?? null,
-        source_type: "company",
+        source_type: "entreprise",
         is_current: true,
         created_by: userId,
       })
