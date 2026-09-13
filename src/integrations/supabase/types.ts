@@ -2765,6 +2765,104 @@ export type Database = {
           },
         ]
       }
+      solar_catalog_import_rows: {
+        Row: {
+          bipv: string | null
+          cec_listing_date: string | null
+          cells_parallel: number | null
+          cells_series: number | null
+          created_at: string
+          description: string | null
+          family: string | null
+          id: string
+          imp_a: number | null
+          isc_a: number | null
+          job_id: string | null
+          long_side_m: number | null
+          manufacturer: string
+          model: string
+          module_type: string | null
+          mounting: string | null
+          noct_c: number | null
+          pmax_w: number | null
+          safety_certification: string | null
+          short_side_m: number | null
+          source: string
+          tc_isc: number | null
+          tc_pmax: number | null
+          tc_voc: number | null
+          technology: string | null
+          vmp_v: number | null
+          voc_v: number | null
+        }
+        Insert: {
+          bipv?: string | null
+          cec_listing_date?: string | null
+          cells_parallel?: number | null
+          cells_series?: number | null
+          created_at?: string
+          description?: string | null
+          family?: string | null
+          id?: string
+          imp_a?: number | null
+          isc_a?: number | null
+          job_id?: string | null
+          long_side_m?: number | null
+          manufacturer: string
+          model: string
+          module_type?: string | null
+          mounting?: string | null
+          noct_c?: number | null
+          pmax_w?: number | null
+          safety_certification?: string | null
+          short_side_m?: number | null
+          source: string
+          tc_isc?: number | null
+          tc_pmax?: number | null
+          tc_voc?: number | null
+          technology?: string | null
+          vmp_v?: number | null
+          voc_v?: number | null
+        }
+        Update: {
+          bipv?: string | null
+          cec_listing_date?: string | null
+          cells_parallel?: number | null
+          cells_series?: number | null
+          created_at?: string
+          description?: string | null
+          family?: string | null
+          id?: string
+          imp_a?: number | null
+          isc_a?: number | null
+          job_id?: string | null
+          long_side_m?: number | null
+          manufacturer?: string
+          model?: string
+          module_type?: string | null
+          mounting?: string | null
+          noct_c?: number | null
+          pmax_w?: number | null
+          safety_certification?: string | null
+          short_side_m?: number | null
+          source?: string
+          tc_isc?: number | null
+          tc_pmax?: number | null
+          tc_voc?: number | null
+          technology?: string | null
+          vmp_v?: number | null
+          voc_v?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_catalog_import_rows_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "solar_catalog_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_catalog_jobs: {
         Row: {
           created_at: string
@@ -6674,6 +6772,7 @@ export type Database = {
         }
         Returns: Json
       }
+      solar_catalog_apply_import: { Args: { _job_id: string }; Returns: Json }
       solar_claim_job: {
         Args: {
           _job_types?: string[]
