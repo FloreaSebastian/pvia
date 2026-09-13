@@ -230,6 +230,7 @@ export function readMapsDiagnostics(placesConfigured: boolean): MapsDiagnostics 
     photorealistic3d: "non utilisé",
     tiltedView: apiLoaded,
     lastError,
+    buildId: buildIdentifier(),
   };
 }
 
