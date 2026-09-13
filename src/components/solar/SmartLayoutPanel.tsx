@@ -88,16 +88,22 @@ export function SmartLayoutPanel({
 
   useEffect(() => {
     if (!companyId) return;
+    let alive = true;
     setupFn({ data: { companyId } })
-      .then((s) => setSetup(s as Setup))
+      .then((s) => {
+        if (alive) setSetup(s as Setup);
+      })
       .catch(() => toast.error("Profils de règles indisponibles."));
     // Reprise du dernier panneau utilisé par l'entreprise, sinon d'un favori.
     shortlistFn({ data: { companyId } })
       .then((s) => {
         const pick = (s.recents[0] ?? s.favorites[0]) as ModuleListItem | undefined;
-        if (pick) setModule((prev) => prev ?? pick);
+        if (alive && pick) setModule((prev) => prev ?? pick);
       })
       .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
   }, [companyId, setupFn, shortlistFn]);
 
   const target = useMemo(() => {
