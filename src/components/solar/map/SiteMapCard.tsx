@@ -469,10 +469,12 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
               <li>
                 Origine de la clé :{" "}
                 {diagnostics.keySource === "pvia"
-                  ? "clé PVIA dédiée"
-                  : diagnostics.keySource === "lovable_connector"
-                    ? "connexion gérée (domaines *.lovable.app uniquement)"
-                    : "aucune"}
+                  ? "clé PVIA production"
+                  : diagnostics.keySource === "pvia_dev"
+                    ? "clé PVIA développement (origine locale uniquement)"
+                    : diagnostics.keySource === "lovable_connector"
+                      ? "connexion gérée (domaines *.lovable.app uniquement)"
+                      : "aucune"}
               </li>
               <li>
                 Domaine actuel : {diagnostics.host || "inconnu"} —{" "}
