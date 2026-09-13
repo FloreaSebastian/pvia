@@ -411,6 +411,12 @@ export const applySmartLayout = createServerFn({ method: "POST" })
       variantId,
     });
 
+    // Historique « utilisés récemment » du catalogue.
+    await supabase.rpc("solar_catalog_touch_module", {
+      _company_id: data.companyId,
+      _variant_id: data.moduleVariantId,
+    });
+
     const summary = await refreshSummary(supabase, data.companyId, data.modelId, userId);
     return { summary, candidate: chosen, result, variant_id: variantId };
   });
