@@ -197,6 +197,7 @@ export interface MapsDiagnostics {
   photorealistic3d: "non utilisé";
   tiltedView: boolean;
   lastError: MapsErrorInfo | null;
+  buildId: string;
 }
 
 let lastError: MapsErrorInfo | null = null;
