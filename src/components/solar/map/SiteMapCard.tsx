@@ -484,6 +484,7 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
               <li>Style personnalisé : {diagnostics.mapId ? "configuré" : "aucun"}</li>
               <li>3D photoréaliste : non utilisée (la vue inclinée est une vue satellite inclinée)</li>
               <li>Dernière erreur : {diagnostics.lastError ? diagnostics.lastError.message : "aucune"}</li>
+              <li>Version déployée : {diagnostics.buildId}</li>
             </ul>
           </details>
         </>
