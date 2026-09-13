@@ -35,7 +35,10 @@ export interface SolarSceneModel {
   planes: ScenePlane[];
   modules: PlacedModule[];
   obstacles: SceneObstacle[];
-  specByPlaneKey: Record<string, { width_mm: number; height_mm: number } | undefined>;
+  specByPlaneKey: Record<
+    string,
+    { width_mm: number; height_mm: number; depth_mm: number | null } | undefined
+  >;
   footprint: LocalPoint[];
   wallHeight: number;
   extent: number;
@@ -70,9 +73,25 @@ type PayloadLike = {
     length_m: number;
     height_m: number;
   }[];
-  arrays: { roof_plane_id: string; module_catalog_id: string | null }[];
-  catalog: { id: string; width_mm: number; height_mm: number }[];
+  arrays: {
+    roof_plane_id: string;
+    module_catalog_id: string | null;
+    module_snapshot?: unknown;
+  }[];
+  catalog: { id: string; width_mm: number; height_mm: number; thickness_mm?: number | null }[];
 };
+
+/** Dimensions réellement enregistrées avec l'implantation (jamais recalculées). */
+function snapshotSpec(raw: unknown) {
+  if (!raw || typeof raw !== "object") return null;
+  const s = raw as { width_mm?: unknown; height_mm?: unknown; depth_mm?: unknown };
+  if (typeof s.width_mm !== "number" || typeof s.height_mm !== "number") return null;
+  return {
+    width_mm: s.width_mm,
+    height_mm: s.height_mm,
+    depth_mm: typeof s.depth_mm === "number" ? s.depth_mm : null,
+  };
+}
 
 export function buildSceneModel(payload: PayloadLike): SolarSceneModel {
   const planeById = new Map(payload.planes.map((p) => [p.id, p]));
@@ -80,8 +99,20 @@ export function buildSceneModel(payload: PayloadLike): SolarSceneModel {
   const specByPlaneKey: SolarSceneModel["specByPlaneKey"] = {};
   for (const arr of payload.arrays) {
     const plane = planeById.get(arr.roof_plane_id);
-    const spec = payload.catalog.find((c) => c.id === arr.module_catalog_id);
-    if (plane && spec) specByPlaneKey[plane.key] = { width_mm: spec.width_mm, height_mm: spec.height_mm };
+    if (!plane) continue;
+    const fromSnapshot = snapshotSpec(arr.module_snapshot);
+    if (fromSnapshot) {
+      specByPlaneKey[plane.key] = fromSnapshot;
+      continue;
+    }
+    const legacy = payload.catalog.find((c) => c.id === arr.module_catalog_id);
+    if (legacy) {
+      specByPlaneKey[plane.key] = {
+        width_mm: legacy.width_mm,
+        height_mm: legacy.height_mm,
+        depth_mm: legacy.thickness_mm ?? null,
+      };
+    }
   }
 
   const obstacles: SceneObstacle[] = payload.obstacles.map((o) => ({
