@@ -322,9 +322,9 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertSolarMember(supabase, data.companyId, userId);
     await loadModelScoped(supabase, data.companyId, data.modelId);
-    const [{ planes, nameByKey }, spec, rules] = await Promise.all([
+    const [{ planes, nameByKey }, { spec }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
-      loadSpec(supabase, data.companyId, data.moduleCatalogId),
+      loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
     ]);
     const result = generateLayouts({
@@ -358,9 +358,9 @@ export const applySmartLayout = createServerFn({ method: "POST" })
     await assertSolarManage(supabase, data.companyId, userId);
     const model = await loadModelScoped(supabase, data.companyId, data.modelId);
 
-    const [{ planes, idByKey }, spec, rules] = await Promise.all([
+    const [{ planes, idByKey }, { spec, snapshot }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
-      loadSpec(supabase, data.companyId, data.moduleCatalogId),
+      loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
     ]);
 
@@ -388,7 +388,7 @@ export const applySmartLayout = createServerFn({ method: "POST" })
           geometryVersion: model.geometry_version,
           label: data.variantLabel ?? chosen.label,
           candidate: chosen,
-          moduleCatalogId: data.moduleCatalogId,
+          moduleVariantId: data.moduleVariantId,
           rules,
           rulesProfileId: data.rulesProfileId ?? null,
           target: data.target,
@@ -406,7 +406,7 @@ export const applySmartLayout = createServerFn({ method: "POST" })
       spec,
       rules,
       idByKey,
-      moduleCatalogId: data.moduleCatalogId,
+      snapshot,
       rulesProfileId: data.rulesProfileId ?? null,
       variantId,
     });
@@ -440,9 +440,9 @@ export const applyManualLayout = createServerFn({ method: "POST" })
     await assertSolarManage(supabase, data.companyId, userId);
     const model = await loadModelScoped(supabase, data.companyId, data.modelId);
 
-    const [{ planes, idByKey }, spec, rules] = await Promise.all([
+    const [{ planes, idByKey }, { spec, snapshot }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
-      loadSpec(supabase, data.companyId, data.moduleCatalogId),
+      loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
     ]);
 
@@ -456,7 +456,7 @@ export const applyManualLayout = createServerFn({ method: "POST" })
       spec,
       rules,
       idByKey,
-      moduleCatalogId: data.moduleCatalogId,
+      snapshot,
       rulesProfileId: data.rulesProfileId ?? null,
       variantId: null,
     });
@@ -474,7 +474,7 @@ interface WriteArgs {
   spec: LayoutModuleSpec;
   rules: RulesProfile;
   idByKey: Map<string, string>;
-  moduleCatalogId: string;
+  snapshot: ModuleSnapshot;
   rulesProfileId: string | null;
   variantId: string | null;
 }
@@ -487,7 +487,9 @@ async function writeLayout(sb: SB, args: WriteArgs) {
     const planeModules = args.modules.filter((m) => m.plane_key === plane.key);
     return {
       roof_plane_id: args.idByKey.get(plane.key),
-      module_catalog_id: args.moduleCatalogId,
+      module_variant_id: args.snapshot.variant_id,
+      module_revision_id: args.snapshot.revision_id,
+      module_snapshot: args.snapshot,
       label: `Champ ${plane.name}`,
       orientation: planeModules[0]?.orientation ?? "portrait",
       row_gap_m: args.rules.row_gap_m,
@@ -530,7 +532,7 @@ interface VariantArgs {
   geometryVersion: number;
   label: string;
   candidate: LayoutCandidate;
-  moduleCatalogId: string;
+  moduleVariantId: string;
   rules: RulesProfile;
   rulesProfileId: string | null;
   target: z.infer<typeof TargetSchema>;
@@ -548,7 +550,7 @@ async function insertVariant(sb: SB, a: VariantArgs): Promise<string | null> {
     orientation_mode: a.orientation,
     target_mode: a.target.mode,
     ...(a.target.power_kwc !== undefined ? { target_power_kwc: a.target.power_kwc } : {}),
-    module_catalog_id: a.moduleCatalogId,
+    module_variant_id: a.moduleVariantId,
     rules_profile_id: a.rulesProfileId,
     rules_profile_version: a.rules.version,
     rules_snapshot: a.rules as never,
