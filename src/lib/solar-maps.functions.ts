@@ -36,9 +36,17 @@ function credentials(): { lovable: string; connection: string } | null {
  */
 export const getMapsBrowserKey = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async (): Promise<{ key: string | null }> => {
+  .handler(async (): Promise<{ key: string | null; source: "pvia" | "pvia_dev" | "none"; buildId: string }> => {
+    const buildId = process.env["BUILD_ID"] ?? process.env["VITE_BUILD_ID"] ?? "inconnu";
+    // Séparation stricte : en développement, seule la clé DEV est servie ;
+    // la clé de production n'est jamais transmise à une origine locale.
+    const isDev = process.env["NODE_ENV"] !== "production";
+    if (isDev) {
+      const dev = process.env["GOOGLE_MAPS_DEV_KEY"] ?? null;
+      return { key: dev && dev.length > 0 ? dev : null, source: dev ? "pvia_dev" : "none", buildId };
+    }
     const key = process.env["GOOGLE_API_KEY"] ?? process.env["GOOGLE_MAPS_BROWSER_KEY"] ?? null;
-    return { key: key && key.length > 0 ? key : null };
+    return { key: key && key.length > 0 ? key : null, source: key ? "pvia" : "none", buildId };
   });
 
 export interface MapPlaceCandidate {

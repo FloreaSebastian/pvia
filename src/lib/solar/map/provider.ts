@@ -49,7 +49,7 @@ export const GOOGLE_MAPS_PROVIDER: MapVisualProvider = {
 
 /* ------------------------------- Clé navigateur --------------------------- */
 
-export type MapKeySource = "pvia" | "lovable_connector" | "none";
+export type MapKeySource = "pvia" | "pvia_dev" | "lovable_connector" | "none";
 
 /**
  * Ordre de résolution : la clé PVIA dédiée (autorisée pour pvia.fr) prime sur
@@ -64,13 +64,31 @@ export type MapKeySource = "pvia" | "lovable_connector" | "none";
  * pour ne pas dépendre d'une variable publique de build.
  */
 let runtimeKey: string | null = null;
+let runtimeKeySource: MapKeySource = "none";
 
-export function setRuntimeMapsKey(key: string | null): void {
-  runtimeKey = key && key.length > 0 ? key : null;
+/**
+ * `source` distingue explicitement la clé de production de la clé de
+ * développement : aucun repli ne doit faire fonctionner localhost avec la clé
+ * de production, ni un domaine PVIA avec la clé de développement.
+ */
+export function setRuntimeMapsKey(key: string | null, source: MapKeySource = "pvia"): void {
+  const usable = key && key.length > 0 ? key : null;
+  runtimeKey = usable;
+  runtimeKeySource = usable ? source : "none";
+}
+
+function isDevOrigin(): boolean {
+  if (typeof window === "undefined") return Boolean(import.meta.env.DEV);
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
 }
 
 export function browserMapsKey(): string | null {
   if (runtimeKey) return runtimeKey;
+  if (isDevOrigin()) {
+    const dev = import.meta.env["VITE_GOOGLE_MAPS_DEV_KEY"] as string | undefined;
+    return dev && dev.length > 0 ? dev : null;
+  }
   const own = import.meta.env["VITE_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
   if (own && own.length > 0) return own;
   const managed = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
@@ -78,11 +96,21 @@ export function browserMapsKey(): string | null {
 }
 
 export function mapsKeySource(): MapKeySource {
-  if (runtimeKey) return "pvia";
+  if (runtimeKey) return runtimeKeySource;
+  if (isDevOrigin()) {
+    const dev = import.meta.env["VITE_GOOGLE_MAPS_DEV_KEY"] as string | undefined;
+    return dev && dev.length > 0 ? "pvia_dev" : "none";
+  }
   const own = import.meta.env["VITE_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
   if (own && own.length > 0) return "pvia";
   const managed = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as string | undefined;
   return managed && managed.length > 0 ? "lovable_connector" : "none";
+}
+
+/** Identifiant de build, pour savoir quelle version est réellement en ligne. */
+export function buildIdentifier(): string {
+  const id = import.meta.env["VITE_BUILD_ID"] as string | undefined;
+  return id && id.length > 0 ? id : "inconnu";
 }
 
 /** Empreinte non réversible pour le diagnostic : jamais la clé complète. */
@@ -107,9 +135,13 @@ export function mapsTrackingId(): string {
  * `*.lovable.app` / `*.lovableproject.com`. Sur un domaine PVIA, elle échouera.
  */
 export function keyMatchesHost(host: string, source: MapKeySource): boolean {
+  const local = /^localhost$|^127\.0\.0\.1$/.test(host);
   if (source === "none") return false;
-  if (source === "pvia") return true;
-  return /(^|\.)lovable\.app$|(^|\.)lovableproject\.com$|^localhost$|^127\.0\.0\.1$/.test(host);
+  // Clé de développement : strictement l'origine locale.
+  if (source === "pvia_dev") return local;
+  // Clé de production : domaines PVIA, jamais localhost.
+  if (source === "pvia") return !local;
+  return /(^|\.)lovable\.app$|(^|\.)lovableproject\.com$/.test(host) || local;
 }
 
 /* --------------------------- Erreurs compréhensibles ---------------------- */
@@ -165,6 +197,7 @@ export interface MapsDiagnostics {
   photorealistic3d: "non utilisé";
   tiltedView: boolean;
   lastError: MapsErrorInfo | null;
+  buildId: string;
 }
 
 let lastError: MapsErrorInfo | null = null;
@@ -197,6 +230,7 @@ export function readMapsDiagnostics(placesConfigured: boolean): MapsDiagnostics 
     photorealistic3d: "non utilisé",
     tiltedView: apiLoaded,
     lastError,
+    buildId: buildIdentifier(),
   };
 }
 
