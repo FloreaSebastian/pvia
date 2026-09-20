@@ -20,6 +20,7 @@ import {
   loadFullModel,
   loadModelScoped,
   planeGeometryFromRow,
+  readBuildingParams,
   refreshSummary,
   setProvenance,
   syncRoofPlanes,
