@@ -438,6 +438,7 @@ function SolarStudioPage() {
                 companyId={companyId}
                 disabled={!canWrite || busy}
                 onPayload={applyPayload}
+                onSaveActivity={onSiteSave}
               />
               {mode === "expert" && (
                 <Card className="space-y-2 p-3">
@@ -666,6 +667,7 @@ function SolarStudioPage() {
               }))}
               disabled={!canWrite || busy}
               onContextChange={handleLayoutContext}
+              onSaveActivity={onLayoutSave}
               onApplied={() => {
                 if (!companyId) return;
                 void load({ data: { companyId, studyId: id } }).then((next) =>
