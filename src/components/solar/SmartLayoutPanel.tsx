@@ -52,6 +52,7 @@ export function SmartLayoutPanel({
   disabled,
   onApplied,
   onContextChange,
+  onSaveActivity,
 }: {
   companyId: string | null;
   modelId: string;
@@ -64,6 +65,8 @@ export function SmartLayoutPanel({
     moduleSelected: boolean;
     planeNames: string[];
   }) => void;
+  /** Remonte l'état d'écriture (application d'une implantation) vers la barre haute. */
+  onSaveActivity?: (state: { busy: boolean; error: boolean }) => void;
 }) {
   const setupFn = useServerFn(getLayoutSetup);
   const computeFn = useServerFn(computeSmartLayout);

@@ -53,7 +53,7 @@ interface Candidate {
   city: string;
 }
 
-export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
+export function SitePanel({ payload, companyId, disabled, onPayload, onSaveActivity }: Props) {
   const search = useServerFn(searchSolarAddress);
   const confirm = useServerFn(confirmSolarLocation);
   const siteData = useServerFn(getSolarSiteData);
@@ -77,16 +77,20 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
   const run = useCallback(
     async (fn: () => Promise<unknown>) => {
       setBusy(true);
+      onSaveActivity?.({ busy: true, error: false });
+      let failed = false;
       try {
         return await fn();
       } catch (e) {
+        failed = true;
         toast.error(e instanceof Error ? e.message : "Action impossible.");
         return null;
       } finally {
         setBusy(false);
+        onSaveActivity?.({ busy: false, error: failed });
       }
     },
-    [],
+    [onSaveActivity],
   );
 
   useEffect(() => {
