@@ -55,12 +55,15 @@ export function SmartLayoutPanel({
   planes,
   disabled,
   onApplied,
+  onContextChange,
 }: {
   companyId: string | null;
   modelId: string;
   planes: { id: string; key: string; name: string; area_m2: number }[];
   disabled: boolean;
   onApplied: () => void;
+  /** Remontée purement présentationnelle vers la barre de synthèse du cadre UX. */
+  onContextChange?: (ctx: { targetKwc: number | null; moduleSelected: boolean; planeNames: string[] }) => void;
 }) {
   const setupFn = useServerFn(getLayoutSetup);
   const computeFn = useServerFn(computeSmartLayout);
