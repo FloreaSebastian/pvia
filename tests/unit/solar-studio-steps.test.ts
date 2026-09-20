@@ -109,8 +109,6 @@ describe("deriveStudioSteps", () => {
     expect(studioStepStatusLabel("actif")).toBe("En cours");
   });
 
-
-
   it("bloque les résultats sans implantation", () => {
     expect(
       stateOf({ ...base, activeStep: "projet", moduleCount: 0, powerKwc: 0 }, "resultats"),
