@@ -423,11 +423,11 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
 
     await syncRoofPlanes(supabase, data.companyId, data.modelId, updated, readBuildingParams(updated));
     await bumpGeometryVersion(supabase, data.companyId, data.modelId, userId);
-    await writeAuditLog(supabase, {
+    await writeAuditLog({
       companyId: data.companyId,
       userId,
-      action: "solar.roof.convert_editable",
-      entity: "solar_model",
+      action: "solar_roof.convert_editable",
+      entityType: "solar_model",
       entityId: data.modelId,
     });
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
