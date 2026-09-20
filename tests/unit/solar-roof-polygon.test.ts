@@ -79,8 +79,7 @@ describe("validation d'un contour de pan", () => {
     const sliver = [
       { x: 0, y: 0 },
       { x: 5, y: 0 },
-      { x: 5, y: 0.1 },
-      { x: 0, y: 0.1 },
+      { x: 0, y: 0.35 },
     ];
     expect(validateRoofRing(sliver).issue).toBe("tiny_area");
   });
