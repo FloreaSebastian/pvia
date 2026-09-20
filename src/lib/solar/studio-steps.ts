@@ -101,12 +101,12 @@ export function deriveStudioSteps(input: StudioStepInput): StudioStep[] {
       id: "modules",
       label: STUDIO_STEP_LABELS.modules,
       primaryAction: "Choisir le panneau à poser",
-      state: input.moduleSelected ? "termine" : roofReady ? "a_faire" : "bloque",
-      hint: input.moduleSelected
-        ? "Référence de panneau sélectionnée."
-        : roofReady
-          ? "Choisissez une référence réelle dans le catalogue."
-          : "Définissez d'abord la toiture.",
+      state: !roofReady ? "bloque" : input.moduleSelected ? "termine" : "a_faire",
+      hint: !roofReady
+        ? "Définissez d'abord la toiture."
+        : input.moduleSelected
+          ? "Référence de panneau sélectionnée."
+          : "Choisissez une référence réelle dans le catalogue.",
       disabled: !roofReady,
     },
     {
