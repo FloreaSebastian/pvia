@@ -164,7 +164,13 @@ export async function syncRoofPlanes(
   building: SolarBuildingRow,
   params: BuildingParams,
 ): Promise<SolarRoofPlaneRow[]> {
-  const geometry = buildRoofPlanes(params);
+  // Mode « contours dessinés » : la géométrie vient des pans tracés sur la carte,
+  // revalidés ici. Sinon, comportement paramétrique historique inchangé.
+  const custom = readCustomPlanes(building);
+  const geometry =
+    building.geometry_mode === "polygon" && custom.length > 0
+      ? custom.map(planeFromCustom)
+      : buildRoofPlanes(params);
   const { data: existing, error } = await sb
     .from("solar_roof_planes")
     .select("*")
