@@ -15,7 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { GoogleMapView, type MapMeasureResult } from "./GoogleMapView";
+import {
+  GoogleMapView,
+  type EditableRing,
+  type MapMeasureResult,
+  type RoofDrawTool,
+} from "./GoogleMapView";
+import { RoofToolbar } from "@/components/solar/roof/RoofEditor";
+import type { LocalPoint } from "@/lib/solar/geo";
 import { PlanView } from "@/components/solar/PlanView";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import {
@@ -43,6 +50,21 @@ import type { SolarModelPayload } from "@/lib/solar.functions";
 
 type Payload = NonNullable<SolarModelPayload>;
 
+/** Étape Toiture : outils de dessin branchés sur le canevas (P0-B). */
+export interface RoofEditorBinding {
+  tool: RoofDrawTool;
+  onToolChange: (tool: RoofDrawTool) => void;
+  editableRings: EditableRing[];
+  disabled: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  onPlaneDrawn: (ring: LocalPoint[]) => void;
+  onRingChange: (key: string, ring: LocalPoint[]) => void;
+  onObstacleDrawn: (ring: LocalPoint[]) => void;
+}
+
 interface Props {
   payload: Payload;
   companyId: string;
@@ -50,12 +72,21 @@ interface Props {
   selectedPlaneKey: string | null;
   onSelectPlane: (key: string | null) => void;
   onPayload: (next: Payload) => void;
+  roofEditor?: RoofEditorBinding;
 }
 
 const LAYERS: MapBaseLayer[] = ["plan", "satellite", "hybrid", "tilted"];
 
 
-export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, onSelectPlane, onPayload }: Props) {
+export function SiteMapCard({
+  payload,
+  companyId,
+  disabled,
+  selectedPlaneKey,
+  onSelectPlane,
+  onPayload,
+  roofEditor,
+}: Props) {
   const searchFn = useServerFn(searchMapPlaces);
   const streetViewFn = useServerFn(checkStreetViewCoverage);
   const confirmFn = useServerFn(confirmSolarLocation);
@@ -77,6 +108,8 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
   const [streetView, setStreetView] = useState<{ available: boolean; detail: string } | null>(null);
   const [usage, setUsage] = useState<MapUsage>(() => readMapUsage());
   const [busy, setBusy] = useState(false);
+  const [drawIssue, setDrawIssue] = useState<string | null>(null);
+  const [recenterSignal, setRecenterSignal] = useState(0);
   const keyFn = useServerFn(getMapsBrowserKey);
   // La clé navigateur est servie par le serveur : on attend sa réception avant
   // de conclure que la cartographie n'est pas configurée.
@@ -311,7 +344,25 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
           )}
 
           <div className={split ? "grid gap-2 lg:grid-cols-2" : ""}>
-            <div className="h-[46vh] min-h-[260px]">
+            <div className="relative h-[46vh] min-h-[260px]">
+              {roofEditor && (
+                <RoofToolbar
+                  tool={roofEditor.tool}
+                  onToolChange={(t) => {
+                    setMeasure(null);
+                    roofEditor.onToolChange(t);
+                  }}
+                  measuring={measure !== null}
+                  onToggleMeasure={() => setMeasure((m) => (m ? null : "distance"))}
+                  canUndo={roofEditor.canUndo}
+                  canRedo={roofEditor.canRedo}
+                  onUndo={roofEditor.onUndo}
+                  onRedo={roofEditor.onRedo}
+                  onRecenter={() => setRecenterSignal((n) => n + 1)}
+                  disabled={roofEditor.disabled}
+                  issue={drawIssue}
+                />
+              )}
               {keyState === "loading" ? (
                 <div className="flex h-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
                   Préparation de la carte…
@@ -330,6 +381,13 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                 onPickLocation={(p) => setPending(p)}
                 onSelectPlane={onSelectPlane}
                 onMeasured={(r) => setLastMeasure(r)}
+                recenterSignal={recenterSignal}
+                drawTool={roofEditor && measure === null ? roofEditor.tool : null}
+                editableRings={roofEditor?.editableRings}
+                onPlaneDrawn={roofEditor?.onPlaneDrawn}
+                onRingChange={roofEditor?.onRingChange}
+                onObstacleDrawn={roofEditor?.onObstacleDrawn}
+                onDrawIssue={setDrawIssue}
               />
               )}
             </div>
