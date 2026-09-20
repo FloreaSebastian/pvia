@@ -1,4 +1,14 @@
-import { BarChart3, Check, CircleSlash, LayoutGrid, MapPin, Ruler, Sun, TriangleAlert, Zap } from "lucide-react";
+import {
+  BarChart3,
+  Check,
+  CircleSlash,
+  LayoutGrid,
+  MapPin,
+  Ruler,
+  Sun,
+  TriangleAlert,
+  Zap,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { STUDIO_STEP_ORDER, type StudioStep, type StudioStepId } from "@/lib/solar/studio-steps";
 import { cn } from "@/lib/utils";
@@ -70,7 +80,9 @@ export function StepRail({
 
 function StateDot({ state }: { state: StudioStep["state"] }) {
   if (state === "termine") return <Check className="absolute right-1 top-1 h-3 w-3" aria-hidden />;
-  if (state === "alerte") return <TriangleAlert className="absolute right-1 top-1 h-3 w-3" aria-hidden />;
-  if (state === "bloque") return <CircleSlash className="absolute right-1 top-1 h-3 w-3" aria-hidden />;
+  if (state === "alerte")
+    return <TriangleAlert className="absolute right-1 top-1 h-3 w-3" aria-hidden />;
+  if (state === "bloque")
+    return <CircleSlash className="absolute right-1 top-1 h-3 w-3" aria-hidden />;
   return null;
 }

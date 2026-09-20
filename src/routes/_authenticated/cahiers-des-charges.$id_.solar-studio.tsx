@@ -11,7 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
 import {
@@ -70,7 +76,10 @@ export const Route = createFileRoute("/_authenticated/cahiers-des-charges/$id_/s
           "Jumeau numérique solaire : toiture paramétrique, obstacles, implantation photovoltaïque et synthèse rattachées au cahier des charges.",
       },
       { property: "og:title", content: "Solar Studio — modélisation 3D | PVIA" },
-      { property: "og:description", content: "Modélisation 3D du bâtiment et implantation photovoltaïque." },
+      {
+        property: "og:description",
+        content: "Modélisation 3D du bâtiment et implantation photovoltaïque.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -272,21 +281,32 @@ function SolarStudioPage() {
           <Boxes className="mx-auto h-10 w-10 text-primary" aria-hidden />
           <h1 className="text-xl font-semibold">Solar Studio</h1>
           <p className="text-sm text-muted-foreground">
-            Créez la modélisation 3D du bâtiment. Elle reste rattachée à ce dossier et sera enrichie à chaque étape,
-            jusqu'au chantier.
+            Créez la modélisation 3D du bâtiment. Elle reste rattachée à ce dossier et sera enrichie
+            à chaque étape, jusqu'au chantier.
           </p>
           <Button
             className="min-h-11 w-full"
             disabled={!canWrite || busy || !companyId}
             onClick={() =>
               companyId &&
-              guard(async () => (await create({ data: { companyId, studyId: id } })) as Payload, "Modélisation créée.")
+              guard(
+                async () => (await create({ data: { companyId, studyId: id } })) as Payload,
+                "Modélisation créée.",
+              )
             }
           >
-            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            {busy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-2 h-4 w-4" />
+            )}
             Créer la modélisation
           </Button>
-          {!canWrite && <p className="text-xs text-muted-foreground">Votre rôle ne permet pas de créer la modélisation.</p>}
+          {!canWrite && (
+            <p className="text-xs text-muted-foreground">
+              Votre rôle ne permet pas de créer la modélisation.
+            </p>
+          )}
         </Card>
       </div>
     );
@@ -294,7 +314,13 @@ function SolarStudioPage() {
 
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
-  const saveState: SaveState = busy ? "enregistrement" : saveError ? "erreur" : dirty ? "modifie" : "enregistre";
+  const saveState: SaveState = busy
+    ? "enregistrement"
+    : saveError
+      ? "erreur"
+      : dirty
+        ? "modifie"
+        : "enregistre";
   const showPlanView = step === "modules" || step === "implantation";
 
   const onToggleModuleAt = (moduleId: string) => {
@@ -313,8 +339,10 @@ function SolarStudioPage() {
       <StudioTopBar
         studyId={id}
         title={payload.model.name || "Solar Studio"}
-        subtitle={`${payload.model.address ?? ""} ${payload.model.postal_code ?? ""} ${payload.model.city ?? ""}`.trim() ||
-          "Adresse à renseigner"}
+        subtitle={
+          `${payload.model.address ?? ""} ${payload.model.postal_code ?? ""} ${payload.model.city ?? ""}`.trim() ||
+          "Adresse à renseigner"
+        }
         saveState={saveState}
         mode={mode}
         onModeChange={setMode}
@@ -333,7 +361,8 @@ function SolarStudioPage() {
         {/* Canevas prioritaire */}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <p className="border-b bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{currentStep.primaryAction}</span> — {currentStep.hint}
+            <span className="font-medium text-foreground">{currentStep.primaryAction}</span> —{" "}
+            {currentStep.hint}
           </p>
 
           <div className="relative min-h-[240px] flex-1 overflow-hidden">
@@ -387,7 +416,12 @@ function SolarStudioPage() {
         >
           {step === "projet" && (
             <div className="space-y-3">
-              <SitePanel payload={payload} companyId={companyId} disabled={!canWrite || busy} onPayload={applyPayload} />
+              <SitePanel
+                payload={payload}
+                companyId={companyId}
+                disabled={!canWrite || busy}
+                onPayload={applyPayload}
+              />
               {mode === "expert" && (
                 <Card className="space-y-2 p-3">
                   <Label>Niveau de fiabilité du modèle</Label>
@@ -398,16 +432,24 @@ function SolarStudioPage() {
                       void guard(
                         async () =>
                           (await saveMeta({
-                            data: { companyId, modelId: payload.model.id, quality_level: v as SolarQualityLevel },
+                            data: {
+                              companyId,
+                              modelId: payload.model.id,
+                              quality_level: v as SolarQualityLevel,
+                            },
                           })) as Payload,
                         "Niveau mis à jour.",
                       )
                     }
                   >
-                    <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="min-h-11">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {(Object.keys(SOLAR_QUALITY_META) as SolarQualityLevel[]).map((q) => (
-                        <SelectItem key={q} value={q}>{SOLAR_QUALITY_META[q].label}</SelectItem>
+                        <SelectItem key={q} value={q}>
+                          {SOLAR_QUALITY_META[q].label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -424,32 +466,78 @@ function SolarStudioPage() {
               <Card className="space-y-3 p-3">
                 <div className="space-y-1.5">
                   <Label>Type de toiture</Label>
-                  <Select value={params.roof_type} onValueChange={(v) => patchParams({ roof_type: v as RoofType })}>
-                    <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={params.roof_type}
+                    onValueChange={(v) => patchParams({ roof_type: v as RoofType })}
+                  >
+                    <SelectTrigger className="min-h-11">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {(Object.keys(ROOF_TYPE_META) as RoofType[]).map((t) => (
-                        <SelectItem key={t} value={t}>{ROOF_TYPE_META[t].label}</SelectItem>
+                        <SelectItem key={t} value={t}>
+                          {ROOF_TYPE_META[t].label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <NumField label="Largeur (m)" value={params.width_m} step={0.1} onChange={(v) => patchParams({ width_m: v })} />
-                  <NumField label="Profondeur (m)" value={params.depth_m} step={0.1} onChange={(v) => patchParams({ depth_m: v })} />
-                  <NumField label="Hauteur mur (m)" value={params.wall_height_m} step={0.1} onChange={(v) => patchParams({ wall_height_m: v })} />
-                  <NumField label="Pente (°)" value={params.tilt_deg} step={1} onChange={(v) => patchParams({ tilt_deg: v })} />
+                  <NumField
+                    label="Largeur (m)"
+                    value={params.width_m}
+                    step={0.1}
+                    onChange={(v) => patchParams({ width_m: v })}
+                  />
+                  <NumField
+                    label="Profondeur (m)"
+                    value={params.depth_m}
+                    step={0.1}
+                    onChange={(v) => patchParams({ depth_m: v })}
+                  />
+                  <NumField
+                    label="Hauteur mur (m)"
+                    value={params.wall_height_m}
+                    step={0.1}
+                    onChange={(v) => patchParams({ wall_height_m: v })}
+                  />
+                  <NumField
+                    label="Pente (°)"
+                    value={params.tilt_deg}
+                    step={1}
+                    onChange={(v) => patchParams({ tilt_deg: v })}
+                  />
                   {mode === "expert" && (
                     <>
-                      <NumField label="Azimut (°)" value={params.azimuth_deg} step={5} onChange={(v) => patchParams({ azimuth_deg: v })} />
-                      <NumField label="Débord (m)" value={params.overhang_m} step={0.05} onChange={(v) => patchParams({ overhang_m: v })} />
+                      <NumField
+                        label="Azimut (°)"
+                        value={params.azimuth_deg}
+                        step={5}
+                        onChange={(v) => patchParams({ azimuth_deg: v })}
+                      />
+                      <NumField
+                        label="Débord (m)"
+                        value={params.overhang_m}
+                        step={0.05}
+                        onChange={(v) => patchParams({ overhang_m: v })}
+                      />
                     </>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Azimut {Math.round(params.azimuth_deg)}° — pan principal orienté {azimuthLabel(params.azimuth_deg)}.
+                  Azimut {Math.round(params.azimuth_deg)}° — pan principal orienté{" "}
+                  {azimuthLabel(params.azimuth_deg)}.
                 </p>
-                <Button className="min-h-11 w-full" disabled={!canWrite || busy || !dirty} onClick={() => void persistParams(params)}>
-                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                <Button
+                  className="min-h-11 w-full"
+                  disabled={!canWrite || busy || !dirty}
+                  onClick={() => void persistParams(params)}
+                >
+                  {busy ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
                   Enregistrer la toiture
                 </Button>
               </Card>
@@ -467,11 +555,15 @@ function SolarStudioPage() {
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{plane.name}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {azimuthLabel(plane.azimuth_deg)} · {Math.round(plane.tilt_deg)}° · {plane.area_m2.toFixed(1)} m²
+                        {azimuthLabel(plane.azimuth_deg)} · {Math.round(plane.tilt_deg)}° ·{" "}
+                        {plane.area_m2.toFixed(1)} m²
                       </span>
                     </span>
                     <Badge variant="outline">
-                      {payload.modules.filter((m) => m.roof_plane_key === plane.key && m.enabled).length}
+                      {
+                        payload.modules.filter((m) => m.roof_plane_key === plane.key && m.enabled)
+                          .length
+                      }
                     </Badge>
                   </button>
                 ))}
@@ -499,7 +591,9 @@ function SolarStudioPage() {
                     companyId &&
                     void guard(
                       async () =>
-                        (await removeObstacle({ data: { companyId, modelId: payload.model.id, obstacleId } })) as Payload,
+                        (await removeObstacle({
+                          data: { companyId, modelId: payload.model.id, obstacleId },
+                        })) as Payload,
                       "Obstacle supprimé.",
                     )
                   }
@@ -519,7 +613,12 @@ function SolarStudioPage() {
                 void guard(
                   async () =>
                     (await runLayout({
-                      data: { companyId, modelId: payload.model.id, roofPlaneId: selectedPlane.id, ...values },
+                      data: {
+                        companyId,
+                        modelId: payload.model.id,
+                        roofPlaneId: selectedPlane.id,
+                        ...values,
+                      },
                     })) as Payload,
                   "Pose calculée.",
                 )
@@ -542,12 +641,19 @@ function SolarStudioPage() {
             <SmartLayoutPanel
               companyId={companyId}
               modelId={payload.model.id}
-              planes={payload.planes.map((p) => ({ id: p.id, key: p.key, name: p.name, area_m2: p.area_m2 }))}
+              planes={payload.planes.map((p) => ({
+                id: p.id,
+                key: p.key,
+                name: p.name,
+                area_m2: p.area_m2,
+              }))}
               disabled={!canWrite || busy}
               onContextChange={handleLayoutContext}
               onApplied={() => {
                 if (!companyId) return;
-                void load({ data: { companyId, studyId: id } }).then((next) => applyPayload(next as Payload));
+                void load({ data: { companyId, studyId: id } }).then((next) =>
+                  applyPayload(next as Payload),
+                );
               }}
             />
           )}
@@ -557,8 +663,8 @@ function SolarStudioPage() {
               <Zap className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
               <p className="text-sm font-medium">Étude électrique à venir</p>
               <p className="text-xs text-muted-foreground">
-                Onduleurs, chaînes et protections seront définis ici. L'implantation validée servira de base : rien
-                n'est estimé tant que cette étape n'est pas disponible.
+                Onduleurs, chaînes et protections seront définis ici. L'implantation validée servira
+                de base : rien n'est estimé tant que cette étape n'est pas disponible.
               </p>
             </Card>
           )}
@@ -585,7 +691,10 @@ function SolarStudioPage() {
                 onClick={() =>
                   companyId &&
                   void guard(
-                    async () => (await snapshot({ data: { companyId, modelId: payload.model.id, label: "" } })) as Payload,
+                    async () =>
+                      (await snapshot({
+                        data: { companyId, modelId: payload.model.id, label: "" },
+                      })) as Payload,
                     "Version enregistrée.",
                   )
                 }
@@ -593,14 +702,16 @@ function SolarStudioPage() {
                 Figer une version ({payload.versions.length})
               </Button>
               <p className="text-xs text-muted-foreground">
-                Modèle géométrique déclaratif : les dimensions restent à confirmer lors de la visite technique.
+                Modèle géométrique déclaratif : les dimensions restent à confirmer lors de la visite
+                technique.
               </p>
               <BackLink id={id} />
             </div>
           )}
 
           <p className="mt-3 text-[11px] text-muted-foreground lg:hidden">
-            Sur petit écran, préférez le mode paysage ou une tablette pour l'édition détaillée du plan.
+            Sur petit écran, préférez le mode paysage ou une tablette pour l'édition détaillée du
+            plan.
           </p>
         </ContextPanel>
       </div>
@@ -692,10 +803,14 @@ function ObstaclePanel({
             setH(OBSTACLE_META[t].defaultHeight);
           }}
         >
-          <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="min-h-11">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             {(Object.keys(OBSTACLE_META) as ObstacleType[]).map((t) => (
-              <SelectItem key={t} value={t}>{OBSTACLE_META[t].label}</SelectItem>
+              <SelectItem key={t} value={t}>
+                {OBSTACLE_META[t].label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -706,7 +821,12 @@ function ObstaclePanel({
         <NumField label="Largeur (m)" value={w} step={0.05} onChange={setW} />
         <NumField label="Longueur (m)" value={l} step={0.05} onChange={setL} />
         <NumField label="Hauteur (m)" value={h} step={0.05} onChange={setH} />
-        <NumField label="Marge de sécurité (m)" value={clearance} step={0.05} onChange={setClearance} />
+        <NumField
+          label="Marge de sécurité (m)"
+          value={clearance}
+          step={0.05}
+          onChange={setClearance}
+        />
       </div>
       <Button
         className="min-h-11 w-full"
@@ -727,20 +847,32 @@ function ObstaclePanel({
       >
         Ajouter sur le pan sélectionné
       </Button>
-      {!selectedPlaneId && <p className="text-xs text-muted-foreground">Sélectionnez d'abord un pan.</p>}
+      {!selectedPlaneId && (
+        <p className="text-xs text-muted-foreground">Sélectionnez d'abord un pan.</p>
+      )}
       <Separator />
       <ul className="space-y-2">
         {payload.obstacles.map((o) => (
           <li key={o.id} className="flex min-h-11 items-center justify-between gap-2 text-sm">
             <span className="min-w-0 truncate">
-              {o.label || OBSTACLE_META[o.obstacle_type as ObstacleType]?.label || o.obstacle_type} · {o.width_m}×{o.length_m} m
+              {o.label || OBSTACLE_META[o.obstacle_type as ObstacleType]?.label || o.obstacle_type}{" "}
+              · {o.width_m}×{o.length_m} m
             </span>
-            <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Supprimer" disabled={disabled} onClick={() => onDelete(o.id)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11"
+              aria-label="Supprimer"
+              disabled={disabled}
+              onClick={() => onDelete(o.id)}
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </li>
         ))}
-        {!payload.obstacles.length && <li className="text-xs text-muted-foreground">Aucun obstacle saisi.</li>}
+        {!payload.obstacles.length && (
+          <li className="text-xs text-muted-foreground">Aucun obstacle saisi.</li>
+        )}
       </ul>
     </Card>
   );
@@ -772,7 +904,9 @@ function LayoutPanel({
       <div className="space-y-1.5">
         <Label>Panneau</Label>
         <Select value={moduleId} onValueChange={setModuleId}>
-          <SelectTrigger className="min-h-11"><SelectValue placeholder="Choisir un panneau" /></SelectTrigger>
+          <SelectTrigger className="min-h-11">
+            <SelectValue placeholder="Choisir un panneau" />
+          </SelectTrigger>
           <SelectContent>
             {payload.catalog.map((c) => (
               <SelectItem key={c.id} value={c.id}>
@@ -783,14 +917,20 @@ function LayoutPanel({
         </Select>
         {spec && (
           <p className="text-xs text-muted-foreground">
-            {(spec.width_mm / 1000).toFixed(3)} × {(spec.height_mm / 1000).toFixed(3)} m · {spec.technology ?? "—"}
+            {(spec.width_mm / 1000).toFixed(3)} × {(spec.height_mm / 1000).toFixed(3)} m ·{" "}
+            {spec.technology ?? "—"}
           </p>
         )}
       </div>
       <div className="space-y-1.5">
         <Label>Orientation</Label>
-        <Select value={orientation} onValueChange={(v) => setOrientation(v as "portrait" | "paysage")}>
-          <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+        <Select
+          value={orientation}
+          onValueChange={(v) => setOrientation(v as "portrait" | "paysage")}
+        >
+          <SelectTrigger className="min-h-11">
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="portrait">Portrait</SelectItem>
             <SelectItem value="paysage">Paysage</SelectItem>
@@ -805,16 +945,29 @@ function LayoutPanel({
       <Button
         className="min-h-11 w-full"
         disabled={disabled || !planeId || !moduleId}
-        onClick={() => onRun({ moduleCatalogId: moduleId, orientation, setback_m: setback, row_gap_m: rowGap, col_gap_m: colGap })}
+        onClick={() =>
+          onRun({
+            moduleCatalogId: moduleId,
+            orientation,
+            setback_m: setback,
+            row_gap_m: rowGap,
+            col_gap_m: colGap,
+          })
+        }
       >
         <Sparkles className="mr-2 h-4 w-4" /> Poser sur ce pan
       </Button>
-      <Button variant="outline" className="min-h-11 w-full" disabled={disabled || !planeId} onClick={onClear}>
+      <Button
+        variant="outline"
+        className="min-h-11 w-full"
+        disabled={disabled || !planeId}
+        onClick={onClear}
+      >
         <RotateCcw className="mr-2 h-4 w-4" /> Vider ce pan
       </Button>
       <p className="text-xs text-muted-foreground">
-        Pose simple sur le pan sélectionné. Pour comparer plusieurs variantes et viser une puissance, passez à l'étape
-        Implantation.
+        Pose simple sur le pan sélectionné. Pour comparer plusieurs variantes et viser une
+        puissance, passez à l'étape Implantation.
       </p>
     </Card>
   );

@@ -7,7 +7,13 @@
  * être testé isolément (cf. tests/unit/solar-studio-steps.test.ts).
  */
 
-export type StudioStepId = "projet" | "toiture" | "modules" | "implantation" | "electrique" | "resultats";
+export type StudioStepId =
+  | "projet"
+  | "toiture"
+  | "modules"
+  | "implantation"
+  | "electrique"
+  | "resultats";
 
 /** actif = étape en cours, terminé = suffisamment renseigné, alerte = utilisable mais incomplet, bloqué = prérequis manquant. */
 export type StudioStepState = "actif" | "termine" | "alerte" | "bloque" | "a_faire";
@@ -145,7 +151,9 @@ export function deriveStudioSteps(input: StudioStepInput): StudioStep[] {
     },
   ];
 
-  return raw.map((step) => (step.id === input.activeStep ? { ...step, state: "actif" as const } : step));
+  return raw.map((step) =>
+    step.id === input.activeStep ? { ...step, state: "actif" as const } : step,
+  );
 }
 
 export type LayoutSummaryInput = {
@@ -172,16 +180,27 @@ export function buildLayoutSummary(input: LayoutSummaryInput): LayoutSummary {
     { label: "Modules", value: String(input.moduleCount) },
     { label: "Puissance", value: formatKwc(input.powerKwc) },
   ];
-  if (input.moduleAreaM2 != null) items.push({ label: "Surface modules", value: formatArea(input.moduleAreaM2) });
-  items.push({ label: "Objectif", value: input.targetKwc == null ? "Libre" : formatKwc(input.targetKwc) });
+  if (input.moduleAreaM2 != null)
+    items.push({ label: "Surface modules", value: formatArea(input.moduleAreaM2) });
+  items.push({
+    label: "Objectif",
+    value: input.targetKwc == null ? "Libre" : formatKwc(input.targetKwc),
+  });
   items.push({
     label: "Pans utilisés",
     value: input.planeNames.length ? input.planeNames.join(", ") : "Aucun",
   });
 
   const alerts = [...input.alerts];
-  if (input.targetKwc != null && input.targetKwc > 0 && input.powerKwc > 0 && input.powerKwc < input.targetKwc * TARGET_TOLERANCE) {
-    alerts.push(`Objectif ${formatKwc(input.targetKwc)} non atteint : ${formatKwc(input.powerKwc)} posés.`);
+  if (
+    input.targetKwc != null &&
+    input.targetKwc > 0 &&
+    input.powerKwc > 0 &&
+    input.powerKwc < input.targetKwc * TARGET_TOLERANCE
+  ) {
+    alerts.push(
+      `Objectif ${formatKwc(input.targetKwc)} non atteint : ${formatKwc(input.powerKwc)} posés.`,
+    );
   }
 
   return {

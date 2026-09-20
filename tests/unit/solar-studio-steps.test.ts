@@ -35,13 +35,18 @@ describe("deriveStudioSteps", () => {
   });
 
   it("passe le projet en alerte quand l'adresse n'est pas localisée", () => {
-    expect(stateOf({ ...base, activeStep: "toiture", hasGeolocation: false }, "projet")).toBe("alerte");
+    expect(stateOf({ ...base, activeStep: "toiture", hasGeolocation: false }, "projet")).toBe(
+      "alerte",
+    );
   });
 
   it("laisse le projet à faire sans adresse", () => {
-    expect(stateOf({ ...base, activeStep: "toiture", hasAddress: false, hasGeolocation: false }, "projet")).toBe(
-      "a_faire",
-    );
+    expect(
+      stateOf(
+        { ...base, activeStep: "toiture", hasAddress: false, hasGeolocation: false },
+        "projet",
+      ),
+    ).toBe("a_faire");
   });
 
   it("bloque modules et implantation tant que la toiture n'a pas de pan", () => {
@@ -52,7 +57,9 @@ describe("deriveStudioSteps", () => {
   });
 
   it("met l'implantation en alerte quand l'objectif n'est pas atteint", () => {
-    expect(stateOf({ ...base, activeStep: "projet", powerKwc: 6, targetKwc: 9 }, "implantation")).toBe("alerte");
+    expect(
+      stateOf({ ...base, activeStep: "projet", powerKwc: 6, targetKwc: 9 }, "implantation"),
+    ).toBe("alerte");
   });
 
   it("considère l'implantation terminée quand l'objectif est atteint", () => {
@@ -60,7 +67,9 @@ describe("deriveStudioSteps", () => {
   });
 
   it("tolère un léger écart sous l'objectif", () => {
-    expect(stateOf({ ...base, activeStep: "projet", powerKwc: 8.8, targetKwc: 9 }, "implantation")).toBe("termine");
+    expect(
+      stateOf({ ...base, activeStep: "projet", powerKwc: 8.8, targetKwc: 9 }, "implantation"),
+    ).toBe("termine");
   });
 
   it("garde l'étape électrique bloquée tant qu'elle n'est pas disponible", () => {
@@ -71,13 +80,17 @@ describe("deriveStudioSteps", () => {
   });
 
   it("ouvre l'étape électrique quand elle devient disponible avec une implantation", () => {
-    const step = deriveStudioSteps({ ...base, electricalAvailable: true }).find((s) => s.id === "electrique")!;
+    const step = deriveStudioSteps({ ...base, electricalAvailable: true }).find(
+      (s) => s.id === "electrique",
+    )!;
     expect(step.state).toBe("a_faire");
     expect(step.disabled).toBe(false);
   });
 
   it("bloque les résultats sans implantation", () => {
-    expect(stateOf({ ...base, activeStep: "projet", moduleCount: 0, powerKwc: 0 }, "resultats")).toBe("bloque");
+    expect(
+      stateOf({ ...base, activeStep: "projet", moduleCount: 0, powerKwc: 0 }, "resultats"),
+    ).toBe("bloque");
   });
 
   it("donne une action principale unique et non vide par étape", () => {

@@ -2,12 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Check, HelpCircle, Loader2, Redo2, TriangleAlert, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { saveStateLabel, type SaveState, type StudioMode } from "@/lib/solar/studio-steps";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +67,11 @@ export function StudioTopBar({
           <Redo2 className="h-4 w-4" />
         </Button>
 
-        <div className="ml-1 flex overflow-hidden rounded-md border" role="group" aria-label="Affichage">
+        <div
+          className="ml-1 flex overflow-hidden rounded-md border"
+          role="group"
+          aria-label="Affichage"
+        >
           {(["map", "3d"] as const).map((m) => (
             <button
               key={m}
@@ -81,7 +80,9 @@ export function StudioTopBar({
               onClick={() => onVisualModeChange(m)}
               className={cn(
                 "min-h-11 px-3 text-xs font-medium",
-                visualMode === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
+                visualMode === m
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground",
               )}
             >
               {m === "map" ? "Carte" : "3D"}
@@ -89,7 +90,11 @@ export function StudioTopBar({
           ))}
         </div>
 
-        <div className="flex overflow-hidden rounded-md border" role="group" aria-label="Niveau de réglages">
+        <div
+          className="flex overflow-hidden rounded-md border"
+          role="group"
+          aria-label="Niveau de réglages"
+        >
           {(["rapide", "expert"] as const).map((m) => (
             <button
               key={m}
@@ -98,7 +103,9 @@ export function StudioTopBar({
               onClick={() => onModeChange(m)}
               className={cn(
                 "min-h-11 px-3 text-xs font-medium capitalize",
-                mode === m ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground",
+                mode === m
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground",
               )}
             >
               {m}
@@ -109,7 +116,12 @@ export function StudioTopBar({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Aide sur cette étape">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11"
+                aria-label="Aide sur cette étape"
+              >
                 <HelpCircle className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -117,7 +129,13 @@ export function StudioTopBar({
           </Tooltip>
         </TooltipProvider>
 
-        <Button variant="ghost" size="icon" className="h-11 w-11" asChild aria-label="Quitter Solar Studio">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11"
+          asChild
+          aria-label="Quitter Solar Studio"
+        >
           <Link to="/cahiers-des-charges/$id" params={{ id: studyId }}>
             <X className="h-4 w-4" />
           </Link>

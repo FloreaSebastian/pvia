@@ -11,15 +11,22 @@ export function LayoutSummaryBar({ summary }: { summary: LayoutSummary }) {
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
         {summary.items.map((item) => (
           <div key={item.label} className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{item.label}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              {item.label}
+            </p>
             <p className="truncate text-sm font-semibold">{item.value}</p>
           </div>
         ))}
         {summary.progress != null && (
           <div className="ml-auto w-32">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Objectif atteint</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Objectif atteint
+            </p>
             <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="presentation">
-              <div className="h-full bg-primary" style={{ width: `${Math.round(summary.progress * 100)}%` }} />
+              <div
+                className="h-full bg-primary"
+                style={{ width: `${Math.round(summary.progress * 100)}%` }}
+              />
             </div>
           </div>
         )}
