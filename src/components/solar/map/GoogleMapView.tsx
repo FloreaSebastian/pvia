@@ -128,6 +128,8 @@ interface Props {
   onObstacleDrawn?: (ring: LocalPoint[]) => void;
   /** Message d'aide géométrique en direct (tracé invalide, etc.). */
   onDrawIssue?: (message: string | null) => void;
+  /** Incrémenter cette valeur recentre la carte sur le site. */
+  recenterSignal?: number;
 }
 
 const HANDLE_TOLERANCE_M = 0.7;
@@ -153,6 +155,7 @@ export function GoogleMapView({
   onRingChange,
   onObstacleDrawn,
   onDrawIssue,
+  recenterSignal = 0,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   // Google injecte ses propres nœuds DOM : il lui faut un conteneur dédié que
@@ -422,6 +425,14 @@ export function GoogleMapView({
     if (!map) return;
     map.setCenter({ lat: origin.latitude, lng: origin.longitude });
   }, [origin.latitude, origin.longitude]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || recenterSignal === 0) return;
+    map.setCenter({ lat: origin.latitude, lng: origin.longitude });
+    map.setZoom(20);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recenterSignal]);
 
   useEffect(() => {
     const map = mapRef.current;
