@@ -726,35 +726,130 @@ function SolarStudioPage() {
                 </Button>
               </Card>
 
-              <Card className="divide-y p-0">
-                {payload.planes.map((plane) => (
-                  <button
-                    key={plane.key}
-                    type="button"
-                    onClick={() => setSelectedPlaneKey(plane.key)}
-                    className={`flex min-h-11 w-full items-center justify-between gap-2 p-3 text-left ${
-                      plane.key === selectedPlaneKey ? "bg-accent" : ""
-                    }`}
+              {roofPlanes.length > 0 ? (
+                <>
+                  <RoofPlanesPanel
+                    planes={roofPlanes}
+                    selectedKey={selectedPlaneKey}
+                    expert={mode === "expert"}
+                    disabled={!canWrite || busy}
+                    onSelect={setSelectedPlaneKey}
+                    onChange={(key, patch) =>
+                      updateRoofPlanes(
+                        roofPlanes.map((p) => (p.key === key ? { ...p, ...patch } : p)),
+                      )
+                    }
+                    onDuplicate={(key) => {
+                      const source = roofPlanes.find((p) => p.key === key);
+                      if (!source) return;
+                      const newKey = nextPlaneKey(roofPlanes.map((p) => p.key));
+                      updateRoofPlanes(
+                        [
+                          ...roofPlanes,
+                          {
+                            ...source,
+                            key: newKey,
+                            name: nextPlaneName(roofPlanes.map((p) => p.name)),
+                            // Décalage visible pour que le contour copié soit saisissable.
+                            ring: source.ring.map((v) => ({ x: v.x + 2, y: v.y + 2 })),
+                          },
+                        ],
+                        { persist: true, success: "Contour dupliqué." },
+                      );
+                      setSelectedPlaneKey(newKey);
+                    }}
+                    onDelete={(key) => {
+                      const plane = roofPlanes.find((p) => p.key === key);
+                      if (!plane) return;
+                      const placed = payload.modules.filter((m) => m.roof_plane_key === key).length;
+                      const question = placed
+                        ? `Supprimer ${plane.name} ? ${placed} panneau(x) y sont posés.`
+                        : `Supprimer ${plane.name} ?`;
+                      if (!window.confirm(question)) return;
+                      updateRoofPlanes(
+                        roofPlanes.filter((p) => p.key !== key),
+                        { persist: true, success: "Pan supprimé." },
+                      );
+                      setSelectedPlaneKey(null);
+                    }}
+                  />
+                  <Button
+                    className="min-h-11 w-full"
+                    disabled={!canWrite || busy || !roofDirty}
+                    onClick={() => void persistRoofPlanes(roofPlanes, "Pans enregistrés.")}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{plane.name}</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {azimuthLabel(plane.azimuth_deg)} · {Math.round(plane.tilt_deg)}° ·{" "}
-                        {plane.area_m2.toFixed(1)} m²
+                    {busy ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Enregistrer les pans
+                  </Button>
+                </>
+              ) : (
+                <Card className="divide-y p-0">
+                  {payload.planes.map((plane) => (
+                    <button
+                      key={plane.key}
+                      type="button"
+                      onClick={() => setSelectedPlaneKey(plane.key)}
+                      className={`flex min-h-11 w-full items-center justify-between gap-2 p-3 text-left ${
+                        plane.key === selectedPlaneKey ? "bg-accent" : ""
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">{plane.name}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {azimuthLabel(plane.azimuth_deg)} · {Math.round(plane.tilt_deg)}° ·{" "}
+                          {plane.area_m2.toFixed(1)} m²
+                        </span>
                       </span>
-                    </span>
-                    <Badge variant="outline">
-                      {
-                        payload.modules.filter((m) => m.roof_plane_key === plane.key && m.enabled)
-                          .length
-                      }
-                    </Badge>
-                  </button>
-                ))}
-                {!payload.planes.length && (
-                  <p className="p-3 text-xs text-muted-foreground">Aucun pan pour l'instant.</p>
-                )}
-              </Card>
+                      <Badge variant="outline">
+                        {
+                          payload.modules.filter(
+                            (m) => m.roof_plane_key === plane.key && m.enabled,
+                          ).length
+                        }
+                      </Badge>
+                    </button>
+                  ))}
+                  {!payload.planes.length && (
+                    <p className="p-3 text-xs text-muted-foreground">
+                      Aucun pan pour l'instant. Dessinez le contour de la toiture sur la carte.
+                    </p>
+                  )}
+                  {payload.planes.length > 0 && (
+                    <div className="space-y-2 p-3">
+                      <p className="text-xs text-muted-foreground">
+                        Cette toiture vient des dimensions saisies. Convertissez-la en contours pour
+                        corriger chaque angle sur la carte : les paramètres actuels restent
+                        enregistrés.
+                      </p>
+                      <Button
+                        variant="secondary"
+                        className="min-h-11 w-full"
+                        disabled={!canWrite || busy || !companyId}
+                        onClick={() =>
+                          companyId &&
+                          void guard(
+                            async () =>
+                              (await convertRoof({
+                                data: {
+                                  companyId,
+                                  modelId: payload.model.id,
+                                  expectedGeometryVersion: payload.model.geometry_version,
+                                },
+                              })) as Payload,
+                            "Toiture convertie en contours éditables.",
+                          )
+                        }
+                      >
+                        Convertir en contours éditables
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              )}
 
               {mode === "expert" && (
                 <ObstaclePanel
