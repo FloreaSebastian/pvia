@@ -95,7 +95,7 @@ function segmentsCross(a: LocalPoint, b: LocalPoint, c: LocalPoint, d: LocalPoin
   const d2 = o(a, b, d);
   const d3 = o(c, d, a);
   const d4 = o(c, d, b);
-  return (d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0);
+  return d1 > 0 !== d2 > 0 && d3 > 0 !== d4 > 0;
 }
 
 /** Vrai si deux côtés non adjacents se croisent. */
@@ -184,7 +184,8 @@ export function nearestEdge(
     const vx = b.x - a.x;
     const vy = b.y - a.y;
     const len2 = vx * vx + vy * vy;
-    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2));
+    const t =
+      len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2));
     const proj = { x: a.x + vx * t, y: a.y + vy * t };
     const d = distance(p, proj);
     if (!best || d < best.distance) best = { index: i, distance: d, point: proj };
@@ -231,7 +232,8 @@ export function snapDrawPoint(p: LocalPoint, options: DrawSnapOptions): DrawSnap
   for (const ring of options.rings) {
     for (const v of ring) {
       const d = distance(p, v);
-      if (d <= tol && (!bestVertex || d < bestVertex.d)) bestVertex = { d, point: { x: v.x, y: v.y } };
+      if (d <= tol && (!bestVertex || d < bestVertex.d))
+        bestVertex = { d, point: { x: v.x, y: v.y } };
     }
     const edge = ring.length >= 2 ? nearestEdge(ring, p) : null;
     if (edge && edge.distance <= tol && (!bestEdge || edge.distance < bestEdge.d)) {

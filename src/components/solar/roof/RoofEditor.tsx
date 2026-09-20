@@ -87,11 +87,7 @@ export function RoofToolbar({
   disabled = false,
   issue,
 }: ToolbarProps) {
-  const item = (
-    key: RoofDrawTool,
-    label: string,
-    Icon: typeof MousePointer2,
-  ) => (
+  const item = (key: RoofDrawTool, label: string, Icon: typeof MousePointer2) => (
     <Button
       key={key}
       type="button"
@@ -171,7 +167,10 @@ export function RoofToolbar({
       </p>
 
       {issue && (
-        <p role="alert" className="pointer-events-none rounded bg-destructive px-2 py-1 text-xs text-destructive-foreground">
+        <p
+          role="alert"
+          className="pointer-events-none rounded bg-destructive px-2 py-1 text-xs text-destructive-foreground"
+        >
           {issue}
         </p>
       )}
@@ -319,7 +318,8 @@ export function RoofPlanesPanel({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Azimut retenu : {Math.round(selected.azimuth_deg)}° ({azimuthLabel(selected.azimuth_deg)}).
+                Azimut retenu : {Math.round(selected.azimuth_deg)}° (
+                {azimuthLabel(selected.azimuth_deg)}).
               </p>
             </div>
           )}
@@ -435,5 +435,7 @@ function upsertEdge(
     kind: patch.kind ?? existing?.kind ?? ("indefini" as RoofEdgeKind),
     margin_m: patch.margin_m ?? existing?.margin_m ?? plane.margin_m,
   };
-  return [...plane.edge_margins.filter((m) => m.index !== index), next].sort((a, b) => a.index - b.index);
+  return [...plane.edge_margins.filter((m) => m.index !== index), next].sort(
+    (a, b) => a.index - b.index,
+  );
 }

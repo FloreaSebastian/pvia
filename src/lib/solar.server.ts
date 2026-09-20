@@ -18,11 +18,15 @@ import {
   type SourceType,
   type VerificationStatus,
 } from "./solar/provenance";
-import type { BuildingParams, PlacedModule, RoofPlaneGeometry, SolarQualityLevel } from "./solar/types";
+import type {
+  BuildingParams,
+  PlacedModule,
+  RoofPlaneGeometry,
+  SolarQualityLevel,
+} from "./solar/types";
 import { DEFAULT_BUILDING_PARAMS } from "./solar/types";
 import type { TerrainGrid } from "./solar/terrain";
 import type { CoverageStatus } from "./solar/providers/types";
-
 
 type SB = SupabaseClient<Database>;
 
@@ -34,21 +38,31 @@ export type SolarMeasurementRow = Database["public"]["Tables"]["solar_measuremen
 
 /** Lecture : tout membre actif de l'entreprise. */
 export async function assertSolarMember(sb: SB, companyId: string, userId: string) {
-  const { data, error } = await sb.rpc("is_company_member", { _company_id: companyId, _user_id: userId });
+  const { data, error } = await sb.rpc("is_company_member", {
+    _company_id: companyId,
+    _user_id: userId,
+  });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Accès refusé.");
 }
 
 /** Écriture : rôle de gestion ET entreprise en droit d'écrire (abonnement). */
 export async function assertSolarManage(sb: SB, companyId: string, userId: string) {
-  const { data, error } = await sb.rpc("can_manage_company", { _company_id: companyId, _user_id: userId });
+  const { data, error } = await sb.rpc("can_manage_company", {
+    _company_id: companyId,
+    _user_id: userId,
+  });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Droits insuffisants.");
   const guard = await import("./plan-guard.server");
   await guard.assertCompanyWriteAccess(companyId, userId);
 }
 
-export async function loadModelScoped(sb: SB, companyId: string, modelId: string): Promise<SolarModelRow> {
+export async function loadModelScoped(
+  sb: SB,
+  companyId: string,
+  modelId: string,
+): Promise<SolarModelRow> {
   const { data, error } = await sb
     .from("solar_models")
     .select("*")
@@ -111,9 +125,11 @@ export function isPolygonMode(row: SolarBuildingRow | null): boolean {
 
 /** Géométrie d'un pan telle que stockée : { key, points, frame }. */
 export function planeGeometryFromRow(row: SolarRoofPlaneRow): RoofPlaneGeometry | null {
-  const raw = row.polygon as unknown as
-    | { key?: string; points?: { x: number; y: number }[]; frame?: RoofPlaneGeometry["frame"] }
-    | null;
+  const raw = row.polygon as unknown as {
+    key?: string;
+    points?: { x: number; y: number }[];
+    frame?: RoofPlaneGeometry["frame"];
+  } | null;
   if (!raw?.key || !raw.points || !raw.frame) return null;
   return {
     key: raw.key,
@@ -270,8 +286,18 @@ export async function bumpGeometryVersion(
   const model = await loadModelScoped(sb, companyId, modelId);
   const [buildings, planes, obstacles] = await Promise.all([
     sb.from("solar_buildings").select("*").eq("model_id", modelId).eq("company_id", companyId),
-    sb.from("solar_roof_planes").select("*").eq("model_id", modelId).eq("company_id", companyId).order("name"),
-    sb.from("solar_obstacles").select("*").eq("model_id", modelId).eq("company_id", companyId).order("created_at"),
+    sb
+      .from("solar_roof_planes")
+      .select("*")
+      .eq("model_id", modelId)
+      .eq("company_id", companyId)
+      .order("name"),
+    sb
+      .from("solar_obstacles")
+      .select("*")
+      .eq("model_id", modelId)
+      .eq("company_id", companyId)
+      .order("created_at"),
   ]);
 
   const building = buildings.data?.[0] ?? null;
@@ -293,7 +319,11 @@ export async function bumpGeometryVersion(
       h: o.height_m,
     })),
     terrain: (building?.terrain as unknown) ?? null,
-    origin: { lat: model.origin_latitude, lon: model.origin_longitude, alt: model.origin_altitude_m },
+    origin: {
+      lat: model.origin_latitude,
+      lon: model.origin_longitude,
+      alt: model.origin_altitude_m,
+    },
   });
 
   if (hash === model.geometry_hash) {
@@ -336,37 +366,60 @@ export interface SolarFullModel {
   summary: ReturnType<typeof computeSolarSummary>;
 }
 
-export async function loadFullModel(sb: SB, companyId: string, modelId: string): Promise<SolarFullModel> {
+export async function loadFullModel(
+  sb: SB,
+  companyId: string,
+  modelId: string,
+): Promise<SolarFullModel> {
   const model = await loadModelScoped(sb, companyId, modelId);
 
-  const [buildings, planes, obstacles, arrays, modules, catalog, versions, measurements, provenance] =
-    await Promise.all([
-      sb.from("solar_buildings").select("*").eq("model_id", modelId).eq("company_id", companyId),
-      sb.from("solar_roof_planes").select("*").eq("model_id", modelId).eq("company_id", companyId).order("name"),
-      sb.from("solar_obstacles").select("*").eq("model_id", modelId).eq("company_id", companyId).order("created_at"),
-      sb.from("solar_arrays").select("*").eq("model_id", modelId).eq("company_id", companyId),
-      sb.from("solar_modules_placed").select("*").eq("model_id", modelId).eq("company_id", companyId),
-      sb
-        .from("solar_module_catalog")
-        .select("*")
-        .or(`company_id.is.null,company_id.eq.${companyId}`)
-        .eq("is_active", true)
-        .order("power_wc", { ascending: false }),
-      sb
-        .from("solar_model_versions")
-        .select("id, version_number, label, quality_level, created_at")
-        .eq("model_id", modelId)
-        .eq("company_id", companyId)
-        .order("version_number", { ascending: false })
-        .limit(20),
-      sb
-        .from("solar_measurements")
-        .select("*")
-        .eq("model_id", modelId)
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false }),
-      sb.from("solar_provenance").select("*").eq("model_id", modelId).eq("company_id", companyId),
-    ]);
+  const [
+    buildings,
+    planes,
+    obstacles,
+    arrays,
+    modules,
+    catalog,
+    versions,
+    measurements,
+    provenance,
+  ] = await Promise.all([
+    sb.from("solar_buildings").select("*").eq("model_id", modelId).eq("company_id", companyId),
+    sb
+      .from("solar_roof_planes")
+      .select("*")
+      .eq("model_id", modelId)
+      .eq("company_id", companyId)
+      .order("name"),
+    sb
+      .from("solar_obstacles")
+      .select("*")
+      .eq("model_id", modelId)
+      .eq("company_id", companyId)
+      .order("created_at"),
+    sb.from("solar_arrays").select("*").eq("model_id", modelId).eq("company_id", companyId),
+    sb.from("solar_modules_placed").select("*").eq("model_id", modelId).eq("company_id", companyId),
+    sb
+      .from("solar_module_catalog")
+      .select("*")
+      .or(`company_id.is.null,company_id.eq.${companyId}`)
+      .eq("is_active", true)
+      .order("power_wc", { ascending: false }),
+    sb
+      .from("solar_model_versions")
+      .select("id, version_number, label, quality_level, created_at")
+      .eq("model_id", modelId)
+      .eq("company_id", companyId)
+      .order("version_number", { ascending: false })
+      .limit(20),
+    sb
+      .from("solar_measurements")
+      .select("*")
+      .eq("model_id", modelId)
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false }),
+    sb.from("solar_provenance").select("*").eq("model_id", modelId).eq("company_id", companyId),
+  ]);
 
   const building = buildings.data?.[0] ?? null;
   const params = readBuildingParams(building);
@@ -391,9 +444,11 @@ export async function loadFullModel(sb: SB, companyId: string, modelId: string):
 
   const mainArray = (arrays.data ?? [])[0] ?? null;
   // La référence enregistrée avec l'implantation prime sur le catalogue hérité.
-  const snapshot = mainArray?.module_snapshot as
-    | { power_wc?: number; width_mm?: number; height_mm?: number }
-    | null;
+  const snapshot = mainArray?.module_snapshot as {
+    power_wc?: number;
+    width_mm?: number;
+    height_mm?: number;
+  } | null;
   const spec =
     snapshot && typeof snapshot.width_mm === "number" && typeof snapshot.height_mm === "number"
       ? {
@@ -401,7 +456,7 @@ export async function loadFullModel(sb: SB, companyId: string, modelId: string):
           width_mm: snapshot.width_mm,
           height_mm: snapshot.height_mm,
         }
-      : (catalog.data ?? []).find((c) => c.id === mainArray?.module_catalog_id) ?? null;
+      : ((catalog.data ?? []).find((c) => c.id === mainArray?.module_catalog_id) ?? null);
   const provenanceRows = provenance.data ?? [];
   const terrain = (building?.terrain as unknown as TerrainGrid | null) ?? null;
 
@@ -430,7 +485,8 @@ export async function loadFullModel(sb: SB, companyId: string, modelId: string):
       }),
     ),
     coverage:
-      (model.settings as { coverage?: { checked_at?: string; items?: CoverageStatus[] } } | null)?.coverage ?? null,
+      (model.settings as { coverage?: { checked_at?: string; items?: CoverageStatus[] } } | null)
+        ?.coverage ?? null,
 
     summary: computeSolarSummary(
       geometry.map((g) => g.geo),
@@ -518,7 +574,9 @@ function buildQualityRows(input: {
     );
   }
 
-  const verifiedDims = input.measurements.filter((m) => m.verification_status === "verified").length;
+  const verifiedDims = input.measurements.filter(
+    (m) => m.verification_status === "verified",
+  ).length;
   if (input.measurements.length) {
     rows.push({
       label: "Cotes du projet",

@@ -45,9 +45,6 @@ const ModelRefSchema = z.object({
 
 export type SolarModelPayload = SolarFullModel;
 
-
-
-
 /** Charge le modèle d'un cahier des charges. Retourne null s'il n'existe pas encore. */
 export const getSolarModel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -95,7 +92,10 @@ export const createSolarModel = createServerFn({ method: "POST" })
 
     // Géocodage du site (BAN, service public français) : sert d'origine du repère local.
     const geo = await geocode(
-      [study.site_address, study.site_postal_code, study.site_city].filter(Boolean).join(" ").trim(),
+      [study.site_address, study.site_postal_code, study.site_city]
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
     );
 
     const { data: model, error } = await supabase
@@ -166,7 +166,9 @@ export const createSolarModel = createServerFn({ method: "POST" })
     return refreshSummary(supabase, data.companyId, model.id, userId);
   });
 
-async function geocode(query: string): Promise<{ latitude: number; longitude: number; score: number; label: string } | null> {
+async function geocode(
+  query: string,
+): Promise<{ latitude: number; longitude: number; score: number; label: string } | null> {
   if (query.length < 5) return null;
   try {
     const url = new URL("https://api-adresse.data.gouv.fr/search/");
@@ -175,7 +177,10 @@ async function geocode(query: string): Promise<{ latitude: number; longitude: nu
     const res = await fetch(url.toString(), { headers: { "User-Agent": "PVIA-SolarStudio/1.0" } });
     if (!res.ok) return null;
     const json = (await res.json()) as {
-      features?: { geometry?: { coordinates?: [number, number] }; properties?: { score?: number; label?: string } }[];
+      features?: {
+        geometry?: { coordinates?: [number, number] };
+        properties?: { score?: number; label?: string };
+      }[];
     };
     const f = json.features?.[0];
     const c = f?.geometry?.coordinates;
@@ -232,12 +237,22 @@ export const saveSolarBuilding = createServerFn({ method: "POST" })
       if (error) throw new Error("Enregistrement du bâtiment impossible.");
       building = updated;
     } else {
-      const { data: created, error } = await supabase.from("solar_buildings").insert(payload).select("*").single();
+      const { data: created, error } = await supabase
+        .from("solar_buildings")
+        .insert(payload)
+        .select("*")
+        .single();
       if (error) throw new Error("Enregistrement du bâtiment impossible.");
       building = created;
     }
 
-    const planes = await syncRoofPlanes(supabase, data.companyId, data.modelId, building, data.params);
+    const planes = await syncRoofPlanes(
+      supabase,
+      data.companyId,
+      data.modelId,
+      building,
+      data.params,
+    );
 
     // Provenance : saisie manuelle du bâtiment et des pans qui en découlent.
     await setProvenance(supabase, data.companyId, data.modelId, {
@@ -260,7 +275,6 @@ export const saveSolarBuilding = createServerFn({ method: "POST" })
     await bumpGeometryVersion(supabase, data.companyId, data.modelId, userId);
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
-
 
 /* ------------------------- Pans dessinés (P0-B) --------------------------- */
 
@@ -408,11 +422,14 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
       .select("*")
       .eq("model_id", data.modelId)
       .eq("company_id", data.companyId);
-    const geometry = (rows ?? []).map(planeGeometryFromRow).filter((g): g is NonNullable<typeof g> => !!g);
+    const geometry = (rows ?? [])
+      .map(planeGeometryFromRow)
+      .filter((g): g is NonNullable<typeof g> => !!g);
     if (geometry.length === 0) throw new Error("Aucun pan à convertir.");
 
     const custom = customPlanesFromGeometry(geometry).filter((p) => validateRoofRing(p.ring).valid);
-    if (custom.length === 0) throw new Error("Les pans actuels ne peuvent pas être convertis en contours.");
+    if (custom.length === 0)
+      throw new Error("Les pans actuels ne peuvent pas être convertis en contours.");
 
     const { data: updated, error } = await supabase
       .from("solar_buildings")
@@ -423,7 +440,13 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error("Conversion impossible.");
 
-    await syncRoofPlanes(supabase, data.companyId, data.modelId, updated, readBuildingParams(updated));
+    await syncRoofPlanes(
+      supabase,
+      data.companyId,
+      data.modelId,
+      updated,
+      readBuildingParams(updated),
+    );
     await bumpGeometryVersion(supabase, data.companyId, data.modelId, userId);
     await writeAuditLog({
       companyId: data.companyId,
@@ -481,7 +504,13 @@ export const saveSolarObstacle = createServerFn({ method: "POST" })
 export const deleteSolarObstacle = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z.object({ companyId: z.string().uuid(), modelId: z.string().uuid(), obstacleId: z.string().uuid() }).parse(i),
+    z
+      .object({
+        companyId: z.string().uuid(),
+        modelId: z.string().uuid(),
+        obstacleId: z.string().uuid(),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -585,14 +614,22 @@ export const generateSolarLayout = createServerFn({ method: "POST" })
     };
 
     if (arrayId) {
-      await supabase.from("solar_arrays").update(arrayPayload).eq("id", arrayId).eq("company_id", data.companyId);
+      await supabase
+        .from("solar_arrays")
+        .update(arrayPayload)
+        .eq("id", arrayId)
+        .eq("company_id", data.companyId);
       await supabase
         .from("solar_modules_placed")
         .delete()
         .eq("array_id", arrayId)
         .eq("company_id", data.companyId);
     } else {
-      const { data: created, error } = await supabase.from("solar_arrays").insert(arrayPayload).select("id").single();
+      const { data: created, error } = await supabase
+        .from("solar_arrays")
+        .insert(arrayPayload)
+        .select("id")
+        .single();
       if (error) throw new Error("Création du champ impossible.");
       arrayId = created.id;
     }
@@ -638,7 +675,13 @@ export const toggleSolarModule = createServerFn({ method: "POST" })
 export const clearSolarLayout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z.object({ companyId: z.string().uuid(), modelId: z.string().uuid(), roofPlaneId: z.string().uuid() }).parse(i),
+    z
+      .object({
+        companyId: z.string().uuid(),
+        modelId: z.string().uuid(),
+        roofPlaneId: z.string().uuid(),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;

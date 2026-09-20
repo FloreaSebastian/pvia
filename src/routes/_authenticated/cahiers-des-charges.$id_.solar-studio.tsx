@@ -311,7 +311,10 @@ function SolarStudioPage() {
   /** Nouveau pan dessiné : nommage automatique, pente/orientation par défaut. */
   const handlePlaneDrawn = (ring: LocalPoint[]) => {
     if (!payload) return;
-    const key = nextPlaneKey([...roofPlanes.map((p) => p.key), ...payload.planes.map((p) => p.key)]);
+    const key = nextPlaneKey([
+      ...roofPlanes.map((p) => p.key),
+      ...payload.planes.map((p) => p.key),
+    ]);
     const plane: CustomRoofPlane = {
       key,
       name: nextPlaneName(roofPlanes.map((p) => p.name)),
@@ -324,7 +327,10 @@ function SolarStudioPage() {
     };
     setSelectedPlaneKey(key);
     setRoofTool("select");
-    updateRoofPlanes([...roofPlanes, plane], { persist: true, success: `${plane.name} enregistré.` });
+    updateRoofPlanes([...roofPlanes, plane], {
+      persist: true,
+      success: `${plane.name} enregistré.`,
+    });
   };
 
   /** Sommet déplacé ou inséré : écriture uniquement en fin de geste. */
@@ -529,8 +535,8 @@ function SolarStudioPage() {
 
           {step === "toiture" && (
             <p className="border-b bg-muted/20 px-3 py-1 text-xs text-muted-foreground sm:hidden">
-              Pour dessiner précisément la toiture, utilisez le mode paysage ou une tablette.
-              La consultation reste possible ici.
+              Pour dessiner précisément la toiture, utilisez le mode paysage ou une tablette. La
+              consultation reste possible ici.
             </p>
           )}
 
@@ -819,9 +825,8 @@ function SolarStudioPage() {
                       </span>
                       <Badge variant="outline">
                         {
-                          payload.modules.filter(
-                            (m) => m.roof_plane_key === plane.key && m.enabled,
-                          ).length
+                          payload.modules.filter((m) => m.roof_plane_key === plane.key && m.enabled)
+                            .length
                         }
                       </Badge>
                     </button>

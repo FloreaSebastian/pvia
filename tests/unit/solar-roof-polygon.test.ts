@@ -53,7 +53,10 @@ describe("validation d'un contour de pan", () => {
   });
 
   it("refuse moins de 3 sommets", () => {
-    const v = validateRoofRing([{ x: 0, y: 0 }, { x: 4, y: 0 }]);
+    const v = validateRoofRing([
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+    ]);
     expect(v.valid).toBe(false);
     expect(v.issue).toBe("too_few_points");
     expect(v.message).toBeTruthy();
@@ -191,7 +194,10 @@ describe("géométrie du pan incliné", () => {
   });
 
   it("gère plusieurs pans et leur surface totale", () => {
-    const planes = [plane(), plane({ key: "pan2", name: "Pan 2", ring: translateRing(square, 20, 0) })];
+    const planes = [
+      plane(),
+      plane({ key: "pan2", name: "Pan 2", ring: translateRing(square, 20, 0) }),
+    ];
     expect(totalCustomArea(planes)).toBeCloseTo(planeFromCustom(planes[0]!).area_m2 * 2, 6);
   });
 });

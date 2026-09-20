@@ -11,7 +11,14 @@
  * Aucune géométrie n'est enregistrée sans validation — le parent décide.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { distance, polygonArea, toLatLon, toLocal, type LatLon, type LocalPoint } from "@/lib/solar/geo";
+import {
+  distance,
+  polygonArea,
+  toLatLon,
+  toLocal,
+  type LatLon,
+  type LocalPoint,
+} from "@/lib/solar/geo";
 import {
   buildSnapModel,
   measureOnModel,
@@ -231,7 +238,9 @@ export function GoogleMapView({
     const s = state.current;
     const toPixel = (p: LocalPoint) => {
       const ll = toLatLon(s.origin, p);
-      const px = projection.fromLatLngToContainerPixel(new google.maps.LatLng(ll.latitude, ll.longitude));
+      const px = projection.fromLatLngToContainerPixel(
+        new google.maps.LatLng(ll.latitude, ll.longitude),
+      );
       return px ? { x: px.x, y: px.y } : null;
     };
 
@@ -253,7 +262,8 @@ export function GoogleMapView({
         ctx.fillStyle = style.fill;
         ctx.fill();
       }
-      ctx.lineWidth = f.planeKey && f.planeKey === s.selectedPlaneKey ? style.width + 2 : style.width;
+      ctx.lineWidth =
+        f.planeKey && f.planeKey === s.selectedPlaneKey ? style.width + 2 : style.width;
       ctx.strokeStyle = f.planeKey && f.planeKey === s.selectedPlaneKey ? "#facc15" : style.stroke;
       ctx.stroke();
     }
@@ -273,7 +283,12 @@ export function GoogleMapView({
     };
 
     /** Contour de travail : segments, cotes en mètres, surface, sommets saisissables. */
-    const drawWorkingRing = (ring: LocalPoint[], closed: boolean, color: string, handles: boolean) => {
+    const drawWorkingRing = (
+      ring: LocalPoint[],
+      closed: boolean,
+      color: string,
+      handles: boolean,
+    ) => {
       const pts = ring.map(toPixel);
       if (pts.some((p) => !p) || pts.length < 1) return;
       const px = pts as { x: number; y: number }[];
@@ -400,15 +415,23 @@ export function GoogleMapView({
         map.addListener("click", (ev: google.maps.MapMouseEvent) => {
           const handler = selectRef.current;
           if (!handler || !ev.latLng) return;
-          const p = toLocal(state.current.origin, { latitude: ev.latLng.lat(), longitude: ev.latLng.lng() });
-          const hit = state.current.features.find((f) => f.kind === "plane" && f.closed && pointInRing(p, f.ring));
+          const p = toLocal(state.current.origin, {
+            latitude: ev.latLng.lat(),
+            longitude: ev.latLng.lng(),
+          });
+          const hit = state.current.features.find(
+            (f) => f.kind === "plane" && f.closed && pointInRing(p, f.ring),
+          );
           handler(hit?.planeKey ?? null);
         });
         map.addListener("idle", () => {
           draw();
           const c = map.getCenter();
           if (c && onCameraChange) {
-            onCameraChange({ center: { latitude: c.lat(), longitude: c.lng() }, zoom: map.getZoom() ?? 20 });
+            onCameraChange({
+              center: { latitude: c.lat(), longitude: c.lng() },
+              zoom: map.getZoom() ?? 20,
+            });
           }
         });
         setReady(true);
@@ -473,7 +496,21 @@ export function GoogleMapView({
 
   useEffect(() => {
     draw();
-  }, [draw, features, modelOpacity, outlineOnly, swipePercent, points, hover, selectedPlaneKey, draft, drag, rect, rings, drawTool]);
+  }, [
+    draw,
+    features,
+    modelOpacity,
+    outlineOnly,
+    swipePercent,
+    points,
+    hover,
+    selectedPlaneKey,
+    draft,
+    drag,
+    rect,
+    rings,
+    drawTool,
+  ]);
 
   useEffect(() => {
     setPoints([]);
@@ -670,7 +707,10 @@ export function GoogleMapView({
       <canvas
         ref={canvasRef}
         className="absolute inset-0 z-10 touch-none"
-        style={{ pointerEvents: interactive ? "auto" : "none", cursor: interactive ? "crosshair" : "default" }}
+        style={{
+          pointerEvents: interactive ? "auto" : "none",
+          cursor: interactive ? "crosshair" : "default",
+        }}
         onPointerMove={handlePointerMove}
         onPointerLeave={() => setHover(null)}
         onPointerDown={handlePointerDown}
@@ -695,13 +735,18 @@ export function GoogleMapView({
           <p className="text-sm font-semibold">Google Maps indisponible</p>
           <p className="text-xs text-muted-foreground">{error.message}</p>
           <p className="text-xs text-muted-foreground">
-            Le modèle technique PVIA (toiture, panneaux, cotes) reste utilisable dans les autres onglets.
+            Le modèle technique PVIA (toiture, panneaux, cotes) reste utilisable dans les autres
+            onglets.
           </p>
         </div>
       )}
 
       {!error && !ready && (
-        <div className="absolute inset-0 z-20 animate-pulse bg-muted" aria-label="Chargement de la carte" role="status">
+        <div
+          className="absolute inset-0 z-20 animate-pulse bg-muted"
+          aria-label="Chargement de la carte"
+          role="status"
+        >
           <div className="absolute bottom-3 left-3 h-3 w-32 rounded bg-background/60" />
           <div className="absolute right-3 top-3 h-8 w-8 rounded bg-background/60" />
         </div>
@@ -725,7 +770,8 @@ function pointInRing(p: LocalPoint, ring: LocalPoint[]): boolean {
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
     const a = ring[i]!;
     const b = ring[j]!;
-    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
+      inside = !inside;
   }
   return inside;
 }

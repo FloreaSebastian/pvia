@@ -77,7 +77,6 @@ interface Props {
 
 const LAYERS: MapBaseLayer[] = ["plan", "satellite", "hybrid", "tilted"];
 
-
 export function SiteMapCard({
   payload,
   companyId,
@@ -134,7 +133,6 @@ export function SiteMapCard({
   const mapConfigured = keyState === "ready" && GOOGLE_MAPS_PROVIDER.isConfigured();
   const diagnostics = readMapsDiagnostics(true);
 
-
   const origin: LatLon | null = pending
     ? pending
     : located
@@ -160,10 +158,17 @@ export function SiteMapCard({
         source: "Saisie PVIA / relevé",
       };
     });
-    const specs: Record<string, { width_m: number; height_m: number; power_wc: number | null } | undefined> = {};
+    const specs: Record<
+      string,
+      { width_m: number; height_m: number; power_wc: number | null } | undefined
+    > = {};
     for (const [key, spec] of Object.entries(scene.specByPlaneKey)) {
       if (!spec) continue;
-      specs[key] = { width_m: spec.width_mm / 1000, height_m: spec.height_mm / 1000, power_wc: null };
+      specs[key] = {
+        width_m: spec.width_mm / 1000,
+        height_m: spec.height_mm / 1000,
+        power_wc: null,
+      };
     }
     const planeSource: Record<string, string> = {};
     for (const p of payload.planes) {
@@ -178,7 +183,8 @@ export function SiteMapCard({
     });
   }, [scene, payload.planes]);
 
-  const selected = features.find((f) => f.kind === "plane" && f.planeKey === selectedPlaneKey) ?? null;
+  const selected =
+    features.find((f) => f.kind === "plane" && f.planeKey === selectedPlaneKey) ?? null;
 
   useEffect(() => {
     if (!origin) return;
@@ -280,7 +286,8 @@ export function SiteMapCard({
       )}
       {candidates.length > 1 && (
         <p className="text-xs text-muted-foreground">
-          Plusieurs adresses correspondent : choisissez celle du chantier, rien n'est retenu automatiquement.
+          Plusieurs adresses correspondent : choisissez celle du chantier, rien n'est retenu
+          automatiquement.
         </p>
       )}
 
@@ -298,7 +305,6 @@ export function SiteMapCard({
                   setLayer(l);
                   if (l === "tilted") setUsage(countMapUsage("tilted"));
                 }}
-
               >
                 {MAP_LAYER_LABEL[l]}
               </Button>
@@ -337,8 +343,8 @@ export function SiteMapCard({
                 </Button>
               ))}
               <span className="text-muted-foreground">
-                Cliquez sur la géométrie PVIA : le curseur s'accroche aux coins, rives et faîtages. Double-clic pour
-                recommencer.
+                Cliquez sur la géométrie PVIA : le curseur s'accroche aux coins, rives et faîtages.
+                Double-clic pour recommencer.
               </span>
             </div>
           )}
@@ -368,33 +374,35 @@ export function SiteMapCard({
                   Préparation de la carte…
                 </div>
               ) : (
-              <GoogleMapView
-                origin={origin}
-                layer={layer}
-                features={features}
-                modelOpacity={opacity / 100}
-                outlineOnly={outline}
-                swipePercent={swipe}
-                measure={measure}
-                selectedPlaneKey={selectedPlaneKey}
-                pickMode={!!pending}
-                onPickLocation={(p) => setPending(p)}
-                onSelectPlane={onSelectPlane}
-                onMeasured={(r) => setLastMeasure(r)}
-                recenterSignal={recenterSignal}
-                drawTool={roofEditor && measure === null ? roofEditor.tool : null}
-                editableRings={roofEditor?.editableRings}
-                onPlaneDrawn={roofEditor?.onPlaneDrawn}
-                onRingChange={roofEditor?.onRingChange}
-                onObstacleDrawn={roofEditor?.onObstacleDrawn}
-                onDrawIssue={setDrawIssue}
-              />
+                <GoogleMapView
+                  origin={origin}
+                  layer={layer}
+                  features={features}
+                  modelOpacity={opacity / 100}
+                  outlineOnly={outline}
+                  swipePercent={swipe}
+                  measure={measure}
+                  selectedPlaneKey={selectedPlaneKey}
+                  pickMode={!!pending}
+                  onPickLocation={(p) => setPending(p)}
+                  onSelectPlane={onSelectPlane}
+                  onMeasured={(r) => setLastMeasure(r)}
+                  recenterSignal={recenterSignal}
+                  drawTool={roofEditor && measure === null ? roofEditor.tool : null}
+                  editableRings={roofEditor?.editableRings}
+                  onPlaneDrawn={roofEditor?.onPlaneDrawn}
+                  onRingChange={roofEditor?.onRingChange}
+                  onObstacleDrawn={roofEditor?.onObstacleDrawn}
+                  onDrawIssue={setDrawIssue}
+                />
               )}
             </div>
             {split && (
               <div className="h-[46vh] min-h-[260px] overflow-hidden rounded-md border p-2">
                 <PlanView
-                  plane={scene.planes.find((p) => p.key === selectedPlaneKey) ?? scene.planes[0] ?? null}
+                  plane={
+                    scene.planes.find((p) => p.key === selectedPlaneKey) ?? scene.planes[0] ?? null
+                  }
                   modules={scene.modules}
                   obstacles={scene.obstacles}
                   spec={scene.specByPlaneKey[selectedPlaneKey ?? scene.planes[0]?.key ?? ""]}
@@ -405,7 +413,9 @@ export function SiteMapCard({
           </div>
 
           <p className="text-[11px] text-muted-foreground">{GOOGLE_MAPS_PROVIDER.attribution}</p>
-          <p className="text-[11px] text-muted-foreground">{GOOGLE_MAPS_PROVIDER.derivativeRestriction}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {GOOGLE_MAPS_PROVIDER.derivativeRestriction}
+          </p>
 
           {pending && (
             <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
@@ -446,11 +456,23 @@ export function SiteMapCard({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">Modèle PVIA — opacité {opacity} %</Label>
-              <Slider value={[opacity]} min={0} max={100} step={5} onValueChange={([v]) => setOpacity(v ?? 80)} />
+              <Slider
+                value={[opacity]}
+                min={0}
+                max={100}
+                step={5}
+                onValueChange={([v]) => setOpacity(v ?? 80)}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Balayage Google ← → Modèle</Label>
-              <Slider value={[swipe]} min={0} max={100} step={1} onValueChange={([v]) => setSwipe(v ?? 100)} />
+              <Slider
+                value={[swipe]}
+                min={0}
+                max={100}
+                step={1}
+                onValueChange={([v]) => setSwipe(v ?? 100)}
+              />
             </div>
             <div className="flex items-center gap-2">
               <Switch id="outline" checked={outline} onCheckedChange={setOutline} />
@@ -473,7 +495,9 @@ export function SiteMapCard({
                 </p>
               ))}
               <p className="text-muted-foreground">Source : {selected.source}</p>
-              <p className="text-muted-foreground">Fond affiché : Google {MAP_LAYER_LABEL[layer]} (visuel seulement)</p>
+              <p className="text-muted-foreground">
+                Fond affiché : Google {MAP_LAYER_LABEL[layer]} (visuel seulement)
+              </p>
             </div>
           )}
 
@@ -493,11 +517,16 @@ export function SiteMapCard({
                         modelId: model.id,
                         measure_type: lastMeasure.kind === "area" ? "area" : "distance",
                         category: "autre",
-                        label: lastMeasure.kind === "area" ? "Surface relevée sur plan" : "Distance relevée sur plan",
+                        label:
+                          lastMeasure.kind === "area"
+                            ? "Surface relevée sur plan"
+                            : "Distance relevée sur plan",
                         value_numeric: lastMeasure.value,
                         unit: lastMeasure.unit === "m²" ? "m2" : "m",
                         pinned: true,
-                        geometry: lastMeasure.points.map((p) => [p.x, p.y, 0] as [number, number, number]),
+                        geometry: lastMeasure.points.map(
+                          (p) => [p.x, p.y, 0] as [number, number, number],
+                        ),
                         data_source: "MANUAL",
                       },
                     });
@@ -523,7 +552,10 @@ export function SiteMapCard({
               Diagnostic cartographie
             </summary>
             <ul className="mt-1 space-y-0.5">
-              <li>Clé cartographique : {diagnostics.keyPresent ? diagnostics.keyMasked : "non configurée"}</li>
+              <li>
+                Clé cartographique :{" "}
+                {diagnostics.keyPresent ? diagnostics.keyMasked : "non configurée"}
+              </li>
               <li>
                 Origine de la clé :{" "}
                 {diagnostics.keySource === "pvia"
@@ -536,12 +568,18 @@ export function SiteMapCard({
               </li>
               <li>
                 Domaine actuel : {diagnostics.host || "inconnu"} —{" "}
-                {diagnostics.hostAllowedByKey ? "compatible avec la clé" : "non couvert par cette clé"}
+                {diagnostics.hostAllowedByKey
+                  ? "compatible avec la clé"
+                  : "non couvert par cette clé"}
               </li>
               <li>API cartographique chargée : {diagnostics.apiLoaded ? "oui" : "non"}</li>
               <li>Style personnalisé : {diagnostics.mapId ? "configuré" : "aucun"}</li>
-              <li>3D photoréaliste : non utilisée (la vue inclinée est une vue satellite inclinée)</li>
-              <li>Dernière erreur : {diagnostics.lastError ? diagnostics.lastError.message : "aucune"}</li>
+              <li>
+                3D photoréaliste : non utilisée (la vue inclinée est une vue satellite inclinée)
+              </li>
+              <li>
+                Dernière erreur : {diagnostics.lastError ? diagnostics.lastError.message : "aucune"}
+              </li>
               <li>Version déployée : {diagnostics.buildId}</li>
             </ul>
           </details>
@@ -554,11 +592,10 @@ export function SiteMapCard({
 
       {!mapConfigured && (
         <p className="rounded-md border p-2 text-xs text-muted-foreground">
-          Fond cartographique non configuré pour ce domaine : la recherche d'adresse et le modèle technique PVIA
-          restent utilisables, seule l'imagerie Google est indisponible.
+          Fond cartographique non configuré pour ce domaine : la recherche d'adresse et le modèle
+          technique PVIA restent utilisables, seule l'imagerie Google est indisponible.
         </p>
       )}
-
     </Card>
   );
 }
