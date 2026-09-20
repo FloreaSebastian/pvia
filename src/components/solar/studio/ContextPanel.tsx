@@ -22,7 +22,7 @@ export function ContextPanel({
 }) {
   if (collapsed) {
     return (
-      <div className="hidden shrink-0 border-l bg-card p-1 lg:block">
+      <div className="hidden shrink-0 border-l bg-card p-1 xl:block">
         <Button
           variant="ghost"
           size="icon"
@@ -41,7 +41,7 @@ export function ContextPanel({
     <aside
       aria-label={`Réglages — ${title}`}
       className={cn(
-        "flex min-h-0 shrink-0 flex-col border-t bg-card lg:w-[340px] lg:border-l lg:border-t-0",
+        "flex min-h-0 shrink-0 flex-col border-t bg-card xl:w-[340px] xl:border-l xl:border-t-0",
       )}
     >
       <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5">
@@ -52,7 +52,7 @@ export function ContextPanel({
         <Button
           variant="ghost"
           size="icon"
-          className="hidden h-11 w-11 lg:inline-flex"
+          className="hidden h-11 w-11 xl:inline-flex"
           aria-label="Replier les réglages"
           aria-expanded
           onClick={onToggle}
