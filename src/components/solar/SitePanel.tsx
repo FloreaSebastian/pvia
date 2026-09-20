@@ -40,6 +40,8 @@ interface Props {
   companyId: string | null;
   disabled: boolean;
   onPayload: (next: Payload) => void;
+  /** Remonte l'état d'écriture vers la barre haute du cadre UX (P0-A.1). */
+  onSaveActivity?: (state: { busy: boolean; error: boolean }) => void;
 }
 
 interface Candidate {
