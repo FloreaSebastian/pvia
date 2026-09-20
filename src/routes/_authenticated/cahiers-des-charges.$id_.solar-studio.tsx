@@ -29,6 +29,8 @@ import {
   getSolarModel,
   saveSolarBuilding,
   saveSolarObstacle,
+  saveSolarRoofPlanes,
+  convertRoofToEditable,
   toggleSolarModule,
   updateSolarModel,
   type SolarModelPayload,
@@ -52,7 +54,17 @@ import {
   type StudioMode,
   type StudioStepId,
 } from "@/lib/solar/studio-steps";
-import { azimuthLabel } from "@/lib/solar/geo";
+import { azimuthLabel, type LocalPoint } from "@/lib/solar/geo";
+import {
+  groundToPlaneUv,
+  nextPlaneKey,
+  nextPlaneName,
+  parseCustomPlanes,
+  planeFromCustom,
+  type CustomRoofPlane,
+} from "@/lib/solar/polygon";
+import { RoofPlanesPanel } from "@/components/solar/roof/RoofEditor";
+import type { RoofDrawTool } from "@/components/solar/map/GoogleMapView";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
 import { SmartLayoutPanel } from "@/components/solar/SmartLayoutPanel";
@@ -104,6 +116,8 @@ function SolarStudioPage() {
   const clearLayout = useServerFn(clearSolarLayout);
   const toggleModule = useServerFn(toggleSolarModule);
   const saveMeta = useServerFn(updateSolarModel);
+  const saveRoofPlanes = useServerFn(saveSolarRoofPlanes);
+  const convertRoof = useServerFn(convertRoofToEditable);
   const snapshot = useServerFn(createSolarVersion);
 
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -145,9 +159,23 @@ function SolarStudioPage() {
   const [historyTick, setHistoryTick] = useState(0);
   const [visualMode, setVisualMode] = useState<"map" | "3d">("map");
 
+  // Étape Toiture (P0-B) : outil actif et pans dessinés, historique dédié.
+  const [roofTool, setRoofTool] = useState<RoofDrawTool>("select");
+  const [roofPlanes, setRoofPlanes] = useState<CustomRoofPlane[]>([]);
+  const [roofDirty, setRoofDirty] = useState(false);
+  const roofHistory = useRef<CustomRoofPlane[][]>([]);
+  const roofFuture = useRef<CustomRoofPlane[][]>([]);
+
   const applyPayload = useCallback((next: Payload) => {
     setPayload(next);
     setParams(next.params);
+    setRoofPlanes(
+      parseCustomPlanes(next.building?.custom_planes, {
+        tilt_deg: next.params.tilt_deg,
+        eave_height_m: next.params.wall_height_m,
+      }),
+    );
+    setRoofDirty(false);
     setSelectedPlaneKey((prev) => prev ?? next.planes[0]?.key ?? null);
   }, []);
 
@@ -228,6 +256,56 @@ function SolarStudioPage() {
     setParams(next);
     setHistoryTick((t) => t + 1);
     await persistParams(next);
+  };
+
+  /* ----------------------------- Toiture P0-B ---------------------------- */
+
+  /** Enregistre le jeu complet de pans dessinés : écriture atomique côté serveur. */
+  const persistRoofPlanes = async (planes: CustomRoofPlane[], success?: string) => {
+    if (!companyId || !payload) return;
+    await guard(
+      async () =>
+        (await saveRoofPlanes({
+          data: {
+            companyId,
+            modelId: payload.model.id,
+            planes,
+            expectedGeometryVersion: payload.model.geometry_version,
+          },
+        })) as Payload,
+      success,
+    );
+  };
+
+  /** Modification locale + historique. L'écriture serveur reste explicite. */
+  const updateRoofPlanes = (
+    next: CustomRoofPlane[],
+    options?: { persist?: boolean; success?: string },
+  ) => {
+    roofHistory.current = [...roofHistory.current.slice(-49), roofPlanes];
+    roofFuture.current = [];
+    setHistoryTick((t) => t + 1);
+    setRoofPlanes(next);
+    if (options?.persist) void persistRoofPlanes(next, options.success);
+    else setRoofDirty(true);
+  };
+
+  const undoRoof = () => {
+    const prev = roofHistory.current.pop();
+    if (!prev) return;
+    roofFuture.current.push(roofPlanes);
+    setHistoryTick((t) => t + 1);
+    setRoofPlanes(prev);
+    void persistRoofPlanes(prev);
+  };
+
+  const redoRoof = () => {
+    const next = roofFuture.current.pop();
+    if (!next) return;
+    roofHistory.current.push(roofPlanes);
+    setHistoryTick((t) => t + 1);
+    setRoofPlanes(next);
+    void persistRoofPlanes(next);
   };
 
   const handleLayoutContext = useCallback((ctx: LayoutContext) => {
