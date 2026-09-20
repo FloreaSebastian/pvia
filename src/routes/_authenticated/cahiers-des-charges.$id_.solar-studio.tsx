@@ -308,6 +308,73 @@ function SolarStudioPage() {
     void persistRoofPlanes(next);
   };
 
+  /** Nouveau pan dessiné : nommage automatique, pente/orientation par défaut. */
+  const handlePlaneDrawn = (ring: LocalPoint[]) => {
+    if (!payload) return;
+    const key = nextPlaneKey([...roofPlanes.map((p) => p.key), ...payload.planes.map((p) => p.key)]);
+    const plane: CustomRoofPlane = {
+      key,
+      name: nextPlaneName(roofPlanes.map((p) => p.name)),
+      ring,
+      tilt_deg: params.tilt_deg,
+      azimuth_deg: params.azimuth_deg,
+      eave_height_m: params.wall_height_m,
+      margin_m: 0.4,
+      edge_margins: [],
+    };
+    setSelectedPlaneKey(key);
+    setRoofTool("select");
+    updateRoofPlanes([...roofPlanes, plane], { persist: true, success: `${plane.name} enregistré.` });
+  };
+
+  /** Sommet déplacé ou inséré : écriture uniquement en fin de geste. */
+  const handleRingChange = (key: string, ring: LocalPoint[]) => {
+    updateRoofPlanes(
+      roofPlanes.map((p) => (p.key === key ? { ...p, ring } : p)),
+      { persist: true },
+    );
+  };
+
+  /** Emprise d'obstacle tracée sur la carte, rapportée au pan sélectionné. */
+  const handleObstacleDrawn = (ring: LocalPoint[]) => {
+    if (!companyId || !payload) return;
+    const plane = roofPlanes.find((p) => p.key === selectedPlaneKey);
+    const planeRow = payload.planes.find((p) => p.key === selectedPlaneKey);
+    if (!plane || !planeRow) {
+      toast.error("Sélectionnez d'abord le pan qui porte cet obstacle.");
+      return;
+    }
+    const uv = ring.map((p) => groundToPlaneUv(p, plane.azimuth_deg, plane.tilt_deg));
+    const us = uv.map((p) => p.x);
+    const vs = uv.map((p) => p.y);
+    const width = Math.max(...us) - Math.min(...us);
+    const length = Math.max(...vs) - Math.min(...vs);
+    if (width < 0.05 || length < 0.05) {
+      toast.error("Emprise trop petite : agrandissez le rectangle de l'obstacle.");
+      return;
+    }
+    void guard(
+      async () =>
+        (await saveObstacle({
+          data: {
+            companyId,
+            modelId: payload.model.id,
+            roofPlaneId: planeRow.id,
+            obstacle_type: "autre",
+            label: "Obstacle",
+            position_x_m: (Math.max(...us) + Math.min(...us)) / 2,
+            position_y_m: (Math.max(...vs) + Math.min(...vs)) / 2,
+            width_m: Math.min(100, width),
+            length_m: Math.min(100, length),
+            height_m: 0.5,
+            clearance_m: 0.3,
+          },
+        })) as Payload,
+      "Obstacle ajouté. Précisez son type dans la liste.",
+    );
+    setRoofTool("select");
+  };
+
   const handleLayoutContext = useCallback((ctx: LayoutContext) => {
     setLayoutContext((prev) =>
       prev.targetKwc === ctx.targetKwc &&
@@ -470,6 +537,27 @@ function SolarStudioPage() {
                   selectedPlaneKey={selectedPlaneKey}
                   onSelectPlane={setSelectedPlaneKey}
                   onPayload={applyPayload}
+                  roofEditor={
+                    step === "toiture"
+                      ? {
+                          tool: roofTool,
+                          onToolChange: setRoofTool,
+                          editableRings: roofPlanes.map((p) => ({
+                            key: p.key,
+                            name: p.name,
+                            ring: p.ring,
+                          })),
+                          disabled: !canWrite || busy,
+                          canUndo: roofHistory.current.length > 0 && !busy,
+                          canRedo: roofFuture.current.length > 0 && !busy,
+                          onUndo: undoRoof,
+                          onRedo: redoRoof,
+                          onPlaneDrawn: handlePlaneDrawn,
+                          onRingChange: handleRingChange,
+                          onObstacleDrawn: handleObstacleDrawn,
+                        }
+                      : undefined
+                  }
                 />
               </ClientOnly>
             ) : (
