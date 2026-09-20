@@ -5,6 +5,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildRoofPlanes } from "./solar/roof";
+import {
+  clampTilt,
+  planeFromCustom,
+  validateRoofRing,
+  type CustomRoofPlane,
+} from "./solar/polygon";
+import type { LocalPoint } from "./solar/geo";
 import { deriveRoofEdges, type RoofEdge } from "./solar/edges";
 import { geometryFingerprint } from "./solar/hash";
 import { computeSolarSummary } from "./solar/summary";
