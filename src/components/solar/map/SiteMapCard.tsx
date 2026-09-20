@@ -15,7 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { GoogleMapView, type MapMeasureResult } from "./GoogleMapView";
+import {
+  GoogleMapView,
+  type EditableRing,
+  type MapMeasureResult,
+  type RoofDrawTool,
+} from "./GoogleMapView";
+import { RoofToolbar } from "@/components/solar/roof/RoofEditor";
+import type { LocalPoint } from "@/lib/solar/geo";
 import { PlanView } from "@/components/solar/PlanView";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import {
@@ -43,6 +50,21 @@ import type { SolarModelPayload } from "@/lib/solar.functions";
 
 type Payload = NonNullable<SolarModelPayload>;
 
+/** Étape Toiture : outils de dessin branchés sur le canevas (P0-B). */
+export interface RoofEditorBinding {
+  tool: RoofDrawTool;
+  onToolChange: (tool: RoofDrawTool) => void;
+  editableRings: EditableRing[];
+  disabled: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  onPlaneDrawn: (ring: LocalPoint[]) => void;
+  onRingChange: (key: string, ring: LocalPoint[]) => void;
+  onObstacleDrawn: (ring: LocalPoint[]) => void;
+}
+
 interface Props {
   payload: Payload;
   companyId: string;
@@ -50,12 +72,20 @@ interface Props {
   selectedPlaneKey: string | null;
   onSelectPlane: (key: string | null) => void;
   onPayload: (next: Payload) => void;
+  roofEditor?: RoofEditorBinding;
 }
 
 const LAYERS: MapBaseLayer[] = ["plan", "satellite", "hybrid", "tilted"];
 
-
-export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, onSelectPlane, onPayload }: Props) {
+export function SiteMapCard({
+  payload,
+  companyId,
+  disabled,
+  selectedPlaneKey,
+  onSelectPlane,
+  onPayload,
+  roofEditor,
+}: Props) {
   const searchFn = useServerFn(searchMapPlaces);
   const streetViewFn = useServerFn(checkStreetViewCoverage);
   const confirmFn = useServerFn(confirmSolarLocation);
@@ -77,6 +107,8 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
   const [streetView, setStreetView] = useState<{ available: boolean; detail: string } | null>(null);
   const [usage, setUsage] = useState<MapUsage>(() => readMapUsage());
   const [busy, setBusy] = useState(false);
+  const [drawIssue, setDrawIssue] = useState<string | null>(null);
+  const [recenterSignal, setRecenterSignal] = useState(0);
   const keyFn = useServerFn(getMapsBrowserKey);
   // La clé navigateur est servie par le serveur : on attend sa réception avant
   // de conclure que la cartographie n'est pas configurée.
@@ -100,7 +132,6 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
 
   const mapConfigured = keyState === "ready" && GOOGLE_MAPS_PROVIDER.isConfigured();
   const diagnostics = readMapsDiagnostics(true);
-
 
   const origin: LatLon | null = pending
     ? pending
@@ -127,10 +158,17 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
         source: "Saisie PVIA / relevé",
       };
     });
-    const specs: Record<string, { width_m: number; height_m: number; power_wc: number | null } | undefined> = {};
+    const specs: Record<
+      string,
+      { width_m: number; height_m: number; power_wc: number | null } | undefined
+    > = {};
     for (const [key, spec] of Object.entries(scene.specByPlaneKey)) {
       if (!spec) continue;
-      specs[key] = { width_m: spec.width_mm / 1000, height_m: spec.height_mm / 1000, power_wc: null };
+      specs[key] = {
+        width_m: spec.width_mm / 1000,
+        height_m: spec.height_mm / 1000,
+        power_wc: null,
+      };
     }
     const planeSource: Record<string, string> = {};
     for (const p of payload.planes) {
@@ -145,7 +183,8 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
     });
   }, [scene, payload.planes]);
 
-  const selected = features.find((f) => f.kind === "plane" && f.planeKey === selectedPlaneKey) ?? null;
+  const selected =
+    features.find((f) => f.kind === "plane" && f.planeKey === selectedPlaneKey) ?? null;
 
   useEffect(() => {
     if (!origin) return;
@@ -247,7 +286,8 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
       )}
       {candidates.length > 1 && (
         <p className="text-xs text-muted-foreground">
-          Plusieurs adresses correspondent : choisissez celle du chantier, rien n'est retenu automatiquement.
+          Plusieurs adresses correspondent : choisissez celle du chantier, rien n'est retenu
+          automatiquement.
         </p>
       )}
 
@@ -265,7 +305,6 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                   setLayer(l);
                   if (l === "tilted") setUsage(countMapUsage("tilted"));
                 }}
-
               >
                 {MAP_LAYER_LABEL[l]}
               </Button>
@@ -304,39 +343,66 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                 </Button>
               ))}
               <span className="text-muted-foreground">
-                Cliquez sur la géométrie PVIA : le curseur s'accroche aux coins, rives et faîtages. Double-clic pour
-                recommencer.
+                Cliquez sur la géométrie PVIA : le curseur s'accroche aux coins, rives et faîtages.
+                Double-clic pour recommencer.
               </span>
             </div>
           )}
 
           <div className={split ? "grid gap-2 lg:grid-cols-2" : ""}>
-            <div className="h-[46vh] min-h-[260px]">
+            <div className="relative h-[46vh] min-h-[260px]">
+              {roofEditor && (
+                <RoofToolbar
+                  tool={roofEditor.tool}
+                  onToolChange={(t) => {
+                    setMeasure(null);
+                    roofEditor.onToolChange(t);
+                  }}
+                  measuring={measure !== null}
+                  onToggleMeasure={() => setMeasure((m) => (m ? null : "distance"))}
+                  canUndo={roofEditor.canUndo}
+                  canRedo={roofEditor.canRedo}
+                  onUndo={roofEditor.onUndo}
+                  onRedo={roofEditor.onRedo}
+                  onRecenter={() => setRecenterSignal((n) => n + 1)}
+                  disabled={roofEditor.disabled}
+                  issue={drawIssue}
+                />
+              )}
               {keyState === "loading" ? (
                 <div className="flex h-full items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground">
                   Préparation de la carte…
                 </div>
               ) : (
-              <GoogleMapView
-                origin={origin}
-                layer={layer}
-                features={features}
-                modelOpacity={opacity / 100}
-                outlineOnly={outline}
-                swipePercent={swipe}
-                measure={measure}
-                selectedPlaneKey={selectedPlaneKey}
-                pickMode={!!pending}
-                onPickLocation={(p) => setPending(p)}
-                onSelectPlane={onSelectPlane}
-                onMeasured={(r) => setLastMeasure(r)}
-              />
+                <GoogleMapView
+                  origin={origin}
+                  layer={layer}
+                  features={features}
+                  modelOpacity={opacity / 100}
+                  outlineOnly={outline}
+                  swipePercent={swipe}
+                  measure={measure}
+                  selectedPlaneKey={selectedPlaneKey}
+                  pickMode={!!pending}
+                  onPickLocation={(p) => setPending(p)}
+                  onSelectPlane={onSelectPlane}
+                  onMeasured={(r) => setLastMeasure(r)}
+                  recenterSignal={recenterSignal}
+                  drawTool={roofEditor && measure === null ? roofEditor.tool : null}
+                  editableRings={roofEditor?.editableRings}
+                  onPlaneDrawn={roofEditor?.onPlaneDrawn}
+                  onRingChange={roofEditor?.onRingChange}
+                  onObstacleDrawn={roofEditor?.onObstacleDrawn}
+                  onDrawIssue={setDrawIssue}
+                />
               )}
             </div>
             {split && (
               <div className="h-[46vh] min-h-[260px] overflow-hidden rounded-md border p-2">
                 <PlanView
-                  plane={scene.planes.find((p) => p.key === selectedPlaneKey) ?? scene.planes[0] ?? null}
+                  plane={
+                    scene.planes.find((p) => p.key === selectedPlaneKey) ?? scene.planes[0] ?? null
+                  }
                   modules={scene.modules}
                   obstacles={scene.obstacles}
                   spec={scene.specByPlaneKey[selectedPlaneKey ?? scene.planes[0]?.key ?? ""]}
@@ -347,7 +413,9 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
           </div>
 
           <p className="text-[11px] text-muted-foreground">{GOOGLE_MAPS_PROVIDER.attribution}</p>
-          <p className="text-[11px] text-muted-foreground">{GOOGLE_MAPS_PROVIDER.derivativeRestriction}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {GOOGLE_MAPS_PROVIDER.derivativeRestriction}
+          </p>
 
           {pending && (
             <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
@@ -388,11 +456,23 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">Modèle PVIA — opacité {opacity} %</Label>
-              <Slider value={[opacity]} min={0} max={100} step={5} onValueChange={([v]) => setOpacity(v ?? 80)} />
+              <Slider
+                value={[opacity]}
+                min={0}
+                max={100}
+                step={5}
+                onValueChange={([v]) => setOpacity(v ?? 80)}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Balayage Google ← → Modèle</Label>
-              <Slider value={[swipe]} min={0} max={100} step={1} onValueChange={([v]) => setSwipe(v ?? 100)} />
+              <Slider
+                value={[swipe]}
+                min={0}
+                max={100}
+                step={1}
+                onValueChange={([v]) => setSwipe(v ?? 100)}
+              />
             </div>
             <div className="flex items-center gap-2">
               <Switch id="outline" checked={outline} onCheckedChange={setOutline} />
@@ -415,7 +495,9 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                 </p>
               ))}
               <p className="text-muted-foreground">Source : {selected.source}</p>
-              <p className="text-muted-foreground">Fond affiché : Google {MAP_LAYER_LABEL[layer]} (visuel seulement)</p>
+              <p className="text-muted-foreground">
+                Fond affiché : Google {MAP_LAYER_LABEL[layer]} (visuel seulement)
+              </p>
             </div>
           )}
 
@@ -435,11 +517,16 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
                         modelId: model.id,
                         measure_type: lastMeasure.kind === "area" ? "area" : "distance",
                         category: "autre",
-                        label: lastMeasure.kind === "area" ? "Surface relevée sur plan" : "Distance relevée sur plan",
+                        label:
+                          lastMeasure.kind === "area"
+                            ? "Surface relevée sur plan"
+                            : "Distance relevée sur plan",
                         value_numeric: lastMeasure.value,
                         unit: lastMeasure.unit === "m²" ? "m2" : "m",
                         pinned: true,
-                        geometry: lastMeasure.points.map((p) => [p.x, p.y, 0] as [number, number, number]),
+                        geometry: lastMeasure.points.map(
+                          (p) => [p.x, p.y, 0] as [number, number, number],
+                        ),
                         data_source: "MANUAL",
                       },
                     });
@@ -465,7 +552,10 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
               Diagnostic cartographie
             </summary>
             <ul className="mt-1 space-y-0.5">
-              <li>Clé cartographique : {diagnostics.keyPresent ? diagnostics.keyMasked : "non configurée"}</li>
+              <li>
+                Clé cartographique :{" "}
+                {diagnostics.keyPresent ? diagnostics.keyMasked : "non configurée"}
+              </li>
               <li>
                 Origine de la clé :{" "}
                 {diagnostics.keySource === "pvia"
@@ -478,12 +568,18 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
               </li>
               <li>
                 Domaine actuel : {diagnostics.host || "inconnu"} —{" "}
-                {diagnostics.hostAllowedByKey ? "compatible avec la clé" : "non couvert par cette clé"}
+                {diagnostics.hostAllowedByKey
+                  ? "compatible avec la clé"
+                  : "non couvert par cette clé"}
               </li>
               <li>API cartographique chargée : {diagnostics.apiLoaded ? "oui" : "non"}</li>
               <li>Style personnalisé : {diagnostics.mapId ? "configuré" : "aucun"}</li>
-              <li>3D photoréaliste : non utilisée (la vue inclinée est une vue satellite inclinée)</li>
-              <li>Dernière erreur : {diagnostics.lastError ? diagnostics.lastError.message : "aucune"}</li>
+              <li>
+                3D photoréaliste : non utilisée (la vue inclinée est une vue satellite inclinée)
+              </li>
+              <li>
+                Dernière erreur : {diagnostics.lastError ? diagnostics.lastError.message : "aucune"}
+              </li>
               <li>Version déployée : {diagnostics.buildId}</li>
             </ul>
           </details>
@@ -496,11 +592,10 @@ export function SiteMapCard({ payload, companyId, disabled, selectedPlaneKey, on
 
       {!mapConfigured && (
         <p className="rounded-md border p-2 text-xs text-muted-foreground">
-          Fond cartographique non configuré pour ce domaine : la recherche d'adresse et le modèle technique PVIA
-          restent utilisables, seule l'imagerie Google est indisponible.
+          Fond cartographique non configuré pour ce domaine : la recherche d'adresse et le modèle
+          technique PVIA restent utilisables, seule l'imagerie Google est indisponible.
         </p>
       )}
-
     </Card>
   );
 }

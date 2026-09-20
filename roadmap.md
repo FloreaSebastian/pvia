@@ -4,7 +4,7 @@
 
 - [x] P0-A — Cadre UX (rail d'étapes, barre haute, panneau contextuel repliable, barre de synthèse Implantation, mode Rapide/Expert)
 - [x] P0-A.1 — Corrections d'audit (roadmap restaurée, étape bloquée explicite, état de sauvegarde global)
-- [ ] P0-B — Toiture (dessin polygone multi-pans, sommets éditables, obstacles dessinables, marges par arête)
+- [x] P0-B — Toiture (dessin polygone multi-pans, sommets éditables, obstacles dessinables, marges par arête) — dessin sur carte non rejoué en local (clé Google restreinte au domaine de production)
 - [ ] P0-C — Auto-placement V2 + variantes (moteur déjà validé, à brancher sur le nouveau cadre)
 - [ ] P0-D — Édition manuelle (sélection, drag & drop, snap, validation temps réel)
 - [ ] P1 — 3D synchronisée + résultats/exports

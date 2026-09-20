@@ -29,6 +29,8 @@ import {
   getSolarModel,
   saveSolarBuilding,
   saveSolarObstacle,
+  saveSolarRoofPlanes,
+  convertRoofToEditable,
   toggleSolarModule,
   updateSolarModel,
   type SolarModelPayload,
@@ -52,7 +54,17 @@ import {
   type StudioMode,
   type StudioStepId,
 } from "@/lib/solar/studio-steps";
-import { azimuthLabel } from "@/lib/solar/geo";
+import { azimuthLabel, type LocalPoint } from "@/lib/solar/geo";
+import {
+  groundToPlaneUv,
+  nextPlaneKey,
+  nextPlaneName,
+  parseCustomPlanes,
+  planeFromCustom,
+  type CustomRoofPlane,
+} from "@/lib/solar/polygon";
+import { RoofPlanesPanel } from "@/components/solar/roof/RoofEditor";
+import type { RoofDrawTool } from "@/components/solar/map/GoogleMapView";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
 import { SmartLayoutPanel } from "@/components/solar/SmartLayoutPanel";
@@ -104,6 +116,8 @@ function SolarStudioPage() {
   const clearLayout = useServerFn(clearSolarLayout);
   const toggleModule = useServerFn(toggleSolarModule);
   const saveMeta = useServerFn(updateSolarModel);
+  const saveRoofPlanes = useServerFn(saveSolarRoofPlanes);
+  const convertRoof = useServerFn(convertRoofToEditable);
   const snapshot = useServerFn(createSolarVersion);
 
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -145,9 +159,23 @@ function SolarStudioPage() {
   const [historyTick, setHistoryTick] = useState(0);
   const [visualMode, setVisualMode] = useState<"map" | "3d">("map");
 
+  // Étape Toiture (P0-B) : outil actif et pans dessinés, historique dédié.
+  const [roofTool, setRoofTool] = useState<RoofDrawTool>("select");
+  const [roofPlanes, setRoofPlanes] = useState<CustomRoofPlane[]>([]);
+  const [roofDirty, setRoofDirty] = useState(false);
+  const roofHistory = useRef<CustomRoofPlane[][]>([]);
+  const roofFuture = useRef<CustomRoofPlane[][]>([]);
+
   const applyPayload = useCallback((next: Payload) => {
     setPayload(next);
     setParams(next.params);
+    setRoofPlanes(
+      parseCustomPlanes(next.building?.custom_planes, {
+        tilt_deg: next.params.tilt_deg,
+        eave_height_m: next.params.wall_height_m,
+      }),
+    );
+    setRoofDirty(false);
     setSelectedPlaneKey((prev) => prev ?? next.planes[0]?.key ?? null);
   }, []);
 
@@ -228,6 +256,129 @@ function SolarStudioPage() {
     setParams(next);
     setHistoryTick((t) => t + 1);
     await persistParams(next);
+  };
+
+  /* ----------------------------- Toiture P0-B ---------------------------- */
+
+  /** Enregistre le jeu complet de pans dessinés : écriture atomique côté serveur. */
+  const persistRoofPlanes = async (planes: CustomRoofPlane[], success?: string) => {
+    if (!companyId || !payload) return;
+    await guard(
+      async () =>
+        (await saveRoofPlanes({
+          data: {
+            companyId,
+            modelId: payload.model.id,
+            planes,
+            expectedGeometryVersion: payload.model.geometry_version,
+          },
+        })) as Payload,
+      success,
+    );
+  };
+
+  /** Modification locale + historique. L'écriture serveur reste explicite. */
+  const updateRoofPlanes = (
+    next: CustomRoofPlane[],
+    options?: { persist?: boolean; success?: string },
+  ) => {
+    roofHistory.current = [...roofHistory.current.slice(-49), roofPlanes];
+    roofFuture.current = [];
+    setHistoryTick((t) => t + 1);
+    setRoofPlanes(next);
+    if (options?.persist) void persistRoofPlanes(next, options.success);
+    else setRoofDirty(true);
+  };
+
+  const undoRoof = () => {
+    const prev = roofHistory.current.pop();
+    if (!prev) return;
+    roofFuture.current.push(roofPlanes);
+    setHistoryTick((t) => t + 1);
+    setRoofPlanes(prev);
+    void persistRoofPlanes(prev);
+  };
+
+  const redoRoof = () => {
+    const next = roofFuture.current.pop();
+    if (!next) return;
+    roofHistory.current.push(roofPlanes);
+    setHistoryTick((t) => t + 1);
+    setRoofPlanes(next);
+    void persistRoofPlanes(next);
+  };
+
+  /** Nouveau pan dessiné : nommage automatique, pente/orientation par défaut. */
+  const handlePlaneDrawn = (ring: LocalPoint[]) => {
+    if (!payload) return;
+    const key = nextPlaneKey([
+      ...roofPlanes.map((p) => p.key),
+      ...payload.planes.map((p) => p.key),
+    ]);
+    const plane: CustomRoofPlane = {
+      key,
+      name: nextPlaneName(roofPlanes.map((p) => p.name)),
+      ring,
+      tilt_deg: params.tilt_deg,
+      azimuth_deg: params.azimuth_deg,
+      eave_height_m: params.wall_height_m,
+      margin_m: 0.4,
+      edge_margins: [],
+    };
+    setSelectedPlaneKey(key);
+    setRoofTool("select");
+    updateRoofPlanes([...roofPlanes, plane], {
+      persist: true,
+      success: `${plane.name} enregistré.`,
+    });
+  };
+
+  /** Sommet déplacé ou inséré : écriture uniquement en fin de geste. */
+  const handleRingChange = (key: string, ring: LocalPoint[]) => {
+    updateRoofPlanes(
+      roofPlanes.map((p) => (p.key === key ? { ...p, ring } : p)),
+      { persist: true },
+    );
+  };
+
+  /** Emprise d'obstacle tracée sur la carte, rapportée au pan sélectionné. */
+  const handleObstacleDrawn = (ring: LocalPoint[]) => {
+    if (!companyId || !payload) return;
+    const plane = roofPlanes.find((p) => p.key === selectedPlaneKey);
+    const planeRow = payload.planes.find((p) => p.key === selectedPlaneKey);
+    if (!plane || !planeRow) {
+      toast.error("Sélectionnez d'abord le pan qui porte cet obstacle.");
+      return;
+    }
+    const uv = ring.map((p) => groundToPlaneUv(p, plane.azimuth_deg, plane.tilt_deg));
+    const us = uv.map((p) => p.x);
+    const vs = uv.map((p) => p.y);
+    const width = Math.max(...us) - Math.min(...us);
+    const length = Math.max(...vs) - Math.min(...vs);
+    if (width < 0.05 || length < 0.05) {
+      toast.error("Emprise trop petite : agrandissez le rectangle de l'obstacle.");
+      return;
+    }
+    void guard(
+      async () =>
+        (await saveObstacle({
+          data: {
+            companyId,
+            modelId: payload.model.id,
+            roofPlaneId: planeRow.id,
+            obstacle_type: "autre",
+            label: "Obstacle",
+            position_x_m: (Math.max(...us) + Math.min(...us)) / 2,
+            position_y_m: (Math.max(...vs) + Math.min(...vs)) / 2,
+            width_m: Math.min(100, width),
+            length_m: Math.min(100, length),
+            height_m: 0.5,
+            clearance_m: 0.3,
+          },
+        })) as Payload,
+      "Obstacle ajouté. Précisez son type dans la liste.",
+    );
+    setRoofTool("select");
   };
 
   const handleLayoutContext = useCallback((ctx: LayoutContext) => {
@@ -382,6 +533,13 @@ function SolarStudioPage() {
             {currentStep.hint}
           </p>
 
+          {step === "toiture" && (
+            <p className="border-b bg-muted/20 px-3 py-1 text-xs text-muted-foreground sm:hidden">
+              Pour dessiner précisément la toiture, utilisez le mode paysage ou une tablette. La
+              consultation reste possible ici.
+            </p>
+          )}
+
           <div className="relative min-h-[240px] flex-1 overflow-hidden">
             {visualMode === "map" && companyId ? (
               <ClientOnly fallback={<Skeleton className="h-full w-full" />}>
@@ -392,6 +550,27 @@ function SolarStudioPage() {
                   selectedPlaneKey={selectedPlaneKey}
                   onSelectPlane={setSelectedPlaneKey}
                   onPayload={applyPayload}
+                  roofEditor={
+                    step === "toiture"
+                      ? {
+                          tool: roofTool,
+                          onToolChange: setRoofTool,
+                          editableRings: roofPlanes.map((p) => ({
+                            key: p.key,
+                            name: p.name,
+                            ring: p.ring,
+                          })),
+                          disabled: !canWrite || busy,
+                          canUndo: roofHistory.current.length > 0 && !busy,
+                          canRedo: roofFuture.current.length > 0 && !busy,
+                          onUndo: undoRoof,
+                          onRedo: redoRoof,
+                          onPlaneDrawn: handlePlaneDrawn,
+                          onRingChange: handleRingChange,
+                          onObstacleDrawn: handleObstacleDrawn,
+                        }
+                      : undefined
+                  }
                 />
               </ClientOnly>
             ) : (
@@ -546,6 +725,12 @@ function SolarStudioPage() {
                   Azimut {Math.round(params.azimuth_deg)}° — pan principal orienté{" "}
                   {azimuthLabel(params.azimuth_deg)}.
                 </p>
+                {roofPlanes.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Les pans dessinés sur la carte font foi : ces dimensions restent enregistrées
+                    mais ne définissent plus la toiture.
+                  </p>
+                )}
                 <Button
                   className="min-h-11 w-full"
                   disabled={!canWrite || busy || !dirty}
@@ -560,35 +745,129 @@ function SolarStudioPage() {
                 </Button>
               </Card>
 
-              <Card className="divide-y p-0">
-                {payload.planes.map((plane) => (
-                  <button
-                    key={plane.key}
-                    type="button"
-                    onClick={() => setSelectedPlaneKey(plane.key)}
-                    className={`flex min-h-11 w-full items-center justify-between gap-2 p-3 text-left ${
-                      plane.key === selectedPlaneKey ? "bg-accent" : ""
-                    }`}
+              {roofPlanes.length > 0 ? (
+                <>
+                  <RoofPlanesPanel
+                    planes={roofPlanes}
+                    selectedKey={selectedPlaneKey}
+                    expert={mode === "expert"}
+                    disabled={!canWrite || busy}
+                    onSelect={setSelectedPlaneKey}
+                    onChange={(key, patch) =>
+                      updateRoofPlanes(
+                        roofPlanes.map((p) => (p.key === key ? { ...p, ...patch } : p)),
+                      )
+                    }
+                    onDuplicate={(key) => {
+                      const source = roofPlanes.find((p) => p.key === key);
+                      if (!source) return;
+                      const newKey = nextPlaneKey(roofPlanes.map((p) => p.key));
+                      updateRoofPlanes(
+                        [
+                          ...roofPlanes,
+                          {
+                            ...source,
+                            key: newKey,
+                            name: nextPlaneName(roofPlanes.map((p) => p.name)),
+                            // Décalage visible pour que le contour copié soit saisissable.
+                            ring: source.ring.map((v) => ({ x: v.x + 2, y: v.y + 2 })),
+                          },
+                        ],
+                        { persist: true, success: "Contour dupliqué." },
+                      );
+                      setSelectedPlaneKey(newKey);
+                    }}
+                    onDelete={(key) => {
+                      const plane = roofPlanes.find((p) => p.key === key);
+                      if (!plane) return;
+                      const placed = payload.modules.filter((m) => m.roof_plane_key === key).length;
+                      const question = placed
+                        ? `Supprimer ${plane.name} ? ${placed} panneau(x) y sont posés.`
+                        : `Supprimer ${plane.name} ?`;
+                      if (!window.confirm(question)) return;
+                      updateRoofPlanes(
+                        roofPlanes.filter((p) => p.key !== key),
+                        { persist: true, success: "Pan supprimé." },
+                      );
+                      setSelectedPlaneKey(null);
+                    }}
+                  />
+                  <Button
+                    className="min-h-11 w-full"
+                    disabled={!canWrite || busy || !roofDirty}
+                    onClick={() => void persistRoofPlanes(roofPlanes, "Pans enregistrés.")}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{plane.name}</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {azimuthLabel(plane.azimuth_deg)} · {Math.round(plane.tilt_deg)}° ·{" "}
-                        {plane.area_m2.toFixed(1)} m²
+                    {busy ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Enregistrer les pans
+                  </Button>
+                </>
+              ) : (
+                <Card className="divide-y p-0">
+                  {payload.planes.map((plane) => (
+                    <button
+                      key={plane.key}
+                      type="button"
+                      onClick={() => setSelectedPlaneKey(plane.key)}
+                      className={`flex min-h-11 w-full items-center justify-between gap-2 p-3 text-left ${
+                        plane.key === selectedPlaneKey ? "bg-accent" : ""
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">{plane.name}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {azimuthLabel(plane.azimuth_deg)} · {Math.round(plane.tilt_deg)}° ·{" "}
+                          {plane.area_m2.toFixed(1)} m²
+                        </span>
                       </span>
-                    </span>
-                    <Badge variant="outline">
-                      {
-                        payload.modules.filter((m) => m.roof_plane_key === plane.key && m.enabled)
-                          .length
-                      }
-                    </Badge>
-                  </button>
-                ))}
-                {!payload.planes.length && (
-                  <p className="p-3 text-xs text-muted-foreground">Aucun pan pour l'instant.</p>
-                )}
-              </Card>
+                      <Badge variant="outline">
+                        {
+                          payload.modules.filter((m) => m.roof_plane_key === plane.key && m.enabled)
+                            .length
+                        }
+                      </Badge>
+                    </button>
+                  ))}
+                  {!payload.planes.length && (
+                    <p className="p-3 text-xs text-muted-foreground">
+                      Aucun pan pour l'instant. Dessinez le contour de la toiture sur la carte.
+                    </p>
+                  )}
+                  {payload.planes.length > 0 && (
+                    <div className="space-y-2 p-3">
+                      <p className="text-xs text-muted-foreground">
+                        Cette toiture vient des dimensions saisies. Convertissez-la en contours pour
+                        corriger chaque angle sur la carte : les paramètres actuels restent
+                        enregistrés.
+                      </p>
+                      <Button
+                        variant="secondary"
+                        className="min-h-11 w-full"
+                        disabled={!canWrite || busy || !companyId}
+                        onClick={() =>
+                          companyId &&
+                          void guard(
+                            async () =>
+                              (await convertRoof({
+                                data: {
+                                  companyId,
+                                  modelId: payload.model.id,
+                                  expectedGeometryVersion: payload.model.geometry_version,
+                                },
+                              })) as Payload,
+                            "Toiture convertie en contours éditables.",
+                          )
+                        }
+                      >
+                        Convertir en contours éditables
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              )}
 
               {mode === "expert" && (
                 <ObstaclePanel

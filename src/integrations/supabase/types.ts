@@ -2635,8 +2635,10 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          custom_planes: Json
           data_source: string
           footprint: Json
+          geometry_mode: string
           ground_z_m: number
           id: string
           kind: string
@@ -2661,8 +2663,10 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          custom_planes?: Json
           data_source?: string
           footprint?: Json
+          geometry_mode?: string
           ground_z_m?: number
           id?: string
           kind?: string
@@ -2687,8 +2691,10 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          custom_planes?: Json
           data_source?: string
           footprint?: Json
+          geometry_mode?: string
           ground_z_m?: number
           id?: string
           kind?: string
