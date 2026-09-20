@@ -11,7 +11,7 @@
  * Aucune géométrie n'est enregistrée sans validation — le parent décide.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { distance, toLatLon, toLocal, type LatLon, type LocalPoint } from "@/lib/solar/geo";
+import { distance, polygonArea, toLatLon, toLocal, type LatLon, type LocalPoint } from "@/lib/solar/geo";
 import {
   buildSnapModel,
   measureOnModel,
@@ -19,8 +19,7 @@ import {
   type MapMeasureKind,
   type OverlayFeature,
 } from "@/lib/solar/map/overlay-model";
-import { edgeLengths, nearestEdge, snapDrawPoint, validateRoofRing } from "@/lib/solar/polygon";
-import { polygonArea } from "@/lib/solar/geo";
+import { nearestEdge, snapDrawPoint, validateRoofRing } from "@/lib/solar/polygon";
 import {
   browserMapsKey,
   countMapUsage,
