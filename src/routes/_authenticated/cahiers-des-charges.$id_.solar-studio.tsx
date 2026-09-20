@@ -329,13 +329,15 @@ function SolarStudioPage() {
 
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
-  const saveState: SaveState = busy
-    ? "enregistrement"
-    : saveError
-      ? "erreur"
-      : dirty
-        ? "modifie"
-        : "enregistre";
+  // Agrégation : une écriture d'un panneau enfant doit se voir dans la barre haute.
+  const saveState: SaveState =
+    busy || childBusy
+      ? "enregistrement"
+      : saveError || childError
+        ? "erreur"
+        : dirty
+          ? "modifie"
+          : "enregistre";
   const showPlanView = step === "modules" || step === "implantation";
 
   const onToggleModuleAt = (moduleId: string) => {
