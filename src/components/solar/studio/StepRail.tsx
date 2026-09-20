@@ -42,7 +42,7 @@ export function StepRail({
   return (
     <nav
       aria-label="Étapes Solar Studio"
-      className="flex shrink-0 gap-1 overflow-x-auto border-b bg-card p-1 md:w-[84px] md:flex-col md:overflow-visible md:border-b-0 md:border-r md:py-2"
+      className="flex shrink-0 gap-1 overflow-x-auto border-b bg-card p-1 xl:w-[84px] xl:flex-col xl:overflow-visible xl:border-b-0 xl:border-r xl:py-2"
     >
       {ordered.map((step, index) => {
         const Icon = ICONS[step.id];
@@ -56,7 +56,7 @@ export function StepRail({
             aria-label={`${index + 1}. ${step.label} — ${step.hint}`}
             title={step.hint}
             className={cn(
-              "relative flex min-h-11 min-w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1.5 text-[10px] font-medium transition-colors md:w-full md:min-w-0",
+              "relative flex min-h-11 min-w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1.5 text-[10px] font-medium transition-colors xl:w-full xl:min-w-0",
               active
                 ? "bg-primary text-primary-foreground"
                 : step.state === "termine"
