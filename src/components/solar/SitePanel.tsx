@@ -90,7 +90,7 @@ export function SitePanel({ payload, companyId, disabled, onPayload, onSaveActiv
         return null;
       } finally {
         setBusy(false);
-        onSaveActivity?.({ busy: false, error: failed });
+        if (write) onSaveActivity?.({ busy: false, error: failed });
       }
     },
     [onSaveActivity],
@@ -149,7 +149,7 @@ export function SitePanel({ payload, companyId, disabled, onPayload, onSaveActiv
                 setCandidates(res.candidates as Candidate[]);
                 if (!res.candidates.length) toast.info("Aucune adresse trouvée.");
                 return null;
-              })
+              }, { write: false })
             }
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -212,7 +212,7 @@ export function SitePanel({ payload, companyId, disabled, onPayload, onSaveActiv
                   const res = await siteData({ data: { companyId, modelId: model.id, refresh: true } });
                   setSite(res);
                   return null;
-                })
+                }, { write: false })
               }
             >
               Actualiser
