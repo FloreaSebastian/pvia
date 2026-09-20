@@ -116,6 +116,16 @@ export function SmartLayoutPanel({
     return { mode: "power" as const, power_kwc: power, rounding: "closest" as const };
   }, [preset, customPower]);
 
+  // Alimente la barre de synthèse du cadre UX (aucun impact sur le calcul).
+  useEffect(() => {
+    onContextChange?.({
+      targetKwc: target.mode === "power" ? target.power_kwc : null,
+      moduleSelected: Boolean(module),
+      planeNames: planes.filter((p) => planeIds.includes(p.id)).map((p) => p.name),
+    });
+  }, [onContextChange, target, module, planes, planeIds]);
+
+
   // Changer de référence invalide immédiatement les variantes calculées.
   useEffect(() => {
     setResult(null);
