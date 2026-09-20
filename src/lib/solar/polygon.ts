@@ -95,9 +95,7 @@ function segmentsCross(a: LocalPoint, b: LocalPoint, c: LocalPoint, d: LocalPoin
   const d2 = o(a, b, d);
   const d3 = o(c, d, a);
   const d4 = o(c, d, b);
-  return ((d1 > 0) !== (d2 > 0) || d1 === 0 || d2 === 0) === false
-    ? false
-    : ((d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0));
+  return (d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0);
 }
 
 /** Vrai si deux côtés non adjacents se croisent. */
