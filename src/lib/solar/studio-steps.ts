@@ -151,9 +151,29 @@ export function deriveStudioSteps(input: StudioStepInput): StudioStep[] {
     },
   ];
 
+  // Une étape bloquée reste consultable, mais ne perd JAMAIS son état « bloqué » :
+  // l'indisponibilité doit rester lisible même quand l'étape est ouverte.
   return raw.map((step) =>
-    step.id === input.activeStep ? { ...step, state: "actif" as const } : step,
+    step.id === input.activeStep && step.state !== "bloque"
+      ? { ...step, state: "actif" as const }
+      : step,
   );
+}
+
+/** Libellé d'état affiché dans le rail (accessibilité + mention « Indisponible »). */
+export function studioStepStatusLabel(state: StudioStepState): string {
+  switch (state) {
+    case "termine":
+      return "Terminé";
+    case "alerte":
+      return "À vérifier";
+    case "bloque":
+      return "Indisponible";
+    case "actif":
+      return "En cours";
+    default:
+      return "À faire";
+  }
 }
 
 export type LayoutSummaryInput = {

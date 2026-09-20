@@ -52,6 +52,7 @@ export function SmartLayoutPanel({
   disabled,
   onApplied,
   onContextChange,
+  onSaveActivity,
 }: {
   companyId: string | null;
   modelId: string;
@@ -64,6 +65,8 @@ export function SmartLayoutPanel({
     moduleSelected: boolean;
     planeNames: string[];
   }) => void;
+  /** Remonte l'état d'écriture (application d'une implantation) vers la barre haute. */
+  onSaveActivity?: (state: { busy: boolean; error: boolean }) => void;
 }) {
   const setupFn = useServerFn(getLayoutSetup);
   const computeFn = useServerFn(computeSmartLayout);
@@ -163,6 +166,8 @@ export function SmartLayoutPanel({
     async (candidate: LayoutCandidate) => {
       if (!companyId || !module) return;
       setBusy(true);
+      onSaveActivity?.({ busy: true, error: false });
+      let failed = false;
       try {
         await applyFn({
           data: {
@@ -183,12 +188,25 @@ export function SmartLayoutPanel({
         toast.success(`Implantation appliquée : ${candidate.modules.length} panneaux.`);
         onApplied();
       } catch (e) {
+        failed = true;
         toast.error(e instanceof Error ? e.message : "Enregistrement impossible.");
       } finally {
         setBusy(false);
+        onSaveActivity?.({ busy: false, error: failed });
       }
     },
-    [applyFn, companyId, modelId, module, onApplied, orientation, planeIds, profileId, target],
+    [
+      applyFn,
+      companyId,
+      modelId,
+      module,
+      onApplied,
+      onSaveActivity,
+      orientation,
+      planeIds,
+      profileId,
+      target,
+    ],
   );
 
   const targetPower = target.mode === "power" ? target.power_kwc : null;

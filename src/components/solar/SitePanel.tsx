@@ -28,7 +28,12 @@ import {
   startSolarJob,
 } from "@/lib/solar-geo.functions";
 import type { SolarModelPayload } from "@/lib/solar.functions";
-import { CONFIDENCE_META, SOURCE_TYPE_META, VERIFICATION_META, type ConfidenceLevel } from "@/lib/solar/provenance";
+import {
+  CONFIDENCE_META,
+  SOURCE_TYPE_META,
+  VERIFICATION_META,
+  type ConfidenceLevel,
+} from "@/lib/solar/provenance";
 import { formatLength } from "@/lib/solar/units";
 import type { BuildingParams } from "@/lib/solar/types";
 import { Building3dPanel } from "./Building3dPanel";
@@ -40,6 +45,8 @@ interface Props {
   companyId: string | null;
   disabled: boolean;
   onPayload: (next: Payload) => void;
+  /** Remonte l'état d'écriture vers la barre haute du cadre UX (P0-A.1). */
+  onSaveActivity?: (state: { busy: boolean; error: boolean }) => void;
 }
 
 interface Candidate {
@@ -51,7 +58,7 @@ interface Candidate {
   city: string;
 }
 
-export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
+export function SitePanel({ payload, companyId, disabled, onPayload, onSaveActivity }: Props) {
   const search = useServerFn(searchSolarAddress);
   const confirm = useServerFn(confirmSolarLocation);
   const siteData = useServerFn(getSolarSiteData);
@@ -66,25 +73,38 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
   const [query, setQuery] = useState(payload.model.address ?? "");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [site, setSite] = useState<Awaited<ReturnType<typeof getSolarSiteData>> | null>(null);
-  const [job, setJob] = useState<{ id: string; job_type: string; status: string; error_message: string | null; result: unknown } | null>(null);
+  const [job, setJob] = useState<{
+    id: string;
+    job_type: string;
+    status: string;
+    error_message: string | null;
+    result: unknown;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const model = payload.model;
   const located = model.origin_latitude != null && model.origin_longitude != null;
 
   const run = useCallback(
-    async (fn: () => Promise<unknown>) => {
+    // `write` distingue une écriture (remontée dans l'indicateur de sauvegarde)
+    // d'une simple consultation (recherche d'adresse, rafraîchissement de données).
+    async (fn: () => Promise<unknown>, opts?: { write?: boolean }) => {
+      const write = opts?.write !== false;
       setBusy(true);
+      if (write) onSaveActivity?.({ busy: true, error: false });
+      let failed = false;
       try {
         return await fn();
       } catch (e) {
+        failed = true;
         toast.error(e instanceof Error ? e.message : "Action impossible.");
         return null;
       } finally {
         setBusy(false);
+        if (write) onSaveActivity?.({ busy: false, error: failed });
       }
     },
-    [],
+    [onSaveActivity],
   );
 
   useEffect(() => {
@@ -100,7 +120,12 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
 
   if (!companyId) return null;
 
-  const proposal = (job?.result as { proposal?: BuildingParams; current?: BuildingParams; rectangularity?: number } | null) ?? null;
+  const proposal =
+    (job?.result as {
+      proposal?: BuildingParams;
+      current?: BuildingParams;
+      rectangularity?: number;
+    } | null) ?? null;
 
   return (
     <div className="space-y-3">
@@ -113,7 +138,9 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
         <p className="text-xs text-muted-foreground">
           {located
             ? `${model.origin_latitude?.toFixed(6)}, ${model.origin_longitude?.toFixed(6)}${
-                model.origin_altitude_m == null ? " — altitude inconnue" : ` — altitude ${model.origin_altitude_m.toFixed(1)} m`
+                model.origin_altitude_m == null
+                  ? " — altitude inconnue"
+                  : ` — altitude ${model.origin_altitude_m.toFixed(1)} m`
               }`
             : "Position non confirmée : les données publiques ne peuvent pas être consultées."}
         </p>
@@ -130,17 +157,20 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
             className="min-h-11"
             disabled={disabled || busy || query.trim().length < 3}
             onClick={() =>
-              void run(async () => {
-                const res = await search({ data: { companyId, query: query.trim() } });
-                if (!res.ok) {
-                  toast.error(res.message ?? "Recherche indisponible.");
-                  setCandidates([]);
+              void run(
+                async () => {
+                  const res = await search({ data: { companyId, query: query.trim() } });
+                  if (!res.ok) {
+                    toast.error(res.message ?? "Recherche indisponible.");
+                    setCandidates([]);
+                    return null;
+                  }
+                  setCandidates(res.candidates as Candidate[]);
+                  if (!res.candidates.length) toast.info("Aucune adresse trouvée.");
                   return null;
-                }
-                setCandidates(res.candidates as Candidate[]);
-                if (!res.candidates.length) toast.info("Aucune adresse trouvée.");
-                return null;
-              })
+                },
+                { write: false },
+              )
             }
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -184,7 +214,8 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
         )}
         {candidates.length > 1 && (
           <p className="text-xs text-muted-foreground">
-            Plusieurs adresses correspondent : choisissez celle du chantier, rien n'est retenu automatiquement.
+            Plusieurs adresses correspondent : choisissez celle du chantier, rien n'est retenu
+            automatiquement.
           </p>
         )}
       </Card>
@@ -199,11 +230,16 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
               className="min-h-11"
               disabled={busy}
               onClick={() =>
-                void run(async () => {
-                  const res = await siteData({ data: { companyId, modelId: model.id, refresh: true } });
-                  setSite(res);
-                  return null;
-                })
+                void run(
+                  async () => {
+                    const res = await siteData({
+                      data: { companyId, modelId: model.id, refresh: true },
+                    });
+                    setSite(res);
+                    return null;
+                  },
+                  { write: false },
+                )
               }
             >
               Actualiser
@@ -223,13 +259,20 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
             ))}
             {!site && <li className="text-xs text-muted-foreground">Vérification en cours…</li>}
           </ul>
-          {site?.attribution && <p className="text-[11px] text-muted-foreground">{site.attribution}</p>}
+          {site?.attribution && (
+            <p className="text-[11px] text-muted-foreground">{site.attribution}</p>
+          )}
         </Card>
       )}
 
       {/* ------------------------------- Modèle 3D ------------------------------ */}
       {located && (
-        <Building3dPanel payload={payload} companyId={companyId} disabled={disabled} onPayload={onPayload} />
+        <Building3dPanel
+          payload={payload}
+          companyId={companyId}
+          disabled={disabled}
+          onPayload={onPayload}
+        />
       )}
 
       {/* -------------------------------- Traitements --------------------------- */}
@@ -252,9 +295,12 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
                 disabled={disabled || busy}
                 onClick={() =>
                   void run(async () => {
-                    const res = (await runJob({ data: { companyId, modelId: model.id, jobType: type, force: false } })) as typeof job;
+                    const res = (await runJob({
+                      data: { companyId, modelId: model.id, jobType: type, force: false },
+                    })) as typeof job;
                     setJob(res);
-                    if (res?.status === "FAILED") toast.error(res.error_message ?? "Traitement impossible.");
+                    if (res?.status === "FAILED")
+                      toast.error(res.error_message ?? "Traitement impossible.");
                     else toast.success("Traitement terminé.");
                     return null;
                   })
@@ -267,20 +313,27 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
           {job && (
             <div className="space-y-2 rounded-md border p-2 text-xs">
               <p className="font-medium">
-                {job.job_type} — {job.status === "COMPLETED" ? "terminé" : job.status === "FAILED" ? "échec" : "en cours"}
+                {job.job_type} —{" "}
+                {job.status === "COMPLETED"
+                  ? "terminé"
+                  : job.status === "FAILED"
+                    ? "échec"
+                    : "en cours"}
               </p>
               {job.error_message && <p className="text-destructive">{job.error_message}</p>}
               {proposal?.proposal && (
                 <>
                   <p className="text-muted-foreground">
-                    Proposition : {formatLength(proposal.proposal.width_m)} × {formatLength(proposal.proposal.depth_m)},
-                    azimut {Math.round(proposal.proposal.azimuth_deg)}°
+                    Proposition : {formatLength(proposal.proposal.width_m)} ×{" "}
+                    {formatLength(proposal.proposal.depth_m)}, azimut{" "}
+                    {Math.round(proposal.proposal.azimuth_deg)}°
                     {proposal.current
                       ? ` — actuel ${formatLength(proposal.current.width_m)} × ${formatLength(proposal.current.depth_m)}, azimut ${Math.round(proposal.current.azimuth_deg)}°`
                       : ""}
                   </p>
                   <p className="text-muted-foreground">
-                    Contour cartographique : la pente réelle et la hauteur restent à confirmer sur site.
+                    Contour cartographique : la pente réelle et la hauteur restent à confirmer sur
+                    site.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -310,7 +363,9 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
                       disabled={disabled || busy}
                       onClick={() =>
                         void run(async () => {
-                          const next = (await revert({ data: { companyId, modelId: model.id } })) as Payload;
+                          const next = (await revert({
+                            data: { companyId, modelId: model.id },
+                          })) as Payload;
                           onPayload(next);
                           toast.success("Géométrie précédente restaurée.");
                           return null;
@@ -325,8 +380,8 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
             </div>
           )}
           <p className="text-[11px] text-muted-foreground">
-            Le LiDAR brut et le modèle de surface exigent un service de traitement externe : tant qu'il n'est pas
-            connecté, aucune donnée n'est inventée.
+            Le LiDAR brut et le modèle de surface exigent un service de traitement externe : tant
+            qu'il n'est pas connecté, aucune donnée n'est inventée.
           </p>
         </Card>
       )}
@@ -337,7 +392,9 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
         disabled={disabled || busy}
         onAdd={(values) =>
           void run(async () => {
-            const next = (await addMeasure({ data: { companyId, modelId: model.id, ...values } })) as Payload;
+            const next = (await addMeasure({
+              data: { companyId, modelId: model.id, ...values },
+            })) as Payload;
             onPayload(next);
             toast.success("Cote enregistrée.");
             return null;
@@ -345,7 +402,9 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
         }
         onDelete={(measurementId) =>
           void run(async () => {
-            const next = (await removeMeasure({ data: { companyId, modelId: model.id, measurementId } })) as Payload;
+            const next = (await removeMeasure({
+              data: { companyId, modelId: model.id, measurementId },
+            })) as Payload;
             onPayload(next);
             return null;
           })
@@ -353,7 +412,14 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
         onField={(measurementId, value) =>
           void run(async () => {
             const next = (await fieldMeasure({
-              data: { companyId, modelId: model.id, measurementId, value_field: value, verification_method: "mesure sur site", retain: true },
+              data: {
+                companyId,
+                modelId: model.id,
+                measurementId,
+                value_field: value,
+                verification_method: "mesure sur site",
+                retain: true,
+              },
             })) as Payload;
             onPayload(next);
             toast.success("Mesure terrain enregistrée.");
@@ -363,7 +429,13 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
         onConstrain={(target, value) =>
           void run(async () => {
             const next = (await constrain({
-              data: { companyId, modelId: model.id, target, value, expectedGeometryVersion: model.geometry_version },
+              data: {
+                companyId,
+                modelId: model.id,
+                target,
+                value,
+                expectedGeometryVersion: model.geometry_version,
+              },
             })) as Payload;
             onPayload(next);
             toast.success("Dimension corrigée à partir de la mesure.");
@@ -382,8 +454,8 @@ export function SitePanel({ payload, companyId, disabled, onPayload }: Props) {
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground">
-          {payload.quality.verified_count}/{payload.quality.total_count} élément(s) vérifié(s) sur site. Le niveau global
-          correspond au plus faible constaté, jamais à une moyenne.
+          {payload.quality.verified_count}/{payload.quality.total_count} élément(s) vérifié(s) sur
+          site. Le niveau global correspond au plus faible constaté, jamais à une moyenne.
         </p>
         <ul className="space-y-1.5">
           {payload.quality.rows.map((r, i) => (
@@ -426,7 +498,10 @@ function MeasurePanel({
   onAdd: (values: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
   onField: (id: string, value: number) => void;
-  onConstrain: (target: "width_m" | "depth_m" | "wall_height_m" | "tilt_deg", value: number) => void;
+  onConstrain: (
+    target: "width_m" | "depth_m" | "wall_height_m" | "tilt_deg",
+    value: number,
+  ) => void;
 }) {
   const [label, setLabel] = useState("Largeur mesurée");
   const [value, setValue] = useState(payload.params.width_m);
@@ -485,8 +560,8 @@ function MeasurePanel({
                 <span className="block font-medium">{m.label ?? m.measure_type}</span>
                 <span className="block text-muted-foreground">
                   Estimé {formatLength(m.value_estimated ?? m.value_numeric ?? 0)}
-                  {m.value_field != null ? ` · terrain ${formatLength(m.value_field)}` : ""} · retenu{" "}
-                  {formatLength(m.value_retained ?? m.value_numeric ?? 0)}
+                  {m.value_field != null ? ` · terrain ${formatLength(m.value_field)}` : ""} ·
+                  retenu {formatLength(m.value_retained ?? m.value_numeric ?? 0)}
                 </span>
               </span>
               <div className="flex items-center gap-1">

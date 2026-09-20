@@ -7,6 +7,7 @@ import {
   isStudioStepId,
   saveStateLabel,
   STUDIO_STEP_ORDER,
+  studioStepStatusLabel,
   type StudioStepInput,
 } from "@/lib/solar/studio-steps";
 
@@ -85,6 +86,27 @@ describe("deriveStudioSteps", () => {
     )!;
     expect(step.state).toBe("a_faire");
     expect(step.disabled).toBe(false);
+  });
+
+  it("garde l'étape Électrique explicitement bloquée même quand elle est ouverte", () => {
+    const step = deriveStudioSteps({ ...base, activeStep: "electrique" }).find(
+      (s) => s.id === "electrique",
+    )!;
+    expect(step.state).toBe("bloque");
+    expect(step.disabled).toBe(true);
+    expect(studioStepStatusLabel(step.state)).toBe("Indisponible");
+  });
+
+  it("garde les autres étapes bloquées visibles comme bloquées une fois ouvertes", () => {
+    const noRoof = { ...base, planeCount: 0, roofAreaM2: 0, moduleCount: 0, powerKwc: 0 };
+    expect(stateOf({ ...noRoof, activeStep: "modules" }, "modules")).toBe("bloque");
+    expect(stateOf({ ...noRoof, activeStep: "implantation" }, "implantation")).toBe("bloque");
+    expect(stateOf({ ...noRoof, activeStep: "resultats" }, "resultats")).toBe("bloque");
+  });
+
+  it("marque active une étape ouverte qui n'est pas bloquée", () => {
+    expect(stateOf({ ...base, activeStep: "toiture" }, "toiture")).toBe("actif");
+    expect(studioStepStatusLabel("actif")).toBe("En cours");
   });
 
   it("bloque les résultats sans implantation", () => {

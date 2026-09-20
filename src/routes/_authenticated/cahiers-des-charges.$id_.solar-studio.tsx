@@ -123,6 +123,21 @@ function SolarStudioPage() {
     moduleSelected: false,
     planeNames: [],
   });
+  // P0-A.1 : état d'écriture remonté par les panneaux enfants (Site, Implantation).
+  const [childSave, setChildSave] = useState<Record<string, { busy: boolean; error: boolean }>>({});
+  const reportChildSave = useCallback(
+    (source: string) => (state: { busy: boolean; error: boolean }) =>
+      setChildSave((prev) =>
+        prev[source]?.busy === state.busy && prev[source]?.error === state.error
+          ? prev
+          : { ...prev, [source]: state },
+      ),
+    [],
+  );
+  const onSiteSave = useMemo(() => reportChildSave("site"), [reportChildSave]);
+  const onLayoutSave = useMemo(() => reportChildSave("implantation"), [reportChildSave]);
+  const childBusy = Object.values(childSave).some((s) => s.busy);
+  const childError = Object.values(childSave).some((s) => s.error);
 
   // Historique local des paramètres de bâtiment (annuler / rétablir).
   const history = useRef<BuildingParams[]>([]);
@@ -314,13 +329,15 @@ function SolarStudioPage() {
 
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
-  const saveState: SaveState = busy
-    ? "enregistrement"
-    : saveError
-      ? "erreur"
-      : dirty
-        ? "modifie"
-        : "enregistre";
+  // Agrégation : une écriture d'un panneau enfant doit se voir dans la barre haute.
+  const saveState: SaveState =
+    busy || childBusy
+      ? "enregistrement"
+      : saveError || childError
+        ? "erreur"
+        : dirty
+          ? "modifie"
+          : "enregistre";
   const showPlanView = step === "modules" || step === "implantation";
 
   const onToggleModuleAt = (moduleId: string) => {
@@ -421,6 +438,7 @@ function SolarStudioPage() {
                 companyId={companyId}
                 disabled={!canWrite || busy}
                 onPayload={applyPayload}
+                onSaveActivity={onSiteSave}
               />
               {mode === "expert" && (
                 <Card className="space-y-2 p-3">
@@ -649,6 +667,7 @@ function SolarStudioPage() {
               }))}
               disabled={!canWrite || busy}
               onContextChange={handleLayoutContext}
+              onSaveActivity={onLayoutSave}
               onApplied={() => {
                 if (!companyId) return;
                 void load({ data: { companyId, studyId: id } }).then((next) =>
