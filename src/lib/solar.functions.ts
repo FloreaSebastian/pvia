@@ -35,6 +35,7 @@ import {
   VersionSchema,
 } from "./solar/schemas";
 import { gridLayout, type PlaneObstacle } from "./solar/layout";
+import { customPlanesFromGeometry, validateRoofRing } from "./solar/polygon";
 import { DEFAULT_BUILDING_PARAMS, SOLAR_SCHEMA_VERSION } from "./solar/types";
 
 const ModelRefSchema = z.object({
