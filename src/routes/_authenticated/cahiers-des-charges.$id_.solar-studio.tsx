@@ -2,7 +2,7 @@ import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Boxes, Loader2, Redo2, RotateCcw, Save, Sparkles, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Boxes, Loader2, RotateCcw, Save, Sparkles, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
@@ -38,13 +37,25 @@ import {
   type RoofType,
   type SolarQualityLevel,
 } from "@/lib/solar/types";
+import {
+  buildLayoutSummary,
+  deriveStudioSteps,
+  formatArea,
+  formatKwc,
+  type SaveState,
+  type StudioMode,
+  type StudioStepId,
+} from "@/lib/solar/studio-steps";
 import { azimuthLabel } from "@/lib/solar/geo";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
 import { SmartLayoutPanel } from "@/components/solar/SmartLayoutPanel";
 import { SitePanel } from "@/components/solar/SitePanel";
 import { SiteMapCard } from "@/components/solar/map/SiteMapCard";
-
+import { StepRail } from "@/components/solar/studio/StepRail";
+import { StudioTopBar } from "@/components/solar/studio/StudioTopBar";
+import { ContextPanel } from "@/components/solar/studio/ContextPanel";
+import { LayoutSummaryBar } from "@/components/solar/studio/LayoutSummaryBar";
 
 const SolarScene = lazy(() => import("@/components/solar/SolarScene"));
 
@@ -68,6 +79,7 @@ export const Route = createFileRoute("/_authenticated/cahiers-des-charges/$id_/s
 });
 
 type Payload = NonNullable<SolarModelPayload>;
+type LayoutContext = { targetKwc: number | null; moduleSelected: boolean; planeNames: string[] };
 
 function SolarStudioPage() {
   const { id } = useParams({ from: "/_authenticated/cahiers-des-charges/$id_/solar-studio" });
@@ -91,6 +103,17 @@ function SolarStudioPage() {
   const [params, setParams] = useState<BuildingParams>(DEFAULT_BUILDING_PARAMS);
   const [selectedPlaneKey, setSelectedPlaneKey] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+
+  // Cadre UX P0-A : étape courante, mode rapide/expert, panneau contextuel.
+  const [step, setStep] = useState<StudioStepId>("projet");
+  const [mode, setMode] = useState<StudioMode>("rapide");
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [layoutContext, setLayoutContext] = useState<LayoutContext>({
+    targetKwc: null,
+    moduleSelected: false,
+    planeNames: [],
+  });
 
   // Historique local des paramètres de bâtiment (annuler / rétablir).
   const history = useRef<BuildingParams[]>([]);
@@ -129,8 +152,10 @@ function SolarStudioPage() {
     try {
       const next = await fn();
       applyPayload(next);
+      setSaveError(false);
       if (success) toast.success(success);
     } catch (e) {
+      setSaveError(true);
       toast.error(e instanceof Error ? e.message : "Action impossible.");
     } finally {
       setBusy(false);
@@ -163,7 +188,6 @@ function SolarStudioPage() {
     setDirty(false);
   };
 
-
   const undo = async () => {
     const prev = history.current.pop();
     if (!prev) return;
@@ -182,11 +206,54 @@ function SolarStudioPage() {
     await persistParams(next);
   };
 
+  const handleLayoutContext = useCallback((ctx: LayoutContext) => {
+    setLayoutContext((prev) =>
+      prev.targetKwc === ctx.targetKwc &&
+      prev.moduleSelected === ctx.moduleSelected &&
+      prev.planeNames.join("|") === ctx.planeNames.join("|")
+        ? prev
+        : ctx,
+    );
+  }, []);
+
   const scene = useMemo(() => (payload ? buildSceneModel(payload) : null), [payload]);
   const selectedPlane = useMemo(
     () => payload?.planes.find((p) => p.key === selectedPlaneKey) ?? null,
     [payload, selectedPlaneKey],
   );
+
+  const steps = useMemo(
+    () =>
+      deriveStudioSteps({
+        activeStep: step,
+        hasAddress: Boolean(payload?.model.address),
+        hasGeolocation: payload?.model.latitude != null,
+        planeCount: payload?.planes.length ?? 0,
+        roofAreaM2: payload?.summary.roof_area_m2 ?? 0,
+        moduleSelected: layoutContext.moduleSelected || (payload?.summary.module_count ?? 0) > 0,
+        moduleCount: payload?.summary.module_count ?? 0,
+        powerKwc: payload?.summary.power_kwc ?? 0,
+        targetKwc: layoutContext.targetKwc,
+      }),
+    [step, payload, layoutContext],
+  );
+  const currentStep = steps.find((s) => s.id === step)!;
+
+  const layoutSummary = useMemo(() => {
+    const usedPlanes = payload
+      ? payload.planes
+          .filter((p) => payload.modules.some((m) => m.roof_plane_key === p.key && m.enabled))
+          .map((p) => p.name)
+      : [];
+    return buildLayoutSummary({
+      moduleCount: payload?.summary.module_count ?? 0,
+      powerKwc: payload?.summary.power_kwc ?? 0,
+      moduleAreaM2: payload?.summary.module_area_m2 ?? null,
+      targetKwc: layoutContext.targetKwc,
+      planeNames: usedPlanes.length ? usedPlanes : layoutContext.planeNames,
+      alerts: payload && payload.planes.length === 0 ? ["Aucun pan de toiture défini."] : [],
+    });
+  }, [payload, layoutContext]);
 
   if (loading) {
     return (
@@ -227,203 +294,290 @@ function SolarStudioPage() {
 
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
+  const saveState: SaveState = busy ? "enregistrement" : saveError ? "erreur" : dirty ? "modifie" : "enregistre";
+  const showPlanView = step === "modules" || step === "implantation";
+
+  const onToggleModuleAt = (moduleId: string) => {
+    const current = payload.modules.find((m) => m.id === moduleId);
+    if (!current || !companyId) return;
+    void guard(
+      async () =>
+        (await toggleModule({
+          data: { companyId, modelId: payload.model.id, moduleId, enabled: !current.enabled },
+        })) as Payload,
+    );
+  };
 
   return (
-    <div className="space-y-4 p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <BackLink id={id} />
-          <h1 className="truncate text-lg font-semibold sm:text-xl">{payload.model.name || "Solar Studio"}</h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {payload.model.address} {payload.model.postal_code} {payload.model.city}
-            {payload.model.latitude == null && " — adresse non géolocalisée"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">{SOLAR_QUALITY_META[payload.model.quality_level as SolarQualityLevel].label}</Badge>
-          <Button variant="outline" size="icon" className="h-11 w-11" aria-label="Annuler" disabled={busy || !history.current.length} onClick={() => void undo()}>
-            <Undo2 className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" className="h-11 w-11" aria-label="Rétablir" disabled={busy || !future.current.length} onClick={() => void redo()}>
-            <Redo2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+    <div className="flex h-[calc(100dvh-7rem)] min-h-[560px] flex-col overflow-hidden rounded-lg border bg-background">
+      <StudioTopBar
+        studyId={id}
+        title={payload.model.name || "Solar Studio"}
+        subtitle={`${payload.model.address ?? ""} ${payload.model.postal_code ?? ""} ${payload.model.city ?? ""}`.trim() ||
+          "Adresse à renseigner"}
+        saveState={saveState}
+        mode={mode}
+        onModeChange={setMode}
+        visualMode={visualMode}
+        onVisualModeChange={setVisualMode}
+        canUndo={!busy && history.current.length > 0}
+        canRedo={!busy && future.current.length > 0}
+        onUndo={() => void undo()}
+        onRedo={() => void redo()}
+        help={currentStep.hint}
+      />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-3">
-          {/* Deux lectures du même modèle : fond cartographique réel, puis maquette technique. */}
-          <div className="flex flex-wrap gap-1.5">
-            {(["map", "3d"] as const).map((m) => (
-              <Button
-                key={m}
-                size="sm"
-                variant={visualMode === m ? "default" : "outline"}
-                className="min-h-11"
-                onClick={() => setVisualMode(m)}
-              >
-                {m === "map" ? "Carte" : "Modèle 3D"}
-              </Button>
-            ))}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <StepRail steps={steps} activeStep={step} onSelect={setStep} />
+
+        {/* Canevas prioritaire */}
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <p className="border-b bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{currentStep.primaryAction}</span> — {currentStep.hint}
+          </p>
+
+          <div className="relative min-h-[240px] flex-1 overflow-hidden">
+            {visualMode === "map" && companyId ? (
+              <ClientOnly fallback={<Skeleton className="h-full w-full" />}>
+                <SiteMapCard
+                  payload={payload}
+                  companyId={companyId}
+                  disabled={!canWrite || busy}
+                  selectedPlaneKey={selectedPlaneKey}
+                  onSelectPlane={setSelectedPlaneKey}
+                  onPayload={applyPayload}
+                />
+              </ClientOnly>
+            ) : (
+              <ClientOnly fallback={<Skeleton className="h-full w-full" />}>
+                <Suspense fallback={<Skeleton className="h-full w-full" />}>
+                  {scene && (
+                    <SolarScene
+                      model={scene}
+                      selectedPlaneKey={selectedPlaneKey}
+                      onSelectPlane={setSelectedPlaneKey}
+                      onToggleModule={onToggleModuleAt}
+                    />
+                  )}
+                </Suspense>
+              </ClientOnly>
+            )}
           </div>
 
-          {visualMode === "map" && companyId && (
-            <ClientOnly fallback={<Skeleton className="h-[46vh] w-full" />}>
-              <SiteMapCard
-                payload={payload}
-                companyId={companyId}
-                disabled={!canWrite || busy}
-                selectedPlaneKey={selectedPlaneKey}
-                onSelectPlane={setSelectedPlaneKey}
-                onPayload={applyPayload}
+          {showPlanView && (
+            <div className="hidden h-[26vh] min-h-[180px] border-t p-2 lg:block">
+              <PlanView
+                plane={selectedPlane ?? null}
+                modules={payload.modules}
+                obstacles={scene?.obstacles ?? []}
+                spec={specForPlane}
+                onToggleModule={onToggleModuleAt}
               />
-            </ClientOnly>
+            </div>
           )}
 
-          <Card className={`h-[46vh] min-h-[280px] overflow-hidden lg:h-[62vh] ${visualMode === "map" ? "hidden" : ""}`}>
-            <ClientOnly fallback={<Skeleton className="h-full w-full" />}>
-              <Suspense fallback={<Skeleton className="h-full w-full" />}>
-                {scene && (
-                  <SolarScene
-                    model={scene}
-                    selectedPlaneKey={selectedPlaneKey}
-                    onSelectPlane={setSelectedPlaneKey}
-                    onToggleModule={(moduleId) => {
-                      const current = payload.modules.find((m) => m.id === moduleId);
-                      if (!current || !companyId) return;
+          {step === "implantation" && <LayoutSummaryBar summary={layoutSummary} />}
+        </main>
+
+        <ContextPanel
+          title={currentStep.label}
+          action={currentStep.primaryAction}
+          collapsed={panelCollapsed}
+          onToggle={() => setPanelCollapsed((c) => !c)}
+        >
+          {step === "projet" && (
+            <div className="space-y-3">
+              <SitePanel payload={payload} companyId={companyId} disabled={!canWrite || busy} onPayload={applyPayload} />
+              {mode === "expert" && (
+                <Card className="space-y-2 p-3">
+                  <Label>Niveau de fiabilité du modèle</Label>
+                  <Select
+                    value={payload.model.quality_level}
+                    onValueChange={(v) =>
+                      companyId &&
                       void guard(
                         async () =>
-                          (await toggleModule({
-                            data: { companyId, modelId: payload.model.id, moduleId, enabled: !current.enabled },
+                          (await saveMeta({
+                            data: { companyId, modelId: payload.model.id, quality_level: v as SolarQualityLevel },
                           })) as Payload,
-                      );
-                    }}
-                  />
+                        "Niveau mis à jour.",
+                      )
+                    }
+                  >
+                    <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(SOLAR_QUALITY_META) as SolarQualityLevel[]).map((q) => (
+                        <SelectItem key={q} value={q}>{SOLAR_QUALITY_META[q].label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {SOLAR_QUALITY_META[payload.model.quality_level as SolarQualityLevel].help}
+                  </p>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {step === "toiture" && (
+            <div className="space-y-3">
+              <Card className="space-y-3 p-3">
+                <div className="space-y-1.5">
+                  <Label>Type de toiture</Label>
+                  <Select value={params.roof_type} onValueChange={(v) => patchParams({ roof_type: v as RoofType })}>
+                    <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(ROOF_TYPE_META) as RoofType[]).map((t) => (
+                        <SelectItem key={t} value={t}>{ROOF_TYPE_META[t].label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <NumField label="Largeur (m)" value={params.width_m} step={0.1} onChange={(v) => patchParams({ width_m: v })} />
+                  <NumField label="Profondeur (m)" value={params.depth_m} step={0.1} onChange={(v) => patchParams({ depth_m: v })} />
+                  <NumField label="Hauteur mur (m)" value={params.wall_height_m} step={0.1} onChange={(v) => patchParams({ wall_height_m: v })} />
+                  <NumField label="Pente (°)" value={params.tilt_deg} step={1} onChange={(v) => patchParams({ tilt_deg: v })} />
+                  {mode === "expert" && (
+                    <>
+                      <NumField label="Azimut (°)" value={params.azimuth_deg} step={5} onChange={(v) => patchParams({ azimuth_deg: v })} />
+                      <NumField label="Débord (m)" value={params.overhang_m} step={0.05} onChange={(v) => patchParams({ overhang_m: v })} />
+                    </>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Azimut {Math.round(params.azimuth_deg)}° — pan principal orienté {azimuthLabel(params.azimuth_deg)}.
+                </p>
+                <Button className="min-h-11 w-full" disabled={!canWrite || busy || !dirty} onClick={() => void persistParams(params)}>
+                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Enregistrer la toiture
+                </Button>
+              </Card>
+
+              <Card className="divide-y p-0">
+                {payload.planes.map((plane) => (
+                  <button
+                    key={plane.key}
+                    type="button"
+                    onClick={() => setSelectedPlaneKey(plane.key)}
+                    className={`flex min-h-11 w-full items-center justify-between gap-2 p-3 text-left ${
+                      plane.key === selectedPlaneKey ? "bg-accent" : ""
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{plane.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {azimuthLabel(plane.azimuth_deg)} · {Math.round(plane.tilt_deg)}° · {plane.area_m2.toFixed(1)} m²
+                      </span>
+                    </span>
+                    <Badge variant="outline">
+                      {payload.modules.filter((m) => m.roof_plane_key === plane.key && m.enabled).length}
+                    </Badge>
+                  </button>
+                ))}
+                {!payload.planes.length && (
+                  <p className="p-3 text-xs text-muted-foreground">Aucun pan pour l'instant.</p>
                 )}
-              </Suspense>
-            </ClientOnly>
-          </Card>
+              </Card>
 
-          <Card className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-4">
-            <Metric label="Panneaux" value={String(summary.module_count)} />
-            <Metric label="Puissance" value={`${summary.power_kwc.toLocaleString("fr-FR")} kWc`} />
-            <Metric label="Surface toiture" value={`${summary.roof_area_m2.toLocaleString("fr-FR")} m²`} />
-            <Metric
-              label="Orientation"
-              value={summary.main_azimuth_deg == null ? "—" : `${azimuthLabel(summary.main_azimuth_deg)} · ${summary.main_tilt_deg}°`}
-            />
-          </Card>
-
-          <Card className="h-[34vh] min-h-[220px] overflow-hidden p-2">
-            <PlanView
-              plane={selectedPlane ?? null}
-              modules={payload.modules}
-              obstacles={scene?.obstacles ?? []}
-              spec={specForPlane}
-              onToggleModule={(moduleId) => {
-                const current = payload.modules.find((m) => m.id === moduleId);
-                if (!current || !companyId) return;
-                void guard(
-                  async () =>
-                    (await toggleModule({
-                      data: { companyId, modelId: payload.model.id, moduleId, enabled: !current.enabled },
-                    })) as Payload,
-                );
-              }}
-            />
-          </Card>
-        </div>
-
-        <Tabs defaultValue="batiment" className="min-w-0">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
-            <TabsTrigger value="batiment">Bâtiment</TabsTrigger>
-            <TabsTrigger value="site">Site</TabsTrigger>
-            <TabsTrigger value="pans">Pans</TabsTrigger>
-            <TabsTrigger value="obstacles">Obstacles</TabsTrigger>
-            <TabsTrigger value="pose">Pose</TabsTrigger>
-            <TabsTrigger value="implantation">Implantation</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="implantation">
-            <SmartLayoutPanel
-              companyId={companyId}
-              modelId={payload.model.id}
-              planes={payload.planes.map((p) => ({
-                id: p.id,
-                key: p.key,
-                name: p.name,
-                area_m2: p.area_m2,
-              }))}
-              disabled={!canWrite || busy}
-              onApplied={() => {
-                if (!companyId) return;
-                void load({ data: { companyId, studyId: id } }).then((next) =>
-                  applyPayload(next as Payload),
-                );
-              }}
-            />
-          </TabsContent>
-
-          <TabsContent value="site">
-            <SitePanel payload={payload} companyId={companyId} disabled={!canWrite || busy} onPayload={applyPayload} />
-          </TabsContent>
-
-
-          <TabsContent value="batiment">
-            <Card className="space-y-3 p-3">
-              <div className="space-y-1.5">
-                <Label>Type de toiture</Label>
-                <Select value={params.roof_type} onValueChange={(v) => patchParams({ roof_type: v as RoofType })}>
-                  <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(ROOF_TYPE_META) as RoofType[]).map((t) => (
-                      <SelectItem key={t} value={t}>{ROOF_TYPE_META[t].label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <NumField label="Largeur (m)" value={params.width_m} step={0.1} onChange={(v) => patchParams({ width_m: v })} />
-                <NumField label="Profondeur (m)" value={params.depth_m} step={0.1} onChange={(v) => patchParams({ depth_m: v })} />
-                <NumField label="Hauteur mur (m)" value={params.wall_height_m} step={0.1} onChange={(v) => patchParams({ wall_height_m: v })} />
-                <NumField label="Pente (°)" value={params.tilt_deg} step={1} onChange={(v) => patchParams({ tilt_deg: v })} />
-                <NumField label="Azimut (°)" value={params.azimuth_deg} step={5} onChange={(v) => patchParams({ azimuth_deg: v })} />
-                <NumField label="Débord (m)" value={params.overhang_m} step={0.05} onChange={(v) => patchParams({ overhang_m: v })} />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Azimut {Math.round(params.azimuth_deg)}° — pan principal orienté {azimuthLabel(params.azimuth_deg)}.
-              </p>
-              <Button className="min-h-11 w-full" disabled={!canWrite || busy || !dirty} onClick={() => void persistParams(params)}>
-                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Enregistrer le bâtiment
-              </Button>
-              <Separator />
-              <div className="space-y-1.5">
-                <Label>Niveau de fiabilité du modèle</Label>
-                <Select
-                  value={payload.model.quality_level}
-                  onValueChange={(v) =>
+              {mode === "expert" && (
+                <ObstaclePanel
+                  payload={payload}
+                  selectedPlaneId={selectedPlane?.id ?? null}
+                  disabled={!canWrite || busy || !companyId}
+                  onAdd={(values) =>
                     companyId &&
                     void guard(
                       async () =>
-                        (await saveMeta({
-                          data: { companyId, modelId: payload.model.id, quality_level: v as SolarQualityLevel },
+                        (await saveObstacle({
+                          data: { companyId, modelId: payload.model.id, ...values },
                         })) as Payload,
-                      "Niveau mis à jour.",
+                      "Obstacle ajouté.",
                     )
                   }
-                >
-                  <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(SOLAR_QUALITY_META) as SolarQualityLevel[]).map((q) => (
-                      <SelectItem key={q} value={q}>{SOLAR_QUALITY_META[q].label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {SOLAR_QUALITY_META[payload.model.quality_level as SolarQualityLevel].help}
-                </p>
-              </div>
+                  onDelete={(obstacleId) =>
+                    companyId &&
+                    void guard(
+                      async () =>
+                        (await removeObstacle({ data: { companyId, modelId: payload.model.id, obstacleId } })) as Payload,
+                      "Obstacle supprimé.",
+                    )
+                  }
+                />
+              )}
+            </div>
+          )}
+
+          {step === "modules" && (
+            <LayoutPanel
+              payload={payload}
+              planeId={selectedPlane?.id ?? null}
+              disabled={!canWrite || busy || !companyId}
+              onRun={(values) =>
+                companyId &&
+                selectedPlane &&
+                void guard(
+                  async () =>
+                    (await runLayout({
+                      data: { companyId, modelId: payload.model.id, roofPlaneId: selectedPlane.id, ...values },
+                    })) as Payload,
+                  "Pose calculée.",
+                )
+              }
+              onClear={() =>
+                companyId &&
+                selectedPlane &&
+                void guard(
+                  async () =>
+                    (await clearLayout({
+                      data: { companyId, modelId: payload.model.id, roofPlaneId: selectedPlane.id },
+                    })) as Payload,
+                  "Pose supprimée.",
+                )
+              }
+            />
+          )}
+
+          {step === "implantation" && (
+            <SmartLayoutPanel
+              companyId={companyId}
+              modelId={payload.model.id}
+              planes={payload.planes.map((p) => ({ id: p.id, key: p.key, name: p.name, area_m2: p.area_m2 }))}
+              disabled={!canWrite || busy}
+              onContextChange={handleLayoutContext}
+              onApplied={() => {
+                if (!companyId) return;
+                void load({ data: { companyId, studyId: id } }).then((next) => applyPayload(next as Payload));
+              }}
+            />
+          )}
+
+          {step === "electrique" && (
+            <Card className="space-y-2 p-4 text-center">
+              <Zap className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
+              <p className="text-sm font-medium">Étude électrique à venir</p>
+              <p className="text-xs text-muted-foreground">
+                Onduleurs, chaînes et protections seront définis ici. L'implantation validée servira de base : rien
+                n'est estimé tant que cette étape n'est pas disponible.
+              </p>
+            </Card>
+          )}
+
+          {step === "resultats" && (
+            <div className="space-y-3">
+              <Card className="grid grid-cols-2 gap-3 p-3">
+                <Metric label="Panneaux" value={String(summary.module_count)} />
+                <Metric label="Puissance" value={formatKwc(summary.power_kwc)} />
+                <Metric label="Surface toiture" value={formatArea(summary.roof_area_m2)} />
+                <Metric
+                  label="Orientation"
+                  value={
+                    summary.main_azimuth_deg == null
+                      ? "—"
+                      : `${azimuthLabel(summary.main_azimuth_deg)} · ${summary.main_tilt_deg}°`
+                  }
+                />
+              </Card>
               <Button
                 variant="outline"
                 className="min-h-11 w-full"
@@ -441,90 +595,14 @@ function SolarStudioPage() {
               <p className="text-xs text-muted-foreground">
                 Modèle géométrique déclaratif : les dimensions restent à confirmer lors de la visite technique.
               </p>
-            </Card>
-          </TabsContent>
+              <BackLink id={id} />
+            </div>
+          )}
 
-          <TabsContent value="pans">
-            <Card className="divide-y p-0">
-              {payload.planes.map((plane) => (
-                <button
-                  key={plane.key}
-                  type="button"
-                  onClick={() => setSelectedPlaneKey(plane.key)}
-                  className={`flex min-h-11 w-full items-center justify-between gap-2 p-3 text-left ${
-                    plane.key === selectedPlaneKey ? "bg-accent" : ""
-                  }`}
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{plane.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {azimuthLabel(plane.azimuth_deg)} · {Math.round(plane.tilt_deg)}° · {plane.area_m2.toFixed(1)} m²
-                    </span>
-                  </span>
-                  <Badge variant="outline">
-                    {payload.modules.filter((m) => m.roof_plane_key === plane.key && m.enabled).length}
-                  </Badge>
-                </button>
-              ))}
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="obstacles">
-            <ObstaclePanel
-              payload={payload}
-              selectedPlaneId={selectedPlane?.id ?? null}
-              disabled={!canWrite || busy || !companyId}
-              onAdd={(values) =>
-                companyId &&
-                void guard(
-                  async () =>
-                    (await saveObstacle({
-                      data: { companyId, modelId: payload.model.id, ...values },
-                    })) as Payload,
-                  "Obstacle ajouté.",
-                )
-              }
-              onDelete={(obstacleId) =>
-                companyId &&
-                void guard(
-                  async () =>
-                    (await removeObstacle({ data: { companyId, modelId: payload.model.id, obstacleId } })) as Payload,
-                  "Obstacle supprimé.",
-                )
-              }
-            />
-          </TabsContent>
-
-          <TabsContent value="pose">
-            <LayoutPanel
-              payload={payload}
-              planeId={selectedPlane?.id ?? null}
-              disabled={!canWrite || busy || !companyId}
-              onRun={(values) =>
-                companyId &&
-                selectedPlane &&
-                void guard(
-                  async () =>
-                    (await runLayout({
-                      data: { companyId, modelId: payload.model.id, roofPlaneId: selectedPlane.id, ...values },
-                    })) as Payload,
-                  "Implantation calculée.",
-                )
-              }
-              onClear={() =>
-                companyId &&
-                selectedPlane &&
-                void guard(
-                  async () =>
-                    (await clearLayout({
-                      data: { companyId, modelId: payload.model.id, roofPlaneId: selectedPlane.id },
-                    })) as Payload,
-                  "Implantation supprimée.",
-                )
-              }
-            />
-          </TabsContent>
-        </Tabs>
+          <p className="mt-3 text-[11px] text-muted-foreground lg:hidden">
+            Sur petit écran, préférez le mode paysage ou une tablette pour l'édition détaillée du plan.
+          </p>
+        </ContextPanel>
       </div>
       <p className="sr-only">{historyTick}</p>
     </div>
@@ -729,14 +807,14 @@ function LayoutPanel({
         disabled={disabled || !planeId || !moduleId}
         onClick={() => onRun({ moduleCatalogId: moduleId, orientation, setback_m: setback, row_gap_m: rowGap, col_gap_m: colGap })}
       >
-        <Sparkles className="mr-2 h-4 w-4" /> Calculer l'implantation
+        <Sparkles className="mr-2 h-4 w-4" /> Poser sur ce pan
       </Button>
       <Button variant="outline" className="min-h-11 w-full" disabled={disabled || !planeId} onClick={onClear}>
         <RotateCcw className="mr-2 h-4 w-4" /> Vider ce pan
       </Button>
       <p className="text-xs text-muted-foreground">
-        Le calcul évite les obstacles du pan et respecte les reculs saisis. Cliquez un panneau (3D ou plan) pour le
-        désactiver sans le supprimer.
+        Pose simple sur le pan sélectionné. Pour comparer plusieurs variantes et viser une puissance, passez à l'étape
+        Implantation.
       </p>
     </Card>
   );
