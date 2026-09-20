@@ -335,7 +335,7 @@ function SolarStudioPage() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] min-h-[560px] flex-col overflow-hidden rounded-lg border bg-background">
+    <div className="flex min-h-[560px] flex-col overflow-hidden rounded-lg border bg-background md:h-[calc(100dvh-7rem)]">
       <StudioTopBar
         studyId={id}
         title={payload.model.name || "Solar Studio"}
@@ -359,7 +359,7 @@ function SolarStudioPage() {
         <StepRail steps={steps} activeStep={step} onSelect={setStep} />
 
         {/* Canevas prioritaire */}
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <main className="flex min-h-[48vh] min-w-0 flex-1 flex-col md:min-h-0">
           <p className="border-b bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">{currentStep.primaryAction}</span> —{" "}
             {currentStep.hint}

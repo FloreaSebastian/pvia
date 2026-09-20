@@ -42,7 +42,7 @@ export function StepRail({
   return (
     <nav
       aria-label="Étapes Solar Studio"
-      className="flex shrink-0 gap-1 overflow-x-auto border-b bg-card p-1 md:w-16 md:flex-col md:overflow-visible md:border-b-0 md:border-r md:py-2"
+      className="flex shrink-0 gap-1 overflow-x-auto border-b bg-card p-1 md:w-[84px] md:flex-col md:overflow-visible md:border-b-0 md:border-r md:py-2"
     >
       {ordered.map((step, index) => {
         const Icon = ICONS[step.id];
