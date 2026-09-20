@@ -28,11 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  applySmartLayout,
-  computeSmartLayout,
-  getLayoutSetup,
-} from "@/lib/solar-layout.functions";
+import { applySmartLayout, computeSmartLayout, getLayoutSetup } from "@/lib/solar-layout.functions";
 import { getModuleShortlist } from "@/lib/solar-catalog.functions";
 import { ModulePicker } from "@/components/solar/ModulePicker";
 import { formatModuleDimensions, type ModuleListItem } from "@/lib/solar/module-catalog";
@@ -55,12 +51,19 @@ export function SmartLayoutPanel({
   planes,
   disabled,
   onApplied,
+  onContextChange,
 }: {
   companyId: string | null;
   modelId: string;
   planes: { id: string; key: string; name: string; area_m2: number }[];
   disabled: boolean;
   onApplied: () => void;
+  /** Remontée purement présentationnelle vers la barre de synthèse du cadre UX. */
+  onContextChange?: (ctx: {
+    targetKwc: number | null;
+    moduleSelected: boolean;
+    planeNames: string[];
+  }) => void;
 }) {
   const setupFn = useServerFn(getLayoutSetup);
   const computeFn = useServerFn(computeSmartLayout);
@@ -109,9 +112,19 @@ export function SmartLayoutPanel({
   const target = useMemo(() => {
     if (preset === "max") return { mode: "max" as const, rounding: "closest" as const };
     const power = preset === "custom" ? Number(customPower) : Number(preset);
-    if (!Number.isFinite(power) || power <= 0) return { mode: "max" as const, rounding: "closest" as const };
+    if (!Number.isFinite(power) || power <= 0)
+      return { mode: "max" as const, rounding: "closest" as const };
     return { mode: "power" as const, power_kwc: power, rounding: "closest" as const };
   }, [preset, customPower]);
+
+  // Alimente la barre de synthèse du cadre UX (aucun impact sur le calcul).
+  useEffect(() => {
+    onContextChange?.({
+      targetKwc: target.mode === "power" ? target.power_kwc : null,
+      moduleSelected: Boolean(module),
+      planeNames: planes.filter((p) => planeIds.includes(p.id)).map((p) => p.name),
+    });
+  }, [onContextChange, target, module, planes, planeIds]);
 
   // Changer de référence invalide immédiatement les variantes calculées.
   useEffect(() => {
@@ -137,7 +150,8 @@ export function SmartLayoutPanel({
       })) as Result;
       setResult(res);
       setSelected(res.candidates[0]?.signature ?? null);
-      if (!res.candidates.length) toast.error("Aucune implantation exploitable avec ces contraintes.");
+      if (!res.candidates.length)
+        toast.error("Aucune implantation exploitable avec ces contraintes.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Calcul impossible.");
     } finally {
@@ -309,12 +323,12 @@ export function SmartLayoutPanel({
           <CardContent className="space-y-2 pt-4 text-sm">
             <p>
               Puissance demandée non atteignable sur les pans sélectionnés. Maximum posable :{" "}
-              <strong>{best?.power_kwc} kWc</strong> ({best?.modules.length} panneaux), soit {shortfall} kWc
-              de moins que l'objectif.
+              <strong>{best?.power_kwc} kWc</strong> ({best?.modules.length} panneaux), soit{" "}
+              {shortfall} kWc de moins que l'objectif.
             </p>
             <p className="text-muted-foreground">
-              Vous pouvez utiliser ce maximum, réduire les marges du profil de règles, ou ajouter un autre
-              pan à la sélection.
+              Vous pouvez utiliser ce maximum, réduire les marges du profil de règles, ou ajouter un
+              autre pan à la sélection.
             </p>
           </CardContent>
         </Card>
@@ -337,7 +351,8 @@ export function SmartLayoutPanel({
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <p>
-                  {c.modules.length} panneaux · {c.orientation === "portrait" ? "portrait" : "paysage"}
+                  {c.modules.length} panneaux ·{" "}
+                  {c.orientation === "portrait" ? "portrait" : "paysage"}
                 </p>
                 <details>
                   <summary className="cursor-pointer text-muted-foreground">
