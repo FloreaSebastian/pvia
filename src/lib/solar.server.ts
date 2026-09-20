@@ -5,13 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { buildRoofPlanes } from "./solar/roof";
-import {
-  clampTilt,
-  planeFromCustom,
-  validateRoofRing,
-  type CustomRoofPlane,
-} from "./solar/polygon";
-import type { LocalPoint } from "./solar/geo";
+import { parseCustomPlanes, planeFromCustom, type CustomRoofPlane } from "./solar/polygon";
 import { deriveRoofEdges, type RoofEdge } from "./solar/edges";
 import { geometryFingerprint } from "./solar/hash";
 import { computeSolarSummary } from "./solar/summary";
@@ -103,36 +97,11 @@ function numberOr(value: unknown, fallback: number): number {
  * navigateur pour la géométrie persistée.
  */
 export function readCustomPlanes(row: SolarBuildingRow | null): CustomRoofPlane[] {
-  const raw = row?.custom_planes;
-  if (!Array.isArray(raw)) return [];
-  const out: CustomRoofPlane[] = [];
-  for (const item of raw as unknown[]) {
-    const p = item as Partial<CustomRoofPlane>;
-    if (!p || typeof p.key !== "string" || !Array.isArray(p.ring)) continue;
-    const ring = p.ring
-      .filter((v) => v && Number.isFinite((v as LocalPoint).x) && Number.isFinite((v as LocalPoint).y))
-      .map((v) => ({ x: Number((v as LocalPoint).x), y: Number((v as LocalPoint).y) }));
-    if (!validateRoofRing(ring).valid) continue;
-    out.push({
-      key: p.key,
-      name: typeof p.name === "string" && p.name.trim() ? p.name : p.key,
-      ring,
-      tilt_deg: clampTilt(numberOr(p.tilt_deg, DEFAULT_BUILDING_PARAMS.tilt_deg)),
-      azimuth_deg: numberOr(p.azimuth_deg, DEFAULT_BUILDING_PARAMS.azimuth_deg),
-      eave_height_m: numberOr(p.eave_height_m, DEFAULT_BUILDING_PARAMS.wall_height_m),
-      margin_m: Math.max(0, numberOr(p.margin_m, 0.4)),
-      edge_margins: Array.isArray(p.edge_margins)
-        ? p.edge_margins
-            .filter((m) => m && Number.isFinite(m.index))
-            .map((m) => ({
-              index: Number(m.index),
-              kind: m.kind ?? "indefini",
-              margin_m: Math.max(0, numberOr(m.margin_m, 0)),
-            }))
-        : [],
-    });
-  }
-  return out;
+  const params = readBuildingParams(row);
+  return parseCustomPlanes(row?.custom_planes, {
+    tilt_deg: params.tilt_deg,
+    eave_height_m: params.wall_height_m,
+  });
 }
 
 /** Le bâtiment utilise-t-il des pans dessinés plutôt que la toiture paramétrique ? */

@@ -375,3 +375,49 @@ export function marginForEdge(plane: CustomRoofPlane, edgeIndex: number): number
 export function totalCustomArea(planes: CustomRoofPlane[]): number {
   return planes.reduce((sum, p) => sum + planeFromCustom(p).area_m2, 0);
 }
+
+/* ------------------------------- Lecture ---------------------------------- */
+
+export interface CustomPlaneDefaults {
+  tilt_deg?: number;
+  eave_height_m?: number;
+  margin_m?: number;
+}
+
+/**
+ * Lit une liste de pans dessinés depuis une valeur JSON quelconque.
+ * Toute entrée dont le contour est invalide est ignorée : ni le navigateur ni
+ * la base ne peuvent introduire une géométrie non validée.
+ */
+export function parseCustomPlanes(raw: unknown, defaults?: CustomPlaneDefaults): CustomRoofPlane[] {
+  if (!Array.isArray(raw)) return [];
+  const num = (v: unknown, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v) ? v : fallback;
+  const out: CustomRoofPlane[] = [];
+  for (const item of raw as Partial<CustomRoofPlane>[]) {
+    if (!item || typeof item.key !== "string" || !Array.isArray(item.ring)) continue;
+    const ring = item.ring
+      .filter((v) => v && Number.isFinite(v.x) && Number.isFinite(v.y))
+      .map((v) => ({ x: Number(v.x), y: Number(v.y) }));
+    if (!validateRoofRing(ring).valid) continue;
+    out.push({
+      key: item.key,
+      name: typeof item.name === "string" && item.name.trim() ? item.name : item.key,
+      ring,
+      tilt_deg: clampTilt(num(item.tilt_deg, defaults?.tilt_deg ?? 30)),
+      azimuth_deg: normalizeAzimuth(num(item.azimuth_deg, 180)),
+      eave_height_m: num(item.eave_height_m, defaults?.eave_height_m ?? 3),
+      margin_m: Math.max(0, num(item.margin_m, defaults?.margin_m ?? 0.4)),
+      edge_margins: Array.isArray(item.edge_margins)
+        ? item.edge_margins
+            .filter((m) => m && Number.isFinite(m.index))
+            .map((m) => ({
+              index: Number(m.index),
+              kind: (m.kind ?? "indefini") as RoofEdgeKind,
+              margin_m: Math.max(0, num(m.margin_m, 0)),
+            }))
+        : [],
+    });
+  }
+  return out;
+}
