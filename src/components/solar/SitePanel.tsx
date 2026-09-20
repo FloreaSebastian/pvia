@@ -75,9 +75,12 @@ export function SitePanel({ payload, companyId, disabled, onPayload, onSaveActiv
   const located = model.origin_latitude != null && model.origin_longitude != null;
 
   const run = useCallback(
-    async (fn: () => Promise<unknown>) => {
+    // `write` distingue une écriture (remontée dans l'indicateur de sauvegarde)
+    // d'une simple consultation (recherche d'adresse, rafraîchissement de données).
+    async (fn: () => Promise<unknown>, opts?: { write?: boolean }) => {
+      const write = opts?.write !== false;
       setBusy(true);
-      onSaveActivity?.({ busy: true, error: false });
+      if (write) onSaveActivity?.({ busy: true, error: false });
       let failed = false;
       try {
         return await fn();
