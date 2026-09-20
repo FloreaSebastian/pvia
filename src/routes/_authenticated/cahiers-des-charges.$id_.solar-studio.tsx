@@ -123,6 +123,21 @@ function SolarStudioPage() {
     moduleSelected: false,
     planeNames: [],
   });
+  // P0-A.1 : état d'écriture remonté par les panneaux enfants (Site, Implantation).
+  const [childSave, setChildSave] = useState<Record<string, { busy: boolean; error: boolean }>>({});
+  const reportChildSave = useCallback(
+    (source: string) => (state: { busy: boolean; error: boolean }) =>
+      setChildSave((prev) =>
+        prev[source]?.busy === state.busy && prev[source]?.error === state.error
+          ? prev
+          : { ...prev, [source]: state },
+      ),
+    [],
+  );
+  const onSiteSave = useMemo(() => reportChildSave("site"), [reportChildSave]);
+  const onLayoutSave = useMemo(() => reportChildSave("implantation"), [reportChildSave]);
+  const childBusy = Object.values(childSave).some((s) => s.busy);
+  const childError = Object.values(childSave).some((s) => s.error);
 
   // Historique local des paramètres de bâtiment (annuler / rétablir).
   const history = useRef<BuildingParams[]>([]);
