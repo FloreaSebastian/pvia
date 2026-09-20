@@ -527,6 +527,13 @@ function SolarStudioPage() {
             {currentStep.hint}
           </p>
 
+          {step === "toiture" && (
+            <p className="border-b bg-muted/20 px-3 py-1 text-xs text-muted-foreground sm:hidden">
+              Pour dessiner précisément la toiture, utilisez le mode paysage ou une tablette.
+              La consultation reste possible ici.
+            </p>
+          )}
+
           <div className="relative min-h-[240px] flex-1 overflow-hidden">
             {visualMode === "map" && companyId ? (
               <ClientOnly fallback={<Skeleton className="h-full w-full" />}>
@@ -712,6 +719,12 @@ function SolarStudioPage() {
                   Azimut {Math.round(params.azimuth_deg)}° — pan principal orienté{" "}
                   {azimuthLabel(params.azimuth_deg)}.
                 </p>
+                {roofPlanes.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Les pans dessinés sur la carte font foi : ces dimensions restent enregistrées
+                    mais ne définissent plus la toiture.
+                  </p>
+                )}
                 <Button
                   className="min-h-11 w-full"
                   disabled={!canWrite || busy || !dirty}
