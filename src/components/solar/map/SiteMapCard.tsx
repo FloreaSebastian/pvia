@@ -56,6 +56,9 @@ export interface RoofEditorBinding {
   onToolChange: (tool: RoofDrawTool) => void;
   editableRings: EditableRing[];
   disabled: boolean;
+  /** Faux tant que la toiture n'a pas été convertie en contours éditables. */
+  canDraw: boolean;
+  drawLockedReason?: string;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
