@@ -461,6 +461,20 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
     if (custom.length === 0)
       throw new Error("Les pans actuels ne peuvent pas être convertis en contours.");
 
+    // La conversion conserve exactement les pans existants : même contrôle
+    // qu'en base, refusé ici plus tôt et avec un message clair.
+    if (
+      !conversionKeysMatch(
+        geometry.map((g) => g.key),
+        custom.map((p) => p.key),
+      )
+    ) {
+      throw new Error(
+        "La conversion doit conserver exactement les pans existants : elle ne peut ni en ajouter, ni en supprimer, ni en renommer.",
+      );
+    }
+
+
     const { error } = await supabase.rpc("solar_apply_roof_geometry", {
       _company_id: data.companyId,
       _model_id: data.modelId,
