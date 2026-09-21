@@ -322,12 +322,8 @@ describe("performance du moteur manuel", () => {
     const modules = grid(1000);
     const ctx = createManualContext([bigPlane(140)], SPEC, RULES);
     const t0 = performance.now();
-    const hit = modulesInRect(modules, "pan-a", { u0: 0, v0: 0, u1: 20, v1: 20 });
-    const selection = validateManual(
-      ctx,
-      modules,
-      hit.slice(0, 50),
-    );
+    const hit = modulesInRect(modules, SPEC, { u: 10, v: 10, width: 20, length: 20 }, "pan-a");
+    const selection = validateManual(ctx, modules, hit.slice(0, 50));
     const elapsed = performance.now() - t0;
     expect(hit.length).toBeGreaterThan(0);
     expect(selection.length).toBeGreaterThan(0);
