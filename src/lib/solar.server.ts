@@ -7,7 +7,6 @@ import type { Database } from "@/integrations/supabase/types";
 import { buildRoofPlanes } from "./solar/roof";
 import { parseCustomPlanes, planeFromCustom, type CustomRoofPlane } from "./solar/polygon";
 import { deriveRoofEdges, type RoofEdge } from "./solar/edges";
-import { geometryFingerprint } from "./solar/hash";
 import { computeSolarSummary } from "./solar/summary";
 import {
   buildQualityReport,
