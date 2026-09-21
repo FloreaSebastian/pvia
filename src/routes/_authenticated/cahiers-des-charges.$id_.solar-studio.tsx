@@ -650,6 +650,9 @@ function SolarStudioPage() {
                             ring: p.ring,
                           })),
                           disabled: !canWrite || busy,
+                          canDraw: polygonMode,
+                          drawLockedReason:
+                            "Toiture décrite par ses dimensions : convertissez-la en contours éditables pour dessiner. Les pans et l'implantation existants sont conservés.",
                           canUndo: roofHistory.current.length > 0 && !busy,
                           canRedo: roofFuture.current.length > 0 && !busy,
                           onUndo: undoRoof,
