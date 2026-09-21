@@ -49,10 +49,7 @@ import {
   type History,
   type ManualResult,
 } from "@/lib/solar-layout/manual";
-import {
-  resolveManualSaveState,
-  type ManualSaveState,
-} from "@/lib/solar-layout/exit-guard";
+import { resolveManualSaveState, type ManualSaveState } from "@/lib/solar-layout/exit-guard";
 import type { LayoutModule, Orientation } from "@/lib/solar-layout/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ManualPlanCanvas } from "./ManualPlanCanvas";

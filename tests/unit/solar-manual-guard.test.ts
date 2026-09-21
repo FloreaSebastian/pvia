@@ -128,7 +128,13 @@ describe("état de sauvegarde exact", () => {
 const ARRAY: ManualArrayRef = {
   module_variant_id: "v1",
   module_revision_id: "r1",
-  module_snapshot: { variant_id: "v1", revision_id: "r1", power_wc: 400, width_mm: 1000, height_mm: 1700 },
+  module_snapshot: {
+    variant_id: "v1",
+    revision_id: "r1",
+    power_wc: 400,
+    width_mm: 1000,
+    height_mm: 1700,
+  },
   rules_profile_id: "p1",
   rules_profile_version: 3,
   layout_engine_version: "2.0.0",
