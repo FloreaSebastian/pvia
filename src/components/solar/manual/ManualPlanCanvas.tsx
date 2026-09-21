@@ -190,26 +190,13 @@ export function ManualPlanCanvas({
     onCommit(moveSelection(ctx, modules, selection, du, dv));
   };
 
-  /** Validité réelle du fantôme d'ajout, via le MÊME moteur que le serveur. */
-  const ghostValidity = (at: Pointer) => {
-    const probe: LayoutModule = {
-      id: "__ghost__",
-      plane_key: planeKey,
-      u: at.u,
-      v: at.v,
-      orientation: addOrientation,
-      row: 0,
-      col: 0,
-      matrix: 0,
-    };
-    const checks = validateManual(ctx, [...modules, probe], ["__ghost__"]);
-    const bad = checks.find((c) => c.status !== "valid");
-    return { valid: !bad, cause: bad ? shortCause(bad) : "" };
-  };
+  /** Fantôme d'ajout : accrochage réel puis validation du point accroché. */
+  const ghostAt = (at: Pointer, snap: boolean) =>
+    computeAddGhost(ctx, modules, planeKey, at, addOrientation, { snap });
 
   const onBackgroundDown = (e: React.PointerEvent) => {
     if (tool === "add") return;
-    // Le pointerdown d'un panneau ne remonte jamais jusqu'ici (stopPropagation).
+    if (isModuleEventTarget(e.target as unknown as Element)) return;
     const point = toModel(e);
     if (!point) return;
     setMarquee({ from: point, to: point, additive: e.shiftKey || e.ctrlKey || e.metaKey });
@@ -218,7 +205,7 @@ export function ManualPlanCanvas({
   const onBackgroundMove = (e: React.PointerEvent) => {
     if (tool === "add" && !editDisabled) {
       const point = toModel(e);
-      if (point) setGhost({ at: point, ...ghostValidity(point) });
+      if (point) setGhost(ghostAt(point, !e.altKey));
       return;
     }
     if (!marquee) return;
@@ -230,17 +217,23 @@ export function ManualPlanCanvas({
     if (tool === "add" && !editDisabled) {
       const point = toModel(e);
       if (!point) return;
-      const check = ghostValidity(point);
-      setGhost({ at: point, ...check });
+      const g = ghostAt(point, !e.altKey);
+      setGhost(g);
       // Un clic en position interdite ne mute rien.
-      if (!check.valid) return;
-      onAddAt(point);
+      if (!g.valid) return;
+      // On pose exactement la position affichée (accrochée), pas le point brut.
+      onAddAt(g.at);
       return;
     }
+    // Défense en profondeur : un pointerup issu d'un panneau ne désélectionne jamais.
+    const fromModule = isModuleEventTarget(e.target as unknown as Element);
     if (!marquee) {
-      onSelectionChange([]);
+      if (shouldDeselectOnBackgroundUp({ fromModule, hasMarquee: false, dragging: false })) {
+        onSelectionChange([]);
+      }
       return;
     }
+
     const rect = {
       u: (marquee.from.u + marquee.to.u) / 2,
       v: (marquee.from.v + marquee.to.v) / 2,
