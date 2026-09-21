@@ -142,12 +142,39 @@ export function SmartLayoutPanel({
 
   // Changer de référence invalide immédiatement les variantes calculées.
   useEffect(() => {
+    computeSeq.current += 1;
     setResult(null);
     setSelected(null);
-  }, [module?.variant_id, orientation, planeIds, profileId]);
+  }, [module?.variant_id, orientation, planeIds, profileId, preset, customPower]);
+
+  // L'aperçu suit la variante sélectionnée ; il n'est jamais enregistré.
+  const candidates = useMemo(() => result?.candidates ?? [], [result]);
+  const current = useMemo(
+    () => candidates.find((c) => c.signature === selected) ?? candidates[0] ?? null,
+    [candidates, selected],
+  );
+  useEffect(() => {
+    if (!onPreview) return;
+    onPreview(
+      current
+        ? {
+            signature: current.signature,
+            modules: current.modules.map((m) => ({
+              id: m.id,
+              plane_key: m.plane_key,
+              u: m.u,
+              v: m.v,
+              orientation: m.orientation,
+            })),
+          }
+        : null,
+    );
+  }, [current, onPreview]);
+  useEffect(() => () => onPreview?.(null), [onPreview]);
 
   const generate = useCallback(async () => {
     if (!companyId || !module || !planeIds.length) return;
+    const seq = (computeSeq.current += 1);
     setBusy(true);
     try {
       const res = (await computeFn({
@@ -159,23 +186,25 @@ export function SmartLayoutPanel({
           rulesProfileId: profileId === "none" ? null : profileId,
           target,
           orientation,
-          maxVariants: 3,
+          maxVariants: 4,
         },
       })) as Result;
+      // Un calcul plus récent a été lancé entre-temps : ce résultat est périmé.
+      if (seq !== computeSeq.current) return;
       setResult(res);
       setSelected(res.candidates[0]?.signature ?? null);
       if (!res.candidates.length)
         toast.error("Aucune implantation exploitable avec ces contraintes.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Calcul impossible.");
+      if (seq === computeSeq.current) toast.error(e instanceof Error ? e.message : "Calcul impossible.");
     } finally {
-      setBusy(false);
+      if (seq === computeSeq.current) setBusy(false);
     }
   }, [companyId, computeFn, modelId, module, orientation, planeIds, profileId, target]);
 
   const apply = useCallback(
     async (candidate: LayoutCandidate) => {
-      if (!companyId || !module) return;
+      if (!companyId || !module || !result) return;
       setBusy(true);
       onSaveActivity?.({ busy: true, error: false });
       let failed = false;
@@ -189,14 +218,17 @@ export function SmartLayoutPanel({
             rulesProfileId: profileId === "none" ? null : profileId,
             target,
             orientation,
-            maxVariants: 3,
+            maxVariants: 4,
             signature: candidate.signature,
             strategy: candidate.strategy,
+            // Version de toiture du calcul : le serveur refuse si elle a bougé.
+            geometryVersion: result.geometry_version,
             saveAsVariant: true,
             variantLabel: candidate.label,
           },
         });
         toast.success(`Implantation appliquée : ${candidate.modules.length} panneaux.`);
+        onPreview?.(null);
         onApplied();
       } catch (e) {
         failed = true;
@@ -212,20 +244,29 @@ export function SmartLayoutPanel({
       modelId,
       module,
       onApplied,
+      onPreview,
       onSaveActivity,
       orientation,
       planeIds,
       profileId,
+      result,
       target,
     ],
   );
 
   const targetPower = target.mode === "power" ? target.power_kwc : null;
-  const best = result?.candidates[0];
-  const shortfall =
-    targetPower && best && best.power_kwc + 0.001 < targetPower
-      ? Math.round((targetPower - best.power_kwc) * 100) / 100
-      : null;
+  /** Meilleur candidat réellement maximal, utilisé par « Utiliser le maximum valide ». */
+  const maximumCandidate = useMemo(
+    () =>
+      candidates.reduce<LayoutCandidate | null>(
+        (best2, c) => (!best2 || c.modules.length > best2.modules.length ? c : best2),
+        null,
+      ),
+    [candidates],
+  );
+  /** Objectif demandé inatteignable : aucune variante ne l'atteint. */
+  const impossible =
+    targetPower !== null && candidates.length > 0 && candidates.every((c) => c.target_met === false);
 
   return (
     <div className="space-y-4">
