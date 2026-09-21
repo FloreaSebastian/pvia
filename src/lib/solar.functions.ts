@@ -36,6 +36,7 @@ import {
 } from "./solar/schemas";
 import { gridLayout, type PlaneObstacle } from "./solar/layout";
 import {
+  conversionKeysMatch,
   customPlanesFromGeometry,
   planeFromCustom,
   validateRoofRing,
