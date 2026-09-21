@@ -221,7 +221,9 @@ export function ManualLayoutEditor({
     if (!server || !ctx) return;
     if (invalid.length) {
       setSelection(invalid.map((v) => v.module_id));
-      toast.error(`${invalid.length} panneau(x) en position interdite : corrigez avant d'enregistrer.`);
+      toast.error(
+        `${invalid.length} panneau(x) en position interdite : corrigez avant d'enregistrer.`,
+      );
       return;
     }
     if (modules.length === 0 && !confirmEmpty) {
@@ -332,9 +334,7 @@ export function ManualLayoutEditor({
     planeName: server?.plane_names?.[activePlaneKey] ?? "",
     orientationOfSelection,
     positionOfSelection:
-      selectedModules.length === 1
-        ? { u: selectedModules[0]!.u, v: selectedModules[0]!.v }
-        : null,
+      selectedModules.length === 1 ? { u: selectedModules[0]!.u, v: selectedModules[0]!.v } : null,
     canUndo: canUndo(hist),
     canRedo: canRedo(hist),
     undo,
@@ -557,11 +557,7 @@ export function ManualLayoutEditor({
               <Button className="min-h-11" onClick={save}>
                 Enregistrer quand même
               </Button>
-              <Button
-                variant="ghost"
-                className="min-h-11"
-                onClick={() => setConfirmEmpty(false)}
-              >
+              <Button variant="ghost" className="min-h-11" onClick={() => setConfirmEmpty(false)}>
                 Annuler
               </Button>
             </div>

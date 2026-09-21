@@ -29,7 +29,12 @@ import {
 } from "@/lib/solar-layout/manual";
 import { manualContextToken } from "@/lib/solar-layout/token";
 import { EMPTY_RULES_PROFILE } from "@/lib/solar-layout/rules";
-import { LAYOUT_ENGINE_VERSION, type LayoutModule, type LayoutPlane, type RulesProfile } from "@/lib/solar-layout/types";
+import {
+  LAYOUT_ENGINE_VERSION,
+  type LayoutModule,
+  type LayoutPlane,
+  type RulesProfile,
+} from "@/lib/solar-layout/types";
 
 const RULES: RulesProfile = {
   ...EMPTY_RULES_PROFILE,
@@ -67,7 +72,12 @@ function plane(overrides: Partial<LayoutPlane> = {}): LayoutPlane {
   };
 }
 
-function mod(id: string, u: number, v: number, orientation: "portrait" | "paysage" = "portrait"): LayoutModule {
+function mod(
+  id: string,
+  u: number,
+  v: number,
+  orientation: "portrait" | "paysage" = "portrait",
+): LayoutModule {
   return { id, plane_key: "pan-a", u, v, orientation, row: 0, col: 0, matrix: 0 };
 }
 
@@ -166,7 +176,10 @@ describe("P0-D — rotation, ajout, duplication, suppression", () => {
 
   test("ajout manuel valide", () => {
     const ctx = ctxOf();
-    const next = expectAccepted(ctx, addModule(ctx, [], { plane_key: "pan-a", u: 3, v: 3, orientation: "portrait" }));
+    const next = expectAccepted(
+      ctx,
+      addModule(ctx, [], { plane_key: "pan-a", u: 3, v: 3, orientation: "portrait" }),
+    );
     expect(next).toHaveLength(1);
     expect(next[0]!.id).toBe("manuel-1");
   });
@@ -326,7 +339,13 @@ describe("P0-D — déterminisme et invariant global", () => {
       () => moveSelection(ctx, modules, ["a"], 0.5, 0.5),
       () => rotateSelection(ctx, modules, ["a"]),
       () => duplicateSelection(ctx, modules, ["a"]),
-      () => alignSelection(ctx, modules, modules.map((m) => m.id), "bas"),
+      () =>
+        alignSelection(
+          ctx,
+          modules,
+          modules.map((m) => m.id),
+          "bas",
+        ),
     ];
     for (const s of steps) {
       const r = s();
@@ -360,9 +379,7 @@ describe("P0-D — jeton d'édition manuelle (serveur)", () => {
   };
 
   test("jeton stable pour un contexte identique, ordre des pans indifférent", () => {
-    expect(manualContextToken(ref)).toBe(
-      manualContextToken({ ...ref, plane_ids: ["p2", "p1"] }),
-    );
+    expect(manualContextToken(ref)).toBe(manualContextToken({ ...ref, plane_ids: ["p2", "p1"] }));
   });
 
   test("jeton différent si la révision du panneau change", () => {
@@ -387,9 +404,9 @@ describe("P0-D — jeton d'édition manuelle (serveur)", () => {
     expect(manualContextToken({ ...ref, rules_profile_version: 4 })).not.toBe(
       manualContextToken(ref),
     );
-    expect(
-      manualContextToken({ ...ref, rules: { ...RULES, eave_m: 0.5 } }),
-    ).not.toBe(manualContextToken(ref));
+    expect(manualContextToken({ ...ref, rules: { ...RULES, eave_m: 0.5 } })).not.toBe(
+      manualContextToken(ref),
+    );
   });
 
   test("jeton différent si la toiture ou le moteur changent", () => {

@@ -34,7 +34,6 @@ import {
   candidateToken,
   computeContextToken,
   manualContextToken,
-
   EMPTY_RULES_PROFILE,
   generateLayouts,
   validateLayout,
@@ -629,8 +628,7 @@ const StoredSnapshotSchema = z.object({
   source: z.string().nullable().optional(),
 });
 
-const NO_LAYOUT_MESSAGE =
-  "Aucune implantation à modifier : calculez d'abord une implantation.";
+const NO_LAYOUT_MESSAGE = "Aucune implantation à modifier : calculez d'abord une implantation.";
 const MANUAL_DRIFT_MESSAGE =
   "L'implantation ou la toiture a changé depuis l'ouverture de l'édition. Rechargez avant d'enregistrer.";
 
@@ -667,7 +665,9 @@ async function loadManualContext(
     .order("created_at");
   if (!arrays?.length) throw new Error(NO_LAYOUT_MESSAGE);
 
-  const planeIds = [...new Set(arrays.map((a) => a.roof_plane_id).filter((id): id is string => !!id))];
+  const planeIds = [
+    ...new Set(arrays.map((a) => a.roof_plane_id).filter((id): id is string => !!id)),
+  ];
   if (!planeIds.length) throw new Error(NO_LAYOUT_MESSAGE);
 
   const main = arrays[0]!;
@@ -720,7 +720,9 @@ async function loadManualContext(
       plane_key: keyById.get(m.roof_plane_id ?? "") ?? "",
       u: Number(m.local_u_m),
       v: Number(m.local_v_m),
-      orientation: (m.orientation === "paysage" ? "paysage" : "portrait") as LayoutModule["orientation"],
+      orientation: (m.orientation === "paysage"
+        ? "paysage"
+        : "portrait") as LayoutModule["orientation"],
       row: m.grid_row ?? 0,
       col: m.grid_col ?? 0,
       matrix: 0,
@@ -840,7 +842,6 @@ export const applyManualLayout = createServerFn({ method: "POST" })
     const summary = await refreshSummary(supabase, data.companyId, data.modelId, userId);
     return { summary, validity, geometry_version: ctx.geometryVersion };
   });
-
 
 interface WriteArgs {
   companyId: string;

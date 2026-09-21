@@ -161,7 +161,6 @@ export function validateLayout(
   });
 }
 
-
 function cornerDistances(rect: Rect, poly: ReturnType<typeof toCCW>): number[] {
   const hw = rect.width / 2;
   const hl = rect.length / 2;

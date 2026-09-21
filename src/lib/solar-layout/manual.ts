@@ -183,17 +183,17 @@ export function rotateSelection(
   const set = new Set(ids);
   const next = modules.map((m) =>
     set.has(m.id)
-      ? { ...m, orientation: (m.orientation === "portrait" ? "paysage" : "portrait") as Orientation }
+      ? {
+          ...m,
+          orientation: (m.orientation === "portrait" ? "paysage" : "portrait") as Orientation,
+        }
       : m,
   );
   return commit(ctx, next, [...ids].sort());
 }
 
 /** Suppression : toujours acceptée, l'historique permet de revenir. */
-export function deleteSelection(
-  modules: LayoutModule[],
-  ids: readonly string[],
-): ManualResult {
+export function deleteSelection(modules: LayoutModule[], ids: readonly string[]): ManualResult {
   if (ids.length === 0) return EMPTY_SELECTION;
   const set = new Set(ids);
   return { ok: true, modules: modules.filter((m) => !set.has(m.id)), selection: [] };
@@ -289,7 +289,12 @@ export function alignSelection(
   mode: AlignMode,
 ): ManualResult {
   if (ids.length < 2) {
-    return { ok: false, cause: "selection_vide", message: "Sélectionnez au moins 2 panneaux", module_ids: [...ids] };
+    return {
+      ok: false,
+      cause: "selection_vide",
+      message: "Sélectionnez au moins 2 panneaux",
+      module_ids: [...ids],
+    };
   }
   const set = new Set(ids);
   const selected = modules.filter((m) => set.has(m.id));
@@ -454,10 +459,18 @@ export function snapDelta(
     const top = p.v + s.length / 2;
     // Alignement de bords et de centres.
     for (const t of [left, p.u, right]) {
-      candU.push({ from: moved.minU, to: t }, { from: moved.maxU, to: t }, { from: moved.centerU, to: t });
+      candU.push(
+        { from: moved.minU, to: t },
+        { from: moved.maxU, to: t },
+        { from: moved.centerU, to: t },
+      );
     }
     for (const t of [bottom, p.v, top]) {
-      candV.push({ from: moved.minV, to: t }, { from: moved.maxV, to: t }, { from: moved.centerV, to: t });
+      candV.push(
+        { from: moved.minV, to: t },
+        { from: moved.maxV, to: t },
+        { from: moved.centerV, to: t },
+      );
     }
     // Écartement du profil de règles, côté opposé uniquement.
     candU.push({ from: moved.minU, to: right + gapU }, { from: moved.maxU, to: left - gapU });
@@ -495,9 +508,7 @@ export function modulesInRect(
 
 /** Bascule d'un panneau dans la sélection (Maj+clic / Ctrl+clic). */
 export function toggleSelection(selection: readonly string[], id: string): string[] {
-  return selection.includes(id)
-    ? selection.filter((s) => s !== id)
-    : [...selection, id];
+  return selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id];
 }
 
 /* ------------------------------- Historique -------------------------------- */

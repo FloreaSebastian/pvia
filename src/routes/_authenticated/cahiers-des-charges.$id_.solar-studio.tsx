@@ -629,18 +629,10 @@ function SolarStudioPage() {
               : !busy && future.current.length > 0
         }
         onUndo={() =>
-          manualEditing
-            ? manualState?.undo()
-            : step === "toiture"
-              ? undoRoof()
-              : void undo()
+          manualEditing ? manualState?.undo() : step === "toiture" ? undoRoof() : void undo()
         }
         onRedo={() =>
-          manualEditing
-            ? manualState?.redo()
-            : step === "toiture"
-              ? redoRoof()
-              : void redo()
+          manualEditing ? manualState?.redo() : step === "toiture" ? redoRoof() : void redo()
         }
         help={currentStep.hint}
       />
