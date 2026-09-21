@@ -475,36 +475,29 @@ export const saveSolarObstacle = createServerFn({ method: "POST" })
     await assertSolarManage(supabase, data.companyId, userId);
     await loadModelScoped(supabase, data.companyId, data.modelId);
 
-    const payload = {
-      company_id: data.companyId,
-      model_id: data.modelId,
-      roof_plane_id: data.roofPlaneId ?? null,
-      obstacle_type: data.obstacle_type,
-      label: data.label ?? "",
-      position_x_m: data.position_x_m,
-      position_y_m: data.position_y_m,
-      base_z_m: data.base_z_m ?? 0,
-      width_m: data.width_m,
-      length_m: data.length_m,
-      height_m: data.height_m,
-      rotation_deg: data.rotation_deg ?? 0,
-      clearance_m: data.clearance_m ?? 0.3,
-      casts_shadow: data.casts_shadow ?? true,
-      data_source: data.data_source ?? "manuel",
-    };
-
-    if (data.obstacleId) {
-      const { error } = await supabase
-        .from("solar_obstacles")
-        .update(payload)
-        .eq("id", data.obstacleId)
-        .eq("company_id", data.companyId)
-        .eq("model_id", data.modelId);
-      if (error) throw new Error("Enregistrement de l'obstacle impossible.");
-    } else {
-      const { error } = await supabase.from("solar_obstacles").insert(payload);
-      if (error) throw new Error("Création de l'obstacle impossible.");
-    }
+    const { error } = await supabase.rpc("solar_apply_obstacle", {
+      _company_id: data.companyId,
+      _model_id: data.modelId,
+      _expected_geometry_version: data.expectedGeometryVersion,
+      _obstacle: {
+        id: data.obstacleId ?? null,
+        roof_plane_id: data.roofPlaneId ?? null,
+        obstacle_type: data.obstacle_type,
+        label: data.label ?? "",
+        position_x_m: data.position_x_m,
+        position_y_m: data.position_y_m,
+        base_z_m: data.base_z_m ?? 0,
+        width_m: data.width_m,
+        length_m: data.length_m,
+        height_m: data.height_m,
+        rotation_deg: data.rotation_deg ?? 0,
+        clearance_m: data.clearance_m ?? 0.3,
+        casts_shadow: data.casts_shadow ?? true,
+        data_source: data.data_source ?? "manuel",
+      } as never,
+      _delete_id: null as never,
+    });
+    if (error) throw roofRpcError(error.message, "Enregistrement de l'obstacle impossible.");
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
 
@@ -516,21 +509,24 @@ export const deleteSolarObstacle = createServerFn({ method: "POST" })
         companyId: z.string().uuid(),
         modelId: z.string().uuid(),
         obstacleId: z.string().uuid(),
+        expectedGeometryVersion: z.number().int(),
       })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    const { error } = await supabase
-      .from("solar_obstacles")
-      .delete()
-      .eq("id", data.obstacleId)
-      .eq("model_id", data.modelId)
-      .eq("company_id", data.companyId);
-    if (error) throw new Error("Suppression impossible.");
+    const { error } = await supabase.rpc("solar_apply_obstacle", {
+      _company_id: data.companyId,
+      _model_id: data.modelId,
+      _expected_geometry_version: data.expectedGeometryVersion,
+      _obstacle: null as never,
+      _delete_id: data.obstacleId,
+    });
+    if (error) throw roofRpcError(error.message, "Suppression impossible.");
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
+
 
 /* ------------------------------ Implantation ------------------------------ */
 
