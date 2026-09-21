@@ -1114,10 +1114,156 @@ function SolarStudioPage() {
           </p>
         </ContextPanel>
       </div>
+
+      {pendingStep && (
+        <LeaveRoofDialog
+          busy={busy}
+          onSave={async () => {
+            const target = pendingStep;
+            setPendingStep(null);
+            await persistRoofPlanes(roofPlanes, "Toiture enregistrée.");
+            setStep(target);
+          }}
+          onDiscard={() => {
+            const target = pendingStep;
+            setPendingStep(null);
+            setRoofPlanes(
+              parseCustomPlanes(payload.building?.custom_planes, {
+                tilt_deg: params.tilt_deg,
+                azimuth_deg: params.azimuth_deg,
+                eave_height_m: params.wall_height_m,
+              }),
+            );
+            setRoofDirty(false);
+            setStep(target);
+          }}
+          onStay={() => setPendingStep(null)}
+        />
+      )}
       <p className="sr-only">{historyTick}</p>
     </div>
   );
 }
+
+/** Sortie de l'étape Toiture avec des contours non enregistrés. */
+function LeaveRoofDialog({
+  busy,
+  onSave,
+  onDiscard,
+  onStay,
+}: {
+  busy: boolean;
+  onSave: () => void;
+  onDiscard: () => void;
+  onStay: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Modifications de toiture non enregistrées"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4"
+    >
+      <Card className="w-full max-w-sm space-y-3 p-4">
+        <p className="text-sm font-semibold">Contours de toiture non enregistrés</p>
+        <p className="text-xs text-muted-foreground">
+          Vos modifications de contours ne sont pas encore enregistrées. Que souhaitez-vous faire ?
+        </p>
+        <div className="flex flex-col gap-2">
+          <Button className="min-h-11" disabled={busy} onClick={onSave}>
+            Enregistrer et continuer
+          </Button>
+          <Button variant="outline" className="min-h-11" disabled={busy} onClick={onDiscard}>
+            Abandonner les modifications
+          </Button>
+          <Button variant="ghost" className="min-h-11" onClick={onStay}>
+            Rester sur la toiture
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** Choix du type et des propriétés avant l'enregistrement d'un obstacle tracé. */
+function ObstacleDraftCard({
+  draft,
+  onConfirm,
+  onCancel,
+}: {
+  draft: ObstacleDraft;
+  onConfirm: (values: ObstacleDraftValues) => void;
+  onCancel: () => void;
+}) {
+  const [type, setType] = useState<ObstacleType>("velux");
+  const [label, setLabel] = useState("");
+  const [height, setHeight] = useState(OBSTACLE_META["velux"].defaultHeight);
+  const [clearance, setClearance] = useState(0.3);
+
+  return (
+    <Card className="absolute bottom-3 left-3 z-30 w-[min(20rem,calc(100%-1.5rem))] space-y-2 p-3 shadow-lg">
+      <p className="text-sm font-semibold">Nouvel obstacle sur {draft.planeName}</p>
+      <p className="text-xs text-muted-foreground">
+        {draft.width_m.toFixed(2)} × {draft.length_m.toFixed(2)} m — précisez le type avant
+        enregistrement.
+      </p>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Type</Label>
+        <Select
+          value={type}
+          onValueChange={(v) => {
+            const next = v as ObstacleType;
+            setType(next);
+            setHeight(OBSTACLE_META[next].defaultHeight);
+          }}
+        >
+          <SelectTrigger className="min-h-11">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DRAFT_OBSTACLE_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>
+                {OBSTACLE_META[t].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Nom (facultatif)</Label>
+        <Input
+          className="min-h-11"
+          value={label}
+          placeholder={OBSTACLE_META[type].label}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumField label="Hauteur (m)" value={height} step={0.1} onChange={setHeight} />
+        <NumField label="Marge (m)" value={clearance} step={0.1} onChange={setClearance} />
+      </div>
+      <div className="flex gap-2">
+        <Button
+          className="min-h-11 flex-1"
+          onClick={() =>
+            onConfirm({
+              obstacle_type: type,
+              label: label.trim(),
+              height_m: Math.max(0, Math.min(50, height)),
+              clearance_m: Math.max(0, Math.min(10, clearance)),
+            })
+          }
+        >
+          Ajouter
+        </Button>
+        <Button variant="ghost" className="min-h-11" onClick={onCancel}>
+          Annuler
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 
 function BackLink({ id }: { id: string }) {
   return (
