@@ -9,7 +9,7 @@
  * commandes de caméra simples (recentrer, vue du dessus, perspective) et
  * calques Toiture / Panneaux / Obstacles.
  */
-import { Suspense, useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Grid, OrbitControls, Environment, Lightformer } from "@react-three/drei";
 import * as THREE from "three";
@@ -226,7 +226,6 @@ export default function SolarScene({
   onToggleModule,
   selectedModuleId = null,
   onSelectModule,
-  layers = DEFAULT_SCENE_LAYERS,
 }: {
   model: SolarSceneModel;
   selectedPlaneKey: string | null;
@@ -234,10 +233,11 @@ export default function SolarScene({
   onToggleModule: (moduleId: string) => void;
   selectedModuleId?: string | null;
   onSelectModule?: (moduleId: string) => void;
-  layers?: SceneLayers;
 }) {
   const span = Math.max(model.extent, 12);
   const api = useRef<SceneCameraApi | null>(null);
+  // Calques : peu de réglages, tout l'utile visible par défaut.
+  const [layers, setLayers] = useState<SceneLayers>(DEFAULT_SCENE_LAYERS);
 
   return (
     <div className="relative h-full w-full">
@@ -317,6 +317,28 @@ export default function SolarScene({
             variant="secondary"
             className="pointer-events-auto min-h-11 shadow"
             onClick={action}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      <div className="pointer-events-none absolute right-3 top-3 flex flex-col gap-2">
+        {(
+          [
+            ["Toiture", "roof"],
+            ["Panneaux", "panels"],
+            ["Obstacles", "obstacles"],
+          ] as const
+        ).map(([label, key]) => (
+          <Button
+            key={key}
+            type="button"
+            size="sm"
+            variant={layers[key] ? "secondary" : "outline"}
+            aria-pressed={layers[key]}
+            className="pointer-events-auto min-h-11 shadow"
+            onClick={() => setLayers((l) => ({ ...l, [key]: !l[key] }))}
           >
             {label}
           </Button>
