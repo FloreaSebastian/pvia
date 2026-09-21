@@ -596,15 +596,24 @@ function SolarStudioPage() {
         onModeChange={setMode}
         visualMode={visualMode}
         onVisualModeChange={setVisualMode}
-        canUndo={!busy && history.current.length > 0}
-        canRedo={!busy && future.current.length > 0}
-        onUndo={() => void undo()}
-        onRedo={() => void redo()}
+        canUndo={
+          step === "toiture"
+            ? roofHistory.current.length > 0 && !busy
+            : !busy && history.current.length > 0
+        }
+        canRedo={
+          step === "toiture"
+            ? roofFuture.current.length > 0 && !busy
+            : !busy && future.current.length > 0
+        }
+        onUndo={() => (step === "toiture" ? undoRoof() : void undo())}
+        onRedo={() => (step === "toiture" ? redoRoof() : void redo())}
         help={currentStep.hint}
       />
 
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
-        <StepRail steps={steps} activeStep={step} onSelect={setStep} />
+        <StepRail steps={steps} activeStep={step} onSelect={requestStep} />
+
 
         {/* Canevas prioritaire */}
         <main className="flex min-h-[48vh] min-w-0 flex-1 flex-col xl:min-h-0">
