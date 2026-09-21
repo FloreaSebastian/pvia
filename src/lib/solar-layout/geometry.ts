@@ -110,8 +110,8 @@ export function offsetPolygon(poly: Pt[], margins: number[]): Pt[] {
     // Normale intérieure d'un polygone CCW : rotation de +90°.
     const nx = -dir.y;
     const ny = dir.x;
-    const m = margins[i] ?? 0;
-    lines.push({ point: { x: a.x + nx * m, y: a.y + ny * m }, dir });
+    const edgeMargin = Math.max(0, m[i] ?? 0);
+    lines.push({ point: { x: a.x + nx * edgeMargin, y: a.y + ny * edgeMargin }, dir });
   }
   const out: Pt[] = [];
   for (let i = 0; i < n; i += 1) {
@@ -121,6 +121,11 @@ export function offsetPolygon(poly: Pt[], margins: number[]): Pt[] {
     out.push(hit ?? cur.point);
   }
   if (polygonArea(out) < EPS) return [];
+  // Offset dégénéré (contour qui se retourne ou se disjoint) : aucune zone
+  // utile plutôt qu'un contour approximatif laissant dépasser un module.
+  if (polygonArea(out) > polygonArea(poly) + EPS) return [];
+  if (signedArea(out) <= 0) return [];
+  if (selfIntersects(out)) return [];
   return out;
 }
 
