@@ -86,12 +86,19 @@ function lineIntersection(p1: Pt, d1: Pt, p2: Pt, d2: Pt): Pt | null {
 
 /**
  * Offset intérieur avec une marge par arête.
- * `margins[i]` s'applique à l'arête partant du sommet i.
+ * `margins[i]` s'applique à l'arête partant du sommet i, dans l'ordre du
+ * contour FOURNI. Si le contour doit être réorienté, les marges suivent leur
+ * arête : une marge de faîtage ne peut pas se retrouver appliquée à l'égout.
  */
 export function offsetPolygon(poly: Pt[], margins: number[]): Pt[] {
-  const p = toCCW(poly);
-  const n = p.length;
+  const n = poly.length;
   if (n < 3) return [];
+  const reversed = signedArea(poly) < 0;
+  const p = reversed ? [...poly].reverse() : [...poly];
+  // Arête j du contour inversé = arête (n-2-j) du contour d'origine.
+  const m = reversed
+    ? p.map((_, j) => margins[(((n - 2 - j) % n) + n) % n] ?? 0)
+    : margins;
   const lines: { point: Pt; dir: Pt }[] = [];
   for (let i = 0; i < n; i += 1) {
     const a = p[i]!;
