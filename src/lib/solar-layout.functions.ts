@@ -374,10 +374,14 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
 /* -------------------------- Application atomique -------------------------- */
 
 const ApplySchema = ComputeSchema.extend({
-  /** Empreinte de la variante choisie côté navigateur : le serveur la retrouve. */
-  signature: z.string().min(1).max(200000).optional(),
+  /**
+   * Empreinte exacte de la variante calculée : le serveur rejoue le moteur et
+   * n'écrit que si cette empreinte existe encore à l'identique.
+   */
+  signature: z.string().min(1).max(200000),
   strategy: StrategySchema.optional(),
-  geometryVersion: z.number().int().optional(),
+  /** Version de géométrie renvoyée par le calcul : obligatoire. */
+  geometryVersion: z.number().int(),
   saveAsVariant: z.boolean().default(false),
   variantLabel: z.string().min(1).max(80).optional(),
 });
@@ -389,6 +393,13 @@ export const applySmartLayout = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
     const model = await loadModelScoped(supabase, data.companyId, data.modelId);
+
+    // La toiture ou un obstacle a bougé depuis le calcul : on refuse d'écrire.
+    if (model.geometry_version !== data.geometryVersion) {
+      throw new Error(
+        "La toiture a été modifiée depuis le calcul. Relancez le calcul des implantations avant d'appliquer.",
+      );
+    }
 
     const [{ planes, idByKey }, { spec, snapshot }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
@@ -407,11 +418,13 @@ export const applySmartLayout = createServerFn({ method: "POST" })
       max_variants: data.maxVariants,
     });
 
-    const chosen: LayoutCandidate | undefined =
-      (data.signature ? result.candidates.find((c) => c.signature === data.signature) : undefined) ??
-      (data.strategy ? result.candidates.find((c) => c.strategy === data.strategy) : undefined) ??
-      result.candidates[0];
-    if (!chosen) throw new Error("Aucune implantation exploitable avec ces contraintes.");
+    // Aucun repli : une empreinte inconnue n'est jamais appliquée.
+    const chosen: LayoutCandidate | undefined = result.candidates.find((c) => c.signature === data.signature);
+    if (!chosen) {
+      throw new Error(
+        "Cette implantation n'est plus valable avec les contraintes actuelles. Relancez le calcul des implantations.",
+      );
+    }
 
     const variantId = data.saveAsVariant
       ? await insertVariant(supabase, {
