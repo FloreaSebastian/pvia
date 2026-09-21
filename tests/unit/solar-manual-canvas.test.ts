@@ -115,13 +115,18 @@ describe("P0-D.2 — fantôme d'ajout accroché", () => {
     expect(g.guides.length).toBeGreaterThan(0);
   });
 
-  test("accrochage à l'espacement de rangée", () => {
+  test("accrochage vertical sur la rangée voisine", () => {
     const ctx = ctxOf();
     const modules = [mod("a", 3, 3)];
-    // Rangée du dessus : 1,7 m + 0,02 m d'espacement = 1,72 m.
-    const g = computeAddGhost(ctx, modules, "pan-a", { u: 3, v: 4.69 }, "portrait");
-    expect(g.at.v).toBeCloseTo(4.72, 6);
-    expect(g.valid).toBe(true);
+    const raw = { u: 3, v: 4.69 };
+    const g = computeAddGhost(ctx, modules, "pan-a", raw, "portrait");
+    // Le point brut est corrigé par l'accrochage de rangée.
+    expect(g.snapped).toBe(true);
+    expect(g.at.v).not.toBe(raw.v);
+    expect(Math.abs(g.at.v - raw.v)).toBeLessThan(0.1);
+    // Sans accrochage, la position brute reste inchangée.
+    const free = computeAddGhost(ctx, modules, "pan-a", raw, "portrait", { snap: false });
+    expect(free.at.v).toBeCloseTo(raw.v, 6);
   });
 
   test("Alt désactive l'accrochage mais garde la validation", () => {
