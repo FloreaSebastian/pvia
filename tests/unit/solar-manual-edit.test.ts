@@ -102,7 +102,7 @@ describe("P0-D — déplacement", () => {
   test("déplacement dans la marge de rive refusé", () => {
     const ctx = ctxOf();
     // Bord gauche du pan à u=0 : la marge de 0,40 m interdit u < 0,90.
-    const r = moveSelection(ctx, [mod("a", 2, 2)], ["a"], -1.6, 0);
+    const r = moveSelection(ctx, [mod("a", 2, 2)], ["a"], -1.2, 0);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.cause).toBe("recul_insuffisant");
   });
@@ -192,12 +192,12 @@ describe("P0-D — rotation, ajout, duplication, suppression", () => {
       polygon: [
         { x: 0, y: 0 },
         { x: 1.9, y: 0 },
-        { x: 1.9, y: 8 },
-        { x: 0, y: 8 },
+        { x: 1.9, y: 2.5 },
+        { x: 0, y: 2.5 },
       ],
     });
     const ctx = ctxOf(narrow);
-    const r = duplicateSelection(ctx, [mod("a", 0.95, 4)], ["a"]);
+    const r = duplicateSelection(ctx, [mod("a", 0.95, 1.25)], ["a"]);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.cause).toBe("aucune_place");
   });

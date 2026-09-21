@@ -430,37 +430,26 @@ export function snapDelta(
     centerV: box.centerV + dv,
   };
 
-  const targetsU: number[] = [];
-  const targetsV: number[] = [];
-  for (const p of peers) {
-    const s = moduleSize(ctx.spec, p.orientation);
-    targetsU.push(p.u - s.width / 2, p.u, p.u + s.width / 2);
-    targetsV.push(p.v - s.length / 2, p.v, p.v + s.length / 2);
-  }
-  const gapU = Math.max(0, ctx.rules.col_gap_m);
-  const gapV = Math.max(0, ctx.rules.row_gap_m);
-
-  const best = (
-    candidates: { from: number; to: number }[],
-  ): { delta: number; value: number } | null => {
-    let out: { delta: number; value: number } | null = null;
-    for (const c of candidates) {
-      const d = c.to - c.from;
-      if (Math.abs(d) > tol) continue;
-      if (!out || Math.abs(d) < Math.abs(out.delta)) out = { delta: d, value: c.to };
-    }
-    return out;
-  };
-
   const candU: { from: number; to: number }[] = [];
   const candV: { from: number; to: number }[] = [];
-  for (const t of targetsU) {
-    candU.push({ from: moved.minU, to: t }, { from: moved.maxU, to: t }, { from: moved.centerU, to: t });
-    candU.push({ from: moved.minU, to: t + gapU }, { from: moved.maxU, to: t - gapU });
-  }
-  for (const t of targetsV) {
-    candV.push({ from: moved.minV, to: t }, { from: moved.maxV, to: t }, { from: moved.centerV, to: t });
-    candV.push({ from: moved.minV, to: t + gapV }, { from: moved.maxV, to: t - gapV });
+  const gapU = Math.max(0, ctx.rules.col_gap_m);
+  const gapV = Math.max(0, ctx.rules.row_gap_m);
+  for (const p of peers) {
+    const s = moduleSize(ctx.spec, p.orientation);
+    const left = p.u - s.width / 2;
+    const right = p.u + s.width / 2;
+    const bottom = p.v - s.length / 2;
+    const top = p.v + s.length / 2;
+    // Alignement de bords et de centres.
+    for (const t of [left, p.u, right]) {
+      candU.push({ from: moved.minU, to: t }, { from: moved.maxU, to: t }, { from: moved.centerU, to: t });
+    }
+    for (const t of [bottom, p.v, top]) {
+      candV.push({ from: moved.minV, to: t }, { from: moved.maxV, to: t }, { from: moved.centerV, to: t });
+    }
+    // Écartement du profil de règles, côté opposé uniquement.
+    candU.push({ from: moved.minU, to: right + gapU }, { from: moved.maxU, to: left - gapU });
+    candV.push({ from: moved.minV, to: top + gapV }, { from: moved.maxV, to: bottom - gapV });
   }
 
   const su = best(candU);
