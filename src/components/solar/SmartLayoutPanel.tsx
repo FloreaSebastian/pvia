@@ -4,7 +4,7 @@
  * Le calcul est exécuté par le moteur pur côté serveur (déterministe) ;
  * l'application d'une variante rejoue le même moteur avant écriture atomique.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,8 @@ export function SmartLayoutPanel({
   const [selected, setSelected] = useState<string | null>(null);
   /** Numéro du calcul en cours : un résultat périmé n'écrase jamais un plus récent. */
   const computeSeq = useRef(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const constraintsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setPlaneIds((prev) => {
@@ -415,7 +417,6 @@ export function SmartLayoutPanel({
                 className="min-h-11"
                 disabled={busy}
                 onClick={() => {
-                  setShowConstraints(true);
                   constraintsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
               >
