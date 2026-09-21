@@ -79,6 +79,12 @@ import {
   type ManualEditorState,
 } from "@/components/solar/manual/ManualLayoutEditor";
 import { ManualSelectionPanel } from "@/components/solar/manual/ManualSelectionPanel";
+import {
+  decideLeaveStudio,
+  decideStepChange,
+  resolveManualLeave,
+  shouldWarnBeforeUnload,
+} from "@/lib/solar-layout/exit-guard";
 
 const SolarScene = lazy(() => import("@/components/solar/SolarScene"));
 
@@ -206,7 +212,8 @@ function SolarStudioPage() {
   // Édition manuelle (P0-D) : brouillon local, jamais écrit avant « Enregistrer ».
   const [manualEditing, setManualEditing] = useState(false);
   const [manualState, setManualState] = useState<ManualEditorState | null>(null);
-  const [manualLeave, setManualLeave] = useState(false);
+  /** Dialogue de sortie du brouillon manuel ; `target` = étape à rejoindre. */
+  const [manualLeave, setManualLeave] = useState<{ target: StudioStepId | null } | null>(null);
 
   const applyPayload = useCallback((next: Payload) => {
     setPayload(next);
@@ -237,16 +244,42 @@ function SolarStudioPage() {
     };
   }, [companyId, id, load, applyPayload]);
 
-  // Fermeture d'onglet avec des contours non enregistrés : avertissement natif.
+  // Fermeture d'onglet avec des contours OU des corrections manuelles non
+  // enregistrés : avertissement natif du navigateur.
+  const manualDirty = manualEditing && !!manualState?.dirty;
+  const warnUnload = shouldWarnBeforeUnload({
+    step,
+    roofDirty,
+    manualEditing,
+    manualDirty: !!manualState?.dirty,
+  });
+  /** Intercepte une sortie du studio quand un brouillon n'est pas enregistré. */
+  const blockLeave = () => {
+    const decision = decideLeaveStudio({
+      step,
+      roofDirty,
+      manualEditing,
+      manualDirty: !!manualState?.dirty,
+    });
+    if (decision.action === "confirm-manual") {
+      setManualLeave({ target: null });
+      return true;
+    }
+    if (decision.action === "confirm-roof") {
+      setPendingStep("implantation");
+      return true;
+    }
+    return false;
+  };
   useEffect(() => {
-    if (!roofDirty) return;
+    if (!warnUnload) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [roofDirty]);
+  }, [warnUnload, roofDirty, manualDirty]);
 
   const guard = async (fn: () => Promise<Payload>, success?: string) => {
     if (!canWrite) {
@@ -580,11 +613,26 @@ function SolarStudioPage() {
 
   const showPlanView = step === "modules" || step === "implantation";
 
-  /** Changement d'étape : on protège des contours de toiture non enregistrés. */
+  /**
+   * Changement d'étape : on protège les contours de toiture non enregistrés ET
+   * le brouillon d'édition manuelle. Un seul dialogue pertinent à la fois.
+   */
   const requestStep = (next: StudioStepId) => {
-    if (next !== "toiture" && roofDirty) {
+    const decision = decideStepChange(
+      { step, roofDirty, manualEditing, manualDirty: !!manualState?.dirty },
+      next,
+    );
+    if (decision.action === "confirm-roof") {
       setPendingStep(next);
       return;
+    }
+    if (decision.action === "confirm-manual") {
+      setManualLeave({ target: next });
+      return;
+    }
+    if (manualEditing) {
+      setManualEditing(false);
+      setManualState(null);
     }
     setStep(next);
   };
@@ -669,7 +717,7 @@ function SolarStudioPage() {
                   );
                 }}
                 onExit={() => {
-                  if (manualState?.dirty) setManualLeave(true);
+                  if (manualState?.dirty) setManualLeave({ target: null });
                   else {
                     setManualEditing(false);
                     setManualState(null);
@@ -1182,7 +1230,7 @@ function SolarStudioPage() {
                 Modèle géométrique déclaratif : les dimensions restent à confirmer lors de la visite
                 technique.
               </p>
-              <BackLink id={id} />
+              <BackLink id={id} blocked={blockLeave} />
             </div>
           )}
 
@@ -1195,16 +1243,29 @@ function SolarStudioPage() {
 
       {manualLeave && manualState && (
         <LeaveManualDialog
+          busy={manualState.saveState === "saving"}
           onSave={() => {
-            manualState.save();
-            setManualLeave(false);
+            const target = manualLeave.target;
+            void manualState.requestSave().then((ok) => {
+              // Enregistrement échoué : on reste en édition, l'étape ne change pas.
+              const outcome = resolveManualLeave("save", ok);
+              if (!outcome.proceed) return;
+              setManualLeave(null);
+              setManualEditing(false);
+              setManualState(null);
+              if (target) setStep(target);
+            });
           }}
           onDiscard={() => {
-            setManualLeave(false);
+            const target = manualLeave.target;
+            resolveManualLeave("discard");
+            manualState.discardDraft();
+            setManualLeave(null);
             setManualEditing(false);
             setManualState(null);
+            if (target) setStep(target);
           }}
-          onStay={() => setManualLeave(false)}
+          onStay={() => setManualLeave(null)}
         />
       )}
 
@@ -1239,10 +1300,12 @@ function SolarStudioPage() {
 
 /** Sortie de l'édition manuelle avec des corrections non enregistrées. */
 function LeaveManualDialog({
+  busy,
   onSave,
   onDiscard,
   onStay,
 }: {
+  busy?: boolean;
   onSave: () => void;
   onDiscard: () => void;
   onStay: () => void;
@@ -1260,11 +1323,11 @@ function LeaveManualDialog({
           Vos corrections de panneaux ne sont pas encore enregistrées.
         </p>
         <div className="flex flex-col gap-2">
-          <Button className="min-h-11" onClick={onSave}>
-            Enregistrer
+          <Button className="min-h-11" disabled={busy} onClick={onSave}>
+            {busy ? "Enregistrement…" : "Enregistrer et continuer"}
           </Button>
-          <Button variant="outline" className="min-h-11" onClick={onDiscard}>
-            Ignorer les modifications
+          <Button variant="outline" className="min-h-11" disabled={busy} onClick={onDiscard}>
+            Abandonner les modifications
           </Button>
           <Button variant="ghost" className="min-h-11" onClick={onStay}>
             Rester en édition
@@ -1394,12 +1457,19 @@ function ObstacleDraftCard({
   );
 }
 
-function BackLink({ id }: { id: string }) {
+/**
+ * Retour au cahier des charges. `blocked` intercepte la navigation quand un
+ * brouillon (toiture ou panneaux) n'est pas enregistré.
+ */
+function BackLink({ id, blocked }: { id: string; blocked?: () => boolean }) {
   return (
     <Link
       to="/cahiers-des-charges/$id"
       params={{ id }}
       className="inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      onClick={(e) => {
+        if (blocked?.()) e.preventDefault();
+      }}
     >
       <ArrowLeft className="h-4 w-4" /> Retour au cahier des charges
     </Link>

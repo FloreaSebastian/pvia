@@ -253,16 +253,14 @@ export function duplicateSelection(
 
   for (const off of offsets) {
     const copies: LayoutModule[] = [];
-    let pool = modules;
     for (const m of selected) {
-      const id = nextManualId([...pool, ...copies], "copie");
+      const id = nextManualId([...modules, ...copies], "copie");
       copies.push({
         ...m,
         id,
         u: round3(m.u + off.du),
         v: round3(m.v + off.dv),
       });
-      pool = modules;
     }
     const next = [...modules, ...copies];
     const created = copies.map((c) => c.id);
