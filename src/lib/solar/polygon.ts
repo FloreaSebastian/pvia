@@ -410,6 +410,20 @@ export function customPlanesFromGeometry(
   }));
 }
 
+/**
+ * Contrôle de conversion : passer une toiture en contours éditables ne doit
+ * jamais ajouter, retirer, renommer ni dupliquer un pan. Même règle que la
+ * transaction SQL, afin d'échouer tôt avec un message compréhensible.
+ */
+export function conversionKeysMatch(existingKeys: string[], payloadKeys: string[]): boolean {
+  if (existingKeys.length === 0 || existingKeys.length !== payloadKeys.length) return false;
+  if (new Set(payloadKeys).size !== payloadKeys.length) return false;
+  if (new Set(existingKeys).size !== existingKeys.length) return false;
+  const a = [...existingKeys].sort();
+  const b = [...payloadKeys].sort();
+  return a.every((k, i) => k === b[i]);
+}
+
 /* ------------------------------- Nommage ---------------------------------- */
 
 export function nextPlaneKey(existing: string[]): string {
