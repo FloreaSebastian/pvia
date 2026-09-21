@@ -475,7 +475,6 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
       );
     }
 
-
     const { error } = await supabase.rpc("solar_apply_roof_geometry", {
       _company_id: data.companyId,
       _model_id: data.modelId,
