@@ -89,12 +89,27 @@ function buildGrid(
   const startV = box.minY + shiftFor(alignV, spanV, stepV, length) + phaseV * stepV + length / 2;
 
   const placements: GridPlacement[] = [];
+  const obstacleHits = new Map<string, { label: string; count: number }>();
+  const zoneHits = new Map<string, { label: string; count: number }>();
+  let byMargin = 0;
+  let slots = 0;
   let row = 0;
   for (let v = startV; v <= box.maxY - length / 2 + 1e-9; v += stepV, row += 1) {
     let col = 0;
     for (let u = startU; u <= box.maxX - width / 2 + 1e-9; u += stepU, col += 1) {
       const rect: Rect = { u, v, width, length };
-      if (!canPlace(area, rect)) continue;
+      slots += 1;
+      const blocked = placementBlock(area, rect);
+      if (blocked) {
+        if (blocked.kind === "marge") byMargin += 1;
+        else {
+          const map = blocked.kind === "obstacle" ? obstacleHits : zoneHits;
+          const cur = map.get(blocked.id) ?? { label: blocked.label, count: 0 };
+          cur.count += 1;
+          map.set(blocked.id, cur);
+        }
+        continue;
+      }
       placements.push({
         plane_key: area.plane_key,
         u: round3(u),
@@ -116,6 +131,12 @@ function buildGrid(
     phaseU,
     phaseV,
     placements,
+    blocks: {
+      by_margin: byMargin,
+      by_obstacle: [...obstacleHits.entries()].map(([id, v2]) => ({ id, label: v2.label, count: v2.count })),
+      by_zone: [...zoneHits.entries()].map(([id, v2]) => ({ id, label: v2.label, count: v2.count })),
+      slots,
+    },
     signature: placementSignature(placements),
   };
 }
