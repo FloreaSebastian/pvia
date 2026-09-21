@@ -352,7 +352,6 @@ function roofRpcError(message: string | undefined, fallback: string): Error {
   return new Error(fallback);
 }
 
-
 /**
  * Enregistre l'ensemble des pans dessinés (ajout, modification, suppression).
  * Écriture atomique du jeu complet : pas d'état partiel, et chaque contour est
@@ -469,7 +468,6 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
 
-
 /* -------------------------------- Obstacles ------------------------------- */
 
 export const saveSolarObstacle = createServerFn({ method: "POST" })
@@ -531,7 +529,6 @@ export const deleteSolarObstacle = createServerFn({ method: "POST" })
     if (error) throw roofRpcError(error.message, "Suppression impossible.");
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
-
 
 /* ------------------------------ Implantation ------------------------------ */
 

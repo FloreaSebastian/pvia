@@ -77,7 +77,6 @@ export const POLYGON_ISSUE_MESSAGE: Record<PolygonIssue, string> = {
   tiny_area: "La surface obtenue est trop petite (moins de 1 m²).",
 };
 
-
 export interface PolygonValidation {
   valid: boolean;
   issue: PolygonIssue | null;
@@ -129,15 +128,11 @@ function segmentDistance(a: LocalPoint, b: LocalPoint, c: LocalPoint, d: LocalPo
     const vx = e.x - s.x;
     const vy = e.y - s.y;
     const len2 = vx * vx + vy * vy;
-    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - s.x) * vx + (p.y - s.y) * vy) / len2));
+    const t =
+      len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - s.x) * vx + (p.y - s.y) * vy) / len2));
     return distance(p, { x: s.x + vx * t, y: s.y + vy * t });
   };
-  return Math.min(
-    pointSeg(a, c, d),
-    pointSeg(b, c, d),
-    pointSeg(c, a, b),
-    pointSeg(d, a, b),
-  );
+  return Math.min(pointSeg(a, c, d), pointSeg(b, c, d), pointSeg(c, a, b), pointSeg(d, a, b));
 }
 
 function collinearOverlap(a: LocalPoint, b: LocalPoint, c: LocalPoint, d: LocalPoint): boolean {
@@ -496,7 +491,10 @@ export function parseCustomPlanes(raw: unknown, defaults?: CustomPlaneDefaults):
       ring,
       tilt_deg: clampTilt(num(item.tilt_deg, defaults?.tilt_deg ?? 30)),
       azimuth_deg: normalizeAzimuth(num(item.azimuth_deg, 180)),
-      eave_height_m: Math.min(200, Math.max(0, num(item.eave_height_m, defaults?.eave_height_m ?? 3))),
+      eave_height_m: Math.min(
+        200,
+        Math.max(0, num(item.eave_height_m, defaults?.eave_height_m ?? 3)),
+      ),
       margin_m: safeMargin(item.margin_m, defaults?.margin_m ?? 0.4),
       edge_margins: Array.isArray(item.edge_margins)
         ? item.edge_margins
@@ -519,4 +517,3 @@ export function parseCustomPlanes(raw: unknown, defaults?: CustomPlaneDefaults):
   }
   return out;
 }
-

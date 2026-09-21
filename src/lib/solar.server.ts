@@ -118,7 +118,6 @@ export function readCustomPlanes(row: SolarBuildingRow | null): CustomRoofPlane[
   });
 }
 
-
 /** Géométrie d'un pan telle que stockée : { key, points, frame }. */
 export function planeGeometryFromRow(row: SolarRoofPlaneRow): RoofPlaneGeometry | null {
   const raw = row.polygon as unknown as {
