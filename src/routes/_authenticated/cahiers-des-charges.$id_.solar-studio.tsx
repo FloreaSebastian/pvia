@@ -984,7 +984,12 @@ function SolarStudioPage() {
                     void guard(
                       async () =>
                         (await saveObstacle({
-                          data: { companyId, modelId: payload.model.id, ...values },
+                          data: {
+                            companyId,
+                            modelId: payload.model.id,
+                            ...values,
+                            expectedGeometryVersion: payload.model.geometry_version,
+                          },
                         })) as Payload,
                       "Obstacle ajouté.",
                     )
@@ -994,7 +999,12 @@ function SolarStudioPage() {
                     void guard(
                       async () =>
                         (await removeObstacle({
-                          data: { companyId, modelId: payload.model.id, obstacleId },
+                          data: {
+                            companyId,
+                            modelId: payload.model.id,
+                            obstacleId,
+                            expectedGeometryVersion: payload.model.geometry_version,
+                          },
                         })) as Payload,
                       "Obstacle supprimé.",
                     )
