@@ -229,6 +229,18 @@ function SolarStudioPage() {
     };
   }, [companyId, id, load, applyPayload]);
 
+  // Fermeture d'onglet avec des contours non enregistrés : avertissement natif.
+  useEffect(() => {
+    if (!roofDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [roofDirty]);
+
+
   const guard = async (fn: () => Promise<Payload>, success?: string) => {
     if (!canWrite) {
       toast.error("Droits insuffisants.");
