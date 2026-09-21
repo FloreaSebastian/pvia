@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyLayoutRpcArgs,
+  assertApplyRpcArgs,
   buildArrayPayloads,
   buildVariantPayload,
   candidateToken,
@@ -195,5 +196,98 @@ describe("P0-C.1 — variante et implantation : une seule transaction", () => {
     });
     expect(args._variant).toBeNull();
     expect(args._arrays.length).toBe(1);
+  });
+});
+
+/**
+ * P0-C.2 — contrat de l'unique transaction `solar_apply_layout`.
+ * Ces règles sont dupliquées côté SQL : la base reste la barrière de sécurité
+ * (appel direct possible), ce contrôle ferme le chemin applicatif.
+ */
+describe("P0-C.2 — contrat d'application", () => {
+  const snapshot = { variant_id: "var-1", revision_id: "rev-1" };
+  const arrays = buildArrayPayloads({
+    planes: [PLANE],
+    modules: [{ id: "m1", plane_key: "sud", u: 0, v: 0, orientation: "portrait", row: 0, col: 0 }],
+    spec: MODULE,
+    rules: RULES,
+    idByKey: new Map([["sud", "plane-uuid"]]),
+    snapshot,
+    rulesProfileId: null,
+  });
+  const base = () =>
+    applyLayoutRpcArgs({
+      companyId: "co",
+      modelId: "mo",
+      geometryVersion: 7,
+      arrays: JSON.parse(JSON.stringify(arrays)),
+      variant: null,
+    });
+
+  it("accepte une charge utile conforme", () => {
+    expect(() => assertApplyRpcArgs(base())).not.toThrow();
+  });
+
+  it("refuse une version de toiture absente", () => {
+    const args = { ...base(), _expected_geometry_version: null as unknown as number };
+    expect(() => assertApplyRpcArgs(args)).toThrow("expected_geometry_version_required");
+  });
+
+  it("refuse des champs qui ne sont pas une liste", () => {
+    const args = { ...base(), _arrays: {} as never };
+    expect(() => assertApplyRpcArgs(args)).toThrow("invalid_arrays_payload");
+  });
+
+  it("refuse plus de 12 champs", () => {
+    const args = base();
+    args._arrays = Array.from({ length: 13 }, () => args._arrays[0]!);
+    expect(() => assertApplyRpcArgs(args)).toThrow("too_many_arrays");
+  });
+
+  it("refuse une orientation invalide", () => {
+    const args = base();
+    args._arrays[0]!.modules[0]!.orientation = "diagonale";
+    expect(() => assertApplyRpcArgs(args)).toThrow("invalid_orientation");
+  });
+
+  it("refuse une position non finie ou hors bornes", () => {
+    const a = base();
+    a._arrays[0]!.modules[0]!.local_u_m = Number.NaN;
+    expect(() => assertApplyRpcArgs(a)).toThrow("invalid_module_position");
+    const b = base();
+    b._arrays[0]!.modules[0]!.local_v_m = 5000;
+    expect(() => assertApplyRpcArgs(b)).toThrow("invalid_module_position");
+  });
+
+  it("refuse plus de 2000 panneaux au total", () => {
+    const args = base();
+    const one = args._arrays[0]!.modules[0]!;
+    args._arrays[0]!.modules = Array.from({ length: 2001 }, () => ({ ...one }));
+    expect(() => assertApplyRpcArgs(args)).toThrow("too_many_modules");
+  });
+
+  it("refuse une variante dont le nombre annoncé ne correspond pas", () => {
+    const args = base();
+    args._variant = {
+      label: "X",
+      strategy: "equilibre",
+      orientation_mode: "auto",
+      target_mode: "max",
+      target_power_kwc: null,
+      module_variant_id: "var-1",
+      module_snapshot: snapshot,
+      rules_profile_id: null,
+      rules_profile_version: 3,
+      rules_snapshot: RULES,
+      layout_engine_version: "2.0.0",
+      module_count: 5,
+      power_kwc: 1,
+      criteria: {},
+      modules: [],
+    };
+    expect(() => assertApplyRpcArgs(args)).toThrow("invalid_variant_module_count");
+    args._variant.module_count = 0;
+    args._variant.layout_engine_version = "";
+    expect(() => assertApplyRpcArgs(args)).toThrow("invalid_variant_engine_version");
   });
 });

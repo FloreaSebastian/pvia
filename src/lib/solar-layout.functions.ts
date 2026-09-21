@@ -28,6 +28,7 @@ import {
 } from "@/lib/solar/polygon";
 import {
   applyLayoutRpcArgs,
+  assertApplyRpcArgs,
   buildArrayPayloads,
   buildVariantPayload,
   candidateToken,
@@ -675,6 +676,9 @@ async function writeLayout(sb: SB, args: WriteArgs): Promise<{ variantId: string
     arrays,
     variant: args.variant,
   });
+  // Mêmes règles que la transaction SQL : on n'envoie jamais une charge
+  // utile que la base refuserait, et la version de toiture est obligatoire.
+  assertApplyRpcArgs(rpcArgs);
 
   const { data, error } = await sb.rpc("solar_apply_layout", rpcArgs as never);
   if (error) {

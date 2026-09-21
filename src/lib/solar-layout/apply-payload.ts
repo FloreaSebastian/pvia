@@ -164,3 +164,51 @@ export function applyLayoutRpcArgs(i: {
     _variant: i.variant,
   };
 }
+
+/** Limites structurelles, identiques à celles vérifiées par la transaction SQL. */
+export const APPLY_LIMITS = { max_arrays: 12, max_modules: 2000, max_abs_position_m: 2000 };
+
+/**
+ * Contrôle de contrat AVANT l'appel transactionnel : mêmes règles que le SQL.
+ * Le SQL reste la barrière de sécurité (appel direct possible) ; ce contrôle
+ * évite d'envoyer une charge utile que la base refuserait.
+ */
+export function assertApplyRpcArgs(args: ApplyRpcArgs): void {
+  if (!Number.isInteger(args._expected_geometry_version)) {
+    throw new Error("expected_geometry_version_required");
+  }
+  if (!Array.isArray(args._arrays)) throw new Error("invalid_arrays_payload");
+  if (args._arrays.length > APPLY_LIMITS.max_arrays) throw new Error("too_many_arrays");
+
+  let total = 0;
+  for (const a of args._arrays) {
+    if (!a.roof_plane_id) throw new Error("invalid_array_plane");
+    if (!a.module_variant_id) throw new Error("invalid_module_variant");
+    if (a.orientation !== "portrait" && a.orientation !== "paysage") {
+      throw new Error("invalid_orientation");
+    }
+    if (!Array.isArray(a.modules)) throw new Error("invalid_modules_payload");
+    total += a.modules.length;
+    if (total > APPLY_LIMITS.max_modules) throw new Error("too_many_modules");
+    for (const m of a.modules) {
+      if (m.orientation !== "portrait" && m.orientation !== "paysage") {
+        throw new Error("invalid_orientation");
+      }
+      if (typeof m.enabled !== "boolean") throw new Error("invalid_module_enabled");
+      for (const v of [m.local_u_m, m.local_v_m]) {
+        if (!Number.isFinite(v) || Math.abs(v) > APPLY_LIMITS.max_abs_position_m) {
+          throw new Error("invalid_module_position");
+        }
+      }
+    }
+  }
+
+  const variant = args._variant;
+  if (variant) {
+    if (!Array.isArray(variant.modules)) throw new Error("invalid_variant_modules");
+    if (variant.module_count !== variant.modules.length) {
+      throw new Error("invalid_variant_module_count");
+    }
+    if (!variant.layout_engine_version) throw new Error("invalid_variant_engine_version");
+  }
+}
