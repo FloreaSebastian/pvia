@@ -239,12 +239,8 @@ describe("P0-C — pans, priorité et variantes", () => {
   it("la priorité des pans est explicite et change le pan servi en premier", () => {
     const planes = [plane("sud", rect(12, 8)), plane("nord", rect(12, 8))];
     const small = { mode: "power", power_kwc: 3, rounding: "closest" } as const;
-    const a = generateLayouts(
-      request({ planes, target: small, plane_priority: ["sud", "nord"] }),
-    );
-    const b = generateLayouts(
-      request({ planes, target: small, plane_priority: ["nord", "sud"] }),
-    );
+    const a = generateLayouts(request({ planes, target: small, plane_priority: ["sud", "nord"] }));
+    const b = generateLayouts(request({ planes, target: small, plane_priority: ["nord", "sud"] }));
     expect(a.plane_priority).toEqual(["sud", "nord"]);
     expect(b.plane_priority).toEqual(["nord", "sud"]);
     expect(a.candidates[0]!.modules[0]!.plane_key).toBe("sud");
