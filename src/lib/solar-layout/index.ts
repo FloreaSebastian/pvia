@@ -347,11 +347,10 @@ function makeCandidate(
     score: scoreCandidate(criteria, strategy),
     summary,
     reasons: explain(criteria, targetPower, a.planesUsed.length),
-    constraints: [...new Set([...constraints, ...areaNotes])],
+    constraints,
     signature,
     engine_version: LAYOUT_ENGINE_VERSION,
   };
-  void req;
 }
 
 function buildSummary(i: {
