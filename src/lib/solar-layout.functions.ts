@@ -22,6 +22,7 @@ import {
   MISSING_DIMENSIONS_MESSAGE,
   type ModuleSnapshot,
 } from "@/lib/solar/module-catalog";
+import { parseCustomPlanes, type CustomRoofPlane } from "@/lib/solar/polygon";
 import {
   EMPTY_RULES_PROFILE,
   generateLayouts,
@@ -118,7 +119,12 @@ interface PlaneBundle {
   nameByKey: Map<string, string>;
 }
 
-async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: string[]): Promise<PlaneBundle> {
+async function loadPlanes(
+  sb: SB,
+  companyId: string,
+  modelId: string,
+  planeIds: string[],
+): Promise<PlaneBundle> {
   const { data: rows } = await sb
     .from("solar_roof_planes")
     .select("*")
@@ -127,10 +133,22 @@ async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: 
     .in("id", planeIds);
   if (!rows?.length) throw new Error("Pan de toiture introuvable.");
 
-  const [{ data: obstacles }, { data: zones }] = await Promise.all([
+  const [{ data: obstacles }, { data: zones }, { data: building }] = await Promise.all([
     sb.from("solar_obstacles").select("*").eq("model_id", modelId).eq("company_id", companyId),
     sb.from("solar_zones").select("*").eq("model_id", modelId).eq("company_id", companyId),
+    sb
+      .from("solar_buildings")
+      .select("geometry_mode, custom_planes")
+      .eq("model_id", modelId)
+      .eq("company_id", companyId)
+      .maybeSingle(),
   ]);
+
+  // Marges saisies en P0-B : elles font autorité sur le profil de règles.
+  const customByKey = new Map<string, CustomRoofPlane>();
+  if (building?.geometry_mode === "polygon") {
+    for (const p of parseCustomPlanes(building.custom_planes)) customByKey.set(p.key, p);
+  }
 
   const idByKey = new Map<string, string>();
   const nameByKey = new Map<string, string>();
@@ -144,16 +162,26 @@ async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: 
     if (!geo) throw new Error("Géométrie du pan indisponible : réenregistrez le bâtiment.");
     idByKey.set(geo.key, row.id);
     nameByKey.set(geo.key, row.name);
+    const custom = customByKey.get(geo.key);
     planes.push({
       key: geo.key,
       name: row.name,
       azimuth_deg: geo.azimuth_deg,
       tilt_deg: geo.tilt_deg,
       polygon: geo.polygon,
+      ...(custom ? { margin_m: custom.margin_m } : {}),
+      ...(custom?.edge_margins.length
+        ? {
+            edges: custom.edge_margins
+              .filter((m) => m.index < geo.polygon.length)
+              .map((m) => ({ index: m.index, kind: m.kind, margin_m: m.margin_m })),
+          }
+        : {}),
       obstacles: (obstacles ?? [])
         .filter((o) => o.roof_plane_id === row.id)
         .map((o) => ({
           id: o.id,
+          label: o.label || o.obstacle_type || "Obstacle",
           u: Number(o.position_x_m),
           v: Number(o.position_y_m),
           width_m: Number(o.width_m),
@@ -279,7 +307,12 @@ export const saveRulesProfile = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    const payload = { ...data.rules, name: data.name, is_default: data.isDefault, company_id: data.companyId };
+    const payload = {
+      ...data.rules,
+      name: data.name,
+      is_default: data.isDefault,
+      company_id: data.companyId,
+    };
     if (data.profileId) {
       const { error } = await supabase
         .from("solar_rules_profiles")
@@ -300,7 +333,9 @@ export const saveRulesProfile = createServerFn({ method: "POST" })
 
 export const deleteRulesProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => z.object({ companyId: z.string().uuid(), profileId: z.string().uuid() }).parse(i))
+  .inputValidator((i) =>
+    z.object({ companyId: z.string().uuid(), profileId: z.string().uuid() }).parse(i),
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
@@ -321,8 +356,8 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarMember(supabase, data.companyId, userId);
-    await loadModelScoped(supabase, data.companyId, data.modelId);
-    const [{ planes, nameByKey }, { spec }, rules] = await Promise.all([
+    const model = await loadModelScoped(supabase, data.companyId, data.modelId);
+    const [{ planes, nameByKey }, { spec, snapshot }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
       loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
@@ -336,16 +371,29 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
       ...(data.strategies?.length ? { strategies: data.strategies } : {}),
       max_variants: data.maxVariants,
     });
-    return { ...result, plane_names: Object.fromEntries(nameByKey) };
+    // Le client renverra ces références à l'application : toute dérive
+    // (toiture, obstacle, marge, panneau, profil) sera détectée côté serveur.
+    return {
+      ...result,
+      plane_names: Object.fromEntries(nameByKey),
+      geometry_version: model.geometry_version,
+      module_snapshot: snapshot,
+      rules_profile_id: rules.id,
+      rules_profile_version: rules.version,
+    };
   });
 
 /* -------------------------- Application atomique -------------------------- */
 
 const ApplySchema = ComputeSchema.extend({
-  /** Empreinte de la variante choisie côté navigateur : le serveur la retrouve. */
-  signature: z.string().min(1).max(200000).optional(),
+  /**
+   * Empreinte exacte de la variante calculée : le serveur rejoue le moteur et
+   * n'écrit que si cette empreinte existe encore à l'identique.
+   */
+  signature: z.string().min(1).max(200000),
   strategy: StrategySchema.optional(),
-  geometryVersion: z.number().int().optional(),
+  /** Version de géométrie renvoyée par le calcul : obligatoire. */
+  geometryVersion: z.number().int(),
   saveAsVariant: z.boolean().default(false),
   variantLabel: z.string().min(1).max(80).optional(),
 });
@@ -357,6 +405,13 @@ export const applySmartLayout = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
     const model = await loadModelScoped(supabase, data.companyId, data.modelId);
+
+    // La toiture ou un obstacle a bougé depuis le calcul : on refuse d'écrire.
+    if (model.geometry_version !== data.geometryVersion) {
+      throw new Error(
+        "La toiture a été modifiée depuis le calcul. Relancez le calcul des implantations avant d'appliquer.",
+      );
+    }
 
     const [{ planes, idByKey }, { spec, snapshot }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
@@ -375,11 +430,15 @@ export const applySmartLayout = createServerFn({ method: "POST" })
       max_variants: data.maxVariants,
     });
 
-    const chosen: LayoutCandidate | undefined =
-      (data.signature ? result.candidates.find((c) => c.signature === data.signature) : undefined) ??
-      (data.strategy ? result.candidates.find((c) => c.strategy === data.strategy) : undefined) ??
-      result.candidates[0];
-    if (!chosen) throw new Error("Aucune implantation exploitable avec ces contraintes.");
+    // Aucun repli : une empreinte inconnue n'est jamais appliquée.
+    const chosen: LayoutCandidate | undefined = result.candidates.find(
+      (c) => c.signature === data.signature,
+    );
+    if (!chosen) {
+      throw new Error(
+        "Cette implantation n'est plus valable avec les contraintes actuelles. Relancez le calcul des implantations.",
+      );
+    }
 
     const variantId = data.saveAsVariant
       ? await insertVariant(supabase, {
@@ -432,7 +491,11 @@ const ManualModuleSchema = z.object({
   matrix: z.number().int().default(0),
 });
 
-const ManualSchema = ComputeSchema.omit({ target: true, strategies: true, maxVariants: true }).extend({
+const ManualSchema = ComputeSchema.omit({
+  target: true,
+  strategies: true,
+  maxVariants: true,
+}).extend({
   modules: z.array(ManualModuleSchema).max(2000),
   geometryVersion: z.number().int().optional(),
 });
@@ -526,7 +589,9 @@ async function writeLayout(sb: SB, args: WriteArgs) {
   });
   if (error) {
     if (error.message.includes("stale_geometry_version")) {
-      throw new Error("Le bâtiment a été modifié entre-temps. Rechargez la page avant d'enregistrer.");
+      throw new Error(
+        "Le bâtiment a été modifié entre-temps. Rechargez la page avant d'enregistrer.",
+      );
     }
     throw new Error("Enregistrement de l'implantation impossible.");
   }

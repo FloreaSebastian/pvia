@@ -45,13 +45,23 @@ export function ModulePicker({
   value,
   onChange,
   disabled,
+  open: openProp,
+  onOpenChange,
 }: {
   companyId: string | null;
   value: ModuleListItem | null;
   onChange: (item: ModuleListItem) => void;
   disabled?: boolean;
+  /** Ouverture pilotée par le parent (action « Choisir un autre panneau »). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
 
   return (
     <div className="space-y-1.5">
@@ -65,7 +75,8 @@ export function ModulePicker({
       >
         {value ? (
           <span className="truncate">
-            {value.manufacturer} {value.model} — {value.power_wc} Wc · {formatModuleDimensions(value)}
+            {value.manufacturer} {value.model} — {value.power_wc} Wc ·{" "}
+            {formatModuleDimensions(value)}
           </span>
         ) : (
           <span className="text-muted-foreground">Choisir une référence du catalogue</span>
@@ -115,7 +126,10 @@ function ModuleDialog({
   const [items, setItems] = useState<ModuleListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [shortlist, setShortlist] = useState<{ favorites: ModuleListItem[]; recents: ModuleListItem[] }>({
+  const [shortlist, setShortlist] = useState<{
+    favorites: ModuleListItem[];
+    recents: ModuleListItem[];
+  }>({
     favorites: [],
     recents: [],
   });
@@ -169,9 +183,13 @@ function ModuleDialog({
 
   const toggleFavorite = async (item: ModuleListItem) => {
     try {
-      await favoriteFn({ data: { companyId, variantId: item.variant_id, favorite: !item.is_favorite } });
+      await favoriteFn({
+        data: { companyId, variantId: item.variant_id, favorite: !item.is_favorite },
+      });
       setItems((prev) =>
-        prev.map((i) => (i.variant_id === item.variant_id ? { ...i, is_favorite: !i.is_favorite } : i)),
+        prev.map((i) =>
+          i.variant_id === item.variant_id ? { ...i, is_favorite: !i.is_favorite } : i,
+        ),
       );
       refreshShortlist();
     } catch {
@@ -185,7 +203,8 @@ function ModuleDialog({
         <DialogHeader>
           <DialogTitle>Catalogue de panneaux</DialogTitle>
           <DialogDescription>
-            Les dimensions affichées sont celles publiées par la source. Aucune valeur n'est estimée.
+            Les dimensions affichées sont celles publiées par la source. Aucune valeur n'est
+            estimée.
           </DialogDescription>
         </DialogHeader>
 
@@ -210,7 +229,12 @@ function ModuleDialog({
               onToggleFavorite={toggleFavorite}
               empty="Aucun panneau utilisé récemment."
             />
-            <Button type="button" variant="outline" className="min-h-11" onClick={() => setAddOpen(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setAddOpen(true)}
+            >
               <Plus className="mr-2 h-4 w-4" /> Ajouter un panneau
             </Button>
           </TabsContent>
@@ -240,7 +264,12 @@ function ModuleDialog({
                   <option key={m.id} value={m.name} />
                 ))}
               </datalist>
-              <Button type="button" className="min-h-11" disabled={busy} onClick={() => runSearch(0)}>
+              <Button
+                type="button"
+                className="min-h-11"
+                disabled={busy}
+                onClick={() => runSearch(0)}
+              >
                 <Search className="mr-2 h-4 w-4" /> Rechercher
               </Button>
             </div>
@@ -345,7 +374,12 @@ function ModuleGroup({
                   {confidenceLabel(m.confidence)} · {statusLabel(m.status)}
                 </p>
                 {usable ? (
-                  <Button type="button" size="sm" className="mt-auto min-h-11" onClick={() => onPick(m)}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-auto min-h-11"
+                    onClick={() => onPick(m)}
+                  >
                     Utiliser ce panneau
                   </Button>
                 ) : (

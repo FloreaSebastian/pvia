@@ -7,7 +7,7 @@
  */
 
 /** Version de l'algorithme. Toute évolution du résultat l'incrémente. */
-export const LAYOUT_ENGINE_VERSION = "1.0.0";
+export const LAYOUT_ENGINE_VERSION = "2.0.0";
 
 export interface Pt {
   x: number;
@@ -17,6 +17,9 @@ export interface Pt {
 export type Orientation = "portrait" | "paysage";
 export type OrientationMode = "auto" | "portrait" | "paysage" | "mixte";
 export type Strategy = "equilibre" | "esthetique" | "maximum";
+
+/** Rôle produit d'une variante présentée à l'utilisateur. */
+export type VariantRole = "recommandee" | "maximum" | "esthetique" | "alternative";
 
 export interface LayoutModuleSpec {
   id: string;
@@ -32,8 +35,10 @@ export interface LayoutObstacle {
   v: number;
   width_m: number;
   length_m: number;
-  /** Marge propre à l'obstacle ; à défaut celle du profil de règles. */
+  /** Marge propre à l'obstacle ; combinée à celle du profil (la plus exigeante). */
   clearance_m?: number;
+  /** Libellé lisible, utilisé dans les explications. */
+  label?: string;
 }
 
 export type LayoutZoneType =
@@ -48,6 +53,26 @@ export interface LayoutZone {
   id: string;
   type: LayoutZoneType;
   polygon: Pt[];
+  label?: string;
+}
+
+/** Type d'arête tel que saisi à l'étape Toiture (P0-B). */
+export type LayoutEdgeKind = "faitage" | "egout" | "rive" | "noue" | "aretier" | "indefini";
+
+export const LAYOUT_EDGE_LABEL: Record<LayoutEdgeKind, string> = {
+  faitage: "faîtage",
+  egout: "égout",
+  rive: "rive",
+  noue: "noue",
+  aretier: "arêtier",
+  indefini: "arête non classée",
+};
+
+/** Arête décrite manuellement : type et, éventuellement, marge dédiée. */
+export interface LayoutPlaneEdge {
+  index: number;
+  kind: LayoutEdgeKind;
+  margin_m?: number;
 }
 
 export interface LayoutPlane {
@@ -59,6 +84,10 @@ export interface LayoutPlane {
   polygon: Pt[];
   obstacles: LayoutObstacle[];
   zones: LayoutZone[];
+  /** Marge périphérique du pan (P0-B), prioritaire sur le profil de règles. */
+  margin_m?: number;
+  /** Arêtes décrites manuellement, index aligné sur `polygon`. */
+  edges?: LayoutPlaneEdge[];
 }
 
 /**
@@ -135,14 +164,34 @@ export interface ScoreCriteria {
 export interface LayoutCandidate {
   id: string;
   label: string;
+  role: VariantRole;
   strategy: Strategy;
   orientation: Orientation | "mixte";
   modules: LayoutModule[];
   power_kwc: number;
+  /** Surface totale des modules posés, en m². */
+  module_area_m2: number;
+  /** Clés des pans réellement utilisés, dans l'ordre de priorité. */
+  planes_used: string[];
+  /** Noms lisibles des pans utilisés. */
+  plane_names: string[];
+  /** Pans sélectionnés mais laissés vides. */
+  planes_unused: string[];
+  /** Objectif demandé atteint ? null si aucun objectif chiffré. */
+  target_met: boolean | null;
+  /** Écart signé à l'objectif, en kWc (négatif = en dessous). */
+  target_delta_kwc: number | null;
+  /** Nombre de rangées complètes / totales, pour la régularité. */
+  rows_total: number;
+  rows_full: number;
   criteria: ScoreCriteria;
   score: number;
+  /** Phrase courte, concrète, calculée depuis les critères. */
+  summary: string;
   /** Explication lisible, jamais un score opaque. */
   reasons: string[];
+  /** Contraintes réellement appliquées (marges, obstacles, zones). */
+  constraints: string[];
   /** Empreinte géométrique : deux candidats identiques ne sont pas dupliqués. */
   signature: string;
   engine_version: string;

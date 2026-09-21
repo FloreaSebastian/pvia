@@ -86,12 +86,17 @@ function lineIntersection(p1: Pt, d1: Pt, p2: Pt, d2: Pt): Pt | null {
 
 /**
  * Offset intérieur avec une marge par arête.
- * `margins[i]` s'applique à l'arête partant du sommet i.
+ * `margins[i]` s'applique à l'arête partant du sommet i, dans l'ordre du
+ * contour FOURNI. Si le contour doit être réorienté, les marges suivent leur
+ * arête : une marge de faîtage ne peut pas se retrouver appliquée à l'égout.
  */
 export function offsetPolygon(poly: Pt[], margins: number[]): Pt[] {
-  const p = toCCW(poly);
-  const n = p.length;
+  const n = poly.length;
   if (n < 3) return [];
+  const reversed = signedArea(poly) < 0;
+  const p = reversed ? [...poly].reverse() : [...poly];
+  // Arête j du contour inversé = arête (n-2-j) du contour d'origine.
+  const m = reversed ? p.map((_, j) => margins[(((n - 2 - j) % n) + n) % n] ?? 0) : margins;
   const lines: { point: Pt; dir: Pt }[] = [];
   for (let i = 0; i < n; i += 1) {
     const a = p[i]!;
@@ -103,8 +108,8 @@ export function offsetPolygon(poly: Pt[], margins: number[]): Pt[] {
     // Normale intérieure d'un polygone CCW : rotation de +90°.
     const nx = -dir.y;
     const ny = dir.x;
-    const m = margins[i] ?? 0;
-    lines.push({ point: { x: a.x + nx * m, y: a.y + ny * m }, dir });
+    const edgeMargin = Math.max(0, m[i] ?? 0);
+    lines.push({ point: { x: a.x + nx * edgeMargin, y: a.y + ny * edgeMargin }, dir });
   }
   const out: Pt[] = [];
   for (let i = 0; i < n; i += 1) {
@@ -114,13 +119,21 @@ export function offsetPolygon(poly: Pt[], margins: number[]): Pt[] {
     out.push(hit ?? cur.point);
   }
   if (polygonArea(out) < EPS) return [];
+  // Offset dégénéré (contour qui se retourne ou se disjoint) : aucune zone
+  // utile plutôt qu'un contour approximatif laissant dépasser un module.
+  if (polygonArea(out) > polygonArea(poly) + EPS) return [];
+  if (signedArea(out) <= 0) return [];
+  if (selfIntersects(out)) return [];
   return out;
 }
 
 /** Offset uniforme. */
 export function insetPolygon(poly: Pt[], margin: number): Pt[] {
   if (margin <= 0) return toCCW(poly);
-  return offsetPolygon(poly, poly.map(() => margin));
+  return offsetPolygon(
+    poly,
+    poly.map(() => margin),
+  );
 }
 
 export interface Rect {
@@ -154,7 +167,22 @@ function segmentsIntersect(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
   const d2 = o(a, b, d);
   const d3 = o(c, d, a);
   const d4 = o(c, d, b);
-  return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0));
+  return d1 > 0 !== d2 > 0 && d3 > 0 !== d4 > 0;
+}
+
+/** Contour qui se croise lui-même : aucune zone utile fiable n'en découle. */
+export function selfIntersects(poly: Pt[]): boolean {
+  const n = poly.length;
+  if (n < 4) return false;
+  for (let i = 0; i < n; i += 1) {
+    for (let j = i + 1; j < n; j += 1) {
+      // Les arêtes adjacentes partagent un sommet : ce n'est pas un croisement.
+      if (j === i || (j + 1) % n === i || (i + 1) % n === j) continue;
+      if (segmentsIntersect(poly[i]!, poly[(i + 1) % n]!, poly[j]!, poly[(j + 1) % n]!))
+        return true;
+    }
+  }
+  return false;
 }
 
 /** Le rectangle touche-t-il le polygone (intersection non vide) ? */

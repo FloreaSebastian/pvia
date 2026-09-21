@@ -6,10 +6,13 @@
  * puis conserve les résultats réellement différents.
  */
 import { bbox, round3, type Rect } from "./geometry";
-import { canPlace, inPriorityZone, type UsableArea } from "./usable-area";
+import { inPriorityZone, placementBlock, type UsableArea } from "./usable-area";
 import type { LayoutModule, LayoutModuleSpec, Orientation, RulesProfile } from "./types";
 
-export function moduleSize(spec: LayoutModuleSpec, orientation: Orientation): { width: number; length: number } {
+export function moduleSize(
+  spec: LayoutModuleSpec,
+  orientation: Orientation,
+): { width: number; length: number } {
   const w = spec.width_mm / 1000;
   const h = spec.height_mm / 1000;
   return orientation === "portrait" ? { width: w, length: h } : { width: h, length: w };
@@ -29,6 +32,18 @@ export interface GridPlacement {
   priority: boolean;
 }
 
+/** Emplacements de grille refusés, par cause réellement constatée. */
+export interface GridBlocks {
+  /** Emplacements refusés par une marge de bord. */
+  by_margin: number;
+  /** Emplacements refusés par un obstacle, par identifiant d'obstacle. */
+  by_obstacle: { id: string; label: string; count: number }[];
+  /** Emplacements refusés par une zone dessinée. */
+  by_zone: { id: string; label: string; count: number }[];
+  /** Emplacements balayés, tous statuts confondus. */
+  slots: number;
+}
+
 export interface GridResult {
   plane_key: string;
   orientation: Orientation;
@@ -37,6 +52,7 @@ export interface GridResult {
   phaseU: number;
   phaseV: number;
   placements: GridPlacement[];
+  blocks: GridBlocks;
   signature: string;
 }
 
@@ -76,12 +92,27 @@ function buildGrid(
   const startV = box.minY + shiftFor(alignV, spanV, stepV, length) + phaseV * stepV + length / 2;
 
   const placements: GridPlacement[] = [];
+  const obstacleHits = new Map<string, { label: string; count: number }>();
+  const zoneHits = new Map<string, { label: string; count: number }>();
+  let byMargin = 0;
+  let slots = 0;
   let row = 0;
   for (let v = startV; v <= box.maxY - length / 2 + 1e-9; v += stepV, row += 1) {
     let col = 0;
     for (let u = startU; u <= box.maxX - width / 2 + 1e-9; u += stepU, col += 1) {
       const rect: Rect = { u, v, width, length };
-      if (!canPlace(area, rect)) continue;
+      slots += 1;
+      const blocked = placementBlock(area, rect);
+      if (blocked) {
+        if (blocked.kind === "marge") byMargin += 1;
+        else {
+          const map = blocked.kind === "obstacle" ? obstacleHits : zoneHits;
+          const cur = map.get(blocked.id) ?? { label: blocked.label, count: 0 };
+          cur.count += 1;
+          map.set(blocked.id, cur);
+        }
+        continue;
+      }
       placements.push({
         plane_key: area.plane_key,
         u: round3(u),
@@ -103,11 +134,27 @@ function buildGrid(
     phaseU,
     phaseV,
     placements,
+    blocks: {
+      by_margin: byMargin,
+      by_obstacle: [...obstacleHits.entries()].map(([id, v2]) => ({
+        id,
+        label: v2.label,
+        count: v2.count,
+      })),
+      by_zone: [...zoneHits.entries()].map(([id, v2]) => ({
+        id,
+        label: v2.label,
+        count: v2.count,
+      })),
+      slots,
+    },
     signature: placementSignature(placements),
   };
 }
 
-export function placementSignature(placements: { u: number; v: number; orientation: Orientation }[]): string {
+export function placementSignature(
+  placements: { u: number; v: number; orientation: Orientation }[],
+): string {
   return placements
     .map((p) => `${p.u.toFixed(2)},${p.v.toFixed(2)},${p.orientation[0]}`)
     .sort()
