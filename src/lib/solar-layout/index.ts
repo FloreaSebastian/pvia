@@ -93,6 +93,8 @@ interface Assembled {
   planesUsed: LayoutPlane[];
   planesSkipped: LayoutPlane[];
   chosen: GridResult[];
+  /** Contraintes réellement appliquées sur les pans utilisés. */
+  constraints: string[];
 }
 
 export function generateLayouts(req: LayoutRequest): LayoutResult {
