@@ -215,8 +215,11 @@ export interface ModuleValidity {
   measured_m: number | null;
   /** Seuil du profil de règles, en mètres. */
   required_m: number | null;
+  /** Libellé de l'élément bloquant (obstacle, zone), quand il en existe un. */
+  blocker_label?: string | null;
   message: string;
 }
+
 
 export interface LayoutRequest {
   planes: LayoutPlane[];

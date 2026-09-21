@@ -39,6 +39,96 @@ export function moduleRect(m: LayoutModule, spec: LayoutModuleSpec): Rect {
   return { u: m.u, v: m.v, width: s.width, length: s.length };
 }
 
+/**
+ * Validation d'UN module contre une zone utile déjà construite.
+ *
+ * Source de vérité unique : l'édition manuelle (P0-D) et l'écriture serveur
+ * utilisent exactement cette fonction, avec les mêmes règles que P0-C.
+ * `peers` = tous les autres modules du MÊME pan.
+ */
+export function validateModuleAgainst(
+  plane: LayoutPlane,
+  area: UsableArea,
+  m: LayoutModule,
+  peers: LayoutModule[],
+  spec: LayoutModuleSpec,
+  rules: RulesProfile,
+): ModuleValidity {
+  const rect = moduleRect(m, spec);
+  const base = {
+    module_id: m.id,
+    measured_m: null as number | null,
+    required_m: null as number | null,
+    blocker_label: null as string | null,
+  };
+
+  const outline = toCCW(plane.polygon);
+  if (!rectInsidePolygon(rect, outline)) {
+    return {
+      ...base,
+      status: "invalid",
+      cause: "hors_toiture",
+      message: CAUSE_LABEL.hors_toiture,
+    };
+  }
+
+  const overlapping = peers.find((o) => o.id !== m.id && rectsOverlap(rect, moduleRect(o, spec)));
+  if (overlapping) {
+    return {
+      ...base,
+      status: "invalid",
+      cause: "collision_module",
+      message: `${CAUSE_LABEL.collision_module} (${overlapping.id})`,
+    };
+  }
+
+  const hitObstacle = area.blockedRects.find((b) => rectsOverlap(rect, b));
+  if (hitObstacle) {
+    return {
+      ...base,
+      blocker_label: hitObstacle.label,
+      status: "invalid",
+      cause: "collision_obstacle",
+      required_m: round3(hitObstacle.clearance_m),
+      message: `${CAUSE_LABEL.collision_obstacle} — ${hitObstacle.label}, marge requise ${hitObstacle.clearance_m.toFixed(2)} m`,
+    };
+  }
+
+  for (const zone of plane.zones) {
+    if (zone.type !== "interdite" && zone.type !== "passage") continue;
+    if (!rectIntersectsPolygon(rect, toCCW(zone.polygon))) continue;
+    const cause: ValidityCause = zone.type === "interdite" ? "zone_interdite" : "passage_technique";
+    return {
+      ...base,
+      status: "invalid",
+      cause,
+      blocker_label: zone.label ?? null,
+      message: CAUSE_LABEL[cause],
+    };
+  }
+
+  if (!rectInsidePolygon(rect, area.boundary)) {
+    const margins = edgeMargins(plane, rules);
+    const required = Math.max(...margins, 0);
+    const measured = round3(Math.min(...cornerDistances(rect, outline)));
+    return {
+      ...base,
+      status: "invalid",
+      cause: "recul_insuffisant",
+      measured_m: measured,
+      required_m: round3(required),
+      message: `${CAUSE_LABEL.recul_insuffisant} — ${measured.toFixed(2)} m mesurés, ${required.toFixed(2)} m exigés`,
+    };
+  }
+
+  return {
+    ...base,
+    status: "valid",
+    cause: null,
+    message: "Position conforme au profil de règles",
+  };
+}
+
 export function validateLayout(
   planes: LayoutPlane[],
   modules: LayoutModule[],
@@ -55,83 +145,19 @@ export function validateLayout(
   return modules.map((m) => {
     const plane = planeByKey.get(m.plane_key);
     const area = areaByPlane.get(m.plane_key);
-    const rect = moduleRect(m, spec);
-    const base = {
-      module_id: m.id,
-      measured_m: null as number | null,
-      required_m: null as number | null,
-    };
-
     if (!plane || !area) {
       return {
-        ...base,
-        status: "invalid",
-        cause: "hors_toiture",
+        module_id: m.id,
+        measured_m: null,
+        required_m: null,
+        blocker_label: null,
+        status: "invalid" as const,
+        cause: "hors_toiture" as const,
         message: CAUSE_LABEL.hors_toiture,
       };
     }
-
-    const outline = toCCW(plane.polygon);
-    if (!rectInsidePolygon(rect, outline)) {
-      return {
-        ...base,
-        status: "invalid",
-        cause: "hors_toiture",
-        message: CAUSE_LABEL.hors_toiture,
-      };
-    }
-
-    const overlapping = modules.find(
-      (o) => o !== m && o.plane_key === m.plane_key && rectsOverlap(rect, moduleRect(o, spec)),
-    );
-    if (overlapping) {
-      return {
-        ...base,
-        status: "invalid",
-        cause: "collision_module",
-        message: `${CAUSE_LABEL.collision_module} (${overlapping.id})`,
-      };
-    }
-
-    const hitObstacle = area.blockedRects.find((b) => rectsOverlap(rect, b));
-    if (hitObstacle) {
-      return {
-        ...base,
-        status: "invalid",
-        cause: "collision_obstacle",
-        required_m: round3(rules.obstacle_m),
-        message: `${CAUSE_LABEL.collision_obstacle} — marge requise ${rules.obstacle_m.toFixed(2)} m`,
-      };
-    }
-
-    for (const zone of plane.zones) {
-      if (zone.type !== "interdite" && zone.type !== "passage") continue;
-      if (!rectIntersectsPolygon(rect, toCCW(zone.polygon))) continue;
-      const cause: ValidityCause =
-        zone.type === "interdite" ? "zone_interdite" : "passage_technique";
-      return { ...base, status: "invalid", cause, message: CAUSE_LABEL[cause] };
-    }
-
-    if (!rectInsidePolygon(rect, area.boundary)) {
-      const margins = edgeMargins(plane.polygon, rules);
-      const required = Math.max(...margins, 0);
-      const measured = round3(Math.min(...cornerDistances(rect, outline)));
-      return {
-        ...base,
-        status: "invalid",
-        cause: "recul_insuffisant",
-        measured_m: measured,
-        required_m: round3(required),
-        message: `${CAUSE_LABEL.recul_insuffisant} — ${measured.toFixed(2)} m mesurés, ${required.toFixed(2)} m exigés`,
-      };
-    }
-
-    return {
-      ...base,
-      status: "valid",
-      cause: null,
-      message: "Position conforme au profil de règles",
-    };
+    const peers = modules.filter((o) => o.plane_key === m.plane_key);
+    return validateModuleAgainst(plane, area, m, peers, spec, rules);
   });
 }
 

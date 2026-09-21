@@ -33,6 +33,7 @@ import {
   buildVariantPayload,
   candidateToken,
   computeContextToken,
+  manualContextToken,
   EMPTY_RULES_PROFILE,
   generateLayouts,
   validateLayout,
@@ -589,58 +590,257 @@ export const applySmartLayout = createServerFn({ method: "POST" })
     return { summary, candidate: chosen, result, variant_id: write.variantId };
   });
 
+/* ------------------------ Édition manuelle (P0-D) ------------------------- */
+
 const ManualModuleSchema = z.object({
   id: z.string().min(1).max(80),
   plane_key: z.string().min(1).max(80),
-  u: z.number().finite(),
-  v: z.number().finite(),
+  u: z.number().finite().min(-2000).max(2000),
+  v: z.number().finite().min(-2000).max(2000),
   orientation: z.enum(["portrait", "paysage"]),
   row: z.number().int().default(0),
   col: z.number().int().default(0),
   matrix: z.number().int().default(0),
 });
 
-const ManualSchema = ComputeSchema.omit({
-  target: true,
-  strategies: true,
-  maxVariants: true,
-}).extend({
+const ManualSchema = BaseSchema.extend({
+  /** Version de toiture chargée à l'ouverture de l'édition : OBLIGATOIRE. */
+  geometryVersion: z.number().int(),
+  /** Jeton du contexte d'édition, délivré par `getManualEditContext`. */
+  manualToken: z.string().min(1).max(500),
   modules: z.array(ManualModuleSchema).max(2000),
-  geometryVersion: z.number().int().optional(),
+  /** Confirmation explicite d'une implantation vidée de tous ses panneaux. */
+  allowEmpty: z.boolean().default(false),
 });
 
-/** Enregistre une implantation modifiée à la main, avec sa validation serveur. */
+const StoredSnapshotSchema = z.object({
+  variant_id: z.string().uuid(),
+  revision_id: z.string().uuid().nullable().optional(),
+  manufacturer: z.string().nullable().optional(),
+  series: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  power_wc: z.number().positive(),
+  width_mm: z.number().positive(),
+  height_mm: z.number().positive(),
+  depth_mm: z.number().positive().nullable().optional(),
+  weight_kg: z.number().positive().nullable().optional(),
+  confidence: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
+});
+
+const NO_LAYOUT_MESSAGE = "Aucune implantation à modifier : calculez d'abord une implantation.";
+const MANUAL_DRIFT_MESSAGE =
+  "L'implantation ou la toiture a changé depuis l'ouverture de l'édition. Rechargez avant d'enregistrer.";
+
+interface ManualServerContext {
+  planes: LayoutPlane[];
+  idByKey: Map<string, string>;
+  nameByKey: Map<string, string>;
+  spec: LayoutModuleSpec;
+  snapshot: ModuleSnapshot;
+  rules: RulesProfile;
+  rulesProfileId: string | null;
+  modules: LayoutModule[];
+  geometryVersion: number;
+  geometryHash: string | null;
+  token: string;
+}
+
+/**
+ * Contexte d'édition manuelle reconstruit ENTIÈREMENT depuis la base :
+ * panneau, révision, dimensions, règles et version de moteur proviennent de
+ * l'implantation enregistrée. Le navigateur ne peut pas les choisir.
+ */
+async function loadManualContext(
+  sb: SB,
+  companyId: string,
+  modelId: string,
+): Promise<ManualServerContext> {
+  const model = await loadModelScoped(sb, companyId, modelId);
+  const { data: arrays } = await sb
+    .from("solar_arrays")
+    .select("*")
+    .eq("model_id", modelId)
+    .eq("company_id", companyId)
+    .order("created_at");
+  if (!arrays?.length) throw new Error(NO_LAYOUT_MESSAGE);
+
+  const planeIds = [
+    ...new Set(arrays.map((a) => a.roof_plane_id).filter((id): id is string => !!id)),
+  ];
+  if (!planeIds.length) throw new Error(NO_LAYOUT_MESSAGE);
+
+  const main = arrays[0]!;
+  const parsedSnapshot = StoredSnapshotSchema.safeParse(main.module_snapshot);
+  if (!parsedSnapshot.success) throw new Error(MISSING_DIMENSIONS_MESSAGE);
+  const stored = parsedSnapshot.data;
+  const snapshot: ModuleSnapshot = {
+    variant_id: stored.variant_id,
+    revision_id: stored.revision_id ?? null,
+    manufacturer: stored.manufacturer ?? "",
+    series: stored.series ?? "",
+    model: stored.model ?? "",
+    power_wc: stored.power_wc,
+    width_mm: stored.width_mm,
+    height_mm: stored.height_mm,
+    depth_mm: stored.depth_mm ?? null,
+    weight_kg: stored.weight_kg ?? null,
+    confidence: (stored.confidence as ModuleSnapshot["confidence"]) ?? "a_verifier",
+    source: stored.source ?? null,
+  };
+  const spec: LayoutModuleSpec = {
+    id: stored.variant_id,
+    width_mm: stored.width_mm,
+    height_mm: stored.height_mm,
+    power_wc: stored.power_wc,
+  };
+
+  // Règles réellement appliquées à l'implantation, telles qu'enregistrées.
+  const storedRules = (main.params as { rules?: unknown } | null)?.rules;
+  const parsedRules = RulesInputSchema.partial().safeParse(storedRules ?? {});
+  const rules: RulesProfile = {
+    ...EMPTY_RULES_PROFILE,
+    ...(parsedRules.success ? parsedRules.data : {}),
+    version: main.rules_profile_version ?? 1,
+  } as RulesProfile;
+  const rulesProfileId = main.rules_profile_id ?? null;
+
+  const { planes, idByKey, nameByKey } = await loadPlanes(sb, companyId, modelId, planeIds);
+  const keyById = new Map([...idByKey].map(([k, id]) => [id, k]));
+
+  const { data: placed } = await sb
+    .from("solar_modules_placed")
+    .select("*")
+    .eq("model_id", modelId)
+    .eq("company_id", companyId);
+
+  const modules: LayoutModule[] = (placed ?? [])
+    .map((m) => ({
+      id: m.id,
+      plane_key: keyById.get(m.roof_plane_id ?? "") ?? "",
+      u: Number(m.local_u_m),
+      v: Number(m.local_v_m),
+      orientation: (m.orientation === "paysage"
+        ? "paysage"
+        : "portrait") as LayoutModule["orientation"],
+      row: m.grid_row ?? 0,
+      col: m.grid_col ?? 0,
+      matrix: 0,
+    }))
+    .filter((m) => m.plane_key !== "");
+
+  const token = manualContextToken({
+    geometry_version: model.geometry_version,
+    geometry_hash: model.geometry_hash ?? null,
+    module: {
+      variant_id: snapshot.variant_id,
+      revision_id: snapshot.revision_id ?? null,
+      width_mm: snapshot.width_mm,
+      height_mm: snapshot.height_mm,
+      depth_mm: snapshot.depth_mm ?? null,
+      power_wc: snapshot.power_wc,
+      manufacturer: snapshot.manufacturer,
+      model: snapshot.model,
+    },
+    rules_profile_id: rulesProfileId,
+    rules_profile_version: rules.version,
+    rules,
+    engine_version: LAYOUT_ENGINE_VERSION,
+    plane_ids: planeIds,
+  });
+
+  return {
+    planes,
+    idByKey,
+    nameByKey,
+    spec,
+    snapshot,
+    rules,
+    rulesProfileId,
+    modules,
+    geometryVersion: model.geometry_version,
+    geometryHash: model.geometry_hash ?? null,
+    token,
+  };
+}
+
+/** Ouvre l'édition manuelle : état enregistré, règles réelles et jeton. */
+export const getManualEditContext = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => BaseSchema.parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertSolarMember(supabase, data.companyId, userId);
+    const ctx = await loadManualContext(supabase, data.companyId, data.modelId);
+    return {
+      geometry_version: ctx.geometryVersion,
+      geometry_hash: ctx.geometryHash,
+      manual_token: ctx.token,
+      planes: ctx.planes,
+      plane_names: Object.fromEntries(ctx.nameByKey),
+      module_spec: ctx.spec,
+      module_snapshot: ctx.snapshot,
+      rules: ctx.rules,
+      rules_profile_id: ctx.rulesProfileId,
+      engine_version: LAYOUT_ENGINE_VERSION,
+      modules: ctx.modules,
+      validity: validateLayout(ctx.planes, ctx.modules, ctx.spec, ctx.rules),
+    };
+  });
+
+/**
+ * Enregistre une implantation corrigée à la main.
+ * Le client envoie UNIQUEMENT des positions : panneau, révision, snapshot et
+ * règles sont rechargés depuis l'implantation existante, puis TOUS les
+ * panneaux sont revalidés. Un seul panneau invalide = refus complet.
+ */
 export const applyManualLayout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => ManualSchema.parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    const model = await loadModelScoped(supabase, data.companyId, data.modelId);
 
-    const [{ planes, idByKey }, { spec, snapshot }, rules] = await Promise.all([
-      loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
-      loadSpec(supabase, data.companyId, data.moduleVariantId),
-      loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
-    ]);
+    const ctx = await loadManualContext(supabase, data.companyId, data.modelId);
+    if (ctx.geometryVersion !== data.geometryVersion) {
+      throw new Error(
+        "La toiture a été modifiée depuis l'ouverture de l'édition. Rechargez la page avant d'enregistrer.",
+      );
+    }
+    if (ctx.token !== data.manualToken) throw new Error(MANUAL_DRIFT_MESSAGE);
 
-    const modules: LayoutModule[] = data.modules.filter((m) => idByKey.has(m.plane_key));
+    const unknownPlane = data.modules.find((m) => !ctx.idByKey.has(m.plane_key));
+    if (unknownPlane) throw new Error("Pan de toiture inconnu dans les modifications.");
+    if (data.modules.length === 0 && !data.allowEmpty) {
+      throw new Error("Cette implantation ne contiendrait plus aucun panneau.");
+    }
+
+    const modules: LayoutModule[] = data.modules.map((m) => ({ ...m }));
+    const validity = validateLayout(ctx.planes, modules, ctx.spec, ctx.rules);
+    const invalid = validity.filter((v) => v.status !== "valid");
+    if (invalid.length) {
+      throw new Error(
+        `${invalid.length} panneau${invalid.length > 1 ? "x" : ""} en position interdite : ${invalid[0]!.message}. Corrigez avant d'enregistrer.`,
+      );
+    }
+
     await writeLayout(supabase, {
       companyId: data.companyId,
       modelId: data.modelId,
-      geometryVersion: data.geometryVersion ?? model.geometry_version,
+      geometryVersion: data.geometryVersion,
       modules,
-      planes,
-      spec,
-      rules,
-      idByKey,
-      snapshot,
-      rulesProfileId: data.rulesProfileId ?? null,
+      planes: ctx.planes,
+      spec: ctx.spec,
+      rules: ctx.rules,
+      idByKey: ctx.idByKey,
+      snapshot: ctx.snapshot,
+      rulesProfileId: ctx.rulesProfileId,
+      // Une correction manuelle ne crée jamais de variante automatique.
       variant: null,
     });
 
     const summary = await refreshSummary(supabase, data.companyId, data.modelId, userId);
-    return { summary, validity: validateLayout(planes, modules, spec, rules) };
+    return { summary, validity, geometry_version: ctx.geometryVersion };
   });
 
 interface WriteArgs {
