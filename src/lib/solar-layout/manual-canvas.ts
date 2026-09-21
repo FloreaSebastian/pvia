@@ -5,7 +5,13 @@
  * (`validateManual`, `snapDelta`) pour le fantôme d'ajout et expose les règles
  * d'événements pointeur afin qu'elles soient testables sans DOM.
  */
-import { shortCause, snapDelta, validateManual, type ManualContext, type SnapGuide } from "./manual";
+import {
+  shortCause,
+  snapDelta,
+  validateManual,
+  type ManualContext,
+  type SnapGuide,
+} from "./manual";
 import type { LayoutModule, Orientation } from "./types";
 
 /** Identifiant réservé au module fantôme (jamais persisté). */
