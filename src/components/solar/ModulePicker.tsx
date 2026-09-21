@@ -45,13 +45,23 @@ export function ModulePicker({
   value,
   onChange,
   disabled,
+  open: openProp,
+  onOpenChange,
 }: {
   companyId: string | null;
   value: ModuleListItem | null;
   onChange: (item: ModuleListItem) => void;
   disabled?: boolean;
+  /** Ouverture pilotée par le parent (action « Choisir un autre panneau »). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
 
   return (
     <div className="space-y-1.5">
