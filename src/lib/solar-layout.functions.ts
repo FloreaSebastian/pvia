@@ -344,8 +344,8 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarMember(supabase, data.companyId, userId);
-    await loadModelScoped(supabase, data.companyId, data.modelId);
-    const [{ planes, nameByKey }, { spec }, rules] = await Promise.all([
+    const model = await loadModelScoped(supabase, data.companyId, data.modelId);
+    const [{ planes, nameByKey }, { spec, snapshot }, rules] = await Promise.all([
       loadPlanes(supabase, data.companyId, data.modelId, data.planeIds),
       loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
@@ -359,7 +359,16 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
       ...(data.strategies?.length ? { strategies: data.strategies } : {}),
       max_variants: data.maxVariants,
     });
-    return { ...result, plane_names: Object.fromEntries(nameByKey) };
+    // Le client renverra ces références à l'application : toute dérive
+    // (toiture, obstacle, marge, panneau, profil) sera détectée côté serveur.
+    return {
+      ...result,
+      plane_names: Object.fromEntries(nameByKey),
+      geometry_version: model.geometry_version,
+      module_snapshot: snapshot,
+      rules_profile_id: rules.id,
+      rules_profile_version: rules.version,
+    };
   });
 
 /* -------------------------- Application atomique -------------------------- */
