@@ -279,47 +279,16 @@ export async function bumpGeometryVersion(
   userId: string,
 ): Promise<{ version: number; hash: string }> {
   const model = await loadModelScoped(sb, companyId, modelId);
-  const [buildings, planes, obstacles] = await Promise.all([
-    sb.from("solar_buildings").select("*").eq("model_id", modelId).eq("company_id", companyId),
-    sb
-      .from("solar_roof_planes")
-      .select("*")
-      .eq("model_id", modelId)
-      .eq("company_id", companyId)
-      .order("name"),
-    sb
-      .from("solar_obstacles")
-      .select("*")
-      .eq("model_id", modelId)
-      .eq("company_id", companyId)
-      .order("created_at"),
-  ]);
-
-  const building = buildings.data?.[0] ?? null;
-  const hash = geometryFingerprint({
-    params: readBuildingParams(building),
-    planes: (planes.data ?? []).map((p) => ({
-      name: p.name,
-      azimuth: p.azimuth_deg,
-      tilt: p.tilt_deg,
-      area: p.area_m2,
-      polygon: p.polygon,
-    })),
-    obstacles: (obstacles.data ?? []).map((o) => ({
-      t: o.obstacle_type,
-      x: o.position_x_m,
-      y: o.position_y_m,
-      w: o.width_m,
-      l: o.length_m,
-      h: o.height_m,
-    })),
-    terrain: (building?.terrain as unknown) ?? null,
-    origin: {
-      lat: model.origin_latitude,
-      lon: model.origin_longitude,
-      alt: model.origin_altitude_m,
-    },
+  // Empreinte unique et partagée : même algorithme que les transactions SQL
+  // (toiture et obstacles), pour qu'aucune écriture n'oublie une partie de
+  // l'état géométrique.
+  const { data: hash, error } = await sb.rpc("solar_geometry_fingerprint", {
+    _company_id: companyId,
+    _model_id: modelId,
   });
+  if (error || typeof hash !== "string") {
+    throw new Error("Calcul de l'état géométrique impossible.");
+  }
 
   if (hash === model.geometry_hash) {
     return { version: model.geometry_version, hash };
