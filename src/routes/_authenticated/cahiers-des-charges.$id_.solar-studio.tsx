@@ -1064,6 +1064,7 @@ function SolarStudioPage() {
               }))}
               disabled={!canWrite || busy}
               onContextChange={handleLayoutContext}
+              onPreview={setLayoutPreview}
               onSaveActivity={onLayoutSave}
               onApplied={() => {
                 if (!companyId) return;
