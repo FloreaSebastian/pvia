@@ -388,68 +388,118 @@ export function SmartLayoutPanel({
         </CardContent>
       </Card>
 
-      {shortfall !== null && (
+      {impossible && maximumCandidate && targetPower !== null && (
         <Card className="border-amber-500/60">
-          <CardContent className="space-y-2 pt-4 text-sm">
+          <CardContent className="space-y-3 pt-4 text-sm">
             <p>
-              Puissance demandée non atteignable sur les pans sélectionnés. Maximum posable :{" "}
-              <strong>{best?.power_kwc} kWc</strong> ({best?.modules.length} panneaux), soit{" "}
-              {shortfall} kWc de moins que l'objectif.
+              Objectif {fr(targetPower)} kWc non atteignable avec les contraintes actuelles. Maximum
+              valide : {fr(maximumCandidate.power_kwc)} kWc ({maximumCandidate.modules.length}{" "}
+              panneaux).
             </p>
-            <p className="text-muted-foreground">
-              Vous pouvez utiliser ce maximum, réduire les marges du profil de règles, ou ajouter un
-              autre pan à la sélection.
-            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-11"
+                disabled={disabled || busy}
+                onClick={() => apply(maximumCandidate)}
+              >
+                Utiliser le maximum valide
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-h-11"
+                disabled={busy}
+                onClick={() => {
+                  setShowConstraints(true);
+                  constraintsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                Modifier les contraintes
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-h-11"
+                disabled={disabled || busy}
+                onClick={() => setPickerOpen(true)}
+              >
+                Choisir un autre panneau
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {result && result.candidates.length > 0 && (
-        <div className="grid gap-3 lg:grid-cols-3">
-          {result.candidates.map((c) => (
-            <Card
-              key={c.signature}
-              className={selected === c.signature ? "border-primary" : undefined}
-              onMouseEnter={() => setSelected(c.signature)}
-              onFocus={() => setSelected(c.signature)}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between gap-2 text-sm">
-                  <span>{c.label}</span>
-                  <Badge variant="secondary">{c.power_kwc} kWc</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <p>
-                  {c.modules.length} panneaux ·{" "}
-                  {c.orientation === "portrait" ? "portrait" : "paysage"}
-                </p>
-                <details>
-                  <summary className="cursor-pointer text-muted-foreground">
-                    Pourquoi cette proposition ?
-                  </summary>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
-                    {c.reasons.map((r) => (
-                      <li key={r}>{r}</li>
-                    ))}
-                  </ul>
-                </details>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="min-h-11 w-full"
-                  disabled={disabled || busy}
-                  onClick={() => apply(c)}
-                >
-                  Utiliser cette implantation
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+      {candidates.length > 0 && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {candidates.map((c) => {
+            const active = current?.signature === c.signature;
+            return (
+              <Card
+                key={c.signature}
+                role="button"
+                tabIndex={0}
+                aria-pressed={active}
+                className={active ? "border-primary ring-1 ring-primary" : "cursor-pointer"}
+                onClick={() => setSelected(c.signature)}
+                onFocus={() => setSelected(c.signature)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelected(c.signature);
+                  }
+                }}
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between gap-2 text-sm">
+                    <span>{c.label}</span>
+                    <Badge variant={c.role === "recommandee" ? "default" : "secondary"}>
+                      {fr(c.power_kwc)} kWc
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <p>
+                    {c.modules.length} panneaux · {orientationLabel(c.orientation)} ·{" "}
+                    {c.plane_names.join(", ") || "—"}
+                  </p>
+                  <p className="text-muted-foreground">{c.summary}</p>
+                  <details>
+                    <summary className="min-h-11 cursor-pointer py-2 text-muted-foreground">
+                      Pourquoi cette proposition ?
+                    </summary>
+                    <ul className="mt-1 list-disc space-y-1 pl-4 text-muted-foreground">
+                      {[...c.reasons, ...c.constraints].map((r) => (
+                        <li key={r}>{r}</li>
+                      ))}
+                    </ul>
+                  </details>
+                  {active && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="min-h-11 w-full"
+                      disabled={disabled || busy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void apply(c);
+                      }}
+                    >
+                      Utiliser cette implantation
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {result && result.candidates.length > 1 && (
+      {candidates.length > 1 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Comparer</CardTitle>
@@ -461,20 +511,32 @@ export function SmartLayoutPanel({
                   <TableHead>Variante</TableHead>
                   <TableHead>Panneaux</TableHead>
                   <TableHead>kWc</TableHead>
+                  <TableHead>Objectif</TableHead>
                   <TableHead>Orientation</TableHead>
-                  <TableHead>Remplissage</TableHead>
-                  <TableHead>Alignement</TableHead>
+                  <TableHead>Pans</TableHead>
+                  <TableHead>Surface modules</TableHead>
+                  <TableHead>Rangées complètes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {result.candidates.map((c) => (
-                  <TableRow key={c.signature}>
+                {candidates.map((c) => (
+                  <TableRow key={c.signature} data-state={current?.signature === c.signature ? "selected" : undefined}>
                     <TableCell>{c.label}</TableCell>
                     <TableCell>{c.modules.length}</TableCell>
-                    <TableCell>{c.power_kwc}</TableCell>
-                    <TableCell>{c.orientation === "portrait" ? "Portrait" : "Paysage"}</TableCell>
-                    <TableCell>{Math.round(c.criteria.fill_ratio * 100)} %</TableCell>
-                    <TableCell>{Math.round(c.criteria.alignment_ratio * 100)} %</TableCell>
+                    <TableCell>{fr(c.power_kwc)}</TableCell>
+                    <TableCell>
+                      {c.target_met === null
+                        ? "—"
+                        : c.target_met
+                          ? "Atteint"
+                          : `${fr(c.target_delta_kwc ?? 0)} kWc`}
+                    </TableCell>
+                    <TableCell>{orientationLabel(c.orientation)}</TableCell>
+                    <TableCell>{c.plane_names.join(", ") || "—"}</TableCell>
+                    <TableCell>{fr(c.module_area_m2)} m²</TableCell>
+                    <TableCell>
+                      {c.rows_full}/{c.rows_total}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
