@@ -6,7 +6,7 @@
  * puis conserve les résultats réellement différents.
  */
 import { bbox, round3, type Rect } from "./geometry";
-import { canPlace, inPriorityZone, type UsableArea } from "./usable-area";
+import { inPriorityZone, placementBlock, type UsableArea } from "./usable-area";
 import type { LayoutModule, LayoutModuleSpec, Orientation, RulesProfile } from "./types";
 
 export function moduleSize(spec: LayoutModuleSpec, orientation: Orientation): { width: number; length: number } {
@@ -29,6 +29,18 @@ export interface GridPlacement {
   priority: boolean;
 }
 
+/** Emplacements de grille refusés, par cause réellement constatée. */
+export interface GridBlocks {
+  /** Emplacements refusés par une marge de bord. */
+  by_margin: number;
+  /** Emplacements refusés par un obstacle, par identifiant d'obstacle. */
+  by_obstacle: { id: string; label: string; count: number }[];
+  /** Emplacements refusés par une zone dessinée. */
+  by_zone: { id: string; label: string; count: number }[];
+  /** Emplacements balayés, tous statuts confondus. */
+  slots: number;
+}
+
 export interface GridResult {
   plane_key: string;
   orientation: Orientation;
@@ -37,6 +49,7 @@ export interface GridResult {
   phaseU: number;
   phaseV: number;
   placements: GridPlacement[];
+  blocks: GridBlocks;
   signature: string;
 }
 
