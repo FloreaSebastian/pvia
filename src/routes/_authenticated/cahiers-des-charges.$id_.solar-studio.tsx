@@ -68,6 +68,7 @@ import type { RoofDrawTool } from "@/components/solar/map/GoogleMapView";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
 import { SmartLayoutPanel, type LayoutPreview } from "@/components/solar/SmartLayoutPanel";
+import { ResultsView } from "@/components/solar/studio/ResultsView";
 import { SitePanel } from "@/components/solar/SitePanel";
 import { SiteMapCard } from "@/components/solar/map/SiteMapCard";
 import { StepRail } from "@/components/solar/studio/StepRail";
@@ -703,7 +704,15 @@ function SolarStudioPage() {
           )}
 
           <div className="relative min-h-[240px] flex-1 overflow-hidden">
-            {step === "implantation" && manualEditing && companyId ? (
+            {step === "resultats" && visualMode === "map" ? (
+              <ResultsView
+                payload={payload}
+                companyId={companyId}
+                studyId={id}
+                reference={payload.model.name || null}
+                expert={mode === "expert"}
+              />
+            ) : step === "implantation" && manualEditing && companyId ? (
               <ManualLayoutEditor
                 companyId={companyId}
                 modelId={payload.model.id}
