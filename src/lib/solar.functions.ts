@@ -280,32 +280,73 @@ export const saveSolarBuilding = createServerFn({ method: "POST" })
 
 const PointSchema = z.object({ x: z.number().finite(), y: z.number().finite() });
 
-const CustomPlaneSchema = z.object({
-  key: z.string().min(1).max(40),
-  name: z.string().min(1).max(80),
-  ring: z.array(PointSchema).min(3).max(60),
-  tilt_deg: z.number().min(0).max(70),
-  azimuth_deg: z.number().min(-360).max(720),
-  eave_height_m: z.number().min(0).max(200),
-  margin_m: z.number().min(0).max(10),
-  edge_margins: z
-    .array(
-      z.object({
-        index: z.number().int().min(0).max(59),
-        kind: z.enum(["faitage", "egout", "rive", "noue", "aretier", "indefini"]),
-        margin_m: z.number().min(0).max(10),
-      }),
-    )
-    .max(60)
-    .default([]),
-});
+const CustomPlaneSchema = z
+  .object({
+    key: z.string().min(1).max(40),
+    name: z.string().min(1).max(80),
+    ring: z.array(PointSchema).min(3).max(60),
+    tilt_deg: z.number().finite().min(0).max(70),
+    azimuth_deg: z.number().finite().min(-360).max(720),
+    eave_height_m: z.number().finite().min(0).max(200),
+    margin_m: z.number().finite().min(0).max(10),
+    edge_margins: z
+      .array(
+        z.object({
+          index: z.number().int().min(0).max(59),
+          kind: z.enum(["faitage", "egout", "rive", "noue", "aretier", "indefini"]),
+          margin_m: z.number().finite().min(0).max(10),
+        }),
+      )
+      .max(60)
+      .default([]),
+  })
+  .superRefine((plane, ctx) => {
+    // Une marge ne peut viser qu'une arête réellement présente sur ce contour.
+    for (const m of plane.edge_margins) {
+      if (m.index >= plane.ring.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["edge_margins"],
+          message: "Marge d'arête hors du contour.",
+        });
+      }
+    }
+  });
 
 const SaveRoofPlanesSchema = z.object({
   companyId: z.string().uuid(),
   modelId: z.string().uuid(),
   planes: z.array(CustomPlaneSchema).max(30),
-  expectedGeometryVersion: z.number().int().optional(),
+  // Obligatoire : aucune écriture géométrique sans détection de conflit.
+  expectedGeometryVersion: z.number().int(),
 });
+
+/** Messages utilisateur pour les refus renvoyés par la transaction serveur. */
+const ROOF_RPC_MESSAGE: Record<string, string> = {
+  forbidden: "Droits insuffisants pour modifier cette toiture.",
+  stale_geometry_version:
+    "Une version plus récente de ce modèle existe (modifié depuis un autre onglet ou par un collègue). Rechargez la page avant d'enregistrer.",
+  expected_geometry_version_required: "Rechargez la page avant d'enregistrer.",
+  conversion_required:
+    "Cette toiture provient des dimensions saisies. Convertissez-la d'abord en contours éditables : la conversion conserve les pans et l'implantation.",
+  empty_polygon_geometry:
+    "Une toiture dessinée doit garder au moins un pan. Supprimez plutôt les panneaux posés si nécessaire.",
+  polygon_mode_is_final:
+    "Cette toiture est dessinée : elle ne peut pas revenir automatiquement aux dimensions saisies.",
+  building_not_found: "Aucune toiture à enregistrer.",
+  model_not_found: "Modèle introuvable.",
+  obstacle_not_found: "Obstacle introuvable.",
+  obstacle_payload_required: "Obstacle incomplet.",
+  plane_key_required: "Un pan n'a pas d'identifiant.",
+};
+
+function roofRpcError(message: string | undefined, fallback: string): Error {
+  for (const [code, text] of Object.entries(ROOF_RPC_MESSAGE)) {
+    if (message?.includes(code)) return new Error(text);
+  }
+  return new Error(fallback);
+}
+
 
 /**
  * Enregistre l'ensemble des pans dessinés (ajout, modification, suppression).
