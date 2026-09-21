@@ -171,12 +171,15 @@ const A4: [number, number] = [595.28, 841.89];
 const MARGIN = 48;
 
 function sanitize(value: string): string {
-  return value
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2013\u2014]/g, "-")
-    .replace(/\u2026/g, "...")
-    .replace(/[^\x00-\xff]/g, "?");
+  return (
+    value
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, "-")
+      .replace(/\u2026/g, "...")
+      // eslint-disable-next-line no-control-regex -- jeu de caractères WinAnsi supporté par pdf-lib
+      .replace(/[^\x00-\xff]/g, "?")
+  );
 }
 
 function hex(color: string): [number, number, number] {
@@ -276,7 +279,9 @@ export async function renderSolarPdf(input: {
   const muted = rgb(0.42, 0.45, 0.5);
 
   const title =
-    variant === "client" ? "Étude d'implantation photovoltaïque" : "Dossier technique d'implantation photovoltaïque";
+    variant === "client"
+      ? "Étude d'implantation photovoltaïque"
+      : "Dossier technique d'implantation photovoltaïque";
   pdf.setTitle(sanitize(title));
   pdf.setSubject(sanitize(`Solar Studio — ${meta.reference ?? ""}`.trim()));
   pdf.setProducer("PVIA");
@@ -301,7 +306,12 @@ export async function renderSolarPdf(input: {
           ? await pdf.embedPng(meta.logo.bytes)
           : await pdf.embedJpg(meta.logo.bytes);
       const scaled = img.scaleToFit(120, 42);
-      page.drawImage(img, { x: MARGIN, y: y - scaled.height, width: scaled.width, height: scaled.height });
+      page.drawImage(img, {
+        x: MARGIN,
+        y: y - scaled.height,
+        width: scaled.width,
+        height: scaled.height,
+      });
       y -= scaled.height + 12;
     } catch {
       // Un logo illisible ne doit jamais empêcher la génération du document.

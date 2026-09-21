@@ -38,10 +38,33 @@ export interface PlanDrawingInput {
 }
 
 export type PlanItem =
-  | { kind: "polygon"; points: { x: number; y: number }[]; fill: string; stroke: string; width: number }
-  | { kind: "rect"; x: number; y: number; w: number; h: number; fill: string; stroke: string; width: number }
+  | {
+      kind: "polygon";
+      points: { x: number; y: number }[];
+      fill: string;
+      stroke: string;
+      width: number;
+    }
+  | {
+      kind: "rect";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      fill: string;
+      stroke: string;
+      width: number;
+    }
   | { kind: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; width: number }
-  | { kind: "text"; x: number; y: number; text: string; size: number; color: string; bold?: boolean };
+  | {
+      kind: "text";
+      x: number;
+      y: number;
+      text: string;
+      size: number;
+      color: string;
+      bold?: boolean;
+    };
 
 export interface PlanDrawing {
   /** Cadre du dessin en mètres, origine en bas à gauche, axe Y vers le haut. */
@@ -198,15 +221,55 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
     stroke: INK,
     width: 0.06,
   });
-  items.push({ kind: "line", x1: northX, y1: northY + 1.2, x2: northX - 0.25, y2: northY + 0.85, stroke: INK, width: 0.06 });
-  items.push({ kind: "line", x1: northX, y1: northY + 1.2, x2: northX + 0.25, y2: northY + 0.85, stroke: INK, width: 0.06 });
-  items.push({ kind: "text", x: northX - 0.15, y: northY - 0.5, text: "N", size: 0.42, color: INK, bold: true });
+  items.push({
+    kind: "line",
+    x1: northX,
+    y1: northY + 1.2,
+    x2: northX - 0.25,
+    y2: northY + 0.85,
+    stroke: INK,
+    width: 0.06,
+  });
+  items.push({
+    kind: "line",
+    x1: northX,
+    y1: northY + 1.2,
+    x2: northX + 0.25,
+    y2: northY + 0.85,
+    stroke: INK,
+    width: 0.06,
+  });
+  items.push({
+    kind: "text",
+    x: northX - 0.15,
+    y: northY - 0.5,
+    text: "N",
+    size: 0.42,
+    color: INK,
+    bold: true,
+  });
 
   // Cote de référence
   const bar = scaleBarLength(contentWidth);
   const barY = 0.6;
-  items.push({ kind: "line", x1: MARGIN_M, y1: barY, x2: MARGIN_M + bar, y2: barY, stroke: INK, width: 0.06 });
-  items.push({ kind: "line", x1: MARGIN_M, y1: barY - 0.15, x2: MARGIN_M, y2: barY + 0.15, stroke: INK, width: 0.05 });
+  items.push({
+    kind: "line",
+    x1: MARGIN_M,
+    y1: barY,
+    x2: MARGIN_M + bar,
+    y2: barY,
+    stroke: INK,
+    width: 0.06,
+  });
+  items.push({
+    kind: "line",
+    x1: MARGIN_M,
+    y1: barY - 0.15,
+    x2: MARGIN_M,
+    y2: barY + 0.15,
+    stroke: INK,
+    width: 0.05,
+  });
   items.push({
     kind: "line",
     x1: MARGIN_M + bar,

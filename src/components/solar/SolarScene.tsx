@@ -129,8 +129,19 @@ function Panels({
         if (m.roof_plane_key !== plane.key) continue;
         const w = m.orientation === "portrait" ? size.width : size.length;
         const h = m.orientation === "portrait" ? size.length : size.width;
-        const local = new THREE.Matrix4().makeTranslation(m.local_u_m, m.local_v_m, 0.04 + depth / 2);
-        out.push({ id: m.id, matrix: base.clone().multiply(local), enabled: m.enabled, w, h, d: depth });
+        const local = new THREE.Matrix4().makeTranslation(
+          m.local_u_m,
+          m.local_v_m,
+          0.04 + depth / 2,
+        );
+        out.push({
+          id: m.id,
+          matrix: base.clone().multiply(local),
+          enabled: m.enabled,
+          w,
+          h,
+          d: depth,
+        });
       }
     }
     return out;
@@ -151,7 +162,13 @@ function Panels({
         >
           <boxGeometry args={[it.w * 0.98, it.h * 0.98, Math.max(0.02, it.d)]} />
           <meshStandardMaterial
-            color={it.id === selectedModuleId ? PANEL_SELECTED : it.enabled ? PANEL_COLOR : PANEL_DISABLED}
+            color={
+              it.id === selectedModuleId
+                ? PANEL_SELECTED
+                : it.enabled
+                  ? PANEL_COLOR
+                  : PANEL_DISABLED
+            }
             roughness={it.enabled ? 0.25 : 0.9}
             metalness={it.enabled ? 0.5 : 0.1}
           />
@@ -177,7 +194,9 @@ function Obstacles({ model }: { model: SolarSceneModel }) {
         }
         return (
           <mesh key={o.id} matrixAutoUpdate={false} matrix={matrix} castShadow>
-            <boxGeometry args={[o.width, plane ? o.length : o.height, plane ? o.height : o.length]} />
+            <boxGeometry
+              args={[o.width, plane ? o.length : o.height, plane ? o.height : o.length]}
+            />
             <meshStandardMaterial color={o.color} roughness={0.8} transparent opacity={0.92} />
           </mesh>
         );
@@ -195,7 +214,10 @@ export interface SceneCameraApi {
 /** Expose trois vues simples : recentrer, dessus, perspective. Rien de plus. */
 function CameraRig({ span, api }: { span: number; api: MutableRefObject<SceneCameraApi | null> }) {
   const camera = useThree((s) => s.camera);
-  const controls = useThree((s) => s.controls) as { target: THREE.Vector3; update: () => void } | null;
+  const controls = useThree((s) => s.controls) as {
+    target: THREE.Vector3;
+    update: () => void;
+  } | null;
 
   useEffect(() => {
     const move = (position: [number, number, number]) => {
@@ -260,7 +282,13 @@ export default function SolarScene({
         <Suspense fallback={null}>
           <Environment>
             <Lightformer intensity={1.6} position={[0, 8, 0]} scale={[14, 14, 1]} />
-            <Lightformer intensity={0.7} color="#9fb6d6" position={[-8, 2, -4]} rotation-y={Math.PI / 2} scale={[24, 2, 1]} />
+            <Lightformer
+              intensity={0.7}
+              color="#9fb6d6"
+              position={[-8, 2, -4]}
+              rotation-y={Math.PI / 2}
+              scale={[24, 2, 1]}
+            />
           </Environment>
         </Suspense>
 
@@ -298,7 +326,13 @@ export default function SolarScene({
           />
         )}
 
-        <OrbitControls makeDefault enableDamping maxPolarAngle={Math.PI / 2.05} minDistance={4} maxDistance={span * 6} />
+        <OrbitControls
+          makeDefault
+          enableDamping
+          maxPolarAngle={Math.PI / 2.05}
+          minDistance={4}
+          maxDistance={span * 6}
+        />
         <CameraRig span={span} api={api} />
       </Canvas>
 

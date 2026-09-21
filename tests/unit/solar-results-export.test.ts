@@ -298,13 +298,23 @@ describe("Cohérence 2D / 3D", () => {
 describe("Plan vectoriel", () => {
   const input = {
     planes: [
-      { key: "sud", name: "Pan Sud", polygon: plane("p1", "sud", "s").polygon, azimuth_deg: 180, tilt_deg: 30 },
-      { key: "nord", name: "Pan Nord", polygon: plane("p2", "nord", "n").polygon, azimuth_deg: 0, tilt_deg: 30 },
+      {
+        key: "sud",
+        name: "Pan Sud",
+        polygon: plane("p1", "sud", "s").polygon,
+        azimuth_deg: 180,
+        tilt_deg: 30,
+      },
+      {
+        key: "nord",
+        name: "Pan Nord",
+        polygon: plane("p2", "nord", "n").polygon,
+        azimuth_deg: 0,
+        tilt_deg: 30,
+      },
     ],
     modules: [mod("m1", "sud", 1, 1), mod("m2", "nord", 2, 2)],
-    obstacles: [
-      { id: "o1", planeKey: "sud", u: 5, v: 2, width: 0.8, length: 1.2, label: "Velux" },
-    ],
+    obstacles: [{ id: "o1", planeKey: "sud", u: 5, v: 2, width: 0.8, length: 1.2, label: "Velux" }],
     spec: { width_mm: 1134, height_mm: 1762 },
     title: "Plan d'implantation photovoltaïque",
   };
