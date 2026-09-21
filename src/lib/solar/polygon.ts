@@ -62,6 +62,8 @@ export type PolygonIssue =
   | "invalid_coordinate"
   | "tiny_edge"
   | "self_intersection"
+  | "overlapping_edges"
+  | "duplicate_vertex"
   | "tiny_area";
 
 export const POLYGON_ISSUE_MESSAGE: Record<PolygonIssue, string> = {
@@ -70,8 +72,11 @@ export const POLYGON_ISSUE_MESSAGE: Record<PolygonIssue, string> = {
   invalid_coordinate: "Un point est hors de la zone du projet.",
   tiny_edge: "Un côté est trop court (moins de 30 cm) : supprimez ce point.",
   self_intersection: "Le contour se croise lui-même : reprenez le tracé.",
+  overlapping_edges: "Deux côtés se superposent : reprenez le tracé.",
+  duplicate_vertex: "Le contour se pince sur lui-même : écartez ces deux points.",
   tiny_area: "La surface obtenue est trop petite (moins de 1 m²).",
 };
+
 
 export interface PolygonValidation {
   valid: boolean;
