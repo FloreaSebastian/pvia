@@ -452,6 +452,26 @@ export function totalCustomArea(planes: CustomRoofPlane[]): number {
   return planes.reduce((sum, p) => sum + planeFromCustom(p).area_m2, 0);
 }
 
+/**
+ * Les marges d'arête sont indexées sur le contour du pan dessiné. Elles ne
+ * peuvent être appliquées que si le contour enregistré côté pans correspond
+ * EXACTEMENT, point par point et dans le même ordre. Sinon une marge finirait
+ * sur la mauvaise arête, sans aucun signe visible.
+ */
+export function customPlaneMatchesPolygon(
+  plane: CustomRoofPlane,
+  polygon: LocalPoint[],
+  toleranceM = 0.01,
+): boolean {
+  const expected = planeFromCustom(plane).polygon;
+  if (expected.length !== polygon.length) return false;
+  return expected.every((p, i) => {
+    const q = polygon[i];
+    if (!q) return false;
+    return Math.abs(p.x - q.x) <= toleranceM && Math.abs(p.y - q.y) <= toleranceM;
+  });
+}
+
 /* ------------------------------- Lecture ---------------------------------- */
 
 export interface CustomPlaneDefaults {

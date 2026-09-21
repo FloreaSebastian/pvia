@@ -207,13 +207,44 @@ describe("P0-C — pans, priorité et variantes", () => {
     expect(max.planes_used.length).toBe(2);
   });
 
-  it("Auto compare réellement portrait et paysage", () => {
+  it("Auto évalue réellement les DEUX orientations", () => {
     const res = generateLayouts(
       request({ planes: [plane("sud", rect(11, 5))], orientation: "auto" }),
     );
-    const orientations = new Set(res.candidates.map((c) => c.orientation));
-    expect(res.candidates.length).toBeGreaterThan(1);
-    expect(orientations.size).toBeGreaterThan(0);
+    // Échoue si une des deux orientations n'a pas été réellement construite.
+    expect([...res.orientations_evaluated].sort()).toEqual(["paysage", "portrait"]);
+  });
+
+  it("Auto retient le portrait quand le portrait gagne", () => {
+    // Pan étroit et haut : le portrait entre, le paysage non.
+    const res = generateLayouts(
+      request({ planes: [plane("sud", rect(2.2, 9))], orientation: "auto", module: MODULE }),
+    );
+    expect(res.orientations_evaluated).toContain("portrait");
+    const best = res.candidates.reduce((a, b) => (b.modules.length > a.modules.length ? b : a));
+    expect(best.modules.every((m) => m.orientation === "portrait")).toBe(true);
+  });
+
+  it("Auto retient le paysage quand le paysage gagne", () => {
+    // Pan large et bas : seul le paysage tient en hauteur.
+    const res = generateLayouts(
+      request({ planes: [plane("sud", rect(12, 2.3))], orientation: "auto", module: MODULE }),
+    );
+    expect(res.orientations_evaluated).toContain("paysage");
+    const best = res.candidates.reduce((a, b) => (b.modules.length > a.modules.length ? b : a));
+    expect(best.modules.length).toBeGreaterThan(0);
+    expect(best.modules.every((m) => m.orientation === "paysage")).toBe(true);
+  });
+
+  it("la priorité des pans est explicite et change le pan servi en premier", () => {
+    const planes = [plane("sud", rect(12, 8)), plane("nord", rect(12, 8))];
+    const small = { mode: "power", power_kwc: 3, rounding: "closest" } as const;
+    const a = generateLayouts(request({ planes, target: small, plane_priority: ["sud", "nord"] }));
+    const b = generateLayouts(request({ planes, target: small, plane_priority: ["nord", "sud"] }));
+    expect(a.plane_priority).toEqual(["sud", "nord"]);
+    expect(b.plane_priority).toEqual(["nord", "sud"]);
+    expect(a.candidates[0]!.modules[0]!.plane_key).toBe("sud");
+    expect(b.candidates[0]!.modules[0]!.plane_key).toBe("nord");
   });
 
   it("produit jusqu'à 4 variantes distinctes, sans signature dupliquée", () => {

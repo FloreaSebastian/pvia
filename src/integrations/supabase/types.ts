@@ -6775,15 +6775,26 @@ export type Database = {
         Args: { _membership_id: string }
         Returns: boolean
       }
-      solar_apply_layout: {
-        Args: {
-          _arrays: Json
-          _company_id: string
-          _expected_geometry_version: number
-          _model_id: string
-        }
-        Returns: Json
-      }
+      solar_apply_layout:
+        | {
+            Args: {
+              _arrays: Json
+              _company_id: string
+              _expected_geometry_version: number
+              _model_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _arrays: Json
+              _company_id: string
+              _expected_geometry_version: number
+              _model_id: string
+              _variant?: Json
+            }
+            Returns: Json
+          }
       solar_apply_obstacle: {
         Args: {
           _company_id: string

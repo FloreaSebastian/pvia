@@ -41,6 +41,8 @@ export * from "./generate";
 export * from "./select";
 export * from "./score";
 export * from "./validate";
+export * from "./token";
+export * from "./apply-payload";
 
 const ROLE_LABEL: Record<VariantRole, string> = {
   recommandee: "Recommandée",
@@ -65,6 +67,14 @@ export interface LayoutResult {
   usable_area_m2: number;
   /** Pans dont la zone utile est vide, avec la raison. */
   unusable_planes: { key: string; name: string; reason: string }[];
+  /**
+   * Orientations pour lesquelles au moins une grille a réellement été
+   * construite et comparée. En mode « auto », les deux doivent apparaître
+   * dès que les deux sont géométriquement posables.
+   */
+  orientations_evaluated: Orientation[];
+  /** Ordre de priorité réellement appliqué aux pans. */
+  plane_priority: string[];
 }
 
 function orientationsFor(mode: LayoutRequest["orientation"]): Orientation[] {
@@ -118,6 +128,10 @@ export function generateLayouts(req: LayoutRequest): LayoutResult {
   const evaluated = work.reduce((n, w) => n + w.grids.length, 0);
   const maxModules = work.reduce((n, w) => n + w.max, 0);
   const usableArea = work.reduce((a, w) => a + w.area.area_m2, 0);
+  // Diagnostic vérifiable : quelles orientations ont VRAIMENT produit des
+  // grilles comparées, et non simplement été demandées.
+  const built = new Set(work.flatMap((w) => w.grids.map((g) => g.orientation)));
+  const orientationsEvaluated = orientations.filter((o) => built.has(o));
   const unusablePlanes = work
     .filter((w) => w.grids.length === 0)
     .map((w) => ({
@@ -196,6 +210,8 @@ export function generateLayouts(req: LayoutRequest): LayoutResult {
     candidates_evaluated: evaluated,
     usable_area_m2: Math.round(usableArea * 100) / 100,
     unusable_planes: unusablePlanes,
+    orientations_evaluated: orientationsEvaluated,
+    plane_priority: planes.map((p) => p.key),
   };
 }
 
