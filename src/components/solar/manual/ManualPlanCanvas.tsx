@@ -20,6 +20,12 @@ import {
   type ManualResult,
   type SnapGuide,
 } from "@/lib/solar-layout/manual";
+import {
+  computeAddGhost,
+  isModuleEventTarget,
+  shouldDeselectOnBackgroundUp,
+  type AddGhost,
+} from "@/lib/solar-layout/manual-canvas";
 import type { LayoutModule, ModuleValidity, Orientation } from "@/lib/solar-layout/types";
 
 type Pointer = { u: number; v: number };
@@ -73,7 +79,7 @@ export function ManualPlanCanvas({
   const [marquee, setMarquee] = useState<{ from: Pointer; to: Pointer; additive: boolean } | null>(
     null,
   );
-  const [ghost, setGhost] = useState<{ at: Pointer; valid: boolean; cause: string } | null>(null);
+  const [ghost, setGhost] = useState<AddGhost | null>(null);
 
   const view = useMemo(() => {
     if (!plane || plane.polygon.length < 3) return null;
@@ -257,8 +263,10 @@ export function ManualPlanCanvas({
     ? drag.valid
       ? "Position valide"
       : `Position invalide : ${drag.cause}`
-    : tool === "add" && ghost && !ghost.valid
-      ? `Position invalide : ${ghost.cause}`
+    : tool === "add" && ghost
+      ? ghost.valid
+        ? "Position valide"
+        : `Position invalide : ${ghost.cause}`
       : `${selection.length} panneau${selection.length > 1 ? "x" : ""} sélectionné${selection.length > 1 ? "s" : ""}`;
 
   return (
@@ -335,6 +343,16 @@ export function ManualPlanCanvas({
                   strokeWidth={isSel ? 0.07 : 0.02}
                   className="cursor-move"
                   onPointerDown={(e) => startDrag(e, m.id)}
+                  onPointerUp={(e) => {
+                    // Jamais de désélection de fond sur un pointerup de panneau.
+                    e.stopPropagation();
+                    if (drag || pending.current) endDrag();
+                  }}
+                  onPointerCancel={(e) => {
+                    e.stopPropagation();
+                    pending.current = null;
+                    setDrag(null);
+                  }}
                 />
                 {isSel && (
                   <rect
@@ -375,7 +393,7 @@ export function ManualPlanCanvas({
               })}
 
           {/* Lignes-guides d'accrochage */}
-          {drag?.guides.map((g) => (
+          {(drag?.guides ?? (tool === "add" ? (ghost?.guides ?? []) : [])).map((g) => (
             <line
               key={`${g.axis}-${g.value}`}
               x1={g.axis === "u" ? g.value : view.minX}
