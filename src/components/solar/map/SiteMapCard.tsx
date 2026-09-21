@@ -369,7 +369,8 @@ export function SiteMapCard({
                   onRedo={roofEditor.onRedo}
                   onRecenter={() => setRecenterSignal((n) => n + 1)}
                   disabled={roofEditor.disabled}
-                  issue={drawIssue}
+                  drawDisabled={!roofEditor.canDraw}
+                  issue={drawIssue ?? (roofEditor.canDraw ? null : roofEditor.drawLockedReason)}
                 />
               )}
               {keyState === "loading" ? (
