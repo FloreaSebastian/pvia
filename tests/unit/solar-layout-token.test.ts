@@ -208,9 +208,7 @@ describe("P0-C.2 — contrat d'application", () => {
   const snapshot = { variant_id: "var-1", revision_id: "rev-1" };
   const arrays = buildArrayPayloads({
     planes: [PLANE],
-    modules: [
-      { id: "m1", plane_key: "sud", u: 0, v: 0, orientation: "portrait", row: 0, col: 0 },
-    ],
+    modules: [{ id: "m1", plane_key: "sud", u: 0, v: 0, orientation: "portrait", row: 0, col: 0 }],
     spec: MODULE,
     rules: RULES,
     idByKey: new Map([["sud", "plane-uuid"]]),
