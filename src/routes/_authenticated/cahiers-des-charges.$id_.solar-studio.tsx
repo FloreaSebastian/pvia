@@ -129,8 +129,6 @@ const DRAFT_OBSTACLE_TYPES: ObstacleType[] = [
   "autre",
 ];
 
-
-
 function SolarStudioPage() {
   const { id } = useParams({ from: "/_authenticated/cahiers-des-charges/$id_/solar-studio" });
   const { activeCompanyId: companyId, activeRole } = useCompany();
@@ -199,7 +197,6 @@ function SolarStudioPage() {
   const [obstacleDraft, setObstacleDraft] = useState<ObstacleDraft | null>(null);
   const [pendingStep, setPendingStep] = useState<StudioStepId | null>(null);
 
-
   const applyPayload = useCallback((next: Payload) => {
     setPayload(next);
     setParams(next.params);
@@ -239,7 +236,6 @@ function SolarStudioPage() {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [roofDirty]);
-
 
   const guard = async (fn: () => Promise<Payload>, success?: string) => {
     if (!canWrite) {
@@ -461,7 +457,6 @@ function SolarStudioPage() {
     );
   };
 
-
   const handleLayoutContext = useCallback((ctx: LayoutContext) => {
     setLayoutContext((prev) =>
       prev.targetKwc === ctx.targetKwc &&
@@ -582,7 +577,6 @@ function SolarStudioPage() {
     setStep(next);
   };
 
-
   const onToggleModuleAt = (moduleId: string) => {
     const current = payload.modules.find((m) => m.id === moduleId);
     if (!current || !companyId) return;
@@ -625,7 +619,6 @@ function SolarStudioPage() {
 
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
         <StepRail steps={steps} activeStep={step} onSelect={requestStep} />
-
 
         {/* Canevas prioritaire */}
         <main className="flex min-h-[48vh] min-w-0 flex-1 flex-col xl:min-h-0">
@@ -700,7 +693,6 @@ function SolarStudioPage() {
               />
             )}
           </div>
-
 
           {showPlanView && (
             <div className="hidden h-[26vh] min-h-[180px] border-t p-2 xl:block">
@@ -1143,7 +1135,6 @@ function SolarStudioPage() {
               parseCustomPlanes(payload.building?.custom_planes, {
                 tilt_deg: params.tilt_deg,
                 eave_height_m: params.wall_height_m,
-
               }),
             );
             setRoofDirty(false);
@@ -1275,7 +1266,6 @@ function ObstacleDraftCard({
     </Card>
   );
 }
-
 
 function BackLink({ id }: { id: string }) {
   return (

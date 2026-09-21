@@ -115,7 +115,6 @@ export function RoofToolbar({
     );
   };
 
-
   return (
     <div className="pointer-events-none absolute left-2 top-2 z-20 flex max-w-[calc(100%-1rem)] flex-col gap-1">
       <div className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-md border bg-background/95 p-1 shadow-sm">
