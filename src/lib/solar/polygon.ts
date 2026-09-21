@@ -451,6 +451,29 @@ export interface CustomPlaneDefaults {
   margin_m?: number;
 }
 
+export const MAX_MARGIN_M = 10;
+export const ROOF_EDGE_KINDS: RoofEdgeKind[] = [
+  "faitage",
+  "egout",
+  "rive",
+  "noue",
+  "aretier",
+  "indefini",
+];
+
+/** Type d'arête sûr : toute valeur inconnue devient « indefini » (jamais de cast aveugle). */
+export function toRoofEdgeKind(value: unknown): RoofEdgeKind {
+  return typeof value === "string" && (ROOF_EDGE_KINDS as string[]).includes(value)
+    ? (value as RoofEdgeKind)
+    : "indefini";
+}
+
+/** Marge finie et bornée : NaN / Infinity / négatif retombent sur une valeur sûre. */
+export function safeMargin(value: unknown, fallback = 0): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return Math.min(MAX_MARGIN_M, Math.max(0, n));
+}
+
 /**
  * Lit une liste de pans dessinés depuis une valeur JSON quelconque.
  * Toute entrée dont le contour est invalide est ignorée : ni le navigateur ni
@@ -473,18 +496,27 @@ export function parseCustomPlanes(raw: unknown, defaults?: CustomPlaneDefaults):
       ring,
       tilt_deg: clampTilt(num(item.tilt_deg, defaults?.tilt_deg ?? 30)),
       azimuth_deg: normalizeAzimuth(num(item.azimuth_deg, 180)),
-      eave_height_m: num(item.eave_height_m, defaults?.eave_height_m ?? 3),
-      margin_m: Math.max(0, num(item.margin_m, defaults?.margin_m ?? 0.4)),
+      eave_height_m: Math.min(200, Math.max(0, num(item.eave_height_m, defaults?.eave_height_m ?? 3))),
+      margin_m: safeMargin(item.margin_m, defaults?.margin_m ?? 0.4),
       edge_margins: Array.isArray(item.edge_margins)
         ? item.edge_margins
-            .filter((m) => m && Number.isFinite(m.index))
+            .filter(
+              (m) =>
+                m &&
+                Number.isFinite(m.index) &&
+                Number.isInteger(Number(m.index)) &&
+                Number(m.index) >= 0 &&
+                // Une marge ne peut viser qu'une arête réellement présente.
+                Number(m.index) < ring.length,
+            )
             .map((m) => ({
               index: Number(m.index),
-              kind: (m.kind ?? "indefini") as RoofEdgeKind,
-              margin_m: Math.max(0, num(m.margin_m, 0)),
+              kind: toRoofEdgeKind(m.kind),
+              margin_m: safeMargin(m.margin_m, 0),
             }))
         : [],
     });
   }
   return out;
 }
+
