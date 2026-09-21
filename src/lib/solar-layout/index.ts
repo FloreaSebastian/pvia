@@ -206,6 +206,7 @@ function assemble(
   const planesUsed: LayoutPlane[] = [];
   const planesSkipped: LayoutPlane[] = [];
   const chosen: GridResult[] = [];
+  const constraints: string[] = [];
   let priorityCount = 0;
 
   for (const w of work) {
@@ -244,10 +245,21 @@ function assemble(
     priorityCount += pick.kept.filter((p) => p.priority).length;
     planesUsed.push(w.plane);
     chosen.push(pick.grid);
+    constraints.push(...w.area.notes);
+    for (const o of pick.grid.blocks.by_obstacle) {
+      constraints.push(
+        `${o.label} : ${o.count} emplacement${o.count > 1 ? "s" : ""} exclu${o.count > 1 ? "s" : ""}.`,
+      );
+    }
+    for (const z of pick.grid.blocks.by_zone) {
+      constraints.push(
+        `${z.label} : ${z.count} emplacement${z.count > 1 ? "s" : ""} exclu${z.count > 1 ? "s" : ""}.`,
+      );
+    }
     if (Number.isFinite(remaining)) remaining -= pick.kept.length;
   }
 
-  return { modules, priorityCount, planesUsed, planesSkipped, chosen };
+  return { modules, priorityCount, planesUsed, planesSkipped, chosen, constraints };
 }
 
 function uniqueOrientation(modules: LayoutModule[]): Orientation | "mixte" {
