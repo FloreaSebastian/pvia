@@ -6,18 +6,30 @@ import { useMemo } from "react";
 import type { ScenePlane, SceneObstacle } from "./scene-model";
 import type { PlacedModule } from "@/lib/solar/types";
 
+/** Panneau d'un aperçu de variante : affiché en pointillés, jamais enregistré. */
+export interface PlanPreviewModule {
+  id: string;
+  plane_key: string;
+  u: number;
+  v: number;
+  orientation: "portrait" | "paysage";
+}
+
 export function PlanView({
   plane,
   modules,
   obstacles,
   spec,
   onToggleModule,
+  preview,
 }: {
   plane: ScenePlane | null;
   modules: PlacedModule[];
   obstacles: SceneObstacle[];
   spec: { width_mm: number; height_mm: number } | undefined;
   onToggleModule: (id: string) => void;
+  /** Aperçu d'une variante en cours de comparaison (non persisté). */
+  preview?: PlanPreviewModule[] | null;
 }) {
   const view = useMemo(() => {
     if (!plane || plane.polygon.length < 3) return null;
