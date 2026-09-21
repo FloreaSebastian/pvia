@@ -359,8 +359,7 @@ export const saveSolarRoofPlanes = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    const model = await loadModelScoped(supabase, data.companyId, data.modelId);
-    assertGeometryVersion(model, data.expectedGeometryVersion ?? null);
+    await loadModelScoped(supabase, data.companyId, data.modelId);
 
     const keys = new Set<string>();
     for (const plane of data.planes) {
@@ -369,68 +368,49 @@ export const saveSolarRoofPlanes = createServerFn({ method: "POST" })
       if (keys.has(plane.key)) throw new Error("Deux pans portent le même identifiant.");
       keys.add(plane.key);
     }
-
-    const { data: buildings } = await supabase
-      .from("solar_buildings")
-      .select("*")
-      .eq("model_id", data.modelId)
-      .eq("company_id", data.companyId)
-      .limit(1);
-    let building = buildings?.[0] ?? null;
-    const params = readBuildingParams(building);
-
-    const payload = {
-      company_id: data.companyId,
-      model_id: data.modelId,
-      name: building?.name ?? "Bâtiment principal",
-      roof_type: params.roof_type,
-      wall_height_m: params.wall_height_m,
-      rotation_deg: params.azimuth_deg,
-      params: params as never,
-      geometry_mode: data.planes.length > 0 ? "polygon" : "parametric",
-      custom_planes: data.planes as never,
-      data_source: "manuel",
-    };
-
-    if (building) {
-      const { data: updated, error } = await supabase
-        .from("solar_buildings")
-        .update(payload)
-        .eq("id", building.id)
-        .eq("company_id", data.companyId)
-        .select("*")
-        .single();
-      if (error) throw new Error("Enregistrement de la toiture impossible.");
-      building = updated;
-    } else {
-      const { data: created, error } = await supabase
-        .from("solar_buildings")
-        .insert(payload)
-        .select("*")
-        .single();
-      if (error) throw new Error("Enregistrement de la toiture impossible.");
-      building = created;
+    if (data.planes.length === 0) {
+      throw new Error(
+        "Une toiture dessinée doit garder au moins un pan. Supprimez plutôt les panneaux posés si nécessaire.",
+      );
     }
 
-    const planes = await syncRoofPlanes(supabase, data.companyId, data.modelId, building, params);
-    for (const plane of planes) {
-      await setProvenance(supabase, data.companyId, data.modelId, {
-        entity_kind: "roof_plane",
-        entity_id: plane.id,
-        source_type: "MANUAL",
-        source_provider: "PVIA",
-        source_dataset: "Contour dessiné Solar Studio",
-      });
-    }
+    // Géométrie recalculée ici : le navigateur ne dicte jamais ce qui est écrit.
+    const rows = data.planes.map((p) => rpcPlaneRow(p as CustomRoofPlane));
 
-    await bumpGeometryVersion(supabase, data.companyId, data.modelId, userId);
+    const { error } = await supabase.rpc("solar_apply_roof_geometry", {
+      _company_id: data.companyId,
+      _model_id: data.modelId,
+      _expected_geometry_version: data.expectedGeometryVersion,
+      _mode: "polygon",
+      _allow_mode_switch: false,
+      _custom_planes: data.planes as never,
+      _planes: rows as never,
+    });
+    if (error) throw roofRpcError(error.message, "Enregistrement de la toiture impossible.");
+
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
+
+/** Ligne de pan telle qu'attendue par la transaction serveur. */
+function rpcPlaneRow(plane: CustomRoofPlane) {
+  const geo = planeFromCustom(plane);
+  return {
+    key: geo.key,
+    name: geo.name,
+    azimuth_deg: geo.azimuth_deg,
+    tilt_deg: geo.tilt_deg,
+    area_m2: geo.area_m2,
+    eave_height_m: geo.eave_height_m,
+    ridge_height_m: geo.ridge_height_m,
+    polygon: { key: geo.key, points: geo.polygon, frame: geo.frame },
+  };
+}
 
 /**
  * Passe une toiture paramétrique en contours éditables, sans rien détruire :
  * les paramètres d'origine restent enregistrés et les clés de pans sont
- * conservées, donc les implantations existantes ne sont pas orphelines.
+ * conservées (mise à jour par clé), donc les implantations existantes et leurs
+ * panneaux posés sont intégralement préservés.
  */
 export const convertRoofToEditable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -439,24 +419,14 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
       .object({
         companyId: z.string().uuid(),
         modelId: z.string().uuid(),
-        expectedGeometryVersion: z.number().int().optional(),
+        expectedGeometryVersion: z.number().int(),
       })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    const model = await loadModelScoped(supabase, data.companyId, data.modelId);
-    assertGeometryVersion(model, data.expectedGeometryVersion ?? null);
-
-    const { data: buildings } = await supabase
-      .from("solar_buildings")
-      .select("*")
-      .eq("model_id", data.modelId)
-      .eq("company_id", data.companyId)
-      .limit(1);
-    const building = buildings?.[0] ?? null;
-    if (!building) throw new Error("Aucune toiture à convertir.");
+    await loadModelScoped(supabase, data.companyId, data.modelId);
 
     const { data: rows } = await supabase
       .from("solar_roof_planes")
@@ -472,23 +442,18 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
     if (custom.length === 0)
       throw new Error("Les pans actuels ne peuvent pas être convertis en contours.");
 
-    const { data: updated, error } = await supabase
-      .from("solar_buildings")
-      .update({ geometry_mode: "polygon", custom_planes: custom as never })
-      .eq("id", building.id)
-      .eq("company_id", data.companyId)
-      .select("*")
-      .single();
-    if (error) throw new Error("Conversion impossible.");
+    const { error } = await supabase.rpc("solar_apply_roof_geometry", {
+      _company_id: data.companyId,
+      _model_id: data.modelId,
+      _expected_geometry_version: data.expectedGeometryVersion,
+      _mode: "polygon",
+      // Seule la conversion explicite autorise le passage en contours.
+      _allow_mode_switch: true,
+      _custom_planes: custom as never,
+      _planes: custom.map(rpcPlaneRow) as never,
+    });
+    if (error) throw roofRpcError(error.message, "Conversion impossible.");
 
-    await syncRoofPlanes(
-      supabase,
-      data.companyId,
-      data.modelId,
-      updated,
-      readBuildingParams(updated),
-    );
-    await bumpGeometryVersion(supabase, data.companyId, data.modelId, userId);
     await writeAuditLog({
       companyId: data.companyId,
       userId,
@@ -498,6 +463,7 @@ export const convertRoofToEditable = createServerFn({ method: "POST" })
     });
     return refreshSummary(supabase, data.companyId, data.modelId, userId);
   });
+
 
 /* -------------------------------- Obstacles ------------------------------- */
 
