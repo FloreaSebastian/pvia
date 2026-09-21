@@ -281,6 +281,8 @@ export function SmartLayoutPanel({
               value={module}
               disabled={disabled || busy}
               onChange={setModule}
+              open={pickerOpen}
+              onOpenChange={setPickerOpen}
             />
             {module && (
               <p className="text-xs text-muted-foreground">
@@ -289,7 +291,7 @@ export function SmartLayoutPanel({
             )}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" ref={constraintsRef}>
             <Label htmlFor="smart-rules">Profil de règles</Label>
             <Select value={profileId} onValueChange={setProfileId} disabled={disabled || busy}>
               <SelectTrigger id="smart-rules">
