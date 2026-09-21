@@ -138,7 +138,7 @@ export function generateLayouts(req: LayoutRequest): LayoutResult {
     const wanted = strategy === "maximum" || !isTargeted ? Infinity : targetModules;
     const a = assemble(work, wanted, strategy, spec, opts);
     if (a.modules.length === 0) return null;
-    return makeCandidate(role, strategy, a, spec, usableArea, targetPower, req);
+    return makeCandidate(role, strategy, a, spec, usableArea, targetPower);
   };
 
   const pool: LayoutCandidate[] = [];
@@ -295,7 +295,6 @@ function makeCandidate(
   spec: LayoutModuleSpec,
   usableArea: number,
   targetPower: number | null,
-  req: LayoutRequest,
 ): LayoutCandidate {
   const criteria = computeCriteria(a.modules, spec, usableArea, targetPower, a.priorityCount);
   const signature = placementSignature(a.modules);
