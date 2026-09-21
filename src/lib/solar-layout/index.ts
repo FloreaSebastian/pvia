@@ -313,13 +313,7 @@ function makeCandidate(
 
   // Contraintes réellement appliquées : issues des zones utiles et des
   // emplacements refusés, jamais d'une cause supposée.
-  const constraints: string[] = [];
-  for (const g of a.chosen) {
-    for (const o of g.by_obstacle_list()) constraints.push(o);
-  }
-  const areaNotes = new Set<string>();
-  for (const p of a.planesUsed) void p;
-  for (const g of a.chosen) void g;
+  const constraints = [...new Set(a.constraints)];
 
   const summary = buildSummary({
     role,
