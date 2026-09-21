@@ -165,6 +165,11 @@ function SolarStudioPage() {
   const [roofDirty, setRoofDirty] = useState(false);
   const roofHistory = useRef<CustomRoofPlane[][]>([]);
   const roofFuture = useRef<CustomRoofPlane[][]>([]);
+  // P0-B.1 : brouillon d'obstacle (type et propriétés choisis avant écriture)
+  // et sortie d'étape protégée quand des pans ne sont pas enregistrés.
+  const [obstacleDraft, setObstacleDraft] = useState<ObstacleDraft | null>(null);
+  const [pendingStep, setPendingStep] = useState<StudioStepId | null>(null);
+
 
   const applyPayload = useCallback((next: Payload) => {
     setPayload(next);
