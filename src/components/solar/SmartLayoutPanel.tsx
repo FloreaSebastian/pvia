@@ -233,8 +233,7 @@ export function SmartLayoutPanel({
             // Version de toiture du calcul : le serveur refuse si elle a bougé.
             geometryVersion: result.geometry_version,
             // Jeton du calcul : panneau, révision, règles, moteur et pans figés.
-            computeToken:
-              result.candidate_tokens[candidate.signature] ?? result.compute_token,
+            computeToken: result.candidate_tokens[candidate.signature] ?? result.compute_token,
             saveAsVariant: true,
             variantLabel: candidate.label,
           },
