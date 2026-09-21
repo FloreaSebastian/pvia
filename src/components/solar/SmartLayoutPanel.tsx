@@ -45,6 +45,12 @@ const TARGET_PRESETS = [
   { id: "custom", label: "Personnalisé", power: null },
 ] as const;
 
+/** Aperçu non persisté d'une variante, affiché sur le plan 2D. */
+export interface LayoutPreview {
+  signature: string;
+  modules: { id: string; plane_key: string; u: number; v: number; orientation: "portrait" | "paysage" }[];
+}
+
 export function SmartLayoutPanel({
   companyId,
   modelId,
@@ -53,6 +59,7 @@ export function SmartLayoutPanel({
   onApplied,
   onContextChange,
   onSaveActivity,
+  onPreview,
 }: {
   companyId: string | null;
   modelId: string;
@@ -67,6 +74,8 @@ export function SmartLayoutPanel({
   }) => void;
   /** Remonte l'état d'écriture (application d'une implantation) vers la barre haute. */
   onSaveActivity?: (state: { busy: boolean; error: boolean }) => void;
+  /** Aperçu de la variante sélectionnée : affichage seul, jamais écrit en base. */
+  onPreview?: (preview: LayoutPreview | null) => void;
 }) {
   const setupFn = useServerFn(getLayoutSetup);
   const computeFn = useServerFn(computeSmartLayout);
@@ -84,6 +93,8 @@ export function SmartLayoutPanel({
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  /** Numéro du calcul en cours : un résultat périmé n'écrase jamais un plus récent. */
+  const computeSeq = useRef(0);
 
   useEffect(() => {
     setPlaneIds((prev) => {
