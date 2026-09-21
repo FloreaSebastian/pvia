@@ -9,7 +9,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { Database } from "@/integrations/supabase/types";
 import {
   assertSolarManage,
   assertSolarMember,
@@ -22,11 +21,22 @@ import {
   MISSING_DIMENSIONS_MESSAGE,
   type ModuleSnapshot,
 } from "@/lib/solar/module-catalog";
-import { parseCustomPlanes, type CustomRoofPlane } from "@/lib/solar/polygon";
 import {
+  customPlaneMatchesPolygon,
+  parseCustomPlanes,
+  type CustomRoofPlane,
+} from "@/lib/solar/polygon";
+import {
+  applyLayoutRpcArgs,
+  buildArrayPayloads,
+  buildVariantPayload,
+  candidateToken,
+  computeContextToken,
   EMPTY_RULES_PROFILE,
   generateLayouts,
   validateLayout,
+  type ApplyVariantPayload,
+  type ComputeContext,
   type LayoutCandidate,
   type LayoutModule,
   type LayoutPlane,
@@ -34,6 +44,13 @@ import {
   type RulesProfile,
   LAYOUT_ENGINE_VERSION,
 } from "@/lib/solar-layout";
+
+/** Message unique lorsqu'une entrée du calcul a changé avant l'écriture. */
+const DRIFT_MESSAGE =
+  "Le panneau ou les règles ont changé depuis le calcul. Relancez le calcul des implantations.";
+
+/** Contour du pan désynchronisé des marges d'arête saisies : calcul refusé. */
+const DESYNC_MESSAGE = "La géométrie du pan est désynchronisée. Réenregistrez la toiture.";
 
 type SB = Parameters<typeof assertSolarMember>[0];
 
@@ -163,6 +180,12 @@ async function loadPlanes(
     idByKey.set(geo.key, row.id);
     nameByKey.set(geo.key, row.name);
     const custom = customByKey.get(geo.key);
+    // Les marges d'arête sont indexées sur le contour dessiné : si le contour
+    // enregistré du pan ne correspond plus exactement, on refuse le calcul
+    // plutôt que d'appliquer une marge à la mauvaise arête.
+    if (custom && !customPlaneMatchesPolygon(custom, geo.polygon)) {
+      throw new Error(DESYNC_MESSAGE);
+    }
     planes.push({
       key: geo.key,
       name: row.name,
@@ -350,6 +373,46 @@ export const deleteRulesProfile = createServerFn({ method: "POST" })
 
 /* ----------------------------- Calcul (aperçu) ---------------------------- */
 
+/**
+ * Contexte figé d'un calcul : toutes les entrées réellement utilisées.
+ * Reconstruit à l'identique au moment de l'application ; la moindre dérive
+ * (révision de panneau, dimensions, règles, version du moteur) change le jeton.
+ */
+function buildContext(i: {
+  geometryVersion: number;
+  geometryHash: string | null;
+  snapshot: ModuleSnapshot;
+  rules: RulesProfile;
+  rulesProfileId: string | null;
+  planePriority: string[];
+  target: z.infer<typeof TargetSchema>;
+  orientation: z.infer<typeof OrientationModeSchema>;
+  strategies?: z.infer<typeof StrategySchema>[];
+}): ComputeContext {
+  return {
+    geometry_version: i.geometryVersion,
+    geometry_hash: i.geometryHash,
+    module: {
+      variant_id: i.snapshot.variant_id,
+      revision_id: i.snapshot.revision_id ?? null,
+      width_mm: i.snapshot.width_mm,
+      height_mm: i.snapshot.height_mm,
+      depth_mm: i.snapshot.depth_mm ?? null,
+      power_wc: i.snapshot.power_wc,
+      manufacturer: i.snapshot.manufacturer,
+      model: i.snapshot.model,
+    },
+    rules_profile_id: i.rulesProfileId,
+    rules_profile_version: i.rules.version,
+    rules: i.rules,
+    engine_version: LAYOUT_ENGINE_VERSION,
+    plane_priority: i.planePriority,
+    target: i.target,
+    orientation: i.orientation,
+    ...(i.strategies?.length ? { strategies: i.strategies } : {}),
+  };
+}
+
 export const computeSmartLayout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => ComputeSchema.parse(i))
@@ -362,8 +425,11 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
       loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
     ]);
+    // Priorité explicite : l'ordre choisi par l'utilisateur, jamais implicite.
+    const planePriority = planes.map((p) => p.key);
     const result = generateLayouts({
       planes,
+      plane_priority: planePriority,
       module: spec,
       rules,
       target: data.target,
@@ -371,15 +437,37 @@ export const computeSmartLayout = createServerFn({ method: "POST" })
       ...(data.strategies?.length ? { strategies: data.strategies } : {}),
       max_variants: data.maxVariants,
     });
-    // Le client renverra ces références à l'application : toute dérive
-    // (toiture, obstacle, marge, panneau, profil) sera détectée côté serveur.
+    const ctx = buildContext({
+      geometryVersion: model.geometry_version,
+      geometryHash: model.geometry_hash ?? null,
+      snapshot,
+      rules,
+      rulesProfileId: data.rulesProfileId ?? null,
+      planePriority,
+      target: data.target,
+      orientation: data.orientation,
+      ...(data.strategies?.length ? { strategies: data.strategies } : {}),
+    });
+    const contextToken = computeContextToken(ctx);
+
+    // Le client renverra ce jeton à l'application : toute dérive (toiture,
+    // obstacle, marge, révision de panneau, règles) est détectée côté serveur.
     return {
       ...result,
       plane_names: Object.fromEntries(nameByKey),
       geometry_version: model.geometry_version,
+      geometry_hash: model.geometry_hash ?? null,
       module_snapshot: snapshot,
+      module_revision_id: snapshot.revision_id ?? null,
       rules_profile_id: rules.id,
       rules_profile_version: rules.version,
+      rules_snapshot: rules,
+      plane_priority: planePriority,
+      compute_token: contextToken,
+      /** Jeton exact à renvoyer pour appliquer une variante donnée. */
+      candidate_tokens: Object.fromEntries(
+        result.candidates.map((c) => [c.signature, candidateToken(contextToken, c.signature)]),
+      ),
     };
   });
 
@@ -394,6 +482,8 @@ const ApplySchema = ComputeSchema.extend({
   strategy: StrategySchema.optional(),
   /** Version de géométrie renvoyée par le calcul : obligatoire. */
   geometryVersion: z.number().int(),
+  /** Jeton du calcul : fige panneau, révision, règles, moteur et pans. */
+  computeToken: z.string().min(1).max(500),
   saveAsVariant: z.boolean().default(false),
   variantLabel: z.string().min(1).max(80).optional(),
 });
@@ -418,10 +508,29 @@ export const applySmartLayout = createServerFn({ method: "POST" })
       loadSpec(supabase, data.companyId, data.moduleVariantId),
       loadRules(supabase, data.companyId, data.rulesProfileId, data.rules),
     ]);
+    const planePriority = planes.map((p) => p.key);
+
+    // Contexte reconstruit depuis la base : révision de panneau, dimensions,
+    // puissance, règles (version ET contenu) et version du moteur compris.
+    const ctx = buildContext({
+      geometryVersion: model.geometry_version,
+      geometryHash: model.geometry_hash ?? null,
+      snapshot,
+      rules,
+      rulesProfileId: data.rulesProfileId ?? null,
+      planePriority,
+      target: data.target,
+      orientation: data.orientation,
+      ...(data.strategies?.length ? { strategies: data.strategies } : {}),
+    });
+    if (data.computeToken !== candidateToken(computeContextToken(ctx), data.signature)) {
+      throw new Error(DRIFT_MESSAGE);
+    }
 
     // Le moteur est rejoué côté serveur : le navigateur ne dicte pas la géométrie.
     const result = generateLayouts({
       planes,
+      plane_priority: planePriority,
       module: spec,
       rules,
       target: data.target,
@@ -440,23 +549,9 @@ export const applySmartLayout = createServerFn({ method: "POST" })
       );
     }
 
-    const variantId = data.saveAsVariant
-      ? await insertVariant(supabase, {
-          companyId: data.companyId,
-          modelId: data.modelId,
-          geometryVersion: model.geometry_version,
-          label: data.variantLabel ?? chosen.label,
-          candidate: chosen,
-          moduleVariantId: data.moduleVariantId,
-          rules,
-          rulesProfileId: data.rulesProfileId ?? null,
-          target: data.target,
-          orientation: data.orientation,
-          userId,
-        })
-      : null;
-
-    await writeLayout(supabase, {
+    // Variante et implantation partent dans LA MÊME transaction SQL :
+    // un échec d'écriture ne laisse jamais de variante orpheline.
+    const write = await writeLayout(supabase, {
       companyId: data.companyId,
       modelId: data.modelId,
       geometryVersion: data.geometryVersion ?? model.geometry_version,
@@ -467,17 +562,30 @@ export const applySmartLayout = createServerFn({ method: "POST" })
       idByKey,
       snapshot,
       rulesProfileId: data.rulesProfileId ?? null,
-      variantId,
+      variant: data.saveAsVariant
+        ? buildVariantPayload({
+            label: data.variantLabel ?? chosen.label,
+            candidate: chosen,
+            moduleVariantId: data.moduleVariantId,
+            snapshot,
+            rules,
+            rulesProfileId: data.rulesProfileId ?? null,
+            target: data.target,
+            orientation: data.orientation,
+          })
+        : null,
     });
 
-    // Historique « utilisés récemment » du catalogue.
-    await supabase.rpc("solar_catalog_touch_module", {
+    // Historique « utilisés récemment » : confort catalogue, hors cohérence
+    // de l'implantation. Son échec ne doit jamais annuler l'écriture.
+    const { error: touchError } = await supabase.rpc("solar_catalog_touch_module", {
       _company_id: data.companyId,
       _variant_id: data.moduleVariantId,
     });
+    if (touchError) console.warn("solar_catalog_touch_module", touchError.message);
 
     const summary = await refreshSummary(supabase, data.companyId, data.modelId, userId);
-    return { summary, candidate: chosen, result, variant_id: variantId };
+    return { summary, candidate: chosen, result, variant_id: write.variantId };
   });
 
 const ManualModuleSchema = z.object({
@@ -527,7 +635,7 @@ export const applyManualLayout = createServerFn({ method: "POST" })
       idByKey,
       snapshot,
       rulesProfileId: data.rulesProfileId ?? null,
-      variantId: null,
+      variant: null,
     });
 
     const summary = await refreshSummary(supabase, data.companyId, data.modelId, userId);
@@ -545,48 +653,30 @@ interface WriteArgs {
   idByKey: Map<string, string>;
   snapshot: ModuleSnapshot;
   rulesProfileId: string | null;
-  variantId: string | null;
+  /** Variante éventuelle : écrite DANS la même transaction que l'implantation. */
+  variant: ApplyVariantPayload | null;
 }
 
-async function writeLayout(sb: SB, args: WriteArgs) {
-  const validity = validateLayout(args.planes, args.modules, args.spec, args.rules);
-  const statusById = new Map(validity.map((v) => [v.module_id, v]));
-
-  const arrays = args.planes.map((plane) => {
-    const planeModules = args.modules.filter((m) => m.plane_key === plane.key);
-    return {
-      roof_plane_id: args.idByKey.get(plane.key),
-      module_variant_id: args.snapshot.variant_id,
-      module_revision_id: args.snapshot.revision_id,
-      module_snapshot: args.snapshot,
-      label: `Champ ${plane.name}`,
-      orientation: planeModules[0]?.orientation ?? "portrait",
-      row_gap_m: args.rules.row_gap_m,
-      col_gap_m: args.rules.col_gap_m,
-      rules_profile_id: args.rulesProfileId,
-      rules_profile_version: args.rules.version,
-      layout_engine_version: LAYOUT_ENGINE_VERSION,
-      variant_id: args.variantId,
-      params: { rules: args.rules },
-      modules: planeModules.map((m) => ({
-        grid_row: m.row,
-        grid_col: m.col,
-        local_u_m: m.u,
-        local_v_m: m.v,
-        orientation: m.orientation,
-        enabled: true,
-        validity_status: statusById.get(m.id)?.status ?? "valid",
-        validity_cause: statusById.get(m.id)?.cause ?? null,
-      })),
-    };
+async function writeLayout(sb: SB, args: WriteArgs): Promise<{ variantId: string | null }> {
+  const arrays = buildArrayPayloads({
+    planes: args.planes,
+    modules: args.modules,
+    spec: args.spec,
+    rules: args.rules,
+    idByKey: args.idByKey,
+    snapshot: args.snapshot,
+    rulesProfileId: args.rulesProfileId,
   });
 
-  const { error } = await sb.rpc("solar_apply_layout", {
-    _company_id: args.companyId,
-    _model_id: args.modelId,
-    _expected_geometry_version: args.geometryVersion,
-    _arrays: arrays as never,
+  const rpcArgs = applyLayoutRpcArgs({
+    companyId: args.companyId,
+    modelId: args.modelId,
+    geometryVersion: args.geometryVersion,
+    arrays,
+    variant: args.variant,
   });
+
+  const { data, error } = await sb.rpc("solar_apply_layout", rpcArgs as never);
   if (error) {
     if (error.message.includes("stale_geometry_version")) {
       throw new Error(
@@ -595,46 +685,8 @@ async function writeLayout(sb: SB, args: WriteArgs) {
     }
     throw new Error("Enregistrement de l'implantation impossible.");
   }
-}
-
-interface VariantArgs {
-  companyId: string;
-  modelId: string;
-  geometryVersion: number;
-  label: string;
-  candidate: LayoutCandidate;
-  moduleVariantId: string;
-  rules: RulesProfile;
-  rulesProfileId: string | null;
-  target: z.infer<typeof TargetSchema>;
-  orientation: z.infer<typeof OrientationModeSchema>;
-  userId: string;
-}
-
-async function insertVariant(sb: SB, a: VariantArgs): Promise<string | null> {
-  const row: Database["public"]["Tables"]["solar_layout_variants"]["Insert"] = {
-    company_id: a.companyId,
-    model_id: a.modelId,
-    geometry_version: a.geometryVersion,
-    label: a.label,
-    strategy: a.candidate.strategy,
-    orientation_mode: a.orientation,
-    target_mode: a.target.mode,
-    ...(a.target.power_kwc !== undefined ? { target_power_kwc: a.target.power_kwc } : {}),
-    module_variant_id: a.moduleVariantId,
-    rules_profile_id: a.rulesProfileId,
-    rules_profile_version: a.rules.version,
-    rules_snapshot: a.rules as never,
-    layout_engine_version: a.candidate.engine_version,
-    module_count: a.candidate.modules.length,
-    power_kwc: a.candidate.power_kwc,
-    criteria: a.candidate.criteria as never,
-    modules: a.candidate.modules as never,
-    created_by: a.userId,
-  };
-  const { data, error } = await sb.from("solar_layout_variants").insert(row).select("id").single();
-  if (error) return null;
-  return data.id;
+  const variantId = (data as { variant_id?: string | null } | null)?.variant_id ?? null;
+  return { variantId };
 }
 
 export const listLayoutVariants = createServerFn({ method: "POST" })
