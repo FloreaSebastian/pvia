@@ -195,6 +195,8 @@ function SolarStudioPage() {
   // P0-B.1 : brouillon d'obstacle (type et propriétés choisis avant écriture)
   // et sortie d'étape protégée quand des pans ne sont pas enregistrés.
   const [obstacleDraft, setObstacleDraft] = useState<ObstacleDraft | null>(null);
+  /** Aperçu de la variante comparée : affichage seul, jamais enregistré. */
+  const [layoutPreview, setLayoutPreview] = useState<LayoutPreview | null>(null);
   const [pendingStep, setPendingStep] = useState<StudioStepId | null>(null);
 
   const applyPayload = useCallback((next: Payload) => {
@@ -702,6 +704,7 @@ function SolarStudioPage() {
                 obstacles={scene?.obstacles ?? []}
                 spec={specForPlane}
                 onToggleModule={onToggleModuleAt}
+                preview={step === "implantation" ? (layoutPreview?.modules ?? null) : null}
               />
             </div>
           )}
