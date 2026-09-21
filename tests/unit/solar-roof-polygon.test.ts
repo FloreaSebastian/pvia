@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clampTilt,
+  customPlaneMatchesPolygon,
   customPlanesFromGeometry,
   edgeLengths,
   groundToPlaneUv,
@@ -367,5 +368,34 @@ describe("lecture défensive des pans enregistrés (P0-B.1)", () => {
       expect(e.margin_m).toBeLessThanOrEqual(10);
       expect(e.kind).toBe("indefini");
     }
+  });
+});
+
+/**
+ * P0-C.1 — les marges par arête viennent du pan personnalisé, le contour utilisé
+ * par le moteur vient du pan enregistré : toute divergence appliquerait une marge
+ * à la mauvaise arête. Le calcul doit être refusé, jamais deviné.
+ */
+describe("P0-C.1 — cohérence contour / marges par arête", () => {
+  it("accepte un contour identique", () => {
+    const geo = planeFromCustom(plane());
+    expect(customPlaneMatchesPolygon(plane(), geo.polygon)).toBe(true);
+  });
+
+  it("refuse un nombre de sommets différent", () => {
+    const geo = planeFromCustom(plane());
+    expect(customPlaneMatchesPolygon(plane(), geo.polygon.slice(0, 3))).toBe(false);
+  });
+
+  it("refuse un ordre de sommets différent", () => {
+    const geo = planeFromCustom(plane());
+    const rotated = [...geo.polygon.slice(1), geo.polygon[0]!];
+    expect(customPlaneMatchesPolygon(plane(), rotated)).toBe(false);
+  });
+
+  it("refuse un sommet déplacé au-delà de la tolérance", () => {
+    const geo = planeFromCustom(plane());
+    const moved = geo.polygon.map((p, i) => (i === 2 ? { x: p.x + 0.5, y: p.y } : p));
+    expect(customPlaneMatchesPolygon(plane(), moved)).toBe(false);
   });
 });
