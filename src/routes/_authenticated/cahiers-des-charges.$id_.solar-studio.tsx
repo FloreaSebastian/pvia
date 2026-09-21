@@ -67,7 +67,7 @@ import { RoofPlanesPanel } from "@/components/solar/roof/RoofEditor";
 import type { RoofDrawTool } from "@/components/solar/map/GoogleMapView";
 import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
-import { SmartLayoutPanel } from "@/components/solar/SmartLayoutPanel";
+import { SmartLayoutPanel, type LayoutPreview } from "@/components/solar/SmartLayoutPanel";
 import { SitePanel } from "@/components/solar/SitePanel";
 import { SiteMapCard } from "@/components/solar/map/SiteMapCard";
 import { StepRail } from "@/components/solar/studio/StepRail";
