@@ -1142,8 +1142,8 @@ function SolarStudioPage() {
             setRoofPlanes(
               parseCustomPlanes(payload.building?.custom_planes, {
                 tilt_deg: params.tilt_deg,
-                azimuth_deg: params.azimuth_deg,
                 eave_height_m: params.wall_height_m,
+
               }),
             );
             setRoofDirty(false);
