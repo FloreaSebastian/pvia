@@ -290,7 +290,7 @@ describe("contours dégénérés refusés (P0-B.1)", () => {
       { x: 8, y: 0 },
       { x: 0, y: 6 },
     ];
-    expect(validateRoofRing(ring).ok).toBe(false);
+    expect(validateRoofRing(ring).valid).toBe(false);
   });
 
   it("refuse un contour qui se pince sur un sommet dupliqué non adjacent", () => {
@@ -302,7 +302,7 @@ describe("contours dégénérés refusés (P0-B.1)", () => {
       { x: -6, y: 6 },
       { x: -6, y: 0 },
     ];
-    expect(validateRoofRing(ring).ok).toBe(false);
+    expect(validateRoofRing(ring).valid).toBe(false);
   });
 
   it("accepte un contour simple concave", () => {
@@ -313,7 +313,7 @@ describe("contours dégénérés refusés (P0-B.1)", () => {
       { x: 5, y: 4 },
       { x: 0, y: 8 },
     ];
-    expect(validateRoofRing(ring).ok).toBe(true);
+    expect(validateRoofRing(ring).valid).toBe(true);
   });
 });
 
@@ -327,7 +327,14 @@ describe("lecture défensive des pans enregistrés (P0-B.1)", () => {
 
   it("ignore un pan dont le contour est invalide", () => {
     const parsed = parseCustomPlanes([
-      { key: "p1", name: "Pan 1", ring: [{ x: 0, y: 0 }, { x: 1, y: 1 }] },
+      {
+        key: "p1",
+        name: "Pan 1",
+        ring: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+      },
       { key: "p2", name: "Pan 2", ring },
     ]);
     expect(parsed.map((p) => p.key)).toEqual(["p2"]);
