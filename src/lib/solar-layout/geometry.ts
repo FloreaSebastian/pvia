@@ -169,6 +169,20 @@ function segmentsIntersect(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
   return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0));
 }
 
+/** Contour qui se croise lui-même : aucune zone utile fiable n'en découle. */
+export function selfIntersects(poly: Pt[]): boolean {
+  const n = poly.length;
+  if (n < 4) return false;
+  for (let i = 0; i < n; i += 1) {
+    for (let j = i + 1; j < n; j += 1) {
+      // Les arêtes adjacentes partagent un sommet : ce n'est pas un croisement.
+      if (j === i || (j + 1) % n === i || (i + 1) % n === j) continue;
+      if (segmentsIntersect(poly[i]!, poly[(i + 1) % n]!, poly[j]!, poly[(j + 1) % n]!)) return true;
+    }
+  }
+  return false;
+}
+
 /** Le rectangle touche-t-il le polygone (intersection non vide) ? */
 export function rectIntersectsPolygon(r: Rect, poly: Pt[]): boolean {
   if (poly.length < 3) return false;
