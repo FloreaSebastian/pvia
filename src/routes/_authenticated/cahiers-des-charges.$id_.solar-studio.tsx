@@ -79,6 +79,12 @@ import {
   type ManualEditorState,
 } from "@/components/solar/manual/ManualLayoutEditor";
 import { ManualSelectionPanel } from "@/components/solar/manual/ManualSelectionPanel";
+import {
+  decideLeaveStudio,
+  decideStepChange,
+  resolveManualLeave,
+  shouldWarnBeforeUnload,
+} from "@/lib/solar-layout/exit-guard";
 
 const SolarScene = lazy(() => import("@/components/solar/SolarScene"));
 
