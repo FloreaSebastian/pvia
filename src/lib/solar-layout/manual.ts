@@ -430,6 +430,18 @@ export function snapDelta(
     centerV: box.centerV + dv,
   };
 
+  const best = (
+    candidates: { from: number; to: number }[],
+  ): { delta: number; value: number } | null => {
+    let out: { delta: number; value: number } | null = null;
+    for (const c of candidates) {
+      const d = c.to - c.from;
+      if (Math.abs(d) > tol) continue;
+      if (!out || Math.abs(d) < Math.abs(out.delta)) out = { delta: d, value: c.to };
+    }
+    return out;
+  };
+
   const candU: { from: number; to: number }[] = [];
   const candV: { from: number; to: number }[] = [];
   const gapU = Math.max(0, ctx.rules.col_gap_m);
