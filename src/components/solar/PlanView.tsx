@@ -95,8 +95,29 @@ export function PlanView({
               fill={m.enabled ? "#12203a" : "#94a3b8"}
               stroke="#0ea5e9"
               strokeWidth={0.02}
+              // L'implantation enregistrée s'efface derrière l'aperçu comparé.
+              opacity={hasPreview ? 0.25 : 1}
               className="cursor-pointer"
               onClick={() => onToggleModule(m.id)}
+            />
+          );
+        })}
+      {spec &&
+        previewModules.map((m) => {
+          const w = (m.orientation === "portrait" ? spec.width_mm : spec.height_mm) / 1000;
+          const h = (m.orientation === "portrait" ? spec.height_mm : spec.width_mm) / 1000;
+          return (
+            <rect
+              key={`preview-${m.id}`}
+              x={m.u - w / 2}
+              y={m.v - h / 2}
+              width={w * 0.96}
+              height={h * 0.96}
+              fill="none"
+              stroke="#22c55e"
+              strokeWidth={0.05}
+              strokeDasharray="0.18 0.12"
+              pointerEvents="none"
             />
           );
         })}
