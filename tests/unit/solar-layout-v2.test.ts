@@ -151,7 +151,7 @@ describe("P0-C — zone utile et marges par arête", () => {
         {
           id: "passage",
           label: "Passage de maintenance",
-          kind: "walkway",
+          type: "passage",
           polygon: [
             { x: 0, y: 3.5 },
             { x: 12, y: 3.5 },
@@ -194,9 +194,10 @@ describe("P0-C — pans, priorité et variantes", () => {
     expect(reco.target_met).toBe(true);
   });
 
-  it("Maximum exploite le potentiel de tous les pans sélectionnés", () => {
+  it("une variante atteint le maximum réel sur tous les pans sélectionnés", () => {
     const res = generateLayouts(request({ planes: twoPlanes }));
-    const max = res.candidates.find((c) => c.role === "maximum")!;
+    // Si Maximum est identique à Recommandée, la dédup garde le premier rôle : pas de doublon inventé.
+    const max = res.candidates.reduce((a, b) => (b.modules.length > a.modules.length ? b : a));
     expect(max.modules.length).toBe(res.max_modules);
     expect(max.planes_used.length).toBe(2);
   });
