@@ -102,6 +102,33 @@ export const Route = createFileRoute("/_authenticated/cahiers-des-charges/$id_/s
 type Payload = NonNullable<SolarModelPayload>;
 type LayoutContext = { targetKwc: number | null; moduleSelected: boolean; planeNames: string[] };
 
+/** Emprise tracée sur la carte, en attente du choix de type et de propriétés. */
+type ObstacleDraft = {
+  roofPlaneId: string;
+  planeName: string;
+  position_x_m: number;
+  position_y_m: number;
+  width_m: number;
+  length_m: number;
+};
+type ObstacleDraftValues = {
+  obstacle_type: ObstacleType;
+  label: string;
+  height_m: number;
+  clearance_m: number;
+};
+
+/** Types proposés au tracé d'une emprise sur la carte. */
+const DRAFT_OBSTACLE_TYPES: ObstacleType[] = [
+  "velux",
+  "cheminee",
+  "vmc",
+  "acrotere",
+  "climatisation",
+  "autre",
+];
+
+
 function SolarStudioPage() {
   const { id } = useParams({ from: "/_authenticated/cahiers-des-charges/$id_/solar-studio" });
   const { activeCompanyId: companyId, activeRole } = useCompany();
