@@ -52,6 +52,8 @@ export function PlanView({
   }
 
   const planeModules = modules.filter((m) => m.roof_plane_key === plane.key);
+  const previewModules = (preview ?? []).filter((m) => m.plane_key === plane.key);
+  const hasPreview = previewModules.length > 0;
 
   return (
     <svg
