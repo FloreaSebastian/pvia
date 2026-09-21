@@ -102,6 +102,33 @@ export const Route = createFileRoute("/_authenticated/cahiers-des-charges/$id_/s
 type Payload = NonNullable<SolarModelPayload>;
 type LayoutContext = { targetKwc: number | null; moduleSelected: boolean; planeNames: string[] };
 
+/** Emprise tracée sur la carte, en attente du choix de type et de propriétés. */
+type ObstacleDraft = {
+  roofPlaneId: string;
+  planeName: string;
+  position_x_m: number;
+  position_y_m: number;
+  width_m: number;
+  length_m: number;
+};
+type ObstacleDraftValues = {
+  obstacle_type: ObstacleType;
+  label: string;
+  height_m: number;
+  clearance_m: number;
+};
+
+/** Types proposés au tracé d'une emprise sur la carte. */
+const DRAFT_OBSTACLE_TYPES: ObstacleType[] = [
+  "velux",
+  "cheminee",
+  "ventilation",
+  "mur",
+  "climatisation",
+  "chien_assis",
+  "autre",
+];
+
 function SolarStudioPage() {
   const { id } = useParams({ from: "/_authenticated/cahiers-des-charges/$id_/solar-studio" });
   const { activeCompanyId: companyId, activeRole } = useCompany();
@@ -165,6 +192,10 @@ function SolarStudioPage() {
   const [roofDirty, setRoofDirty] = useState(false);
   const roofHistory = useRef<CustomRoofPlane[][]>([]);
   const roofFuture = useRef<CustomRoofPlane[][]>([]);
+  // P0-B.1 : brouillon d'obstacle (type et propriétés choisis avant écriture)
+  // et sortie d'étape protégée quand des pans ne sont pas enregistrés.
+  const [obstacleDraft, setObstacleDraft] = useState<ObstacleDraft | null>(null);
+  const [pendingStep, setPendingStep] = useState<StudioStepId | null>(null);
 
   const applyPayload = useCallback((next: Payload) => {
     setPayload(next);
@@ -194,6 +225,17 @@ function SolarStudioPage() {
       cancelled = true;
     };
   }, [companyId, id, load, applyPayload]);
+
+  // Fermeture d'onglet avec des contours non enregistrés : avertissement natif.
+  useEffect(() => {
+    if (!roofDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [roofDirty]);
 
   const guard = async (fn: () => Promise<Payload>, success?: string) => {
     if (!canWrite) {
@@ -260,6 +302,13 @@ function SolarStudioPage() {
 
   /* ----------------------------- Toiture P0-B ---------------------------- */
 
+  /**
+   * Un bâtiment encore décrit par ses dimensions ne peut pas recevoir de contour
+   * dessiné : il faut d'abord la conversion explicite, qui conserve les pans et
+   * l'implantation. Le serveur applique la même règle.
+   */
+  const polygonMode = payload?.building?.geometry_mode === "polygon";
+
   /** Enregistre le jeu complet de pans dessinés : écriture atomique côté serveur. */
   const persistRoofPlanes = async (planes: CustomRoofPlane[], success?: string) => {
     if (!companyId || !payload) return;
@@ -311,6 +360,14 @@ function SolarStudioPage() {
   /** Nouveau pan dessiné : nommage automatique, pente/orientation par défaut. */
   const handlePlaneDrawn = (ring: LocalPoint[]) => {
     if (!payload) return;
+    if (!polygonMode) {
+      setRoofTool("select");
+      toast.error(
+        "Convertissez d'abord la toiture en contours éditables : la conversion conserve les pans et l'implantation.",
+      );
+      return;
+    }
+
     const key = nextPlaneKey([
       ...roofPlanes.map((p) => p.key),
       ...payload.planes.map((p) => p.key),
@@ -341,7 +398,10 @@ function SolarStudioPage() {
     );
   };
 
-  /** Emprise d'obstacle tracée sur la carte, rapportée au pan sélectionné. */
+  /**
+   * Emprise d'obstacle tracée sur la carte : on prépare un brouillon, rien n'est
+   * enregistré tant que l'utilisateur n'a pas choisi le type et les propriétés.
+   */
   const handleObstacleDrawn = (ring: LocalPoint[]) => {
     if (!companyId || !payload) return;
     const plane = roofPlanes.find((p) => p.key === selectedPlaneKey);
@@ -359,26 +419,42 @@ function SolarStudioPage() {
       toast.error("Emprise trop petite : agrandissez le rectangle de l'obstacle.");
       return;
     }
+    setObstacleDraft({
+      roofPlaneId: planeRow.id,
+      planeName: planeRow.name,
+      position_x_m: (Math.max(...us) + Math.min(...us)) / 2,
+      position_y_m: (Math.max(...vs) + Math.min(...vs)) / 2,
+      width_m: Math.min(100, width),
+      length_m: Math.min(100, length),
+    });
+    setRoofTool("select");
+  };
+
+  /** Le brouillon d'obstacle n'est écrit qu'après validation explicite. */
+  const commitObstacleDraft = (values: ObstacleDraftValues) => {
+    if (!companyId || !payload || !obstacleDraft) return;
+    const draft = obstacleDraft;
+    setObstacleDraft(null);
     void guard(
       async () =>
         (await saveObstacle({
           data: {
             companyId,
             modelId: payload.model.id,
-            roofPlaneId: planeRow.id,
-            obstacle_type: "autre",
-            label: "Obstacle",
-            position_x_m: (Math.max(...us) + Math.min(...us)) / 2,
-            position_y_m: (Math.max(...vs) + Math.min(...vs)) / 2,
-            width_m: Math.min(100, width),
-            length_m: Math.min(100, length),
-            height_m: 0.5,
-            clearance_m: 0.3,
+            roofPlaneId: draft.roofPlaneId,
+            obstacle_type: values.obstacle_type,
+            label: values.label || OBSTACLE_META[values.obstacle_type].label,
+            position_x_m: draft.position_x_m,
+            position_y_m: draft.position_y_m,
+            width_m: draft.width_m,
+            length_m: draft.length_m,
+            height_m: values.height_m,
+            clearance_m: values.clearance_m,
+            expectedGeometryVersion: payload.model.geometry_version,
           },
         })) as Payload,
-      "Obstacle ajouté. Précisez son type dans la liste.",
+      "Obstacle ajouté.",
     );
-    setRoofTool("select");
   };
 
   const handleLayoutContext = useCallback((ctx: LayoutContext) => {
@@ -480,16 +556,26 @@ function SolarStudioPage() {
 
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
-  // Agrégation : une écriture d'un panneau enfant doit se voir dans la barre haute.
+  // Agrégation : une écriture d'un panneau enfant doit se voir dans la barre haute,
+  // tout comme des contours de toiture modifiés mais pas encore enregistrés.
   const saveState: SaveState =
     busy || childBusy
       ? "enregistrement"
       : saveError || childError
         ? "erreur"
-        : dirty
+        : dirty || roofDirty
           ? "modifie"
           : "enregistre";
   const showPlanView = step === "modules" || step === "implantation";
+
+  /** Changement d'étape : on protège des contours de toiture non enregistrés. */
+  const requestStep = (next: StudioStepId) => {
+    if (next !== "toiture" && roofDirty) {
+      setPendingStep(next);
+      return;
+    }
+    setStep(next);
+  };
 
   const onToggleModuleAt = (moduleId: string) => {
     const current = payload.modules.find((m) => m.id === moduleId);
@@ -516,15 +602,23 @@ function SolarStudioPage() {
         onModeChange={setMode}
         visualMode={visualMode}
         onVisualModeChange={setVisualMode}
-        canUndo={!busy && history.current.length > 0}
-        canRedo={!busy && future.current.length > 0}
-        onUndo={() => void undo()}
-        onRedo={() => void redo()}
+        canUndo={
+          step === "toiture"
+            ? roofHistory.current.length > 0 && !busy
+            : !busy && history.current.length > 0
+        }
+        canRedo={
+          step === "toiture"
+            ? roofFuture.current.length > 0 && !busy
+            : !busy && future.current.length > 0
+        }
+        onUndo={() => (step === "toiture" ? undoRoof() : void undo())}
+        onRedo={() => (step === "toiture" ? redoRoof() : void redo())}
         help={currentStep.hint}
       />
 
       <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
-        <StepRail steps={steps} activeStep={step} onSelect={setStep} />
+        <StepRail steps={steps} activeStep={step} onSelect={requestStep} />
 
         {/* Canevas prioritaire */}
         <main className="flex min-h-[48vh] min-w-0 flex-1 flex-col xl:min-h-0">
@@ -561,6 +655,9 @@ function SolarStudioPage() {
                             ring: p.ring,
                           })),
                           disabled: !canWrite || busy,
+                          canDraw: polygonMode,
+                          drawLockedReason:
+                            "Toiture décrite par ses dimensions : convertissez-la en contours éditables pour dessiner. Les pans et l'implantation existants sont conservés.",
                           canUndo: roofHistory.current.length > 0 && !busy,
                           canRedo: roofFuture.current.length > 0 && !busy,
                           onUndo: undoRoof,
@@ -586,6 +683,14 @@ function SolarStudioPage() {
                   )}
                 </Suspense>
               </ClientOnly>
+            )}
+
+            {obstacleDraft && (
+              <ObstacleDraftCard
+                draft={obstacleDraft}
+                onCancel={() => setObstacleDraft(null)}
+                onConfirm={commitObstacleDraft}
+              />
             )}
           </div>
 
@@ -879,7 +984,12 @@ function SolarStudioPage() {
                     void guard(
                       async () =>
                         (await saveObstacle({
-                          data: { companyId, modelId: payload.model.id, ...values },
+                          data: {
+                            companyId,
+                            modelId: payload.model.id,
+                            ...values,
+                            expectedGeometryVersion: payload.model.geometry_version,
+                          },
                         })) as Payload,
                       "Obstacle ajouté.",
                     )
@@ -889,7 +999,12 @@ function SolarStudioPage() {
                     void guard(
                       async () =>
                         (await removeObstacle({
-                          data: { companyId, modelId: payload.model.id, obstacleId },
+                          data: {
+                            companyId,
+                            modelId: payload.model.id,
+                            obstacleId,
+                            expectedGeometryVersion: payload.model.geometry_version,
+                          },
                         })) as Payload,
                       "Obstacle supprimé.",
                     )
@@ -1013,8 +1128,152 @@ function SolarStudioPage() {
           </p>
         </ContextPanel>
       </div>
+
+      {pendingStep && (
+        <LeaveRoofDialog
+          busy={busy}
+          onSave={async () => {
+            const target = pendingStep;
+            setPendingStep(null);
+            await persistRoofPlanes(roofPlanes, "Toiture enregistrée.");
+            setStep(target);
+          }}
+          onDiscard={() => {
+            const target = pendingStep;
+            setPendingStep(null);
+            setRoofPlanes(
+              parseCustomPlanes(payload.building?.custom_planes, {
+                tilt_deg: params.tilt_deg,
+                eave_height_m: params.wall_height_m,
+              }),
+            );
+            setRoofDirty(false);
+            setStep(target);
+          }}
+          onStay={() => setPendingStep(null)}
+        />
+      )}
       <p className="sr-only">{historyTick}</p>
     </div>
+  );
+}
+
+/** Sortie de l'étape Toiture avec des contours non enregistrés. */
+function LeaveRoofDialog({
+  busy,
+  onSave,
+  onDiscard,
+  onStay,
+}: {
+  busy: boolean;
+  onSave: () => void;
+  onDiscard: () => void;
+  onStay: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Modifications de toiture non enregistrées"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4"
+    >
+      <Card className="w-full max-w-sm space-y-3 p-4">
+        <p className="text-sm font-semibold">Contours de toiture non enregistrés</p>
+        <p className="text-xs text-muted-foreground">
+          Vos modifications de contours ne sont pas encore enregistrées. Que souhaitez-vous faire ?
+        </p>
+        <div className="flex flex-col gap-2">
+          <Button className="min-h-11" disabled={busy} onClick={onSave}>
+            Enregistrer et continuer
+          </Button>
+          <Button variant="outline" className="min-h-11" disabled={busy} onClick={onDiscard}>
+            Abandonner les modifications
+          </Button>
+          <Button variant="ghost" className="min-h-11" onClick={onStay}>
+            Rester sur la toiture
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** Choix du type et des propriétés avant l'enregistrement d'un obstacle tracé. */
+function ObstacleDraftCard({
+  draft,
+  onConfirm,
+  onCancel,
+}: {
+  draft: ObstacleDraft;
+  onConfirm: (values: ObstacleDraftValues) => void;
+  onCancel: () => void;
+}) {
+  const [type, setType] = useState<ObstacleType>("velux");
+  const [label, setLabel] = useState("");
+  const [height, setHeight] = useState(OBSTACLE_META["velux"].defaultHeight);
+  const [clearance, setClearance] = useState(0.3);
+
+  return (
+    <Card className="absolute bottom-3 left-3 z-30 w-[min(20rem,calc(100%-1.5rem))] space-y-2 p-3 shadow-lg">
+      <p className="text-sm font-semibold">Nouvel obstacle sur {draft.planeName}</p>
+      <p className="text-xs text-muted-foreground">
+        {draft.width_m.toFixed(2)} × {draft.length_m.toFixed(2)} m — précisez le type avant
+        enregistrement.
+      </p>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Type</Label>
+        <Select
+          value={type}
+          onValueChange={(v) => {
+            const next = v as ObstacleType;
+            setType(next);
+            setHeight(OBSTACLE_META[next].defaultHeight);
+          }}
+        >
+          <SelectTrigger className="min-h-11">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DRAFT_OBSTACLE_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>
+                {OBSTACLE_META[t].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Nom (facultatif)</Label>
+        <Input
+          className="min-h-11"
+          value={label}
+          placeholder={OBSTACLE_META[type].label}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumField label="Hauteur (m)" value={height} step={0.1} onChange={setHeight} />
+        <NumField label="Marge (m)" value={clearance} step={0.1} onChange={setClearance} />
+      </div>
+      <div className="flex gap-2">
+        <Button
+          className="min-h-11 flex-1"
+          onClick={() =>
+            onConfirm({
+              obstacle_type: type,
+              label: label.trim(),
+              height_m: Math.max(0, Math.min(50, height)),
+              clearance_m: Math.max(0, Math.min(10, clearance)),
+            })
+          }
+        >
+          Ajouter
+        </Button>
+        <Button variant="ghost" className="min-h-11" onClick={onCancel}>
+          Annuler
+        </Button>
+      </div>
+    </Card>
   );
 }
 

@@ -56,6 +56,9 @@ export interface RoofEditorBinding {
   onToolChange: (tool: RoofDrawTool) => void;
   editableRings: EditableRing[];
   disabled: boolean;
+  /** Faux tant que la toiture n'a pas été convertie en contours éditables. */
+  canDraw: boolean;
+  drawLockedReason?: string;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -366,7 +369,8 @@ export function SiteMapCard({
                   onRedo={roofEditor.onRedo}
                   onRecenter={() => setRecenterSignal((n) => n + 1)}
                   disabled={roofEditor.disabled}
-                  issue={drawIssue}
+                  drawDisabled={!roofEditor.canDraw}
+                  issue={drawIssue ?? (roofEditor.canDraw ? null : roofEditor.drawLockedReason)}
                 />
               )}
               {keyState === "loading" ? (

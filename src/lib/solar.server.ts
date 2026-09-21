@@ -118,11 +118,6 @@ export function readCustomPlanes(row: SolarBuildingRow | null): CustomRoofPlane[
   });
 }
 
-/** Le bâtiment utilise-t-il des pans dessinés plutôt que la toiture paramétrique ? */
-export function isPolygonMode(row: SolarBuildingRow | null): boolean {
-  return row?.geometry_mode === "polygon" && readCustomPlanes(row).length > 0;
-}
-
 /** Géométrie d'un pan telle que stockée : { key, points, frame }. */
 export function planeGeometryFromRow(row: SolarRoofPlaneRow): RoofPlaneGeometry | null {
   const raw = row.polygon as unknown as {

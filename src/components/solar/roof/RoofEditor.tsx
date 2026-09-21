@@ -71,6 +71,8 @@ interface ToolbarProps {
   onRedo: () => void;
   onRecenter: () => void;
   disabled?: boolean;
+  /** Dessin verrouillé : toiture encore paramétrique, conversion requise. */
+  drawDisabled?: boolean;
   issue?: string | null;
 }
 
@@ -85,25 +87,33 @@ export function RoofToolbar({
   onRedo,
   onRecenter,
   disabled = false,
+  drawDisabled = false,
   issue,
 }: ToolbarProps) {
-  const item = (key: RoofDrawTool, label: string, Icon: typeof MousePointer2) => (
-    <Button
-      key={key}
-      type="button"
-      size="sm"
-      variant={tool === key && !measuring ? "default" : "secondary"}
-      className="h-11 min-w-11 px-2"
-      aria-pressed={tool === key && !measuring}
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={() => onToolChange(key)}
-    >
-      <Icon className="h-4 w-4" />
-      <span className="ml-1 hidden text-xs sm:inline">{label}</span>
-    </Button>
-  );
+  const item = (key: RoofDrawTool, label: string, Icon: typeof MousePointer2) => {
+    const locked = disabled || (drawDisabled && key !== "select");
+    return (
+      <Button
+        key={key}
+        type="button"
+        size="sm"
+        variant={tool === key && !measuring ? "default" : "secondary"}
+        className="h-11 min-w-11 px-2"
+        aria-pressed={tool === key && !measuring}
+        aria-label={label}
+        title={
+          drawDisabled && key !== "select"
+            ? "Convertissez d'abord la toiture en contours éditables"
+            : label
+        }
+        disabled={locked}
+        onClick={() => onToolChange(key)}
+      >
+        <Icon className="h-4 w-4" />
+        <span className="ml-1 hidden text-xs sm:inline">{label}</span>
+      </Button>
+    );
+  };
 
   return (
     <div className="pointer-events-none absolute left-2 top-2 z-20 flex max-w-[calc(100%-1rem)] flex-col gap-1">

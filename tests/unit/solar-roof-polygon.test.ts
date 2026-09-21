@@ -277,3 +277,95 @@ describe("nommage des pans", () => {
     expect(nextPlaneName(["Pan 1", "Pan 3"])).toBe("Pan 2");
   });
 });
+
+/* --------------------------- Durcissement P0-B.1 -------------------------- */
+
+describe("contours dégénérés refusés (P0-B.1)", () => {
+  it("refuse deux arêtes colinéaires non adjacentes qui se recouvrent", () => {
+    const ring = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 4 },
+      { x: 4, y: 0 },
+      { x: 8, y: 0 },
+      { x: 0, y: 6 },
+    ];
+    expect(validateRoofRing(ring).valid).toBe(false);
+  });
+
+  it("refuse un contour qui se pince sur un sommet dupliqué non adjacent", () => {
+    const ring = [
+      { x: 0, y: 0 },
+      { x: 6, y: 0 },
+      { x: 6, y: 6 },
+      { x: 0, y: 0 },
+      { x: -6, y: 6 },
+      { x: -6, y: 0 },
+    ];
+    expect(validateRoofRing(ring).valid).toBe(false);
+  });
+
+  it("accepte un contour simple concave", () => {
+    const ring = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 8 },
+      { x: 5, y: 4 },
+      { x: 0, y: 8 },
+    ];
+    expect(validateRoofRing(ring).valid).toBe(true);
+  });
+});
+
+describe("lecture défensive des pans enregistrés (P0-B.1)", () => {
+  const ring = [
+    { x: 0, y: 0 },
+    { x: 6, y: 0 },
+    { x: 6, y: 4 },
+    { x: 0, y: 4 },
+  ];
+
+  it("ignore un pan dont le contour est invalide", () => {
+    const parsed = parseCustomPlanes([
+      {
+        key: "p1",
+        name: "Pan 1",
+        ring: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+      },
+      { key: "p2", name: "Pan 2", ring },
+    ]);
+    expect(parsed.map((p) => p.key)).toEqual(["p2"]);
+  });
+
+  it("borne les marges et hauteurs aberrantes", () => {
+    const [plane] = parseCustomPlanes([
+      { key: "p1", name: "Pan 1", ring, margin_m: 999, eave_height_m: -40, tilt_deg: 200 },
+    ]);
+    expect(plane!.margin_m).toBeLessThanOrEqual(10);
+    expect(plane!.margin_m).toBeGreaterThanOrEqual(0);
+    expect(plane!.eave_height_m).toBeGreaterThanOrEqual(0);
+    expect(plane!.tilt_deg).toBeLessThanOrEqual(90);
+  });
+
+  it("neutralise une marge d'arête hors contour ou de type inconnu", () => {
+    const [plane] = parseCustomPlanes([
+      {
+        key: "p1",
+        name: "Pan 1",
+        ring,
+        edge_margins: [
+          { index: 99, kind: "faitage", margin_m: 1 },
+          { index: 1, kind: "n_importe_quoi" as never, margin_m: 500 },
+        ],
+      },
+    ]);
+    expect(plane!.edge_margins.every((e) => e.index < ring.length)).toBe(true);
+    for (const e of plane!.edge_margins) {
+      expect(e.margin_m).toBeLessThanOrEqual(10);
+      expect(e.kind).toBe("indefini");
+    }
+  });
+});

@@ -6784,6 +6784,28 @@ export type Database = {
         }
         Returns: Json
       }
+      solar_apply_obstacle: {
+        Args: {
+          _company_id: string
+          _delete_id: string
+          _expected_geometry_version: number
+          _model_id: string
+          _obstacle: Json
+        }
+        Returns: Json
+      }
+      solar_apply_roof_geometry: {
+        Args: {
+          _allow_mode_switch: boolean
+          _company_id: string
+          _custom_planes: Json
+          _expected_geometry_version: number
+          _mode: string
+          _model_id: string
+          _planes: Json
+        }
+        Returns: Json
+      }
       solar_catalog_apply_import: { Args: { _job_id: string }; Returns: Json }
       solar_catalog_touch_module: {
         Args: { _company_id: string; _variant_id: string }

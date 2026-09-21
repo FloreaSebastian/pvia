@@ -62,6 +62,8 @@ export type PolygonIssue =
   | "invalid_coordinate"
   | "tiny_edge"
   | "self_intersection"
+  | "overlapping_edges"
+  | "duplicate_vertex"
   | "tiny_area";
 
 export const POLYGON_ISSUE_MESSAGE: Record<PolygonIssue, string> = {
@@ -70,6 +72,8 @@ export const POLYGON_ISSUE_MESSAGE: Record<PolygonIssue, string> = {
   invalid_coordinate: "Un point est hors de la zone du projet.",
   tiny_edge: "Un côté est trop court (moins de 30 cm) : supprimez ce point.",
   self_intersection: "Le contour se croise lui-même : reprenez le tracé.",
+  overlapping_edges: "Deux côtés se superposent : reprenez le tracé.",
+  duplicate_vertex: "Le contour se pince sur lui-même : écartez ces deux points.",
   tiny_area: "La surface obtenue est trop petite (moins de 1 m²).",
 };
 
@@ -116,6 +120,59 @@ export function ringSelfIntersects(ring: LocalPoint[]): boolean {
   return false;
 }
 
+/** Tolérance de contact : en dessous, deux côtés sont considérés comme collés. */
+export const CONTACT_TOL_M = 1e-3;
+
+function segmentDistance(a: LocalPoint, b: LocalPoint, c: LocalPoint, d: LocalPoint): number {
+  const pointSeg = (p: LocalPoint, s: LocalPoint, e: LocalPoint) => {
+    const vx = e.x - s.x;
+    const vy = e.y - s.y;
+    const len2 = vx * vx + vy * vy;
+    const t =
+      len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - s.x) * vx + (p.y - s.y) * vy) / len2));
+    return distance(p, { x: s.x + vx * t, y: s.y + vy * t });
+  };
+  return Math.min(pointSeg(a, c, d), pointSeg(b, c, d), pointSeg(c, a, b), pointSeg(d, a, b));
+}
+
+function collinearOverlap(a: LocalPoint, b: LocalPoint, c: LocalPoint, d: LocalPoint): boolean {
+  const cross = (p: LocalPoint, q: LocalPoint, r: LocalPoint) =>
+    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  const len = distance(a, b);
+  if (len === 0) return false;
+  // Les 4 points doivent être alignés (écart normalisé par la longueur du côté).
+  if (Math.abs(cross(a, b, c)) / len > CONTACT_TOL_M) return false;
+  if (Math.abs(cross(a, b, d)) / len > CONTACT_TOL_M) return false;
+  const ux = (b.x - a.x) / len;
+  const uy = (b.y - a.y) / len;
+  const proj = (p: LocalPoint) => (p.x - a.x) * ux + (p.y - a.y) * uy;
+  const [c1, c2] = [proj(c), proj(d)].sort((x, y) => x - y) as [number, number];
+  const overlap = Math.min(len, c2) - Math.max(0, c1);
+  return overlap > CONTACT_TOL_M;
+}
+
+/**
+ * Contacts dégénérés entre deux côtés NON adjacents : superposition colinéaire
+ * (« overlapping_edges ») ou simple pincement / sommet dupliqué
+ * (« duplicate_vertex »). Un polygone concave classique n'est pas concerné.
+ */
+export function ringDegenerateContact(ring: LocalPoint[]): PolygonIssue | null {
+  const n = ring.length;
+  if (n < 4) return null;
+  for (let i = 0; i < n; i += 1) {
+    const a = ring[i]!;
+    const b = ring[(i + 1) % n]!;
+    for (let j = i + 1; j < n; j += 1) {
+      if (j === i || (j + 1) % n === i || j === (i + 1) % n) continue;
+      const c = ring[j]!;
+      const d = ring[(j + 1) % n]!;
+      if (collinearOverlap(a, b, c, d)) return "overlapping_edges";
+      if (segmentDistance(a, b, c, d) <= CONTACT_TOL_M) return "duplicate_vertex";
+    }
+  }
+  return null;
+}
+
 /** Validation complète d'un contour de pan. Même règle client et serveur. */
 export function validateRoofRing(ring: LocalPoint[]): PolygonValidation {
   const fail = (issue: PolygonIssue): PolygonValidation => ({
@@ -142,6 +199,9 @@ export function validateRoofRing(ring: LocalPoint[]): PolygonValidation {
   const edges = edgeLengths(ring);
   if (edges.some((l) => l < MIN_EDGE_M)) return fail("tiny_edge");
   if (ringSelfIntersects(ring)) return fail("self_intersection");
+  const contact = ringDegenerateContact(ring);
+  if (contact) return fail(contact);
+
   const area = polygonArea(ring);
   if (area < MIN_AREA_M2) return fail("tiny_area");
   return { valid: true, issue: null, message: null, area_m2: area, edges };
@@ -386,6 +446,29 @@ export interface CustomPlaneDefaults {
   margin_m?: number;
 }
 
+export const MAX_MARGIN_M = 10;
+export const ROOF_EDGE_KINDS: RoofEdgeKind[] = [
+  "faitage",
+  "egout",
+  "rive",
+  "noue",
+  "aretier",
+  "indefini",
+];
+
+/** Type d'arête sûr : toute valeur inconnue devient « indefini » (jamais de cast aveugle). */
+export function toRoofEdgeKind(value: unknown): RoofEdgeKind {
+  return typeof value === "string" && (ROOF_EDGE_KINDS as string[]).includes(value)
+    ? (value as RoofEdgeKind)
+    : "indefini";
+}
+
+/** Marge finie et bornée : NaN / Infinity / négatif retombent sur une valeur sûre. */
+export function safeMargin(value: unknown, fallback = 0): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return Math.min(MAX_MARGIN_M, Math.max(0, n));
+}
+
 /**
  * Lit une liste de pans dessinés depuis une valeur JSON quelconque.
  * Toute entrée dont le contour est invalide est ignorée : ni le navigateur ni
@@ -408,15 +491,26 @@ export function parseCustomPlanes(raw: unknown, defaults?: CustomPlaneDefaults):
       ring,
       tilt_deg: clampTilt(num(item.tilt_deg, defaults?.tilt_deg ?? 30)),
       azimuth_deg: normalizeAzimuth(num(item.azimuth_deg, 180)),
-      eave_height_m: num(item.eave_height_m, defaults?.eave_height_m ?? 3),
-      margin_m: Math.max(0, num(item.margin_m, defaults?.margin_m ?? 0.4)),
+      eave_height_m: Math.min(
+        200,
+        Math.max(0, num(item.eave_height_m, defaults?.eave_height_m ?? 3)),
+      ),
+      margin_m: safeMargin(item.margin_m, defaults?.margin_m ?? 0.4),
       edge_margins: Array.isArray(item.edge_margins)
         ? item.edge_margins
-            .filter((m) => m && Number.isFinite(m.index))
+            .filter(
+              (m) =>
+                m &&
+                Number.isFinite(m.index) &&
+                Number.isInteger(Number(m.index)) &&
+                Number(m.index) >= 0 &&
+                // Une marge ne peut viser qu'une arête réellement présente.
+                Number(m.index) < ring.length,
+            )
             .map((m) => ({
               index: Number(m.index),
-              kind: (m.kind ?? "indefini") as RoofEdgeKind,
-              margin_m: Math.max(0, num(m.margin_m, 0)),
+              kind: toRoofEdgeKind(m.kind),
+              margin_m: safeMargin(m.margin_m, 0),
             }))
         : [],
     });
