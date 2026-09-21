@@ -22,6 +22,7 @@ import {
   MISSING_DIMENSIONS_MESSAGE,
   type ModuleSnapshot,
 } from "@/lib/solar/module-catalog";
+import { parseCustomPlanes, type CustomRoofPlane } from "@/lib/solar/polygon";
 import {
   EMPTY_RULES_PROFILE,
   generateLayouts,
@@ -175,7 +176,7 @@ async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: 
         .filter((o) => o.roof_plane_id === row.id)
         .map((o) => ({
           id: o.id,
-          label: o.label ?? o.obstacle_type ?? "Obstacle",
+          label: o.label || o.obstacle_type || "Obstacle",
           u: Number(o.position_x_m),
           v: Number(o.position_y_m),
           width_m: Number(o.width_m),
