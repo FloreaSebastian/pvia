@@ -6806,6 +6806,10 @@ export type Database = {
         }
         Returns: Json
       }
+      solar_assert_planes_payload: {
+        Args: { _custom_planes: Json; _planes: Json }
+        Returns: undefined
+      }
       solar_catalog_apply_import: { Args: { _job_id: string }; Returns: Json }
       solar_catalog_touch_module: {
         Args: { _company_id: string; _variant_id: string }
@@ -6858,6 +6862,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      solar_geometry_fingerprint: {
+        Args: { _company_id: string; _model_id: string }
+        Returns: string
       }
       solar_job_finish: {
         Args: {
