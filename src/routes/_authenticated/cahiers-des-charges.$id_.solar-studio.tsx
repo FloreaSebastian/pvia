@@ -549,16 +549,27 @@ function SolarStudioPage() {
 
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
-  // Agrégation : une écriture d'un panneau enfant doit se voir dans la barre haute.
+  // Agrégation : une écriture d'un panneau enfant doit se voir dans la barre haute,
+  // tout comme des contours de toiture modifiés mais pas encore enregistrés.
   const saveState: SaveState =
     busy || childBusy
       ? "enregistrement"
       : saveError || childError
         ? "erreur"
-        : dirty
+        : dirty || roofDirty
           ? "modifie"
           : "enregistre";
   const showPlanView = step === "modules" || step === "implantation";
+
+  /** Changement d'étape : on protège des contours de toiture non enregistrés. */
+  const requestStep = (next: StudioStepId) => {
+    if (next !== "toiture" && roofDirty) {
+      setPendingStep(next);
+      return;
+    }
+    setStep(next);
+  };
+
 
   const onToggleModuleAt = (moduleId: string) => {
     const current = payload.modules.find((m) => m.id === moduleId);
