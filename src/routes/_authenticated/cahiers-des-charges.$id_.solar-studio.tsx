@@ -122,11 +122,13 @@ type ObstacleDraftValues = {
 const DRAFT_OBSTACLE_TYPES: ObstacleType[] = [
   "velux",
   "cheminee",
-  "vmc",
-  "acrotere",
+  "ventilation",
+  "mur",
   "climatisation",
+  "chien_assis",
   "autre",
 ];
+
 
 
 function SolarStudioPage() {
