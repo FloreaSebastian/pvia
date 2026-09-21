@@ -679,7 +679,16 @@ function SolarStudioPage() {
                 </Suspense>
               </ClientOnly>
             )}
+
+            {obstacleDraft && (
+              <ObstacleDraftCard
+                draft={obstacleDraft}
+                onCancel={() => setObstacleDraft(null)}
+                onConfirm={commitObstacleDraft}
+              />
+            )}
           </div>
+
 
           {showPlanView && (
             <div className="hidden h-[26vh] min-h-[180px] border-t p-2 xl:block">
