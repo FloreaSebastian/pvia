@@ -71,6 +71,8 @@ export const ObstacleInputSchema = z.object({
     ])
     .optional()
     .default("manuel"),
+  // Obligatoire : toute écriture géométrique exige la version attendue du modèle.
+  expectedGeometryVersion: z.number().int(),
 });
 
 export const LayoutRequestSchema = z.object({
