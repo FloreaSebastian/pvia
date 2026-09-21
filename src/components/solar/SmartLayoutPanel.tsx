@@ -550,3 +550,14 @@ export function SmartLayoutPanel({
     </div>
   );
 }
+
+/** Nombre au format français, deux décimales. */
+function fr(value: number): string {
+  return value.toFixed(2).replace(".", ",");
+}
+
+function orientationLabel(o: LayoutCandidate["orientation"]): string {
+  if (o === "portrait") return "Portrait";
+  if (o === "paysage") return "Paysage";
+  return "Mixte";
+}
