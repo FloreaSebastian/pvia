@@ -341,7 +341,10 @@ function SolarStudioPage() {
     );
   };
 
-  /** Emprise d'obstacle tracée sur la carte, rapportée au pan sélectionné. */
+  /**
+   * Emprise d'obstacle tracée sur la carte : on prépare un brouillon, rien n'est
+   * enregistré tant que l'utilisateur n'a pas choisi le type et les propriétés.
+   */
   const handleObstacleDrawn = (ring: LocalPoint[]) => {
     if (!companyId || !payload) return;
     const plane = roofPlanes.find((p) => p.key === selectedPlaneKey);
@@ -359,27 +362,44 @@ function SolarStudioPage() {
       toast.error("Emprise trop petite : agrandissez le rectangle de l'obstacle.");
       return;
     }
+    setObstacleDraft({
+      roofPlaneId: planeRow.id,
+      planeName: planeRow.name,
+      position_x_m: (Math.max(...us) + Math.min(...us)) / 2,
+      position_y_m: (Math.max(...vs) + Math.min(...vs)) / 2,
+      width_m: Math.min(100, width),
+      length_m: Math.min(100, length),
+    });
+    setRoofTool("select");
+  };
+
+  /** Le brouillon d'obstacle n'est écrit qu'après validation explicite. */
+  const commitObstacleDraft = (values: ObstacleDraftValues) => {
+    if (!companyId || !payload || !obstacleDraft) return;
+    const draft = obstacleDraft;
+    setObstacleDraft(null);
     void guard(
       async () =>
         (await saveObstacle({
           data: {
             companyId,
             modelId: payload.model.id,
-            roofPlaneId: planeRow.id,
-            obstacle_type: "autre",
-            label: "Obstacle",
-            position_x_m: (Math.max(...us) + Math.min(...us)) / 2,
-            position_y_m: (Math.max(...vs) + Math.min(...vs)) / 2,
-            width_m: Math.min(100, width),
-            length_m: Math.min(100, length),
-            height_m: 0.5,
-            clearance_m: 0.3,
+            roofPlaneId: draft.roofPlaneId,
+            obstacle_type: values.obstacle_type,
+            label: values.label || OBSTACLE_META[values.obstacle_type].label,
+            position_x_m: draft.position_x_m,
+            position_y_m: draft.position_y_m,
+            width_m: draft.width_m,
+            length_m: draft.length_m,
+            height_m: values.height_m,
+            clearance_m: values.clearance_m,
+            expectedGeometryVersion: payload.model.geometry_version,
           },
         })) as Payload,
-      "Obstacle ajouté. Précisez son type dans la liste.",
+      "Obstacle ajouté.",
     );
-    setRoofTool("select");
   };
+
 
   const handleLayoutContext = useCallback((ctx: LayoutContext) => {
     setLayoutContext((prev) =>
