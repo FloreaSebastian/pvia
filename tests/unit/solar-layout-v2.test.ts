@@ -138,7 +138,9 @@ describe("P0-C — zone utile et marges par arête", () => {
 
   it("ne cumule jamais clearance de l'obstacle et marge du profil", () => {
     const withClearance = plane("sud", rect(12, 8), {
-      obstacles: [{ id: "velux", label: "Velux", u: 6, v: 4, width_m: 1, length_m: 1, clearance_m: 0.5 }],
+      obstacles: [
+        { id: "velux", label: "Velux", u: 6, v: 4, width_m: 1, length_m: 1, clearance_m: 0.5 },
+      ],
     });
     const res = generateLayouts(request({ planes: [withClearance] }));
     assertSound(request({ planes: [withClearance] }));
@@ -167,7 +169,10 @@ describe("P0-C — zone utile et marges par arête", () => {
 });
 
 describe("P0-C — pans, priorité et variantes", () => {
-  const twoPlanes = [plane("sud", rect(12, 8)), plane("est", rect(10, 6), { key: "est", azimuth_deg: 90 })];
+  const twoPlanes = [
+    plane("sud", rect(12, 8)),
+    plane("est", rect(10, 6), { key: "est", azimuth_deg: 90 }),
+  ];
 
   it("remplit le pan prioritaire d'abord", () => {
     const res = generateLayouts(
@@ -203,7 +208,9 @@ describe("P0-C — pans, priorité et variantes", () => {
   });
 
   it("Auto compare réellement portrait et paysage", () => {
-    const res = generateLayouts(request({ planes: [plane("sud", rect(11, 5))], orientation: "auto" }));
+    const res = generateLayouts(
+      request({ planes: [plane("sud", rect(11, 5))], orientation: "auto" }),
+    );
     const orientations = new Set(res.candidates.map((c) => c.orientation));
     expect(res.candidates.length).toBeGreaterThan(1);
     expect(orientations.size).toBeGreaterThan(0);
@@ -279,7 +286,9 @@ describe("P0-C — panneau réel, déterminisme et performance", () => {
     const a = generateLayouts(request());
     const b = generateLayouts(request());
     expect(a.candidates.map((c) => c.signature)).toEqual(b.candidates.map((c) => c.signature));
-    expect(a.candidates.map((c) => c.modules.length)).toEqual(b.candidates.map((c) => c.modules.length));
+    expect(a.candidates.map((c) => c.modules.length)).toEqual(
+      b.candidates.map((c) => c.modules.length),
+    );
   });
 
   it("reste raisonnable sur 12 pans", () => {

@@ -56,18 +56,34 @@ export function validateLayout(
     const plane = planeByKey.get(m.plane_key);
     const area = areaByPlane.get(m.plane_key);
     const rect = moduleRect(m, spec);
-    const base = { module_id: m.id, measured_m: null as number | null, required_m: null as number | null };
+    const base = {
+      module_id: m.id,
+      measured_m: null as number | null,
+      required_m: null as number | null,
+    };
 
     if (!plane || !area) {
-      return { ...base, status: "invalid", cause: "hors_toiture", message: CAUSE_LABEL.hors_toiture };
+      return {
+        ...base,
+        status: "invalid",
+        cause: "hors_toiture",
+        message: CAUSE_LABEL.hors_toiture,
+      };
     }
 
     const outline = toCCW(plane.polygon);
     if (!rectInsidePolygon(rect, outline)) {
-      return { ...base, status: "invalid", cause: "hors_toiture", message: CAUSE_LABEL.hors_toiture };
+      return {
+        ...base,
+        status: "invalid",
+        cause: "hors_toiture",
+        message: CAUSE_LABEL.hors_toiture,
+      };
     }
 
-    const overlapping = modules.find((o) => o !== m && o.plane_key === m.plane_key && rectsOverlap(rect, moduleRect(o, spec)));
+    const overlapping = modules.find(
+      (o) => o !== m && o.plane_key === m.plane_key && rectsOverlap(rect, moduleRect(o, spec)),
+    );
     if (overlapping) {
       return {
         ...base,
@@ -91,7 +107,8 @@ export function validateLayout(
     for (const zone of plane.zones) {
       if (zone.type !== "interdite" && zone.type !== "passage") continue;
       if (!rectIntersectsPolygon(rect, toCCW(zone.polygon))) continue;
-      const cause: ValidityCause = zone.type === "interdite" ? "zone_interdite" : "passage_technique";
+      const cause: ValidityCause =
+        zone.type === "interdite" ? "zone_interdite" : "passage_technique";
       return { ...base, status: "invalid", cause, message: CAUSE_LABEL[cause] };
     }
 
@@ -109,7 +126,12 @@ export function validateLayout(
       };
     }
 
-    return { ...base, status: "valid", cause: null, message: "Position conforme au profil de règles" };
+    return {
+      ...base,
+      status: "valid",
+      cause: null,
+      message: "Position conforme au profil de règles",
+    };
   });
 }
 
@@ -151,7 +173,7 @@ export function suggestFix(
         candidates.push({ u: round3(module.u + dx * step), v: round3(module.v + dy * step) });
       }
     }
-    candidates.sort((a, b) => (a.v - b.v) || (a.u - b.u));
+    candidates.sort((a, b) => a.v - b.v || a.u - b.u);
     for (const c of candidates) {
       const rect: Rect = { u: c.u, v: c.v, width: size.width, length: size.length };
       if (!canPlace(area, rect)) continue;

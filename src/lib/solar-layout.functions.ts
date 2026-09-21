@@ -119,7 +119,12 @@ interface PlaneBundle {
   nameByKey: Map<string, string>;
 }
 
-async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: string[]): Promise<PlaneBundle> {
+async function loadPlanes(
+  sb: SB,
+  companyId: string,
+  modelId: string,
+  planeIds: string[],
+): Promise<PlaneBundle> {
   const { data: rows } = await sb
     .from("solar_roof_planes")
     .select("*")
@@ -302,7 +307,12 @@ export const saveRulesProfile = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
-    const payload = { ...data.rules, name: data.name, is_default: data.isDefault, company_id: data.companyId };
+    const payload = {
+      ...data.rules,
+      name: data.name,
+      is_default: data.isDefault,
+      company_id: data.companyId,
+    };
     if (data.profileId) {
       const { error } = await supabase
         .from("solar_rules_profiles")
@@ -323,7 +333,9 @@ export const saveRulesProfile = createServerFn({ method: "POST" })
 
 export const deleteRulesProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => z.object({ companyId: z.string().uuid(), profileId: z.string().uuid() }).parse(i))
+  .inputValidator((i) =>
+    z.object({ companyId: z.string().uuid(), profileId: z.string().uuid() }).parse(i),
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
@@ -419,7 +431,9 @@ export const applySmartLayout = createServerFn({ method: "POST" })
     });
 
     // Aucun repli : une empreinte inconnue n'est jamais appliquée.
-    const chosen: LayoutCandidate | undefined = result.candidates.find((c) => c.signature === data.signature);
+    const chosen: LayoutCandidate | undefined = result.candidates.find(
+      (c) => c.signature === data.signature,
+    );
     if (!chosen) {
       throw new Error(
         "Cette implantation n'est plus valable avec les contraintes actuelles. Relancez le calcul des implantations.",
@@ -477,7 +491,11 @@ const ManualModuleSchema = z.object({
   matrix: z.number().int().default(0),
 });
 
-const ManualSchema = ComputeSchema.omit({ target: true, strategies: true, maxVariants: true }).extend({
+const ManualSchema = ComputeSchema.omit({
+  target: true,
+  strategies: true,
+  maxVariants: true,
+}).extend({
   modules: z.array(ManualModuleSchema).max(2000),
   geometryVersion: z.number().int().optional(),
 });
@@ -571,7 +589,9 @@ async function writeLayout(sb: SB, args: WriteArgs) {
   });
   if (error) {
     if (error.message.includes("stale_geometry_version")) {
-      throw new Error("Le bâtiment a été modifié entre-temps. Rechargez la page avant d'enregistrer.");
+      throw new Error(
+        "Le bâtiment a été modifié entre-temps. Rechargez la page avant d'enregistrer.",
+      );
     }
     throw new Error("Enregistrement de l'implantation impossible.");
   }

@@ -131,7 +131,15 @@ export function resolveEdgeMargins(
 /** Marges seules, dans l'ordre du contour. */
 export function edgeMargins(polyOrPlane: Pt[] | LayoutPlane, rules: RulesProfile): number[] {
   const plane: LayoutPlane = Array.isArray(polyOrPlane)
-    ? { key: "", name: "", azimuth_deg: 0, tilt_deg: 0, polygon: polyOrPlane, obstacles: [], zones: [] }
+    ? {
+        key: "",
+        name: "",
+        azimuth_deg: 0,
+        tilt_deg: 0,
+        polygon: polyOrPlane,
+        obstacles: [],
+        zones: [],
+      }
     : polyOrPlane;
   return resolveEdgeMargins(plane, rules).map((e) => e.margin_m);
 }
@@ -196,17 +204,29 @@ function formatM(v: number): string {
 }
 
 function marginNotes(edges: EdgeMarginResolution[]): string[] {
-  const byKind = new Map<string, { kind: LayoutEdgeKind; margins: Set<number>; source: MarginSource }>();
+  const byKind = new Map<
+    string,
+    { kind: LayoutEdgeKind; margins: Set<number>; source: MarginSource }
+  >();
   for (const e of edges) {
-    const cur = byKind.get(e.kind) ?? { kind: e.kind, margins: new Set<number>(), source: e.source };
+    const cur = byKind.get(e.kind) ?? {
+      kind: e.kind,
+      margins: new Set<number>(),
+      source: e.source,
+    };
     cur.margins.add(Math.round(e.margin_m * 100) / 100);
     byKind.set(e.kind, cur);
   }
   const out: string[] = [];
   for (const { kind, margins } of byKind.values()) {
-    const list = [...margins].sort((a, b) => a - b).map(formatM).join(" / ");
+    const list = [...margins]
+      .sort((a, b) => a - b)
+      .map(formatM)
+      .join(" / ");
     if (kind === "indefini") {
-      out.push(`Arête non classée : marge prudente ${list} appliquée (type d'arête non renseigné).`);
+      out.push(
+        `Arête non classée : marge prudente ${list} appliquée (type d'arête non renseigné).`,
+      );
     } else {
       out.push(`Marge ${LAYOUT_EDGE_LABEL[kind]} ${list}.`);
     }
@@ -229,7 +249,9 @@ export function buildUsableArea(plane: LayoutPlane, rules: RulesProfile): Usable
       label: z.label?.trim() || ZONE_LABEL[z.type] || "Zone",
       polygon: toCCW(z.polygon),
     }));
-  const priorityPolygons = plane.zones.filter((z) => z.type === "prioritaire").map((z) => toCCW(z.polygon));
+  const priorityPolygons = plane.zones
+    .filter((z) => z.type === "prioritaire")
+    .map((z) => toCCW(z.polygon));
 
   let area = boundary.length >= 3 ? polygonArea(boundary) : 0;
   for (const r of blockedRects) area -= r.width * r.length;

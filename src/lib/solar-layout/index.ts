@@ -10,7 +10,13 @@
  *
  * Déterministe : mêmes entrées + même version = même sortie.
  */
-import { generateGrids, placementSignature, toModules, type GridPlacement, type GridResult } from "./generate";
+import {
+  generateGrids,
+  placementSignature,
+  toModules,
+  type GridPlacement,
+  type GridResult,
+} from "./generate";
 import { modulesForPower, selectCount } from "./select";
 import { computeCriteria, explain, powerKwc, scoreCandidate } from "./score";
 import { moduleSize } from "./generate";
@@ -153,7 +159,10 @@ export function generateLayouts(req: LayoutRequest): LayoutResult {
 
   // Stratégies explicitement demandées : on respecte la demande sans rôle produit.
   if (req.strategies?.length) {
-    for (const s of req.strategies) push(build(s === "maximum" ? "maximum" : s === "esthetique" ? "esthetique" : "recommandee", s));
+    for (const s of req.strategies)
+      push(
+        build(s === "maximum" ? "maximum" : s === "esthetique" ? "esthetique" : "recommandee", s),
+      );
   } else {
     push(build("recommandee", "equilibre"));
     push(build("maximum", "maximum"));
@@ -220,7 +229,9 @@ function assemble(
 
     const ranked: { grid: GridResult; kept: GridPlacement[]; score: number }[] = [];
     for (const grid of grids) {
-      const take = Number.isFinite(remaining) ? Math.min(remaining, grid.placements.length) : grid.placements.length;
+      const take = Number.isFinite(remaining)
+        ? Math.min(remaining, grid.placements.length)
+        : grid.placements.length;
       const kept = selectCount(grid.placements, take);
       if (kept.length === 0) continue;
       const localModules = toModules(kept, strategy);
@@ -308,7 +319,8 @@ function makeCandidate(
   const usedNames = a.planesUsed.map((p) => p.name);
   const skippedNames = a.planesSkipped.map((p) => p.name);
   const targetMet = targetPower === null ? null : criteria.power_kwc + 1e-6 >= targetPower;
-  const delta = targetPower === null ? null : Math.round((criteria.power_kwc - targetPower) * 100) / 100;
+  const delta =
+    targetPower === null ? null : Math.round((criteria.power_kwc - targetPower) * 100) / 100;
 
   // Contraintes réellement appliquées : issues des zones utiles et des
   // emplacements refusés, jamais d'une cause supposée.

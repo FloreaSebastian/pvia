@@ -9,7 +9,10 @@ import { bbox, round3, type Rect } from "./geometry";
 import { inPriorityZone, placementBlock, type UsableArea } from "./usable-area";
 import type { LayoutModule, LayoutModuleSpec, Orientation, RulesProfile } from "./types";
 
-export function moduleSize(spec: LayoutModuleSpec, orientation: Orientation): { width: number; length: number } {
+export function moduleSize(
+  spec: LayoutModuleSpec,
+  orientation: Orientation,
+): { width: number; length: number } {
   const w = spec.width_mm / 1000;
   const h = spec.height_mm / 1000;
   return orientation === "portrait" ? { width: w, length: h } : { width: h, length: w };
@@ -133,15 +136,25 @@ function buildGrid(
     placements,
     blocks: {
       by_margin: byMargin,
-      by_obstacle: [...obstacleHits.entries()].map(([id, v2]) => ({ id, label: v2.label, count: v2.count })),
-      by_zone: [...zoneHits.entries()].map(([id, v2]) => ({ id, label: v2.label, count: v2.count })),
+      by_obstacle: [...obstacleHits.entries()].map(([id, v2]) => ({
+        id,
+        label: v2.label,
+        count: v2.count,
+      })),
+      by_zone: [...zoneHits.entries()].map(([id, v2]) => ({
+        id,
+        label: v2.label,
+        count: v2.count,
+      })),
       slots,
     },
     signature: placementSignature(placements),
   };
 }
 
-export function placementSignature(placements: { u: number; v: number; orientation: Orientation }[]): string {
+export function placementSignature(
+  placements: { u: number; v: number; orientation: Orientation }[],
+): string {
   return placements
     .map((p) => `${p.u.toFixed(2)},${p.v.toFixed(2)},${p.orientation[0]}`)
     .sort()

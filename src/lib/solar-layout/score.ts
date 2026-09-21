@@ -48,7 +48,10 @@ export function computeCriteria(
   let isolated = 0;
   for (const a of modules) {
     const hasNeighbour = modules.some(
-      (b) => b !== a && b.plane_key === a.plane_key && Math.abs(a.row - b.row) + Math.abs(a.col - b.col) === 1,
+      (b) =>
+        b !== a &&
+        b.plane_key === a.plane_key &&
+        Math.abs(a.row - b.row) + Math.abs(a.col - b.col) === 1,
     );
     if (!hasNeighbour) isolated += 1;
   }
@@ -58,9 +61,11 @@ export function computeCriteria(
   return {
     module_count: count,
     power_kwc: power,
-    target_gap_kwc: targetPowerKwc === null ? null : Math.round(Math.abs(power - targetPowerKwc) * 100) / 100,
+    target_gap_kwc:
+      targetPowerKwc === null ? null : Math.round(Math.abs(power - targetPowerKwc) * 100) / 100,
     matrices,
-    fill_ratio: usableArea_m2 > 0 ? Math.min(1, Math.round((moduleArea / usableArea_m2) * 1000) / 1000) : 0,
+    fill_ratio:
+      usableArea_m2 > 0 ? Math.min(1, Math.round((moduleArea / usableArea_m2) * 1000) / 1000) : 0,
     alignment_ratio: count > 0 ? Math.round((aligned / count) * 1000) / 1000 : 0,
     compactness: count > 0 ? Math.min(1, Math.round((moduleArea / envelope) * 1000) / 1000) : 0,
     isolated_modules: isolated,
@@ -68,7 +73,18 @@ export function computeCriteria(
   };
 }
 
-const WEIGHTS: Record<Strategy, { count: number; gap: number; matrices: number; align: number; compact: number; isolated: number; priority: number }> = {
+const WEIGHTS: Record<
+  Strategy,
+  {
+    count: number;
+    gap: number;
+    matrices: number;
+    align: number;
+    compact: number;
+    isolated: number;
+    priority: number;
+  }
+> = {
   maximum: { count: 10, gap: 0, matrices: 0.5, align: 1, compact: 2, isolated: 0.5, priority: 0.5 },
   esthetique: { count: 1, gap: 4, matrices: 6, align: 12, compact: 10, isolated: 4, priority: 3 },
   equilibre: { count: 4, gap: 8, matrices: 3, align: 6, compact: 5, isolated: 2, priority: 2 },
@@ -87,9 +103,15 @@ export function scoreCandidate(c: ScoreCriteria, strategy: Strategy): number {
   return Math.round(s * 1000) / 1000;
 }
 
-export function explain(c: ScoreCriteria, targetPowerKwc: number | null, planeCount: number): string[] {
+export function explain(
+  c: ScoreCriteria,
+  targetPowerKwc: number | null,
+  planeCount: number,
+): string[] {
   const out: string[] = [];
-  out.push(`${c.module_count} panneau${c.module_count > 1 ? "x" : ""} — ${c.power_kwc.toFixed(2)} kWc`);
+  out.push(
+    `${c.module_count} panneau${c.module_count > 1 ? "x" : ""} — ${c.power_kwc.toFixed(2)} kWc`,
+  );
   if (targetPowerKwc !== null) {
     out.push(
       c.target_gap_kwc === 0

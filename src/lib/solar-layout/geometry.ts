@@ -96,9 +96,7 @@ export function offsetPolygon(poly: Pt[], margins: number[]): Pt[] {
   const reversed = signedArea(poly) < 0;
   const p = reversed ? [...poly].reverse() : [...poly];
   // Arête j du contour inversé = arête (n-2-j) du contour d'origine.
-  const m = reversed
-    ? p.map((_, j) => margins[(((n - 2 - j) % n) + n) % n] ?? 0)
-    : margins;
+  const m = reversed ? p.map((_, j) => margins[(((n - 2 - j) % n) + n) % n] ?? 0) : margins;
   const lines: { point: Pt; dir: Pt }[] = [];
   for (let i = 0; i < n; i += 1) {
     const a = p[i]!;
@@ -132,7 +130,10 @@ export function offsetPolygon(poly: Pt[], margins: number[]): Pt[] {
 /** Offset uniforme. */
 export function insetPolygon(poly: Pt[], margin: number): Pt[] {
   if (margin <= 0) return toCCW(poly);
-  return offsetPolygon(poly, poly.map(() => margin));
+  return offsetPolygon(
+    poly,
+    poly.map(() => margin),
+  );
 }
 
 export interface Rect {
@@ -166,7 +167,7 @@ function segmentsIntersect(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
   const d2 = o(a, b, d);
   const d3 = o(c, d, a);
   const d4 = o(c, d, b);
-  return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0));
+  return d1 > 0 !== d2 > 0 && d3 > 0 !== d4 > 0;
 }
 
 /** Contour qui se croise lui-même : aucune zone utile fiable n'en découle. */
@@ -177,7 +178,8 @@ export function selfIntersects(poly: Pt[]): boolean {
     for (let j = i + 1; j < n; j += 1) {
       // Les arêtes adjacentes partagent un sommet : ce n'est pas un croisement.
       if (j === i || (j + 1) % n === i || (i + 1) % n === j) continue;
-      if (segmentsIntersect(poly[i]!, poly[(i + 1) % n]!, poly[j]!, poly[(j + 1) % n]!)) return true;
+      if (segmentsIntersect(poly[i]!, poly[(i + 1) % n]!, poly[j]!, poly[(j + 1) % n]!))
+        return true;
     }
   }
   return false;

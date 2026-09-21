@@ -48,7 +48,13 @@ const TARGET_PRESETS = [
 /** Aperçu non persisté d'une variante, affiché sur le plan 2D. */
 export interface LayoutPreview {
   signature: string;
-  modules: { id: string; plane_key: string; u: number; v: number; orientation: "portrait" | "paysage" }[];
+  modules: {
+    id: string;
+    plane_key: string;
+    u: number;
+    v: number;
+    orientation: "portrait" | "paysage";
+  }[];
 }
 
 export function SmartLayoutPanel({
@@ -198,7 +204,8 @@ export function SmartLayoutPanel({
       if (!res.candidates.length)
         toast.error("Aucune implantation exploitable avec ces contraintes.");
     } catch (e) {
-      if (seq === computeSeq.current) toast.error(e instanceof Error ? e.message : "Calcul impossible.");
+      if (seq === computeSeq.current)
+        toast.error(e instanceof Error ? e.message : "Calcul impossible.");
     } finally {
       if (seq === computeSeq.current) setBusy(false);
     }
@@ -268,7 +275,9 @@ export function SmartLayoutPanel({
   );
   /** Objectif demandé inatteignable : aucune variante ne l'atteint. */
   const impossible =
-    targetPower !== null && candidates.length > 0 && candidates.every((c) => c.target_met === false);
+    targetPower !== null &&
+    candidates.length > 0 &&
+    candidates.every((c) => c.target_met === false);
 
   return (
     <div className="space-y-4">
@@ -523,7 +532,10 @@ export function SmartLayoutPanel({
               </TableHeader>
               <TableBody>
                 {candidates.map((c) => (
-                  <TableRow key={c.signature} data-state={current?.signature === c.signature ? "selected" : undefined}>
+                  <TableRow
+                    key={c.signature}
+                    data-state={current?.signature === c.signature ? "selected" : undefined}
+                  >
                     <TableCell>{c.label}</TableCell>
                     <TableCell>{c.modules.length}</TableCell>
                     <TableCell>{fr(c.power_kwc)}</TableCell>
