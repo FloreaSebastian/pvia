@@ -294,6 +294,13 @@ function SolarStudioPage() {
 
   /* ----------------------------- Toiture P0-B ---------------------------- */
 
+  /**
+   * Un bâtiment encore décrit par ses dimensions ne peut pas recevoir de contour
+   * dessiné : il faut d'abord la conversion explicite, qui conserve les pans et
+   * l'implantation. Le serveur applique la même règle.
+   */
+  const polygonMode = payload?.building?.geometry_mode === "polygon";
+
   /** Enregistre le jeu complet de pans dessinés : écriture atomique côté serveur. */
   const persistRoofPlanes = async (planes: CustomRoofPlane[], success?: string) => {
     if (!companyId || !payload) return;
@@ -345,6 +352,14 @@ function SolarStudioPage() {
   /** Nouveau pan dessiné : nommage automatique, pente/orientation par défaut. */
   const handlePlaneDrawn = (ring: LocalPoint[]) => {
     if (!payload) return;
+    if (!polygonMode) {
+      setRoofTool("select");
+      toast.error(
+        "Convertissez d'abord la toiture en contours éditables : la conversion conserve les pans et l'implantation.",
+      );
+      return;
+    }
+
     const key = nextPlaneKey([
       ...roofPlanes.map((p) => p.key),
       ...payload.planes.map((p) => p.key),
