@@ -156,16 +156,26 @@ async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: 
     if (!geo) throw new Error("Géométrie du pan indisponible : réenregistrez le bâtiment.");
     idByKey.set(geo.key, row.id);
     nameByKey.set(geo.key, row.name);
+    const custom = customByKey.get(geo.key);
     planes.push({
       key: geo.key,
       name: row.name,
       azimuth_deg: geo.azimuth_deg,
       tilt_deg: geo.tilt_deg,
       polygon: geo.polygon,
+      ...(custom ? { margin_m: custom.margin_m } : {}),
+      ...(custom?.edge_margins.length
+        ? {
+            edges: custom.edge_margins
+              .filter((m) => m.index < geo.polygon.length)
+              .map((m) => ({ index: m.index, kind: m.kind, margin_m: m.margin_m })),
+          }
+        : {}),
       obstacles: (obstacles ?? [])
         .filter((o) => o.roof_plane_id === row.id)
         .map((o) => ({
           id: o.id,
+          label: o.label ?? o.obstacle_type ?? "Obstacle",
           u: Number(o.position_x_m),
           v: Number(o.position_y_m),
           width_m: Number(o.width_m),
