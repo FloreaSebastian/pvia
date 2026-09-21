@@ -127,10 +127,22 @@ async function loadPlanes(sb: SB, companyId: string, modelId: string, planeIds: 
     .in("id", planeIds);
   if (!rows?.length) throw new Error("Pan de toiture introuvable.");
 
-  const [{ data: obstacles }, { data: zones }] = await Promise.all([
+  const [{ data: obstacles }, { data: zones }, { data: building }] = await Promise.all([
     sb.from("solar_obstacles").select("*").eq("model_id", modelId).eq("company_id", companyId),
     sb.from("solar_zones").select("*").eq("model_id", modelId).eq("company_id", companyId),
+    sb
+      .from("solar_buildings")
+      .select("geometry_mode, custom_planes")
+      .eq("model_id", modelId)
+      .eq("company_id", companyId)
+      .maybeSingle(),
   ]);
+
+  // Marges saisies en P0-B : elles font autorité sur le profil de règles.
+  const customByKey = new Map<string, CustomRoofPlane>();
+  if (building?.geometry_mode === "polygon") {
+    for (const p of parseCustomPlanes(building.custom_planes)) customByKey.set(p.key, p);
+  }
 
   const idByKey = new Map<string, string>();
   const nameByKey = new Map<string, string>();
