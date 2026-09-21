@@ -27,6 +27,12 @@ import {
   type CustomRoofPlane,
 } from "@/lib/solar/polygon";
 import {
+  assertManualArraysCompatible,
+  manualGuardFailure,
+  manualInvalidMessage,
+  type ManualArrayRef,
+} from "@/lib/solar-layout/manual-server";
+import {
   applyLayoutRpcArgs,
   assertApplyRpcArgs,
   buildArrayPayloads,
@@ -629,8 +635,6 @@ const StoredSnapshotSchema = z.object({
 });
 
 const NO_LAYOUT_MESSAGE = "Aucune implantation à modifier : calculez d'abord une implantation.";
-const MANUAL_DRIFT_MESSAGE =
-  "L'implantation ou la toiture a changé depuis l'ouverture de l'édition. Rechargez avant d'enregistrer.";
 
 interface ManualServerContext {
   planes: LayoutPlane[];
@@ -669,6 +673,11 @@ async function loadManualContext(
     ...new Set(arrays.map((a) => a.roof_plane_id).filter((id): id is string => !!id)),
   ];
   if (!planeIds.length) throw new Error(NO_LAYOUT_MESSAGE);
+
+  // P0-D.1 : on ne choisit JAMAIS arbitrairement le premier champ. Si les
+  // champs n'utilisent pas exactement le même panneau, les mêmes règles et le
+  // même moteur, l'édition manuelle est refusée.
+  assertManualArraysCompatible(arrays as unknown as ManualArrayRef[]);
 
   const main = arrays[0]!;
   const parsedSnapshot = StoredSnapshotSchema.safeParse(main.module_snapshot);
@@ -802,27 +811,21 @@ export const applyManualLayout = createServerFn({ method: "POST" })
     await assertSolarManage(supabase, data.companyId, userId);
 
     const ctx = await loadManualContext(supabase, data.companyId, data.modelId);
-    if (ctx.geometryVersion !== data.geometryVersion) {
-      throw new Error(
-        "La toiture a été modifiée depuis l'ouverture de l'édition. Rechargez la page avant d'enregistrer.",
-      );
-    }
-    if (ctx.token !== data.manualToken) throw new Error(MANUAL_DRIFT_MESSAGE);
-
-    const unknownPlane = data.modules.find((m) => !ctx.idByKey.has(m.plane_key));
-    if (unknownPlane) throw new Error("Pan de toiture inconnu dans les modifications.");
-    if (data.modules.length === 0 && !data.allowEmpty) {
-      throw new Error("Cette implantation ne contiendrait plus aucun panneau.");
-    }
+    // Refus non géométriques : version de toiture, jeton, pans, bornes.
+    const refusal = manualGuardFailure(
+      {
+        geometryVersion: ctx.geometryVersion,
+        token: ctx.token,
+        planeKeys: [...ctx.idByKey.keys()],
+      },
+      data,
+    );
+    if (refusal) throw new Error(refusal);
 
     const modules: LayoutModule[] = data.modules.map((m) => ({ ...m }));
     const validity = validateLayout(ctx.planes, modules, ctx.spec, ctx.rules);
-    const invalid = validity.filter((v) => v.status !== "valid");
-    if (invalid.length) {
-      throw new Error(
-        `${invalid.length} panneau${invalid.length > 1 ? "x" : ""} en position interdite : ${invalid[0]!.message}. Corrigez avant d'enregistrer.`,
-      );
-    }
+    const invalidMessage = manualInvalidMessage(validity.filter((v) => v.status !== "valid"));
+    if (invalidMessage) throw new Error(invalidMessage);
 
     await writeLayout(supabase, {
       companyId: data.companyId,

@@ -49,13 +49,17 @@ import {
   type History,
   type ManualResult,
 } from "@/lib/solar-layout/manual";
+import {
+  resolveManualSaveState,
+  type ManualSaveState,
+} from "@/lib/solar-layout/exit-guard";
 import type { LayoutModule, Orientation } from "@/lib/solar-layout/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ManualPlanCanvas } from "./ManualPlanCanvas";
 
 type ServerContext = Awaited<ReturnType<typeof getManualEditContext>>;
 
-export type ManualSaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+export type { ManualSaveState } from "@/lib/solar-layout/exit-guard";
 
 /** État publié vers la page : barre haute, panneau contextuel, garde-fous. */
 export interface ManualEditorState {
@@ -74,6 +78,10 @@ export interface ManualEditorState {
   undo: () => void;
   redo: () => void;
   save: () => void;
+  /** Enregistre puis signale la réussite ou l'échec (garde de sortie). */
+  requestSave: () => Promise<boolean>;
+  /** Restaure exactement le brouillon de référence (dernier état enregistré). */
+  discardDraft: () => void;
   rotate: () => void;
   duplicate: () => void;
   remove: () => void;
@@ -217,21 +225,29 @@ export function ManualLayoutEditor({
     setSelection(modules.filter((m) => m.plane_key === activePlaneKey).map((m) => m.id));
   }, [modules, activePlaneKey]);
 
-  const save = useCallback(() => {
-    if (!server || !ctx) return;
+  /** Restaure exactement le dernier état enregistré et vide l'historique. */
+  const discardDraft = useCallback(() => {
+    setHist(createHistory<LayoutModule[]>(baseline.current));
+    setSelection([]);
+    setSaveState("idle");
+    setConfirmEmpty(false);
+  }, []);
+
+  const requestSave = useCallback(async (): Promise<boolean> => {
+    if (!server || !ctx) return false;
     if (invalid.length) {
       setSelection(invalid.map((v) => v.module_id));
       toast.error(
         `${invalid.length} panneau(x) en position interdite : corrigez avant d'enregistrer.`,
       );
-      return;
+      return false;
     }
     if (modules.length === 0 && !confirmEmpty) {
       setConfirmEmpty(true);
-      return;
+      return false;
     }
     setSaveState("saving");
-    saveFn({
+    return saveFn({
       data: {
         companyId,
         modelId,
@@ -257,12 +273,18 @@ export function ManualLayoutEditor({
         setConfirmEmpty(false);
         toast.success("Modifications enregistrées.");
         onSaved();
+        return true;
       })
       .catch((e: unknown) => {
         setSaveState("error");
         toast.error(e instanceof Error ? e.message : "Dernier enregistrement échoué.");
+        return false;
       });
   }, [server, ctx, invalid, modules, confirmEmpty, companyId, modelId, saveFn, onSaved]);
+
+  const save = useCallback(() => {
+    void requestSave();
+  }, [requestSave]);
 
   /* ------------------------------- Clavier -------------------------------- */
 
@@ -326,7 +348,9 @@ export function ManualLayoutEditor({
   const state: ManualEditorState = {
     ready: !!ctx,
     dirty,
-    saveState: saveState === "idle" && dirty ? "dirty" : saveState,
+    // « Modifié » est déduit de l'empreinte du brouillon : un undo revenu à
+    // l'état de référence repasse donc en « enregistré ».
+    saveState: resolveManualSaveState(saveState, dirty),
     selection,
     moduleCount: modules.length,
     powerKwc: server ? manualPowerKwc(modules, server.module_spec) : 0,
@@ -340,6 +364,8 @@ export function ManualLayoutEditor({
     undo,
     redo,
     save,
+    requestSave,
+    discardDraft,
     rotate,
     duplicate,
     remove,

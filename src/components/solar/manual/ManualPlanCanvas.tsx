@@ -1,5 +1,5 @@
 /**
- * Solar Studio — canevas 2D d'édition manuelle (P0-D).
+ * Solar Studio — canevas 2D d'édition manuelle (P0-D, corrigé P0-D.1).
  *
  * Interactions directes sur le plan : sélection, rectangle de sélection,
  * glisser-déposer avec aperçu fantôme, accrochage visible, ajout fantôme.
@@ -23,6 +23,9 @@ import {
 import type { LayoutModule, ModuleValidity, Orientation } from "@/lib/solar-layout/types";
 
 type Pointer = { u: number; v: number };
+
+/** Déplacement minimal, en mètres, à partir duquel un vrai glisser commence. */
+const DRAG_THRESHOLD_M = 0.03;
 
 export interface ManualPlanCanvasProps {
   ctx: ManualContext;
@@ -56,6 +59,8 @@ export function ManualPlanCanvas({
   const plane = ctx.planeByKey.get(planeKey) ?? null;
   const area = ctx.areaByPlane.get(planeKey) ?? null;
 
+  /** Glisser en attente : on ne capture le pointeur qu'au premier vrai mouvement. */
+  const pending = useRef<{ from: Pointer; pointerId: number } | null>(null);
   const [drag, setDrag] = useState<{
     from: Pointer;
     du: number;
@@ -65,8 +70,10 @@ export function ManualPlanCanvas({
     guides: SnapGuide[];
     snap: boolean;
   } | null>(null);
-  const [marquee, setMarquee] = useState<{ from: Pointer; to: Pointer } | null>(null);
-  const [ghost, setGhost] = useState<Pointer | null>(null);
+  const [marquee, setMarquee] = useState<{ from: Pointer; to: Pointer; additive: boolean } | null>(
+    null,
+  );
+  const [ghost, setGhost] = useState<{ at: Pointer; valid: boolean; cause: string } | null>(null);
 
   const view = useMemo(() => {
     if (!plane || plane.polygon.length < 3) return null;
@@ -110,36 +117,43 @@ export function ManualPlanCanvas({
 
   const planeModules = modules.filter((m) => m.plane_key === planeKey);
   const selected = new Set(selection);
+  const invalidCount = [...validity.values()].filter((v) => v.status !== "valid").length;
 
   /* ------------------------------ Interactions ---------------------------- */
 
   const startDrag = (e: React.PointerEvent, id: string) => {
     if (e.button !== undefined && e.button > 0) return;
+    // Le fond ne doit JAMAIS démarrer un rectangle quand le clic vient d'un
+    // panneau : on coupe la propagation avant toute sortie conditionnelle.
+    e.stopPropagation();
     const point = toModel(e);
     if (!point) return;
-    let next = selection;
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
-      next = toggleSelection(selection, id);
-      onSelectionChange(next);
+      onSelectionChange(toggleSelection(selection, id));
       return;
     }
-    if (!selected.has(id)) {
-      next = [id];
-      onSelectionChange(next);
-    }
+    if (!selected.has(id)) onSelectionChange([id]);
     if (editDisabled) return;
-    (e.target as Element).setPointerCapture?.(e.pointerId);
-    setDrag({ from: point, du: 0, dv: 0, valid: true, cause: "", guides: [], snap: !e.altKey });
-    e.stopPropagation();
+    // Pointer capture seulement quand un vrai glisser démarre (voir moveDrag).
+    pending.current = { from: point, pointerId: e.pointerId };
   };
 
   const moveDrag = (e: React.PointerEvent) => {
-    if (!drag) return;
+    const active = drag;
+    const start = active ? active.from : pending.current?.from;
+    if (!start) return;
     const point = toModel(e);
     if (!point) return;
+    if (!active) {
+      const moved = Math.hypot(point.u - start.u, point.v - start.v);
+      if (moved < DRAG_THRESHOLD_M) return;
+      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+      pending.current = null;
+    }
     const ids = selection;
-    const snapped = snapDelta(ctx, modules, ids, point.u - drag.from.u, point.v - drag.from.v, {
-      enabled: drag.snap && !e.altKey,
+    const snapEnabled = active ? active.snap : !e.altKey;
+    const snapped = snapDelta(ctx, modules, ids, point.u - start.u, point.v - start.v, {
+      enabled: snapEnabled && !e.altKey,
     });
     const set = new Set(ids);
     const candidate = modules.map((m) =>
@@ -148,7 +162,8 @@ export function ManualPlanCanvas({
     const checks = validateManual(ctx, candidate, ids);
     const bad = checks.find((c) => c.status !== "valid");
     setDrag({
-      ...drag,
+      from: start,
+      snap: snapEnabled,
       du: snapped.du,
       dv: snapped.dv,
       guides: snapped.guides,
@@ -158,6 +173,7 @@ export function ManualPlanCanvas({
   };
 
   const endDrag = () => {
+    pending.current = null;
     if (!drag) return;
     const { du, dv, valid } = drag;
     setDrag(null);
@@ -174,17 +190,35 @@ export function ManualPlanCanvas({
     onCommit(moveSelection(ctx, modules, selection, du, dv));
   };
 
+  /** Validité réelle du fantôme d'ajout, via le MÊME moteur que le serveur. */
+  const ghostValidity = (at: Pointer) => {
+    const probe: LayoutModule = {
+      id: "__ghost__",
+      plane_key: planeKey,
+      u: at.u,
+      v: at.v,
+      orientation: addOrientation,
+      row: 0,
+      col: 0,
+      matrix: 0,
+    };
+    const checks = validateManual(ctx, [...modules, probe], ["__ghost__"]);
+    const bad = checks.find((c) => c.status !== "valid");
+    return { valid: !bad, cause: bad ? shortCause(bad) : "" };
+  };
+
   const onBackgroundDown = (e: React.PointerEvent) => {
+    if (tool === "add") return;
+    // Le pointerdown d'un panneau ne remonte jamais jusqu'ici (stopPropagation).
     const point = toModel(e);
     if (!point) return;
-    if (tool === "add") return;
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    setMarquee({ from: point, to: point });
+    setMarquee({ from: point, to: point, additive: e.shiftKey || e.ctrlKey || e.metaKey });
   };
 
   const onBackgroundMove = (e: React.PointerEvent) => {
     if (tool === "add" && !editDisabled) {
-      setGhost(toModel(e));
+      const point = toModel(e);
+      if (point) setGhost({ at: point, ...ghostValidity(point) });
       return;
     }
     if (!marquee) return;
@@ -195,7 +229,12 @@ export function ManualPlanCanvas({
   const onBackgroundUp = (e: React.PointerEvent) => {
     if (tool === "add" && !editDisabled) {
       const point = toModel(e);
-      if (point) onAddAt(point);
+      if (!point) return;
+      const check = ghostValidity(point);
+      setGhost({ at: point, ...check });
+      // Un clic en position interdite ne mute rien.
+      if (!check.valid) return;
+      onAddAt(point);
       return;
     }
     if (!marquee) {
@@ -208,181 +247,212 @@ export function ManualPlanCanvas({
       width: Math.abs(marquee.to.u - marquee.from.u),
       length: Math.abs(marquee.to.v - marquee.from.v),
     };
+    const additive = marquee.additive;
     setMarquee(null);
     if (rect.width < 0.05 && rect.length < 0.05) {
-      onSelectionChange([]);
+      if (!additive) onSelectionChange([]);
       return;
     }
-    onSelectionChange(modulesInRect(modules, ctx.spec, rect, planeKey));
+    const hit = modulesInRect(modules, ctx.spec, rect, planeKey);
+    onSelectionChange(additive ? [...new Set([...selection, ...hit])].sort() : hit);
   };
 
   /* -------------------------------- Rendu --------------------------------- */
 
   const ghostSize = moduleSize(ctx.spec, addOrientation);
+  const liveMessage = drag
+    ? drag.valid
+      ? "Position valide"
+      : `Position invalide : ${drag.cause}`
+    : tool === "add" && ghost && !ghost.valid
+      ? `Position invalide : ${ghost.cause}`
+      : `${selection.length} panneau${selection.length > 1 ? "x" : ""} sélectionné${selection.length > 1 ? "s" : ""}`;
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`${view.minX} ${-view.maxY} ${view.w} ${view.h}`}
-      className="h-full w-full touch-none select-none"
-      role="application"
-      aria-label={`Édition du plan ${plane.name}`}
-      onPointerDown={onBackgroundDown}
-      onPointerMove={(e) => (drag ? moveDrag(e) : onBackgroundMove(e))}
-      onPointerUp={(e) => (drag ? endDrag() : onBackgroundUp(e))}
-      onPointerCancel={() => {
-        setDrag(null);
-        setMarquee(null);
-      }}
-    >
-      <g transform="scale(1,-1)">
-        <polygon
-          points={plane.polygon.map((p) => `${p.x},${p.y}`).join(" ")}
-          className="fill-muted stroke-foreground/60"
-          strokeWidth={0.06}
-        />
-        {area.boundary.length >= 3 && (
+    <div className="relative h-full w-full">
+      <svg
+        ref={svgRef}
+        viewBox={`${view.minX} ${-view.maxY} ${view.w} ${view.h}`}
+        className="h-full w-full touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        role="application"
+        tabIndex={0}
+        aria-label={`Édition des panneaux du pan ${plane.name} : ${planeModules.length} panneaux, ${invalidCount} en position interdite. Cliquez pour sélectionner, flèches pour déplacer.`}
+        onPointerDown={onBackgroundDown}
+        onPointerMove={(e) => (drag || pending.current ? moveDrag(e) : onBackgroundMove(e))}
+        onPointerUp={(e) => (drag || pending.current ? endDrag() : onBackgroundUp(e))}
+        onPointerCancel={() => {
+          pending.current = null;
+          setDrag(null);
+          setMarquee(null);
+        }}
+      >
+        <g transform="scale(1,-1)">
           <polygon
-            points={area.boundary.map((p) => `${p.x},${p.y}`).join(" ")}
-            fill="none"
-            stroke="#0ea5e9"
-            strokeWidth={0.03}
-            strokeDasharray="0.2 0.15"
-            pointerEvents="none"
+            points={plane.polygon.map((p) => `${p.x},${p.y}`).join(" ")}
+            className="fill-muted stroke-foreground/60"
+            strokeWidth={0.06}
           />
-        )}
-        {area.blockedRects.map((b) => (
-          <rect
-            key={b.id}
-            x={b.u - b.width / 2}
-            y={b.v - b.length / 2}
-            width={b.width}
-            height={b.length}
-            fill="#dc2626"
-            opacity={0.18}
-            pointerEvents="none"
-          />
-        ))}
-        {area.blockedZones.map((z) => (
-          <polygon
-            key={z.id}
-            points={z.polygon.map((p) => `${p.x},${p.y}`).join(" ")}
-            fill="#f59e0b"
-            opacity={0.2}
-            pointerEvents="none"
-          />
-        ))}
+          {area.boundary.length >= 3 && (
+            <polygon
+              points={area.boundary.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="none"
+              stroke="#0ea5e9"
+              strokeWidth={0.03}
+              strokeDasharray="0.2 0.15"
+              pointerEvents="none"
+            />
+          )}
+          {area.blockedRects.map((b) => (
+            <rect
+              key={b.id}
+              x={b.u - b.width / 2}
+              y={b.v - b.length / 2}
+              width={b.width}
+              height={b.length}
+              fill="#dc2626"
+              opacity={0.18}
+              pointerEvents="none"
+            />
+          ))}
+          {area.blockedZones.map((z) => (
+            <polygon
+              key={z.id}
+              points={z.polygon.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="#f59e0b"
+              opacity={0.2}
+              pointerEvents="none"
+            />
+          ))}
 
-        {planeModules.map((m) => {
-          const s = moduleSize(ctx.spec, m.orientation);
-          const isSel = selected.has(m.id);
-          const v = validity.get(m.id);
-          const invalid = v && v.status !== "valid";
-          return (
-            <g key={m.id}>
-              <rect
-                x={m.u - s.width / 2}
-                y={m.v - s.length / 2}
-                width={s.width * 0.97}
-                height={s.length * 0.97}
-                fill={invalid ? "#fecaca" : isSel ? "#1d4ed8" : "#12203a"}
-                stroke={invalid ? "#dc2626" : isSel ? "#f8fafc" : "#0ea5e9"}
-                strokeWidth={isSel ? 0.07 : 0.02}
-                className="cursor-move"
-                onPointerDown={(e) => startDrag(e, m.id)}
-              />
-              {isSel && (
+          {planeModules.map((m) => {
+            const s = moduleSize(ctx.spec, m.orientation);
+            const isSel = selected.has(m.id);
+            const v = validity.get(m.id);
+            const invalid = v && v.status !== "valid";
+            return (
+              <g key={m.id}>
                 <rect
-                  x={m.u - s.width / 2 - 0.05}
-                  y={m.v - s.length / 2 - 0.05}
-                  width={s.width + 0.1}
-                  height={s.length + 0.1}
-                  fill="none"
-                  stroke="#f59e0b"
-                  strokeWidth={0.05}
-                  pointerEvents="none"
+                  data-module-id={m.id}
+                  x={m.u - s.width / 2}
+                  y={m.v - s.length / 2}
+                  width={s.width * 0.97}
+                  height={s.length * 0.97}
+                  fill={invalid ? "#fecaca" : isSel ? "#1d4ed8" : "#12203a"}
+                  stroke={invalid ? "#dc2626" : isSel ? "#f8fafc" : "#0ea5e9"}
+                  strokeWidth={isSel ? 0.07 : 0.02}
+                  className="cursor-move"
+                  onPointerDown={(e) => startDrag(e, m.id)}
                 />
-              )}
-            </g>
-          );
-        })}
+                {isSel && (
+                  <rect
+                    x={m.u - s.width / 2 - 0.05}
+                    y={m.v - s.length / 2 - 0.05}
+                    width={s.width + 0.1}
+                    height={s.length + 0.1}
+                    fill="none"
+                    stroke="#f59e0b"
+                    strokeWidth={0.05}
+                    pointerEvents="none"
+                  />
+                )}
+              </g>
+            );
+          })}
 
-        {/* Aperçu fantôme du déplacement */}
-        {drag &&
-          planeModules
-            .filter((m) => selected.has(m.id))
-            .map((m) => {
-              const s = moduleSize(ctx.spec, m.orientation);
-              return (
-                <rect
-                  key={`ghost-${m.id}`}
-                  x={m.u + drag.du - s.width / 2}
-                  y={m.v + drag.dv - s.length / 2}
-                  width={s.width}
-                  height={s.length}
-                  fill={drag.valid ? "#22c55e" : "#ef4444"}
-                  opacity={0.35}
-                  stroke={drag.valid ? "#16a34a" : "#dc2626"}
-                  strokeWidth={0.06}
-                  pointerEvents="none"
-                />
-              );
-            })}
+          {/* Aperçu fantôme du déplacement */}
+          {drag &&
+            planeModules
+              .filter((m) => selected.has(m.id))
+              .map((m) => {
+                const s = moduleSize(ctx.spec, m.orientation);
+                return (
+                  <rect
+                    key={`ghost-${m.id}`}
+                    x={m.u + drag.du - s.width / 2}
+                    y={m.v + drag.dv - s.length / 2}
+                    width={s.width}
+                    height={s.length}
+                    fill={drag.valid ? "#22c55e" : "#ef4444"}
+                    opacity={0.35}
+                    stroke={drag.valid ? "#16a34a" : "#dc2626"}
+                    strokeWidth={0.06}
+                    pointerEvents="none"
+                  />
+                );
+              })}
 
-        {/* Lignes-guides d'accrochage */}
-        {drag?.guides.map((g) => (
-          <line
-            key={`${g.axis}-${g.value}`}
-            x1={g.axis === "u" ? g.value : view.minX}
-            x2={g.axis === "u" ? g.value : view.minX + view.w}
-            y1={g.axis === "u" ? view.maxY - view.h : g.value}
-            y2={g.axis === "u" ? view.maxY : g.value}
-            stroke="#f59e0b"
-            strokeWidth={0.03}
-            strokeDasharray="0.15 0.1"
-            pointerEvents="none"
-          />
-        ))}
+          {/* Lignes-guides d'accrochage */}
+          {drag?.guides.map((g) => (
+            <line
+              key={`${g.axis}-${g.value}`}
+              x1={g.axis === "u" ? g.value : view.minX}
+              x2={g.axis === "u" ? g.value : view.minX + view.w}
+              y1={g.axis === "u" ? view.maxY - view.h : g.value}
+              y2={g.axis === "u" ? view.maxY : g.value}
+              stroke="#f59e0b"
+              strokeWidth={0.03}
+              strokeDasharray="0.15 0.1"
+              pointerEvents="none"
+            />
+          ))}
 
-        {marquee && (
-          <rect
-            x={Math.min(marquee.from.u, marquee.to.u)}
-            y={Math.min(marquee.from.v, marquee.to.v)}
-            width={Math.abs(marquee.to.u - marquee.from.u)}
-            height={Math.abs(marquee.to.v - marquee.from.v)}
-            fill="#0ea5e9"
-            opacity={0.15}
-            stroke="#0ea5e9"
-            strokeWidth={0.03}
-            pointerEvents="none"
-          />
+          {marquee && (
+            <rect
+              x={Math.min(marquee.from.u, marquee.to.u)}
+              y={Math.min(marquee.from.v, marquee.to.v)}
+              width={Math.abs(marquee.to.u - marquee.from.u)}
+              height={Math.abs(marquee.to.v - marquee.from.v)}
+              fill="#0ea5e9"
+              opacity={0.15}
+              stroke="#0ea5e9"
+              strokeWidth={0.03}
+              pointerEvents="none"
+            />
+          )}
+
+          {tool === "add" && ghost && !editDisabled && (
+            <rect
+              data-testid="add-ghost"
+              data-valid={ghost.valid ? "true" : "false"}
+              x={ghost.at.u - ghostSize.width / 2}
+              y={ghost.at.v - ghostSize.length / 2}
+              width={ghostSize.width}
+              height={ghostSize.length}
+              fill={ghost.valid ? "#22c55e" : "#ef4444"}
+              opacity={0.3}
+              stroke={ghost.valid ? "#16a34a" : "#dc2626"}
+              strokeWidth={0.06}
+              pointerEvents="none"
+            />
+          )}
+        </g>
+
+        {drag && (
+          <text
+            x={view.minX + 0.2}
+            y={-view.maxY + 0.7}
+            fontSize={0.45}
+            fill={drag.valid ? "#16a34a" : "#dc2626"}
+          >
+            {drag.valid ? "✓ Position valide" : `✕ ${drag.cause}`}
+          </text>
         )}
 
         {tool === "add" && ghost && !editDisabled && (
-          <rect
-            x={ghost.u - ghostSize.width / 2}
-            y={ghost.v - ghostSize.length / 2}
-            width={ghostSize.width}
-            height={ghostSize.length}
-            fill="#22c55e"
-            opacity={0.3}
-            stroke="#16a34a"
-            strokeWidth={0.06}
-            pointerEvents="none"
-          />
+          <text
+            x={view.minX + 0.2}
+            y={-view.maxY + 0.7}
+            fontSize={0.45}
+            fill={ghost.valid ? "#16a34a" : "#dc2626"}
+          >
+            {ghost.valid ? "✓ Position valide" : `✕ ${ghost.cause}`}
+          </text>
         )}
-      </g>
+      </svg>
 
-      {drag && (
-        <text
-          x={view.minX + 0.2}
-          y={-view.maxY + 0.7}
-          fontSize={0.45}
-          fill={drag.valid ? "#16a34a" : "#dc2626"}
-        >
-          {drag.valid ? "✓ Position valide" : `✕ ${drag.cause}`}
-        </text>
-      )}
-    </svg>
+      <p className="sr-only" role="status" aria-live="polite">
+        {liveMessage}
+      </p>
+    </div>
   );
 }
