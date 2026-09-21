@@ -319,7 +319,9 @@ describe("Plan vectoriel", () => {
   test("chaque module est dessiné dans la case de son pan", () => {
     const d = buildPlanDrawing(input);
     expect(d.moduleCount).toBe(2);
-    const panels = d.items.filter((i) => i.kind === "rect" && i.fill === "#1d4ed8");
+    const panels = d.items.filter(
+      (i) => i.kind === "rect" && i.fill === "#1d4ed8" && Math.abs(i.w - 1.134) < 1e-6,
+    );
     expect(panels.length).toBe(2);
     // Les pans sont juxtaposés : le module du pan « sud » est à gauche de celui du pan « nord ».
     const [first, second] = panels as Extract<(typeof panels)[number], { kind: "rect" }>[];
