@@ -83,3 +83,48 @@ export function candidateToken(contextToken: string, signature: string): string 
 export function tokenMatches(token: string, ctx: ComputeContext, signature: string): boolean {
   return token === candidateToken(computeContextToken(ctx), signature);
 }
+
+/* ------------------------- Édition manuelle (P0-D) ------------------------- */
+
+/** Version du format de jeton d'édition manuelle. */
+export const MANUAL_TOKEN_FORMAT = "pvia-manual-1";
+
+/**
+ * Contexte d'une édition manuelle : il ne dépend PAS d'un objectif ni d'une
+ * orientation demandée, mais uniquement de ce qui est déjà enregistré —
+ * toiture, panneau réellement posé, règles réellement appliquées, moteur.
+ */
+export interface ManualContextRef {
+  geometry_version: number;
+  geometry_hash: string | null;
+  module: ComputeModuleRef;
+  rules_profile_id: string | null;
+  rules_profile_version: number;
+  rules: RulesProfile;
+  engine_version: string;
+  /** Identifiants des pans de l'implantation, triés (ordre non significatif). */
+  plane_ids: string[];
+}
+
+export function manualContextToken(ctx: ManualContextRef): string {
+  return `${MANUAL_TOKEN_FORMAT}.${fingerprint({
+    geometry_version: ctx.geometry_version,
+    geometry_hash: ctx.geometry_hash ?? null,
+    module: {
+      variant_id: ctx.module.variant_id,
+      revision_id: ctx.module.revision_id ?? null,
+      width_mm: ctx.module.width_mm,
+      height_mm: ctx.module.height_mm,
+      depth_mm: ctx.module.depth_mm ?? null,
+      power_wc: ctx.module.power_wc,
+      manufacturer: ctx.module.manufacturer ?? null,
+      model: ctx.module.model ?? null,
+    },
+    rules_profile_id: ctx.rules_profile_id ?? null,
+    rules_profile_version: ctx.rules_profile_version,
+    rules: ctx.rules,
+    engine_version: ctx.engine_version,
+    plane_ids: [...ctx.plane_ids].sort(),
+  })}`;
+}
+

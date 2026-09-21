@@ -74,6 +74,11 @@ import { StepRail } from "@/components/solar/studio/StepRail";
 import { StudioTopBar } from "@/components/solar/studio/StudioTopBar";
 import { ContextPanel } from "@/components/solar/studio/ContextPanel";
 import { LayoutSummaryBar } from "@/components/solar/studio/LayoutSummaryBar";
+import {
+  ManualLayoutEditor,
+  type ManualEditorState,
+} from "@/components/solar/manual/ManualLayoutEditor";
+import { ManualSelectionPanel } from "@/components/solar/manual/ManualSelectionPanel";
 
 const SolarScene = lazy(() => import("@/components/solar/SolarScene"));
 
@@ -198,6 +203,10 @@ function SolarStudioPage() {
   /** Aperçu de la variante comparée : affichage seul, jamais enregistré. */
   const [layoutPreview, setLayoutPreview] = useState<LayoutPreview | null>(null);
   const [pendingStep, setPendingStep] = useState<StudioStepId | null>(null);
+  // Édition manuelle (P0-D) : brouillon local, jamais écrit avant « Enregistrer ».
+  const [manualEditing, setManualEditing] = useState(false);
+  const [manualState, setManualState] = useState<ManualEditorState | null>(null);
+  const [manualLeave, setManualLeave] = useState(false);
 
   const applyPayload = useCallback((next: Payload) => {
     setPayload(next);
@@ -561,13 +570,14 @@ function SolarStudioPage() {
   // Agrégation : une écriture d'un panneau enfant doit se voir dans la barre haute,
   // tout comme des contours de toiture modifiés mais pas encore enregistrés.
   const saveState: SaveState =
-    busy || childBusy
+    busy || childBusy || manualState?.saveState === "saving"
       ? "enregistrement"
-      : saveError || childError
+      : saveError || childError || manualState?.saveState === "error"
         ? "erreur"
-        : dirty || roofDirty
+        : dirty || roofDirty || (manualEditing && !!manualState?.dirty)
           ? "modifie"
           : "enregistre";
+
   const showPlanView = step === "modules" || step === "implantation";
 
   /** Changement d'étape : on protège des contours de toiture non enregistrés. */
@@ -605,17 +615,33 @@ function SolarStudioPage() {
         visualMode={visualMode}
         onVisualModeChange={setVisualMode}
         canUndo={
-          step === "toiture"
-            ? roofHistory.current.length > 0 && !busy
-            : !busy && history.current.length > 0
+          manualEditing
+            ? !!manualState?.canUndo
+            : step === "toiture"
+              ? roofHistory.current.length > 0 && !busy
+              : !busy && history.current.length > 0
         }
         canRedo={
-          step === "toiture"
-            ? roofFuture.current.length > 0 && !busy
-            : !busy && future.current.length > 0
+          manualEditing
+            ? !!manualState?.canRedo
+            : step === "toiture"
+              ? roofFuture.current.length > 0 && !busy
+              : !busy && future.current.length > 0
         }
-        onUndo={() => (step === "toiture" ? undoRoof() : void undo())}
-        onRedo={() => (step === "toiture" ? redoRoof() : void redo())}
+        onUndo={() =>
+          manualEditing
+            ? manualState?.undo()
+            : step === "toiture"
+              ? undoRoof()
+              : void undo()
+        }
+        onRedo={() =>
+          manualEditing
+            ? manualState?.redo()
+            : step === "toiture"
+              ? redoRoof()
+              : void redo()
+        }
         help={currentStep.hint}
       />
 
@@ -637,7 +663,28 @@ function SolarStudioPage() {
           )}
 
           <div className="relative min-h-[240px] flex-1 overflow-hidden">
-            {visualMode === "map" && companyId ? (
+            {step === "implantation" && manualEditing && companyId ? (
+              <ManualLayoutEditor
+                companyId={companyId}
+                modelId={payload.model.id}
+                planeKey={selectedPlaneKey}
+                onPlaneKeyChange={setSelectedPlaneKey}
+                onState={setManualState}
+                onSaved={() => {
+                  if (!companyId) return;
+                  void load({ data: { companyId, studyId: id } }).then((next) =>
+                    applyPayload(next as Payload),
+                  );
+                }}
+                onExit={() => {
+                  if (manualState?.dirty) setManualLeave(true);
+                  else {
+                    setManualEditing(false);
+                    setManualState(null);
+                  }
+                }}
+              />
+            ) : visualMode === "map" && companyId ? (
               <ClientOnly fallback={<Skeleton className="h-full w-full" />}>
                 <SiteMapCard
                   payload={payload}
@@ -696,7 +743,7 @@ function SolarStudioPage() {
             )}
           </div>
 
-          {showPlanView && (
+          {showPlanView && !manualEditing && (
             <div className="hidden h-[26vh] min-h-[180px] border-t p-2 xl:block">
               <PlanView
                 plane={selectedPlane ?? null}
@@ -1052,7 +1099,28 @@ function SolarStudioPage() {
             />
           )}
 
-          {step === "implantation" && (
+          {step === "implantation" && manualEditing && (
+            <ManualSelectionPanel state={manualState} expert={mode === "expert"} />
+          )}
+
+          {step === "implantation" && !manualEditing && (
+            <>
+              <Button
+                className="mb-3 min-h-11 w-full"
+                disabled={!canWrite || busy || !companyId || summary.module_count === 0}
+                onClick={() => setManualEditing(true)}
+              >
+                Modifier manuellement
+              </Button>
+              {summary.module_count === 0 && (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Appliquez d'abord une implantation pour pouvoir la corriger à la main.
+                </p>
+              )}
+            </>
+          )}
+
+          {step === "implantation" && !manualEditing && (
             <SmartLayoutPanel
               companyId={companyId}
               modelId={payload.model.id}
@@ -1133,6 +1201,21 @@ function SolarStudioPage() {
         </ContextPanel>
       </div>
 
+      {manualLeave && manualState && (
+        <LeaveManualDialog
+          onSave={() => {
+            manualState.save();
+            setManualLeave(false);
+          }}
+          onDiscard={() => {
+            setManualLeave(false);
+            setManualEditing(false);
+            setManualState(null);
+          }}
+          onStay={() => setManualLeave(false)}
+        />
+      )}
+
       {pendingStep && (
         <LeaveRoofDialog
           busy={busy}
@@ -1158,6 +1241,44 @@ function SolarStudioPage() {
         />
       )}
       <p className="sr-only">{historyTick}</p>
+    </div>
+  );
+}
+
+/** Sortie de l'édition manuelle avec des corrections non enregistrées. */
+function LeaveManualDialog({
+  onSave,
+  onDiscard,
+  onStay,
+}: {
+  onSave: () => void;
+  onDiscard: () => void;
+  onStay: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Corrections manuelles non enregistrées"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4"
+    >
+      <Card className="w-full max-w-sm space-y-3 p-4">
+        <p className="text-sm font-semibold">Modifications non enregistrées</p>
+        <p className="text-xs text-muted-foreground">
+          Vos corrections de panneaux ne sont pas encore enregistrées.
+        </p>
+        <div className="flex flex-col gap-2">
+          <Button className="min-h-11" onClick={onSave}>
+            Enregistrer
+          </Button>
+          <Button variant="outline" className="min-h-11" onClick={onDiscard}>
+            Ignorer les modifications
+          </Button>
+          <Button variant="ghost" className="min-h-11" onClick={onStay}>
+            Rester en édition
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 }
