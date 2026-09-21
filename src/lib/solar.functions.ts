@@ -343,6 +343,21 @@ const ROOF_RPC_MESSAGE: Record<string, string> = {
   obstacle_not_found: "Obstacle introuvable.",
   obstacle_payload_required: "Obstacle incomplet.",
   plane_key_required: "Un pan n'a pas d'identifiant.",
+  conversion_key_mismatch:
+    "La conversion doit conserver exactement les pans existants : elle ne peut ni en ajouter, ni en supprimer, ni en renommer.",
+  duplicate_plane_key: "Deux pans portent le même identifiant.",
+  too_many_planes: "Trop de pans dans cette toiture.",
+  invalid_planes_payload: "Toiture envoyée invalide.",
+  invalid_custom_planes_payload: "Toiture envoyée invalide.",
+  plane_polygon_required: "Un pan n'a pas de contour.",
+  plane_area_invalid: "La surface d'un pan est invalide.",
+  plane_tilt_invalid: "La pente d'un pan est hors limites (0 à 70°).",
+  plane_azimuth_invalid: "L'azimut d'un pan est invalide.",
+  plane_ring_invalid: "Le contour d'un pan est invalide.",
+  roof_plane_not_found: "Le pan associé à cet obstacle est introuvable.",
+  invalid_obstacle_type: "Type d'obstacle inconnu.",
+  obstacle_bounds_invalid: "Les dimensions de cet obstacle sont hors limites.",
+  invalid_geometry_mode: "Mode de toiture invalide.",
 };
 
 function roofRpcError(message: string | undefined, fallback: string): Error {
