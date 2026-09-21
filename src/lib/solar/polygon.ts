@@ -121,6 +121,63 @@ export function ringSelfIntersects(ring: LocalPoint[]): boolean {
   return false;
 }
 
+/** Tolérance de contact : en dessous, deux côtés sont considérés comme collés. */
+export const CONTACT_TOL_M = 1e-3;
+
+function segmentDistance(a: LocalPoint, b: LocalPoint, c: LocalPoint, d: LocalPoint): number {
+  const pointSeg = (p: LocalPoint, s: LocalPoint, e: LocalPoint) => {
+    const vx = e.x - s.x;
+    const vy = e.y - s.y;
+    const len2 = vx * vx + vy * vy;
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - s.x) * vx + (p.y - s.y) * vy) / len2));
+    return distance(p, { x: s.x + vx * t, y: s.y + vy * t });
+  };
+  return Math.min(
+    pointSeg(a, c, d),
+    pointSeg(b, c, d),
+    pointSeg(c, a, b),
+    pointSeg(d, a, b),
+  );
+}
+
+function collinearOverlap(a: LocalPoint, b: LocalPoint, c: LocalPoint, d: LocalPoint): boolean {
+  const cross = (p: LocalPoint, q: LocalPoint, r: LocalPoint) =>
+    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  const len = distance(a, b);
+  if (len === 0) return false;
+  // Les 4 points doivent être alignés (écart normalisé par la longueur du côté).
+  if (Math.abs(cross(a, b, c)) / len > CONTACT_TOL_M) return false;
+  if (Math.abs(cross(a, b, d)) / len > CONTACT_TOL_M) return false;
+  const ux = (b.x - a.x) / len;
+  const uy = (b.y - a.y) / len;
+  const proj = (p: LocalPoint) => (p.x - a.x) * ux + (p.y - a.y) * uy;
+  const [c1, c2] = [proj(c), proj(d)].sort((x, y) => x - y) as [number, number];
+  const overlap = Math.min(len, c2) - Math.max(0, c1);
+  return overlap > CONTACT_TOL_M;
+}
+
+/**
+ * Contacts dégénérés entre deux côtés NON adjacents : superposition colinéaire
+ * (« overlapping_edges ») ou simple pincement / sommet dupliqué
+ * (« duplicate_vertex »). Un polygone concave classique n'est pas concerné.
+ */
+export function ringDegenerateContact(ring: LocalPoint[]): PolygonIssue | null {
+  const n = ring.length;
+  if (n < 4) return null;
+  for (let i = 0; i < n; i += 1) {
+    const a = ring[i]!;
+    const b = ring[(i + 1) % n]!;
+    for (let j = i + 1; j < n; j += 1) {
+      if (j === i || (j + 1) % n === i || j === (i + 1) % n) continue;
+      const c = ring[j]!;
+      const d = ring[(j + 1) % n]!;
+      if (collinearOverlap(a, b, c, d)) return "overlapping_edges";
+      if (segmentDistance(a, b, c, d) <= CONTACT_TOL_M) return "duplicate_vertex";
+    }
+  }
+  return null;
+}
+
 /** Validation complète d'un contour de pan. Même règle client et serveur. */
 export function validateRoofRing(ring: LocalPoint[]): PolygonValidation {
   const fail = (issue: PolygonIssue): PolygonValidation => ({
@@ -147,6 +204,9 @@ export function validateRoofRing(ring: LocalPoint[]): PolygonValidation {
   const edges = edgeLengths(ring);
   if (edges.some((l) => l < MIN_EDGE_M)) return fail("tiny_edge");
   if (ringSelfIntersects(ring)) return fail("self_intersection");
+  const contact = ringDegenerateContact(ring);
+  if (contact) return fail(contact);
+
   const area = polygonArea(ring);
   if (area < MIN_AREA_M2) return fail("tiny_area");
   return { valid: true, issue: null, message: null, area_m2: area, edges };
