@@ -28,6 +28,7 @@ import {
 } from "@/lib/solar/polygon";
 import {
   applyLayoutRpcArgs,
+  assertApplyRpcArgs,
   buildArrayPayloads,
   buildVariantPayload,
   candidateToken,
