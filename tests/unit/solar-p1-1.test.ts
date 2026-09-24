@@ -612,3 +612,45 @@ describe("P1.1 — abonnement utilisable avant écriture", () => {
     expect(src).not.toContain("res.arrayBuffer()");
   });
 });
+
+/* ------------------- P1.2 — puissance ambiguë si champs dupliqués -------- */
+
+describe("P1.2 — 2 champs sur le même pan : puissance partielle et alerte", () => {
+  function duplicatedArrays() {
+    const base = twoArrays();
+    return {
+      ...base,
+      planes: [plane("p1", "a", "Pan A")],
+      modules: [mod("m1", "a", 1, 1), mod("m2", "a", 2.5, 1)],
+      arrays: [
+        { ...base.arrays[0]! },
+        { ...base.arrays[1]!, roof_plane_id: "p1" },
+      ],
+    };
+  }
+
+  test("warning + power_complete=false + status=alerte", () => {
+    const r = resultsFromModel(duplicatedArrays());
+    expect(r.warnings.some((w) => w.code === "plusieurs_champs_meme_pan")).toBe(true);
+    expect(r.global.power_complete).toBe(false);
+    expect(r.global.status).toBe("alerte");
+  });
+
+  test("PDF client et technique : pas de « Puissance installée » sans réserve", () => {
+    const r = resultsFromModel(duplicatedArrays());
+    for (const v of ["client", "technique"] as const) {
+      const s = JSON.stringify(buildSolarPdfSections(r, v, META));
+      expect(s).toContain("Puissance connue");
+      expect(s).toContain("valeur partielle");
+      expect(s).not.toContain("Puissance installée");
+    }
+  });
+
+  test("cas sain inchangé : 2 pans / 2 champs distincts restent complets", () => {
+    const r = resultsFromModel(twoArrays());
+    expect(r.global.power_complete).toBe(true);
+    expect(r.global.status).toBe("ok");
+    const s = JSON.stringify(buildSolarPdfSections(r, "client", META));
+    expect(s).toContain("Puissance installée");
+  });
+});
