@@ -168,3 +168,24 @@ export interface DesignSummary {
   strings: number;
   formulas: string[];
 }
+
+/** Conception électrique enregistrée, telle que relue pour l'affichage. */
+export interface StoredElectricalDesign {
+  id: string;
+  topology: string;
+  status: string;
+  inverter_snapshot: InverterSpec;
+  inverter_count: number;
+  temp_min_c: number;
+  temp_max_c: number;
+  temp_source: string;
+  geometry_version: number;
+  layout_version: number;
+  layout_hash: string;
+  engine_version: string;
+  variant_label: string | null;
+  summary: DesignSummary;
+  warnings: ElecCheck[];
+  created_at: string;
+  groups: ElecGroup[];
+}

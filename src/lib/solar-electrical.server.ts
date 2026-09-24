@@ -14,6 +14,7 @@ import {
   type ElecModule,
   type InverterSpec,
   type ModuleElectrical,
+  type StoredElectricalDesign,
 } from "@/lib/solar-electrical";
 
 type SB = SupabaseClient<Database>;
@@ -106,7 +107,7 @@ export async function loadElectricalContext(sb: SB, companyId: string, modelId: 
   };
 }
 
-export async function loadCurrentDesign(sb: SB, companyId: string, modelId: string) {
+export async function loadCurrentDesign(sb: SB, companyId: string, modelId: string): Promise<StoredElectricalDesign | null> {
   const l = sb as unknown as Loose;
   const { data: design } = await l
     .from("solar_electrical_designs")
@@ -153,4 +154,3 @@ export async function loadCurrentDesign(sb: SB, companyId: string, modelId: stri
     })),
   };
 }
-export type StoredDesign = NonNullable<Awaited<ReturnType<typeof loadCurrentDesign>>>;
