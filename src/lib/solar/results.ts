@@ -390,7 +390,7 @@ export function buildSolarResults(input: ResultsInput): SolarResultsReport {
     });
   }
   const incomplete = planes.some(
-    (p) => p.module_count > 0 && p.spec !== null && !p.spec.complete && p.unknown_count === 0,
+    (p) => p.module_count > 0 && p.spec !== null && !p.spec.complete,
   );
   if (incomplete) {
     warnings.push({
