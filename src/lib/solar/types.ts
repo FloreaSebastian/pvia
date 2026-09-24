@@ -158,6 +158,15 @@ export interface PlacedModule {
   local_v_m: number;
   orientation: ModuleOrientation;
   enabled: boolean;
+  /** Validité enregistrée par le serveur (lecture seule, jamais dictée par le client). */
+  validity_status?: ModuleValidityStatus;
+  validity_cause?: string | null;
+}
+
+export type ModuleValidityStatus = "valid" | "warning" | "invalid";
+
+export function normalizeValidityStatus(raw: unknown): ModuleValidityStatus {
+  return raw === "warning" || raw === "invalid" ? raw : "valid";
 }
 
 export interface SolarSummary {

@@ -402,6 +402,8 @@ export async function loadFullModel(
       local_v_m: m.local_v_m,
       orientation: m.orientation === "paysage" ? "paysage" : "portrait",
       enabled: m.enabled,
+      validity_status: normalizeValidityStatus(m.validity_status),
+      validity_cause: m.validity_cause ?? null,
     };
   });
 
