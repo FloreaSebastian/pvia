@@ -146,7 +146,11 @@ export function ResultsView({
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <Metric
               label={g.power_complete ? "Puissance installée" : "Puissance connue"}
-              value={`${g.power_kwc} kWc`}
+              value={
+                g.power_complete
+                  ? `${g.power_kwc} kWc`
+                  : `${g.power_kwc} kWc — valeur partielle, configuration à vérifier`
+              }
             />
             <Metric label="Panneaux" value={String(g.module_count)} />
             <Metric label="Surface de panneaux" value={`${g.module_area_m2} m²`} />
