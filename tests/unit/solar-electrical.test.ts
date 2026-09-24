@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, test as it } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import {
   addEmptyGroup,
@@ -29,6 +29,7 @@ import {
 } from "@/lib/solar-electrical";
 import { electricalPdfSections } from "@/lib/solar-electrical/report";
 import { buildSolarPdfSections } from "@/lib/solar/pdf-doc";
+import { resultsFromModel } from "@/lib/solar/report-from-model";
 
 const T: DesignTemperatures = { tmin_c: -10, tmax_c: 70, source: "test" };
 
