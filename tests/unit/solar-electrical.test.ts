@@ -749,25 +749,8 @@ describe("résultats / PDF électriques", () => {
       planes: [],
       configurations: [],
     } as never;
-    try {
-      const secs = buildSolarPdfSections(
-        report,
-        "client",
-        {
-          reference: null,
-          address: null,
-          date: new Date(0),
-          companyName: null,
-          brandColor: "#000000",
-        },
-        electricalPdfSections(design, "client", false),
-      );
-      expect(JSON.stringify(secs)).toMatch(/schéma unifilaire officiel/);
-    } catch {
-      // Le rapport minimal peut ne pas suffire au builder complet : la mention est vérifiée sur le source.
-      expect(readFileSync("src/lib/solar/pdf-doc.ts", "utf8")).toMatch(
-        /schéma unifilaire officiel/,
-      );
-    }
+    const secs = buildSolarPdfSections(report, "client", { reference: null, address: null, date: new Date(0), companyName: null, brandColor: "#000000" }, electricalPdfSections(design, "client", false));
+    expect(JSON.stringify(secs)).toMatch(/schéma unifilaire officiel/);
+    expect(JSON.stringify(secs)).toContain("Onduleur");
   });
 });
