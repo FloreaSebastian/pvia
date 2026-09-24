@@ -744,13 +744,34 @@ describe("résultats / PDF électriques", () => {
     expect(text).not.toContain("Strings");
   });
   it("sections intégrées au PDF avec mention hors schéma unifilaire", () => {
-    const report = {
-      global: { power_complete: true, power_kwc: 6.4, module_types: [], spec: {} },
-      warnings: [],
+    const report = resultsFromModel({
+      model: {
+        name: "x",
+        address: "1 rue A",
+        postal_code: "34000",
+        city: "Montpellier",
+        geometry_version: 3,
+        geometry_hash: null,
+        updated_at: null,
+        quality_level: "pre_etude",
+      },
       planes: [],
-      configurations: [],
-    } as never;
-    const secs = buildSolarPdfSections(report, "client", { reference: null, address: null, date: new Date(0), companyName: null, brandColor: "#000000" }, electricalPdfSections(design, "client", false));
+      modules: [],
+      obstacles: [],
+      arrays: [],
+    } as never);
+    const secs = buildSolarPdfSections(
+      report,
+      "client",
+      {
+        reference: null,
+        address: null,
+        date: new Date(0),
+        companyName: null,
+        brandColor: "#000000",
+      },
+      electricalPdfSections(design, "client", false),
+    );
     expect(JSON.stringify(secs)).toMatch(/schéma unifilaire officiel/);
     expect(JSON.stringify(secs)).toContain("Onduleur");
   });
