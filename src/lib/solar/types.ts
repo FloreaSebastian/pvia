@@ -17,7 +17,10 @@ export const SOLAR_QUALITY_META: Record<SolarQualityLevel, { label: string; help
     help: "Saisie déclarative avant-vente. Dimensions à confirmer par la visite technique.",
   },
   lidar: { label: "Données LiDAR", help: "Géométrie issue de données altimétriques publiques." },
-  terrain_verifie: { label: "Vérifié terrain", help: "Dimensions confirmées lors de la visite technique." },
+  terrain_verifie: {
+    label: "Vérifié terrain",
+    help: "Dimensions confirmées lors de la visite technique.",
+  },
   drone: { label: "Relevé drone", help: "Géométrie issue d'un relevé photogrammétrique." },
 };
 
@@ -67,7 +70,10 @@ export type ObstacleType =
   | "poteau"
   | "autre";
 
-export const OBSTACLE_META: Record<ObstacleType, { label: string; onRoof: boolean; defaultHeight: number }> = {
+export const OBSTACLE_META: Record<
+  ObstacleType,
+  { label: string; onRoof: boolean; defaultHeight: number }
+> = {
   cheminee: { label: "Cheminée", onRoof: true, defaultHeight: 1.2 },
   velux: { label: "Velux / fenêtre de toit", onRoof: true, defaultHeight: 0.15 },
   chien_assis: { label: "Chien-assis", onRoof: true, defaultHeight: 1.4 },
@@ -81,7 +87,13 @@ export const OBSTACLE_META: Record<ObstacleType, { label: string; onRoof: boolea
   autre: { label: "Autre obstacle", onRoof: true, defaultHeight: 1 },
 };
 
-export type ZoneType = "interdite" | "prioritaire" | "technique" | "passage" | "reservee" | "panneaux";
+export type ZoneType =
+  | "interdite"
+  | "prioritaire"
+  | "technique"
+  | "passage"
+  | "reservee"
+  | "panneaux";
 
 export const ZONE_META: Record<ZoneType, { label: string; color: string }> = {
   interdite: { label: "Zone interdite", color: "#ef4444" },
@@ -158,6 +170,15 @@ export interface PlacedModule {
   local_v_m: number;
   orientation: ModuleOrientation;
   enabled: boolean;
+  /** Validité enregistrée par le serveur (lecture seule, jamais dictée par le client). */
+  validity_status?: ModuleValidityStatus;
+  validity_cause?: string | null;
+}
+
+export type ModuleValidityStatus = "valid" | "warning" | "invalid";
+
+export function normalizeValidityStatus(raw: unknown): ModuleValidityStatus {
+  return raw === "warning" || raw === "invalid" ? raw : "valid";
 }
 
 export interface SolarSummary {

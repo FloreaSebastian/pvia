@@ -18,7 +18,7 @@ import {
   type ReportModelLike,
 } from "@/lib/solar/report-from-model";
 import { renderPlanSvg } from "@/lib/solar/plan-drawing";
-import { planExportFileName } from "@/lib/solar/results";
+import { moduleTypeLabel, planExportFileName } from "@/lib/solar/results";
 import { exportSolarPdf } from "@/lib/solar-export.functions";
 
 function download(href: string, name: string) {
@@ -113,7 +113,12 @@ export function ResultsView({
       download(res.url, res.fileName);
       toast.success("Document prêt.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Génération du document impossible.");
+      const msg = e instanceof Error ? e.message : "";
+      toast.error(
+        /^(SUBSCRIPTION_REQUIRED|COMPANY_SUSPENDED)/.test(msg)
+          ? "Abonnement inactif : les résultats restent consultables, mais un nouvel export nécessite un abonnement actif."
+          : msg || "Génération du document impossible.",
+      );
     } finally {
       setBusy(null);
     }
@@ -139,22 +144,44 @@ export function ResultsView({
 
         <Card className="space-y-3 p-3">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <Metric label="Puissance installée" value={`${g.power_kwc} kWc`} />
+            <Metric
+              label={g.power_complete ? "Puissance installée" : "Puissance connue"}
+              value={`${g.power_kwc} kWc`}
+            />
             <Metric label="Panneaux" value={String(g.module_count)} />
             <Metric label="Surface de panneaux" value={`${g.module_area_m2} m²`} />
             <Metric label="Surface de toiture" value={`${g.roof_area_m2} m²`} />
           </div>
           <div className="grid gap-1 text-sm sm:grid-cols-2">
-            <p>
-              <span className="text-muted-foreground">Panneau : </span>
-              {[g.spec.manufacturer, g.spec.model].filter(Boolean).join(" ") || "Non renseigné"}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Dimensions : </span>
-              {g.spec.width_mm && g.spec.height_mm
-                ? `${Math.round(g.spec.width_mm)} × ${Math.round(g.spec.height_mm)} mm`
-                : "Non renseignées"}
-            </p>
+            {g.module_types.length > 1 ? (
+              <div className="sm:col-span-2">
+                <p className="font-medium">{g.module_types.length} références de panneaux</p>
+                <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                  {g.module_types.map((t) => (
+                    <li key={`${moduleTypeLabel(t)}-${t.width_mm}-${t.height_mm}-${t.power_wc}`}>
+                      {moduleTypeLabel(t)} — {t.power_wc ?? "?"} Wc —{" "}
+                      {t.width_mm && t.height_mm
+                        ? `${Math.round(t.width_mm)} × ${Math.round(t.height_mm)} mm`
+                        : "dimensions non renseignées"}{" "}
+                      — {t.module_count} panneaux — {t.power_kwc ?? "?"} kWc
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <>
+                <p>
+                  <span className="text-muted-foreground">Panneau : </span>
+                  {[g.spec.manufacturer, g.spec.model].filter(Boolean).join(" ") || "Non renseigné"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Dimensions : </span>
+                  {g.spec.width_mm && g.spec.height_mm
+                    ? `${Math.round(g.spec.width_mm)} × ${Math.round(g.spec.height_mm)} mm`
+                    : "Non renseignées"}
+                </p>
+              </>
+            )}
             <p>
               <span className="text-muted-foreground">Pans utilisés : </span>
               {g.planes_used}
@@ -179,8 +206,18 @@ export function ResultsView({
                   {p.area_m2} m² · {p.tilt_deg}° · {p.azimuth_deg}° {p.cardinal}
                 </p>
                 <p>
-                  {p.module_count} panneaux — {p.power_kwc} kWc — {p.module_area_m2} m²
+                  {p.module_count} panneaux —{" "}
+                  {p.power_known
+                    ? `${p.power_kwc} kWc — ${p.module_area_m2} m²`
+                    : "puissance inconnue"}
                 </p>
+                {(p.invalid_count > 0 || p.warning_count > 0) && (
+                  <p className="text-xs text-destructive">
+                    {p.invalid_count > 0 && `${p.invalid_count} invalide(s)`}
+                    {p.invalid_count > 0 && p.warning_count > 0 && " · "}
+                    {p.warning_count > 0 && `${p.warning_count} à vérifier`}
+                  </p>
+                )}
                 {p.obstacles.length > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Obstacles : {p.obstacles.join(", ")}
@@ -272,16 +309,13 @@ export function ResultsView({
                   [
                     ["Version géométrique", String(report.technical.geometry_version)],
                     ["Empreinte géométrique", report.technical.geometry_hash_short ?? "—"],
-                    ["Panneau (variante)", report.technical.module_variant_id ?? "—"],
-                    ["Révision panneau", report.technical.module_revision_id ?? "—"],
-                    ["Profil de règles", report.technical.rules_profile_id ?? "—"],
-                    [
-                      "Version du profil",
-                      report.technical.rules_profile_version === null
-                        ? "—"
-                        : String(report.technical.rules_profile_version),
-                    ],
-                    ["Moteur d'implantation", report.technical.layout_engine_version ?? "—"],
+                    ...report.technical.configurations.map(
+                      (c) =>
+                        [
+                          `Pan ${c.plane_name}`,
+                          `${c.module_variant_id ?? "—"} · rév. ${c.module_revision_id ?? "—"} · règles ${c.rules_profile_id ?? "—"}${c.rules_profile_version === null ? "" : ` v${c.rules_profile_version}`} · moteur ${c.layout_engine_version ?? "—"}`,
+                        ] as const,
+                    ),
                     [
                       "Dernière modification",
                       report.technical.updated_at

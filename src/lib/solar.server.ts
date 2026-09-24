@@ -23,7 +23,7 @@ import type {
   RoofPlaneGeometry,
   SolarQualityLevel,
 } from "./solar/types";
-import { DEFAULT_BUILDING_PARAMS } from "./solar/types";
+import { DEFAULT_BUILDING_PARAMS, normalizeValidityStatus } from "./solar/types";
 import type { TerrainGrid } from "./solar/terrain";
 import type { CoverageStatus } from "./solar/providers/types";
 
@@ -402,6 +402,8 @@ export async function loadFullModel(
       local_v_m: m.local_v_m,
       orientation: m.orientation === "paysage" ? "paysage" : "portrait",
       enabled: m.enabled,
+      validity_status: normalizeValidityStatus(m.validity_status),
+      validity_cause: m.validity_cause ?? null,
     };
   });
 
