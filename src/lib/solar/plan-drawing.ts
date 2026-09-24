@@ -2,9 +2,15 @@
  * Solar Studio V2 — P1 : plan technique vectoriel déterministe.
  *
  * Module PUR. Il construit une description géométrique du plan (pans, modules,
- * obstacles, libellés, nord, échelle) à partir des DONNÉES DU MODÈLE, jamais
+ * obstacles, libellés, échelle) à partir des DONNÉES DU MODÈLE, jamais
  * d'une capture d'écran. Le même dessin sert à l'aperçu SVG et au PDF : une
  * seule source de vérité géométrique.
+ *
+ * P1.1 : les pans sont juxtaposés dans LEURS repères locaux (u,v). L'axe Y du
+ * plan n'est donc PAS un Nord géographique commun : aucune flèche Nord n'est
+ * dessinée tant qu'un vrai repère global n'est pas utilisé. Seuls l'azimut et
+ * la pente de chaque pan sont indiqués. Chaque module est dessiné avec les
+ * dimensions du snapshot du champ de SON pan.
  */
 import type { PlacedModule } from "./types";
 
@@ -31,8 +37,13 @@ export interface PlanDrawingInput {
   planes: PlanDrawingPlane[];
   modules: PlacedModule[];
   obstacles: PlanDrawingObstacle[];
-  /** Dimensions réelles du panneau (snapshot). Sans elles, aucun module n'est dessiné. */
-  spec: { width_mm: number; height_mm: number } | null;
+  /** Dimensions réelles du panneau (snapshot), utilisées si `specByPlaneKey` est absent. */
+  spec?: { width_mm: number; height_mm: number } | null;
+  /**
+   * Dimensions réelles par pan (snapshot du champ du pan). Prioritaire sur `spec`.
+   * Un pan sans entrée (ou `null`) n'a aucun module dessiné : rien n'est inventé.
+   */
+  specByPlaneKey?: Record<string, { width_mm: number; height_mm: number } | null>;
   title: string;
   subtitle?: string;
 }
@@ -54,6 +65,8 @@ export type PlanItem =
       fill: string;
       stroke: string;
       width: number;
+      /** Identifiant du module représenté (absent pour obstacles et légende). */
+      moduleId?: string;
     }
   | { kind: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; width: number }
   | {
@@ -73,6 +86,32 @@ export interface PlanDrawing {
   /** Longueur de la cote de référence affichée, en mètres. */
   scaleBarM: number;
   moduleCount: number;
+  /** Modules actifs ou non qui n'ont pas pu être dessinés faute de dimensions réelles. */
+  undrawnCount: number;
+  /** Translation appliquée au repère local (u,v) de chaque pan dans la planche. */
+  planeLayouts: { key: string; dx: number; dy: number }[];
+}
+
+/** Position dans la planche d'un point (u,v) du repère local d'un pan. */
+export function planPointForPlane(
+  drawing: Pick<PlanDrawing, "planeLayouts">,
+  planeKey: string,
+  u: number,
+  v: number,
+): { x: number; y: number } | null {
+  const l = drawing.planeLayouts.find((p) => p.key === planeKey);
+  return l ? { x: u + l.dx, y: v + l.dy } : null;
+}
+
+/** Inverse de `planPointForPlane` : retrouve (u,v) local à partir de la planche. */
+export function localPointFromPlan(
+  drawing: Pick<PlanDrawing, "planeLayouts">,
+  planeKey: string,
+  x: number,
+  y: number,
+): { u: number; v: number } | null {
+  const l = drawing.planeLayouts.find((p) => p.key === planeKey);
+  return l ? { u: x - l.dx, v: y - l.dy } : null;
 }
 
 const INK = "#0f172a";
@@ -120,6 +159,11 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
   let cursorX = MARGIN_M;
   let maxTop = 0;
   let moduleCount = 0;
+  let undrawnCount = 0;
+  const planeLayouts: { key: string; dx: number; dy: number }[] = [];
+  const usedSpecs = new Map<string, { width_mm: number; height_mm: number }>();
+  const specFor = (key: string) =>
+    input.specByPlaneKey ? (input.specByPlaneKey[key] ?? null) : (input.spec ?? null);
 
   for (const plane of planes) {
     const box = bboxOf(plane.polygon);
@@ -127,6 +171,7 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
     const dx = cursorX - box.minX;
     const dy = MARGIN_M + 1.2 - box.minY; // 1,2 m réservés au libellé sous le pan
     const shift = (p: { x: number; y: number }) => ({ x: p.x + dx, y: p.y + dy });
+    planeLayouts.push({ key: plane.key, dx, dy });
 
     items.push({
       kind: "polygon",
@@ -149,10 +194,14 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
       });
     }
 
-    if (input.spec) {
-      const wm = input.spec.width_mm / 1000;
-      const hm = input.spec.height_mm / 1000;
-      for (const m of input.modules.filter((x) => x.roof_plane_key === plane.key)) {
+    const planeModules = input.modules.filter((x) => x.roof_plane_key === plane.key);
+    const spec = specFor(plane.key);
+    if (!spec) undrawnCount += planeModules.length;
+    if (spec) {
+      usedSpecs.set(`${spec.width_mm}x${spec.height_mm}`, spec);
+      const wm = spec.width_mm / 1000;
+      const hm = spec.height_mm / 1000;
+      for (const m of planeModules) {
         const w = m.orientation === "portrait" ? wm : hm;
         const h = m.orientation === "portrait" ? hm : wm;
         items.push({
@@ -164,6 +213,7 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
           fill: m.enabled ? PANEL_FILL : PANEL_OFF,
           stroke: PANEL_STROKE,
           width: 0.02,
+          moduleId: m.id,
         });
         moduleCount += 1;
       }
@@ -209,46 +259,6 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
     });
   }
 
-  // Nord : flèche verticale (repère local, Y = Nord du repère du pan).
-  const northX = contentWidth - MARGIN_M - 0.4;
-  const northY = contentHeight - 2.6;
-  items.push({
-    kind: "line",
-    x1: northX,
-    y1: northY,
-    x2: northX,
-    y2: northY + 1.2,
-    stroke: INK,
-    width: 0.06,
-  });
-  items.push({
-    kind: "line",
-    x1: northX,
-    y1: northY + 1.2,
-    x2: northX - 0.25,
-    y2: northY + 0.85,
-    stroke: INK,
-    width: 0.06,
-  });
-  items.push({
-    kind: "line",
-    x1: northX,
-    y1: northY + 1.2,
-    x2: northX + 0.25,
-    y2: northY + 0.85,
-    stroke: INK,
-    width: 0.06,
-  });
-  items.push({
-    kind: "text",
-    x: northX - 0.15,
-    y: northY - 0.5,
-    text: "N",
-    size: 0.42,
-    color: INK,
-    bold: true,
-  });
-
   // Cote de référence
   const bar = scaleBarLength(contentWidth);
   const barY = 0.6;
@@ -288,8 +298,9 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
     color: MUTED,
   });
 
-  // Légende panneau
-  if (input.spec) {
+  // Légende panneau : une seule référence => dimensions ; sinon, nombre de références.
+  if (usedSpecs.size > 0) {
+    const only = usedSpecs.size === 1 ? [...usedSpecs.values()][0]! : null;
     const lx = MARGIN_M + bar + 2.4;
     items.push({
       kind: "rect",
@@ -305,7 +316,9 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
       kind: "text",
       x: lx + 0.8,
       y: barY - 0.15,
-      text: `Panneau ${Math.round(input.spec.width_mm)} × ${Math.round(input.spec.height_mm)} mm — ${moduleCount} posés`,
+      text: only
+        ? `Panneau ${Math.round(only.width_mm)} × ${Math.round(only.height_mm)} mm — ${moduleCount} posés`
+        : `${usedSpecs.size} formats de panneaux — ${moduleCount} posés`,
       size: 0.38,
       color: MUTED,
     });
@@ -316,6 +329,8 @@ export function buildPlanDrawing(input: PlanDrawingInput): PlanDrawing {
     items,
     scaleBarM: bar,
     moduleCount,
+    undrawnCount,
+    planeLayouts,
   };
 }
 

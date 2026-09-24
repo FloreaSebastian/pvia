@@ -4,7 +4,12 @@
  * donc qu'UNE seule lecture du modèle, jamais deux vérités différentes.
  */
 import { buildPlanDrawing, type PlanDrawing } from "./plan-drawing";
-import { buildSolarResults, readModuleSpec, type SolarResultsReport } from "./results";
+import {
+  buildSolarResults,
+  readModuleSpec,
+  resolveArraysByPlaneKey,
+  type SolarResultsReport,
+} from "./results";
 import type { LocalPoint } from "./geo";
 import type { PlacedModule } from "./types";
 
@@ -79,7 +84,16 @@ export function drawingFromModel(
   opts: { title: string; subtitle?: string } = { title: "Plan d'implantation photovoltaïque" },
 ): PlanDrawing {
   const planeById = new Map(payload.planes.map((p) => [p.id, p]));
-  const spec = readModuleSpec(payload.arrays[0]?.module_snapshot);
+  // Chaque pan utilise le snapshot du champ qui lui est rattaché, jamais celui d'un autre.
+  const { byKey } = resolveArraysByPlaneKey(payload.planes, payload.arrays);
+  const specByPlaneKey: Record<string, { width_mm: number; height_mm: number } | null> = {};
+  for (const p of payload.planes) {
+    const s = readModuleSpec(byKey.get(p.key)?.module_snapshot);
+    specByPlaneKey[p.key] =
+      s.width_mm !== null && s.height_mm !== null
+        ? { width_mm: s.width_mm, height_mm: s.height_mm }
+        : null;
+  }
   return buildPlanDrawing({
     planes: payload.planes.map((p) => ({
       key: p.key,
@@ -98,10 +112,7 @@ export function drawingFromModel(
       length: o.length_m,
       label: o.label ?? o.obstacle_type,
     })),
-    spec:
-      spec.width_mm !== null && spec.height_mm !== null
-        ? { width_mm: spec.width_mm, height_mm: spec.height_mm }
-        : null,
+    specByPlaneKey,
     title: opts.title,
     subtitle: opts.subtitle,
   });
