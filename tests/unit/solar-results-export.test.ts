@@ -338,11 +338,12 @@ describe("Plan vectoriel", () => {
     expect(first!.x).toBeLessThan(second!.x);
   });
 
-  test("le plan porte le nom des pans, le Nord et une cote de référence", () => {
+  test("le plan porte le nom des pans et une cote de référence, sans Nord global (P1.1)", () => {
     const svg = renderPlanSvg(buildPlanDrawing(input));
     expect(svg).toContain("Pan Sud");
     expect(svg).toContain("Pan Nord");
-    expect(svg).toContain(">N<");
+    // P1.1 : repères locaux juxtaposés => aucune flèche Nord globale.
+    expect(svg).not.toContain(">N<");
     expect(svg).toContain(" m<");
     expect(scaleBarLength(20)).toBe(2);
   });
