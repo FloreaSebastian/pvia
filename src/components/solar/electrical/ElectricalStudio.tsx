@@ -119,7 +119,7 @@ export function ElectricalStudio(props: {
         })
       : null;
 
-  const groups = hist?.present ?? [];
+  const groups = useMemo(() => hist?.present ?? [], [hist]);
   const evaluation = useMemo(
     () =>
       ctx && inverter && temps && groups.length

@@ -91,7 +91,7 @@ export const createManualInverter = createServerFn({ method: "POST" })
       if (typeof v === "number" && (!Number.isFinite(v) || v < 0 || v > 1e6))
         throw new Error(`Valeur invalide : ${k}`);
     }
-    const { data: id, error } = await (supabase as unknown as Loose).rpc(
+    const { data: id, error } = await supabase.rpc(
       "solar_create_manual_inverter",
       {
         _company_id: data.companyId,
@@ -179,7 +179,7 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
     }
     const kept = groups.filter((g) => g.module_ids.length > 0);
     const byGroup = new Map(evaluation.groups.map((g) => [g.group_id, g]));
-    const { data: res, error } = await (supabase as unknown as Loose).rpc(
+    const { data: res, error } = await supabase.rpc(
       "solar_apply_electrical_design",
       {
         _company_id: data.companyId,

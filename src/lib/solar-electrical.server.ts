@@ -18,8 +18,6 @@ import {
 } from "@/lib/solar-electrical";
 
 type SB = SupabaseClient<Database>;
-// Tables ajoutées en P2-A : accès non typé tant que les types générés ne sont pas relus.
-type Loose = { from: (t: string) => any; rpc: (f: string, a: Record<string, unknown>) => any };
 
 export interface ElectricalContext {
   geometry_version: number;
@@ -37,8 +35,7 @@ export async function loadElectricalContext(
   companyId: string,
   modelId: string,
 ): Promise<ElectricalContext> {
-  const l = sb as unknown as Loose;
-  const { data: model, error } = await l
+  const { data: model, error } = await sb
     .from("solar_models")
     .select("id, geometry_version, layout_version")
     .eq("id", modelId)
@@ -47,8 +44,8 @@ export async function loadElectricalContext(
   if (error || !model) throw new Error("model_not_found");
 
   const [hash, geo, planes, arrays, modules, invs, revs] = await Promise.all([
-    l.rpc("solar_layout_fingerprint", { _company_id: companyId, _model_id: modelId }),
-    l.rpc("solar_geometry_fingerprint", { _company_id: companyId, _model_id: modelId }),
+    sb.rpc("solar_layout_fingerprint", { _company_id: companyId, _model_id: modelId }),
+    sb.rpc("solar_geometry_fingerprint", { _company_id: companyId, _model_id: modelId }),
     sb
       .from("solar_roof_planes")
       .select("*")
@@ -157,8 +154,7 @@ export async function loadCurrentDesign(
   companyId: string,
   modelId: string,
 ): Promise<StoredElectricalDesign | null> {
-  const l = sb as unknown as Loose;
-  const { data: design } = await l
+  const { data: design } = await sb
     .from("solar_electrical_designs")
     .select("*")
     .eq("model_id", modelId)
@@ -169,7 +165,7 @@ export async function loadCurrentDesign(
     .maybeSingle();
   if (!design) return null;
   const [strings, assigns] = await Promise.all([
-    l.from("solar_electrical_strings").select("*").eq("design_id", design.id).order("position"),
+    sb.from("solar_electrical_strings").select("*").eq("design_id", design.id).order("position"),
     l
       .from("solar_electrical_assignments")
       .select("string_id, module_id, position")
