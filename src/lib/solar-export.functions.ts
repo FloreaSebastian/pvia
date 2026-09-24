@@ -104,7 +104,9 @@ export const exportSolarPdf = createServerFn({ method: "POST" })
         });
         if (error) throw new Error("Génération du document impossible. Réessayez dans un instant.");
 
-        const { data: signed } = await supabase.storage.from("pv-assets").createSignedUrl(path, 300);
+        const { data: signed } = await supabase.storage
+          .from("pv-assets")
+          .createSignedUrl(path, 300);
         if (!signed?.signedUrl) throw new Error("Lien de téléchargement indisponible. Réessayez.");
         return { url: signed.signedUrl, fileName };
       },

@@ -159,7 +159,10 @@ describe("P1.1 — plusieurs champs / plusieurs références", () => {
     const b = 3 * 1.046 * 1.69;
     expect(r.planes.find((p) => p.key === "a")!.module_area_m2).toBe(Math.round(a * 10) / 10);
     expect(r.planes.find((p) => p.key === "b")!.module_area_m2).toBe(Math.round(b * 10) / 10);
-    expect(r.global.module_area_m2).toBeCloseTo(Math.round(a * 10) / 10 + Math.round(b * 10) / 10, 5);
+    expect(r.global.module_area_m2).toBeCloseTo(
+      Math.round(a * 10) / 10 + Math.round(b * 10) / 10,
+      5,
+    );
   });
 
   test("2 fabricants : aucune référence unique prétendue", () => {
@@ -209,7 +212,10 @@ describe("P1.1 — plusieurs champs / plusieurs références", () => {
 
   test("paysage appliqué après résolution du snapshot du bon pan", () => {
     const d = drawingFromModel(
-      twoArrays([mod("m1", "a", 2, 2, { orientation: "paysage" }), mod("m3", "b", 2, 2, { orientation: "paysage" })]),
+      twoArrays([
+        mod("m1", "a", 2, 2, { orientation: "paysage" }),
+        mod("m3", "b", 2, 2, { orientation: "paysage" }),
+      ]),
     );
     const m3 = d.items.find((i) => i.kind === "rect" && i.moduleId === "m3");
     if (!m3 || m3.kind !== "rect") throw new Error("rect attendu");
@@ -297,7 +303,9 @@ describe("P1.1 — aucun Nord global", () => {
     expect(svg.toLowerCase()).not.toContain("nord");
     expect(d.items.some((i) => i.kind === "text" && i.text.trim() === "N")).toBe(false);
     for (const v of ["client", "technique"] as const) {
-      const text = JSON.stringify(buildSolarPdfSections(resultsFromModel(input), v, META)).toLowerCase();
+      const text = JSON.stringify(
+        buildSolarPdfSections(resultsFromModel(input), v, META),
+      ).toLowerCase();
       expect(text).not.toContain("flèche nord");
       expect(text).not.toContain("nord géographique");
     }
@@ -322,7 +330,9 @@ describe("P1.1 — clic panneau 3D = sélection", () => {
   test("fiche du panneau sélectionné : pan, orientation, U/V, validité", () => {
     const info = describeSelectedModule(
       {
-        modules: [mod("m3", "b", 2.345, 1.2, { validity_status: "warning", validity_cause: "marge" })],
+        modules: [
+          mod("m3", "b", 2.345, 1.2, { validity_status: "warning", validity_cause: "marge" }),
+        ],
         planes: [{ key: "b", name: "Pan B" }],
         panelLabelByPlaneKey: { b: "SunPower MAX3 400" },
       },
@@ -348,7 +358,10 @@ describe("P1.1 — clic panneau 3D = sélection", () => {
       "src/routes/_authenticated/cahiers-des-charges.$id_.solar-studio.tsx",
       "utf8",
     );
-    const block = route.slice(route.indexOf("<SolarScene"), route.indexOf("/>", route.indexOf("<SolarScene")));
+    const block = route.slice(
+      route.indexOf("<SolarScene"),
+      route.indexOf("/>", route.indexOf("<SolarScene")),
+    );
     expect(block).not.toContain("onToggleModule");
     expect(block).toContain("onSelectModule={onSelectModule3d}");
   });
@@ -381,7 +394,12 @@ describe("P1.1 — centre U/V exact entre plan et 3D", () => {
       const sm = scene.modules.find((m) => m.id === id)!;
       const rect = d.items.find((i) => i.kind === "rect" && i.moduleId === id);
       if (!rect || rect.kind !== "rect") throw new Error("rect attendu");
-      const local = localPointFromPlan(d, sm.roof_plane_key, rect.x + rect.w / 2, rect.y + rect.h / 2)!;
+      const local = localPointFromPlan(
+        d,
+        sm.roof_plane_key,
+        rect.x + rect.w / 2,
+        rect.y + rect.h / 2,
+      )!;
       expect(local.u).toBeCloseTo(sm.local_u_m, 9);
       expect(local.v).toBeCloseTo(sm.local_v_m, 9);
       const back = planPointForPlane(d, sm.roof_plane_key, sm.local_u_m, sm.local_v_m)!;
@@ -396,7 +414,15 @@ describe("P1.1 — centre U/V exact entre plan et 3D", () => {
 
   test("1 pan seul : centre exact", () => {
     const d = buildPlanDrawing({
-      planes: [{ key: "a", name: "A", polygon: plane("p1", "a", "A").polygon, azimuth_deg: 180, tilt_deg: 30 }],
+      planes: [
+        {
+          key: "a",
+          name: "A",
+          polygon: plane("p1", "a", "A").polygon,
+          azimuth_deg: 180,
+          tilt_deg: 30,
+        },
+      ],
       modules: [mod("m1", "a", 1.25, 2.5)],
       obstacles: [],
       spec: { width_mm: 1134, height_mm: 1762 },
@@ -430,10 +456,16 @@ describe("P1.1 — logo PDF durci", () => {
 
   test("origine : uniquement le stockage du projet (hôte exact)", () => {
     expect(isProjectStorageUrl(good, PROJECT)).toBe(true);
-    expect(isProjectStorageUrl(`https://abc.supabase.co.evil.com/storage/v1/object/x.png`, PROJECT)).toBe(false);
+    expect(
+      isProjectStorageUrl(`https://abc.supabase.co.evil.com/storage/v1/object/x.png`, PROJECT),
+    ).toBe(false);
     expect(isProjectStorageUrl(`https://evil.com/storage/v1/object/x.png`, PROJECT)).toBe(false);
-    expect(isProjectStorageUrl(`https://user:pw@abc.supabase.co/storage/v1/object/x.png`, PROJECT)).toBe(false);
-    expect(isProjectStorageUrl(`http://abc.supabase.co/storage/v1/object/x.png`, PROJECT)).toBe(false);
+    expect(
+      isProjectStorageUrl(`https://user:pw@abc.supabase.co/storage/v1/object/x.png`, PROJECT),
+    ).toBe(false);
+    expect(isProjectStorageUrl(`http://abc.supabase.co/storage/v1/object/x.png`, PROJECT)).toBe(
+      false,
+    );
     expect(isProjectStorageUrl(`${PROJECT}/rest/v1/companies`, PROJECT)).toBe(false);
     expect(isProjectStorageUrl(good, null)).toBe(false);
     expect(isProjectStorageUrl("pas une url", PROJECT)).toBe(false);

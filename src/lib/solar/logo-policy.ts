@@ -14,7 +14,10 @@ export const PDF_LOGO_MAX_BYTES = 2 * 1024 * 1024;
 export const PDF_LOGO_TIMEOUT_MS = 5000;
 
 /** Vrai si l'URL désigne un objet du stockage du projet (comparaison stricte de l'hôte). */
-export function isProjectStorageUrl(raw: string | null | undefined, projectUrl: string | null | undefined): boolean {
+export function isProjectStorageUrl(
+  raw: string | null | undefined,
+  projectUrl: string | null | undefined,
+): boolean {
   if (!raw || !projectUrl) return false;
   let target: URL;
   let base: URL;

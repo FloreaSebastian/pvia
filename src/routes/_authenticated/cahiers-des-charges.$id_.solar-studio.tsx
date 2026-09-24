@@ -839,7 +839,9 @@ function SolarStudioPage() {
                         : selectedModuleInfo.validity === "warning"
                           ? "à vérifier"
                           : "invalide"}
-                      {selectedModuleInfo.validityCause ? ` (${selectedModuleInfo.validityCause})` : ""}
+                      {selectedModuleInfo.validityCause
+                        ? ` (${selectedModuleInfo.validityCause})`
+                        : ""}
                     </p>
                   </div>
                 )}

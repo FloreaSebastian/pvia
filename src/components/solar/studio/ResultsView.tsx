@@ -207,7 +207,9 @@ export function ResultsView({
                 </p>
                 <p>
                   {p.module_count} panneaux —{" "}
-                  {p.power_known ? `${p.power_kwc} kWc — ${p.module_area_m2} m²` : "puissance inconnue"}
+                  {p.power_known
+                    ? `${p.power_kwc} kWc — ${p.module_area_m2} m²`
+                    : "puissance inconnue"}
                 </p>
                 {(p.invalid_count > 0 || p.warning_count > 0) && (
                   <p className="text-xs text-destructive">

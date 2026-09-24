@@ -358,7 +358,9 @@ export function buildSolarResults(input: ResultsInput): SolarResultsReport {
   const orphan = active.filter((m) => !knownKeys.has(m.roof_plane_key)).length;
 
   const moduleTypes = [...types.values()].sort((a, b) =>
-    `${a.manufacturer ?? ""} ${a.model ?? ""}`.localeCompare(`${b.manufacturer ?? ""} ${b.model ?? ""}`),
+    `${a.manufacturer ?? ""} ${a.model ?? ""}`.localeCompare(
+      `${b.manufacturer ?? ""} ${b.model ?? ""}`,
+    ),
   );
 
   const orientations = [...new Set(active.map((m) => m.orientation))].sort();
@@ -389,9 +391,7 @@ export function buildSolarResults(input: ResultsInput): SolarResultsReport {
       message: `${orphan} ${plural(orphan, "panneau rattaché", "panneaux rattachés")} à aucun pan connu — puissance et surface inconnues.`,
     });
   }
-  const incomplete = planes.some(
-    (p) => p.module_count > 0 && p.spec !== null && !p.spec.complete,
-  );
+  const incomplete = planes.some((p) => p.module_count > 0 && p.spec !== null && !p.spec.complete);
   if (incomplete) {
     warnings.push({
       code: "snapshot_incomplet",
@@ -469,9 +469,13 @@ export function buildSolarResults(input: ResultsInput): SolarResultsReport {
       : null;
 
   const status = warnings.some((w) =>
-    ["aucun_panneau", "snapshot_incomplet", "module_sans_fiche", "modules_invalides", "modules_a_verifier"].includes(
-      w.code,
-    ),
+    [
+      "aucun_panneau",
+      "snapshot_incomplet",
+      "module_sans_fiche",
+      "modules_invalides",
+      "modules_a_verifier",
+    ].includes(w.code),
   )
     ? "alerte"
     : "ok";
