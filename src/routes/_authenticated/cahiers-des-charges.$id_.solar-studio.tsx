@@ -74,6 +74,8 @@ import { SiteMapCard } from "@/components/solar/map/SiteMapCard";
 import { StepRail } from "@/components/solar/studio/StepRail";
 import { StudioTopBar } from "@/components/solar/studio/StudioTopBar";
 import { ContextPanel } from "@/components/solar/studio/ContextPanel";
+import { describeSelectedModule, resolveModuleSelection } from "@/lib/solar/scene-selection";
+import { readModuleSpec } from "@/lib/solar/results";
 import { LayoutSummaryBar } from "@/components/solar/studio/LayoutSummaryBar";
 import {
   ManualLayoutEditor,
@@ -164,6 +166,8 @@ function SolarStudioPage() {
   const [busy, setBusy] = useState(false);
   const [params, setParams] = useState<BuildingParams>(DEFAULT_BUILDING_PARAMS);
   const [selectedPlaneKey, setSelectedPlaneKey] = useState<string | null>(null);
+  // P1.1 : panneau sélectionné en 3D (sélection pure, aucune écriture).
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -601,6 +605,26 @@ function SolarStudioPage() {
 
   const summary = payload.summary;
   const specForPlane = selectedPlane ? scene?.specByPlaneKey[selectedPlane.key] : undefined;
+  const selectedModuleInfo = describeSelectedModule(
+    {
+      modules: payload.modules,
+      planes: payload.planes,
+      panelLabelByPlaneKey: Object.fromEntries(
+        payload.planes.map((p) => {
+          const arr = payload.arrays.find((a) => a.roof_plane_id === p.id);
+          const s = readModuleSpec(arr?.module_snapshot);
+          return [p.key, [s.manufacturer, s.model].filter(Boolean).join(" ") || null];
+        }),
+      ),
+    },
+    selectedModuleId,
+  );
+  const onSelectModule3d = (moduleId: string) => {
+    const sel = resolveModuleSelection(payload.modules, moduleId);
+    if (!sel) return;
+    setSelectedModuleId(sel.moduleId);
+    setSelectedPlaneKey(sel.planeKey);
+  };
   // Agrégation : une écriture d'un panneau enfant doit se voir dans la barre haute,
   // tout comme des contours de toiture modifiés mais pas encore enregistrés.
   const saveState: SaveState =
@@ -775,11 +799,50 @@ function SolarStudioPage() {
                     <SolarScene
                       model={scene}
                       selectedPlaneKey={selectedPlaneKey}
-                      onSelectPlane={setSelectedPlaneKey}
-                      onToggleModule={onToggleModuleAt}
+                      onSelectPlane={(key) => {
+                        setSelectedPlaneKey(key);
+                        setSelectedModuleId(null);
+                      }}
+                      selectedModuleId={selectedModuleId}
+                      onSelectModule={onSelectModule3d}
+                      onClearSelection={() => setSelectedModuleId(null)}
                     />
                   )}
                 </Suspense>
+                {selectedModuleInfo && (
+                  <div
+                    className="absolute left-3 top-3 z-10 w-64 rounded-md border bg-background/95 p-3 text-xs shadow-sm"
+                    role="status"
+                    aria-label="Panneau sélectionné"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium">{selectedModuleInfo.panelLabel ?? "Panneau"}</p>
+                      <button
+                        type="button"
+                        className="-m-2 min-h-11 min-w-11 text-muted-foreground"
+                        onClick={() => setSelectedModuleId(null)}
+                        aria-label="Désélectionner"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <p>Pan : {selectedModuleInfo.planeName}</p>
+                    <p>Orientation : {selectedModuleInfo.orientation}</p>
+                    <p>
+                      Position : u {selectedModuleInfo.u} m · v {selectedModuleInfo.v} m
+                    </p>
+                    {!selectedModuleInfo.enabled && <p>Panneau désactivé</p>}
+                    <p>
+                      Validité :{" "}
+                      {selectedModuleInfo.validity === "valid"
+                        ? "valide"
+                        : selectedModuleInfo.validity === "warning"
+                          ? "à vérifier"
+                          : "invalide"}
+                      {selectedModuleInfo.validityCause ? ` (${selectedModuleInfo.validityCause})` : ""}
+                    </p>
+                  </div>
+                )}
               </ClientOnly>
             )}
 
