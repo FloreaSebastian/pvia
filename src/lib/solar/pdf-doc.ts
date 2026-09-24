@@ -7,7 +7,7 @@
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { PlanDrawing } from "./plan-drawing";
-import type { SolarResultsReport } from "./results";
+import { moduleTypeLabel, type SolarResultsReport } from "./results";
 
 export type SolarPdfVariant = "client" | "technique";
 
@@ -45,8 +45,19 @@ function dims(report: SolarResultsReport): string {
 }
 
 function panelName(report: SolarResultsReport): string {
-  const s = report.global.spec;
-  return [s.manufacturer, s.model].filter(Boolean).join(" ") || "Référence non renseignée";
+  if (report.global.module_types.length > 1)
+    return `${report.global.module_types.length} références de panneaux`;
+  return moduleTypeLabel(report.global.spec);
+}
+
+function mm(w: number | null, h: number | null): string {
+  return w !== null && h !== null ? `${Math.round(w)} × ${Math.round(h)} mm` : "Non renseignées";
+}
+
+function powerLabel(report: SolarResultsReport): string {
+  return report.global.power_complete
+    ? `${report.global.power_kwc} kWc`
+    : `${report.global.power_kwc} kWc (hors panneaux sans fiche)`;
 }
 
 /**
@@ -73,10 +84,12 @@ export function buildSolarPdfSections(
   sections.push({
     heading: "Installation projetée",
     rows: [
-      { label: "Puissance installée", value: `${report.global.power_kwc} kWc` },
+      { label: "Puissance installée", value: powerLabel(report) },
       { label: "Nombre de panneaux", value: String(report.global.module_count) },
       { label: "Panneau", value: panelName(report) },
-      { label: "Dimensions du panneau", value: dims(report) },
+      ...(report.global.module_types.length > 1
+        ? []
+        : [{ label: "Dimensions du panneau", value: dims(report) }]),
       { label: "Surface de panneaux", value: `${report.global.module_area_m2} m²` },
       { label: "Surface de toiture", value: `${report.global.roof_area_m2} m²` },
       { label: "Pans utilisés", value: String(report.global.planes_used) },
@@ -87,6 +100,22 @@ export function buildSolarPdfSections(
     ],
   });
 
+  if (report.global.module_types.length > 1) {
+    sections.push({
+      heading: "Références de panneaux",
+      table: {
+        columns: ["Référence", "Puissance unitaire", "Dimensions", "Panneaux", "Puissance"],
+        rows: report.global.module_types.map((t) => [
+          moduleTypeLabel(t),
+          t.power_wc === null ? "—" : `${t.power_wc} Wc`,
+          mm(t.width_mm, t.height_mm),
+          String(t.module_count),
+          t.power_kwc === null ? "—" : `${t.power_kwc} kWc`,
+        ]),
+      },
+    });
+  }
+
   sections.push({
     heading: "Répartition par pan",
     table: {
@@ -96,14 +125,14 @@ export function buildSolarPdfSections(
           : ["Pan", "Surface", "Pente", "Azimut", "Panneaux", "Puissance"],
       rows: report.planes.map((p) =>
         variant === "client"
-          ? [p.name, String(p.module_count), `${p.power_kwc} kWc`]
+          ? [p.name, String(p.module_count), p.power_known ? `${p.power_kwc} kWc` : "Inconnue"]
           : [
               p.name,
               `${p.area_m2} m²`,
               `${p.tilt_deg}°`,
               `${p.azimuth_deg}° ${p.cardinal}`,
               String(p.module_count),
-              `${p.power_kwc} kWc`,
+              p.power_known ? `${p.power_kwc} kWc` : "Inconnue",
             ],
       ),
     },
@@ -124,17 +153,6 @@ export function buildSolarPdfSections(
       rows: [
         { label: "Version géométrique", value: String(report.technical.geometry_version) },
         { label: "Empreinte géométrique", value: report.technical.geometry_hash_short ?? "—" },
-        { label: "Référence panneau (variante)", value: report.technical.module_variant_id ?? "—" },
-        { label: "Révision panneau", value: report.technical.module_revision_id ?? "—" },
-        { label: "Profil de règles", value: report.technical.rules_profile_id ?? "—" },
-        {
-          label: "Version du profil de règles",
-          value:
-            report.technical.rules_profile_version === null
-              ? "—"
-              : String(report.technical.rules_profile_version),
-        },
-        { label: "Moteur d'implantation", value: report.technical.layout_engine_version ?? "—" },
         {
           label: "Dernière modification",
           value: report.technical.updated_at
@@ -144,6 +162,23 @@ export function buildSolarPdfSections(
         { label: "Niveau de qualité", value: report.technical.quality_level ?? "—" },
         { label: "Données vérifiées", value: report.technical.quality_verified ?? "—" },
       ],
+    });
+
+    sections.push({
+      heading: "Configurations par pan",
+      table: {
+        columns: ["Pan", "Panneau", "Variante", "Révision", "Règles", "Moteur"],
+        rows: report.technical.configurations.length
+          ? report.technical.configurations.map((c) => [
+              c.plane_name,
+              moduleTypeLabel(c),
+              c.module_variant_id ?? "—",
+              c.module_revision_id ?? "—",
+              `${c.rules_profile_id ?? "—"}${c.rules_profile_version === null ? "" : ` v${c.rules_profile_version}`}`,
+              c.layout_engine_version ?? "—",
+            ])
+          : [["—", "Aucun champ enregistré", "—", "—", "—", "—"]],
+      },
     });
 
     sections.push({
