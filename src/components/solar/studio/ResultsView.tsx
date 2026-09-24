@@ -113,7 +113,12 @@ export function ResultsView({
       download(res.url, res.fileName);
       toast.success("Document prêt.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Génération du document impossible.");
+      const msg = e instanceof Error ? e.message : "";
+      toast.error(
+        /^(SUBSCRIPTION_REQUIRED|COMPANY_SUSPENDED)/.test(msg)
+          ? "Abonnement inactif : les résultats restent consultables, mais un nouvel export nécessite un abonnement actif."
+          : msg || "Génération du document impossible.",
+      );
     } finally {
       setBusy(null);
     }

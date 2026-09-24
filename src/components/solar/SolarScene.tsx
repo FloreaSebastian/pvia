@@ -245,16 +245,18 @@ export default function SolarScene({
   model,
   selectedPlaneKey,
   onSelectPlane,
-  onToggleModule,
   selectedModuleId = null,
   onSelectModule,
+  onClearSelection,
 }: {
   model: SolarSceneModel;
   selectedPlaneKey: string | null;
   onSelectPlane: (key: string) => void;
-  onToggleModule: (moduleId: string) => void;
   selectedModuleId?: string | null;
+  /** Clic panneau = SÉLECTION uniquement (P1.1) : jamais d'écriture depuis la 3D. */
   onSelectModule?: (moduleId: string) => void;
+  /** Clic dans le vide : désélection. */
+  onClearSelection?: () => void;
 }) {
   const span = Math.max(model.extent, 12);
   const api = useRef<SceneCameraApi | null>(null);
@@ -268,6 +270,7 @@ export default function SolarScene({
         dpr={[1, 2]}
         camera={{ position: [span * 1.1, span * 0.85, span * 1.1], fov: 45 }}
         style={{ touchAction: "none" }}
+        onPointerMissed={() => onClearSelection?.()}
       >
         <color attach="background" args={["#0b1220"]} />
         <fog attach="fog" args={["#0b1220", span * 3, span * 8]} />
@@ -322,7 +325,7 @@ export default function SolarScene({
           <Panels
             model={model}
             selectedModuleId={selectedModuleId}
-            onPick={(id) => (onSelectModule ? onSelectModule(id) : onToggleModule(id))}
+            onPick={(id) => onSelectModule?.(id)}
           />
         )}
 
