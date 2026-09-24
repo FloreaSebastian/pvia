@@ -369,7 +369,7 @@ describe("P1.1 — centre U/V exact entre plan et 3D", () => {
       arrays: twoArrays().arrays,
     };
     const scene = buildSceneModel({
-      model: { building_params: DEFAULT_BUILDING_PARAMS },
+      params: DEFAULT_BUILDING_PARAMS,
       planes: input.planes,
       modules: input.modules,
       obstacles: [],
@@ -381,10 +381,10 @@ describe("P1.1 — centre U/V exact entre plan et 3D", () => {
       const sm = scene.modules.find((m) => m.id === id)!;
       const rect = d.items.find((i) => i.kind === "rect" && i.moduleId === id);
       if (!rect || rect.kind !== "rect") throw new Error("rect attendu");
-      const local = localPointFromPlan(d, sm.planeKey, rect.x + rect.w / 2, rect.y + rect.h / 2)!;
+      const local = localPointFromPlan(d, sm.roof_plane_key, rect.x + rect.w / 2, rect.y + rect.h / 2)!;
       expect(local.u).toBeCloseTo(sm.local_u_m, 9);
       expect(local.v).toBeCloseTo(sm.local_v_m, 9);
-      const back = planPointForPlane(d, sm.planeKey, sm.local_u_m, sm.local_v_m)!;
+      const back = planPointForPlane(d, sm.roof_plane_key, sm.local_u_m, sm.local_v_m)!;
       expect(back.x).toBeCloseTo(rect.x + rect.w / 2, 9);
     }
     const [la, lb] = d.planeLayouts;
