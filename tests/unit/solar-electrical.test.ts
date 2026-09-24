@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import {
   addEmptyGroup,
   admissibleRange,
@@ -286,8 +286,7 @@ describe("signature et versions", () => {
 
 describe("contrat SQL P2-A (migration)", () => {
   const dir = "supabase/migrations";
-  const sql = require("node:fs")
-    .readdirSync(dir)
+  const sql = readdirSync(dir)
     .map((f: string) => readFileSync(`${dir}/${f}`, "utf8"))
     .join("\n");
   it("layout_version incrémenté par trigger sur panneaux et champs, empreinte couvrant positions", () => {
@@ -312,6 +311,8 @@ describe("contrat SQL P2-A (migration)", () => {
     expect(sql).toMatch(/GRANT SELECT ON public\.solar_electrical_designs/);
   });
   it("aucun onduleur pré-chargé inventé", () => {
-    expect(sql).not.toMatch(/INSERT INTO (public\.)?solar_inverters \(/.source.replace("\\(", "\\(") + "(?![\\s\\S]*VALUES \\(_company_id)");
+    const inserts = sql.match(/INSERT INTO (public\.)?solar_inverters \(/g) ?? [];
+    expect(inserts).toHaveLength(1);
+    expect(sql).toMatch(/INSERT INTO solar_inverters \([^)]*\)\s*VALUES \(_company_id/);
   });
 });
