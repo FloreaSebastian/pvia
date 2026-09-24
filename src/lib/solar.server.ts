@@ -23,7 +23,7 @@ import type {
   RoofPlaneGeometry,
   SolarQualityLevel,
 } from "./solar/types";
-import { DEFAULT_BUILDING_PARAMS } from "./solar/types";
+import { DEFAULT_BUILDING_PARAMS, normalizeValidityStatus } from "./solar/types";
 import type { TerrainGrid } from "./solar/terrain";
 import type { CoverageStatus } from "./solar/providers/types";
 
