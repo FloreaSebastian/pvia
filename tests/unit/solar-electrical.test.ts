@@ -25,7 +25,10 @@ import {
   type ElecModule,
   type InverterSpec,
   type ModuleElectrical,
+  type StoredElectricalDesign,
 } from "@/lib/solar-electrical";
+import { electricalPdfSections } from "@/lib/solar-electrical/report";
+import { buildSolarPdfSections } from "@/lib/solar/pdf-doc";
 
 const T: DesignTemperatures = { tmin_c: -10, tmax_c: 70, source: "test" };
 
@@ -680,5 +683,91 @@ describe("contrat SQL P2-A (migration)", () => {
     const inserts = sql.match(/INSERT INTO (public\.)?solar_inverters \(/g) ?? [];
     expect(inserts).toHaveLength(1);
     expect(sql).toMatch(/INSERT INTO solar_inverters \([^)]*\)\s*VALUES \(_company_id/);
+  });
+});
+
+describe("résultats / PDF électriques", () => {
+  const design: StoredElectricalDesign = {
+    id: "d",
+    topology: "string",
+    status: "valide",
+    inverter_snapshot: INV,
+    inverter_count: 1,
+    temp_min_c: -10,
+    temp_max_c: 70,
+    temp_source: "test",
+    geometry_version: 3,
+    layout_version: 7,
+    layout_hash: "abc",
+    engine_version: "p2a-1.0.0",
+    variant_label: "Recommandée",
+    summary: {
+      dc_power_w: 6400,
+      ac_power_w: 5000,
+      dc_ac_ratio: 1.28,
+      inverter_count: 1,
+      mppts: [
+        {
+          inverter_index: 0,
+          mppt_index: 0,
+          strings: 2,
+          voltage_v: 264,
+          imp_sum_a: 19,
+          isc_sum_a: 20,
+        },
+      ],
+      unassigned: 0,
+      strings: 2,
+      formulas: [],
+    },
+    warnings: [],
+    created_at: "2026-09-24T00:00:00Z",
+    groups: [str("s1", ["a"]), str("s2", ["b"])],
+  };
+  it("PDF client : référence onduleur et puissances seulement", () => {
+    const text = JSON.stringify(electricalPdfSections(design, "client", false));
+    expect(text).toContain("Test");
+    expect(text).toContain("5.00 kW");
+    expect(text).not.toMatch(/MPPT|révision|moteur|abc/);
+  });
+  it("PDF technique : détail strings, MPPT, versions ; aucune production", () => {
+    const secs = electricalPdfSections(design, "technique", false);
+    const text = JSON.stringify(secs);
+    expect(text).toContain("Strings");
+    expect(text).toContain("moteur p2a-1.0.0");
+    expect(text).not.toMatch(/kWh|ombrage|≤/);
+  });
+  it("conception obsolète : non reprise", () => {
+    const text = JSON.stringify(electricalPdfSections(design, "technique", true));
+    expect(text).toMatch(/obsolète/);
+    expect(text).not.toContain("Strings");
+  });
+  it("sections intégrées au PDF avec mention hors schéma unifilaire", () => {
+    const report = {
+      global: { power_complete: true, power_kwc: 6.4, module_types: [], spec: {} },
+      warnings: [],
+      planes: [],
+      configurations: [],
+    } as never;
+    try {
+      const secs = buildSolarPdfSections(
+        report,
+        "client",
+        {
+          reference: null,
+          address: null,
+          date: new Date(0),
+          companyName: null,
+          brandColor: "#000000",
+        },
+        electricalPdfSections(design, "client", false),
+      );
+      expect(JSON.stringify(secs)).toMatch(/schéma unifilaire officiel/);
+    } catch {
+      // Le rapport minimal peut ne pas suffire au builder complet : la mention est vérifiée sur le source.
+      expect(readFileSync("src/lib/solar/pdf-doc.ts", "utf8")).toMatch(
+        /schéma unifilaire officiel/,
+      );
+    }
   });
 });

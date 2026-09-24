@@ -651,7 +651,9 @@ function SolarStudioPage() {
       step === "electrique" &&
       next !== "electrique" &&
       electricalDirty &&
-      !window.confirm("Le câblage modifié n'est pas enregistré. Quitter l'étape et perdre ces modifications ?")
+      !window.confirm(
+        "Le câblage modifié n'est pas enregistré. Quitter l'étape et perdre ces modifications ?",
+      )
     ) {
       return;
     }
@@ -753,6 +755,7 @@ function SolarStudioPage() {
             ) : step === "resultats" && visualMode === "map" ? (
               <ResultsView
                 payload={payload}
+                modelId={payload.model.id}
                 companyId={companyId}
                 studyId={id}
                 reference={payload.model.name || null}

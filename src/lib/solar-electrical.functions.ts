@@ -91,14 +91,11 @@ export const createManualInverter = createServerFn({ method: "POST" })
       if (typeof v === "number" && (!Number.isFinite(v) || v < 0 || v > 1e6))
         throw new Error(`Valeur invalide : ${k}`);
     }
-    const { data: id, error } = await supabase.rpc(
-      "solar_create_manual_inverter",
-      {
-        _company_id: data.companyId,
-        _inverter: data.inverter,
-        _spec: data.spec,
-      },
-    );
+    const { data: id, error } = await supabase.rpc("solar_create_manual_inverter", {
+      _company_id: data.companyId,
+      _inverter: data.inverter,
+      _spec: data.spec,
+    });
     if (error) throw new Error(electricalErrorMessage(error.message));
     return { id: String(id) };
   });
@@ -179,15 +176,14 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
     }
     const kept = groups.filter((g) => g.module_ids.length > 0);
     const byGroup = new Map(evaluation.groups.map((g) => [g.group_id, g]));
-    const { data: res, error } = await supabase.rpc(
-      "solar_apply_electrical_design",
-      {
-        _company_id: data.companyId,
-        _model_id: data.modelId,
-        _expected_geometry_version: data.expectedGeometryVersion,
-        _expected_layout_version: data.expectedLayoutVersion,
-        _expected_layout_hash: data.expectedLayoutHash,
-        _design: JSON.parse(JSON.stringify({
+    const { data: res, error } = await supabase.rpc("solar_apply_electrical_design", {
+      _company_id: data.companyId,
+      _model_id: data.modelId,
+      _expected_geometry_version: data.expectedGeometryVersion,
+      _expected_layout_version: data.expectedLayoutVersion,
+      _expected_layout_hash: data.expectedLayoutHash,
+      _design: JSON.parse(
+        JSON.stringify({
           topology: inverter.kind,
           inverter_id: inverter.inverter_id,
           inverter_revision_id: inverter.revision_id,
@@ -213,17 +209,21 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
             formulas: evaluation.formulas,
           },
           warnings: evaluation.checks.filter((c) => c.status !== "ok"),
-        })),
-        _strings: JSON.parse(JSON.stringify(kept.map((g) => ({
-          kind: g.kind,
-          label: g.label,
-          inverter_index: g.inverter_index,
-          mppt_index: g.mppt_index,
-          module_ids: g.module_ids,
-          results: byGroup.get(g.id) ?? {},
-        })))),
-      },
-    );
+        }),
+      ),
+      _strings: JSON.parse(
+        JSON.stringify(
+          kept.map((g) => ({
+            kind: g.kind,
+            label: g.label,
+            inverter_index: g.inverter_index,
+            mppt_index: g.mppt_index,
+            module_ids: g.module_ids,
+            results: byGroup.get(g.id) ?? {},
+          })),
+        ),
+      ),
+    });
     if (error) throw new Error(electricalErrorMessage(error.message));
     return res as unknown as { design_id: string; assigned: number };
   });
