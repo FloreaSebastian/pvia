@@ -156,3 +156,15 @@ export interface WiringProposal {
   reasons: string[];
   signature: string;
 }
+
+/** Synthèse enregistrée avec une conception électrique. */
+export interface DesignSummary {
+  dc_power_w: number | null;
+  ac_power_w: number | null;
+  dc_ac_ratio: number | null;
+  inverter_count: number;
+  mppts: MpptResult[];
+  unassigned: number;
+  strings: number;
+  formulas: string[];
+}
