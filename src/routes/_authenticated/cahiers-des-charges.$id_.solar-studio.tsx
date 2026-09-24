@@ -69,6 +69,7 @@ import { buildSceneModel } from "@/components/solar/scene-model";
 import { PlanView } from "@/components/solar/PlanView";
 import { SmartLayoutPanel, type LayoutPreview } from "@/components/solar/SmartLayoutPanel";
 import { ResultsView } from "@/components/solar/studio/ResultsView";
+import { ElectricalStudio } from "@/components/solar/electrical/ElectricalStudio";
 import { SitePanel } from "@/components/solar/SitePanel";
 import { SiteMapCard } from "@/components/solar/map/SiteMapCard";
 import { StepRail } from "@/components/solar/studio/StepRail";
@@ -216,6 +217,7 @@ function SolarStudioPage() {
   const [pendingStep, setPendingStep] = useState<StudioStepId | null>(null);
   // Édition manuelle (P0-D) : brouillon local, jamais écrit avant « Enregistrer ».
   const [manualEditing, setManualEditing] = useState(false);
+  const [electricalDirty, setElectricalDirty] = useState(false);
   const [manualState, setManualState] = useState<ManualEditorState | null>(null);
   /** Dialogue de sortie du brouillon manuel ; `target` = étape à rejoindre. */
   const [manualLeave, setManualLeave] = useState<{ target: StudioStepId | null } | null>(null);
@@ -252,12 +254,13 @@ function SolarStudioPage() {
   // Fermeture d'onglet avec des contours OU des corrections manuelles non
   // enregistrés : avertissement natif du navigateur.
   const manualDirty = manualEditing && !!manualState?.dirty;
-  const warnUnload = shouldWarnBeforeUnload({
-    step,
-    roofDirty,
-    manualEditing,
-    manualDirty: !!manualState?.dirty,
-  });
+  const warnUnload =
+    shouldWarnBeforeUnload({
+      step,
+      roofDirty,
+      manualEditing,
+      manualDirty: !!manualState?.dirty,
+    }) || electricalDirty;
   /** Intercepte une sortie du studio quand un brouillon n'est pas enregistré. */
   const blockLeave = () => {
     const decision = decideLeaveStudio({
@@ -534,6 +537,7 @@ function SolarStudioPage() {
         moduleCount: payload?.summary.module_count ?? 0,
         powerKwc: payload?.summary.power_kwc ?? 0,
         targetKwc: layoutContext.targetKwc,
+        electricalAvailable: true,
       }),
     [step, payload, layoutContext],
   );
@@ -643,6 +647,17 @@ function SolarStudioPage() {
    * le brouillon d'édition manuelle. Un seul dialogue pertinent à la fois.
    */
   const requestStep = (next: StudioStepId) => {
+    if (
+      step === "electrique" &&
+      next !== "electrique" &&
+      electricalDirty &&
+      !window.confirm(
+        "Le câblage modifié n'est pas enregistré. Quitter l'étape et perdre ces modifications ?",
+      )
+    ) {
+      return;
+    }
+    if (step === "electrique" && next !== "electrique") setElectricalDirty(false);
     const decision = decideStepChange(
       { step, roofDirty, manualEditing, manualDirty: !!manualState?.dirty },
       next,
@@ -728,9 +743,19 @@ function SolarStudioPage() {
           )}
 
           <div className="relative min-h-[240px] flex-1 overflow-hidden">
-            {step === "resultats" && visualMode === "map" ? (
+            {step === "electrique" && companyId ? (
+              <ElectricalStudio
+                payload={payload}
+                companyId={companyId}
+                modelId={payload.model.id}
+                canWrite={canWrite}
+                expert={mode === "expert"}
+                onDirtyChange={setElectricalDirty}
+              />
+            ) : step === "resultats" && visualMode === "map" ? (
               <ResultsView
                 payload={payload}
+                modelId={payload.model.id}
                 companyId={companyId}
                 studyId={id}
                 reference={payload.model.name || null}
@@ -1258,13 +1283,16 @@ function SolarStudioPage() {
           )}
 
           {step === "electrique" && (
-            <Card className="space-y-2 p-4 text-center">
-              <Zap className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
-              <p className="text-sm font-medium">Étude électrique à venir</p>
-              <p className="text-xs text-muted-foreground">
-                Onduleurs, chaînes et protections seront définis ici. L'implantation validée servira
-                de base : rien n'est estimé tant que cette étape n'est pas disponible.
+            <Card className="space-y-2 p-3 text-xs text-muted-foreground">
+              <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Zap className="h-4 w-4" aria-hidden /> Conception électrique
               </p>
+              <p>
+                Choisissez un onduleur réel, renseignez les températures de dimensionnement puis
+                lancez « Proposer un câblage ». Les positions des panneaux ne sont pas modifiables à
+                cette étape.
+              </p>
+              <p>Aucune production, ni ombrage, n'est estimé ici.</p>
             </Card>
           )}
 

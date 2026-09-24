@@ -77,7 +77,22 @@ export const exportSolarPdf = createServerFn({ method: "POST" })
           ? await fetchLogoSafely(company?.logo_url ?? null, { projectUrl })
           : null;
 
+        // Conception électrique enregistrée : reprise seulement si l'implantation n'a pas changé.
+        const elecServer = await import("./solar-electrical.server");
+        const { electricalPdfSections } = await import("./solar-electrical/report");
+        const design = await elecServer.loadCurrentDesign(supabase, data.companyId, modelRef.id);
+        let extraSections: ReturnType<typeof electricalPdfSections> = [];
+        if (design) {
+          const ctx = await elecServer.loadElectricalContext(supabase, data.companyId, modelRef.id);
+          const stale =
+            design.layout_version !== ctx.layout_version ||
+            design.layout_hash !== ctx.layout_hash ||
+            design.geometry_version !== ctx.geometry_version;
+          extraSections = electricalPdfSections(design, variant, stale);
+        }
+
         return renderSolarPdf({
+          extraSections,
           report,
           drawing,
           variant,

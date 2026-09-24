@@ -20,6 +20,7 @@ import {
 import { renderPlanSvg } from "@/lib/solar/plan-drawing";
 import { moduleTypeLabel, planExportFileName } from "@/lib/solar/results";
 import { exportSolarPdf } from "@/lib/solar-export.functions";
+import { ElectricalResultsCard } from "@/components/solar/electrical/ElectricalResultsCard";
 
 function download(href: string, name: string) {
   const a = document.createElement("a");
@@ -45,7 +46,9 @@ export function ResultsView({
   studyId,
   reference,
   expert,
+  modelId,
 }: {
+  modelId?: string;
   payload: ReportModelLike;
   companyId: string | null;
   studyId: string;
@@ -199,6 +202,10 @@ export function ResultsView({
             {g.status === "ok" ? "Géométrie cohérente" : "Géométrie à vérifier"}
           </Badge>
         </Card>
+
+        {companyId && modelId && (
+          <ElectricalResultsCard companyId={companyId} modelId={modelId} expert={expert} />
+        )}
 
         <Card className="space-y-2 p-3">
           <p className="text-sm font-medium">Détail par pan</p>

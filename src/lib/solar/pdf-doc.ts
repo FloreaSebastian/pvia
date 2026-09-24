@@ -68,6 +68,7 @@ export function buildSolarPdfSections(
   report: SolarResultsReport,
   variant: SolarPdfVariant,
   meta: SolarPdfMeta,
+  extraSections: PdfSection[] = [],
 ): PdfSection[] {
   const sections: PdfSection[] = [];
 
@@ -192,11 +193,16 @@ export function buildSolarPdfSections(
     });
   }
 
+  sections.push(...extraSections);
+
   sections.push({
     heading: "Portée du document",
     text: [
       SOLAR_PDF_RESERVE,
       "Aucune estimation de production annuelle ni d'ombrage n'est fournie : ces calculs ne sont pas réalisés à ce stade.",
+      ...(extraSections.length
+        ? ["Le câblage présenté n'est pas un schéma unifilaire officiel."]
+        : []),
     ].join(" "),
   });
 
@@ -305,9 +311,10 @@ export async function renderSolarPdf(input: {
   drawing: PlanDrawing;
   variant: SolarPdfVariant;
   meta: SolarPdfMeta;
+  extraSections?: PdfSection[];
 }): Promise<Uint8Array> {
   const { report, drawing, variant, meta } = input;
-  const sections = buildSolarPdfSections(report, variant, meta);
+  const sections = buildSolarPdfSections(report, variant, meta, input.extraSections ?? []);
 
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);

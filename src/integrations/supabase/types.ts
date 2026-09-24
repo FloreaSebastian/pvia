@@ -2977,6 +2977,225 @@ export type Database = {
           },
         ]
       }
+      solar_electrical_assignments: {
+        Row: {
+          company_id: string
+          design_id: string
+          id: string
+          module_id: string
+          position: number
+          string_id: string
+        }
+        Insert: {
+          company_id: string
+          design_id: string
+          id?: string
+          module_id: string
+          position: number
+          string_id: string
+        }
+        Update: {
+          company_id?: string
+          design_id?: string
+          id?: string
+          module_id?: string
+          position?: number
+          string_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_electrical_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_electrical_assignments_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "solar_electrical_designs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_electrical_assignments_string_id_fkey"
+            columns: ["string_id"]
+            isOneToOne: false
+            referencedRelation: "solar_electrical_strings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_electrical_designs: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          engine_version: string
+          geometry_hash: string | null
+          geometry_version: number
+          id: string
+          inverter_count: number
+          inverter_id: string | null
+          inverter_revision_id: string | null
+          inverter_snapshot: Json
+          is_current: boolean
+          layout_hash: string
+          layout_version: number
+          model_id: string
+          module_electrical_snapshot: Json
+          signature: string
+          status: string
+          summary: Json
+          temp_max_c: number
+          temp_min_c: number
+          temp_source: string
+          topology: string
+          variant_label: string | null
+          warnings: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          engine_version: string
+          geometry_hash?: string | null
+          geometry_version: number
+          id?: string
+          inverter_count?: number
+          inverter_id?: string | null
+          inverter_revision_id?: string | null
+          inverter_snapshot: Json
+          is_current?: boolean
+          layout_hash: string
+          layout_version: number
+          model_id: string
+          module_electrical_snapshot: Json
+          signature: string
+          status: string
+          summary?: Json
+          temp_max_c: number
+          temp_min_c: number
+          temp_source: string
+          topology: string
+          variant_label?: string | null
+          warnings?: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          engine_version?: string
+          geometry_hash?: string | null
+          geometry_version?: number
+          id?: string
+          inverter_count?: number
+          inverter_id?: string | null
+          inverter_revision_id?: string | null
+          inverter_snapshot?: Json
+          is_current?: boolean
+          layout_hash?: string
+          layout_version?: number
+          model_id?: string
+          module_electrical_snapshot?: Json
+          signature?: string
+          status?: string
+          summary?: Json
+          temp_max_c?: number
+          temp_min_c?: number
+          temp_source?: string
+          topology?: string
+          variant_label?: string | null
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_electrical_designs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_electrical_designs_inverter_id_fkey"
+            columns: ["inverter_id"]
+            isOneToOne: false
+            referencedRelation: "solar_inverters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_electrical_designs_inverter_revision_id_fkey"
+            columns: ["inverter_revision_id"]
+            isOneToOne: false
+            referencedRelation: "solar_inverter_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_electrical_designs_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "solar_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_electrical_strings: {
+        Row: {
+          company_id: string
+          design_id: string
+          id: string
+          input_index: number | null
+          inverter_index: number
+          kind: string
+          label: string
+          module_count: number
+          mppt_index: number | null
+          position: number
+          results: Json
+        }
+        Insert: {
+          company_id: string
+          design_id: string
+          id?: string
+          input_index?: number | null
+          inverter_index?: number
+          kind: string
+          label: string
+          module_count: number
+          mppt_index?: number | null
+          position: number
+          results?: Json
+        }
+        Update: {
+          company_id?: string
+          design_id?: string
+          id?: string
+          input_index?: number | null
+          inverter_index?: number
+          kind?: string
+          label?: string
+          module_count?: number
+          mppt_index?: number | null
+          position?: number
+          results?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_electrical_strings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_electrical_strings_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "solar_electrical_designs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_engine_results: {
         Row: {
           applied_at: string | null
@@ -3127,6 +3346,164 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      solar_inverter_revisions: {
+        Row: {
+          ac_power_w: number | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          datasheet_url: string | null
+          datasheet_version: string | null
+          dc_ac_ratio_max: number | null
+          dc_power_max_w: number | null
+          id: string
+          imax_input_a: number | null
+          imax_mppt_a: number | null
+          inputs_per_mppt: number | null
+          inverter_id: string
+          is_current: boolean
+          isc_max_mppt_a: number | null
+          micro_input_imax_a: number | null
+          micro_input_isc_max_a: number | null
+          micro_input_power_max_w: number | null
+          micro_input_vmax_v: number | null
+          micro_inputs: number | null
+          mppt_count: number | null
+          mppt_vmax_v: number | null
+          mppt_vmin_v: number | null
+          phase: string | null
+          provenance: string
+          revision_number: number
+          start_voltage_v: number | null
+          vdc_max_v: number | null
+        }
+        Insert: {
+          ac_power_w?: number | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          datasheet_url?: string | null
+          datasheet_version?: string | null
+          dc_ac_ratio_max?: number | null
+          dc_power_max_w?: number | null
+          id?: string
+          imax_input_a?: number | null
+          imax_mppt_a?: number | null
+          inputs_per_mppt?: number | null
+          inverter_id: string
+          is_current?: boolean
+          isc_max_mppt_a?: number | null
+          micro_input_imax_a?: number | null
+          micro_input_isc_max_a?: number | null
+          micro_input_power_max_w?: number | null
+          micro_input_vmax_v?: number | null
+          micro_inputs?: number | null
+          mppt_count?: number | null
+          mppt_vmax_v?: number | null
+          mppt_vmin_v?: number | null
+          phase?: string | null
+          provenance: string
+          revision_number?: number
+          start_voltage_v?: number | null
+          vdc_max_v?: number | null
+        }
+        Update: {
+          ac_power_w?: number | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          datasheet_url?: string | null
+          datasheet_version?: string | null
+          dc_ac_ratio_max?: number | null
+          dc_power_max_w?: number | null
+          id?: string
+          imax_input_a?: number | null
+          imax_mppt_a?: number | null
+          inputs_per_mppt?: number | null
+          inverter_id?: string
+          is_current?: boolean
+          isc_max_mppt_a?: number | null
+          micro_input_imax_a?: number | null
+          micro_input_isc_max_a?: number | null
+          micro_input_power_max_w?: number | null
+          micro_input_vmax_v?: number | null
+          micro_inputs?: number | null
+          mppt_count?: number | null
+          mppt_vmax_v?: number | null
+          mppt_vmin_v?: number | null
+          phase?: string | null
+          provenance?: string
+          revision_number?: number
+          start_voltage_v?: number | null
+          vdc_max_v?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_inverter_revisions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_inverter_revisions_inverter_id_fkey"
+            columns: ["inverter_id"]
+            isOneToOne: false
+            referencedRelation: "solar_inverters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_inverters: {
+        Row: {
+          archived: boolean
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          manufacturer: string
+          model: string
+          series: string | null
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          manufacturer: string
+          model: string
+          series?: string | null
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          manufacturer?: string
+          model?: string
+          series?: string | null
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_inverters_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       solar_layout_variants: {
         Row: {
@@ -3445,6 +3822,7 @@ export type Database = {
           geometry_version: number
           id: string
           latitude: number | null
+          layout_version: number
           location_confirmed_at: string | null
           location_confirmed_by: string | null
           longitude: number | null
@@ -3479,6 +3857,7 @@ export type Database = {
           geometry_version?: number
           id?: string
           latitude?: number | null
+          layout_version?: number
           location_confirmed_at?: string | null
           location_confirmed_by?: string | null
           longitude?: number | null
@@ -3513,6 +3892,7 @@ export type Database = {
           geometry_version?: number
           id?: string
           latitude?: number | null
+          layout_version?: number
           location_confirmed_at?: string | null
           location_confirmed_by?: string | null
           longitude?: number | null
@@ -6775,6 +7155,18 @@ export type Database = {
         Args: { _membership_id: string }
         Returns: boolean
       }
+      solar_apply_electrical_design: {
+        Args: {
+          _company_id: string
+          _design: Json
+          _expected_geometry_version: number
+          _expected_layout_hash: string
+          _expected_layout_version: number
+          _model_id: string
+          _strings: Json
+        }
+        Returns: Json
+      }
       solar_apply_layout: {
         Args: {
           _arrays: Json
@@ -6864,6 +7256,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      solar_create_manual_inverter: {
+        Args: { _company_id: string; _inverter: Json; _spec: Json }
+        Returns: string
+      }
       solar_geometry_fingerprint: {
         Args: { _company_id: string; _model_id: string }
         Returns: string
@@ -6934,6 +7330,10 @@ export type Database = {
           _worker_id: string
         }
         Returns: boolean
+      }
+      solar_layout_fingerprint: {
+        Args: { _company_id: string; _model_id: string }
+        Returns: string
       }
       solar_normalize_text: { Args: { _t: string }; Returns: string }
       unaccent_safe: { Args: { _t: string }; Returns: string }
