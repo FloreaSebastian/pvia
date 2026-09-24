@@ -475,6 +475,7 @@ export function buildSolarResults(input: ResultsInput): SolarResultsReport {
       "module_sans_fiche",
       "modules_invalides",
       "modules_a_verifier",
+      "plusieurs_champs_meme_pan",
     ].includes(w.code),
   )
     ? "alerte"
@@ -486,7 +487,7 @@ export function buildSolarResults(input: ResultsInput): SolarResultsReport {
         planes.reduce((s, p) => s + p.power_kwc, 0),
         2,
       ),
-      power_complete: unknownTotal === 0,
+      power_complete: unknownTotal === 0 && duplicatedKeys.length === 0,
       module_count: active.length,
       spec: globalSpec,
       module_types: moduleTypes,

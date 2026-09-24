@@ -57,7 +57,7 @@ function mm(w: number | null, h: number | null): string {
 function powerLabel(report: SolarResultsReport): string {
   return report.global.power_complete
     ? `${report.global.power_kwc} kWc`
-    : `${report.global.power_kwc} kWc (hors panneaux sans fiche)`;
+    : `${report.global.power_kwc} kWc — valeur partielle, configuration à vérifier`;
 }
 
 /**
@@ -84,7 +84,10 @@ export function buildSolarPdfSections(
   sections.push({
     heading: "Installation projetée",
     rows: [
-      { label: "Puissance installée", value: powerLabel(report) },
+      {
+        label: report.global.power_complete ? "Puissance installée" : "Puissance connue",
+        value: powerLabel(report),
+      },
       { label: "Nombre de panneaux", value: String(report.global.module_count) },
       { label: "Panneau", value: panelName(report) },
       ...(report.global.module_types.length > 1
