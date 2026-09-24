@@ -622,10 +622,7 @@ describe("P1.2 — 2 champs sur le même pan : puissance partielle et alerte", (
       ...base,
       planes: [plane("p1", "a", "Pan A")],
       modules: [mod("m1", "a", 1, 1), mod("m2", "a", 2.5, 1)],
-      arrays: [
-        { ...base.arrays[0]! },
-        { ...base.arrays[1]!, roof_plane_id: "p1" },
-      ],
+      arrays: [{ ...base.arrays[0]! }, { ...base.arrays[1]!, roof_plane_id: "p1" }],
     };
   }
 
