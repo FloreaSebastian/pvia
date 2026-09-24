@@ -187,7 +187,7 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
         _expected_geometry_version: data.expectedGeometryVersion,
         _expected_layout_version: data.expectedLayoutVersion,
         _expected_layout_hash: data.expectedLayoutHash,
-        _design: {
+        _design: JSON.parse(JSON.stringify({
           topology: inverter.kind,
           inverter_id: inverter.inverter_id,
           inverter_revision_id: inverter.revision_id,
@@ -214,7 +214,7 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
           },
           warnings: evaluation.checks.filter((c) => c.status !== "ok"),
         },
-        _strings: kept.map((g) => ({
+        _strings: JSON.parse(JSON.stringify(kept.map((g) => ({
           kind: g.kind,
           label: g.label,
           inverter_index: g.inverter_index,

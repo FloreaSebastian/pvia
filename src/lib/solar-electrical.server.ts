@@ -62,12 +62,12 @@ export async function loadElectricalContext(
       .select("id, array_id, roof_plane_id, local_u_m, local_v_m, orientation, enabled")
       .eq("model_id", modelId)
       .eq("company_id", companyId),
-    l
+    sb
       .from("solar_inverters")
       .select("*")
       .eq("archived", false)
       .or(`company_id.is.null,company_id.eq.${companyId}`),
-    l
+    sb
       .from("solar_inverter_revisions")
       .select("*")
       .eq("is_current", true)
@@ -166,7 +166,7 @@ export async function loadCurrentDesign(
   if (!design) return null;
   const [strings, assigns] = await Promise.all([
     sb.from("solar_electrical_strings").select("*").eq("design_id", design.id).order("position"),
-    l
+    sb
       .from("solar_electrical_assignments")
       .select("string_id, module_id, position")
       .eq("design_id", design.id)
@@ -180,7 +180,7 @@ export async function loadCurrentDesign(
     id: String(design.id),
     topology: design.topology as string,
     status: design.status as string,
-    inverter_snapshot: design.inverter_snapshot as InverterSpec,
+    inverter_snapshot: design.inverter_snapshot as unknown as InverterSpec,
     inverter_count: Number(design.inverter_count),
     temp_min_c: Number(design.temp_min_c),
     temp_max_c: Number(design.temp_max_c),
@@ -190,8 +190,8 @@ export async function loadCurrentDesign(
     layout_hash: String(design.layout_hash),
     engine_version: String(design.engine_version),
     variant_label: design.variant_label as string | null,
-    summary: design.summary as DesignSummary,
-    warnings: design.warnings as ElecCheck[],
+    summary: design.summary as unknown as DesignSummary,
+    warnings: design.warnings as unknown as ElecCheck[],
     created_at: String(design.created_at),
     groups: ((strings.data ?? []) as Record<string, unknown>[]).map(
       (s): ElecGroup => ({
