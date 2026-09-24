@@ -254,12 +254,13 @@ function SolarStudioPage() {
   // Fermeture d'onglet avec des contours OU des corrections manuelles non
   // enregistrés : avertissement natif du navigateur.
   const manualDirty = manualEditing && !!manualState?.dirty;
-  const warnUnload = shouldWarnBeforeUnload({
-    step,
-    roofDirty,
-    manualEditing,
-    manualDirty: !!manualState?.dirty,
-  });
+  const warnUnload =
+    shouldWarnBeforeUnload({
+      step,
+      roofDirty,
+      manualEditing,
+      manualDirty: !!manualState?.dirty,
+    }) || electricalDirty;
   /** Intercepte une sortie du studio quand un brouillon n'est pas enregistré. */
   const blockLeave = () => {
     const decision = decideLeaveStudio({

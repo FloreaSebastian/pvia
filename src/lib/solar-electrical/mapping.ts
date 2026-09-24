@@ -3,8 +3,10 @@
  */
 import type { ElecGroup, InverterKind, InverterSpec, ModuleElectrical, Phase } from "./types";
 
-export const STALE_LAYOUT_MESSAGE = "L'implantation a changé depuis le calcul électrique. Relancez le câblage.";
-export const SIGNATURE_MISMATCH_MESSAGE = "Le câblage envoyé ne correspond pas au calcul serveur. Relancez le câblage.";
+export const STALE_LAYOUT_MESSAGE =
+  "L'implantation a changé depuis le calcul électrique. Relancez le câblage.";
+export const SIGNATURE_MISMATCH_MESSAGE =
+  "Le câblage envoyé ne correspond pas au calcul serveur. Relancez le câblage.";
 
 const num = (v: unknown): number | null => {
   if (v === null || v === undefined || v === "") return null;
@@ -41,8 +43,13 @@ export function moduleElectricalFromRow(
   };
 }
 
-export function inverterSpecFromRows(inv: Record<string, unknown>, rev: Record<string, unknown>): InverterSpec {
-  const kind = (["string", "hybride", "micro"].includes(String(inv.kind)) ? inv.kind : "string") as InverterKind;
+export function inverterSpecFromRows(
+  inv: Record<string, unknown>,
+  rev: Record<string, unknown>,
+): InverterSpec {
+  const kind = (
+    ["string", "hybride", "micro"].includes(String(inv.kind)) ? inv.kind : "string"
+  ) as InverterKind;
   const phase = rev.phase === "mono" || rev.phase === "tri" ? (rev.phase as Phase) : null;
   return {
     inverter_id: String(inv.id),
@@ -80,7 +87,8 @@ export function assertGroupsContract(groups: ElecGroup[], kind: InverterKind): v
   if (!Array.isArray(groups) || groups.length > 500) throw new Error("invalid_groups");
   const seen = new Set<string>();
   for (const g of groups) {
-    if (kind === "micro" ? g.kind !== "micro" : g.kind !== "string") throw new Error("topology_mismatch");
+    if (kind === "micro" ? g.kind !== "micro" : g.kind !== "string")
+      throw new Error("topology_mismatch");
     for (const id of g.module_ids) {
       if (seen.has(id)) throw new Error("duplicate_module_assignment");
       seen.add(id);
@@ -91,12 +99,16 @@ export function assertGroupsContract(groups: ElecGroup[], kind: InverterKind): v
 export function electricalErrorMessage(raw: string): string {
   if (/stale_layout|model_not_found/.test(raw)) return STALE_LAYOUT_MESSAGE;
   if (/signature/.test(raw)) return SIGNATURE_MISMATCH_MESSAGE;
-  if (/forbidden|Droits/.test(raw)) return "Droits insuffisants pour modifier la conception électrique.";
-  if (/subscription|abonnement/i.test(raw)) return "Votre abonnement ne permet pas d'enregistrer de nouvelle conception.";
+  if (/forbidden|Droits/.test(raw))
+    return "Droits insuffisants pour modifier la conception électrique.";
+  if (/subscription|abonnement/i.test(raw))
+    return "Votre abonnement ne permet pas d'enregistrer de nouvelle conception.";
   if (/duplicate_module/.test(raw)) return "Un panneau est affecté deux fois.";
   if (/module_not_found/.test(raw)) return STALE_LAYOUT_MESSAGE;
-  if (/topology_mismatch/.test(raw)) return "Le type de câblage ne correspond pas à l'onduleur choisi.";
+  if (/topology_mismatch/.test(raw))
+    return "Le type de câblage ne correspond pas à l'onduleur choisi.";
   if (/provenance_required/.test(raw)) return "Indiquez la provenance de la fiche onduleur.";
-  if (/invalid_inverter/.test(raw)) return "Fabricant, modèle et type d'onduleur sont obligatoires.";
+  if (/invalid_inverter/.test(raw))
+    return "Fabricant, modèle et type d'onduleur sont obligatoires.";
   return "Opération impossible. Réessayez ou relancez le câblage.";
 }

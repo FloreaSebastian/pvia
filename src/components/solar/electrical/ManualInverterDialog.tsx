@@ -5,10 +5,22 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createManualInverter } from "@/lib/solar-electrical.functions";
 
 const NUMERIC: { key: string; label: string; micro?: boolean; string?: boolean }[] = [
@@ -57,7 +69,10 @@ export function ManualInverterDialog(props: {
       };
       for (const n of NUMERIC) {
         const raw = f[n.key]?.replace(",", ".").trim();
-        if (!raw) { spec[n.key] = null; continue; }
+        if (!raw) {
+          spec[n.key] = null;
+          continue;
+        }
         const v = Number(raw);
         if (!Number.isFinite(v)) throw new Error(`${n.label} : valeur invalide.`);
         spec[n.key] = v;
@@ -65,7 +80,12 @@ export function ManualInverterDialog(props: {
       const res = await create({
         data: {
           companyId: props.companyId,
-          inverter: { manufacturer: f.manufacturer ?? "", series: f.series || null, model: f.model ?? "", kind },
+          inverter: {
+            manufacturer: f.manufacturer ?? "",
+            series: f.series || null,
+            model: f.model ?? "",
+            kind,
+          },
           spec: spec as never,
         },
       });
@@ -83,18 +103,44 @@ export function ManualInverterDialog(props: {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle>Référence onduleur manuelle</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Référence onduleur manuelle</DialogTitle>
+        </DialogHeader>
         <p className="text-xs text-muted-foreground">
-          Recopiez uniquement les valeurs publiées sur la fiche technique. Laissez vide ce qui n'est pas publié : le contrôle correspondant sera « non vérifiable ».
+          Recopiez uniquement les valeurs publiées sur la fiche technique. Laissez vide ce qui n'est
+          pas publié : le contrôle correspondant sera « non vérifiable ».
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <div><Label className="text-xs">Fabricant *</Label><Input className="min-h-11" value={f.manufacturer ?? ""} onChange={(e) => set("manufacturer", e.target.value)} /></div>
-          <div><Label className="text-xs">Modèle *</Label><Input className="min-h-11" value={f.model ?? ""} onChange={(e) => set("model", e.target.value)} /></div>
-          <div><Label className="text-xs">Série</Label><Input className="min-h-11" value={f.series ?? ""} onChange={(e) => set("series", e.target.value)} /></div>
+          <div>
+            <Label className="text-xs">Fabricant *</Label>
+            <Input
+              className="min-h-11"
+              value={f.manufacturer ?? ""}
+              onChange={(e) => set("manufacturer", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Modèle *</Label>
+            <Input
+              className="min-h-11"
+              value={f.model ?? ""}
+              onChange={(e) => set("model", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Série</Label>
+            <Input
+              className="min-h-11"
+              value={f.series ?? ""}
+              onChange={(e) => set("series", e.target.value)}
+            />
+          </div>
           <div>
             <Label className="text-xs">Type *</Label>
             <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
-              <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="min-h-11">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="string">String</SelectItem>
                 <SelectItem value="hybride">Hybride</SelectItem>
@@ -104,8 +150,13 @@ export function ManualInverterDialog(props: {
           </div>
           <div>
             <Label className="text-xs">Phase</Label>
-            <Select value={phase || "none"} onValueChange={(v) => setPhase(v === "none" ? "" : (v as "mono" | "tri"))}>
-              <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+            <Select
+              value={phase || "none"}
+              onValueChange={(v) => setPhase(v === "none" ? "" : (v as "mono" | "tri"))}
+            >
+              <SelectTrigger className="min-h-11">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Non renseignée</SelectItem>
                 <SelectItem value="mono">Monophasé</SelectItem>
@@ -116,16 +167,45 @@ export function ManualInverterDialog(props: {
           {fields.map((n) => (
             <div key={n.key}>
               <Label className="text-xs">{n.label}</Label>
-              <Input inputMode="decimal" className="min-h-11" value={f[n.key] ?? ""} onChange={(e) => set(n.key, e.target.value)} />
+              <Input
+                inputMode="decimal"
+                className="min-h-11"
+                value={f[n.key] ?? ""}
+                onChange={(e) => set(n.key, e.target.value)}
+              />
             </div>
           ))}
-          <div className="col-span-2"><Label className="text-xs">Provenance * (fiche, version, date)</Label><Input className="min-h-11" value={f.provenance ?? ""} onChange={(e) => set("provenance", e.target.value)} /></div>
-          <div className="col-span-2"><Label className="text-xs">Lien fiche technique</Label><Input className="min-h-11" value={f.datasheet_url ?? ""} onChange={(e) => set("datasheet_url", e.target.value)} /></div>
+          <div className="col-span-2">
+            <Label className="text-xs">Provenance * (fiche, version, date)</Label>
+            <Input
+              className="min-h-11"
+              value={f.provenance ?? ""}
+              onChange={(e) => set("provenance", e.target.value)}
+            />
+          </div>
+          <div className="col-span-2">
+            <Label className="text-xs">Lien fiche technique</Label>
+            <Input
+              className="min-h-11"
+              value={f.datasheet_url ?? ""}
+              onChange={(e) => set("datasheet_url", e.target.value)}
+            />
+          </div>
         </div>
-        {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        )}
         <DialogFooter>
-          <Button variant="ghost" className="min-h-11" onClick={() => props.onOpenChange(false)}>Annuler</Button>
-          <Button className="min-h-11" disabled={busy || !f.manufacturer || !f.model || !f.provenance} onClick={() => void submit()}>
+          <Button variant="ghost" className="min-h-11" onClick={() => props.onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            className="min-h-11"
+            disabled={busy || !f.manufacturer || !f.model || !f.provenance}
+            onClick={() => void submit()}
+          >
             {busy ? "Création…" : "Ajouter"}
           </Button>
         </DialogFooter>

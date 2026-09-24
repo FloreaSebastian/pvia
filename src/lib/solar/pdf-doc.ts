@@ -200,7 +200,9 @@ export function buildSolarPdfSections(
     text: [
       SOLAR_PDF_RESERVE,
       "Aucune estimation de production annuelle ni d'ombrage n'est fournie : ces calculs ne sont pas réalisés à ce stade.",
-      ...(extraSections.length ? ["Le câblage présenté n'est pas un schéma unifilaire officiel."] : []),
+      ...(extraSections.length
+        ? ["Le câblage présenté n'est pas un schéma unifilaire officiel."]
+        : []),
     ].join(" "),
   });
 

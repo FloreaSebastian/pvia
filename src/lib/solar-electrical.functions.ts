@@ -19,7 +19,12 @@ import {
   type ElecGroup,
 } from "@/lib/solar-electrical";
 
-type Loose = { rpc: (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+type Loose = {
+  rpc: (
+    f: string,
+    a: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
 
 const ids = z.object({ companyId: z.string().uuid(), modelId: z.string().uuid() });
 
@@ -35,7 +40,9 @@ export const getElectricalContext = createServerFn({ method: "POST" })
       supabase.rpc("can_manage_company", { _company_id: data.companyId, _user_id: userId }),
     ]);
     const stale = design
-      ? design.layout_version !== ctx.layout_version || design.layout_hash !== ctx.layout_hash || design.geometry_version !== ctx.geometry_version
+      ? design.layout_version !== ctx.layout_version ||
+        design.layout_hash !== ctx.layout_hash ||
+        design.geometry_version !== ctx.geometry_version
       : false;
     return { ...ctx, design, designStale: stale, canManage: manage.data === true };
   });
@@ -54,10 +61,23 @@ const inverterInput = z.object({
     datasheet_url: z.string().url().max(500).optional().nullable(),
     datasheet_version: z.string().max(60).optional().nullable(),
     phase: z.enum(["mono", "tri"]).optional().nullable(),
-    ac_power_w: num, mppt_count: num, inputs_per_mppt: num, vdc_max_v: num, mppt_vmin_v: num,
-    mppt_vmax_v: num, start_voltage_v: num, imax_mppt_a: num, imax_input_a: num, isc_max_mppt_a: num,
-    dc_power_max_w: num, dc_ac_ratio_max: num, micro_inputs: num, micro_input_vmax_v: num,
-    micro_input_imax_a: num, micro_input_isc_max_a: num, micro_input_power_max_w: num,
+    ac_power_w: num,
+    mppt_count: num,
+    inputs_per_mppt: num,
+    vdc_max_v: num,
+    mppt_vmin_v: num,
+    mppt_vmax_v: num,
+    start_voltage_v: num,
+    imax_mppt_a: num,
+    imax_input_a: num,
+    isc_max_mppt_a: num,
+    dc_power_max_w: num,
+    dc_ac_ratio_max: num,
+    micro_inputs: num,
+    micro_input_vmax_v: num,
+    micro_input_imax_a: num,
+    micro_input_isc_max_a: num,
+    micro_input_power_max_w: num,
   }),
 });
 
@@ -68,11 +88,17 @@ export const createManualInverter = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertSolarManage(supabase, data.companyId, userId);
     for (const [k, v] of Object.entries(data.spec)) {
-      if (typeof v === "number" && (!Number.isFinite(v) || v < 0 || v > 1e6)) throw new Error(`Valeur invalide : ${k}`);
+      if (typeof v === "number" && (!Number.isFinite(v) || v < 0 || v > 1e6))
+        throw new Error(`Valeur invalide : ${k}`);
     }
-    const { data: id, error } = await (supabase as unknown as Loose).rpc("solar_create_manual_inverter", {
-      _company_id: data.companyId, _inverter: data.inverter, _spec: data.spec,
-    });
+    const { data: id, error } = await (supabase as unknown as Loose).rpc(
+      "solar_create_manual_inverter",
+      {
+        _company_id: data.companyId,
+        _inverter: data.inverter,
+        _spec: data.spec,
+      },
+    );
     if (error) throw new Error(electricalErrorMessage(error.message));
     return { id: String(id) };
   });
@@ -88,7 +114,11 @@ const groupSchema = z.object({
 const saveInput = ids.extend({
   inverterId: z.string().uuid(),
   inverterRevisionId: z.string().uuid(),
-  temps: z.object({ tmin_c: z.number(), tmax_c: z.number(), source: z.string().trim().min(2).max(200) }),
+  temps: z.object({
+    tmin_c: z.number(),
+    tmax_c: z.number(),
+    source: z.string().trim().min(2).max(200),
+  }),
   groups: z.array(groupSchema).max(500),
   signature: z.string().min(8).max(64),
   expectedGeometryVersion: z.number().int(),
@@ -112,54 +142,88 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
       ctx.geometry_version !== data.expectedGeometryVersion ||
       ctx.layout_version !== data.expectedLayoutVersion ||
       ctx.layout_hash !== data.expectedLayoutHash
-    ) throw new Error(STALE_LAYOUT_MESSAGE);
-    const inverter = ctx.inverters.find((i) => i.inverter_id === data.inverterId && i.revision_id === data.inverterRevisionId);
-    if (!inverter) throw new Error("La fiche onduleur a changé ou n'est plus disponible. Relancez le câblage.");
+    )
+      throw new Error(STALE_LAYOUT_MESSAGE);
+    const inverter = ctx.inverters.find(
+      (i) => i.inverter_id === data.inverterId && i.revision_id === data.inverterRevisionId,
+    );
+    if (!inverter)
+      throw new Error("La fiche onduleur a changé ou n'est plus disponible. Relancez le câblage.");
 
     const groups = data.groups as ElecGroup[];
-    try { assertGroupsContract(groups, inverter.kind); } catch (e) { throw new Error(electricalErrorMessage((e as Error).message)); }
-    const sig = designSignature({ inverter, electrical: ctx.electrical, temps: data.temps, layout_hash: ctx.layout_hash, groups });
+    try {
+      assertGroupsContract(groups, inverter.kind);
+    } catch (e) {
+      throw new Error(electricalErrorMessage((e as Error).message));
+    }
+    const sig = designSignature({
+      inverter,
+      electrical: ctx.electrical,
+      temps: data.temps,
+      layout_hash: ctx.layout_hash,
+      groups,
+    });
     if (sig !== data.signature) throw new Error(SIGNATURE_MISMATCH_MESSAGE);
 
-    const evaluation = evaluateDesign({ inverter, modules: ctx.modules, electrical: ctx.electrical, temps: data.temps, groups });
+    const evaluation = evaluateDesign({
+      inverter,
+      modules: ctx.modules,
+      electrical: ctx.electrical,
+      temps: data.temps,
+      groups,
+    });
     if (evaluation.status === "invalide") {
-      throw new Error("Le câblage comporte des erreurs bloquantes : corrigez les éléments en rouge avant d'enregistrer.");
+      throw new Error(
+        "Le câblage comporte des erreurs bloquantes : corrigez les éléments en rouge avant d'enregistrer.",
+      );
     }
     const kept = groups.filter((g) => g.module_ids.length > 0);
     const byGroup = new Map(evaluation.groups.map((g) => [g.group_id, g]));
-    const { data: res, error } = await (supabase as unknown as Loose).rpc("solar_apply_electrical_design", {
-      _company_id: data.companyId,
-      _model_id: data.modelId,
-      _expected_geometry_version: data.expectedGeometryVersion,
-      _expected_layout_version: data.expectedLayoutVersion,
-      _expected_layout_hash: data.expectedLayoutHash,
-      _design: {
-        topology: inverter.kind,
-        inverter_id: inverter.inverter_id,
-        inverter_revision_id: inverter.revision_id,
-        inverter_snapshot: inverter,
-        inverter_count: evaluation.inverter_count,
-        module_electrical_snapshot: ctx.electrical,
-        temp_min_c: data.temps.tmin_c,
-        temp_max_c: data.temps.tmax_c,
-        temp_source: data.temps.source,
-        geometry_hash: ctx.geometry_hash,
-        engine_version: evaluation.engine_version,
-        signature: sig,
-        status: evaluation.status,
-        variant_label: data.variantLabel ?? null,
-        summary: {
-          dc_power_w: evaluation.dc_power_w, ac_power_w: evaluation.ac_power_w, dc_ac_ratio: evaluation.dc_ac_ratio,
-          inverter_count: evaluation.inverter_count, mppts: evaluation.mppts,
-          unassigned: evaluation.unassigned_module_ids.length, strings: kept.length, formulas: evaluation.formulas,
+    const { data: res, error } = await (supabase as unknown as Loose).rpc(
+      "solar_apply_electrical_design",
+      {
+        _company_id: data.companyId,
+        _model_id: data.modelId,
+        _expected_geometry_version: data.expectedGeometryVersion,
+        _expected_layout_version: data.expectedLayoutVersion,
+        _expected_layout_hash: data.expectedLayoutHash,
+        _design: {
+          topology: inverter.kind,
+          inverter_id: inverter.inverter_id,
+          inverter_revision_id: inverter.revision_id,
+          inverter_snapshot: inverter,
+          inverter_count: evaluation.inverter_count,
+          module_electrical_snapshot: ctx.electrical,
+          temp_min_c: data.temps.tmin_c,
+          temp_max_c: data.temps.tmax_c,
+          temp_source: data.temps.source,
+          geometry_hash: ctx.geometry_hash,
+          engine_version: evaluation.engine_version,
+          signature: sig,
+          status: evaluation.status,
+          variant_label: data.variantLabel ?? null,
+          summary: {
+            dc_power_w: evaluation.dc_power_w,
+            ac_power_w: evaluation.ac_power_w,
+            dc_ac_ratio: evaluation.dc_ac_ratio,
+            inverter_count: evaluation.inverter_count,
+            mppts: evaluation.mppts,
+            unassigned: evaluation.unassigned_module_ids.length,
+            strings: kept.length,
+            formulas: evaluation.formulas,
+          },
+          warnings: evaluation.checks.filter((c) => c.status !== "ok"),
         },
-        warnings: evaluation.checks.filter((c) => c.status !== "ok"),
+        _strings: kept.map((g) => ({
+          kind: g.kind,
+          label: g.label,
+          inverter_index: g.inverter_index,
+          mppt_index: g.mppt_index,
+          module_ids: g.module_ids,
+          results: byGroup.get(g.id) ?? {},
+        })),
       },
-      _strings: kept.map((g) => ({
-        kind: g.kind, label: g.label, inverter_index: g.inverter_index, mppt_index: g.mppt_index,
-        module_ids: g.module_ids, results: byGroup.get(g.id) ?? {},
-      })),
-    });
+    );
     if (error) throw new Error(electricalErrorMessage(error.message));
     return res as { design_id: string; assigned: number };
   });

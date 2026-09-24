@@ -60,8 +60,10 @@ export function missingModuleFields(m: ModuleElectrical): string[] {
 export function validateTemperatures(t: Partial<DesignTemperatures>): string | null {
   if (t.tmin_c == null || !Number.isFinite(t.tmin_c)) return "Température minimale requise.";
   if (t.tmax_c == null || !Number.isFinite(t.tmax_c)) return "Température maximale requise.";
-  if (t.tmin_c < -50 || t.tmin_c > 30) return "Température minimale hors plage plausible (−50 à 30 °C).";
-  if (t.tmax_c < 25 || t.tmax_c > 100) return "Température maximale hors plage plausible (25 à 100 °C).";
+  if (t.tmin_c < -50 || t.tmin_c > 30)
+    return "Température minimale hors plage plausible (−50 à 30 °C).";
+  if (t.tmax_c < 25 || t.tmax_c > 100)
+    return "Température maximale hors plage plausible (25 à 100 °C).";
   if (t.tmin_c >= t.tmax_c) return "La température minimale doit être inférieure à la maximale.";
   if (!t.source || !t.source.trim()) return "Indiquez la source des températures.";
   return null;
@@ -79,39 +81,72 @@ function le(
 ): ElecCheck {
   if (measured == null || limit == null) {
     return {
-      code, scope, label, status: "non_verifiable", measured: measured == null ? null : r2(measured),
-      limit, unit,
+      code,
+      scope,
+      label,
+      status: "non_verifiable",
+      measured: measured == null ? null : r2(measured),
+      limit,
+      unit,
       message: `${label} : non vérifiable (${measured == null ? "donnée panneau" : "donnée onduleur"} absente).`,
     };
   }
   const ok = measured <= limit + 1e-9;
   return {
-    code, scope, label, status: ok ? "ok" : failStatus, measured: r2(measured), limit, unit,
+    code,
+    scope,
+    label,
+    status: ok ? "ok" : failStatus,
+    measured: r2(measured),
+    limit,
+    unit,
     message: ok
       ? `${label} : ${r2(measured)} ${unit} ≤ ${limit} ${unit}.`
       : `${label} : ${r2(measured)} ${unit} dépasse ${limit} ${unit}.`,
   };
 }
 function ge(
-  code: string, scope: string, label: string, measured: number | null, limit: number | null,
-  unit: string, failStatus: CheckStatus = "erreur",
+  code: string,
+  scope: string,
+  label: string,
+  measured: number | null,
+  limit: number | null,
+  unit: string,
+  failStatus: CheckStatus = "erreur",
 ): ElecCheck {
   if (measured == null || limit == null) {
     return {
-      code, scope, label, status: "non_verifiable", measured: measured == null ? null : r2(measured),
-      limit, unit,
+      code,
+      scope,
+      label,
+      status: "non_verifiable",
+      measured: measured == null ? null : r2(measured),
+      limit,
+      unit,
       message: `${label} : non vérifiable (${measured == null ? "donnée panneau" : "donnée onduleur"} absente).`,
     };
   }
   const ok = measured >= limit - 1e-9;
   return {
-    code, scope, label, status: ok ? "ok" : failStatus, measured: r2(measured), limit, unit,
+    code,
+    scope,
+    label,
+    status: ok ? "ok" : failStatus,
+    measured: r2(measured),
+    limit,
+    unit,
     message: ok
       ? `${label} : ${r2(measured)} ${unit} ≥ ${limit} ${unit}.`
       : `${label} : ${r2(measured)} ${unit} inférieur au minimum ${limit} ${unit}.`,
   };
 }
-function fail(code: string, scope: string, label: string, message: string, status: CheckStatus = "erreur"): ElecCheck {
+function fail(
+  code: string,
+  scope: string,
+  label: string,
+  message: string,
+  status: CheckStatus = "erreur",
+): ElecCheck {
   return { code, scope, label, status, measured: null, limit: null, unit: "", message };
 }
 
@@ -153,25 +188,63 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
     let missingModule = false;
     for (const id of g.module_ids) {
       if (seen.has(id)) {
-        checks.push(fail("doublon", scope, "Affectation", `Panneau affecté deux fois (${id.slice(0, 8)}).`));
+        checks.push(
+          fail("doublon", scope, "Affectation", `Panneau affecté deux fois (${id.slice(0, 8)}).`),
+        );
         continue;
       }
       seen.add(id);
       const m = byId.get(id);
-      if (!m) { missingModule = true; continue; }
+      if (!m) {
+        missingModule = true;
+        continue;
+      }
       if (key === undefined) key = m.module_key;
       else if (key !== m.module_key) mixed = true;
     }
-    if (missingModule) checks.push(fail("module_inconnu", scope, "Affectation", "Panneau absent de l'implantation enregistrée."));
-    if (mixed) checks.push(fail("references_mixtes", scope, "Références", "Références de panneaux différentes dans un même groupe."));
+    if (missingModule)
+      checks.push(
+        fail(
+          "module_inconnu",
+          scope,
+          "Affectation",
+          "Panneau absent de l'implantation enregistrée.",
+        ),
+      );
+    if (mixed)
+      checks.push(
+        fail(
+          "references_mixtes",
+          scope,
+          "Références",
+          "Références de panneaux différentes dans un même groupe.",
+        ),
+      );
 
     const n = g.module_ids.length;
-    const el = key ? electrical[key] ?? null : null;
+    const el = key ? (electrical[key] ?? null) : null;
     if (n > 0 && !el) {
-      checks.push(fail("fiche_absente", scope, "Fiche panneau", "Aucune fiche électrique pour ce panneau : contrôles impossibles.", "non_verifiable"));
+      checks.push(
+        fail(
+          "fiche_absente",
+          scope,
+          "Fiche panneau",
+          "Aucune fiche électrique pour ce panneau : contrôles impossibles.",
+          "non_verifiable",
+        ),
+      );
     } else if (n > 0 && el) {
       const miss = missingModuleFields(el);
-      if (miss.length) checks.push(fail("donnees_panneau", scope, "Données panneau", `Données manquantes : ${miss.join(", ")}. Validation stricte impossible.`, "non_verifiable"));
+      if (miss.length)
+        checks.push(
+          fail(
+            "donnees_panneau",
+            scope,
+            "Données panneau",
+            `Données manquantes : ${miss.join(", ")}. Validation stricte impossible.`,
+            "non_verifiable",
+          ),
+        );
     }
     const series = g.kind === "string" ? n : 1;
     const vc = el ? vocCold(el, temps) : null;
@@ -192,35 +265,145 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
     });
 
     if (n === 0) {
-      checks.push(fail("groupe_vide", scope, "Groupe", "Groupe vide : il ne sera pas enregistré tant qu'il est vide.", "avertissement"));
+      checks.push(
+        fail(
+          "groupe_vide",
+          scope,
+          "Groupe",
+          "Groupe vide : il ne sera pas enregistré tant qu'il est vide.",
+          "avertissement",
+        ),
+      );
       continue;
     }
 
     if (g.kind === "micro") {
-      checks.push(le("micro_entrees", scope, "Panneaux par micro-onduleur", n, inv.micro_inputs, "entrée(s)"));
+      checks.push(
+        le("micro_entrees", scope, "Panneaux par micro-onduleur", n, inv.micro_inputs, "entrée(s)"),
+      );
       checks.push(le("micro_vmax", scope, "Voc froid par entrée", vc, inv.micro_input_vmax_v, "V"));
-      checks.push(le("micro_isc", scope, "Isc par entrée", el?.isc_a ?? null, inv.micro_input_isc_max_a ?? inv.micro_input_imax_a, "A"));
+      checks.push(
+        le(
+          "micro_isc",
+          scope,
+          "Isc par entrée",
+          el?.isc_a ?? null,
+          inv.micro_input_isc_max_a ?? inv.micro_input_imax_a,
+          "A",
+        ),
+      );
       if (inv.micro_input_power_max_w != null) {
-        checks.push(le("micro_puissance", scope, "Puissance par entrée", el?.power_wc ?? null, inv.micro_input_power_max_w, "W", "avertissement"));
+        checks.push(
+          le(
+            "micro_puissance",
+            scope,
+            "Puissance par entrée",
+            el?.power_wc ?? null,
+            inv.micro_input_power_max_w,
+            "W",
+            "avertissement",
+          ),
+        );
       }
       if (inv.inputs_per_mppt != null || inv.mppt_vmin_v != null) {
-        checks.push(ge("micro_vmin", scope, "Vmp chaud par entrée", vh, inv.mppt_vmin_v, "V", "avertissement"));
+        checks.push(
+          ge(
+            "micro_vmin",
+            scope,
+            "Vmp chaud par entrée",
+            vh,
+            inv.mppt_vmin_v,
+            "V",
+            "avertissement",
+          ),
+        );
       }
     } else {
-      checks.push(le("vdc_max", scope, "Voc froid string ≤ Vdc max onduleur", vc != null ? vc * n : null, inv.vdc_max_v, "V"));
-      checks.push(le("v_systeme_module", scope, "Voc froid string ≤ tension système panneau", vc != null ? vc * n : null, el?.max_system_voltage_v ?? null, "V"));
-      checks.push(ge("mppt_min", scope, "Vmp chaud ≥ MPPT min", vh != null ? vh * n : null, inv.mppt_vmin_v, "V"));
-      checks.push(le("mppt_max", scope, "Vmp froid ≤ MPPT max", vco != null ? vco * n : null, inv.mppt_vmax_v, "V", "avertissement"));
+      checks.push(
+        le(
+          "vdc_max",
+          scope,
+          "Voc froid string ≤ Vdc max onduleur",
+          vc != null ? vc * n : null,
+          inv.vdc_max_v,
+          "V",
+        ),
+      );
+      checks.push(
+        le(
+          "v_systeme_module",
+          scope,
+          "Voc froid string ≤ tension système panneau",
+          vc != null ? vc * n : null,
+          el?.max_system_voltage_v ?? null,
+          "V",
+        ),
+      );
+      checks.push(
+        ge(
+          "mppt_min",
+          scope,
+          "Vmp chaud ≥ MPPT min",
+          vh != null ? vh * n : null,
+          inv.mppt_vmin_v,
+          "V",
+        ),
+      );
+      checks.push(
+        le(
+          "mppt_max",
+          scope,
+          "Vmp froid ≤ MPPT max",
+          vco != null ? vco * n : null,
+          inv.mppt_vmax_v,
+          "V",
+          "avertissement",
+        ),
+      );
       if (inv.start_voltage_v != null) {
-        checks.push(ge("demarrage", scope, "Vmp chaud ≥ tension de démarrage", vh != null ? vh * n : null, inv.start_voltage_v, "V", "avertissement"));
+        checks.push(
+          ge(
+            "demarrage",
+            scope,
+            "Vmp chaud ≥ tension de démarrage",
+            vh != null ? vh * n : null,
+            inv.start_voltage_v,
+            "V",
+            "avertissement",
+          ),
+        );
       }
-      checks.push(le("courant_entree", scope, "Imp ≤ courant max par entrée", el?.imp_a ?? null, inv.imax_input_a ?? inv.imax_mppt_a, "A"));
+      checks.push(
+        le(
+          "courant_entree",
+          scope,
+          "Imp ≤ courant max par entrée",
+          el?.imp_a ?? null,
+          inv.imax_input_a ?? inv.imax_mppt_a,
+          "A",
+        ),
+      );
       if (g.mppt_index == null || g.mppt_index < 0) {
         checks.push(fail("mppt_absent", scope, "MPPT", "String non rattachée à un MPPT."));
       } else if (inv.mppt_count == null) {
-        checks.push(fail("mppt_count", scope, "MPPT", "Nombre de MPPT non publié : non vérifiable.", "non_verifiable"));
+        checks.push(
+          fail(
+            "mppt_count",
+            scope,
+            "MPPT",
+            "Nombre de MPPT non publié : non vérifiable.",
+            "non_verifiable",
+          ),
+        );
       } else if (g.mppt_index >= inv.mppt_count) {
-        checks.push(fail("mppt_count", scope, "MPPT", `MPPT ${g.mppt_index + 1} inexistant (l'onduleur en a ${inv.mppt_count}).`));
+        checks.push(
+          fail(
+            "mppt_count",
+            scope,
+            "MPPT",
+            `MPPT ${g.mppt_index + 1} inexistant (l'onduleur en a ${inv.mppt_count}).`,
+          ),
+        );
       }
     }
   }
@@ -246,16 +429,53 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
       const res = gs.map((g) => groupResults.find((r) => r.group_id === g.id)!);
       const lens = new Set(gs.map((g) => g.module_ids.length));
       const refs = new Set(res.map((r) => r.module_key));
-      if (gs.length > 1 && lens.size > 1) checks.push(fail("parallele_inegal", scope, "Strings en parallèle", "Strings de longueurs différentes en parallèle sur le même MPPT."));
-      if (gs.length > 1 && refs.size > 1) checks.push(fail("parallele_refs", scope, "Strings en parallèle", "Références de panneaux différentes en parallèle sur le même MPPT."));
-      checks.push(le("entrees_mppt", scope, "Strings par MPPT ≤ entrées", gs.length, inv.inputs_per_mppt, "string(s)"));
-      const impSum = res.every((r) => r.imp_a != null) ? res.reduce((s, r) => s + (r.imp_a ?? 0), 0) : null;
-      const iscSum = res.every((r) => r.isc_a != null) ? res.reduce((s, r) => s + (r.isc_a ?? 0), 0) : null;
-      checks.push(le("courant_mppt", scope, "Somme Imp ≤ courant max MPPT", impSum, inv.imax_mppt_a, "A"));
-      checks.push(le("isc_mppt", scope, "Somme Isc ≤ Isc max MPPT", iscSum, inv.isc_max_mppt_a, "A"));
-      const p = res.every((r) => r.power_dc_w != null) ? res.reduce((s, r) => s + (r.power_dc_w ?? 0), 0) : null;
+      if (gs.length > 1 && lens.size > 1)
+        checks.push(
+          fail(
+            "parallele_inegal",
+            scope,
+            "Strings en parallèle",
+            "Strings de longueurs différentes en parallèle sur le même MPPT.",
+          ),
+        );
+      if (gs.length > 1 && refs.size > 1)
+        checks.push(
+          fail(
+            "parallele_refs",
+            scope,
+            "Strings en parallèle",
+            "Références de panneaux différentes en parallèle sur le même MPPT.",
+          ),
+        );
+      checks.push(
+        le(
+          "entrees_mppt",
+          scope,
+          "Strings par MPPT ≤ entrées",
+          gs.length,
+          inv.inputs_per_mppt,
+          "string(s)",
+        ),
+      );
+      const impSum = res.every((r) => r.imp_a != null)
+        ? res.reduce((s, r) => s + (r.imp_a ?? 0), 0)
+        : null;
+      const iscSum = res.every((r) => r.isc_a != null)
+        ? res.reduce((s, r) => s + (r.isc_a ?? 0), 0)
+        : null;
+      checks.push(
+        le("courant_mppt", scope, "Somme Imp ≤ courant max MPPT", impSum, inv.imax_mppt_a, "A"),
+      );
+      checks.push(
+        le("isc_mppt", scope, "Somme Isc ≤ Isc max MPPT", iscSum, inv.isc_max_mppt_a, "A"),
+      );
+      const p = res.every((r) => r.power_dc_w != null)
+        ? res.reduce((s, r) => s + (r.power_dc_w ?? 0), 0)
+        : null;
       mppts.push({
-        inverter_index: ii, mppt_index: mi, strings: gs.length,
+        inverter_index: ii,
+        mppt_index: mi,
+        strings: gs.length,
         voltage_v: res[0]?.vmp_stc_v ?? null,
         imp_sum_a: impSum != null ? r2(impSum) : null,
         isc_sum_a: iscSum != null ? r2(iscSum) : null,
@@ -265,25 +485,65 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
   }
 
   const nonEmpty = groups.filter((g) => g.module_ids.length > 0);
-  const inverterCount = topology === "micro"
-    ? nonEmpty.length
-    : nonEmpty.length ? Math.max(...nonEmpty.map((g) => g.inverter_index)) + 1 : 0;
+  const inverterCount =
+    topology === "micro"
+      ? nonEmpty.length
+      : nonEmpty.length
+        ? Math.max(...nonEmpty.map((g) => g.inverter_index)) + 1
+        : 0;
   const unassigned = modules.map((m) => m.id).filter((id) => !seen.has(id));
   if (unassigned.length) {
-    checks.push(fail("non_affectes", "Projet", "Panneaux non affectés", `${unassigned.length} panneau(x) non raccordé(s).`, "avertissement"));
+    checks.push(
+      fail(
+        "non_affectes",
+        "Projet",
+        "Panneaux non affectés",
+        `${unassigned.length} panneau(x) non raccordé(s).`,
+        "avertissement",
+      ),
+    );
   }
   const dcKnown = groupResults.every((g) => g.module_count === 0 || g.power_dc_w != null);
   const dc = dcKnown ? groupResults.reduce((s, g) => s + (g.power_dc_w ?? 0), 0) : null;
   const ac = inv.ac_power_w != null ? inv.ac_power_w * inverterCount : null;
   const ratio = dc != null && ac != null && ac > 0 ? Math.round((dc / ac) * 1000) / 1000 : null;
   if (inverterCount > 0) {
-    if (inv.ac_power_w == null) checks.push(fail("ac_absent", "Onduleur", "Puissance AC", "Puissance AC non publiée : ratio DC/AC non vérifiable.", "non_verifiable"));
-    if (inv.dc_ac_ratio_max != null) checks.push(le("ratio_dc_ac", "Onduleur", "Ratio DC/AC ≤ limite constructeur", ratio, inv.dc_ac_ratio_max, ""));
+    if (inv.ac_power_w == null)
+      checks.push(
+        fail(
+          "ac_absent",
+          "Onduleur",
+          "Puissance AC",
+          "Puissance AC non publiée : ratio DC/AC non vérifiable.",
+          "non_verifiable",
+        ),
+      );
+    if (inv.dc_ac_ratio_max != null)
+      checks.push(
+        le(
+          "ratio_dc_ac",
+          "Onduleur",
+          "Ratio DC/AC ≤ limite constructeur",
+          ratio,
+          inv.dc_ac_ratio_max,
+          "",
+        ),
+      );
     if (inv.dc_power_max_w != null && topology !== "micro") {
-      checks.push(le("dc_max", "Onduleur", "Puissance DC ≤ max constructeur", dc != null ? dc / inverterCount : null, inv.dc_power_max_w, "W"));
+      checks.push(
+        le(
+          "dc_max",
+          "Onduleur",
+          "Puissance DC ≤ max constructeur",
+          dc != null ? dc / inverterCount : null,
+          inv.dc_power_max_w,
+          "W",
+        ),
+      );
     }
   }
-  if (nonEmpty.length === 0) checks.push(fail("aucun_groupe", "Projet", "Câblage", "Aucun panneau raccordé."));
+  if (nonEmpty.length === 0)
+    checks.push(fail("aucun_groupe", "Projet", "Câblage", "Aucun panneau raccordé."));
 
   return {
     engine_version: ELECTRICAL_ENGINE_VERSION,

@@ -30,39 +30,103 @@ import {
 const T: DesignTemperatures = { tmin_c: -10, tmax_c: 70, source: "test" };
 
 const PANEL: ModuleElectrical = {
-  key: "p|r", variant_id: "p", revision_id: "r", manufacturer: "M", model: "X",
-  power_wc: 400, voc_v: 40, vmp_v: 33, isc_a: 10, imp_a: 9.5,
-  tc_voc_pct_per_c: -0.3, tc_isc_pct_per_c: 0.05, tc_pmax_pct_per_c: -0.35, max_system_voltage_v: 1000,
+  key: "p|r",
+  variant_id: "p",
+  revision_id: "r",
+  manufacturer: "M",
+  model: "X",
+  power_wc: 400,
+  voc_v: 40,
+  vmp_v: 33,
+  isc_a: 10,
+  imp_a: 9.5,
+  tc_voc_pct_per_c: -0.3,
+  tc_isc_pct_per_c: 0.05,
+  tc_pmax_pct_per_c: -0.35,
+  max_system_voltage_v: 1000,
 };
 const PANEL_B: ModuleElectrical = { ...PANEL, key: "q|r", variant_id: "q", power_wc: 500 };
 
 const INV: InverterSpec = {
-  inverter_id: "i", revision_id: "ir", manufacturer: "Test", series: null, model: "T5", kind: "string",
-  source_type: "manuel", provenance: "fiche test", phase: "mono", ac_power_w: 5000, mppt_count: 2,
-  inputs_per_mppt: 2, vdc_max_v: 600, mppt_vmin_v: 120, mppt_vmax_v: 500, start_voltage_v: null,
-  imax_mppt_a: 20, imax_input_a: 13, isc_max_mppt_a: 25, dc_power_max_w: null, dc_ac_ratio_max: 1.5,
-  micro_inputs: null, micro_input_vmax_v: null, micro_input_imax_a: null, micro_input_isc_max_a: null,
-  micro_input_power_max_w: null, datasheet_url: null,
+  inverter_id: "i",
+  revision_id: "ir",
+  manufacturer: "Test",
+  series: null,
+  model: "T5",
+  kind: "string",
+  source_type: "manuel",
+  provenance: "fiche test",
+  phase: "mono",
+  ac_power_w: 5000,
+  mppt_count: 2,
+  inputs_per_mppt: 2,
+  vdc_max_v: 600,
+  mppt_vmin_v: 120,
+  mppt_vmax_v: 500,
+  start_voltage_v: null,
+  imax_mppt_a: 20,
+  imax_input_a: 13,
+  isc_max_mppt_a: 25,
+  dc_power_max_w: null,
+  dc_ac_ratio_max: 1.5,
+  micro_inputs: null,
+  micro_input_vmax_v: null,
+  micro_input_imax_a: null,
+  micro_input_isc_max_a: null,
+  micro_input_power_max_w: null,
+  datasheet_url: null,
 };
 const MICRO: InverterSpec = {
-  ...INV, kind: "micro", model: "µ2", ac_power_w: 700, mppt_count: null, inputs_per_mppt: null,
-  vdc_max_v: null, mppt_vmin_v: 16, mppt_vmax_v: null, imax_mppt_a: null, imax_input_a: null,
-  isc_max_mppt_a: null, dc_ac_ratio_max: null, micro_inputs: 2, micro_input_vmax_v: 60,
-  micro_input_imax_a: 14, micro_input_isc_max_a: 20, micro_input_power_max_w: 500,
+  ...INV,
+  kind: "micro",
+  model: "µ2",
+  ac_power_w: 700,
+  mppt_count: null,
+  inputs_per_mppt: null,
+  vdc_max_v: null,
+  mppt_vmin_v: 16,
+  mppt_vmax_v: null,
+  imax_mppt_a: null,
+  imax_input_a: null,
+  isc_max_mppt_a: null,
+  dc_ac_ratio_max: null,
+  micro_inputs: 2,
+  micro_input_vmax_v: 60,
+  micro_input_imax_a: 14,
+  micro_input_isc_max_a: 20,
+  micro_input_power_max_w: 500,
 };
 
-function mods(n: number, plane = "A", key: string | null = PANEL.key, orientation: "portrait" | "paysage" = "portrait", offset = 0): ElecModule[] {
+function mods(
+  n: number,
+  plane = "A",
+  key: string | null = PANEL.key,
+  orientation: "portrait" | "paysage" = "portrait",
+  offset = 0,
+): ElecModule[] {
   return Array.from({ length: n }, (_, i) => ({
     id: `00000000-0000-4000-8000-${String(i + offset).padStart(12, "0")}`,
-    plane_key: plane, plane_name: `Pan ${plane}`, orientation, module_key: key, u: i % 10, v: Math.floor(i / 10),
+    plane_key: plane,
+    plane_name: `Pan ${plane}`,
+    orientation,
+    module_key: key,
+    u: i % 10,
+    v: Math.floor(i / 10),
   }));
 }
 const EL = { [PANEL.key]: PANEL, [PANEL_B.key]: PANEL_B };
-const str = (id: string, ids: string[], mppt = 0, inv = 0): ElecGroup => ({ id, kind: "string", label: id, inverter_index: inv, mppt_index: mppt, module_ids: ids });
+const str = (id: string, ids: string[], mppt = 0, inv = 0): ElecGroup => ({
+  id,
+  kind: "string",
+  label: id,
+  inverter_index: inv,
+  mppt_index: mppt,
+  module_ids: ids,
+});
 
 describe("formules température", () => {
   it("Voc froid avec coefficient négatif augmente la tension", () => {
-    expect(vocCold(PANEL, T)).toBeCloseTo(40 * (1 + (-0.3 / 100) * (-35)), 6);
+    expect(vocCold(PANEL, T)).toBeCloseTo(40 * (1 + (-0.3 / 100) * -35), 6);
     expect(vocCold(PANEL, T)!).toBeGreaterThan(40);
   });
   it("Vmp chaud diminue la tension", () => {
@@ -81,10 +145,32 @@ describe("contrôles string / MPPT", () => {
     const vc = vocCold(PANEL, T)!;
     const inv = { ...INV, vdc_max_v: vc * 10, mppt_vmax_v: null };
     const m = mods(10);
-    const ok = evaluateDesign({ inverter: inv, modules: m, electrical: EL, temps: T, groups: [str("s1", m.map((x) => x.id))] });
+    const ok = evaluateDesign({
+      inverter: inv,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m.map((x) => x.id),
+        ),
+      ],
+    });
     expect(ok.checks.find((c) => c.code === "vdc_max")!.status).toBe("ok");
     const m11 = mods(11);
-    const ko = evaluateDesign({ inverter: inv, modules: m11, electrical: EL, temps: T, groups: [str("s1", m11.map((x) => x.id))] });
+    const ko = evaluateDesign({
+      inverter: inv,
+      modules: m11,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m11.map((x) => x.id),
+        ),
+      ],
+    });
     expect(ko.checks.find((c) => c.code === "vdc_max")!.status).toBe("erreur");
     expect(ko.status).toBe("invalide");
   });
@@ -92,57 +178,205 @@ describe("contrôles string / MPPT", () => {
     const vh = vmpHot(PANEL, T)!;
     const inv = { ...INV, mppt_vmin_v: vh * 5 };
     const m = mods(5);
-    const e = evaluateDesign({ inverter: inv, modules: m, electrical: EL, temps: T, groups: [str("s1", m.map((x) => x.id))] });
+    const e = evaluateDesign({
+      inverter: inv,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m.map((x) => x.id),
+        ),
+      ],
+    });
     expect(e.checks.find((c) => c.code === "mppt_min")!.status).toBe("ok");
     const m4 = mods(4);
-    const e4 = evaluateDesign({ inverter: inv, modules: m4, electrical: EL, temps: T, groups: [str("s1", m4.map((x) => x.id))] });
+    const e4 = evaluateDesign({
+      inverter: inv,
+      modules: m4,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m4.map((x) => x.id),
+        ),
+      ],
+    });
     expect(e4.checks.find((c) => c.code === "mppt_min")!.status).toBe("erreur");
   });
   it("courants parallèles : somme Imp et Isc", () => {
     const m = mods(16);
-    const g = [str("s1", m.slice(0, 8).map((x) => x.id)), str("s2", m.slice(8).map((x) => x.id))];
+    const g = [
+      str(
+        "s1",
+        m.slice(0, 8).map((x) => x.id),
+      ),
+      str(
+        "s2",
+        m.slice(8).map((x) => x.id),
+      ),
+    ];
     const e = evaluateDesign({ inverter: INV, modules: m, electrical: EL, temps: T, groups: g });
     expect(e.mppts[0]).toMatchObject({ strings: 2, imp_sum_a: 19, isc_sum_a: 20 });
     expect(e.checks.find((c) => c.code === "courant_mppt")!.status).toBe("ok");
-    const e2 = evaluateDesign({ inverter: { ...INV, imax_mppt_a: 18 }, modules: m, electrical: EL, temps: T, groups: g });
+    const e2 = evaluateDesign({
+      inverter: { ...INV, imax_mppt_a: 18 },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: g,
+    });
     expect(e2.checks.find((c) => c.code === "courant_mppt")!.status).toBe("erreur");
-    const e3 = evaluateDesign({ inverter: { ...INV, isc_max_mppt_a: 19.9 }, modules: m, electrical: EL, temps: T, groups: g });
+    const e3 = evaluateDesign({
+      inverter: { ...INV, isc_max_mppt_a: 19.9 },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: g,
+    });
     expect(e3.checks.find((c) => c.code === "isc_mppt")!.status).toBe("erreur");
   });
   it("longueurs inégales en parallèle refusées, égales acceptées", () => {
     const m = mods(15);
-    const bad = evaluateDesign({ inverter: INV, modules: m, electrical: EL, temps: T, groups: [str("s1", m.slice(0, 8).map((x) => x.id)), str("s2", m.slice(8).map((x) => x.id))] });
+    const bad = evaluateDesign({
+      inverter: INV,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m.slice(0, 8).map((x) => x.id),
+        ),
+        str(
+          "s2",
+          m.slice(8).map((x) => x.id),
+        ),
+      ],
+    });
     expect(bad.checks.some((c) => c.code === "parallele_inegal")).toBe(true);
-    const ok = evaluateDesign({ inverter: INV, modules: m, electrical: EL, temps: T, groups: [str("s1", m.slice(0, 8).map((x) => x.id)), str("s2", m.slice(8).map((x) => x.id), 1)] });
+    const ok = evaluateDesign({
+      inverter: INV,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m.slice(0, 8).map((x) => x.id),
+        ),
+        str(
+          "s2",
+          m.slice(8).map((x) => x.id),
+          1,
+        ),
+      ],
+    });
     expect(ok.checks.some((c) => c.code === "parallele_inegal")).toBe(false);
   });
   it("module non affecté signalé, doublon refusé", () => {
     const m = mods(9);
-    const e = evaluateDesign({ inverter: INV, modules: m, electrical: EL, temps: T, groups: [str("s1", m.slice(0, 8).map((x) => x.id))] });
+    const e = evaluateDesign({
+      inverter: INV,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m.slice(0, 8).map((x) => x.id),
+        ),
+      ],
+    });
     expect(e.unassigned_module_ids).toHaveLength(1);
-    const d = evaluateDesign({ inverter: INV, modules: m, electrical: EL, temps: T, groups: [str("s1", m.slice(0, 8).map((x) => x.id)), str("s2", [m[0].id], 1)] });
+    const d = evaluateDesign({
+      inverter: INV,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m.slice(0, 8).map((x) => x.id),
+        ),
+        str("s2", [m[0].id], 1),
+      ],
+    });
     expect(d.checks.some((c) => c.code === "doublon")).toBe(true);
-    expect(() => assertGroupsContract([str("a", [m[0].id]), str("b", [m[0].id])], "string")).toThrow("duplicate_module_assignment");
+    expect(() =>
+      assertGroupsContract([str("a", [m[0].id]), str("b", [m[0].id])], "string"),
+    ).toThrow("duplicate_module_assignment");
   });
   it("ratio DC/AC calculé et limité par la valeur constructeur", () => {
     const m = mods(16);
-    const g = [str("s1", m.slice(0, 8).map((x) => x.id)), str("s2", m.slice(8).map((x) => x.id), 1)];
+    const g = [
+      str(
+        "s1",
+        m.slice(0, 8).map((x) => x.id),
+      ),
+      str(
+        "s2",
+        m.slice(8).map((x) => x.id),
+        1,
+      ),
+    ];
     const e = evaluateDesign({ inverter: INV, modules: m, electrical: EL, temps: T, groups: g });
     expect(e.dc_power_w).toBe(6400);
     expect(e.dc_ac_ratio).toBe(1.28);
-    const e2 = evaluateDesign({ inverter: { ...INV, dc_ac_ratio_max: 1.2 }, modules: m, electrical: EL, temps: T, groups: g });
+    const e2 = evaluateDesign({
+      inverter: { ...INV, dc_ac_ratio_max: 1.2 },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: g,
+    });
     expect(e2.checks.find((c) => c.code === "ratio_dc_ac")!.status).toBe("erreur");
   });
   it("donnée absente => non vérifiable, jamais valide", () => {
     const m = mods(8);
-    const noVdc = evaluateDesign({ inverter: { ...INV, vdc_max_v: null }, modules: m, electrical: EL, temps: T, groups: [str("s1", m.map((x) => x.id))] });
+    const noVdc = evaluateDesign({
+      inverter: { ...INV, vdc_max_v: null },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m.map((x) => x.id),
+        ),
+      ],
+    });
     expect(noVdc.checks.find((c) => c.code === "vdc_max")!.status).toBe("non_verifiable");
     expect(noVdc.status).toBe("non_verifiable");
     const el = { [PANEL.key]: { ...PANEL, tc_voc_pct_per_c: null } };
-    const noCoeff = evaluateDesign({ inverter: INV, modules: m, electrical: el, temps: T, groups: [str("s1", m.map((x) => x.id))] });
+    const noCoeff = evaluateDesign({
+      inverter: INV,
+      modules: m,
+      electrical: el,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          m.map((x) => x.id),
+        ),
+      ],
+    });
     expect(noCoeff.status).toBe("non_verifiable");
     expect(noCoeff.checks.some((c) => c.message.includes("coefficient Voc"))).toBe(true);
-    const noSheet = evaluateDesign({ inverter: INV, modules: mods(8, "A", null), electrical: EL, temps: T, groups: [str("s1", mods(8, "A", null).map((x) => x.id))] });
+    const noSheet = evaluateDesign({
+      inverter: INV,
+      modules: mods(8, "A", null),
+      electrical: EL,
+      temps: T,
+      groups: [
+        str(
+          "s1",
+          mods(8, "A", null).map((x) => x.id),
+        ),
+      ],
+    });
     expect(noSheet.status).not.toBe("valide");
   });
 });
@@ -153,20 +387,38 @@ describe("auto-câblage", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const vc = vocCold(PANEL, T)!;
-    expect(r.range.nmax).toBe(Math.min(Math.floor(600 / vc), Math.floor(500 / (33 * (1 + (-0.35 / 100) * -35)))));
+    expect(r.range.nmax).toBe(
+      Math.min(Math.floor(600 / vc), Math.floor(500 / (33 * (1 + (-0.35 / 100) * -35)))),
+    );
     expect(r.range.nmin).toBe(Math.ceil(120 / vmpHot(PANEL, T)!));
     expect(r.range.maxParallel).toBe(2);
     expect(splitLengths(20, { nmin: 5, nmax: 12, maxParallel: 2 }, true)).toEqual([10, 10]);
     expect(splitLengths(3, { nmin: 5, nmax: 12, maxParallel: 2 }, true)).toEqual([]);
   });
   it("données manquantes : proposition refusée avec champs listés", () => {
-    const res = proposeWiring({ inverter: { ...INV, mppt_vmin_v: null }, modules: mods(10), electrical: EL, temps: T, layout_hash: "h" });
+    const res = proposeWiring({
+      inverter: { ...INV, mppt_vmin_v: null },
+      modules: mods(10),
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+    });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.missing).toContain("tension MPPT min onduleur");
   });
   it("2 orientations → 2 MPPT distincts, chaque module une seule fois", () => {
-    const m = [...mods(10, "A", PANEL.key, "portrait"), ...mods(10, "B", PANEL.key, "paysage", 100)];
-    const res = proposeWiring({ inverter: { ...INV, ac_power_w: 7000 }, modules: m, electrical: EL, temps: T, layout_hash: "h", plane_order: ["A", "B"] });
+    const m = [
+      ...mods(10, "A", PANEL.key, "portrait"),
+      ...mods(10, "B", PANEL.key, "paysage", 100),
+    ];
+    const res = proposeWiring({
+      inverter: { ...INV, ac_power_w: 7000 },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+      plane_order: ["A", "B"],
+    });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const rec = res.proposals[0];
@@ -182,20 +434,50 @@ describe("auto-câblage", () => {
   });
   it("déterministe", () => {
     const m = mods(23);
-    const a = proposeWiring({ inverter: INV, modules: m, electrical: EL, temps: T, layout_hash: "h" });
-    const b = proposeWiring({ inverter: INV, modules: [...m].reverse(), electrical: EL, temps: T, layout_hash: "h" });
+    const a = proposeWiring({
+      inverter: INV,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+    });
+    const b = proposeWiring({
+      inverter: INV,
+      modules: [...m].reverse(),
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+    });
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
   it("références différentes jamais mises en parallèle", () => {
     const m = [...mods(10, "A", PANEL.key), ...mods(10, "A", PANEL_B.key, "portrait", 200)];
-    const res = proposeWiring({ inverter: INV, modules: m, electrical: EL, temps: T, layout_hash: "h" });
+    const res = proposeWiring({
+      inverter: INV,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+    });
     expect(res.ok).toBe(true);
-    if (res.ok) for (const p of res.proposals) expect(p.evaluation.checks.some((c) => c.code === "parallele_refs" || c.code === "references_mixtes")).toBe(false);
+    if (res.ok)
+      for (const p of res.proposals)
+        expect(
+          p.evaluation.checks.some(
+            (c) => c.code === "parallele_refs" || c.code === "references_mixtes",
+          ),
+        ).toBe(false);
   });
   it("1000 modules en moins de 2 s", () => {
     const m = mods(1000);
     const t0 = performance.now();
-    const res = proposeWiring({ inverter: { ...INV, mppt_count: 4, inputs_per_mppt: 2 }, modules: m, electrical: EL, temps: T, layout_hash: "h" });
+    const res = proposeWiring({
+      inverter: { ...INV, mppt_count: 4, inputs_per_mppt: 2 },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+    });
     expect(performance.now() - t0).toBeLessThan(2000);
     expect(res.ok).toBe(true);
     if (res.ok) {
@@ -209,7 +491,13 @@ describe("auto-câblage", () => {
 describe("micro-onduleurs et hybride", () => {
   it("micro 1 entrée : un module par micro, AC totale", () => {
     const m = mods(5);
-    const res = proposeWiring({ inverter: { ...MICRO, micro_inputs: 1 }, modules: m, electrical: EL, temps: T, layout_hash: "h" });
+    const res = proposeWiring({
+      inverter: { ...MICRO, micro_inputs: 1 },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+    });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const p = res.proposals[0];
@@ -219,19 +507,63 @@ describe("micro-onduleurs et hybride", () => {
   });
   it("micro 2 entrées : canaux par paires, surcharge refusée", () => {
     const m = mods(5);
-    const res = proposeWiring({ inverter: MICRO, modules: m, electrical: EL, temps: T, layout_hash: "h" });
+    const res = proposeWiring({
+      inverter: MICRO,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+    });
     if (!res.ok) throw new Error("ko");
     expect(res.proposals[0].groups.map((g) => g.module_ids.length)).toEqual([2, 2, 1]);
-    const over = evaluateDesign({ inverter: MICRO, modules: m, electrical: EL, temps: T, groups: [{ id: "m1", kind: "micro", label: "µ1", inverter_index: 0, mppt_index: null, module_ids: m.slice(0, 3).map((x) => x.id) }] });
+    const over = evaluateDesign({
+      inverter: MICRO,
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        {
+          id: "m1",
+          kind: "micro",
+          label: "µ1",
+          inverter_index: 0,
+          mppt_index: null,
+          module_ids: m.slice(0, 3).map((x) => x.id),
+        },
+      ],
+    });
     expect(over.checks.find((c) => c.code === "micro_entrees")!.status).toBe("erreur");
-    const hot = evaluateDesign({ inverter: { ...MICRO, micro_input_vmax_v: 40 }, modules: m, electrical: EL, temps: T, groups: [{ id: "m1", kind: "micro", label: "µ1", inverter_index: 0, mppt_index: null, module_ids: [m[0].id] }] });
+    const hot = evaluateDesign({
+      inverter: { ...MICRO, micro_input_vmax_v: 40 },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      groups: [
+        {
+          id: "m1",
+          kind: "micro",
+          label: "µ1",
+          inverter_index: 0,
+          mppt_index: null,
+          module_ids: [m[0].id],
+        },
+      ],
+    });
     expect(hot.checks.find((c) => c.code === "micro_vmax")!.status).toBe("erreur");
   });
   it("hybride : partie PV traitée comme string", () => {
     const m = mods(16);
-    const res = proposeWiring({ inverter: { ...INV, kind: "hybride" }, modules: m, electrical: EL, temps: T, layout_hash: "h" });
+    const res = proposeWiring({
+      inverter: { ...INV, kind: "hybride" },
+      modules: m,
+      electrical: EL,
+      temps: T,
+      layout_hash: "h",
+    });
     if (!res.ok) throw new Error("ko");
-    expect(res.proposals[0].groups.every((g) => g.kind === "string" && g.mppt_index != null)).toBe(true);
+    expect(res.proposals[0].groups.every((g) => g.kind === "string" && g.mppt_index != null)).toBe(
+      true,
+    );
     expect(res.proposals[0].evaluation.topology).toBe("hybride");
   });
 });
@@ -239,7 +571,16 @@ describe("micro-onduleurs et hybride", () => {
 describe("édition manuelle", () => {
   it("déplacer, créer/supprimer string vide, rééquilibrer, undo/redo", () => {
     const m = mods(10);
-    let g: ElecGroup[] = [str("s1", m.slice(0, 7).map((x) => x.id)), str("s2", m.slice(7).map((x) => x.id))];
+    let g: ElecGroup[] = [
+      str(
+        "s1",
+        m.slice(0, 7).map((x) => x.id),
+      ),
+      str(
+        "s2",
+        m.slice(7).map((x) => x.id),
+      ),
+    ];
     g = moveModules(g, [m[0].id], "s2");
     expect(g[1].module_ids).toContain(m[0].id);
     expect(g[0].module_ids).not.toContain(m[0].id);
@@ -258,7 +599,16 @@ describe("édition manuelle", () => {
   });
   it("rouge si invalide après réaffectation", () => {
     const m = mods(16);
-    let g = [str("s1", m.slice(0, 8).map((x) => x.id)), str("s2", m.slice(8).map((x) => x.id))];
+    let g = [
+      str(
+        "s1",
+        m.slice(0, 8).map((x) => x.id),
+      ),
+      str(
+        "s2",
+        m.slice(8).map((x) => x.id),
+      ),
+    ];
     g = moveModules(g, [m[0].id], "s2");
     const e = evaluateDesign({ inverter: INV, modules: m, electrical: EL, temps: T, groups: g });
     expect(e.status).toBe("invalide");
@@ -266,19 +616,29 @@ describe("édition manuelle", () => {
 });
 
 describe("signature et versions", () => {
-  const base = { inverter: INV, electrical: EL, temps: T, layout_hash: "h1", groups: [str("s1", ["a"])] };
+  const base = {
+    inverter: INV,
+    electrical: EL,
+    temps: T,
+    layout_hash: "h1",
+    groups: [str("s1", ["a"])],
+  };
   it("signature change si layout_hash, révision onduleur, températures ou câblage changent", () => {
     const s = designSignature(base);
     expect(designSignature({ ...base, layout_hash: "h2" })).not.toBe(s);
     expect(designSignature({ ...base, inverter: { ...INV, revision_id: "ir2" } })).not.toBe(s);
     expect(designSignature({ ...base, temps: { ...T, tmin_c: -15 } })).not.toBe(s);
-    expect(designSignature({ ...base, electrical: { [PANEL.key]: { ...PANEL, revision_id: "r2" } } })).not.toBe(s);
+    expect(
+      designSignature({ ...base, electrical: { [PANEL.key]: { ...PANEL, revision_id: "r2" } } }),
+    ).not.toBe(s);
     expect(designSignature({ ...base, groups: [str("s1", ["b"])] })).not.toBe(s);
     expect(designSignature(base)).toBe(s);
   });
   it("messages utilisateur", () => {
     expect(electricalErrorMessage("stale_layout")).toBe(STALE_LAYOUT_MESSAGE);
-    expect(STALE_LAYOUT_MESSAGE).toBe("L'implantation a changé depuis le calcul électrique. Relancez le câblage.");
+    expect(STALE_LAYOUT_MESSAGE).toBe(
+      "L'implantation a changé depuis le calcul électrique. Relancez le câblage.",
+    );
     expect(electricalErrorMessage("forbidden")).toMatch(/Droits/);
     expect(electricalErrorMessage("subscription_unusable")).toMatch(/abonnement/);
   });
@@ -300,13 +660,19 @@ describe("contrat SQL P2-A (migration)", () => {
     expect(fn).toMatch(/can_manage_company\(_company_id, auth\.uid\(\)\)/);
     expect(fn).toMatch(/company_has_write_access\(_company_id\)/);
     expect(fn).toMatch(/RAISE EXCEPTION 'stale_layout'/);
-    expect(fn).toMatch(/solar_layout_fingerprint\(_company_id, _model_id\) <> _expected_layout_hash/);
+    expect(fn).toMatch(
+      /solar_layout_fingerprint\(_company_id, _model_id\) <> _expected_layout_hash/,
+    );
     expect(fn).toMatch(/duplicate_module_assignment/);
     expect(fn).toMatch(/FOR UPDATE/);
-    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.solar_apply_electrical_design\([^)]*\) FROM PUBLIC, anon/);
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.solar_apply_electrical_design\([^)]*\) FROM PUBLIC, anon/,
+    );
   });
   it("lecture membres uniquement, aucune écriture directe", () => {
-    expect(sql).toMatch(/"designs member read" ON public\.solar_electrical_designs FOR SELECT TO authenticated USING \(is_company_member/);
+    expect(sql).toMatch(
+      /"designs member read" ON public\.solar_electrical_designs FOR SELECT TO authenticated USING \(is_company_member/,
+    );
     expect(sql).not.toMatch(/ON public\.solar_electrical_designs FOR (INSERT|UPDATE|DELETE|ALL)/);
     expect(sql).toMatch(/GRANT SELECT ON public\.solar_electrical_designs/);
   });

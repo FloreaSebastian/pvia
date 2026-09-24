@@ -3,7 +3,11 @@
  */
 import type { ElecGroup } from "./types";
 
-export function moveModules(groups: ElecGroup[], moduleIds: string[], targetGroupId: string | null): ElecGroup[] {
+export function moveModules(
+  groups: ElecGroup[],
+  moduleIds: string[],
+  targetGroupId: string | null,
+): ElecGroup[] {
   const ids = new Set(moduleIds);
   return groups.map((g) => {
     const kept = g.module_ids.filter((id) => !ids.has(id));
@@ -12,12 +16,27 @@ export function moveModules(groups: ElecGroup[], moduleIds: string[], targetGrou
   });
 }
 
-export function addEmptyGroup(groups: ElecGroup[], kind: "string" | "micro", mpptIndex: number | null, inverterIndex = 0): ElecGroup[] {
+export function addEmptyGroup(
+  groups: ElecGroup[],
+  kind: "string" | "micro",
+  mpptIndex: number | null,
+  inverterIndex = 0,
+): ElecGroup[] {
   let n = groups.length + 1;
   const ids = new Set(groups.map((g) => g.id));
   while (ids.has(`${kind === "micro" ? "m" : "s"}${n}`)) n += 1;
   const id = `${kind === "micro" ? "m" : "s"}${n}`;
-  return [...groups, { id, kind, label: kind === "micro" ? `µ${n}` : `S${n}`, inverter_index: inverterIndex, mppt_index: kind === "micro" ? null : mpptIndex, module_ids: [] }];
+  return [
+    ...groups,
+    {
+      id,
+      kind,
+      label: kind === "micro" ? `µ${n}` : `S${n}`,
+      inverter_index: inverterIndex,
+      mppt_index: kind === "micro" ? null : mpptIndex,
+      module_ids: [],
+    },
+  ];
 }
 
 /** Supprime uniquement une string vide. */
@@ -27,13 +46,26 @@ export function removeEmptyGroup(groups: ElecGroup[], id: string): ElecGroup[] {
   return groups.filter((x) => x.id !== id);
 }
 
-export function setGroupMppt(groups: ElecGroup[], id: string, inverterIndex: number, mpptIndex: number): ElecGroup[] {
-  return groups.map((g) => (g.id === id ? { ...g, inverter_index: inverterIndex, mppt_index: mpptIndex } : g));
+export function setGroupMppt(
+  groups: ElecGroup[],
+  id: string,
+  inverterIndex: number,
+  mpptIndex: number,
+): ElecGroup[] {
+  return groups.map((g) =>
+    g.id === id ? { ...g, inverter_index: inverterIndex, mppt_index: mpptIndex } : g,
+  );
 }
 
 /** Rééquilibre les strings d'un même MPPT à longueurs aussi égales que possible (ordre conservé). */
-export function rebalanceMppt(groups: ElecGroup[], inverterIndex: number, mpptIndex: number): ElecGroup[] {
-  const targets = groups.filter((g) => g.kind === "string" && g.inverter_index === inverterIndex && g.mppt_index === mpptIndex);
+export function rebalanceMppt(
+  groups: ElecGroup[],
+  inverterIndex: number,
+  mpptIndex: number,
+): ElecGroup[] {
+  const targets = groups.filter(
+    (g) => g.kind === "string" && g.inverter_index === inverterIndex && g.mppt_index === mpptIndex,
+  );
   if (targets.length < 2) return groups;
   const all = targets.flatMap((g) => g.module_ids);
   const base = Math.floor(all.length / targets.length);
@@ -49,15 +81,25 @@ export function rebalanceMppt(groups: ElecGroup[], inverterIndex: number, mpptIn
   return groups.map((g) => (next.has(g.id) ? { ...g, module_ids: next.get(g.id)! } : g));
 }
 
-export interface History<T> { past: T[]; present: T; future: T[] }
+export interface History<T> {
+  past: T[];
+  present: T;
+  future: T[];
+}
 export const HISTORY_LIMIT = 50;
-export function historyInit<T>(v: T): History<T> { return { past: [], present: v, future: [] }; }
+export function historyInit<T>(v: T): History<T> {
+  return { past: [], present: v, future: [] };
+}
 export function historyPush<T>(h: History<T>, v: T): History<T> {
   return { past: [...h.past, h.present].slice(-HISTORY_LIMIT), present: v, future: [] };
 }
 export function historyUndo<T>(h: History<T>): History<T> {
   if (!h.past.length) return h;
-  return { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] };
+  return {
+    past: h.past.slice(0, -1),
+    present: h.past[h.past.length - 1],
+    future: [h.present, ...h.future],
+  };
 }
 export function historyRedo<T>(h: History<T>): History<T> {
   if (!h.future.length) return h;
@@ -65,8 +107,18 @@ export function historyRedo<T>(h: History<T>): History<T> {
 }
 
 export const GROUP_COLORS = [
-  "#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2",
-  "#db2777", "#65a30d", "#ea580c", "#4f46e5", "#0d9488", "#b91c1c",
+  "#2563eb",
+  "#dc2626",
+  "#16a34a",
+  "#d97706",
+  "#7c3aed",
+  "#0891b2",
+  "#db2777",
+  "#65a30d",
+  "#ea580c",
+  "#4f46e5",
+  "#0d9488",
+  "#b91c1c",
 ];
 export function groupColor(index: number): string {
   return GROUP_COLORS[index % GROUP_COLORS.length];
