@@ -166,7 +166,7 @@ describe("auto-câblage", () => {
   });
   it("2 orientations → 2 MPPT distincts, chaque module une seule fois", () => {
     const m = [...mods(10, "A", PANEL.key, "portrait"), ...mods(10, "B", PANEL.key, "paysage", 100)];
-    const res = proposeWiring({ inverter: INV, modules: m, electrical: EL, temps: T, layout_hash: "h", plane_order: ["A", "B"] });
+    const res = proposeWiring({ inverter: { ...INV, ac_power_w: 7000 }, modules: m, electrical: EL, temps: T, layout_hash: "h", plane_order: ["A", "B"] });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const rec = res.proposals[0];
