@@ -213,7 +213,7 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
             formulas: evaluation.formulas,
           },
           warnings: evaluation.checks.filter((c) => c.status !== "ok"),
-        },
+        })),
         _strings: JSON.parse(JSON.stringify(kept.map((g) => ({
           kind: g.kind,
           label: g.label,
@@ -221,9 +221,9 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
           mppt_index: g.mppt_index,
           module_ids: g.module_ids,
           results: byGroup.get(g.id) ?? {},
-        })),
+        })))),
       },
     );
     if (error) throw new Error(electricalErrorMessage(error.message));
-    return res as { design_id: string; assigned: number };
+    return res as unknown as { design_id: string; assigned: number };
   });
