@@ -416,7 +416,7 @@ describe("auto-câblage", () => {
     expect(splitLengths(20, { nmin: 5, nmax: 12, maxParallel: 2 }, true)).toEqual([10, 10]);
     expect(splitLengths(3, { nmin: 5, nmax: 12, maxParallel: 2 }, true)).toEqual([]);
   });
-  it("données manquantes : proposition refusée avec champs listés", () => {
+  it("données manquantes : proposition provisoire, contrôle non vérifiable (jamais valide)", () => {
     const res = proposeWiring({
       inverter: { ...INV, mppt_vmin_v: null },
       modules: mods(10),
@@ -424,8 +424,12 @@ describe("auto-câblage", () => {
       temps: T,
       layout_hash: "h",
     });
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.missing).toContain("tension MPPT min onduleur");
+    expect(res.ok).toBe(true);
+    if (res.ok)
+      for (const p of res.proposals) {
+        expect(p.evaluation.status).not.toBe("valide");
+        expect(p.reasons.join(" ")).toMatch(/tension min .*non vérifiable/);
+      }
   });
   it("2 orientations → 2 MPPT distincts, chaque module une seule fois", () => {
     const m = [
@@ -1054,7 +1058,7 @@ describe("P2-A câblage avec données partielles", () => {
     expect(part.range.nmin).toBe(part.range.nmax);
   });
   it("aucune donnée panneau : proposition structurelle sans parallèle, tout non vérifiable", () => {
-    const r = run(EMPTY, 20);
+    const r = run(EMPTY, 10);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     for (const p of r.proposals) {
