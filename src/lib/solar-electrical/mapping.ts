@@ -19,27 +19,58 @@ export function moduleKey(variantId: string, revisionId: string | null): string 
   return `${variantId}|${revisionId ?? "-"}`;
 }
 
+const ELEC_FIELDS = [
+  "voc_v",
+  "vmp_v",
+  "isc_a",
+  "imp_a",
+  "temp_coeff_voc_pct_per_c",
+  "temp_coeff_isc_pct_per_c",
+  "temp_coeff_pmax_pct_per_c",
+  "max_system_voltage_v",
+] as const;
+
+/**
+ * Données électriques du panneau réellement posé.
+ * Priorité : `revision.electrical` (snapshot immuable de la révision posée).
+ * Repli : fiche catalogue actuelle de la variante, signalé par
+ * `electrical_source = "variante_courante"` (avertissement moteur).
+ * Une révision appartenant à une autre variante est refusée (aucune donnée).
+ */
 export function moduleElectricalFromRow(
   variant: Record<string, unknown>,
   revisionId: string | null,
   snapshot?: Record<string, unknown> | null,
+  revision?: Record<string, unknown> | null,
 ): ModuleElectrical {
   const id = String(variant.id);
+  const revMismatch =
+    revision != null && revision.variant_id != null && String(revision.variant_id) !== id;
+  const revEl =
+    revision && !revMismatch && revision.electrical && typeof revision.electrical === "object"
+      ? (revision.electrical as Record<string, unknown>)
+      : null;
+  const hasRevEl = !!revEl && ELEC_FIELDS.some((f) => num(revEl[f]) != null);
+  const src: Record<string, unknown> = revMismatch ? {} : hasRevEl ? revEl! : variant;
   return {
     key: moduleKey(id, revisionId),
     variant_id: id,
     revision_id: revisionId,
     manufacturer: str(snapshot?.manufacturer),
     model: str(snapshot?.model),
-    power_wc: num(snapshot?.power_wc) ?? num(variant.pmax_stc_w),
-    voc_v: num(variant.voc_v),
-    vmp_v: num(variant.vmp_v),
-    isc_a: num(variant.isc_a),
-    imp_a: num(variant.imp_a),
-    tc_voc_pct_per_c: num(variant.temp_coeff_voc_pct_per_c),
-    tc_isc_pct_per_c: num(variant.temp_coeff_isc_pct_per_c),
-    tc_pmax_pct_per_c: num(variant.temp_coeff_pmax_pct_per_c),
-    max_system_voltage_v: num(variant.max_system_voltage_v),
+    power_wc:
+      num(snapshot?.power_wc) ??
+      (revision && !revMismatch ? num(revision.pmax_stc_w) : null) ??
+      num(variant.pmax_stc_w),
+    voc_v: num(src.voc_v),
+    vmp_v: num(src.vmp_v),
+    isc_a: num(src.isc_a),
+    imp_a: num(src.imp_a),
+    tc_voc_pct_per_c: num(src.temp_coeff_voc_pct_per_c),
+    tc_isc_pct_per_c: num(src.temp_coeff_isc_pct_per_c),
+    tc_pmax_pct_per_c: num(src.temp_coeff_pmax_pct_per_c),
+    max_system_voltage_v: num(src.max_system_voltage_v),
+    electrical_source: hasRevEl ? "revision" : "variante_courante",
   };
 }
 
