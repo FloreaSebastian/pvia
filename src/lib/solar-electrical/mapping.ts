@@ -80,6 +80,11 @@ export function moduleElectricalFromRow(
   };
 }
 
+/** L'empreinte persistée du modèle doit exister et égaler l'empreinte recalculée. */
+export function assertPersistedLayoutHash(stored: string | null, recomputed: string): void {
+  if (!stored || stored !== recomputed) throw new Error("stale_layout");
+}
+
 export function inverterSpecFromRows(
   inv: Record<string, unknown>,
   rev: Record<string, unknown>,
