@@ -5,7 +5,7 @@
  * et produit un contrôle « Non vérifiable », jamais un PASS implicite.
  */
 
-export const ELECTRICAL_ENGINE_VERSION = "p2a-1.2.0";
+export const ELECTRICAL_ENGINE_VERSION = "p2a-1.3.0";
 
 export type InverterKind = "string" | "hybride" | "micro";
 export type Phase = "mono" | "tri";
@@ -32,7 +32,7 @@ export interface ModuleElectrical {
   tc_imp_pct_per_c: number | null;
   max_system_voltage_v: number | null;
   /** Origine : snapshot immuable de la révision posée, ou aucune donnée (jamais la fiche courante). */
-  electrical_source: "revision" | "absente";
+  electrical_source: "revision" | "snapshot_pose" | "absente";
 }
 
 /** Fiche onduleur versionnée ; toute valeur non publiée reste null. */

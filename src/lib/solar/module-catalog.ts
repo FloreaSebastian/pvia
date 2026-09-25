@@ -64,6 +64,56 @@ export interface ModuleSnapshot {
   weight_kg: number | null;
   confidence: ModuleConfidence;
   source: string | null;
+  /** Données électriques figées au moment du placement (immuables ensuite). */
+  electrical?: PlacementElectrical | null;
+}
+
+export const PLACEMENT_ELECTRICAL_FIELDS = [
+  "voc_v",
+  "vmp_v",
+  "isc_a",
+  "imp_a",
+  "temp_coeff_voc_pct_per_c",
+  "temp_coeff_isc_pct_per_c",
+  "temp_coeff_pmax_pct_per_c",
+  "temp_coeff_vmp_pct_per_c",
+  "temp_coeff_imp_pct_per_c",
+  "max_system_voltage_v",
+] as const;
+export type PlacementElectricalField = (typeof PLACEMENT_ELECTRICAL_FIELDS)[number];
+
+export type PlacementElectrical = Partial<Record<PlacementElectricalField, number>> & {
+  /** Origine exacte des valeurs figées. */
+  origin: "revision" | "fiche_au_placement";
+  revision_id: string | null;
+};
+
+/**
+ * Fige les données électriques réellement disponibles au placement.
+ * Priorité : snapshot de la révision posée ; sinon fiche catalogue lue à cet instant.
+ * Seules les valeurs numériques présentes sont copiées — rien n'est déduit ni complété.
+ */
+export function pickPlacementElectrical(
+  revisionElectrical: unknown,
+  variantRow: Record<string, unknown> | null,
+  revisionId: string | null,
+): PlacementElectrical | null {
+  const read = (src: unknown) => {
+    const out: Partial<Record<PlacementElectricalField, number>> = {};
+    if (!src || typeof src !== "object") return out;
+    for (const f of PLACEMENT_ELECTRICAL_FIELDS) {
+      const v = (src as Record<string, unknown>)[f];
+      const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
+      if (Number.isFinite(n)) out[f] = n;
+    }
+    return out;
+  };
+  const rev = read(revisionElectrical);
+  if (Object.keys(rev).length) return { ...rev, origin: "revision", revision_id: revisionId };
+  const cat = read(variantRow);
+  if (Object.keys(cat).length)
+    return { ...cat, origin: "fiche_au_placement", revision_id: revisionId };
+  return null;
 }
 
 /** Fiche compacte renvoyée par la recherche du catalogue. */
@@ -99,11 +149,15 @@ const MAX_POWER_W = 1500;
 
 /** Un panneau n'est utilisable que si ses deux dimensions sont publiées. */
 export function hasUsableDimensions(dim: ModuleDimensions): boolean {
-  return isPlausibleSide(dim.width_mm, MAX_WIDTH_MM) && isPlausibleSide(dim.height_mm, MAX_HEIGHT_MM);
+  return (
+    isPlausibleSide(dim.width_mm, MAX_WIDTH_MM) && isPlausibleSide(dim.height_mm, MAX_HEIGHT_MM)
+  );
 }
 
 function isPlausibleSide(value: number | null, max: number): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= MIN_SIDE_MM && value <= max;
+  return (
+    typeof value === "number" && Number.isFinite(value) && value >= MIN_SIDE_MM && value <= max
+  );
 }
 
 /**
@@ -122,7 +176,8 @@ export function moduleSizeMeters(
 /** Épaisseur réelle en mètres pour la 3D ; repli neutre si non publiée. */
 export function moduleDepthMeters(dim: ModuleDimensions, fallback = 0.035): number {
   const d = dim.depth_mm;
-  if (typeof d === "number" && Number.isFinite(d) && d >= MIN_DEPTH_MM && d <= MAX_DEPTH_MM) return d / 1000;
+  if (typeof d === "number" && Number.isFinite(d) && d >= MIN_DEPTH_MM && d <= MAX_DEPTH_MM)
+    return d / 1000;
   return fallback;
 }
 
@@ -137,7 +192,9 @@ export function formatModuleMeters(dim: ModuleDimensions): string {
   return `${(dim.width_mm! / 1000).toFixed(3)} × ${(dim.height_mm! / 1000).toFixed(3)} m`;
 }
 
-export function formatModuleLabel(m: Pick<ModuleListItem, "manufacturer" | "model" | "power_wc">): string {
+export function formatModuleLabel(
+  m: Pick<ModuleListItem, "manufacturer" | "model" | "power_wc">,
+): string {
   return `${m.manufacturer} ${m.model} — ${m.power_wc} Wc`;
 }
 

@@ -20,6 +20,7 @@ import {
   hasUsableDimensions,
   MISSING_DIMENSIONS_MESSAGE,
   type ModuleSnapshot,
+  pickPlacementElectrical,
 } from "@/lib/solar/module-catalog";
 import {
   customPlaneMatchesPolygon,
@@ -248,7 +249,7 @@ async function loadSpec(
   const { data } = await sb
     .from("solar_module_variants")
     .select(
-      "id, model, pmax_stc_w, confidence, primary_source, company_id, current_revision_id, series:solar_module_series!inner(name, width_mm, height_mm, depth_mm, weight_kg, manufacturer:solar_manufacturers!inner(name))",
+      "id, model, pmax_stc_w, confidence, primary_source, company_id, current_revision_id, voc_v, vmp_v, isc_a, imp_a, temp_coeff_voc_pct_per_c, temp_coeff_isc_pct_per_c, temp_coeff_pmax_pct_per_c, max_system_voltage_v, series:solar_module_series!inner(name, width_mm, height_mm, depth_mm, weight_kg, manufacturer:solar_manufacturers!inner(name))",
     )
     .eq("id", variantId)
     .or(`company_id.is.null,company_id.eq.${companyId}`)
@@ -280,6 +281,23 @@ async function loadSpec(
   if (!hasUsableDimensions(dims)) throw new Error(MISSING_DIMENSIONS_MESSAGE);
   if (!row.pmax_stc_w) throw new Error("Puissance non publiée pour cette référence.");
 
+  // Données électriques figées au placement : révision courante d'abord, sinon fiche lue maintenant.
+  let revisionElectrical: unknown = null;
+  if (row.current_revision_id) {
+    const { data: rev } = await sb
+      .from("solar_module_revisions")
+      .select("id, variant_id, electrical")
+      .eq("id", row.current_revision_id)
+      .maybeSingle();
+    if (rev && (rev as { variant_id?: string }).variant_id === row.id)
+      revisionElectrical = (rev as { electrical?: unknown }).electrical ?? null;
+  }
+  const electrical = pickPlacementElectrical(
+    revisionElectrical,
+    data as unknown as Record<string, unknown>,
+    row.current_revision_id,
+  );
+
   return {
     spec: {
       id: row.id,
@@ -300,6 +318,7 @@ async function loadSpec(
       weight_kg: row.series.weight_kg,
       confidence: (row.confidence as ModuleSnapshot["confidence"]) ?? "a_verifier",
       source: row.primary_source,
+      electrical,
     },
   };
 }
@@ -632,6 +651,7 @@ const StoredSnapshotSchema = z.object({
   weight_kg: z.number().positive().nullable().optional(),
   confidence: z.string().nullable().optional(),
   source: z.string().nullable().optional(),
+  electrical: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 const NO_LAYOUT_MESSAGE = "Aucune implantation à modifier : calculez d'abord une implantation.";
@@ -696,6 +716,8 @@ async function loadManualContext(
     weight_kg: stored.weight_kg ?? null,
     confidence: (stored.confidence as ModuleSnapshot["confidence"]) ?? "a_verifier",
     source: stored.source ?? null,
+    // L'édition manuelle conserve à l'identique les données électriques figées au placement.
+    electrical: (stored.electrical as ModuleSnapshot["electrical"]) ?? null,
   };
   const spec: LayoutModuleSpec = {
     id: stored.variant_id,

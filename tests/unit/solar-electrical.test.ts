@@ -37,6 +37,7 @@ import {
   type StoredElectricalDesign,
 } from "@/lib/solar-electrical";
 import { electricalPdfSections } from "@/lib/solar-electrical/report";
+import { pickPlacementElectrical } from "@/lib/solar/module-catalog";
 import { buildSolarPdfSections } from "@/lib/solar/pdf-doc";
 import { resultsFromModel } from "@/lib/solar/report-from-model";
 
@@ -415,7 +416,7 @@ describe("auto-câblage", () => {
     expect(splitLengths(20, { nmin: 5, nmax: 12, maxParallel: 2 }, true)).toEqual([10, 10]);
     expect(splitLengths(3, { nmin: 5, nmax: 12, maxParallel: 2 }, true)).toEqual([]);
   });
-  it("données manquantes : proposition refusée avec champs listés", () => {
+  it("données manquantes : proposition provisoire, contrôle non vérifiable (jamais valide)", () => {
     const res = proposeWiring({
       inverter: { ...INV, mppt_vmin_v: null },
       modules: mods(10),
@@ -423,8 +424,12 @@ describe("auto-câblage", () => {
       temps: T,
       layout_hash: "h",
     });
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.missing).toContain("tension MPPT min onduleur");
+    expect(res.ok).toBe(true);
+    if (res.ok)
+      for (const p of res.proposals) {
+        expect(p.evaluation.status).not.toBe("valide");
+        expect(p.reasons.join(" ")).toMatch(/tension min .*non vérifiable/);
+      }
   });
   it("2 orientations → 2 MPPT distincts, chaque module une seule fois", () => {
     const m = [
@@ -976,8 +981,9 @@ describe("P2-A correctifs d'audit", () => {
     });
     expect(ev.checks.find((c) => c.code === "mppt_min")?.status).toBe("non_verifiable");
     expect(ev.status).not.toBe("valide");
-    const r = admissibleRange(INV, p, TT);
-    expect(r.ok).toBe(false);
+    const r = admissibleRange(INV, p, TT, 5);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.range.provisional.join(" ")).toMatch(/tension min/);
   });
   it("moteur sans approximation : pas de γPmax − αIsc dans le code", () => {
     const src = readFileSync("src/lib/solar-electrical/engine.ts", "utf8");
@@ -1000,5 +1006,130 @@ describe("P2-A correctifs d'audit", () => {
     const srv = readFileSync("src/lib/solar-electrical.server.ts", "utf8");
     expect(srv).toMatch(/layout_hash"\)/);
     expect(srv).toMatch(/assertPersistedLayoutHash\(/);
+  });
+});
+
+describe("P2-A câblage avec données partielles", () => {
+  const TT: DesignTemperatures = { tmin_c: -10, tmax_c: 70, source: "test" };
+  const NOVMP: ModuleElectrical = { ...PANEL, tc_vmp_pct_per_c: null };
+  const EMPTY: ModuleElectrical = {
+    ...PANEL,
+    voc_v: null,
+    vmp_v: null,
+    isc_a: null,
+    imp_a: null,
+    tc_voc_pct_per_c: null,
+    tc_isc_pct_per_c: null,
+    tc_pmax_pct_per_c: null,
+    tc_vmp_pct_per_c: null,
+    tc_imp_pct_per_c: null,
+    max_system_voltage_v: null,
+    electrical_source: "absente",
+  };
+  const run = (el: ModuleElectrical, n = 20) =>
+    proposeWiring({
+      inverter: INV,
+      modules: mods(n),
+      electrical: { [el.key]: el },
+      temps: TT,
+      layout_hash: "h",
+    });
+  it("Vmp non publié : propositions déterministes, jamais valides", () => {
+    const a = run(NOVMP);
+    const b = run(NOVMP);
+    expect(a.ok).toBe(true);
+    if (!a.ok || !b.ok) return;
+    expect(a.proposals.length).toBeGreaterThan(0);
+    expect(a.proposals.map((p) => p.signature)).toEqual(b.proposals.map((p) => p.signature));
+    for (const p of a.proposals) {
+      expect(p.evaluation.status).not.toBe("valide");
+      expect(p.evaluation.checks.some((c) => c.status === "non_verifiable")).toBe(true);
+      expect(p.evaluation.checks.find((c) => c.code === "mppt_min")?.status).toBe("non_verifiable");
+      expect(p.reasons.join(" ")).toMatch(/provisoires/);
+    }
+  });
+  it("borne justifiée jamais relâchée par le repli", () => {
+    const full = admissibleRange(INV, PANEL, TT, 20);
+    const part = admissibleRange(INV, NOVMP, TT, 20);
+    expect(full.ok && part.ok).toBe(true);
+    if (!full.ok || !part.ok) return;
+    const vdcBound = Math.floor(600 / vocCold(PANEL, TT)!);
+    expect(part.range.nmax).toBeLessThanOrEqual(vdcBound);
+    expect(part.range.nmin).toBe(Math.floor(20 / Math.ceil(20 / part.range.nmax)));
+  });
+  it("aucune donnée panneau : proposition structurelle sans parallèle, tout non vérifiable", () => {
+    const r = run(EMPTY, 10);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    for (const p of r.proposals) {
+      expect(p.evaluation.status).toBe("non_verifiable");
+      const perMppt = new Map<string, number>();
+      for (const g of p.groups) {
+        const k = `${g.inverter_index}|${g.mppt_index}`;
+        perMppt.set(k, (perMppt.get(k) ?? 0) + 1);
+      }
+      expect(Math.max(...perMppt.values())).toBe(1);
+      const ids = p.groups.flatMap((g) => g.module_ids);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+  it("données onduleur structurelles absentes : aucune proposition", () => {
+    const r = proposeWiring({
+      inverter: { ...INV, mppt_count: null },
+      modules: mods(10),
+      electrical: { [PANEL.key]: PANEL },
+      temps: TT,
+      layout_hash: "h",
+    });
+    expect(r.ok).toBe(false);
+  });
+  it("limite connue violée : refus explicite maintenu", () => {
+    const r = admissibleRange({ ...INV, mppt_vmin_v: 590 }, PANEL, TT, 20);
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("P2-A snapshot électrique figé au placement", () => {
+  it("révision prioritaire, puis fiche lue au placement ; rien n'est complété", () => {
+    const rev = pickPlacementElectrical(
+      { voc_v: 45, imp_a: "9.1" },
+      { voc_v: 50, vmp_v: 40 },
+      "r1",
+    );
+    expect(rev).toEqual({ voc_v: 45, imp_a: 9.1, origin: "revision", revision_id: "r1" });
+    const cat = pickPlacementElectrical({}, { voc_v: 50, vmp_v: null, model: "x" }, "r1");
+    expect(cat).toEqual({ voc_v: 50, origin: "fiche_au_placement", revision_id: "r1" });
+    expect(pickPlacementElectrical(null, { voc_v: null }, null)).toBeNull();
+  });
+  it("mapping : snapshot posé utilisé si la révision est vide, pas la fiche courante", () => {
+    const el = moduleElectricalFromRow(
+      { id: "v1", voc_v: 99 },
+      "r1",
+      {
+        variant_id: "v1",
+        revision_id: "r1",
+        power_wc: 400,
+        electrical: { voc_v: 41, temp_coeff_voc_pct_per_c: -0.28, origin: "fiche_au_placement" },
+      },
+      { id: "r1", variant_id: "v1", electrical: {} },
+    );
+    expect(el.voc_v).toBe(41);
+    expect(el.tc_voc_pct_per_c).toBe(-0.28);
+    expect(el.electrical_source).toBe("snapshot_pose");
+  });
+  it("snapshot d'une autre révision ou variante refusé", () => {
+    const snap = { variant_id: "v1", revision_id: "r2", electrical: { voc_v: 41 } };
+    expect(moduleElectricalFromRow({ id: "v1" }, "r1", snap, null).voc_v).toBeNull();
+    const snap2 = { variant_id: "v9", revision_id: "r1", electrical: { voc_v: 41 } };
+    expect(moduleElectricalFromRow({ id: "v1" }, "r1", snap2, null).electrical_source).toBe(
+      "absente",
+    );
+  });
+  it("placement et édition manuelle conservent le snapshot électrique", () => {
+    const src = readFileSync("src/lib/solar-layout.functions.ts", "utf8");
+    expect(src).toMatch(/pickPlacementElectrical\(/);
+    expect(src).toMatch(/electrical: z\.record/);
+    expect(src).toMatch(/electrical: \(stored\.electrical/);
+    expect(src).toMatch(/source: row\.primary_source,\s*electrical,/);
   });
 });

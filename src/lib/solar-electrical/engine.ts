@@ -86,7 +86,8 @@ export const impHot = impWorst;
 /** Champs panneau manquants pour une validation stricte. */
 export function missingModuleFields(m: ModuleElectrical): string[] {
   const out: string[] = [];
-  if (m.electrical_source === "absente") out.push("données électriques de la révision posée");
+  if (m.electrical_source === "absente")
+    out.push("données électriques figées (révision posée ou snapshot de placement)");
   if (m.voc_v == null) out.push("Voc");
   if (m.vmp_v == null) out.push("Vmp");
   if (m.isc_a == null) out.push("Isc");
@@ -284,7 +285,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
             "fiche_revision",
             scope,
             "Fiche panneau",
-            "La révision posée ne contient pas de données électriques : contrôles non vérifiables (la fiche catalogue actuelle n'est jamais utilisée).",
+            "Ni la révision posée ni le snapshot de placement ne contiennent de données électriques : contrôles non vérifiables (la fiche catalogue actuelle n'est jamais utilisée).",
             "non_verifiable",
           ),
         );
