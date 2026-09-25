@@ -109,7 +109,17 @@ function roundKey(value: number, decimals = 5): string {
   return value.toFixed(decimals);
 }
 
-async function cacheGet(sb: SB | null, key: string): Promise<unknown | null> {
+/** Le cache est mutualisé : accès réservé au serveur (service role), jamais
+ *  via le client de l'utilisateur, afin qu'aucun compte ne puisse le lire ou
+ *  l'altérer directement. Le client passé sert uniquement d'activation. */
+async function cacheClient(sb: SB | null): Promise<SB | null> {
+  if (!sb) return null;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin as unknown as SB;
+}
+
+async function cacheGet(userSb: SB | null, key: string): Promise<unknown | null> {
+  const sb = await cacheClient(userSb);
   if (!sb) return null;
   const { data } = await sb
     .from("solar_geo_cache")
@@ -122,11 +132,12 @@ async function cacheGet(sb: SB | null, key: string): Promise<unknown | null> {
 }
 
 async function cacheSet(
-  sb: SB | null,
+  userSb: SB | null,
   key: string,
   value: unknown,
   info: { dataset: string; resolution_m?: number | null; bbox?: unknown },
 ): Promise<void> {
+  const sb = await cacheClient(userSb);
   if (!sb) return;
   const expires = new Date(Date.now() + CACHE_TTL_DAYS * 86_400_000).toISOString();
   await sb.from("solar_geo_cache").upsert(
