@@ -511,7 +511,14 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         ? res.reduce((s, r) => s + (r.isc_hot_a ?? 0), 0)
         : null;
       checks.push(
-        le("courant_mppt", scope, "Somme Imp chaud ≤ courant max MPPT", impSum, inv.imax_mppt_a, "A"),
+        le(
+          "courant_mppt",
+          scope,
+          "Somme Imp chaud ≤ courant max MPPT",
+          impSum,
+          inv.imax_mppt_a,
+          "A",
+        ),
       );
       checks.push(
         le("isc_mppt", scope, "Somme Isc chaud ≤ Isc max MPPT", iscSum, inv.isc_max_mppt_a, "A"),

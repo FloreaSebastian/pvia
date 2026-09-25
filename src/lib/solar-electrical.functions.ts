@@ -19,7 +19,6 @@ import {
   type ElecGroup,
 } from "@/lib/solar-electrical";
 
-
 const ids = z.object({ companyId: z.string().uuid(), modelId: z.string().uuid() });
 
 export const getElectricalContext = createServerFn({ method: "POST" })

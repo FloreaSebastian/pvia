@@ -232,8 +232,8 @@ describe("contrôles string / MPPT", () => {
     // Sommes à Tmax (70 °C, αIsc +0,05 %/°C) : courants majorés de 2,25 %.
     const hot = 1 + (0.05 / 100) * (T.tmax_c - 25);
     expect(e.mppts[0]).toMatchObject({ strings: 2 });
-    expect(e.mppts[0].imp_sum_a!).toBeCloseTo(2 * Math.round(9.5 * hot * 100) / 100, 2);
-    expect(e.mppts[0].isc_sum_a!).toBeCloseTo(2 * Math.round(10 * hot * 100) / 100, 2);
+    expect(e.mppts[0].imp_sum_a!).toBeCloseTo((2 * Math.round(9.5 * hot * 100)) / 100, 2);
+    expect(e.mppts[0].isc_sum_a!).toBeCloseTo((2 * Math.round(10 * hot * 100)) / 100, 2);
     expect(e.checks.find((c) => c.code === "courant_mppt")!.status).toBe("ok");
     const e2 = evaluateDesign({
       inverter: { ...INV, imax_mppt_a: 18 },
@@ -823,20 +823,43 @@ describe("P2-A correctifs d'audit", () => {
   });
   it("révision sans données électriques => repli signalé par un avertissement", () => {
     const variant = { id: "v1", voc_v: 50 };
-    const el = moduleElectricalFromRow(variant, "r1", null, { id: "r1", variant_id: "v1", electrical: {} });
+    const el = moduleElectricalFromRow(variant, "r1", null, {
+      id: "r1",
+      variant_id: "v1",
+      electrical: {},
+    });
     expect(el.voc_v).toBe(50);
     expect(el.electrical_source).toBe("variante_courante");
     const mods: ElecModule[] = [
-      { id: "m1", plane_key: "p", plane_name: "P", orientation: "portrait", module_key: el.key, u: 0, v: 0 },
+      {
+        id: "m1",
+        plane_key: "p",
+        plane_name: "P",
+        orientation: "portrait",
+        module_key: el.key,
+        u: 0,
+        v: 0,
+      },
     ];
     const ev = evaluateDesign({
       inverter: { ...INV, kind: "micro", micro_inputs: 1 },
       modules: mods,
       electrical: { [el.key]: el },
       temps: TT,
-      groups: [{ id: "g", kind: "micro", label: "M1", inverter_index: 0, mppt_index: null, module_ids: ["m1"] }],
+      groups: [
+        {
+          id: "g",
+          kind: "micro",
+          label: "M1",
+          inverter_index: 0,
+          mppt_index: null,
+          module_ids: ["m1"],
+        },
+      ],
     });
-    expect(ev.checks.some((c) => c.code === "fiche_revision" && c.status === "avertissement")).toBe(true);
+    expect(ev.checks.some((c) => c.code === "fiche_revision" && c.status === "avertissement")).toBe(
+      true,
+    );
   });
   it("révision d'une autre variante refusée : aucune donnée électrique", () => {
     const el = moduleElectricalFromRow({ id: "v1", voc_v: 50 }, "r9", null, {
@@ -850,13 +873,26 @@ describe("P2-A correctifs d'audit", () => {
     const ev = evaluateDesign({
       inverter: { ...INV, imax_input_a: 9.6 },
       modules: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => ({
-        id: `m${i}`, plane_key: "p", plane_name: "P", orientation: "portrait" as const,
-        module_key: PANEL.key, u: i, v: 0,
+        id: `m${i}`,
+        plane_key: "p",
+        plane_name: "P",
+        orientation: "portrait" as const,
+        module_key: PANEL.key,
+        u: i,
+        v: 0,
       })),
       electrical: { [PANEL.key]: PANEL },
       temps: TT,
-      groups: [{ id: "g", kind: "string", label: "S1", inverter_index: 0, mppt_index: 0,
-        module_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `m${i}`) }],
+      groups: [
+        {
+          id: "g",
+          kind: "string",
+          label: "S1",
+          inverter_index: 0,
+          mppt_index: 0,
+          module_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `m${i}`),
+        },
+      ],
     });
     const c = ev.checks.find((x) => x.code === "courant_entree")!;
     expect(c.measured!).toBeGreaterThan(9.5);
@@ -866,11 +902,17 @@ describe("P2-A correctifs d'audit", () => {
     const sql = readdirSync("supabase/migrations")
       .map((f: string) => readFileSync(`supabase/migrations/${f}`, "utf8"))
       .join("\n");
-    expect(sql).toMatch(/REVOKE EXECUTE ON FUNCTION public\.solar_apply_electrical_design\([^)]*\) FROM authenticated/);
-    expect(sql).toMatch(/solar_apply_electrical_design_trusted\([^)]*\) FROM PUBLIC, anon, authenticated/);
+    expect(sql).toMatch(
+      /REVOKE EXECUTE ON FUNCTION public\.solar_apply_electrical_design\([^)]*\) FROM authenticated/,
+    );
+    expect(sql).toMatch(
+      /solar_apply_electrical_design_trusted\([^)]*\) FROM PUBLIC, anon, authenticated/,
+    );
     expect(sql).toMatch(/NOT IN \('valide','avertissement','non_verifiable'\)/);
     const fn = readFileSync("src/lib/solar-electrical.functions.ts", "utf8");
-    expect(fn).toMatch(/assertSolarManage[\s\S]*evaluateDesign[\s\S]*solar_apply_electrical_design_trusted/);
+    expect(fn).toMatch(
+      /assertSolarManage[\s\S]*evaluateDesign[\s\S]*solar_apply_electrical_design_trusted/,
+    );
     expect(fn).toMatch(/_actor: userId/);
   });
   it("empreinte d'implantation couvre révision, snapshot et activation", () => {
