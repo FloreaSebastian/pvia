@@ -281,7 +281,7 @@ async function loadSpec(
   if (!hasUsableDimensions(dims)) throw new Error(MISSING_DIMENSIONS_MESSAGE);
   if (!row.pmax_stc_w) throw new Error("Puissance non publiée pour cette référence.");
 
-  // Données électriques figées au placement : révision courante d'abord, sinon fiche lue maintenant.
+  // Données électriques figées au placement : révision exacte posée uniquement (jamais la fiche).
   let revisionElectrical: unknown = null;
   if (row.current_revision_id) {
     const { data: rev } = await sb

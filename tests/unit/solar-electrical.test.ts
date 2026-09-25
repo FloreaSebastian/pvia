@@ -1090,15 +1090,15 @@ describe("P2-A câblage avec données partielles", () => {
 });
 
 describe("P2-A snapshot électrique figé au placement", () => {
-  it("révision prioritaire, puis fiche lue au placement ; rien n'est complété", () => {
+  it("révision exacte uniquement ; rien n'est complété", () => {
     const rev = pickPlacementElectrical(
       { voc_v: 45, imp_a: "9.1" },
       { voc_v: 50, vmp_v: 40 },
       "r1",
     );
     expect(rev).toEqual({ voc_v: 45, imp_a: 9.1, origin: "revision", revision_id: "r1" });
-    const cat = pickPlacementElectrical({}, { voc_v: 50, vmp_v: null, model: "x" }, "r1");
-    expect(cat).toEqual({ voc_v: 50, origin: "fiche_au_placement", revision_id: "r1" });
+    // Révision vide : aucun repli sur la fiche catalogue.
+    expect(pickPlacementElectrical({}, { voc_v: 50, vmp_v: null, model: "x" }, "r1")).toBeNull();
     expect(pickPlacementElectrical(null, { voc_v: null }, null)).toBeNull();
   });
   it("mapping : snapshot posé utilisé si la révision est vide, pas la fiche courante", () => {
@@ -1109,7 +1109,12 @@ describe("P2-A snapshot électrique figé au placement", () => {
         variant_id: "v1",
         revision_id: "r1",
         power_wc: 400,
-        electrical: { voc_v: 41, temp_coeff_voc_pct_per_c: -0.28, origin: "fiche_au_placement" },
+        electrical: {
+          voc_v: 41,
+          temp_coeff_voc_pct_per_c: -0.28,
+          origin: "revision",
+          revision_id: "r1",
+        },
       },
       { id: "r1", variant_id: "v1", electrical: {} },
     );
@@ -1131,5 +1136,53 @@ describe("P2-A snapshot électrique figé au placement", () => {
     expect(src).toMatch(/electrical: z\.record/);
     expect(src).toMatch(/electrical: \(stored\.electrical/);
     expect(src).toMatch(/source: row\.primary_source,\s*electrical,/);
+  });
+});
+
+describe("P2-A snapshot électrique : révision exacte uniquement", () => {
+  it("sans révision posée : rien n'est figé, même si la fiche a des valeurs", () => {
+    expect(pickPlacementElectrical({ voc_v: 45 }, { voc_v: 50 }, null)).toBeNull();
+    expect(pickPlacementElectrical(null, { voc_v: 50, isc_a: 11 }, "r1")).toBeNull();
+  });
+  it("snapshot hérité d'une fiche catalogue refusé à la lecture", () => {
+    const snap = {
+      variant_id: "v1",
+      revision_id: "r1",
+      electrical: { voc_v: 41, origin: "fiche_au_placement", revision_id: "r1" },
+    };
+    const el = moduleElectricalFromRow({ id: "v1", voc_v: 99 }, "r1", snap, null);
+    expect(el.voc_v).toBeNull();
+    expect(el.electrical_source).toBe("absente");
+  });
+  it("snapshot sans révision/variante identifiée refusé", () => {
+    const base = { voc_v: 41, origin: "revision", revision_id: "r1" };
+    expect(
+      moduleElectricalFromRow({ id: "v1" }, "r1", { revision_id: "r1", electrical: base }, null)
+        .electrical_source,
+    ).toBe("absente");
+    expect(
+      moduleElectricalFromRow({ id: "v1" }, "r1", { variant_id: "v1", electrical: base }, null)
+        .electrical_source,
+    ).toBe("absente");
+    expect(
+      moduleElectricalFromRow(
+        { id: "v1" },
+        null,
+        { variant_id: "v1", revision_id: "r1", electrical: base },
+        null,
+      ).electrical_source,
+    ).toBe("absente");
+  });
+  it("valeurs figées d'une autre révision que celle du snapshot refusées", () => {
+    const snap = {
+      variant_id: "v1",
+      revision_id: "r1",
+      electrical: { voc_v: 41, origin: "revision", revision_id: "r2" },
+    };
+    expect(moduleElectricalFromRow({ id: "v1" }, "r1", snap, null).voc_v).toBeNull();
+  });
+  it("le placement ne passe jamais de valeurs de fiche comme source", () => {
+    const src = readFileSync("src/lib/solar/module-catalog.ts", "utf8");
+    expect(src).not.toMatch(/fiche_au_placement/);
   });
 });
