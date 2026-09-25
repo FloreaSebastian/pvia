@@ -3822,6 +3822,7 @@ export type Database = {
           geometry_version: number
           id: string
           latitude: number | null
+          layout_hash: string | null
           layout_version: number
           location_confirmed_at: string | null
           location_confirmed_by: string | null
@@ -3857,6 +3858,7 @@ export type Database = {
           geometry_version?: number
           id?: string
           latitude?: number | null
+          layout_hash?: string | null
           layout_version?: number
           location_confirmed_at?: string | null
           location_confirmed_by?: string | null
@@ -3892,6 +3894,7 @@ export type Database = {
           geometry_version?: number
           id?: string
           latitude?: number | null
+          layout_hash?: string | null
           layout_version?: number
           location_confirmed_at?: string | null
           location_confirmed_by?: string | null
