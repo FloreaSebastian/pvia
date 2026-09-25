@@ -304,8 +304,8 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
     const vc = el ? vocCold(el, temps) : null;
     const vh = el ? vmpHot(el, temps) : null;
     const vco = el ? vmpCold(el, temps) : null;
-    const ih = el ? iscHot(el, temps) : null;
-    const jh = el ? impHot(el, temps) : null;
+    const ih = el ? iscWorst(el, temps) : null;
+    const jh = el ? impWorst(el, temps) : null;
     groupResults.push({
       group_id: g.id,
       module_count: n,
