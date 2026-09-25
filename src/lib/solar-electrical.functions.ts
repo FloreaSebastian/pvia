@@ -176,7 +176,11 @@ export const saveElectricalDesign = createServerFn({ method: "POST" })
     }
     const kept = groups.filter((g) => g.module_ids.length > 0);
     const byGroup = new Map(evaluation.groups.map((g) => [g.group_id, g]));
-    const { data: res, error } = await supabase.rpc("solar_apply_electrical_design", {
+    // Écriture réservée au serveur : la fonction SQL n'est plus exécutable
+    // depuis le navigateur, seul ce rejeu vérifié peut persister.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: res, error } = await supabaseAdmin.rpc("solar_apply_electrical_design_trusted", {
+      _actor: userId,
       _company_id: data.companyId,
       _model_id: data.modelId,
       _expected_geometry_version: data.expectedGeometryVersion,
