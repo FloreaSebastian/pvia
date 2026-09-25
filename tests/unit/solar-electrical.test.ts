@@ -52,6 +52,8 @@ const PANEL: ModuleElectrical = {
   tc_voc_pct_per_c: -0.3,
   tc_isc_pct_per_c: 0.05,
   tc_pmax_pct_per_c: -0.35,
+  tc_vmp_pct_per_c: -0.4,
+  tc_imp_pct_per_c: 0.05,
   max_system_voltage_v: 1000,
   electrical_source: "revision",
 };
@@ -140,7 +142,7 @@ describe("formules température", () => {
     expect(vocCold(PANEL, T)!).toBeGreaterThan(40);
   });
   it("Vmp chaud diminue la tension", () => {
-    expect(vmpHot(PANEL, T)).toBeCloseTo(33 * (1 + ((-0.35 - 0.05) / 100) * 45), 6);
+    expect(vmpHot(PANEL, T)).toBeCloseTo(33 * (1 + (-0.4 / 100) * 45), 6);
     expect(vmpHot(PANEL, T)!).toBeLessThan(33);
   });
   it("températures obligatoires avec source", () => {
@@ -789,10 +791,12 @@ describe("résultats / PDF électriques", () => {
 
 describe("P2-A correctifs d'audit", () => {
   const TT: DesignTemperatures = { tmin_c: -10, tmax_c: 70, source: "test" };
-  it("γVmp = γPmax − αIsc : Vmp chaud plus bas qu'avec γPmax seul (conservateur)", () => {
-    const naive = 33 * (1 + (-0.35 / 100) * 45);
-    expect(vmpHot(PANEL, TT)!).toBeLessThan(naive);
-    expect(vmpCold(PANEL, TT)!).toBeGreaterThan(33 * (1 + (-0.35 / 100) * -35));
+  it("Vmp utilise uniquement le coefficient Vmp publié (aucune approximation γPmax)", () => {
+    expect(vmpHot(PANEL, TT)).toBeCloseTo(33 * (1 + (-0.4 / 100) * 45), 6);
+    expect(vmpCold(PANEL, TT)).toBeCloseTo(33 * (1 + (-0.4 / 100) * -35), 6);
+    const noVmp = { ...PANEL, tc_vmp_pct_per_c: null };
+    expect(vmpHot(noVmp, TT)).toBeNull();
+    expect(vmpCold(noVmp, TT)).toBeNull();
   });
   it("Isc/Imp majorés à Tmax", () => {
     expect(iscHot(PANEL, TT)).toBeCloseTo(10 * (1 + (0.05 / 100) * 45), 6);
@@ -805,7 +809,8 @@ describe("P2-A correctifs d'audit", () => {
     expect(vocCold({ ...PANEL, tc_voc_pct_per_c: -120 }, TT)).toBeNull();
   });
   it("coefficient Isc absent => Vmp non calculable (pas de PASS implicite)", () => {
-    expect(vmpHot({ ...PANEL, tc_isc_pct_per_c: null }, TT)).toBeNull();
+    expect(vmpHot({ ...PANEL, tc_isc_pct_per_c: null }, TT)).not.toBeNull();
+    expect(iscHot({ ...PANEL, tc_isc_pct_per_c: null }, TT)).toBeNull();
   });
   it("snapshot électrique : révision posée prioritaire sur la fiche courante", () => {
     const variant = { id: "v1", voc_v: 50, vmp_v: 40, isc_a: 11, imp_a: 10, pmax_stc_w: 500 };
@@ -821,15 +826,16 @@ describe("P2-A correctifs d'audit", () => {
     expect(el.electrical_source).toBe("revision");
     expect(el.key).toBe("v1|r1");
   });
-  it("révision sans données électriques => repli signalé par un avertissement", () => {
-    const variant = { id: "v1", voc_v: 50 };
+  it("révision sans données électriques => aucune valeur catalogue courante, non vérifiable", () => {
+    const variant = { id: "v1", voc_v: 50, pmax_stc_w: 500 };
     const el = moduleElectricalFromRow(variant, "r1", null, {
       id: "r1",
       variant_id: "v1",
       electrical: {},
     });
-    expect(el.voc_v).toBe(50);
-    expect(el.electrical_source).toBe("variante_courante");
+    expect(el.voc_v).toBeNull();
+    expect(el.power_wc).toBeNull();
+    expect(el.electrical_source).toBe("absente");
     const mods: ElecModule[] = [
       {
         id: "m1",
@@ -857,7 +863,7 @@ describe("P2-A correctifs d'audit", () => {
         },
       ],
     });
-    expect(ev.checks.some((c) => c.code === "fiche_revision" && c.status === "avertissement")).toBe(
+    expect(ev.checks.some((c) => c.code === "fiche_revision" && c.status === "non_verifiable")).toBe(
       true,
     );
   });
@@ -923,5 +929,70 @@ describe("P2-A correctifs d'audit", () => {
     expect(sql).toMatch(/a\.module_revision_id/);
     expect(sql).toMatch(/a\.module_snapshot::text/);
     expect(sql).toMatch(/m\.orientation, m\.enabled/);
+  });
+  it("courant pire cas sur toute la plage : αIsc négatif => maximum à Tmin", () => {
+    const neg = { ...PANEL, tc_isc_pct_per_c: -0.04, tc_imp_pct_per_c: -0.04 };
+    expect(iscWorst(neg, TT)).toBeCloseTo(10 * (1 + (-0.04 / 100) * -35), 6);
+    expect(impWorst(neg, TT)).toBeCloseTo(9.5 * (1 + (-0.04 / 100) * -35), 6);
+    expect(iscWorst(PANEL, TT)).toBeCloseTo(10 * (1 + (0.05 / 100) * 45), 6);
+    expect(iscWorst({ ...PANEL, tc_isc_pct_per_c: 0 }, TT)).toBeCloseTo(10, 9);
+  });
+  it("coefficient Imp absent => Imp pire cas non calculable (pas de substitution par αIsc)", () => {
+    expect(impWorst({ ...PANEL, tc_imp_pct_per_c: null }, TT)).toBeNull();
+    expect(missingModuleFields({ ...PANEL, tc_imp_pct_per_c: null })).toContain(
+      "coefficient Imp (%/°C)",
+    );
+  });
+  it("coefficient Vmp absent => MPPT min non vérifiable et aucune proposition auto", () => {
+    const p = { ...PANEL, tc_vmp_pct_per_c: null };
+    const m = [0, 1, 2, 3, 4].map((i) => ({
+      id: `m${i}`,
+      plane_key: "p",
+      plane_name: "P",
+      orientation: "portrait" as const,
+      module_key: p.key,
+      u: i,
+      v: 0,
+    }));
+    const ev = evaluateDesign({
+      inverter: INV,
+      modules: m,
+      electrical: { [p.key]: p },
+      temps: TT,
+      groups: [
+        {
+          id: "g",
+          kind: "string",
+          label: "S1",
+          inverter_index: 0,
+          mppt_index: 0,
+          module_ids: m.map((x) => x.id),
+        },
+      ],
+    });
+    expect(ev.checks.find((c) => c.code === "mppt_min")?.status).toBe("non_verifiable");
+    expect(ev.status).not.toBe("valide");
+    const r = admissibleRange(INV, p, TT);
+    expect(r.ok).toBe(false);
+  });
+  it("moteur sans approximation : pas de γPmax − αIsc dans le code", () => {
+    const src = readFileSync("src/lib/solar-electrical/engine.ts", "utf8");
+    expect(src).not.toMatch(/vmpCoeff|γPmax − αIsc|Math\.max\(0, c\)/);
+    const map = readFileSync("src/lib/solar-electrical/mapping.ts", "utf8");
+    expect(map).not.toMatch(/variante_courante|num\(variant\./);
+  });
+  it("empreinte d'implantation persistée dans le modèle et contrôlée à l'écriture", () => {
+    const sql = readdirSync("supabase/migrations")
+      .map((f: string) => readFileSync(`supabase/migrations/${f}`, "utf8"))
+      .join("\n");
+    expect(sql).toMatch(/ALTER TABLE public\.solar_models ADD COLUMN IF NOT EXISTS layout_hash text/);
+    expect(sql).toMatch(/layout_hash = solar_layout_fingerprint\(s\.company_id, s\.id\)/);
+    expect(sql).toMatch(/_lh IS DISTINCT FROM _expected_layout_hash/);
+    expect(() => assertPersistedLayoutHash(null, "abc")).toThrow("stale_layout");
+    expect(() => assertPersistedLayoutHash("x", "abc")).toThrow("stale_layout");
+    expect(() => assertPersistedLayoutHash("abc", "abc")).not.toThrow();
+    const srv = readFileSync("src/lib/solar-electrical.server.ts", "utf8");
+    expect(srv).toMatch(/layout_hash"\)/);
+    expect(srv).toMatch(/assertPersistedLayoutHash\(/);
   });
 });
