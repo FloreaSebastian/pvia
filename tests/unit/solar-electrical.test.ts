@@ -3,6 +3,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import {
   addEmptyGroup,
   admissibleRange,
+  assertPersistedLayoutHash,
+  impWorst,
+  iscWorst,
+  missingModuleFields,
   assertGroupsContract,
   designSignature,
   electricalErrorMessage,
