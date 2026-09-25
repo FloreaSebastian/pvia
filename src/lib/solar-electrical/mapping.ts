@@ -34,7 +34,8 @@ const ELEC_FIELDS = [
 
 /**
  * Données électriques du panneau réellement posé.
- * Source unique : `revision.electrical` (snapshot immuable de la révision posée).
+ * Sources immuables uniquement : `revision.electrical` (révision posée), puis
+ * `snapshot.electrical` (données figées au placement dans le champ posé).
  * Aucun repli sur la fiche catalogue courante (mutable) : sans snapshot, toutes
  * les valeurs restent null et les contrôles sont « non vérifiables ».
  * Une révision appartenant à une autre variante est refusée (aucune donnée).
@@ -57,7 +58,18 @@ export function moduleElectricalFromRow(
       ? (revision!.electrical as Record<string, unknown>)
       : null;
   const hasRevEl = !!revEl && ELEC_FIELDS.some((f) => num(revEl[f]) != null);
-  const src: Record<string, unknown> = hasRevEl ? revEl! : {};
+  // Repli : données électriques figées dans le snapshot posé (immuable), même révision.
+  const snapEl =
+    snapshot?.electrical && typeof snapshot.electrical === "object"
+      ? (snapshot.electrical as Record<string, unknown>)
+      : null;
+  const snapRev = snapshot ? (snapshot.revision_id ?? null) : null;
+  const snapOk =
+    !!snapEl &&
+    (snapshot?.variant_id == null || String(snapshot.variant_id) === id) &&
+    (snapRev == null || revisionId == null || String(snapRev) === revisionId) &&
+    ELEC_FIELDS.some((f) => num(snapEl[f]) != null);
+  const src: Record<string, unknown> = hasRevEl ? revEl! : snapOk ? snapEl! : {};
   return {
     key: moduleKey(id, revisionId),
     variant_id: id,
@@ -76,7 +88,7 @@ export function moduleElectricalFromRow(
     tc_vmp_pct_per_c: num(src.temp_coeff_vmp_pct_per_c),
     tc_imp_pct_per_c: num(src.temp_coeff_imp_pct_per_c),
     max_system_voltage_v: num(src.max_system_voltage_v),
-    electrical_source: hasRevEl ? "revision" : "absente",
+    electrical_source: hasRevEl ? "revision" : snapOk ? "snapshot_pose" : "absente",
   };
 }
 

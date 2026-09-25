@@ -64,6 +64,56 @@ export interface ModuleSnapshot {
   weight_kg: number | null;
   confidence: ModuleConfidence;
   source: string | null;
+  /** Données électriques figées au moment du placement (immuables ensuite). */
+  electrical?: PlacementElectrical | null;
+}
+
+export const PLACEMENT_ELECTRICAL_FIELDS = [
+  "voc_v",
+  "vmp_v",
+  "isc_a",
+  "imp_a",
+  "temp_coeff_voc_pct_per_c",
+  "temp_coeff_isc_pct_per_c",
+  "temp_coeff_pmax_pct_per_c",
+  "temp_coeff_vmp_pct_per_c",
+  "temp_coeff_imp_pct_per_c",
+  "max_system_voltage_v",
+] as const;
+export type PlacementElectricalField = (typeof PLACEMENT_ELECTRICAL_FIELDS)[number];
+
+export type PlacementElectrical = Partial<Record<PlacementElectricalField, number>> & {
+  /** Origine exacte des valeurs figées. */
+  origin: "revision" | "fiche_au_placement";
+  revision_id: string | null;
+};
+
+/**
+ * Fige les données électriques réellement disponibles au placement.
+ * Priorité : snapshot de la révision posée ; sinon fiche catalogue lue à cet instant.
+ * Seules les valeurs numériques présentes sont copiées — rien n'est déduit ni complété.
+ */
+export function pickPlacementElectrical(
+  revisionElectrical: unknown,
+  variantRow: Record<string, unknown> | null,
+  revisionId: string | null,
+): PlacementElectrical | null {
+  const read = (src: unknown) => {
+    const out: Partial<Record<PlacementElectricalField, number>> = {};
+    if (!src || typeof src !== "object") return out;
+    for (const f of PLACEMENT_ELECTRICAL_FIELDS) {
+      const v = (src as Record<string, unknown>)[f];
+      const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
+      if (Number.isFinite(n)) out[f] = n;
+    }
+    return out;
+  };
+  const rev = read(revisionElectrical);
+  if (Object.keys(rev).length) return { ...rev, origin: "revision", revision_id: revisionId };
+  const cat = read(variantRow);
+  if (Object.keys(cat).length)
+    return { ...cat, origin: "fiche_au_placement", revision_id: revisionId };
+  return null;
 }
 
 /** Fiche compacte renvoyée par la recherche du catalogue. */

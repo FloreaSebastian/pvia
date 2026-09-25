@@ -32,7 +32,7 @@ export interface ModuleElectrical {
   tc_imp_pct_per_c: number | null;
   max_system_voltage_v: number | null;
   /** Origine : snapshot immuable de la révision posée, ou aucune donnée (jamais la fiche courante). */
-  electrical_source: "revision" | "absente";
+  electrical_source: "revision" | "snapshot_pose" | "absente";
 }
 
 /** Fiche onduleur versionnée ; toute valeur non publiée reste null. */
