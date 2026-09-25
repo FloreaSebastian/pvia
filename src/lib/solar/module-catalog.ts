@@ -149,11 +149,15 @@ const MAX_POWER_W = 1500;
 
 /** Un panneau n'est utilisable que si ses deux dimensions sont publiées. */
 export function hasUsableDimensions(dim: ModuleDimensions): boolean {
-  return isPlausibleSide(dim.width_mm, MAX_WIDTH_MM) && isPlausibleSide(dim.height_mm, MAX_HEIGHT_MM);
+  return (
+    isPlausibleSide(dim.width_mm, MAX_WIDTH_MM) && isPlausibleSide(dim.height_mm, MAX_HEIGHT_MM)
+  );
 }
 
 function isPlausibleSide(value: number | null, max: number): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= MIN_SIDE_MM && value <= max;
+  return (
+    typeof value === "number" && Number.isFinite(value) && value >= MIN_SIDE_MM && value <= max
+  );
 }
 
 /**
@@ -172,7 +176,8 @@ export function moduleSizeMeters(
 /** Épaisseur réelle en mètres pour la 3D ; repli neutre si non publiée. */
 export function moduleDepthMeters(dim: ModuleDimensions, fallback = 0.035): number {
   const d = dim.depth_mm;
-  if (typeof d === "number" && Number.isFinite(d) && d >= MIN_DEPTH_MM && d <= MAX_DEPTH_MM) return d / 1000;
+  if (typeof d === "number" && Number.isFinite(d) && d >= MIN_DEPTH_MM && d <= MAX_DEPTH_MM)
+    return d / 1000;
   return fallback;
 }
 
@@ -187,7 +192,9 @@ export function formatModuleMeters(dim: ModuleDimensions): string {
   return `${(dim.width_mm! / 1000).toFixed(3)} × ${(dim.height_mm! / 1000).toFixed(3)} m`;
 }
 
-export function formatModuleLabel(m: Pick<ModuleListItem, "manufacturer" | "model" | "power_wc">): string {
+export function formatModuleLabel(
+  m: Pick<ModuleListItem, "manufacturer" | "model" | "power_wc">,
+): string {
   return `${m.manufacturer} ${m.model} — ${m.power_wc} Wc`;
 }
 

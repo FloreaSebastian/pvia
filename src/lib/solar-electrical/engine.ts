@@ -86,7 +86,8 @@ export const impHot = impWorst;
 /** Champs panneau manquants pour une validation stricte. */
 export function missingModuleFields(m: ModuleElectrical): string[] {
   const out: string[] = [];
-  if (m.electrical_source === "absente") out.push("données électriques figées (révision posée ou snapshot de placement)");
+  if (m.electrical_source === "absente")
+    out.push("données électriques figées (révision posée ou snapshot de placement)");
   if (m.voc_v == null) out.push("Voc");
   if (m.vmp_v == null) out.push("Vmp");
   if (m.isc_a == null) out.push("Isc");
