@@ -44,7 +44,7 @@ export function admissibleRange(
   const vc = vocCold(el, temps);
   const vh = vmpHot(el, temps);
   if (vc == null) missing.push("Voc / coefficient Voc du panneau");
-  if (vh == null) missing.push("Vmp / coefficients Pmax et Isc du panneau");
+  if (vh == null) missing.push("Vmp / coefficient Vmp publié du panneau");
   if (impWorst(el, temps) == null) missing.push("Imp / coefficient Imp publié du panneau");
   if (iscWorst(el, temps) == null) missing.push("Isc / coefficient Isc publié du panneau");
   if (inv.vdc_max_v == null) missing.push("Vdc max onduleur");

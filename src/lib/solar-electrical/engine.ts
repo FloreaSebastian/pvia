@@ -344,7 +344,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         le(
           "micro_isc",
           scope,
-          "Isc chaud par entrée",
+          "Isc pire cas par entrée",
           ih,
           inv.micro_input_isc_max_a ?? inv.micro_input_imax_a,
           "A",
@@ -368,7 +368,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
           ge(
             "micro_vmin",
             scope,
-            "Vmp chaud par entrée",
+            "Vmp min par entrée",
             vh,
             inv.mppt_vmin_v,
             "V",
@@ -401,7 +401,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         ge(
           "mppt_min",
           scope,
-          "Vmp chaud ≥ MPPT min",
+          "Vmp min ≥ MPPT min",
           vh != null ? vh * n : null,
           inv.mppt_vmin_v,
           "V",
@@ -423,7 +423,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
           ge(
             "demarrage",
             scope,
-            "Vmp chaud ≥ tension de démarrage",
+            "Vmp min ≥ tension de démarrage",
             vh != null ? vh * n : null,
             inv.start_voltage_v,
             "V",
@@ -435,7 +435,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         le(
           "courant_entree",
           scope,
-          "Imp chaud ≤ courant max par entrée",
+          "Imp pire cas ≤ courant max par entrée",
           jh,
           inv.imax_input_a ?? inv.imax_mppt_a,
           "A",
@@ -525,14 +525,14 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         le(
           "courant_mppt",
           scope,
-          "Somme Imp chaud ≤ courant max MPPT",
+          "Somme Imp pire cas ≤ courant max MPPT",
           impSum,
           inv.imax_mppt_a,
           "A",
         ),
       );
       checks.push(
-        le("isc_mppt", scope, "Somme Isc chaud ≤ Isc max MPPT", iscSum, inv.isc_max_mppt_a, "A"),
+        le("isc_mppt", scope, "Somme Isc pire cas ≤ Isc max MPPT", iscSum, inv.isc_max_mppt_a, "A"),
       );
       const p = res.every((r) => r.power_dc_w != null)
         ? res.reduce((s, r) => s + (r.power_dc_w ?? 0), 0)
