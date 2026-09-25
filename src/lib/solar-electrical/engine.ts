@@ -31,17 +31,47 @@ export function tempFactor(coeffPct: number | null, t: number): number | null {
   return 1 + (coeffPct / 100) * (t - 25);
 }
 
+/**
+ * Coefficients plausibles en %/°C pour du silicium cristallin / couches minces.
+ * Une valeur hors plage (ex. saisie en mV/°C ou signe inversé) est rejetée :
+ * le contrôle devient « non vérifiable » plutôt que faux.
+ */
+export function plausibleCoeff(kind: "voc" | "pmax" | "isc", c: number | null): number | null {
+  if (c == null || !Number.isFinite(c)) return null;
+  if (kind === "isc") return c >= -0.05 && c <= 0.2 ? c : null;
+  return c < 0 && c >= -1 ? c : null;
+}
+
+/** γVmp ≈ γPmax − αIsc (Imp suit ~Isc) : plus négatif que γPmax, donc conservateur. */
+export function vmpCoeff(m: ModuleElectrical): number | null {
+  const p = plausibleCoeff("pmax", m.tc_pmax_pct_per_c);
+  const i = plausibleCoeff("isc", m.tc_isc_pct_per_c);
+  return p != null && i != null ? p - i : null;
+}
+
 export function vocCold(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(m.tc_voc_pct_per_c, t.tmin_c);
+  const f = tempFactor(plausibleCoeff("voc", m.tc_voc_pct_per_c), t.tmin_c);
   return m.voc_v != null && f != null ? m.voc_v * f : null;
 }
 export function vmpHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(m.tc_pmax_pct_per_c, t.tmax_c);
+  const f = tempFactor(vmpCoeff(m), t.tmax_c);
   return m.vmp_v != null && f != null ? m.vmp_v * f : null;
 }
 export function vmpCold(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(m.tc_pmax_pct_per_c, t.tmin_c);
+  const f = tempFactor(vmpCoeff(m), t.tmin_c);
   return m.vmp_v != null && f != null ? m.vmp_v * f : null;
+}
+/** Isc à Tmax (αIsc > 0 ⇒ courant majoré, conservateur). */
+export function iscHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
+  const c = plausibleCoeff("isc", m.tc_isc_pct_per_c);
+  const f = tempFactor(c == null ? null : Math.max(0, c), t.tmax_c);
+  return m.isc_a != null && f != null ? m.isc_a * f : null;
+}
+/** Imp à Tmax, majoré par αIsc (hypothèse conservatrice). */
+export function impHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
+  const c = plausibleCoeff("isc", m.tc_isc_pct_per_c);
+  const f = tempFactor(c == null ? null : Math.max(0, c), t.tmax_c);
+  return m.imp_a != null && f != null ? m.imp_a * f : null;
 }
 
 /** Champs panneau manquants pour une validation stricte. */
@@ -51,8 +81,9 @@ export function missingModuleFields(m: ModuleElectrical): string[] {
   if (m.vmp_v == null) out.push("Vmp");
   if (m.isc_a == null) out.push("Isc");
   if (m.imp_a == null) out.push("Imp");
-  if (m.tc_voc_pct_per_c == null) out.push("coefficient Voc (%/°C)");
-  if (m.tc_pmax_pct_per_c == null) out.push("coefficient Pmax (%/°C)");
+  if (plausibleCoeff("voc", m.tc_voc_pct_per_c) == null) out.push("coefficient Voc (%/°C)");
+  if (plausibleCoeff("pmax", m.tc_pmax_pct_per_c) == null) out.push("coefficient Pmax (%/°C)");
+  if (plausibleCoeff("isc", m.tc_isc_pct_per_c) == null) out.push("coefficient Isc (%/°C)");
   if (m.power_wc == null) out.push("puissance STC");
   return out;
 }
