@@ -2,12 +2,10 @@
  * Solar Studio P2-A — moteur électrique PUR et déterministe.
  *
  * Formules (températures en °C, coefficients en %/°C) :
- *   Voc(T) = Voc_STC × (1 + βVoc/100 × (T − 25))
- *   Vmp(T) ≈ Vmp_STC × (1 + γPmax/100 × (T − 25))   (coefficient Vmp rarement
- *            publié : γPmax, plus défavorable que βVoc, est utilisé — hypothèse
- *            conservatrice affichée en mode Expert)
- *   Isc(T) = Isc_STC × (1 + αIsc/100 × (T − 25))
- * Une donnée absente => contrôle « non_verifiable ».
+ *   X(T) = X_STC × (1 + c/100 × (T − 25)), c = coefficient PUBLIÉ de X.
+ *   Extrêmes évalués aux deux bornes de [Tmin, Tmax] (fonction affine).
+ * Aucune approximation (ex. γVmp ≈ γPmax) ni repli sur la fiche catalogue courante :
+ * une donnée absente => contrôle « non_verifiable ».
  */
 import {
   ELECTRICAL_ENGINE_VERSION,
@@ -217,9 +215,9 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
   const groupResults: GroupResult[] = [];
   const topology = inv.kind;
   const formulas = [
-    `Voc froid = Voc STC × (1 + βVoc/100 × (${temps.tmin_c} − 25))`,
-    `Vmp chaud/froid ≈ Vmp STC × (1 + (γPmax − αIsc)/100 × (T − 25)) — coefficient Vmp rarement publié, approximé par γPmax − αIsc (hypothèse conservatrice)`,
-    `Isc/Imp chaud = valeur STC × (1 + αIsc/100 × (${temps.tmax_c} − 25)) — courants majorés à Tmax`,
+    `Voc max = Voc STC × max(1 + βVoc/100 × (T − 25)) pour T ∈ [${temps.tmin_c} ; ${temps.tmax_c}] °C`,
+    `Vmp min/max = Vmp STC × (1 + βVmp/100 × (T − 25)) aux bornes — coefficient Vmp publié obligatoire, sinon non vérifiable`,
+    `Isc/Imp pire cas = valeur STC × max(1 + α/100 × (T − 25)) aux deux bornes de la plage — coefficient publié obligatoire (αIsc pour Isc, αImp pour Imp)`,
     `Coefficients acceptés uniquement en %/°C dans une plage plausible ; hors plage => non vérifiable`,
     `Températures : Tmin ${temps.tmin_c} °C / Tmax ${temps.tmax_c} °C — source : ${temps.source}`,
   ];
@@ -280,14 +278,14 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         ),
       );
     } else if (n > 0 && el) {
-      if (el.electrical_source === "variante_courante")
+      if (el.electrical_source === "absente")
         checks.push(
           fail(
             "fiche_revision",
             scope,
             "Fiche panneau",
-            "La révision posée ne contient pas de données électriques : valeurs de la fiche catalogue actuelle utilisées, à vérifier.",
-            "avertissement",
+            "La révision posée ne contient pas de données électriques : contrôles non vérifiables (la fiche catalogue actuelle n'est jamais utilisée).",
+            "non_verifiable",
           ),
         );
       const miss = missingModuleFields(el);
