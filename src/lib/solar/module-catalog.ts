@@ -84,13 +84,14 @@ export type PlacementElectricalField = (typeof PLACEMENT_ELECTRICAL_FIELDS)[numb
 
 export type PlacementElectrical = Partial<Record<PlacementElectricalField, number>> & {
   /** Origine exacte des valeurs figées. */
-  origin: "revision" | "fiche_au_placement";
+  origin: "revision";
   revision_id: string | null;
 };
 
 /**
  * Fige les données électriques réellement disponibles au placement.
- * Priorité : snapshot de la révision posée ; sinon fiche catalogue lue à cet instant.
+ * Source unique : données électriques de la révision exacte posée (variante + révision).
+ * Aucun repli sur la fiche catalogue (mutable) : sans révision exploitable ⇒ null.
  * Seules les valeurs numériques présentes sont copiées — rien n'est déduit ni complété.
  */
 export function pickPlacementElectrical(
@@ -108,11 +109,10 @@ export function pickPlacementElectrical(
     }
     return out;
   };
+  void variantRow; // identité uniquement ; jamais source de valeurs électriques
+  if (!revisionId) return null;
   const rev = read(revisionElectrical);
   if (Object.keys(rev).length) return { ...rev, origin: "revision", revision_id: revisionId };
-  const cat = read(variantRow);
-  if (Object.keys(cat).length)
-    return { ...cat, origin: "fiche_au_placement", revision_id: revisionId };
   return null;
 }
 

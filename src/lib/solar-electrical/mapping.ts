@@ -64,10 +64,18 @@ export function moduleElectricalFromRow(
       ? (snapshot.electrical as Record<string, unknown>)
       : null;
   const snapRev = snapshot ? (snapshot.revision_id ?? null) : null;
+  // Révision exacte uniquement : variante, révision posée et origine doivent concorder.
+  const snapElRev = snapEl ? (snapEl.revision_id ?? snapRev) : null;
   const snapOk =
     !!snapEl &&
-    (snapshot?.variant_id == null || String(snapshot.variant_id) === id) &&
-    (snapRev == null || revisionId == null || String(snapRev) === revisionId) &&
+    revisionId != null &&
+    snapshot?.variant_id != null &&
+    String(snapshot.variant_id) === id &&
+    snapRev != null &&
+    String(snapRev) === revisionId &&
+    snapElRev != null &&
+    String(snapElRev) === revisionId &&
+    snapEl.origin === "revision" &&
     ELEC_FIELDS.some((f) => num(snapEl[f]) != null);
   const src: Record<string, unknown> = hasRevEl ? revEl! : snapOk ? snapEl! : {};
   return {
