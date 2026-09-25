@@ -365,15 +365,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
       }
       if (inv.inputs_per_mppt != null || inv.mppt_vmin_v != null) {
         checks.push(
-          ge(
-            "micro_vmin",
-            scope,
-            "Vmp min par entrée",
-            vh,
-            inv.mppt_vmin_v,
-            "V",
-            "avertissement",
-          ),
+          ge("micro_vmin", scope, "Vmp min par entrée", vh, inv.mppt_vmin_v, "V", "avertissement"),
         );
       }
     } else {

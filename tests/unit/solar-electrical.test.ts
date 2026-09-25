@@ -867,9 +867,9 @@ describe("P2-A correctifs d'audit", () => {
         },
       ],
     });
-    expect(ev.checks.some((c) => c.code === "fiche_revision" && c.status === "non_verifiable")).toBe(
-      true,
-    );
+    expect(
+      ev.checks.some((c) => c.code === "fiche_revision" && c.status === "non_verifiable"),
+    ).toBe(true);
   });
   it("révision d'une autre variante refusée : aucune donnée électrique", () => {
     const el = moduleElectricalFromRow({ id: "v1", voc_v: 50 }, "r9", null, {
@@ -989,7 +989,9 @@ describe("P2-A correctifs d'audit", () => {
     const sql = readdirSync("supabase/migrations")
       .map((f: string) => readFileSync(`supabase/migrations/${f}`, "utf8"))
       .join("\n");
-    expect(sql).toMatch(/ALTER TABLE public\.solar_models ADD COLUMN IF NOT EXISTS layout_hash text/);
+    expect(sql).toMatch(
+      /ALTER TABLE public\.solar_models ADD COLUMN IF NOT EXISTS layout_hash text/,
+    );
     expect(sql).toMatch(/layout_hash = solar_layout_fingerprint\(s\.company_id, s\.id\)/);
     expect(sql).toMatch(/_lh IS DISTINCT FROM _expected_layout_hash/);
     expect(() => assertPersistedLayoutHash(null, "abc")).toThrow("stale_layout");

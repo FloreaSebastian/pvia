@@ -70,7 +70,10 @@ export function admissibleRange(
   if (inv.imax_mppt_a != null)
     maxParallel = Math.min(maxParallel, Math.floor(inv.imax_mppt_a / impWorst(el, temps)! + 1e-9));
   if (inv.isc_max_mppt_a != null)
-    maxParallel = Math.min(maxParallel, Math.floor(inv.isc_max_mppt_a / iscWorst(el, temps)! + 1e-9));
+    maxParallel = Math.min(
+      maxParallel,
+      Math.floor(inv.isc_max_mppt_a / iscWorst(el, temps)! + 1e-9),
+    );
   if (inv.imax_input_a != null && impWorst(el, temps)! > inv.imax_input_a + 1e-9) maxParallel = 0;
   if (maxParallel < 1)
     return {
