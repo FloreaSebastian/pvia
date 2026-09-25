@@ -3,7 +3,7 @@
  * Chaque panneau est affecté exactement une fois ou reste explicitement non affecté.
  */
 import { fingerprint } from "../solar/hash";
-import { evaluateDesign, vmpCold, vmpHot, vocCold } from "./engine";
+import { evaluateDesign, impHot, iscHot, vmpCold, vmpHot, vocCold } from "./engine";
 import {
   ELECTRICAL_ENGINE_VERSION,
   type DesignTemperatures,
@@ -44,9 +44,9 @@ export function admissibleRange(
   const vc = vocCold(el, temps);
   const vh = vmpHot(el, temps);
   if (vc == null) missing.push("Voc / coefficient Voc du panneau");
-  if (vh == null) missing.push("Vmp / coefficient Pmax du panneau");
-  if (el.imp_a == null) missing.push("Imp du panneau");
-  if (el.isc_a == null) missing.push("Isc du panneau");
+  if (vh == null) missing.push("Vmp / coefficients Pmax et Isc du panneau");
+  if (impHot(el, temps) == null) missing.push("Imp / coefficient Isc du panneau");
+  if (iscHot(el, temps) == null) missing.push("Isc / coefficient Isc du panneau");
   if (inv.vdc_max_v == null) missing.push("Vdc max onduleur");
   if (inv.mppt_vmin_v == null) missing.push("tension MPPT min onduleur");
   if (inv.mppt_count == null) missing.push("nombre de MPPT onduleur");
@@ -68,10 +68,10 @@ export function admissibleRange(
   }
   let maxParallel = inv.inputs_per_mppt!;
   if (inv.imax_mppt_a != null)
-    maxParallel = Math.min(maxParallel, Math.floor(inv.imax_mppt_a / el.imp_a! + 1e-9));
+    maxParallel = Math.min(maxParallel, Math.floor(inv.imax_mppt_a / impHot(el, temps)! + 1e-9));
   if (inv.isc_max_mppt_a != null)
-    maxParallel = Math.min(maxParallel, Math.floor(inv.isc_max_mppt_a / el.isc_a! + 1e-9));
-  if (inv.imax_input_a != null && el.imp_a! > inv.imax_input_a + 1e-9) maxParallel = 0;
+    maxParallel = Math.min(maxParallel, Math.floor(inv.isc_max_mppt_a / iscHot(el, temps)! + 1e-9));
+  if (inv.imax_input_a != null && impHot(el, temps)! > inv.imax_input_a + 1e-9) maxParallel = 0;
   if (maxParallel < 1)
     return {
       ok: false,

@@ -89,6 +89,18 @@ export async function loadElectricalContext(
   const variants = variantIds.length
     ? await sb.from("solar_module_variants").select("*").in("id", variantIds)
     : { data: [] as Record<string, unknown>[] };
+  const revisionIds = [
+    ...new Set(arrayRows.map((a) => a.module_revision_id).filter(Boolean)),
+  ] as string[];
+  const revisions = revisionIds.length
+    ? await sb
+        .from("solar_module_revisions")
+        .select("id, variant_id, pmax_stc_w, electrical")
+        .in("id", revisionIds)
+    : { data: [] as Record<string, unknown>[] };
+  const revisionById = new Map(
+    ((revisions.data ?? []) as Record<string, unknown>[]).map((r) => [String(r.id), r]),
+  );
   const variantById = new Map(
     (variants.data ?? []).map((v) => [
       String((v as { id: string }).id),
@@ -108,6 +120,7 @@ export async function loadElectricalContext(
       v,
       a.module_revision_id ?? null,
       (a.module_snapshot ?? null) as Record<string, unknown> | null,
+      a.module_revision_id ? (revisionById.get(a.module_revision_id) ?? null) : null,
     );
     electrical[el.key] = el;
     keyByArray.set(a.id, moduleKey(el.variant_id, el.revision_id));

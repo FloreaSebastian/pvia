@@ -7167,6 +7167,19 @@ export type Database = {
         }
         Returns: Json
       }
+      solar_apply_electrical_design_trusted: {
+        Args: {
+          _actor: string
+          _company_id: string
+          _design: Json
+          _expected_geometry_version: number
+          _expected_layout_hash: string
+          _expected_layout_version: number
+          _model_id: string
+          _strings: Json
+        }
+        Returns: Json
+      }
       solar_apply_layout: {
         Args: {
           _arrays: Json

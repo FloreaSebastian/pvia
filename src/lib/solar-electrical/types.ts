@@ -5,7 +5,7 @@
  * et produit un contrôle « Non vérifiable », jamais un PASS implicite.
  */
 
-export const ELECTRICAL_ENGINE_VERSION = "p2a-1.0.0";
+export const ELECTRICAL_ENGINE_VERSION = "p2a-1.1.0";
 
 export type InverterKind = "string" | "hybride" | "micro";
 export type Phase = "mono" | "tri";
@@ -28,6 +28,8 @@ export interface ModuleElectrical {
   tc_isc_pct_per_c: number | null;
   tc_pmax_pct_per_c: number | null;
   max_system_voltage_v: number | null;
+  /** Origine des données électriques : révision posée (exacte) ou fiche catalogue actuelle (repli signalé). */
+  electrical_source: "revision" | "variante_courante";
 }
 
 /** Fiche onduleur versionnée ; toute valeur non publiée reste null. */
@@ -116,6 +118,9 @@ export interface GroupResult {
   vmp_cold_v: number | null;
   isc_a: number | null;
   imp_a: number | null;
+  /** Courants à Tmax utilisés pour les contrôles. */
+  isc_hot_a: number | null;
+  imp_hot_a: number | null;
   power_dc_w: number | null;
 }
 
