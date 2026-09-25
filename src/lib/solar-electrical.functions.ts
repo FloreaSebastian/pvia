@@ -19,12 +19,6 @@ import {
   type ElecGroup,
 } from "@/lib/solar-electrical";
 
-type Loose = {
-  rpc: (
-    f: string,
-    a: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
-};
 
 const ids = z.object({ companyId: z.string().uuid(), modelId: z.string().uuid() });
 
