@@ -36,54 +36,67 @@ export function tempFactor(coeffPct: number | null, t: number): number | null {
  * Une valeur hors plage (ex. saisie en mV/°C ou signe inversé) est rejetée :
  * le contrôle devient « non vérifiable » plutôt que faux.
  */
-export function plausibleCoeff(kind: "voc" | "pmax" | "isc", c: number | null): number | null {
+export function plausibleCoeff(
+  kind: "voc" | "pmax" | "vmp" | "isc" | "imp",
+  c: number | null,
+): number | null {
   if (c == null || !Number.isFinite(c)) return null;
-  if (kind === "isc") return c >= -0.05 && c <= 0.2 ? c : null;
+  if (kind === "isc" || kind === "imp") return c >= -0.05 && c <= 0.2 ? c : null;
   return c < 0 && c >= -1 ? c : null;
 }
 
-/** γVmp ≈ γPmax − αIsc (Imp suit ~Isc) : plus négatif que γPmax, donc conservateur. */
-export function vmpCoeff(m: ModuleElectrical): number | null {
-  const p = plausibleCoeff("pmax", m.tc_pmax_pct_per_c);
-  const i = plausibleCoeff("isc", m.tc_isc_pct_per_c);
-  return p != null && i != null ? p - i : null;
+/**
+ * Valeur extrême d'une grandeur linéaire en T sur [tmin, tmax] :
+ * évaluée aux deux bornes (le pire cas d'une fonction affine est toujours à une borne).
+ */
+function extremeOverRange(
+  base: number | null,
+  coeff: number | null,
+  t: DesignTemperatures,
+  pick: "max" | "min",
+): number | null {
+  const a = tempFactor(coeff, t.tmin_c);
+  const b = tempFactor(coeff, t.tmax_c);
+  if (base == null || a == null || b == null) return null;
+  return base * (pick === "max" ? Math.max(a, b) : Math.min(a, b));
 }
 
+/** Voc maximal sur la plage saisie (coefficient publié uniquement). */
 export function vocCold(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(plausibleCoeff("voc", m.tc_voc_pct_per_c), t.tmin_c);
-  return m.voc_v != null && f != null ? m.voc_v * f : null;
+  return extremeOverRange(m.voc_v, plausibleCoeff("voc", m.tc_voc_pct_per_c), t, "max");
 }
+/** Vmp minimal sur la plage — exige le coefficient Vmp publié (aucune approximation). */
 export function vmpHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(vmpCoeff(m), t.tmax_c);
-  return m.vmp_v != null && f != null ? m.vmp_v * f : null;
+  return extremeOverRange(m.vmp_v, plausibleCoeff("vmp", m.tc_vmp_pct_per_c), t, "min");
 }
+/** Vmp maximal sur la plage — exige le coefficient Vmp publié. */
 export function vmpCold(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(vmpCoeff(m), t.tmin_c);
-  return m.vmp_v != null && f != null ? m.vmp_v * f : null;
+  return extremeOverRange(m.vmp_v, plausibleCoeff("vmp", m.tc_vmp_pct_per_c), t, "max");
 }
-/** Isc à Tmax (αIsc > 0 ⇒ courant majoré, conservateur). */
-export function iscHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const c = plausibleCoeff("isc", m.tc_isc_pct_per_c);
-  const f = tempFactor(c == null ? null : Math.max(0, c), t.tmax_c);
-  return m.isc_a != null && f != null ? m.isc_a * f : null;
+/** Isc pire cas (maximum) sur [tmin, tmax], quel que soit le signe de αIsc. */
+export function iscWorst(m: ModuleElectrical, t: DesignTemperatures): number | null {
+  return extremeOverRange(m.isc_a, plausibleCoeff("isc", m.tc_isc_pct_per_c), t, "max");
 }
-/** Imp à Tmax, majoré par αIsc (hypothèse conservatrice). */
-export function impHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const c = plausibleCoeff("isc", m.tc_isc_pct_per_c);
-  const f = tempFactor(c == null ? null : Math.max(0, c), t.tmax_c);
-  return m.imp_a != null && f != null ? m.imp_a * f : null;
+/** Imp pire cas (maximum) sur [tmin, tmax] — exige le coefficient Imp publié. */
+export function impWorst(m: ModuleElectrical, t: DesignTemperatures): number | null {
+  return extremeOverRange(m.imp_a, plausibleCoeff("imp", m.tc_imp_pct_per_c), t, "max");
 }
+/** @deprecated alias conservés pour compatibilité : pire cas sur la plage. */
+export const iscHot = iscWorst;
+export const impHot = impWorst;
 
 /** Champs panneau manquants pour une validation stricte. */
 export function missingModuleFields(m: ModuleElectrical): string[] {
   const out: string[] = [];
+  if (m.electrical_source === "absente") out.push("données électriques de la révision posée");
   if (m.voc_v == null) out.push("Voc");
   if (m.vmp_v == null) out.push("Vmp");
   if (m.isc_a == null) out.push("Isc");
   if (m.imp_a == null) out.push("Imp");
   if (plausibleCoeff("voc", m.tc_voc_pct_per_c) == null) out.push("coefficient Voc (%/°C)");
-  if (plausibleCoeff("pmax", m.tc_pmax_pct_per_c) == null) out.push("coefficient Pmax (%/°C)");
+  if (plausibleCoeff("vmp", m.tc_vmp_pct_per_c) == null) out.push("coefficient Vmp (%/°C)");
   if (plausibleCoeff("isc", m.tc_isc_pct_per_c) == null) out.push("coefficient Isc (%/°C)");
+  if (plausibleCoeff("imp", m.tc_imp_pct_per_c) == null) out.push("coefficient Imp (%/°C)");
   if (m.power_wc == null) out.push("puissance STC");
   return out;
 }
