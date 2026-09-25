@@ -1055,7 +1055,7 @@ describe("P2-A câblage avec données partielles", () => {
     if (!full.ok || !part.ok) return;
     const vdcBound = Math.floor(600 / vocCold(PANEL, TT)!);
     expect(part.range.nmax).toBeLessThanOrEqual(vdcBound);
-    expect(part.range.nmin).toBe(part.range.nmax);
+    expect(part.range.nmin).toBe(Math.floor(20 / Math.ceil(20 / part.range.nmax)));
   });
   it("aucune donnée panneau : proposition structurelle sans parallèle, tout non vérifiable", () => {
     const r = run(EMPTY, 10);

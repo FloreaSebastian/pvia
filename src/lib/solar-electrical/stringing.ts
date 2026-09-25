@@ -88,10 +88,11 @@ export function admissibleRange(
     };
   }
   // Repli : borne haute inconnue ⇒ répartir le groupe sur les entrées d'un MPPT ;
-  // borne basse inconnue ⇒ strings aussi longues que la borne haute (pas de string courte injustifiée).
+  // borne basse inconnue ⇒ le moins de strings possible, de longueurs égales (aucune string
+  // plus courte que nécessaire).
   const g = Math.max(1, bucketSize ?? 1);
   const nmaxF = nmax ?? Math.max(nmin ?? 1, Math.ceil(g / inv.inputs_per_mppt!));
-  const nminF = nmin ?? nmaxF;
+  const nminF = nmin ?? Math.max(1, Math.min(nmaxF, Math.floor(g / Math.ceil(g / nmaxF))));
 
   let maxParallel = inv.inputs_per_mppt!;
   if (ip == null || is == null) {
