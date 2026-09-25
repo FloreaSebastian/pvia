@@ -5,7 +5,7 @@
  * et produit un contrôle « Non vérifiable », jamais un PASS implicite.
  */
 
-export const ELECTRICAL_ENGINE_VERSION = "p2a-1.2.0";
+export const ELECTRICAL_ENGINE_VERSION = "p2a-1.3.0";
 
 export type InverterKind = "string" | "hybride" | "micro";
 export type Phase = "mono" | "tri";
