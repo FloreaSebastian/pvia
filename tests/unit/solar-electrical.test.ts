@@ -229,7 +229,11 @@ describe("contrôles string / MPPT", () => {
       ),
     ];
     const e = evaluateDesign({ inverter: INV, modules: m, electrical: EL, temps: T, groups: g });
-    expect(e.mppts[0]).toMatchObject({ strings: 2, imp_sum_a: 19, isc_sum_a: 20 });
+    // Sommes à Tmax (70 °C, αIsc +0,05 %/°C) : courants majorés de 2,25 %.
+    const hot = 1 + (0.05 / 100) * (T.tmax_c - 25);
+    expect(e.mppts[0]).toMatchObject({ strings: 2 });
+    expect(e.mppts[0].imp_sum_a!).toBeCloseTo(2 * Math.round(9.5 * hot * 100) / 100, 2);
+    expect(e.mppts[0].isc_sum_a!).toBeCloseTo(2 * Math.round(10 * hot * 100) / 100, 2);
     expect(e.checks.find((c) => c.code === "courant_mppt")!.status).toBe("ok");
     const e2 = evaluateDesign({
       inverter: { ...INV, imax_mppt_a: 18 },
