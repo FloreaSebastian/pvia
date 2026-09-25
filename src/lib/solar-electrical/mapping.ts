@@ -27,15 +27,18 @@ const ELEC_FIELDS = [
   "temp_coeff_voc_pct_per_c",
   "temp_coeff_isc_pct_per_c",
   "temp_coeff_pmax_pct_per_c",
+  "temp_coeff_vmp_pct_per_c",
+  "temp_coeff_imp_pct_per_c",
   "max_system_voltage_v",
 ] as const;
 
 /**
  * Données électriques du panneau réellement posé.
- * Priorité : `revision.electrical` (snapshot immuable de la révision posée).
- * Repli : fiche catalogue actuelle de la variante, signalé par
- * `electrical_source = "variante_courante"` (avertissement moteur).
+ * Source unique : `revision.electrical` (snapshot immuable de la révision posée).
+ * Aucun repli sur la fiche catalogue courante (mutable) : sans snapshot, toutes
+ * les valeurs restent null et les contrôles sont « non vérifiables ».
  * Une révision appartenant à une autre variante est refusée (aucune donnée).
+ * `variant` ne sert qu'à l'identité (id).
  */
 export function moduleElectricalFromRow(
   variant: Record<string, unknown>,
@@ -44,24 +47,25 @@ export function moduleElectricalFromRow(
   revision?: Record<string, unknown> | null,
 ): ModuleElectrical {
   const id = String(variant.id);
-  const revMismatch =
-    revision != null && revision.variant_id != null && String(revision.variant_id) !== id;
+  const revOk =
+    revision != null &&
+    revisionId != null &&
+    String(revision.id ?? revisionId) === revisionId &&
+    (revision.variant_id == null || String(revision.variant_id) === id);
   const revEl =
-    revision && !revMismatch && revision.electrical && typeof revision.electrical === "object"
-      ? (revision.electrical as Record<string, unknown>)
+    revOk && revision!.electrical && typeof revision!.electrical === "object"
+      ? (revision!.electrical as Record<string, unknown>)
       : null;
   const hasRevEl = !!revEl && ELEC_FIELDS.some((f) => num(revEl[f]) != null);
-  const src: Record<string, unknown> = revMismatch ? {} : hasRevEl ? revEl! : variant;
+  const src: Record<string, unknown> = hasRevEl ? revEl! : {};
   return {
     key: moduleKey(id, revisionId),
     variant_id: id,
     revision_id: revisionId,
     manufacturer: str(snapshot?.manufacturer),
     model: str(snapshot?.model),
-    power_wc:
-      num(snapshot?.power_wc) ??
-      (revision && !revMismatch ? num(revision.pmax_stc_w) : null) ??
-      num(variant.pmax_stc_w),
+    // Puissance : snapshot posé puis révision (immuables) ; jamais la variante courante.
+    power_wc: num(snapshot?.power_wc) ?? (revOk ? num(revision!.pmax_stc_w) : null),
     voc_v: num(src.voc_v),
     vmp_v: num(src.vmp_v),
     isc_a: num(src.isc_a),
@@ -69,9 +73,16 @@ export function moduleElectricalFromRow(
     tc_voc_pct_per_c: num(src.temp_coeff_voc_pct_per_c),
     tc_isc_pct_per_c: num(src.temp_coeff_isc_pct_per_c),
     tc_pmax_pct_per_c: num(src.temp_coeff_pmax_pct_per_c),
+    tc_vmp_pct_per_c: num(src.temp_coeff_vmp_pct_per_c),
+    tc_imp_pct_per_c: num(src.temp_coeff_imp_pct_per_c),
     max_system_voltage_v: num(src.max_system_voltage_v),
-    electrical_source: hasRevEl ? "revision" : "variante_courante",
+    electrical_source: hasRevEl ? "revision" : "absente",
   };
+}
+
+/** L'empreinte persistée du modèle doit exister et égaler l'empreinte recalculée. */
+export function assertPersistedLayoutHash(stored: string | null, recomputed: string): void {
+  if (!stored || stored !== recomputed) throw new Error("stale_layout");
 }
 
 export function inverterSpecFromRows(

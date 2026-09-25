@@ -2,12 +2,10 @@
  * Solar Studio P2-A — moteur électrique PUR et déterministe.
  *
  * Formules (températures en °C, coefficients en %/°C) :
- *   Voc(T) = Voc_STC × (1 + βVoc/100 × (T − 25))
- *   Vmp(T) ≈ Vmp_STC × (1 + γPmax/100 × (T − 25))   (coefficient Vmp rarement
- *            publié : γPmax, plus défavorable que βVoc, est utilisé — hypothèse
- *            conservatrice affichée en mode Expert)
- *   Isc(T) = Isc_STC × (1 + αIsc/100 × (T − 25))
- * Une donnée absente => contrôle « non_verifiable ».
+ *   X(T) = X_STC × (1 + c/100 × (T − 25)), c = coefficient PUBLIÉ de X.
+ *   Extrêmes évalués aux deux bornes de [Tmin, Tmax] (fonction affine).
+ * Aucune approximation (ex. γVmp ≈ γPmax) ni repli sur la fiche catalogue courante :
+ * une donnée absente => contrôle « non_verifiable ».
  */
 import {
   ELECTRICAL_ENGINE_VERSION,
@@ -36,54 +34,67 @@ export function tempFactor(coeffPct: number | null, t: number): number | null {
  * Une valeur hors plage (ex. saisie en mV/°C ou signe inversé) est rejetée :
  * le contrôle devient « non vérifiable » plutôt que faux.
  */
-export function plausibleCoeff(kind: "voc" | "pmax" | "isc", c: number | null): number | null {
+export function plausibleCoeff(
+  kind: "voc" | "pmax" | "vmp" | "isc" | "imp",
+  c: number | null,
+): number | null {
   if (c == null || !Number.isFinite(c)) return null;
-  if (kind === "isc") return c >= -0.05 && c <= 0.2 ? c : null;
+  if (kind === "isc" || kind === "imp") return c >= -0.05 && c <= 0.2 ? c : null;
   return c < 0 && c >= -1 ? c : null;
 }
 
-/** γVmp ≈ γPmax − αIsc (Imp suit ~Isc) : plus négatif que γPmax, donc conservateur. */
-export function vmpCoeff(m: ModuleElectrical): number | null {
-  const p = plausibleCoeff("pmax", m.tc_pmax_pct_per_c);
-  const i = plausibleCoeff("isc", m.tc_isc_pct_per_c);
-  return p != null && i != null ? p - i : null;
+/**
+ * Valeur extrême d'une grandeur linéaire en T sur [tmin, tmax] :
+ * évaluée aux deux bornes (le pire cas d'une fonction affine est toujours à une borne).
+ */
+function extremeOverRange(
+  base: number | null,
+  coeff: number | null,
+  t: DesignTemperatures,
+  pick: "max" | "min",
+): number | null {
+  const a = tempFactor(coeff, t.tmin_c);
+  const b = tempFactor(coeff, t.tmax_c);
+  if (base == null || a == null || b == null) return null;
+  return base * (pick === "max" ? Math.max(a, b) : Math.min(a, b));
 }
 
+/** Voc maximal sur la plage saisie (coefficient publié uniquement). */
 export function vocCold(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(plausibleCoeff("voc", m.tc_voc_pct_per_c), t.tmin_c);
-  return m.voc_v != null && f != null ? m.voc_v * f : null;
+  return extremeOverRange(m.voc_v, plausibleCoeff("voc", m.tc_voc_pct_per_c), t, "max");
 }
+/** Vmp minimal sur la plage — exige le coefficient Vmp publié (aucune approximation). */
 export function vmpHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(vmpCoeff(m), t.tmax_c);
-  return m.vmp_v != null && f != null ? m.vmp_v * f : null;
+  return extremeOverRange(m.vmp_v, plausibleCoeff("vmp", m.tc_vmp_pct_per_c), t, "min");
 }
+/** Vmp maximal sur la plage — exige le coefficient Vmp publié. */
 export function vmpCold(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const f = tempFactor(vmpCoeff(m), t.tmin_c);
-  return m.vmp_v != null && f != null ? m.vmp_v * f : null;
+  return extremeOverRange(m.vmp_v, plausibleCoeff("vmp", m.tc_vmp_pct_per_c), t, "max");
 }
-/** Isc à Tmax (αIsc > 0 ⇒ courant majoré, conservateur). */
-export function iscHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const c = plausibleCoeff("isc", m.tc_isc_pct_per_c);
-  const f = tempFactor(c == null ? null : Math.max(0, c), t.tmax_c);
-  return m.isc_a != null && f != null ? m.isc_a * f : null;
+/** Isc pire cas (maximum) sur [tmin, tmax], quel que soit le signe de αIsc. */
+export function iscWorst(m: ModuleElectrical, t: DesignTemperatures): number | null {
+  return extremeOverRange(m.isc_a, plausibleCoeff("isc", m.tc_isc_pct_per_c), t, "max");
 }
-/** Imp à Tmax, majoré par αIsc (hypothèse conservatrice). */
-export function impHot(m: ModuleElectrical, t: DesignTemperatures): number | null {
-  const c = plausibleCoeff("isc", m.tc_isc_pct_per_c);
-  const f = tempFactor(c == null ? null : Math.max(0, c), t.tmax_c);
-  return m.imp_a != null && f != null ? m.imp_a * f : null;
+/** Imp pire cas (maximum) sur [tmin, tmax] — exige le coefficient Imp publié. */
+export function impWorst(m: ModuleElectrical, t: DesignTemperatures): number | null {
+  return extremeOverRange(m.imp_a, plausibleCoeff("imp", m.tc_imp_pct_per_c), t, "max");
 }
+/** @deprecated alias conservés pour compatibilité : pire cas sur la plage. */
+export const iscHot = iscWorst;
+export const impHot = impWorst;
 
 /** Champs panneau manquants pour une validation stricte. */
 export function missingModuleFields(m: ModuleElectrical): string[] {
   const out: string[] = [];
+  if (m.electrical_source === "absente") out.push("données électriques de la révision posée");
   if (m.voc_v == null) out.push("Voc");
   if (m.vmp_v == null) out.push("Vmp");
   if (m.isc_a == null) out.push("Isc");
   if (m.imp_a == null) out.push("Imp");
   if (plausibleCoeff("voc", m.tc_voc_pct_per_c) == null) out.push("coefficient Voc (%/°C)");
-  if (plausibleCoeff("pmax", m.tc_pmax_pct_per_c) == null) out.push("coefficient Pmax (%/°C)");
+  if (plausibleCoeff("vmp", m.tc_vmp_pct_per_c) == null) out.push("coefficient Vmp (%/°C)");
   if (plausibleCoeff("isc", m.tc_isc_pct_per_c) == null) out.push("coefficient Isc (%/°C)");
+  if (plausibleCoeff("imp", m.tc_imp_pct_per_c) == null) out.push("coefficient Imp (%/°C)");
   if (m.power_wc == null) out.push("puissance STC");
   return out;
 }
@@ -204,9 +215,9 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
   const groupResults: GroupResult[] = [];
   const topology = inv.kind;
   const formulas = [
-    `Voc froid = Voc STC × (1 + βVoc/100 × (${temps.tmin_c} − 25))`,
-    `Vmp chaud/froid ≈ Vmp STC × (1 + (γPmax − αIsc)/100 × (T − 25)) — coefficient Vmp rarement publié, approximé par γPmax − αIsc (hypothèse conservatrice)`,
-    `Isc/Imp chaud = valeur STC × (1 + αIsc/100 × (${temps.tmax_c} − 25)) — courants majorés à Tmax`,
+    `Voc max = Voc STC × max(1 + βVoc/100 × (T − 25)) pour T ∈ [${temps.tmin_c} ; ${temps.tmax_c}] °C`,
+    `Vmp min/max = Vmp STC × (1 + βVmp/100 × (T − 25)) aux bornes — coefficient Vmp publié obligatoire, sinon non vérifiable`,
+    `Isc/Imp pire cas = valeur STC × max(1 + α/100 × (T − 25)) aux deux bornes de la plage — coefficient publié obligatoire (αIsc pour Isc, αImp pour Imp)`,
     `Coefficients acceptés uniquement en %/°C dans une plage plausible ; hors plage => non vérifiable`,
     `Températures : Tmin ${temps.tmin_c} °C / Tmax ${temps.tmax_c} °C — source : ${temps.source}`,
   ];
@@ -267,14 +278,14 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         ),
       );
     } else if (n > 0 && el) {
-      if (el.electrical_source === "variante_courante")
+      if (el.electrical_source === "absente")
         checks.push(
           fail(
             "fiche_revision",
             scope,
             "Fiche panneau",
-            "La révision posée ne contient pas de données électriques : valeurs de la fiche catalogue actuelle utilisées, à vérifier.",
-            "avertissement",
+            "La révision posée ne contient pas de données électriques : contrôles non vérifiables (la fiche catalogue actuelle n'est jamais utilisée).",
+            "non_verifiable",
           ),
         );
       const miss = missingModuleFields(el);
@@ -293,8 +304,8 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
     const vc = el ? vocCold(el, temps) : null;
     const vh = el ? vmpHot(el, temps) : null;
     const vco = el ? vmpCold(el, temps) : null;
-    const ih = el ? iscHot(el, temps) : null;
-    const jh = el ? impHot(el, temps) : null;
+    const ih = el ? iscWorst(el, temps) : null;
+    const jh = el ? impWorst(el, temps) : null;
     groupResults.push({
       group_id: g.id,
       module_count: n,
@@ -333,7 +344,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         le(
           "micro_isc",
           scope,
-          "Isc chaud par entrée",
+          "Isc pire cas par entrée",
           ih,
           inv.micro_input_isc_max_a ?? inv.micro_input_imax_a,
           "A",
@@ -354,15 +365,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
       }
       if (inv.inputs_per_mppt != null || inv.mppt_vmin_v != null) {
         checks.push(
-          ge(
-            "micro_vmin",
-            scope,
-            "Vmp chaud par entrée",
-            vh,
-            inv.mppt_vmin_v,
-            "V",
-            "avertissement",
-          ),
+          ge("micro_vmin", scope, "Vmp min par entrée", vh, inv.mppt_vmin_v, "V", "avertissement"),
         );
       }
     } else {
@@ -390,7 +393,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         ge(
           "mppt_min",
           scope,
-          "Vmp chaud ≥ MPPT min",
+          "Vmp min ≥ MPPT min",
           vh != null ? vh * n : null,
           inv.mppt_vmin_v,
           "V",
@@ -412,7 +415,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
           ge(
             "demarrage",
             scope,
-            "Vmp chaud ≥ tension de démarrage",
+            "Vmp min ≥ tension de démarrage",
             vh != null ? vh * n : null,
             inv.start_voltage_v,
             "V",
@@ -424,7 +427,7 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         le(
           "courant_entree",
           scope,
-          "Imp chaud ≤ courant max par entrée",
+          "Imp pire cas ≤ courant max par entrée",
           jh,
           inv.imax_input_a ?? inv.imax_mppt_a,
           "A",
@@ -514,14 +517,14 @@ export function evaluateDesign(input: EvaluateInput): DesignEvaluation {
         le(
           "courant_mppt",
           scope,
-          "Somme Imp chaud ≤ courant max MPPT",
+          "Somme Imp pire cas ≤ courant max MPPT",
           impSum,
           inv.imax_mppt_a,
           "A",
         ),
       );
       checks.push(
-        le("isc_mppt", scope, "Somme Isc chaud ≤ Isc max MPPT", iscSum, inv.isc_max_mppt_a, "A"),
+        le("isc_mppt", scope, "Somme Isc pire cas ≤ Isc max MPPT", iscSum, inv.isc_max_mppt_a, "A"),
       );
       const p = res.every((r) => r.power_dc_w != null)
         ? res.reduce((s, r) => s + (r.power_dc_w ?? 0), 0)

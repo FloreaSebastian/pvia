@@ -8,6 +8,7 @@ import {
   inverterSpecFromRows,
   moduleElectricalFromRow,
   moduleKey,
+  assertPersistedLayoutHash,
   type DesignSummary,
   type ElecCheck,
   type ElecGroup,
@@ -37,7 +38,7 @@ export async function loadElectricalContext(
 ): Promise<ElectricalContext> {
   const { data: model, error } = await sb
     .from("solar_models")
-    .select("id, geometry_version, layout_version")
+    .select("id, geometry_version, layout_version, layout_hash")
     .eq("id", modelId)
     .eq("company_id", companyId)
     .maybeSingle();
@@ -74,6 +75,11 @@ export async function loadElectricalContext(
       .or(`company_id.is.null,company_id.eq.${companyId}`),
   ]);
   if (hash.error || !hash.data) throw new Error("layout_hash_unavailable");
+  // Empreinte persistée = source de vérité ; divergence ⇒ implantation obsolète.
+  assertPersistedLayoutHash(
+    (model as { layout_hash?: string | null }).layout_hash ?? null,
+    String(hash.data),
+  );
 
   const planeRows = planes.data ?? [];
   const planeInfo = new Map(
