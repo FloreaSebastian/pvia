@@ -7,6 +7,11 @@ import {
   designSignature,
   electricalErrorMessage,
   evaluateDesign,
+  impHot,
+  iscHot,
+  moduleElectricalFromRow,
+  plausibleCoeff,
+  vmpCold,
   historyInit,
   historyPush,
   historyRedo,
@@ -48,6 +53,7 @@ const PANEL: ModuleElectrical = {
   tc_isc_pct_per_c: 0.05,
   tc_pmax_pct_per_c: -0.35,
   max_system_voltage_v: 1000,
+  electrical_source: "revision",
 };
 const PANEL_B: ModuleElectrical = { ...PANEL, key: "q|r", variant_id: "q", power_wc: 500 };
 
@@ -134,7 +140,7 @@ describe("formules température", () => {
     expect(vocCold(PANEL, T)!).toBeGreaterThan(40);
   });
   it("Vmp chaud diminue la tension", () => {
-    expect(vmpHot(PANEL, T)).toBeCloseTo(33 * (1 + (-0.35 / 100) * 45), 6);
+    expect(vmpHot(PANEL, T)).toBeCloseTo(33 * (1 + ((-0.35 - 0.05) / 100) * 45), 6);
     expect(vmpHot(PANEL, T)!).toBeLessThan(33);
   });
   it("températures obligatoires avec source", () => {
@@ -774,5 +780,102 @@ describe("résultats / PDF électriques", () => {
     );
     expect(JSON.stringify(secs)).toMatch(/schéma unifilaire officiel/);
     expect(JSON.stringify(secs)).toContain("Onduleur");
+  });
+});
+
+describe("P2-A correctifs d'audit", () => {
+  const TT: DesignTemperatures = { tmin_c: -10, tmax_c: 70, source: "test" };
+  it("γVmp = γPmax − αIsc : Vmp chaud plus bas qu'avec γPmax seul (conservateur)", () => {
+    const naive = 33 * (1 + (-0.35 / 100) * 45);
+    expect(vmpHot(PANEL, TT)!).toBeLessThan(naive);
+    expect(vmpCold(PANEL, TT)!).toBeGreaterThan(33 * (1 + (-0.35 / 100) * -35));
+  });
+  it("Isc/Imp majorés à Tmax", () => {
+    expect(iscHot(PANEL, TT)).toBeCloseTo(10 * (1 + (0.05 / 100) * 45), 6);
+    expect(impHot(PANEL, TT)!).toBeGreaterThan(9.5);
+  });
+  it("coefficient hors plage (mV/°C ou signe inversé) => non vérifiable", () => {
+    expect(plausibleCoeff("voc", -120)).toBeNull();
+    expect(plausibleCoeff("voc", 0.3)).toBeNull();
+    expect(plausibleCoeff("isc", 5)).toBeNull();
+    expect(vocCold({ ...PANEL, tc_voc_pct_per_c: -120 }, TT)).toBeNull();
+  });
+  it("coefficient Isc absent => Vmp non calculable (pas de PASS implicite)", () => {
+    expect(vmpHot({ ...PANEL, tc_isc_pct_per_c: null }, TT)).toBeNull();
+  });
+  it("snapshot électrique : révision posée prioritaire sur la fiche courante", () => {
+    const variant = { id: "v1", voc_v: 50, vmp_v: 40, isc_a: 11, imp_a: 10, pmax_stc_w: 500 };
+    const revision = {
+      id: "r1",
+      variant_id: "v1",
+      pmax_stc_w: 475,
+      electrical: { voc_v: 92.5, vmp_v: 78.5, isc_a: 6.45, imp_a: 6.07 },
+    };
+    const el = moduleElectricalFromRow(variant, "r1", null, revision);
+    expect(el.voc_v).toBe(92.5);
+    expect(el.power_wc).toBe(475);
+    expect(el.electrical_source).toBe("revision");
+    expect(el.key).toBe("v1|r1");
+  });
+  it("révision sans données électriques => repli signalé par un avertissement", () => {
+    const variant = { id: "v1", voc_v: 50 };
+    const el = moduleElectricalFromRow(variant, "r1", null, { id: "r1", variant_id: "v1", electrical: {} });
+    expect(el.voc_v).toBe(50);
+    expect(el.electrical_source).toBe("variante_courante");
+    const mods: ElecModule[] = [
+      { id: "m1", plane_key: "p", plane_name: "P", orientation: "portrait", module_key: el.key, u: 0, v: 0 },
+    ];
+    const ev = evaluateDesign({
+      inverter: { ...INV, kind: "micro", micro_inputs: 1 },
+      modules: mods,
+      electrical: { [el.key]: el },
+      temps: TT,
+      groups: [{ id: "g", kind: "micro", label: "M1", inverter_index: 0, mppt_index: null, module_ids: ["m1"] }],
+    });
+    expect(ev.checks.some((c) => c.code === "fiche_revision" && c.status === "avertissement")).toBe(true);
+  });
+  it("révision d'une autre variante refusée : aucune donnée électrique", () => {
+    const el = moduleElectricalFromRow({ id: "v1", voc_v: 50 }, "r9", null, {
+      id: "r9",
+      variant_id: "autre",
+      electrical: { voc_v: 99 },
+    });
+    expect(el.voc_v).toBeNull();
+  });
+  it("contrôles de courant utilisent Imp/Isc chauds", () => {
+    const ev = evaluateDesign({
+      inverter: { ...INV, imax_input_a: 9.6 },
+      modules: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => ({
+        id: `m${i}`, plane_key: "p", plane_name: "P", orientation: "portrait" as const,
+        module_key: PANEL.key, u: i, v: 0,
+      })),
+      electrical: { [PANEL.key]: PANEL },
+      temps: TT,
+      groups: [{ id: "g", kind: "string", label: "S1", inverter_index: 0, mppt_index: 0,
+        module_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => `m${i}`) }],
+    });
+    const c = ev.checks.find((x) => x.code === "courant_entree")!;
+    expect(c.measured!).toBeGreaterThan(9.5);
+    expect(c.status).toBe("erreur");
+  });
+  it("écriture électrique réservée au serveur (RPC non exécutable par le navigateur)", () => {
+    const sql = readdirSync("supabase/migrations")
+      .map((f: string) => readFileSync(`supabase/migrations/${f}`, "utf8"))
+      .join("\n");
+    expect(sql).toMatch(/REVOKE EXECUTE ON FUNCTION public\.solar_apply_electrical_design\([^)]*\) FROM authenticated/);
+    expect(sql).toMatch(/solar_apply_electrical_design_trusted\([^)]*\) FROM PUBLIC, anon, authenticated/);
+    expect(sql).toMatch(/NOT IN \('valide','avertissement','non_verifiable'\)/);
+    const fn = readFileSync("src/lib/solar-electrical.functions.ts", "utf8");
+    expect(fn).toMatch(/assertSolarManage[\s\S]*evaluateDesign[\s\S]*solar_apply_electrical_design_trusted/);
+    expect(fn).toMatch(/_actor: userId/);
+  });
+  it("empreinte d'implantation couvre révision, snapshot et activation", () => {
+    const sql = readFileSync(
+      "supabase/migrations/20260924211107_85606337-f086-4420-a504-aa85915f955c.sql",
+      "utf8",
+    );
+    expect(sql).toMatch(/a\.module_revision_id/);
+    expect(sql).toMatch(/a\.module_snapshot::text/);
+    expect(sql).toMatch(/m\.orientation, m\.enabled/);
   });
 });
