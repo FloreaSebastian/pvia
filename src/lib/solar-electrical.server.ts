@@ -8,6 +8,7 @@ import {
   inverterSpecFromRows,
   moduleElectricalFromRow,
   moduleKey,
+  assertPersistedLayoutHash,
   type DesignSummary,
   type ElecCheck,
   type ElecGroup,
