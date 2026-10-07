@@ -204,13 +204,14 @@ export async function previewChange(
 /* ------------------------------- Application ------------------------------- */
 
 export type ImmediateResult =
-  | { outcome: "applied"; sub: SubState; invoiceId: string | null }
+  | { outcome: "applied"; sub: SubState; invoiceId: string | null; releasedScheduleId: string | null }
   | {
       outcome: "payment_pending" | "payment_failed";
       reason: "sca_required" | "payment_failed" | "processing";
       sub: SubState;
       invoiceId: string | null;
       hostedInvoiceUrl: string | null;
+      releasedScheduleId: string | null;
     };
 
 async function invoicePaymentStatus(stripe: Stripe, invoiceId: string) {
@@ -262,7 +263,8 @@ export async function applyImmediate(
     typeof updated.latest_invoice === "string"
       ? updated.latest_invoice
       : (updated.latest_invoice?.id ?? null);
-  if (!updated.pending_update) return { outcome: "applied", sub: snap, invoiceId };
+  const releasedScheduleId = sub.scheduleId;
+  if (!updated.pending_update) return { outcome: "applied", sub: snap, invoiceId, releasedScheduleId };
 
   let reason: "sca_required" | "payment_failed" | "processing" = "payment_failed";
   let hosted: string | null = null;
@@ -277,6 +279,7 @@ export async function applyImmediate(
     sub: snap,
     invoiceId,
     hostedInvoiceUrl: hosted,
+    releasedScheduleId,
   };
 }
 
