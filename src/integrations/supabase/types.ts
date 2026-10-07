@@ -182,6 +182,89 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_plan_changes: {
+        Row: {
+          company_id: string
+          confirmed_at: string | null
+          created_at: string
+          effective_at: string | null
+          environment: string
+          error_code: string | null
+          expected_schedule_id: string | null
+          expires_at: string
+          from_price_id: string
+          hosted_invoice_url: string | null
+          id: string
+          kind: string
+          mode: string
+          preview: Json
+          proration_date: number | null
+          requested_by: string
+          status: string
+          stripe_invoice_id: string | null
+          stripe_schedule_id: string | null
+          stripe_subscription_id: string
+          to_price_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          confirmed_at?: string | null
+          created_at?: string
+          effective_at?: string | null
+          environment: string
+          error_code?: string | null
+          expected_schedule_id?: string | null
+          expires_at: string
+          from_price_id: string
+          hosted_invoice_url?: string | null
+          id?: string
+          kind: string
+          mode: string
+          preview?: Json
+          proration_date?: number | null
+          requested_by: string
+          status?: string
+          stripe_invoice_id?: string | null
+          stripe_schedule_id?: string | null
+          stripe_subscription_id: string
+          to_price_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          confirmed_at?: string | null
+          created_at?: string
+          effective_at?: string | null
+          environment?: string
+          error_code?: string | null
+          expected_schedule_id?: string | null
+          expires_at?: string
+          from_price_id?: string
+          hosted_invoice_url?: string | null
+          id?: string
+          kind?: string
+          mode?: string
+          preview?: Json
+          proration_date?: number | null
+          requested_by?: string
+          status?: string
+          stripe_invoice_id?: string | null
+          stripe_schedule_id?: string | null
+          stripe_subscription_id?: string
+          to_price_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_plan_changes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chantier_documents: {
         Row: {
           category: string
@@ -5982,10 +6065,17 @@ export type Database = {
           current_period_start: string | null
           environment: string
           id: string
+          pending_expires_at: string | null
+          pending_price_id: string | null
           plan: string
           price_id: string | null
+          scheduled_change_at: string | null
+          scheduled_interval: string | null
+          scheduled_plan: string | null
+          scheduled_price_id: string | null
           status: string
           stripe_customer_id: string
+          stripe_schedule_id: string | null
           stripe_subscription_id: string
           trial_end: string | null
           updated_at: string
@@ -6000,10 +6090,17 @@ export type Database = {
           current_period_start?: string | null
           environment?: string
           id?: string
+          pending_expires_at?: string | null
+          pending_price_id?: string | null
           plan: string
           price_id?: string | null
+          scheduled_change_at?: string | null
+          scheduled_interval?: string | null
+          scheduled_plan?: string | null
+          scheduled_price_id?: string | null
           status?: string
           stripe_customer_id: string
+          stripe_schedule_id?: string | null
           stripe_subscription_id: string
           trial_end?: string | null
           updated_at?: string
@@ -6018,10 +6115,17 @@ export type Database = {
           current_period_start?: string | null
           environment?: string
           id?: string
+          pending_expires_at?: string | null
+          pending_price_id?: string | null
           plan?: string
           price_id?: string | null
+          scheduled_change_at?: string | null
+          scheduled_interval?: string | null
+          scheduled_plan?: string | null
+          scheduled_price_id?: string | null
           status?: string
           stripe_customer_id?: string
+          stripe_schedule_id?: string | null
           stripe_subscription_id?: string
           trial_end?: string | null
           updated_at?: string
