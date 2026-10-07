@@ -15,6 +15,7 @@ import {
   computeOverages,
   decideChange,
   parsePriceId,
+  quoteDifferences,
 } from "./billing-plan-change";
 
 const EnvSchema = z.enum(["sandbox", "live"]);
@@ -29,6 +30,10 @@ const MSG = {
   busy: "Un changement de formule est déjà en cours de traitement. Patientez quelques secondes.",
   ack: "Confirmez avoir pris connaissance des dépassements avant de continuer.",
   noSchedule: "Aucun changement programmé à annuler.",
+  replaceAck:
+    "Confirmez avoir compris que le changement déjà programmé sera annulé avant de continuer.",
+  quantity:
+    "Votre abonnement comporte une configuration particulière (plusieurs licences ou options). Contactez contact@pvia.fr pour changer de formule.",
 };
 
 async function admin() {
@@ -103,6 +108,7 @@ async function loadVerifiedStripeSub(companyId: string, env: "sandbox" | "live")
     pending_price_id: sub.pendingPriceId,
   });
   if (live) throw new Error(live);
+  if (sub.itemCount !== 1 || (sub.quantity ?? 1) !== 1) throw new Error(MSG.quantity);
   if (!sub.priceId || !parsePriceId(sub.priceId)) {
     throw new Error(
       "Votre formule actuelle ne peut pas être modifiée en libre-service. Contactez contact@pvia.fr.",
@@ -142,10 +148,10 @@ export const previewPlanChange = createServerFn({ method: "POST" })
       );
 
     const srv = await import("./billing-plan-change.server");
-    let target, preview;
+    let target, quote;
     try {
       target = await srv.resolveCatalogPrice(stripe, data.targetPriceId);
-      preview = await srv.previewChange(stripe, sub, target, decision.mode);
+      quote = await srv.buildQuote(stripe, sub, target, decision.mode);
     } catch (e) {
       throw friendly(e);
     }
@@ -183,8 +189,17 @@ export const previewPlanChange = createServerFn({ method: "POST" })
       .eq("environment", data.environment)
       .eq("status", "previewed");
 
+    const preview = quote.preview;
     const expiresAt = new Date(Date.now() + PREVIEW_TTL_MS).toISOString();
+    // Un changement déjà programmé (baisse, annuel→mensuel) sera ANNULÉ par
+    // cette demande : affiché et soumis à un consentement distinct.
+    const replacesScheduled = quote.replacedSchedule
+      ? { priceId: quote.replacedSchedule.priceId, at: quote.replacedSchedule.at }
+      : null;
     const payload = {
+      replacesScheduled,
+      /** Montant des échéances suivantes : estimation (TVA/remises à la date de facturation). */
+      nextInvoiceEstimated: true,
       dueNow: preview.dueNow,
       nextInvoice: preview.nextInvoice,
       effectiveAt: preview.effectiveAt,
@@ -206,7 +221,7 @@ export const previewPlanChange = createServerFn({ method: "POST" })
         mode: decision.mode,
         proration_date: preview.prorationDate,
         expected_schedule_id: sub.scheduleId,
-        preview: payload,
+        preview: { ...payload, fingerprint: quote.fingerprint },
         effective_at: preview.effectiveAt,
         expires_at: expiresAt,
       })
@@ -232,6 +247,7 @@ const ConfirmSchema = z.object({
   environment: EnvSchema,
   requestId: z.string().uuid(),
   acknowledgeOverages: z.boolean().default(false),
+  acknowledgeScheduleReplacement: z.boolean().default(false),
 });
 
 export const confirmPlanChange = createServerFn({ method: "POST" })
@@ -252,6 +268,8 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
     if (!req) throw new Error(MSG.expired);
     if ((req.preview?.overages?.length ?? 0) > 0 && !data.acknowledgeOverages)
       throw new Error(MSG.ack);
+    if (req.preview?.replacesScheduled && !data.acknowledgeScheduleReplacement)
+      throw new Error(MSG.replaceAck);
 
     // Verrou atomique : une seule confirmation gagne (double clic, onglets).
     const { data: claimed, error: claimErr } = await db
@@ -289,8 +307,30 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
 
     const srv = await import("./billing-plan-change.server");
     const idem = `pvia-plan-change-${req.id}`;
+    // Devis recalculé chez Stripe avec la MÊME proration_date : si quoi que ce
+    // soit a changé (période, essai, TVA/adresse, remise, quantité, montants,
+    // échéance, programmation), on refuse et on demande un nouvel aperçu.
+    let target;
     try {
-      const target = await srv.resolveCatalogPrice(stripe, req.to_price_id);
+      target = await srv.resolveCatalogPrice(stripe, req.to_price_id);
+      const again = await srv.buildQuote(stripe, sub, target, req.mode, req.proration_date);
+      const shown = req.preview?.fingerprint;
+      const diffs = shown
+        ? quoteDifferences(shown, again.fingerprint, { mode: req.mode })
+        : ["missing"];
+      if (diffs.length) {
+        await finish({
+          status: "superseded",
+          error_code: `stale:${diffs.join(",")}`.slice(0, 200),
+        });
+        throw new Error(MSG.stale);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message === MSG.stale) throw e;
+      await finish({ status: "failed", error_code: "requote_failed" });
+      throw friendly(e);
+    }
+    try {
       if (req.mode === "scheduled") {
         const s = await srv.scheduleChange(stripe, sub, target, {
           idempotencyKey: idem,
@@ -309,6 +349,8 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
         await finish({
           status: r.outcome,
           stripe_invoice_id: r.invoiceId,
+          // Trace explicite : la programmation remplacée est annulée, même si le paiement échoue.
+          ...(r.releasedScheduleId ? { stripe_schedule_id: r.releasedScheduleId } : {}),
           hosted_invoice_url: r.outcome === "applied" ? null : r.hostedInvoiceUrl,
           error_code: r.outcome === "applied" ? null : r.reason,
         });
@@ -375,6 +417,11 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
       },
     });
     return {
+      replacedScheduled: (req.preview?.replacesScheduled ?? null) as null | {
+        priceId: string;
+        at: string | null;
+      },
+      syncIncomplete: Boolean(fresh?.scheduleReadFailed) || !fresh,
       status: done.status as string,
       reason: (done.error_code ?? null) as string | null,
       hostedInvoiceUrl: (done.hosted_invoice_url ?? null) as string | null,

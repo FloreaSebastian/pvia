@@ -11,6 +11,7 @@ import {
   parsePriceId,
   type ChangeMode,
   type PreviewAmounts,
+  type QuoteFingerprint,
 } from "./billing-plan-change";
 
 const toIso = (s: number | null | undefined) => (s ? new Date(s * 1000).toISOString() : null);
@@ -53,6 +54,9 @@ export type SubState = {
   pendingPriceId: string | null;
   pendingExpiresAt: string | null;
   companyId: string | null;
+  quantity: number | null;
+  itemCount: number;
+  discounts: string[];
 };
 
 export function snapshotSubscription(sub: any): SubState {
@@ -74,6 +78,12 @@ export function snapshotSubscription(sub: any): SubState {
     pendingPriceId: sub.pending_update ? (lookupKeyOf(pendingItem?.price) ?? "inconnu") : null,
     pendingExpiresAt: toIso(sub.pending_update?.expires_at),
     companyId: sub.metadata?.companyId ?? null,
+    quantity: item?.quantity ?? null,
+    itemCount: sub.items?.data?.length ?? 0,
+    discounts: (sub.discounts ?? [])
+      .map((x: any) => (typeof x === "string" ? x : x?.id))
+      .filter(Boolean)
+      .sort(),
   };
 }
 
@@ -126,6 +136,7 @@ export async function previewChange(
   sub: SubState,
   target: Stripe.Price,
   mode: ChangeMode,
+  fixedProrationDate?: number | null,
 ): Promise<StripePreview> {
   const trialing = sub.status === "trialing";
   const targetInterval = target.recurring?.interval === "year" ? "year" : "month";
@@ -165,7 +176,7 @@ export async function previewChange(
     };
   }
 
-  const prorationDate = Math.floor(Date.now() / 1000);
+  const prorationDate = fixedProrationDate ?? Math.floor(Date.now() / 1000);
   const inv: any = await (stripe.invoices as any).createPreview({
     customer: sub.customerId,
     subscription: sub.id,
@@ -193,13 +204,19 @@ export async function previewChange(
 /* ------------------------------- Application ------------------------------- */
 
 export type ImmediateResult =
-  | { outcome: "applied"; sub: SubState; invoiceId: string | null }
+  | {
+      outcome: "applied";
+      sub: SubState;
+      invoiceId: string | null;
+      releasedScheduleId: string | null;
+    }
   | {
       outcome: "payment_pending" | "payment_failed";
       reason: "sca_required" | "payment_failed" | "processing";
       sub: SubState;
       invoiceId: string | null;
       hostedInvoiceUrl: string | null;
+      releasedScheduleId: string | null;
     };
 
 async function invoicePaymentStatus(stripe: Stripe, invoiceId: string) {
@@ -251,7 +268,9 @@ export async function applyImmediate(
     typeof updated.latest_invoice === "string"
       ? updated.latest_invoice
       : (updated.latest_invoice?.id ?? null);
-  if (!updated.pending_update) return { outcome: "applied", sub: snap, invoiceId };
+  const releasedScheduleId = sub.scheduleId;
+  if (!updated.pending_update)
+    return { outcome: "applied", sub: snap, invoiceId, releasedScheduleId };
 
   let reason: "sca_required" | "payment_failed" | "processing" = "payment_failed";
   let hosted: string | null = null;
@@ -266,6 +285,7 @@ export async function applyImmediate(
     sub: snap,
     invoiceId,
     hostedInvoiceUrl: hosted,
+    releasedScheduleId,
   };
 }
 
@@ -322,4 +342,67 @@ export async function scheduleChange(
 /** Annule la programmation : l'abonnement reste sur sa formule actuelle. */
 export async function cancelScheduled(stripe: Stripe, scheduleId: string, idempotencyKey: string) {
   await stripe.subscriptionSchedules.release(scheduleId, {}, { idempotencyKey });
+}
+
+/* ------------------------------ Devis complet ------------------------------ */
+
+/** Contexte fiscal du client (adresse, exonération, n° TVA, remise client). */
+async function taxContextOf(stripe: Stripe, customerId: string): Promise<string> {
+  const c: any = await stripe.customers.retrieve(customerId, { expand: ["tax_ids"] } as any);
+  const a = c?.address ?? {};
+  return JSON.stringify({
+    country: a.country ?? null,
+    postal: a.postal_code ?? null,
+    state: a.state ?? null,
+    city: a.city ?? null,
+    line1: a.line1 ?? null,
+    exempt: c?.tax_exempt ?? null,
+    ids: ((c?.tax_ids?.data ?? []) as any[]).map((t) => `${t.type}:${t.value}`).sort(),
+    customerDiscount: c?.discount?.id ?? null,
+  });
+}
+
+/**
+ * Aperçu + empreinte complète. Appelé à l'aperçu puis RE-APPELÉ à la
+ * confirmation avec la même proration_date : les deux empreintes doivent être
+ * identiques (voir quoteDifferences). Toute erreur de lecture Stripe remonte :
+ * jamais de devis partiel.
+ */
+export async function buildQuote(
+  stripe: Stripe,
+  sub: SubState,
+  target: Stripe.Price,
+  mode: ChangeMode,
+  prorationDate?: number | null,
+): Promise<{
+  preview: StripePreview;
+  fingerprint: QuoteFingerprint;
+  replacedSchedule: Awaited<ReturnType<typeof readScheduledChange>>;
+}> {
+  const [preview, taxContext, replacedSchedule] = await Promise.all([
+    previewChange(stripe, sub, target, mode, prorationDate),
+    taxContextOf(stripe, sub.customerId),
+    readScheduledChange(stripe, sub.scheduleId, sub.priceId),
+  ]);
+  return {
+    preview,
+    replacedSchedule,
+    fingerprint: {
+      subscriptionId: sub.id,
+      status: sub.status,
+      priceId: sub.priceId,
+      quantity: sub.quantity,
+      itemCount: sub.itemCount,
+      periodEnd: sub.periodEnd,
+      trialEnd: sub.trialEnd,
+      scheduleId: sub.scheduleId,
+      scheduledPriceId: replacedSchedule?.priceId ?? null,
+      discounts: sub.discounts,
+      taxContext,
+      dueNow: preview.dueNow,
+      nextInvoice: preview.nextInvoice,
+      effectiveAt: mode === "scheduled" ? preview.effectiveAt : null,
+      nextBillingAt: preview.nextBillingAt,
+    },
+  };
 }

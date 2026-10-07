@@ -339,7 +339,15 @@ export function quoteDifferences(
 /* --------------------- Synchronisation : lecture schedule --------------------- */
 
 export type ScheduleRead =
-  | { ok: true; value: { priceId: string; plan: string | null; interval: string | null; at: string | null } | null }
+  | {
+      ok: true;
+      value: {
+        priceId: string;
+        plan: string | null;
+        interval: string | null;
+        at: string | null;
+      } | null;
+    }
   | { ok: false };
 
 /**
@@ -349,7 +357,11 @@ export type ScheduleRead =
  * programmées est différée.
  */
 export function buildSyncPlan(
-  sub: { scheduleId: string | null; pendingPriceId: string | null; pendingExpiresAt: string | null },
+  sub: {
+    scheduleId: string | null;
+    pendingPriceId: string | null;
+    pendingExpiresAt: string | null;
+  },
   schedule: ScheduleRead,
 ) {
   const patch: Record<string, string | null> = {

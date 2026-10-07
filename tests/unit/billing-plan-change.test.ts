@@ -243,3 +243,106 @@ describe("réconciliation webhooks (ordre indifférent)", () => {
     ).toBe("superseded");
   });
 });
+
+import {
+  buildSyncPlan,
+  quoteDifferences,
+  type QuoteFingerprint,
+} from "../../src/lib/billing-plan-change";
+
+describe("revalidation du devis à la confirmation", () => {
+  const amt = (ttc: number) => ({
+    currency: "eur",
+    ht: ttc / 1.2,
+    tva: ttc - ttc / 1.2,
+    ttc,
+    credit: 0,
+  });
+  const fp = (o: Partial<QuoteFingerprint> = {}): QuoteFingerprint => ({
+    subscriptionId: "sub_1",
+    status: "active",
+    priceId: "starter_monthly",
+    quantity: 1,
+    itemCount: 1,
+    periodEnd: "2026-11-01T00:00:00.000Z",
+    trialEnd: null,
+    scheduleId: null,
+    scheduledPriceId: null,
+    discounts: [],
+    taxContext: '{"country":"FR"}',
+    dueNow: amt(4800),
+    nextInvoice: amt(7080),
+    effectiveAt: null,
+    nextBillingAt: "2026-11-01T00:00:00.000Z",
+    ...o,
+  });
+  const NOW = Date.parse("2026-10-07T20:00:00Z");
+  const diff = (
+    o: Partial<QuoteFingerprint>,
+    mode: "immediate" | "scheduled" = "immediate",
+    shown = fp(),
+  ) => quoteDifferences(shown, fp(o), { mode, nowMs: NOW });
+
+  it("devis identique → accepté", () => expect(diff({})).toEqual([]));
+  it("renouvellement intervenu (période traversée) → refus", () => {
+    expect(
+      quoteDifferences(fp(), fp(), {
+        mode: "immediate",
+        nowMs: Date.parse("2026-11-01T00:00:01Z"),
+      }),
+    ).toContain("period_crossed");
+    expect(diff({ periodEnd: "2026-12-01T00:00:00.000Z" })).toContain("periodEnd");
+  });
+  it("fin d'essai → refus", () => {
+    const shown = fp({ status: "trialing", trialEnd: "2026-10-07T19:00:00Z" });
+    expect(quoteDifferences(shown, shown, { mode: "immediate", nowMs: NOW })).toContain(
+      "trial_ended",
+    );
+    expect(diff({ status: "active" }, "immediate", fp({ status: "trialing" }))).toContain("status");
+  });
+  it("adresse / TVA, remise, quantité → refus", () => {
+    expect(diff({ taxContext: '{"country":"BE"}' })).toContain("taxContext");
+    expect(diff({ discounts: ["di_1"] })).toContain("discounts");
+    expect(diff({ quantity: 2 })).toContain("quantity");
+    expect(diff({ itemCount: 2 })).toContain("itemCount");
+  });
+  it("montant HT/TVA/TTC ou échéance différents → refus", () => {
+    expect(diff({ dueNow: amt(6000) })).toContain("dueNow");
+    expect(diff({ nextInvoice: amt(9000) })).toContain("nextInvoice");
+    expect(diff({ nextBillingAt: "2027-10-07T00:00:00.000Z" })).toContain("nextBillingAt");
+  });
+  it("programmation modifiée → refus ; date d'effet comparée pour les programmations", () => {
+    expect(diff({ scheduleId: "sub_sched_2" })).toContain("scheduleId");
+    expect(diff({ scheduledPriceId: "pro_monthly" })).toContain("scheduledPriceId");
+    expect(diff({ effectiveAt: "x" }, "scheduled", fp({ effectiveAt: "y" }))).toContain(
+      "effectiveAt",
+    );
+  });
+  it("ordre des remises indifférent", () =>
+    expect(diff({ discounts: ["b", "a"] }, "immediate", fp({ discounts: ["a", "b"] }))).toEqual(
+      [],
+    ));
+});
+
+describe("synchronisation : erreur de lecture du schedule", () => {
+  const sub = { scheduleId: "sub_sched_1", pendingPriceId: null, pendingExpiresAt: null };
+  it("lecture en échec → programmation conservée, réconciliation différée", () => {
+    const p = buildSyncPlan(sub, { ok: false });
+    expect("scheduled_price_id" in p.patch).toBe(false);
+    expect("stripe_schedule_id" in p.patch).toBe(false);
+    expect(p.skipScheduledReconcile).toBe(true);
+    expect(p.scheduleReadFailed).toBe(true);
+  });
+  it("lecture réussie → projection mise à jour", () => {
+    const p = buildSyncPlan(sub, {
+      ok: true,
+      value: { priceId: "starter_monthly", plan: "starter", interval: "monthly", at: "2026-11-01" },
+    });
+    expect(p.patch.scheduled_price_id).toBe("starter_monthly");
+    expect(p.skipScheduledReconcile).toBe(false);
+  });
+  it("aucune programmation (lecture réussie, null) → effacement légitime", () => {
+    const p = buildSyncPlan({ ...sub, scheduleId: null }, { ok: true, value: null });
+    expect(p.patch.scheduled_price_id).toBeNull();
+  });
+});
