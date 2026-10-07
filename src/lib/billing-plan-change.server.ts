@@ -204,7 +204,12 @@ export async function previewChange(
 /* ------------------------------- Application ------------------------------- */
 
 export type ImmediateResult =
-  | { outcome: "applied"; sub: SubState; invoiceId: string | null; releasedScheduleId: string | null }
+  | {
+      outcome: "applied";
+      sub: SubState;
+      invoiceId: string | null;
+      releasedScheduleId: string | null;
+    }
   | {
       outcome: "payment_pending" | "payment_failed";
       reason: "sca_required" | "payment_failed" | "processing";
@@ -264,7 +269,8 @@ export async function applyImmediate(
       ? updated.latest_invoice
       : (updated.latest_invoice?.id ?? null);
   const releasedScheduleId = sub.scheduleId;
-  if (!updated.pending_update) return { outcome: "applied", sub: snap, invoiceId, releasedScheduleId };
+  if (!updated.pending_update)
+    return { outcome: "applied", sub: snap, invoiceId, releasedScheduleId };
 
   let reason: "sca_required" | "payment_failed" | "processing" = "payment_failed";
   let hosted: string | null = null;
@@ -368,7 +374,11 @@ export async function buildQuote(
   target: Stripe.Price,
   mode: ChangeMode,
   prorationDate?: number | null,
-): Promise<{ preview: StripePreview; fingerprint: QuoteFingerprint; replacedSchedule: Awaited<ReturnType<typeof readScheduledChange>> }> {
+): Promise<{
+  preview: StripePreview;
+  fingerprint: QuoteFingerprint;
+  replacedSchedule: Awaited<ReturnType<typeof readScheduledChange>>;
+}> {
   const [preview, taxContext, replacedSchedule] = await Promise.all([
     previewChange(stripe, sub, target, mode, prorationDate),
     taxContextOf(stripe, sub.customerId),

@@ -107,7 +107,9 @@ export function PlanChangeDialog(props: {
           `Le changement prévu vers ${priceLabel(r.replacedScheduled.priceId)} a été annulé${r.status === "applied" ? "" : ", même si la nouvelle formule n'est pas encore active"}.`,
         );
       if (r.syncIncomplete)
-        toast.info("Mise à jour de l'affichage en cours : actualisez la page dans quelques instants.");
+        toast.info(
+          "Mise à jour de l'affichage en cours : actualisez la page dans quelques instants.",
+        );
       props.onOpenChange(false);
       props.onDone();
     } catch (e) {
@@ -121,7 +123,10 @@ export function PlanChangeDialog(props: {
   const kind = preview?.kind as ChangeKind | undefined;
   const overages = (preview?.overages ?? []) as { code: string; message: string }[];
   const needAck = overages.length > 0;
-  const replaces = (preview as any)?.replacesScheduled as null | { priceId: string; at: string | null };
+  const replaces = (preview as any)?.replacesScheduled as null | {
+    priceId: string;
+    at: string | null;
+  };
   const due = preview?.dueNow;
   const next = preview?.nextInvoice;
 

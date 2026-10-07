@@ -244,10 +244,20 @@ describe("réconciliation webhooks (ordre indifférent)", () => {
   });
 });
 
-import { buildSyncPlan, quoteDifferences, type QuoteFingerprint } from "../../src/lib/billing-plan-change";
+import {
+  buildSyncPlan,
+  quoteDifferences,
+  type QuoteFingerprint,
+} from "../../src/lib/billing-plan-change";
 
 describe("revalidation du devis à la confirmation", () => {
-  const amt = (ttc: number) => ({ currency: "eur", ht: ttc / 1.2, tva: ttc - ttc / 1.2, ttc, credit: 0 });
+  const amt = (ttc: number) => ({
+    currency: "eur",
+    ht: ttc / 1.2,
+    tva: ttc - ttc / 1.2,
+    ttc,
+    credit: 0,
+  });
   const fp = (o: Partial<QuoteFingerprint> = {}): QuoteFingerprint => ({
     subscriptionId: "sub_1",
     status: "active",
@@ -267,17 +277,27 @@ describe("revalidation du devis à la confirmation", () => {
     ...o,
   });
   const NOW = Date.parse("2026-10-07T20:00:00Z");
-  const diff = (o: Partial<QuoteFingerprint>, mode: "immediate" | "scheduled" = "immediate", shown = fp()) =>
-    quoteDifferences(shown, fp(o), { mode, nowMs: NOW });
+  const diff = (
+    o: Partial<QuoteFingerprint>,
+    mode: "immediate" | "scheduled" = "immediate",
+    shown = fp(),
+  ) => quoteDifferences(shown, fp(o), { mode, nowMs: NOW });
 
   it("devis identique → accepté", () => expect(diff({})).toEqual([]));
   it("renouvellement intervenu (période traversée) → refus", () => {
-    expect(quoteDifferences(fp(), fp(), { mode: "immediate", nowMs: Date.parse("2026-11-01T00:00:01Z") })).toContain("period_crossed");
+    expect(
+      quoteDifferences(fp(), fp(), {
+        mode: "immediate",
+        nowMs: Date.parse("2026-11-01T00:00:01Z"),
+      }),
+    ).toContain("period_crossed");
     expect(diff({ periodEnd: "2026-12-01T00:00:00.000Z" })).toContain("periodEnd");
   });
   it("fin d'essai → refus", () => {
     const shown = fp({ status: "trialing", trialEnd: "2026-10-07T19:00:00Z" });
-    expect(quoteDifferences(shown, shown, { mode: "immediate", nowMs: NOW })).toContain("trial_ended");
+    expect(quoteDifferences(shown, shown, { mode: "immediate", nowMs: NOW })).toContain(
+      "trial_ended",
+    );
     expect(diff({ status: "active" }, "immediate", fp({ status: "trialing" }))).toContain("status");
   });
   it("adresse / TVA, remise, quantité → refus", () => {
@@ -294,10 +314,14 @@ describe("revalidation du devis à la confirmation", () => {
   it("programmation modifiée → refus ; date d'effet comparée pour les programmations", () => {
     expect(diff({ scheduleId: "sub_sched_2" })).toContain("scheduleId");
     expect(diff({ scheduledPriceId: "pro_monthly" })).toContain("scheduledPriceId");
-    expect(diff({ effectiveAt: "x" }, "scheduled", fp({ effectiveAt: "y" }))).toContain("effectiveAt");
+    expect(diff({ effectiveAt: "x" }, "scheduled", fp({ effectiveAt: "y" }))).toContain(
+      "effectiveAt",
+    );
   });
   it("ordre des remises indifférent", () =>
-    expect(diff({ discounts: ["b", "a"] }, "immediate", fp({ discounts: ["a", "b"] }))).toEqual([]));
+    expect(diff({ discounts: ["b", "a"] }, "immediate", fp({ discounts: ["a", "b"] }))).toEqual(
+      [],
+    ));
 });
 
 describe("synchronisation : erreur de lecture du schedule", () => {
@@ -310,7 +334,10 @@ describe("synchronisation : erreur de lecture du schedule", () => {
     expect(p.scheduleReadFailed).toBe(true);
   });
   it("lecture réussie → projection mise à jour", () => {
-    const p = buildSyncPlan(sub, { ok: true, value: { priceId: "starter_monthly", plan: "starter", interval: "monthly", at: "2026-11-01" } });
+    const p = buildSyncPlan(sub, {
+      ok: true,
+      value: { priceId: "starter_monthly", plan: "starter", interval: "monthly", at: "2026-11-01" },
+    });
     expect(p.patch.scheduled_price_id).toBe("starter_monthly");
     expect(p.skipScheduledReconcile).toBe(false);
   });

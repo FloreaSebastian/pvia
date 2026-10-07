@@ -315,9 +315,14 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
       target = await srv.resolveCatalogPrice(stripe, req.to_price_id);
       const again = await srv.buildQuote(stripe, sub, target, req.mode, req.proration_date);
       const shown = req.preview?.fingerprint;
-      const diffs = shown ? quoteDifferences(shown, again.fingerprint, { mode: req.mode }) : ["missing"];
+      const diffs = shown
+        ? quoteDifferences(shown, again.fingerprint, { mode: req.mode })
+        : ["missing"];
       if (diffs.length) {
-        await finish({ status: "superseded", error_code: `stale:${diffs.join(",")}`.slice(0, 200) });
+        await finish({
+          status: "superseded",
+          error_code: `stale:${diffs.join(",")}`.slice(0, 200),
+        });
         throw new Error(MSG.stale);
       }
     } catch (e) {
@@ -412,7 +417,10 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
       },
     });
     return {
-      replacedScheduled: (req.preview?.replacesScheduled ?? null) as null | { priceId: string; at: string | null },
+      replacedScheduled: (req.preview?.replacesScheduled ?? null) as null | {
+        priceId: string;
+        at: string | null;
+      },
       syncIncomplete: Boolean(fresh?.scheduleReadFailed) || !fresh,
       status: done.status as string,
       reason: (done.error_code ?? null) as string | null,
