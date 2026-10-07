@@ -436,6 +436,14 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
     );
     if (error) throw new Error("La synchronisation de l'abonnement a échoué. Réessayez dans quelques instants.");
 
+    // Changement programmé / en attente de paiement (best-effort).
+    try {
+      const { syncPlanChangeState } = await import("./billing-sync.server");
+      await syncPlanChangeState(stripe, data.environment, sub.id);
+    } catch (e) {
+      console.error("[billing] plan change sync failed", e);
+    }
+
     // Une réactivation payante lève une éventuelle suspension automatique
     // posée lors de l'annulation (`company.auto_suspended`).
     if (sub.status === "active" || sub.status === "trialing") {

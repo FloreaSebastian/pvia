@@ -59,6 +59,9 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 import { InvoicesSection } from "@/components/billing/InvoicesSection";
 import { BillingTimeline } from "@/components/billing/BillingTimeline";
+import { PlanChangeDialog, priceLabel } from "@/components/billing/PlanChangeDialog";
+import { cancelScheduledPlanChange, getPlanChangeState } from "@/lib/billing-plan-change.functions";
+import { useQuery } from "@tanstack/react-query";
 
 
 function GuardedBillingPage() {
@@ -178,9 +181,19 @@ function BillingPage() {
   const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
   const [pendingDowngrade, setPendingDowngrade] = useState<{ priceId: string; target: PlanLimitsRow } | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [changeTarget, setChangeTarget] = useState<string | null>(null);
+  const [cancelingSchedule, setCancelingSchedule] = useState(false);
+  const cancelScheduleFn = useServerFn(cancelScheduledPlanChange);
+  const planChangeStateFn = useServerFn(getPlanChangeState);
 
   const canManage = isAdminRole(activeRole);
   const env = getStripeEnvironment();
+  const planChangeState = useQuery({
+    queryKey: ["plan-change", activeCompanyId, env],
+    queryFn: () => planChangeStateFn({ data: { companyId: activeCompanyId!, environment: env } }),
+    enabled: !!activeCompanyId && isAdminRole(activeRole),
+    staleTime: 30_000,
+  });
 
   // Retour de Checkout / Portail : on ne dépend pas du délai webhook.
   // On resynchronise depuis Stripe puis on invalide le cache React Query
@@ -375,6 +388,40 @@ function BillingPage() {
   const priceNow =
     activeInterval === "annual" ? current?.annual_price_eur : current?.monthly_price_eur;
   const hasSubscription = Boolean(subscription?.stripe_customer_id);
+  const sub = subscription as any;
+  /** Changement d'offre en libre-service : abonnement Stripe actif/essai,
+   *  non résilié, sans paiement de changement en attente. */
+  const canSelfChange =
+    canManage &&
+    hasSubscription &&
+    ["active", "trialing"].includes(sub?.status ?? "") &&
+    !sub?.cancel_at_period_end &&
+    (sub?.environment ?? env) === env;
+  const currentPriceId: string | null = sub?.price_id ?? null;
+  const openChange = planChangeState.data?.open ?? null;
+
+  async function refreshAll() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["billing", activeCompanyId] }),
+      queryClient.invalidateQueries({ queryKey: ["plan-change", activeCompanyId] }),
+      queryClient.invalidateQueries({ queryKey: ["billing-invoices", activeCompanyId] }),
+      queryClient.invalidateQueries({ queryKey: ["billing-timeline", activeCompanyId] }),
+    ]);
+  }
+
+  async function handleCancelSchedule() {
+    if (!activeCompanyId) return;
+    setCancelingSchedule(true);
+    try {
+      await cancelScheduleFn({ data: { companyId: activeCompanyId, environment: env } });
+      toast.success("Changement programmé annulé : votre formule actuelle est conservée.");
+      await refreshAll();
+    } catch (e) {
+      toast.error(safeBillingMessage(e, "Annulation impossible pour le moment. Réessayez dans quelques instants."));
+    } finally {
+      setCancelingSchedule(false);
+    }
+  }
 
   return (
     <div className="space-y-8 overflow-x-hidden p-4 sm:p-6 lg:p-8">
@@ -636,11 +683,50 @@ function BillingPage() {
 
 
 
+        {canManage && sub?.scheduled_price_id && sub?.scheduled_change_at && (
+          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="font-medium">Changement prévu</div>
+              <p className="text-muted-foreground">
+                Passage à {priceLabel(sub.scheduled_price_id)} le {formatFrDate(sub.scheduled_change_at)}. Votre formule
+                actuelle ({priceLabel(currentPriceId)}) et ses droits restent actifs jusque-là.
+              </p>
+            </div>
+            <Button variant="outline" className="min-h-[44px] shrink-0" onClick={handleCancelSchedule} disabled={cancelingSchedule}>
+              {cancelingSchedule && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Annuler ce changement
+            </Button>
+          </div>
+        )}
+        {canManage && (sub?.pending_price_id || ["payment_pending", "payment_failed"].includes(openChange?.status ?? "")) && (
+          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="font-medium">
+                {openChange?.status === "payment_failed" ? "Paiement du changement refusé" : "Paiement du changement à confirmer"}
+              </div>
+              <p className="text-muted-foreground">
+                Passage à {priceLabel(sub?.pending_price_id ?? openChange?.to_price_id)} en attente de paiement. Votre
+                formule actuelle reste active ; la nouvelle s'activera dès le paiement confirmé
+                {sub?.pending_expires_at ? ` (demande valable jusqu'au ${formatFrDate(sub.pending_expires_at)})` : ""}.
+              </p>
+            </div>
+            {openChange?.hosted_invoice_url && (
+              <Button className="min-h-[44px] shrink-0" asChild>
+                <a href={openChange.hosted_invoice_url} target="_blank" rel="noopener noreferrer">
+                  <CreditCard className="mr-2 h-4 w-4" /> Finaliser le paiement
+                </a>
+              </Button>
+            )}
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((p, index) => {
             const isSelected = p.plan === plan;
             /** Désactivation UNIQUEMENT si un abonnement réel couvre la formule. */
-            const isActivePlan = paidPlan === p.plan;
+            const cardPriceId = billingInterval === "annual" ? p.stripe_price_annual : p.stripe_price_monthly;
+            const isActivePlan = canSelfChange ? currentPriceId === cardPriceId : paidPlan === p.plan;
+            const sameTierOtherInterval = canSelfChange && paidPlan === p.plan && !isActivePlan;
             const needsRegularize = !isActivePlan && toRegularize === p.plan;
             const custom = Boolean(p.is_custom_pricing);
             const recommended = Boolean(p.recommended);
@@ -749,12 +835,16 @@ function BillingPage() {
                   <Button
                     className={`mt-6 min-h-[44px] w-full ${recommended || isSelected ? "shadow-brand" : ""}`}
                     variant={recommended || isSelected ? "default" : "outline"}
-                    onClick={() => handleSelect(priceId ?? "", p)}
+                    onClick={() => (canSelfChange ? setChangeTarget(priceId ?? null) : handleSelect(priceId ?? "", p))}
                     disabled={busy === priceId || !priceId}
                   >
                     {busy === priceId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     <span className="truncate">
-                      {isSelected
+                      {sameTierOtherInterval
+                        ? billingInterval === "annual"
+                          ? "Passer en annuel"
+                          : "Passer en mensuel"
+                        : isSelected && !canSelfChange
                         ? `Activer ${p.display_name}`
                         : isDowngrade
                           ? `Revenir à ${p.display_name}`
@@ -841,6 +931,17 @@ function BillingPage() {
           Rafraîchir
         </button>
       </div>
+
+      {activeCompanyId && (
+        <PlanChangeDialog
+          open={!!changeTarget}
+          onOpenChange={(o) => !o && setChangeTarget(null)}
+          companyId={activeCompanyId}
+          environment={env}
+          targetPriceId={changeTarget}
+          onDone={() => void refreshAll()}
+        />
+      )}
 
       {/* --------------------- Confirmation downgrade --------------------- */}
       <AlertDialog open={!!pendingDowngrade} onOpenChange={(o) => !o && setPendingDowngrade(null)}>
