@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isAdminRole } from "@/lib/roles";
 import { CHECKOUT_PRICE_IDS } from "./plans";
+import { sanitizeStripeError } from "./stripe.server";
 import {
   CHANGE_BLOCK_MESSAGES,
   changeBlockReason,
@@ -76,8 +77,7 @@ function friendly(e: unknown, fallback = MSG.generic): Error {
   const m = e instanceof Error ? e.message : "";
   if (m === "PRICE_NOT_ALLOWED" || m === "PRICE_UNAVAILABLE")
     return new Error(CHANGE_BLOCK_MESSAGES.invalid);
-  console.error("[plan-change]", e);
-  return new Error(fallback);
+  return sanitizeStripeError(e, fallback);
 }
 
 /** Abonnement Stripe relu et rattaché à l'entreprise (anti accès inter-entreprises). */

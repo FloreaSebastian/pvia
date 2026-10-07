@@ -23,30 +23,25 @@ export async function syncPlanChangeState(
   try {
     sub = await retrieveSubscription(stripe, subId);
   } catch (e) {
-    console.error("[billing-sync] retrieve failed", e);
+    sanitizeStripeError(e, "");
     return null;
   }
-  let scheduled: Awaited<ReturnType<typeof readScheduledChange>> = null;
+  let schedule: ScheduleRead;
   try {
-    scheduled = await readScheduledChange(stripe, sub.scheduleId, sub.priceId);
+    schedule = { ok: true, value: await readScheduledChange(stripe, sub.scheduleId, sub.priceId) };
   } catch (e) {
-    console.error("[billing-sync] schedule read failed", e);
+    sanitizeStripeError(e, "");
+    schedule = { ok: false };
   }
+  const plan = buildSyncPlan(sub, schedule);
 
   const db = supabaseAdmin as any;
   await db
     .from("subscriptions")
-    .update({
-      stripe_schedule_id: sub.scheduleId,
-      scheduled_price_id: scheduled?.priceId ?? null,
-      scheduled_plan: scheduled?.plan ?? null,
-      scheduled_interval: scheduled?.interval ?? null,
-      scheduled_change_at: scheduled?.at ?? null,
-      pending_price_id: sub.pendingPriceId,
-      pending_expires_at: sub.pendingExpiresAt,
-    })
+    .update(plan.patch)
     .eq("stripe_subscription_id", subId)
     .eq("environment", env);
+  const scheduled = schedule.ok ? schedule.value : null;
 
   const { data: open } = await db
     .from("billing_plan_changes")

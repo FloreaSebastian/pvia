@@ -441,7 +441,7 @@ export const syncSubscriptionFromStripe = createServerFn({ method: "POST" })
       const { syncPlanChangeState } = await import("./billing-sync.server");
       await syncPlanChangeState(stripe, data.environment, sub.id);
     } catch (e) {
-      console.error("[billing] plan change sync failed", e);
+      sanitizeStripeError(e, "");
     }
 
     // Une réactivation payante lève une éventuelle suspension automatique
