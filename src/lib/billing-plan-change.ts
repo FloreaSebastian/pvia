@@ -39,7 +39,11 @@ export type ChangeDecision =
   | { ok: true; kind: ChangeKind; mode: ChangeMode }
   | { ok: false; reason: "same" | "invalid_price" };
 
-export function decideChange(fromPriceId: string, toPriceId: string, opts: { trialing?: boolean } = {}): ChangeDecision {
+export function decideChange(
+  fromPriceId: string,
+  toPriceId: string,
+  opts: { trialing?: boolean } = {},
+): ChangeDecision {
   const from = parsePriceId(fromPriceId);
   const to = parsePriceId(toPriceId);
   if (!from || !to) return { ok: false, reason: "invalid_price" };
@@ -81,7 +85,8 @@ export const CHANGE_BLOCK_MESSAGES = {
 
 export function changeBlockReason(sub: SubscriptionStateForChange | null): string | null {
   if (!sub || !sub.stripe_subscription_id || !sub.status) return CHANGE_BLOCK_MESSAGES.none;
-  if (["past_due", "unpaid", "incomplete"].includes(sub.status)) return CHANGE_BLOCK_MESSAGES.regularize;
+  if (["past_due", "unpaid", "incomplete"].includes(sub.status))
+    return CHANGE_BLOCK_MESSAGES.regularize;
   if (!["active", "trialing"].includes(sub.status)) return CHANGE_BLOCK_MESSAGES.none;
   if (sub.cancel_at_period_end) return CHANGE_BLOCK_MESSAGES.canceling;
   if (sub.pending_price_id) return CHANGE_BLOCK_MESSAGES.pending;
@@ -162,7 +167,9 @@ export type PreviewAmounts = {
 /** Extrait HT / TVA / TTC d'une facture d'aperçu Stripe (API dahlia). */
 export function amountsFromInvoice(inv: any): PreviewAmounts {
   const ttc = Number(inv?.total ?? 0);
-  const ht = Number(inv?.total_excluding_tax ?? inv?.subtotal_excluding_tax ?? inv?.subtotal ?? ttc);
+  const ht = Number(
+    inv?.total_excluding_tax ?? inv?.subtotal_excluding_tax ?? inv?.subtotal ?? ttc,
+  );
   const taxes = Array.isArray(inv?.total_taxes)
     ? inv.total_taxes.reduce((s: number, t: any) => s + Number(t?.amount ?? 0), 0)
     : ttc - ht;
@@ -189,7 +196,13 @@ export type ChangeStatus =
   | "superseded"
   | "failed";
 
-export const TERMINAL_STATUSES: ChangeStatus[] = ["applied", "canceled", "expired", "superseded", "failed"];
+export const TERMINAL_STATUSES: ChangeStatus[] = [
+  "applied",
+  "canceled",
+  "expired",
+  "superseded",
+  "failed",
+];
 
 export type ChangeRequestLike = {
   status: ChangeStatus;
@@ -211,7 +224,10 @@ export type StripeSubSnapshot = {
  * Indépendante de l'ordre d'arrivée des webhooks : seule la photo courante
  * (relue chez Stripe) compte. Renvoie le nouveau statut, ou null si inchangé.
  */
-export function reconcileRequest(req: ChangeRequestLike, sub: StripeSubSnapshot): ChangeStatus | null {
+export function reconcileRequest(
+  req: ChangeRequestLike,
+  sub: StripeSubSnapshot,
+): ChangeStatus | null {
   if (TERMINAL_STATUSES.includes(req.status)) return null;
   if (req.status === "previewed" || req.status === "processing") return null;
 
@@ -226,13 +242,16 @@ export function reconcileRequest(req: ChangeRequestLike, sub: StripeSubSnapshot)
 
   // Programmé
   if (sub.price_id === req.to_price_id) return "applied";
-  if (!sub.schedule_id || (req.stripe_schedule_id && sub.schedule_id !== req.stripe_schedule_id)) return "canceled";
+  if (!sub.schedule_id || (req.stripe_schedule_id && sub.schedule_id !== req.stripe_schedule_id))
+    return "canceled";
   if (sub.scheduled_price_id && sub.scheduled_price_id !== req.to_price_id) return "superseded";
   return null;
 }
 
 /** Diagnostic d'un paiement de changement non abouti. */
-export function classifyPaymentIntentStatus(status: string | null | undefined): "sca_required" | "payment_failed" | "processing" | null {
+export function classifyPaymentIntentStatus(
+  status: string | null | undefined,
+): "sca_required" | "payment_failed" | "processing" | null {
   if (!status) return null;
   if (status === "requires_action" || status === "requires_confirmation") return "sca_required";
   if (status === "requires_payment_method" || status === "canceled") return "payment_failed";

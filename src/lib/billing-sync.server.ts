@@ -8,9 +8,17 @@
 import type Stripe from "stripe";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { reconcileRequest, type ChangeStatus } from "./billing-plan-change";
-import { readScheduledChange, retrieveSubscription, type SubState } from "./billing-plan-change.server";
+import {
+  readScheduledChange,
+  retrieveSubscription,
+  type SubState,
+} from "./billing-plan-change.server";
 
-export async function syncPlanChangeState(stripe: Stripe, env: "sandbox" | "live", subId: string): Promise<SubState | null> {
+export async function syncPlanChangeState(
+  stripe: Stripe,
+  env: "sandbox" | "live",
+  subId: string,
+): Promise<SubState | null> {
   let sub: SubState;
   try {
     sub = await retrieveSubscription(stripe, subId);
@@ -56,7 +64,11 @@ export async function syncPlanChangeState(stripe: Stripe, env: "sandbox" | "live
       status: sub.status,
     });
     if (!next || next === r.status) continue;
-    await db.from("billing_plan_changes").update({ status: next }).eq("id", r.id).eq("status", r.status);
+    await db
+      .from("billing_plan_changes")
+      .update({ status: next })
+      .eq("id", r.id)
+      .eq("status", r.status);
     await db.from("audit_logs").insert({
       company_id: r.company_id,
       entity_type: "subscription",

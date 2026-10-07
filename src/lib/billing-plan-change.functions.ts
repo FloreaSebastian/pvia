@@ -20,8 +20,10 @@ const EnvSchema = z.enum(["sandbox", "live"]);
 const PREVIEW_TTL_MS = 10 * 60_000;
 
 const MSG = {
-  generic: "Le changement de formule est momentanément indisponible. Réessayez dans quelques instants.",
-  stale: "Votre abonnement a changé depuis l'aperçu. Relancez l'aperçu pour voir les montants à jour.",
+  generic:
+    "Le changement de formule est momentanément indisponible. Réessayez dans quelques instants.",
+  stale:
+    "Votre abonnement a changé depuis l'aperçu. Relancez l'aperçu pour voir les montants à jour.",
   expired: "Cet aperçu a expiré ou a déjà été utilisé. Relancez l'aperçu.",
   busy: "Un changement de formule est déjà en cours de traitement. Patientez quelques secondes.",
   ack: "Confirmez avoir pris connaissance des dépassements avant de continuer.",
@@ -41,7 +43,8 @@ async function assertBillingAdmin(companyId: string, userId: string) {
     .eq("user_id", userId)
     .eq("status", "active")
     .maybeSingle();
-  if (!data || !isAdminRole(data.role)) throw new Error("Seuls owner/admin peuvent gérer la facturation.");
+  if (!data || !isAdminRole(data.role))
+    throw new Error("Seuls owner/admin peuvent gérer la facturation.");
 }
 
 /** Ligne d'abonnement de CETTE entreprise faisant autorité (jamais un id fourni par le client). */
@@ -49,11 +52,18 @@ async function loadCompanySubscription(companyId: string, env: "sandbox" | "live
   const db = await admin();
   const { data } = await db
     .from("subscriptions")
-    .select("stripe_subscription_id,stripe_customer_id,status,cancel_at_period_end,pending_price_id,created_at")
+    .select(
+      "stripe_subscription_id,stripe_customer_id,status,cancel_at_period_end,pending_price_id,created_at",
+    )
     .eq("company_id", companyId)
     .eq("environment", env)
     .order("created_at", { ascending: false });
-  const rank = (s: string) => (s === "active" || s === "trialing" ? 0 : ["past_due", "unpaid", "incomplete"].includes(s) ? 1 : 2);
+  const rank = (s: string) =>
+    s === "active" || s === "trialing"
+      ? 0
+      : ["past_due", "unpaid", "incomplete"].includes(s)
+        ? 1
+        : 2;
   return ((data ?? []) as any[]).slice().sort((a, b) => rank(a.status) - rank(b.status))[0] ?? null;
 }
 
@@ -64,7 +74,8 @@ async function stripeFor(env: "sandbox" | "live") {
 
 function friendly(e: unknown, fallback = MSG.generic): Error {
   const m = e instanceof Error ? e.message : "";
-  if (m === "PRICE_NOT_ALLOWED" || m === "PRICE_UNAVAILABLE") return new Error(CHANGE_BLOCK_MESSAGES.invalid);
+  if (m === "PRICE_NOT_ALLOWED" || m === "PRICE_UNAVAILABLE")
+    return new Error(CHANGE_BLOCK_MESSAGES.invalid);
   console.error("[plan-change]", e);
   return new Error(fallback);
 }
@@ -93,7 +104,9 @@ async function loadVerifiedStripeSub(companyId: string, env: "sandbox" | "live")
   });
   if (live) throw new Error(live);
   if (!sub.priceId || !parsePriceId(sub.priceId)) {
-    throw new Error("Votre formule actuelle ne peut pas être modifiée en libre-service. Contactez contact@pvia.fr.");
+    throw new Error(
+      "Votre formule actuelle ne peut pas être modifiée en libre-service. Contactez contact@pvia.fr.",
+    );
   }
   return { stripe, sub };
 }
@@ -112,11 +125,21 @@ export const previewPlanChange = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertBillingAdmin(data.companyId, context.userId);
     const { enforceRateLimit } = await import("./rate-limit.server");
-    await enforceRateLimit({ bucket: "plan_change_preview", key: data.companyId, limit: 30, windowSec: 300 });
+    await enforceRateLimit({
+      bucket: "plan_change_preview",
+      key: data.companyId,
+      limit: 30,
+      windowSec: 300,
+    });
 
     const { stripe, sub } = await loadVerifiedStripeSub(data.companyId, data.environment);
-    const decision = decideChange(sub.priceId!, data.targetPriceId, { trialing: sub.status === "trialing" });
-    if (!decision.ok) throw new Error(decision.reason === "same" ? CHANGE_BLOCK_MESSAGES.same : CHANGE_BLOCK_MESSAGES.invalid);
+    const decision = decideChange(sub.priceId!, data.targetPriceId, {
+      trialing: sub.status === "trialing",
+    });
+    if (!decision.ok)
+      throw new Error(
+        decision.reason === "same" ? CHANGE_BLOCK_MESSAGES.same : CHANGE_BLOCK_MESSAGES.invalid,
+      );
 
     const srv = await import("./billing-plan-change.server");
     let target, preview;
@@ -138,7 +161,10 @@ export const previewPlanChange = createServerFn({ method: "POST" })
     const cur = (limits ?? []).find((l: any) => l.plan === fromPlan) ?? null;
     const tgt = (limits ?? []).find((l: any) => l.plan === toPlan);
     const overages = tgt
-      ? computeOverages(cur, tgt, { seats: Number(seatsRes.data ?? 0), pv_this_period: Number(pvRes.data ?? 0) })
+      ? computeOverages(cur, tgt, {
+          seats: Number(seatsRes.data ?? 0),
+          pv_this_period: Number(pvRes.data ?? 0),
+        })
       : [];
 
     // Verrou orphelin (traitement interrompu) : libéré après 5 minutes.
@@ -224,7 +250,8 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
       .eq("environment", data.environment)
       .maybeSingle();
     if (!req) throw new Error(MSG.expired);
-    if ((req.preview?.overages?.length ?? 0) > 0 && !data.acknowledgeOverages) throw new Error(MSG.ack);
+    if ((req.preview?.overages?.length ?? 0) > 0 && !data.acknowledgeOverages)
+      throw new Error(MSG.ack);
 
     // Verrou atomique : une seule confirmation gagne (double clic, onglets).
     const { data: claimed, error: claimErr } = await db
@@ -269,9 +296,16 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
           idempotencyKey: idem,
           metadata: { companyId: data.companyId, planChangeId: req.id },
         });
-        await finish({ status: "scheduled", stripe_schedule_id: s.scheduleId, effective_at: s.effectiveAt });
+        await finish({
+          status: "scheduled",
+          stripe_schedule_id: s.scheduleId,
+          effective_at: s.effectiveAt,
+        });
       } else {
-        const r = await srv.applyImmediate(stripe, sub, target, { prorationDate: req.proration_date, idempotencyKey: idem });
+        const r = await srv.applyImmediate(stripe, sub, target, {
+          prorationDate: req.proration_date,
+          idempotencyKey: idem,
+        });
         await finish({
           status: r.outcome,
           stripe_invoice_id: r.invoiceId,
@@ -333,7 +367,12 @@ export const confirmPlanChange = createServerFn({ method: "POST" })
       entityType: "subscription",
       entityId: req.id,
       action: `billing.plan_change_${done.status}`,
-      metadata: { from: req.from_price_id, to: req.to_price_id, mode: req.mode, environment: data.environment },
+      metadata: {
+        from: req.from_price_id,
+        to: req.to_price_id,
+        mode: req.mode,
+        environment: data.environment,
+      },
     });
     return {
       status: done.status as string,
@@ -360,10 +399,16 @@ export const cancelScheduledPlanChange = createServerFn({ method: "POST" })
       throw friendly(e);
     });
     if (sub.customerId !== row.stripe_customer_id) throw new Error("Accès refusé.");
-    const scheduled = sub.scheduleId ? await srv.readScheduledChange(stripe, sub.scheduleId, sub.priceId) : null;
+    const scheduled = sub.scheduleId
+      ? await srv.readScheduledChange(stripe, sub.scheduleId, sub.priceId)
+      : null;
     if (!scheduled) throw new Error(MSG.noSchedule);
     try {
-      await srv.cancelScheduled(stripe, scheduled.scheduleId, `pvia-plan-cancel-${scheduled.scheduleId}`);
+      await srv.cancelScheduled(
+        stripe,
+        scheduled.scheduleId,
+        `pvia-plan-cancel-${scheduled.scheduleId}`,
+      );
     } catch (e) {
       throw friendly(e);
     }
@@ -393,7 +438,9 @@ export const getPlanChangeState = createServerFn({ method: "POST" })
     const db = await admin();
     const { data: rows } = await db
       .from("billing_plan_changes")
-      .select("id,status,mode,kind,from_price_id,to_price_id,effective_at,hosted_invoice_url,error_code,created_at")
+      .select(
+        "id,status,mode,kind,from_price_id,to_price_id,effective_at,hosted_invoice_url,error_code,created_at",
+      )
       .eq("company_id", data.companyId)
       .eq("environment", data.environment)
       .in("status", ["payment_pending", "payment_failed", "scheduled"])

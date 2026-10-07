@@ -28,7 +28,11 @@ export async function resolveCatalogPrice(stripe: Stripe, lookupKey: string) {
   const price = list.data[0];
   if (!price || list.data.length !== 1) throw new Error("PRICE_UNAVAILABLE");
   const expected = parsed.interval === "annual" ? "year" : "month";
-  if (price.currency !== "eur" || price.recurring?.interval !== expected || price.type !== "recurring") {
+  if (
+    price.currency !== "eur" ||
+    price.recurring?.interval !== expected ||
+    price.type !== "recurring"
+  ) {
     throw new Error("PRICE_UNAVAILABLE");
   }
   return price;
@@ -61,12 +65,12 @@ export function snapshotSubscription(sub: any): SubState {
     customerId: typeof sub.customer === "string" ? sub.customer : sub.customer?.id,
     itemId: item?.id,
     priceId: lookupKeyOf(item?.price),
-    stripePriceId: typeof item?.price === "string" ? item.price : item?.price?.id ?? null,
+    stripePriceId: typeof item?.price === "string" ? item.price : (item?.price?.id ?? null),
     periodEnd: toIso(periodEnd),
     periodEndUnix: periodEnd,
     trialEnd: toIso(sub.trial_end),
     cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
-    scheduleId: typeof sub.schedule === "string" ? sub.schedule : sub.schedule?.id ?? null,
+    scheduleId: typeof sub.schedule === "string" ? sub.schedule : (sub.schedule?.id ?? null),
     pendingPriceId: sub.pending_update ? (lookupKeyOf(pendingItem?.price) ?? "inconnu") : null,
     pendingExpiresAt: toIso(sub.pending_update?.expires_at),
     companyId: sub.metadata?.companyId ?? null,
@@ -81,9 +85,15 @@ export async function retrieveSubscription(stripe: Stripe, subId: string) {
 }
 
 /** Changement programmé lu sur le schedule Stripe attaché, sinon null. */
-export async function readScheduledChange(stripe: Stripe, scheduleId: string | null, currentPriceId: string | null) {
+export async function readScheduledChange(
+  stripe: Stripe,
+  scheduleId: string | null,
+  currentPriceId: string | null,
+) {
   if (!scheduleId) return null;
-  const sched: any = await stripe.subscriptionSchedules.retrieve(scheduleId, { expand: ["phases.items.price"] } as any);
+  const sched: any = await stripe.subscriptionSchedules.retrieve(scheduleId, {
+    expand: ["phases.items.price"],
+  } as any);
   if (!["active", "not_started"].includes(sched.status)) return null;
   const now = Math.floor(Date.now() / 1000);
   const next = (sched.phases ?? []).find((p: any) => p.start_date > now);
@@ -134,7 +144,14 @@ export async function previewChange(
     const nextEnd = new Date(at);
     if (targetInterval === "year") nextEnd.setFullYear(nextEnd.getFullYear() + 1);
     else nextEnd.setMonth(nextEnd.getMonth() + 1);
-    return { mode, dueNow: null, nextInvoice, effectiveAt: at, nextBillingAt: at, prorationDate: null };
+    return {
+      mode,
+      dueNow: null,
+      nextInvoice,
+      effectiveAt: at,
+      nextBillingAt: at,
+      prorationDate: null,
+    };
   }
 
   if (trialing) {
@@ -212,7 +229,11 @@ export async function applyImmediate(
   const trialing = sub.status === "trialing";
   if (sub.scheduleId) {
     // Une montée annule toute baisse programmée (le schedule bloquerait la mise à jour).
-    await stripe.subscriptionSchedules.release(sub.scheduleId, {}, { idempotencyKey: `${opts.idempotencyKey}-release` });
+    await stripe.subscriptionSchedules.release(
+      sub.scheduleId,
+      {},
+      { idempotencyKey: `${opts.idempotencyKey}-release` },
+    );
   }
   const updated: any = await stripe.subscriptions.update(
     sub.id,
@@ -226,7 +247,10 @@ export async function applyImmediate(
     { idempotencyKey: opts.idempotencyKey },
   );
   const snap = snapshotSubscription(updated);
-  const invoiceId = typeof updated.latest_invoice === "string" ? updated.latest_invoice : updated.latest_invoice?.id ?? null;
+  const invoiceId =
+    typeof updated.latest_invoice === "string"
+      ? updated.latest_invoice
+      : (updated.latest_invoice?.id ?? null);
   if (!updated.pending_update) return { outcome: "applied", sub: snap, invoiceId };
 
   let reason: "sca_required" | "payment_failed" | "processing" = "payment_failed";
@@ -264,8 +288,9 @@ export async function scheduleChange(
   const sched: any = await stripe.subscriptionSchedules.retrieve(scheduleId);
   const now = Math.floor(Date.now() / 1000);
   const current =
-    (sched.phases ?? []).find((p: any) => p.start_date <= now && (!p.end_date || p.end_date > now)) ??
-    sched.phases?.[0];
+    (sched.phases ?? []).find(
+      (p: any) => p.start_date <= now && (!p.end_date || p.end_date > now),
+    ) ?? sched.phases?.[0];
   const interval = target.recurring?.interval === "year" ? "year" : "month";
   const updated = await stripe.subscriptionSchedules.update(
     scheduleId,

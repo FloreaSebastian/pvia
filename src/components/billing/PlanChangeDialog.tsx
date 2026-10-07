@@ -57,7 +57,13 @@ export function PlanChangeDialog(props: {
     setError(null);
     setAck(false);
     setLoading(true);
-    previewFn({ data: { companyId: props.companyId, environment: props.environment, targetPriceId: props.targetPriceId as any } })
+    previewFn({
+      data: {
+        companyId: props.companyId,
+        environment: props.environment,
+        targetPriceId: props.targetPriceId as any,
+      },
+    })
       .then((p) => !cancelled && setPreview(p))
       .catch((e) => !cancelled && setError(message(e)))
       .finally(() => !cancelled && setLoading(false));
@@ -81,12 +87,18 @@ export function PlanChangeDialog(props: {
       });
       if (r.status === "applied") toast.success("Nouvelle formule active.");
       else if (r.status === "scheduled")
-        toast.success(`Changement programmé pour le ${formatFrDate(r.effectiveAt)}. Votre formule actuelle reste active d'ici là.`);
+        toast.success(
+          `Changement programmé pour le ${formatFrDate(r.effectiveAt)}. Votre formule actuelle reste active d'ici là.`,
+        );
       else if (r.status === "payment_pending") {
-        toast.info("Confirmez le paiement auprès de votre banque pour activer la nouvelle formule.");
+        toast.info(
+          "Confirmez le paiement auprès de votre banque pour activer la nouvelle formule.",
+        );
         if (r.hostedInvoiceUrl) window.open(r.hostedInvoiceUrl, "_blank", "noopener");
       } else if (r.status === "payment_failed")
-        toast.error("Le paiement a été refusé : votre formule actuelle est conservée. Mettez à jour votre moyen de paiement puis réessayez.");
+        toast.error(
+          "Le paiement a été refusé : votre formule actuelle est conservée. Mettez à jour votre moyen de paiement puis réessayez.",
+        );
       props.onOpenChange(false);
       props.onDone();
     } catch (e) {
@@ -107,7 +119,9 @@ export function PlanChangeDialog(props: {
     <AlertDialog open={props.open} onOpenChange={(o) => !submitting && props.onOpenChange(o)}>
       <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
         <AlertDialogHeader>
-          <AlertDialogTitle>{kind ? CHANGE_KIND_LABELS[kind] : "Changer de formule"}</AlertDialogTitle>
+          <AlertDialogTitle>
+            {kind ? CHANGE_KIND_LABELS[kind] : "Changer de formule"}
+          </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-4 text-left text-sm">
               {loading && (
@@ -116,15 +130,23 @@ export function PlanChangeDialog(props: {
                 </div>
               )}
               {error && (
-                <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive" role="alert">
+                <div
+                  className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive"
+                  role="alert"
+                >
                   {error}
                 </div>
               )}
               {preview && (
                 <>
                   <p>
-                    <span className="font-medium text-foreground">{priceLabel(preview.fromPriceId)}</span> →{" "}
-                    <span className="font-medium text-foreground">{priceLabel(preview.toPriceId)}</span>
+                    <span className="font-medium text-foreground">
+                      {priceLabel(preview.fromPriceId)}
+                    </span>{" "}
+                    →{" "}
+                    <span className="font-medium text-foreground">
+                      {priceLabel(preview.toPriceId)}
+                    </span>
                   </p>
 
                   {preview.mode === "immediate" ? (
@@ -134,8 +156,9 @@ export function PlanChangeDialog(props: {
                       </div>
                       {due && due.ttc < 0 ? (
                         <p>
-                          Crédit de <span className="font-semibold text-foreground">{eur(-due.ttc)} TTC</span> reporté
-                          sur vos prochaines factures.
+                          Crédit de{" "}
+                          <span className="font-semibold text-foreground">{eur(-due.ttc)} TTC</span>{" "}
+                          reporté sur vos prochaines factures.
                         </p>
                       ) : due ? (
                         <dl className="grid grid-cols-2 gap-1">
@@ -144,7 +167,9 @@ export function PlanChangeDialog(props: {
                           <dt>TVA</dt>
                           <dd className="text-right">{eur(due.tva)}</dd>
                           <dt className="font-medium text-foreground">Total TTC</dt>
-                          <dd className="text-right font-semibold text-foreground">{eur(due.ttc)}</dd>
+                          <dd className="text-right font-semibold text-foreground">
+                            {eur(due.ttc)}
+                          </dd>
                         </dl>
                       ) : null}
                       <p className="mt-2 text-xs">
@@ -152,10 +177,13 @@ export function PlanChangeDialog(props: {
                           ? "Aucun prélèvement avant la fin de votre essai. La nouvelle formule s'applique immédiatement."
                           : "Le prorata tient compte du temps restant sur votre période actuelle. La nouvelle formule et ses droits sont activés dès que le paiement est confirmé ; sinon votre formule actuelle est conservée."}
                       </p>
-                      {kind === "interval_upgrade" || (kind === "upgrade" && parsePriceId(preview.toPriceId)?.interval === "annual" && parsePriceId(preview.fromPriceId)?.interval === "monthly") ? (
+                      {kind === "interval_upgrade" ||
+                      (kind === "upgrade" &&
+                        parsePriceId(preview.toPriceId)?.interval === "annual" &&
+                        parsePriceId(preview.fromPriceId)?.interval === "monthly") ? (
                         <p className="mt-2 text-xs">
-                          Passage à l'annuel : votre période mensuelle non consommée est déduite, une nouvelle période
-                          d'un an démarre aujourd'hui.
+                          Passage à l'annuel : votre période mensuelle non consommée est déduite,
+                          une nouvelle période d'un an démarre aujourd'hui.
                         </p>
                       ) : null}
                     </div>
@@ -163,9 +191,13 @@ export function PlanChangeDialog(props: {
                     <div className="flex gap-2 rounded-lg border border-border p-3">
                       <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
                       <p>
-                        Rien n'est facturé maintenant. Votre formule actuelle et ses droits restent actifs jusqu'au{" "}
-                        <span className="font-medium text-foreground">{formatFrDate(preview.effectiveAt)}</span>, puis
-                        la nouvelle formule s'applique. Vous pourrez annuler ce changement d'ici là.
+                        Rien n'est facturé maintenant. Votre formule actuelle et ses droits restent
+                        actifs jusqu'au{" "}
+                        <span className="font-medium text-foreground">
+                          {formatFrDate(preview.effectiveAt)}
+                        </span>
+                        , puis la nouvelle formule s'applique. Vous pourrez annuler ce changement
+                        d'ici là.
                       </p>
                     </div>
                   )}
@@ -173,7 +205,9 @@ export function PlanChangeDialog(props: {
                   <dl className="grid grid-cols-[1fr_auto] gap-1">
                     <dt>Date d'effet</dt>
                     <dd className="text-right">
-                      {preview.mode === "immediate" ? "Immédiate (après paiement)" : formatFrDate(preview.effectiveAt)}
+                      {preview.mode === "immediate"
+                        ? "Immédiate (après paiement)"
+                        : formatFrDate(preview.effectiveAt)}
                     </dd>
                     <dt>Prochaine échéance</dt>
                     <dd className="text-right">{formatFrDate(preview.nextBillingAt)}</dd>
@@ -197,7 +231,10 @@ export function PlanChangeDialog(props: {
                           <li key={o.code}>{o.message}</li>
                         ))}
                       </ul>
-                      <p className="text-xs">Aucune donnée (PV, réserves, photos, documents, utilisateurs) n'est supprimée.</p>
+                      <p className="text-xs">
+                        Aucune donnée (PV, réserves, photos, documents, utilisateurs) n'est
+                        supprimée.
+                      </p>
                       <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-foreground">
                         <Checkbox checked={ack} onCheckedChange={(v) => setAck(v === true)} />
                         J'ai pris connaissance de ces points
@@ -205,7 +242,8 @@ export function PlanChangeDialog(props: {
                     </div>
                   )}
                   <p className="text-xs">
-                    Montants calculés par Stripe selon votre adresse de facturation ; ils figureront sur la facture.
+                    Montants calculés par Stripe selon votre adresse de facturation ; ils figureront
+                    sur la facture.
                   </p>
                 </>
               )}
