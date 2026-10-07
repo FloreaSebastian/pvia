@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
-import { type StripeEnv, verifyWebhook, priceToPlan, getStripeClient, assertStripeEnvConsistent, checkStripeEnv } from "@/lib/stripe.server";
+import { type StripeEnv, verifyWebhook, priceToPlan, getStripeClient, assertStripeEnvConsistent, checkStripeEnv, sanitizeStripeError } from "@/lib/stripe.server";
 import { sendPaymentFailedEmail } from "@/lib/billing-email.server";
 import { syncPlanChangeState, markPlanChangePaymentFailed } from "@/lib/billing-sync.server";
 

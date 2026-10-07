@@ -7,7 +7,13 @@
  */
 import type Stripe from "stripe";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { reconcileRequest, type ChangeStatus } from "./billing-plan-change";
+import {
+  buildSyncPlan,
+  reconcileRequest,
+  type ChangeStatus,
+  type ScheduleRead,
+} from "./billing-plan-change";
+import { sanitizeStripeError } from "./stripe.server";
 import {
   readScheduledChange,
   retrieveSubscription,
@@ -18,7 +24,7 @@ export async function syncPlanChangeState(
   stripe: Stripe,
   env: "sandbox" | "live",
   subId: string,
-): Promise<SubState | null> {
+): Promise<(SubState & { scheduleReadFailed: boolean }) | null> {
   let sub: SubState;
   try {
     sub = await retrieveSubscription(stripe, subId);
@@ -51,6 +57,8 @@ export async function syncPlanChangeState(
     .in("status", ["payment_pending", "payment_failed", "scheduled"]);
 
   for (const r of (open ?? []) as any[]) {
+    // Lecture du schedule en échec : on ne conclut rien sur les programmations.
+    if (plan.skipScheduledReconcile && r.mode === "scheduled") continue;
     const next: ChangeStatus | null = reconcileRequest(r, {
       price_id: sub.priceId,
       pending_price_id: sub.pendingPriceId,
@@ -72,7 +80,7 @@ export async function syncPlanChangeState(
       metadata: { environment: env, to: r.to_price_id, from_status: r.status, actor: "system" },
     });
   }
-  return sub;
+  return { ...sub, scheduleReadFailed: plan.scheduleReadFailed };
 }
 
 /** Marque la demande liée à une facture de changement dont le paiement a échoué. */
