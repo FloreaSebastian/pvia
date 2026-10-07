@@ -47,6 +47,7 @@ export function PlanChangeDialog(props: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ack, setAck] = useState(false);
+  const [ackReplace, setAckReplace] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const inFlight = useRef(false);
 
@@ -56,6 +57,7 @@ export function PlanChangeDialog(props: {
     setPreview(null);
     setError(null);
     setAck(false);
+    setAckReplace(false);
     setLoading(true);
     previewFn({
       data: {
@@ -83,6 +85,7 @@ export function PlanChangeDialog(props: {
           environment: props.environment,
           requestId: preview.requestId,
           acknowledgeOverages: ack,
+          acknowledgeScheduleReplacement: ackReplace,
         },
       });
       if (r.status === "applied") toast.success("Nouvelle formule active.");
@@ -99,6 +102,12 @@ export function PlanChangeDialog(props: {
         toast.error(
           "Le paiement a été refusé : votre formule actuelle est conservée. Mettez à jour votre moyen de paiement puis réessayez.",
         );
+      if (r.replacedScheduled)
+        toast.info(
+          `Le changement prévu vers ${priceLabel(r.replacedScheduled.priceId)} a été annulé${r.status === "applied" ? "" : ", même si la nouvelle formule n'est pas encore active"}.`,
+        );
+      if (r.syncIncomplete)
+        toast.info("Mise à jour de l'affichage en cours : actualisez la page dans quelques instants.");
       props.onOpenChange(false);
       props.onDone();
     } catch (e) {
@@ -112,6 +121,7 @@ export function PlanChangeDialog(props: {
   const kind = preview?.kind as ChangeKind | undefined;
   const overages = (preview?.overages ?? []) as { code: string; message: string }[];
   const needAck = overages.length > 0;
+  const replaces = (preview as any)?.replacesScheduled as null | { priceId: string; at: string | null };
   const due = preview?.dueNow;
   const next = preview?.nextInvoice;
 
@@ -213,13 +223,36 @@ export function PlanChangeDialog(props: {
                     <dd className="text-right">{formatFrDate(preview.nextBillingAt)}</dd>
                     {next && (
                       <>
-                        <dt>Puis, à chaque échéance</dt>
+                        <dt>Puis, à chaque échéance (estimation)</dt>
                         <dd className="text-right">
                           {eur(next.ht)} HT · {eur(next.ttc)} TTC
                         </dd>
                       </>
                     )}
                   </dl>
+
+                  {replaces && (
+                    <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                      <div className="flex items-center gap-2 font-medium text-foreground">
+                        <AlertTriangle className="h-4 w-4" /> Changement déjà programmé annulé
+                      </div>
+                      <p>
+                        Le passage prévu à {priceLabel(replaces.priceId)}
+                        {replaces.at ? ` le ${formatFrDate(replaces.at)}` : ""} sera annulé dès
+                        votre confirmation
+                        {preview.mode === "immediate"
+                          ? ", même si le paiement est refusé ou demande une authentification bancaire. Vous pourrez le reprogrammer ensuite."
+                          : " et remplacé par ce nouveau changement."}
+                      </p>
+                      <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-foreground">
+                        <Checkbox
+                          checked={ackReplace}
+                          onCheckedChange={(v) => setAckReplace(v === true)}
+                        />
+                        J'accepte l'annulation du changement programmé
+                      </label>
+                    </div>
+                  )}
 
                   {needAck && (
                     <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/10 p-3">
@@ -242,8 +275,10 @@ export function PlanChangeDialog(props: {
                     </div>
                   )}
                   <p className="text-xs">
-                    Montants calculés par Stripe selon votre adresse de facturation ; ils figureront
-                    sur la facture.
+                    Montant à régler maintenant calculé par Stripe selon votre adresse de
+                    facturation et revérifié à la confirmation. Le montant des échéances suivantes
+                    est une estimation : la TVA et les éventuelles remises sont appliquées à la date
+                    de facturation.
                   </p>
                 </>
               )}
@@ -257,7 +292,9 @@ export function PlanChangeDialog(props: {
           <Button
             className="min-h-[44px]"
             onClick={confirm}
-            disabled={!preview || submitting || loading || (needAck && !ack)}
+            disabled={
+              !preview || submitting || loading || (needAck && !ack) || (!!replaces && !ackReplace)
+            }
           >
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {preview?.mode === "scheduled" ? "Programmer le changement" : "Confirmer le changement"}
