@@ -141,6 +141,14 @@ export const previewPlanChange = createServerFn({ method: "POST" })
       ? computeOverages(cur, tgt, { seats: Number(seatsRes.data ?? 0), pv_this_period: Number(pvRes.data ?? 0) })
       : [];
 
+    // Verrou orphelin (traitement interrompu) : libéré après 5 minutes.
+    await db
+      .from("billing_plan_changes")
+      .update({ status: "failed", error_code: "interrupted" })
+      .eq("company_id", data.companyId)
+      .eq("environment", data.environment)
+      .eq("status", "processing")
+      .lt("confirmed_at", new Date(Date.now() - 5 * 60_000).toISOString());
     // Les demandes précédemment prévisualisées et non confirmées sont caduques.
     await db
       .from("billing_plan_changes")

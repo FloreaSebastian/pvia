@@ -2,6 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ADMIN_ROLES, OWNER_ROLES, SIGN_ROLES, isAdminRole, isManageRole } from "@/lib/roles";
 import { type StripeEnv, verifyWebhook, priceToPlan, getStripeClient, assertStripeEnvConsistent, checkStripeEnv } from "@/lib/stripe.server";
 import { sendPaymentFailedEmail } from "@/lib/billing-email.server";
+import { syncPlanChangeState, markPlanChangePaymentFailed } from "@/lib/billing-sync.server";
+
+/** Changement programmé / paiement en attente : best-effort, jamais bloquant. */
+async function syncPlanChange(env: StripeEnv, subId: string | null | undefined) {
+  if (!subId) return;
+  try {
+    await syncPlanChangeState(getStripeClient(env), env, subId);
+  } catch (e) {
+    console.error("[webhook] plan change sync failed", e);
+  }
+}
 
 // ST-M5: route file lives in client module graph — dynamic import only.
 // Caches the shared admin client per-isolate after first call.
@@ -341,6 +352,33 @@ async function notifyPaymentFailed(invoice: any, env: StripeEnv) {
     console.error("[webhook] payment_failed without resolvable companyId", invoice?.id);
     return;
   }
+
+  // Facture de prorata d'un changement d'offre (`pending_if_incomplete`) :
+  // Stripe CONSERVE l'abonnement actif sur l'ancienne formule. Ne pas le
+  // marquer past_due (ce qui couperait l'écriture à tort) : seule la
+  // demande de changement échoue, les droits actuels restent intacts.
+  if (invoice?.billing_reason === "subscription_update" && subscriptionId) {
+    await markPlanChangePaymentFailed(env, subscriptionId);
+    await syncPlanChange(env, subscriptionId);
+    await audit({
+      companyId,
+      entityType: "invoice",
+      entityId: invoice.id,
+      action: "billing.plan_change_payment_failed",
+      metadata: { amount_due: invoice.amount_due, currency: invoice.currency, environment: env },
+    });
+    try {
+      const { firePushToCompany } = await import("@/lib/push.server");
+      firePushToCompany(companyId, {
+        title: "Changement de formule non finalisé",
+        body: "Le paiement du changement de formule n'a pas abouti. Votre formule actuelle est conservée.",
+        url: "/billing",
+        tag: `plan-change-failed-${invoice.id}`,
+        data: { kind: "billing.plan_change_payment_failed" },
+      });
+    } catch {}
+    return;
+  }
   try {
     const { firePushToCompany } = await import("@/lib/push.server");
     firePushToCompany(companyId, {
@@ -526,8 +564,12 @@ async function handleWebhook(req: Request, env: StripeEnv) {
    */
   const eventCreatedMs = ((event as any).created ?? 0) * 1000;
   const stale = eventCreatedMs > 0 && Date.now() - eventCreatedMs > 60_000;
+  // Les événements d'abonnement sont TOUJOURS relus chez Stripe : un
+  // `updated` livré après un plus récent ne peut pas écraser l'état courant
+  // (changements d'offre, programmations). `stale` reste tracé pour l'audit.
+  void stale;
   async function authoritative(sub: any): Promise<any> {
-    if (!stale || !sub?.id) return sub;
+    if (!sub?.id) return sub;
     try {
       const stripe = getStripeClient(env);
       return await stripe.subscriptions.retrieve(sub.id);
@@ -547,6 +589,7 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     case "customer.subscription.resumed": {
       const sub = await authoritative(event.data.object);
       await upsertSubscription(sub, env);
+      await syncPlanChange(env, sub?.id);
       // EM-C2 sister-trigger: notify on past_due transitions.
       if (sub?.status === "past_due") {
         await notifyPastDue(sub, env);
@@ -562,6 +605,7 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     }
     case "customer.subscription.deleted":
       await markCanceled(event.data.object, env);
+      await syncPlanChange(env, (event.data.object as any)?.id);
       break;
     case "invoice.payment_failed":
       await notifyPaymentFailed(event.data.object, env);
@@ -583,6 +627,7 @@ async function handleWebhook(req: Request, env: StripeEnv) {
           const stripe = getStripeClient(env);
           const fresh = await stripe.subscriptions.retrieve(subId);
           await upsertSubscription(fresh, env, { auditAction: "billing.payment_recovered" });
+          await syncPlanChange(env, subId);
         } catch (e) {
           console.error("[webhook] invoice.paid resync failed", e);
         }
