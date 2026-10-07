@@ -10,7 +10,7 @@ async function syncPlanChange(env: StripeEnv, subId: string | null | undefined) 
   try {
     await syncPlanChangeState(getStripeClient(env), env, subId);
   } catch (e) {
-    console.error("[webhook] plan change sync failed", e);
+    sanitizeStripeError(e, "");
   }
 }
 
