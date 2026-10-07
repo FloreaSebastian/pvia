@@ -265,3 +265,105 @@ export const CHANGE_KIND_LABELS: Record<ChangeKind, string> = {
   downgrade: "Baisse de gamme",
   interval_downgrade: "Passage à la facturation mensuelle",
 };
+
+/* --------------------- Devis : empreinte et revalidation --------------------- */
+
+/**
+ * Photo de tout ce qui détermine le montant d'un changement. Recalculée à la
+ * confirmation avec la MÊME proration_date ; toute différence ⇒ refus et
+ * nouvel aperçu (renouvellement intervenu, remise, adresse/TVA, quantité,
+ * essai, programmation modifiés chez Stripe…).
+ */
+export type QuoteFingerprint = {
+  subscriptionId: string;
+  status: string;
+  priceId: string | null;
+  quantity: number | null;
+  itemCount: number;
+  periodEnd: string | null;
+  trialEnd: string | null;
+  scheduleId: string | null;
+  scheduledPriceId: string | null;
+  discounts: string[];
+  taxContext: string;
+  dueNow: PreviewAmounts | null;
+  nextInvoice: PreviewAmounts | null;
+  effectiveAt: string | null;
+  nextBillingAt: string | null;
+};
+
+const sameAmounts = (a: PreviewAmounts | null, b: PreviewAmounts | null) =>
+  a === b ||
+  (!!a &&
+    !!b &&
+    a.currency === b.currency &&
+    a.ht === b.ht &&
+    a.tva === b.tva &&
+    a.ttc === b.ttc &&
+    a.credit === b.credit);
+
+/** Liste des écarts entre le devis présenté et le devis recalculé (vide = identique). */
+export function quoteDifferences(
+  shown: QuoteFingerprint,
+  now: QuoteFingerprint,
+  opts: { mode: ChangeMode; nowMs?: number },
+): string[] {
+  const d: string[] = [];
+  const nowMs = opts.nowMs ?? Date.now();
+  // Un aperçu ne traverse jamais une échéance : la période a pu être renouvelée.
+  if (shown.periodEnd && Date.parse(shown.periodEnd) <= nowMs) d.push("period_crossed");
+  if (shown.trialEnd && shown.status === "trialing" && Date.parse(shown.trialEnd) <= nowMs)
+    d.push("trial_ended");
+  const keys: (keyof QuoteFingerprint)[] = [
+    "subscriptionId",
+    "status",
+    "priceId",
+    "quantity",
+    "itemCount",
+    "periodEnd",
+    "trialEnd",
+    "scheduleId",
+    "scheduledPriceId",
+    "taxContext",
+    "nextBillingAt",
+  ];
+  if (opts.mode === "scheduled") keys.push("effectiveAt");
+  for (const k of keys) if ((shown[k] ?? null) !== (now[k] ?? null)) d.push(k);
+  if ([...shown.discounts].sort().join(",") !== [...now.discounts].sort().join(","))
+    d.push("discounts");
+  if (!sameAmounts(shown.dueNow, now.dueNow)) d.push("dueNow");
+  if (!sameAmounts(shown.nextInvoice, now.nextInvoice)) d.push("nextInvoice");
+  return d;
+}
+
+/* --------------------- Synchronisation : lecture schedule --------------------- */
+
+export type ScheduleRead =
+  | { ok: true; value: { priceId: string; plan: string | null; interval: string | null; at: string | null } | null }
+  | { ok: false };
+
+/**
+ * Projection à écrire après relecture Stripe. Si la lecture du schedule a
+ * échoué, on NE TOUCHE PAS aux champs de programmation (jamais d'effacement
+ * ni d'annulation annoncée à tort) et la réconciliation des demandes
+ * programmées est différée.
+ */
+export function buildSyncPlan(
+  sub: { scheduleId: string | null; pendingPriceId: string | null; pendingExpiresAt: string | null },
+  schedule: ScheduleRead,
+) {
+  const patch: Record<string, string | null> = {
+    pending_price_id: sub.pendingPriceId,
+    pending_expires_at: sub.pendingExpiresAt,
+  };
+  if (schedule.ok) {
+    Object.assign(patch, {
+      stripe_schedule_id: sub.scheduleId,
+      scheduled_price_id: schedule.value?.priceId ?? null,
+      scheduled_plan: schedule.value?.plan ?? null,
+      scheduled_interval: schedule.value?.interval ?? null,
+      scheduled_change_at: schedule.value?.at ?? null,
+    });
+  }
+  return { patch, scheduleReadFailed: !schedule.ok, skipScheduledReconcile: !schedule.ok };
+}
