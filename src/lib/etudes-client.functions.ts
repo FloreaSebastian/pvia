@@ -73,6 +73,7 @@ export const getClientStudies = createServerFn({ method: "GET" }).handler(async 
 export const getClientStudyPdfUrl = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ studyId: z.string().uuid() }).parse(i))
   .handler(async ({ data }): Promise<{ url: string }> => {
+    assertFeatureEnabled("studies");
     const scope = await requireClientScope();
 
     const { data: study } = await supabaseAdmin
