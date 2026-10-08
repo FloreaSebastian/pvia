@@ -17,6 +17,7 @@ import {
   VisitPlanningSchema,
   VisitStatusSchema,
   VisitTypeSchema,
+  QuickClientSchema,
 } from "./visites/schemas";
 import {
   assertCanEditVisit,
@@ -850,4 +851,61 @@ export const previewChantierNameForVisit = createServerFn({ method: "POST" })
       postal_code: client.postal_code ?? "",
       city: client.city ?? "",
     };
+  });
+
+/**
+ * Création rapide d'un client depuis l'assistant de visite.
+ * Anti-doublon : si un client actif de l'entreprise porte déjà cet e-mail ou ce
+ * téléphone, il est renvoyé tel quel (jamais modifié ni dupliqué).
+ */
+export const quickCreateVisitClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => QuickClientSchema.parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+
+    const email = data.email ? data.email.trim().toLowerCase() : null;
+    const phone = data.phone ? data.phone.replace(/\s+/g, "") : null;
+    const select = "id,name,company_name,client_type,address_line1,postal_code,city";
+
+    if (email || phone) {
+      let dq = supabase.from("clients").select(select).eq("company_id", data.companyId).is("archived_at", null).limit(1);
+      dq = email && phone ? dq.or(`email.eq.${email},phone.eq.${phone}`) : email ? dq.eq("email", email) : dq.eq("phone", phone!);
+      const { data: existing } = await dq.maybeSingle();
+      if (existing) return { client: existing, reused: true as const };
+    }
+
+    const isPro = data.client_type === "entreprise";
+    const line1 = data.address_line1.trim();
+    const postal = data.postal_code.trim();
+    const city = data.city.trim();
+    const { data: created, error } = await supabase
+      .from("clients")
+      .insert({
+        company_id: data.companyId,
+        owner_id: userId,
+        client_type: data.client_type,
+        name: data.name.trim(),
+        company_name: isPro ? data.company_name?.trim() || data.name.trim() : null,
+        email,
+        phone,
+        address_line1: line1 || null,
+        postal_code: postal || null,
+        city: city || null,
+        address: composeAddress(line1, postal, city),
+      } as never)
+      .select(select)
+      .single();
+    if (error || !created) throw new Error("Création du client impossible. Vérifiez les informations saisies.");
+
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId,
+      entityType: "client",
+      entityId: (created as { id: string }).id,
+      action: "client.create",
+      metadata: { source: "visite_technique" },
+    });
+    return { client: created, reused: false as const };
   });
