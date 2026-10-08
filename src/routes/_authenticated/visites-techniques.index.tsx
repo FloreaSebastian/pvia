@@ -66,7 +66,7 @@ type VisitRow = {
 
 function clientLabel(c: VisitRow["client"]): string {
   if (!c) return "Client inconnu";
-  return c.client_type === "professionnel" ? c.company_name || c.name : c.name;
+  return (c.client_type === "entreprise" || c.client_type === "professionnel") ? c.company_name || c.name : c.name;
 }
 
 function fmtDate(iso: string | null): string {
