@@ -200,15 +200,16 @@ export async function buildVisitReportPdf(
     const lw = 190;
     const lLines = wrap(bold, label, 9, lw - 8);
     const vLines = wrap(font, value, 9, W - lw);
-    const h = Math.max(lLines.length, vLines.length) * 12 + 2;
-    need(h);
-    lLines.forEach((l, i) =>
-      page.drawText(l, { x: MARGIN, y: y - 9 - i * 12, size: 9, font: bold, color: muted }),
-    );
-    vLines.forEach((l, i) =>
-      page.drawText(l, { x: MARGIN + lw, y: y - 9 - i * 12, size: 9, font, color: ink }),
-    );
-    y -= h;
+    // Ligne par ligne : une réponse longue continue proprement sur la page suivante
+    // au lieu de déborder sous le pied de page.
+    const n = Math.max(lLines.length, vLines.length);
+    for (let i = 0; i < n; i++) {
+      need(12);
+      if (lLines[i]) page.drawText(lLines[i], { x: MARGIN, y: y - 9, size: 9, font: bold, color: muted });
+      if (vLines[i]) page.drawText(vLines[i], { x: MARGIN + lw, y: y - 9, size: 9, font, color: ink });
+      y -= 12;
+    }
+    y -= 2;
   };
 
   // En-tête
