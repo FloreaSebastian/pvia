@@ -13,8 +13,21 @@ export const FEATURE_FLAGS: Readonly<Record<"studies", boolean>> = {
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
 
+const testOverrides: Partial<Record<FeatureFlag, boolean>> = {};
+
 export function isFeatureEnabled(flag: FeatureFlag): boolean {
+  const o = testOverrides[flag];
+  if (o !== undefined) return o === true;
   return FEATURE_FLAGS[flag] === true;
+}
+
+/** Tests uniquement : force un flag (undefined = valeur réelle). Refusé hors NODE_ENV=test. */
+export function setFeatureFlagForTests(flag: FeatureFlag, value: boolean | undefined): void {
+  if (typeof process === "undefined" || process.env?.["NODE_ENV"] !== "test") {
+    throw new Error("setFeatureFlagForTests est réservé aux tests.");
+  }
+  if (value === undefined) delete testOverrides[flag];
+  else testOverrides[flag] = value;
 }
 
 /** Message utilisateur unique pour un module masqué. */
