@@ -11,6 +11,7 @@ import { assertPlanFeature } from "./plan-guard.server";
 import { getVisitTemplate } from "./visites/templates";
 import { findTemplateSlot, validateAnswerEntries, VISIT_PHOTO_EXT, VISIT_PHOTO_MAX_BYTES } from "./visites/validation";
 import { friendlyVisitDbError } from "./visites/errors";
+import { photoRefusal } from "./visites/photo-commit";
 import {
   AnswerEntrySchema,
   ConstraintPayloadSchema,
@@ -510,9 +511,9 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
       throw photoRefusal(msg);
     };
     // Refus dépendant de l'état (concurrence possible) : jamais de suppression du fichier.
-    const failKeep = async (msg: string): Promise<never> => {
+    const failKeep = async (msg: string) => {
       const already = await findByPath().catch(() => null);
-      if (already) throw new ReusedPhoto(already);
+      if (already) return reuseRow(already);
       throw new Error(msg);
     };
     const hit = findTemplateSlot(getVisitTemplate(visit.visit_type as never), p.section_key, p.slot_key);
@@ -564,7 +565,7 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
     let replacedPath: string | null = null;
     if (data.replace_photo_id) {
       const target = (existing ?? []).find((e) => e.id === data.replace_photo_id);
-      if (!target) await failKeep("La photo à remplacer n'existe plus : rechargez la visite.");
+      if (!target) return await failKeep("La photo à remplacer n'existe plus : rechargez la visite.");
       // Remplacement effectif : la ligne existante pointe vers le nouveau fichier.
       // En cas d'échec, l'ancienne photo reste intacte et le nouveau fichier est retiré.
       const { data: upd, error } = await supabase
@@ -580,7 +581,7 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
       replacedPath = target!.storage_path;
     } else {
       if (!hit!.slot.multiple && (existing ?? []).length > 0) {
-        await failKeep("Cet emplacement accepte une seule photo : utilisez « Remplacer ».");
+        return await failKeep("Cet emplacement accepte une seule photo : utilisez « Remplacer ».");
       }
       const { data: ins, error } = await supabase
         .from("technical_visit_photos")
