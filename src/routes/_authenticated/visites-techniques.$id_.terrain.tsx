@@ -222,17 +222,25 @@ function TerrainPage() {
     }
   }, [activeCompanyId, id, saveFn, reportError, persistLocal, setFieldErrors]);
 
-  /** Sérialise les envois : attend l'envoi en cours avant d'en lancer un nouveau. */
+  /** Sérialise les envois et vide automatiquement les saisies arrivées pendant un envoi. */
+  const sendOnceRef = useRef(sendOnce);
+  sendOnceRef.current = sendOnce;
+  const queueRef = useRef<ReturnType<typeof createAutosaveQueue> | null>(null);
+  if (!queueRef.current) {
+    queueRef.current = createAutosaveQueue({
+      send: () => sendOnceRef.current(),
+      hasPending: () => dirtyRef.current.size > 0,
+    });
+  }
   const flush = useCallback(async (): Promise<boolean> => {
-    while (inFlightRef.current) await inFlightRef.current;
-    const run = sendOnce();
+    const run = queueRef.current!.flush();
     inFlightRef.current = run;
     try {
       return await run;
     } finally {
-      inFlightRef.current = null;
+      if (inFlightRef.current === run) inFlightRef.current = null;
     }
-  }, [sendOnce]);
+  }, []);
 
   useEffect(() => {
     return () => {
