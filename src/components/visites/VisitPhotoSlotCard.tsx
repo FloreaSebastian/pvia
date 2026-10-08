@@ -18,6 +18,10 @@ import { compressImageFile } from "@/lib/image-compress";
 import { readExif, sanitizeExifForUpload, tryGetGps } from "@/lib/photo-exif";
 import { PHOTO_SKIP_REASON_LABEL, type PhotoSkipReason } from "@/lib/visites/types";
 import type { ResolvedPhotoSlot } from "@/lib/visites/engine";
+import { VISIT_PHOTO_MAX_BYTES, VISIT_PHOTO_MIME, sniffImage } from "@/lib/visites/validation";
+
+/** Taille maximale d'un fichier source avant compression. */
+const RAW_MAX_BYTES = 40 * 1024 * 1024;
 
 export interface VisitPhotoRow {
   id: string;
@@ -95,14 +99,26 @@ export function VisitPhotoSlotCard({
       if (galleryRef.current) galleryRef.current.value = "";
       return;
     }
+    // Remplacement d'une photo unique : la ligne existante est mise à jour,
+    // l'ancienne photo n'est retirée qu'après succès.
+    const replaceId = !slot.multiple && photos.length > 0 ? photos[0].id : undefined;
     setBusy(true);
     const gps = await tryGetGps();
     let ok = 0;
     for (let i = 0; i < list.length; i++) {
       const raw = list[i];
+      let uploadedPath: string | null = null;
       try {
-        if (!raw.type.startsWith("image/")) throw new Error("Format non supporté.");
+        if (!raw.type.startsWith("image/")) throw new Error("Format non supporté : choisissez une image (JPEG, PNG ou WebP).");
+        if (raw.size > RAW_MAX_BYTES) throw new Error("Image trop lourde (40 Mo maximum avant compression).");
         const { file } = await compressImageFile(raw, { maxWidth: 1600, maxHeight: 1600 });
+        if (!sniffImage(new Uint8Array(await file.slice(0, 12).arrayBuffer()))) {
+          throw new Error("Ce fichier n'est pas une image lisible (JPEG, PNG ou WebP).");
+        }
+        if (!(VISIT_PHOTO_MIME as readonly string[]).includes(file.type)) {
+          throw new Error("Format non supporté : JPEG, PNG ou WebP uniquement (HEIC non pris en charge par ce navigateur).");
+        }
+        if (file.size > VISIT_PHOTO_MAX_BYTES) throw new Error("Photo trop lourde après compression (10 Mo maximum).");
         const exif = await readExif(raw);
         let latitude = gps.latitude;
         let longitude = gps.longitude;
@@ -123,17 +139,20 @@ export function VisitPhotoSlotCard({
           if (!Number.isNaN(d.getTime())) takenAt = d.toISOString();
         }
 
-        const safeName = (file.name || "photo.jpg").replace(/[^a-zA-Z0-9._-]/g, "_");
+        const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+        const safeName = `${(file.name || "photo").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80)}.${ext}`;
         const storagePath = `${companyId}/visites/${visitId}/${slot.answerKey}/${Date.now()}-${i}-${safeName}`;
         const { error: upErr } = await supabase.storage
           .from("pv-assets")
           .upload(storagePath, file, { contentType: file.type || "image/jpeg", upsert: false });
-        if (upErr) throw upErr;
+        if (upErr) throw new Error("Envoi du fichier impossible. Vérifiez la connexion et réessayez.");
+        uploadedPath = storagePath;
 
         await addFn({
           data: {
             companyId,
             visitId,
+            replace_photo_id: replaceId,
             photo: {
               section_key: sectionKey,
               slot_key: slot.answerKey,
@@ -150,17 +169,21 @@ export function VisitPhotoSlotCard({
             },
           },
         });
+        uploadedPath = null;
         ok++;
         if (!slot.multiple) break;
       } catch (e: any) {
+        // Métadonnées refusées : le fichier envoyé ne doit pas rester orphelin.
+        if (uploadedPath) await supabase.storage.from("pv-assets").remove([uploadedPath]).catch(() => undefined);
         toast.error(e?.message ?? "Envoi de la photo impossible");
+        if (!slot.multiple) break;
       }
     }
     if (inputRef.current) inputRef.current.value = "";
     if (galleryRef.current) galleryRef.current.value = "";
     setBusy(false);
     if (ok > 0) {
-      toast.success(ok > 1 ? `${ok} photos ajoutées` : "Photo ajoutée");
+      toast.success(replaceId ? "Photo remplacée" : ok > 1 ? `${ok} photos ajoutées` : "Photo ajoutée");
       await onChanged();
     }
   }
@@ -311,7 +334,7 @@ export function VisitPhotoSlotCard({
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/*"
             capture="environment"
             multiple={slot.multiple}
             className="hidden"
@@ -334,7 +357,7 @@ export function VisitPhotoSlotCard({
           <input
             ref={galleryRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/*"
             multiple={slot.multiple}
             className="hidden"
             onChange={(e) => upload(e.target.files)}
@@ -348,7 +371,7 @@ export function VisitPhotoSlotCard({
             disabled={busy}
           >
             <ImageIcon className="mr-2 h-4 w-4" aria-hidden="true" />
-            Galerie
+            {done && !slot.multiple ? "Remplacer (galerie)" : "Galerie"}
           </Button>
           {!done && !skipped ? (
             <Button

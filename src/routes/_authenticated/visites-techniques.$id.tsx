@@ -20,7 +20,8 @@ import { useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
 import { deleteTechnicalVisit, generateVisitReportPdf, getTechnicalVisit, setVisitStatus } from "@/lib/visites.functions";
-import { FileDown } from "lucide-react";
+import { FileDown, Pencil } from "lucide-react";
+import { VisitPlanningDialog } from "@/components/visites/VisitPlanningDialog";
 import { getVisitTemplate, isVisitType } from "@/lib/visites/templates";
 import { computeProgress, resolveSections, formatAnswer } from "@/lib/visites/engine";
 import { CONSTRAINT_CATEGORY_LABEL, type AnswerMap, type ConstraintCategory } from "@/lib/visites/types";
@@ -102,6 +103,7 @@ function VisiteDetailPage() {
   const [assigneeName, setAssigneeName] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
@@ -263,6 +265,21 @@ function VisiteDetailPage() {
             </dd>
           </div>
         </dl>
+        {visit.site_contact_name || visit.site_contact_phone ? (
+          <p className="text-sm break-words">
+            <span className="text-xs text-muted-foreground">Contact sur site : </span>
+            {visit.site_contact_name ?? ""}
+            {visit.site_contact_phone ? (
+              <a href={`tel:${visit.site_contact_phone}`} className="ml-1 underline">{visit.site_contact_phone}</a>
+            ) : null}
+          </p>
+        ) : null}
+        {canManage && visit.status !== "archivee" && activeCompanyId ? (
+          <Button variant="outline" size="sm" className="h-10" onClick={() => { if (deny("modifier la planification")) return; setPlanOpen(true); }}>
+            <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+            Modifier la planification
+          </Button>
+        ) : null}
         {visit.prep_notes ? (
           <p className="rounded-lg bg-muted p-2 text-sm break-words">{visit.prep_notes}</p>
         ) : null}
@@ -324,6 +341,10 @@ function VisiteDetailPage() {
           </Button>
         ) : null}
       </div>
+
+      {activeCompanyId ? (
+        <VisitPlanningDialog open={planOpen} onOpenChange={setPlanOpen} companyId={activeCompanyId} visit={visit} onSaved={load} />
+      ) : null}
 
       <Tabs defaultValue="releve" className="min-w-0">
         <TabsList className="w-full">

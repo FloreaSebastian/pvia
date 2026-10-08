@@ -26,6 +26,12 @@ import { VisitConstraintsPanel, type VisitConstraintRow } from "@/components/vis
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { classifyBillingError } from "@/lib/billing-errors";
 import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
+import { useAuth } from "@/hooks/use-auth";
+import { findTemplateField, validateFieldValue } from "@/lib/visites/validation";
+import {
+  localDraftKey, planRestore, readLocalDraft, safeLocalStorage, writeLocalDraft,
+  type PendingEntry, type RestorePlan,
+} from "@/lib/visites/local-draft";
 
 export const Route = createFileRoute("/_authenticated/visites-techniques/$id_/terrain")({
   head: () => ({
@@ -48,6 +54,7 @@ function TerrainPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
+  const { user } = useAuth();
   const online = useOnlineStatus();
   const { blocked: billingBlocked, reportError } = useBillingGate();
   const [syncSuspended, setSyncSuspended] = useState(false);
@@ -74,17 +81,38 @@ function TerrainPage() {
   /** Nombre de champs saisis non encore confirmés côté serveur (mémoire écran). */
   const [pendingCount, setPendingCount] = useState(0);
 
-  const dirtyRef = useRef<Map<string, { section_key: string; value: AnswerValue }>>(new Map());
+  const dirtyRef = useRef<Map<string, PendingEntry>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Empêche deux envois concurrents (autosave + reprise réseau). */
-  const inFlightRef = useRef(false);
+  /** Envoi en cours (autosave, reprise réseau ou clôture) : un seul à la fois. */
+  const inFlightRef = useRef<Promise<boolean> | null>(null);
+  /** Erreurs de validation par champ (client ou serveur). */
+  const [fieldErrors, setFieldErrorsState] = useState<Record<string, string>>({});
+  const fieldErrorsRef = useRef(fieldErrors);
+  // Ref synchronisée au moment de la mise à jour (et non au rendu suivant) :
+  // « Terminer » lit toujours l'état d'erreur réel.
+  const setFieldErrors = useCallback((fn: (prev: Record<string, string>) => Record<string, string>) => {
+    fieldErrorsRef.current = fn(fieldErrorsRef.current);
+    setFieldErrorsState(fieldErrorsRef.current);
+  }, []);
+  const finishingRef = useRef(false);
+  /** Proposition de restauration des réponses en attente retrouvées sur l'appareil. */
+  const [restore, setRestore] = useState<RestorePlan | null>(null);
+  const [localUnavailable, setLocalUnavailable] = useState(false);
+  const storage = useMemo(() => safeLocalStorage(), []);
+  const draftKey = user?.id && activeCompanyId ? localDraftKey(user.id, activeCompanyId, id) : null;
+
+  const persistLocal = useCallback(() => {
+    if (!draftKey || !visit?.visit_type) return;
+    const ok = writeLocalDraft(storage, draftKey, visit.visit_type, Object.fromEntries(dirtyRef.current));
+    setLocalUnavailable(!ok && dirtyRef.current.size > 0);
+  }, [draftKey, storage, visit?.visit_type]);
 
 
-  // Aucune file d'attente persistante sur l'appareil : tant qu'une saisie n'est
-  // pas confirmée, quitter la page la perd. On avertit explicitement.
+  // Seules les réponses en attente sont copiées localement (pas de mode hors
+  // connexion complet) : on avertit avant de quitter la page.
   useUnsavedGuard(
     pendingCount > 0,
-    "Des réponses ne sont pas encore enregistrées (connexion indisponible). Quitter cette page les perdra.",
+    "Des réponses ne sont pas encore enregistrées. Une copie de secours reste sur cet appareil, mais quitter maintenant peut retarder leur envoi.",
   );
 
   const reload = useCallback(async () => {
@@ -97,13 +125,23 @@ function TerrainPage() {
       setSkips(res.skips as VisitPhotoSkipRow[]);
       setConstraints(res.constraints as VisitConstraintRow[]);
       setCanEdit(res.canEdit);
+      if (user?.id) {
+        const key = localDraftKey(user.id, activeCompanyId, id);
+        const draft = readLocalDraft(storage, key, res.visit.visit_type);
+        if (draft) {
+          const plan = planRestore(draft, (res.answers ?? {}) as AnswerMap, (res as any).answerUpdatedAt ?? {});
+          const n = Object.keys(plan.restorable).length + Object.keys(plan.conflicts).length;
+          if (n > 0) setRestore(plan);
+          else writeLocalDraft(storage, key, res.visit.visit_type, {});
+        }
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Visite introuvable");
       navigate({ to: "/visites-techniques" });
     } finally {
       setLoading(false);
     }
-  }, [activeCompanyId, getFn, id, navigate]);
+  }, [activeCompanyId, getFn, id, navigate, storage, user?.id]);
 
   useEffect(() => {
     void reload();
@@ -140,49 +178,61 @@ function TerrainPage() {
     [template, answers, photoSlotSet, skipSlotSet, constraints.length],
   );
 
-  const flush = useCallback(async () => {
-    if (!activeCompanyId || dirtyRef.current.size === 0) return;
-    if (inFlightRef.current) return;
-    // Snapshot par identité : on n'efface une saisie de la file qu'à la
-    // condition qu'elle n'ait PAS été remplacée par une nouvelle valeur
-    // pendant l'appel serveur (sinon un succès effacerait une saisie
-    // jamais envoyée).
+  /** Envoie la file en attente. Renvoie true si la file est vide à l'issue de l'envoi. */
+  const sendOnce = useCallback(async (): Promise<boolean> => {
+    if (!activeCompanyId) return false;
+    if (dirtyRef.current.size === 0) return true;
+    // Snapshot par identité : une saisie remplacée pendant l'appel reste en file.
     const snapshot = Array.from(dirtyRef.current.entries());
-    const entries = snapshot.map(([field_key, v]) => ({
-      field_key,
-      section_key: v.section_key,
-      value: v.value,
-    }));
-    inFlightRef.current = true;
+    const entries = snapshot.map(([field_key, v]) => ({ field_key, section_key: v.section_key, value: v.value }));
     setSaving(true);
     try {
-      await saveFn({ data: { companyId: activeCompanyId, visitId: id, entries } });
+      const res = await saveFn({ data: { companyId: activeCompanyId, visitId: id, entries } });
+      const rejected = new Map((res.fieldErrors ?? []).map((e) => [e.field_key, e.message]));
       for (const [key, ref] of snapshot) {
         if (dirtyRef.current.get(key) === ref) dirtyRef.current.delete(key);
       }
-      setSavedAt(new Date());
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        for (const [key] of snapshot) delete next[key];
+        for (const [k, m] of rejected) next[k] = m;
+        return next;
+      });
+      if (rejected.size > 0) toast.error("Certaines valeurs ont été refusées : corrigez les champs signalés.");
+      else setSavedAt(new Date());
       setSaveFailed(false);
       setSyncSuspended(false);
       setPendingCount(dirtyRef.current.size);
+      persistLocal();
+      return dirtyRef.current.size === 0;
     } catch (e: any) {
       setPendingCount(dirtyRef.current.size);
+      persistLocal();
       if (classifyBillingError(e)) {
-        // Comportement réel : les saisies restent en mémoire sur cet écran,
-        // mais rien n'est mis en file d'attente persistante sur l'appareil.
-        // On ne relance pas de boucle de retry tant que l'accès est bloqué.
         setSyncSuspended(true);
         setHasUnsavedBlocked(dirtyRef.current.size > 0);
         reportError(e);
-        return;
+        return false;
       }
       setSaveFailed(true);
       toast.error("Enregistrement échoué : vos dernières réponses ne sont pas sauvegardées. Touchez « Réessayer ».");
+      return false;
     } finally {
-      inFlightRef.current = false;
       setSaving(false);
     }
-  }, [activeCompanyId, id, saveFn, reportError]);
+  }, [activeCompanyId, id, saveFn, reportError, persistLocal, setFieldErrors]);
 
+  /** Sérialise les envois : attend l'envoi en cours avant d'en lancer un nouveau. */
+  const flush = useCallback(async (): Promise<boolean> => {
+    while (inFlightRef.current) await inFlightRef.current;
+    const run = sendOnce();
+    inFlightRef.current = run;
+    try {
+      return await run;
+    } finally {
+      inFlightRef.current = null;
+    }
+  }, [sendOnce]);
 
   useEffect(() => {
     return () => {
@@ -199,20 +249,46 @@ function TerrainPage() {
   }, [online, flush]);
 
   function onFieldChange(sectionKey: string, answerKey: string, value: AnswerValue) {
+    if (finishingRef.current) return;
     setAnswers((prev) => ({ ...prev, [answerKey]: value }));
-    dirtyRef.current.set(answerKey, { section_key: sectionKey, value });
+    // Validation immédiate avec les mêmes règles que le serveur : une valeur
+    // invalide est signalée sur le champ et n'est pas envoyée.
+    const hit = template ? findTemplateField(template, answerKey) : null;
+    const msg = hit ? validateFieldValue(hit.field, value) : "Champ inconnu pour ce type de visite.";
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      if (msg) next[answerKey] = msg;
+      else delete next[answerKey];
+      return next;
+    });
+    if (msg) {
+      dirtyRef.current.delete(answerKey);
+      setPendingCount(dirtyRef.current.size);
+      persistLocal();
+      return;
+    }
+    dirtyRef.current.set(answerKey, { section_key: sectionKey, value, editedAt: Date.now() });
     setPendingCount(dirtyRef.current.size);
+    persistLocal();
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => void flush(), 900);
   }
 
   async function finish() {
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || finishingRef.current) return;
+    finishingRef.current = true; // verrou synchrone : double appui et saisie bloqués
     setFinishing(true);
     try {
-      await flush();
-      if (dirtyRef.current.size > 0) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      // Attend tout envoi en cours puis vide complètement la file.
+      let emptied = await flush();
+      for (let i = 0; i < 3 && !emptied && dirtyRef.current.size > 0; i++) emptied = await flush();
+      if (dirtyRef.current.size > 0 || !emptied) {
         toast.error("Certaines réponses ne sont pas encore enregistrées. Réessayez la sauvegarde avant de terminer.");
+        return;
+      }
+      if (Object.keys(fieldErrorsRef.current).length > 0) {
+        toast.error("Des valeurs sont à corriger avant de terminer la visite.");
         return;
       }
       await statusFn({ data: { companyId: activeCompanyId, visitId: id, status: "terminee" } });
@@ -221,9 +297,34 @@ function TerrainPage() {
     } catch (e: any) {
       toast.error(e?.message ?? "Clôture impossible");
     } finally {
+      finishingRef.current = false;
       setFinishing(false);
       setConfirmFinish(false);
     }
+  }
+
+  function applyRestore(includeConflicts: boolean) {
+    if (!restore) return;
+    const chosen = { ...restore.restorable, ...(includeConflicts ? restore.conflicts : {}) };
+    const now = Date.now();
+    for (const [key, entry] of Object.entries(chosen)) {
+      dirtyRef.current.set(key, { section_key: entry.section_key, value: entry.value, editedAt: now });
+    }
+    setAnswers((prev) => {
+      const next = { ...prev };
+      for (const [key, entry] of Object.entries(chosen)) next[key] = entry.value;
+      return next;
+    });
+    setPendingCount(dirtyRef.current.size);
+    persistLocal();
+    setRestore(null);
+    void flush();
+    toast.success(`${Object.keys(chosen).length} réponse(s) restaurée(s), envoi en cours.`);
+  }
+
+  function discardRestore() {
+    if (draftKey && visit?.visit_type) writeLocalDraft(storage, draftKey, visit.visit_type, Object.fromEntries(dirtyRef.current));
+    setRestore(null);
   }
 
   if (loading || !template || !progress) {
@@ -239,7 +340,8 @@ function TerrainPage() {
   const current = sections[Math.min(step, sections.length - 1)];
   const currentProgress = progress.sections.find((s) => s.key === current.section.key);
   const isLast = step >= sections.length - 1;
-  const locked = !canEdit || billingBlocked;
+  const locked = !canEdit || billingBlocked || finishing;
+  const errorCount = Object.keys(fieldErrors).length;
 
   return (
     <div className="mx-auto w-full max-w-3xl min-w-0 pb-48 lg:pb-32">
@@ -294,7 +396,7 @@ function TerrainPage() {
             className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300"
           >
             {pendingCount} réponse{pendingCount > 1 ? "s" : ""} en attente d'enregistrement. Elles seront envoyées
-            automatiquement au retour du réseau : ne fermez pas cette page tant que la connexion n'est pas rétablie.
+            automatiquement au retour du réseau. Une copie de secours est gardée sur cet appareil et vous sera proposée si la page est rechargée ; ce n'est pas un mode hors connexion complet.
           </div>
         )}
         {(syncSuspended || billingBlocked) && (
@@ -317,6 +419,42 @@ function TerrainPage() {
             )}
           </div>
         )}
+        {restore ? (
+          <div role="alert" className="mt-2 space-y-2 rounded-md border border-primary/40 bg-primary/5 p-2 text-xs">
+            <p>
+              {Object.keys(restore.restorable).length + Object.keys(restore.conflicts).length} réponse(s) saisie(s) sur cet
+              appareil n'avaient pas été confirmées par le serveur.
+              {Object.keys(restore.conflicts).length > 0
+                ? ` Dont ${Object.keys(restore.conflicts).length} modifiée(s) depuis sur le serveur : la version serveur est conservée sauf choix contraire.`
+                : ""}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(restore.restorable).length > 0 ? (
+                <Button type="button" size="sm" className="h-10" onClick={() => applyRestore(false)} disabled={locked}>
+                  Restaurer
+                </Button>
+              ) : null}
+              {Object.keys(restore.conflicts).length > 0 ? (
+                <Button type="button" size="sm" variant="outline" className="h-10" onClick={() => applyRestore(true)} disabled={locked}>
+                  Restaurer aussi les {Object.keys(restore.conflicts).length} modifiée(s)
+                </Button>
+              ) : null}
+              <Button type="button" size="sm" variant="ghost" className="h-10" onClick={discardRestore}>
+                Ignorer
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {localUnavailable ? (
+          <p className="mt-2 rounded-md bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+            Copie de secours locale indisponible sur cet appareil : ne quittez pas la page avant l'enregistrement.
+          </p>
+        ) : null}
+        {errorCount > 0 ? (
+          <p role="alert" className="mt-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+            {errorCount} valeur{errorCount > 1 ? "s" : ""} à corriger (non enregistrée{errorCount > 1 ? "s" : ""}).
+          </p>
+        ) : null}
         <div className="mt-2 flex items-center gap-2">
           <Progress value={progress.percent} className="h-1.5 flex-1" aria-label={`Complétude ${progress.percent}%`} />
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{progress.percent}%</span>
@@ -447,6 +585,8 @@ function TerrainPage() {
                         field={f}
                         value={answers[f.answerKey]}
                         disabled={locked}
+                        invalid={!!fieldErrors[f.answerKey]}
+                        error={fieldErrors[f.answerKey]}
                         onChange={(v) => onFieldChange(current.section.key, f.answerKey, v)}
                       />
                     ))}
@@ -500,7 +640,7 @@ function TerrainPage() {
             type="button"
             className="h-12 flex-1"
             onClick={() => setConfirmFinish(true)}
-            disabled={locked || !progress.canComplete || finishing}
+            disabled={locked || !progress.canComplete || errorCount > 0}
           >
             <Check className="mr-2 h-4 w-4" aria-hidden="true" />
             Terminer

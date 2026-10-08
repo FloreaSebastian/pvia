@@ -171,6 +171,10 @@ export async function refreshVisitCompletion(sb: SB, visitId: string): Promise<n
     sb.from("technical_visit_photo_skips").select("slot_key").eq("visit_id", visitId),
     sb.from("technical_visit_constraints").select("id").eq("visit_id", visitId),
   ]);
+  // Lecture partielle : on n'écrase pas l'avancement avec une valeur fausse.
+  if (answersRes.error || photosRes.error || skipsRes.error || constraintsRes.error) {
+    return -1;
+  }
 
   const answers: AnswerMap = {};
   for (const a of answersRes.data ?? []) answers[a.field_key] = a.value as never;

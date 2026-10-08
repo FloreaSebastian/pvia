@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791493364574,
+      "tag": "0000_technical_visit_atomic_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791494255362,
+      "tag": "0001_technical_visit_rpc_plan_guard",
+      "breakpoints": true
+    }
+  ]
+}

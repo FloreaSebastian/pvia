@@ -16,6 +16,7 @@ import type {
   VisitSection,
   VisitTemplate,
 } from "./types";
+import { isValidFilled, validateFieldValue } from "./validation";
 
 export const REPEAT_SEP = "__";
 
@@ -181,12 +182,15 @@ export function computeProgress(
     for (const block of blocks) {
       const suffix = block.label ? ` (${block.label})` : "";
       for (const field of block.fields) {
-        const filled = isFilled(answers[field.answerKey]);
-        if (filled) touched = true;
+        const raw = answers[field.answerKey];
+        // Une valeur non conforme au modèle (type, options, bornes) ne compte pas comme renseignée.
+        const filled = isValidFilled(field, raw);
+        const invalid = isFilled(raw) && raw !== undefined && validateFieldValue(field, raw) !== null;
+        if (filled || invalid) touched = true;
         if (field.required) {
           requiredFields++;
           if (filled) filledRequiredFields++;
-          else missingFieldLabels.push(`${field.label}${suffix}`);
+          else missingFieldLabels.push(`${field.label}${suffix}${invalid ? " — valeur à corriger" : ""}`);
         }
       }
       for (const slot of block.photos) {
