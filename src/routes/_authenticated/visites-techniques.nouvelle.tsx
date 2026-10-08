@@ -267,7 +267,7 @@ function NouvelleVisitePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl min-w-0 space-y-4 px-3 pb-28 pt-3 sm:px-4 sm:pb-10">
+    <div className="mx-auto w-full max-w-3xl min-w-0 space-y-4 px-3 pb-44 pt-3 sm:px-4 sm:pb-10">
       <FeatureGate feature="technical_visits">
       <div className="flex min-w-0 items-center gap-2">
         <Button asChild variant="ghost" size="icon" className="h-11 w-11 shrink-0">
@@ -652,7 +652,7 @@ function NouvelleVisitePage() {
         </Card>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 flex gap-2 border-t bg-background/95 p-3 backdrop-blur sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0">
         <Button
           type="button"
           variant="outline"
