@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Camera, Loader2, Trash2, Ban, MapPin, Check, X } from "lucide-react";
+import { Camera, Loader2, Trash2, Ban, MapPin, Check, X, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
