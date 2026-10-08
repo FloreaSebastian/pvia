@@ -67,6 +67,8 @@ function TerrainPage() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  /** Dernier envoi en échec (hors blocage abonnement) : affiché tant qu'il n'est pas rattrapé. */
+  const [saveFailed, setSaveFailed] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [finishing, setFinishing] = useState(false);
   /** Nombre de champs saisis non encore confirmés côté serveur (mémoire écran). */
@@ -159,6 +161,7 @@ function TerrainPage() {
         if (dirtyRef.current.get(key) === ref) dirtyRef.current.delete(key);
       }
       setSavedAt(new Date());
+      setSaveFailed(false);
       setSyncSuspended(false);
       setPendingCount(dirtyRef.current.size);
     } catch (e: any) {
@@ -172,7 +175,8 @@ function TerrainPage() {
         reportError(e);
         return;
       }
-      toast.error(e?.message ?? "Enregistrement différé : réessayez.");
+      setSaveFailed(true);
+      toast.error("Enregistrement échoué : vos dernières réponses ne sont pas sauvegardées. Touchez « Réessayer ».");
     } finally {
       inFlightRef.current = false;
       setSaving(false);
@@ -259,10 +263,22 @@ function TerrainPage() {
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 Enregistrement
               </span>
+            ) : saveFailed && pendingCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => void flush()}
+                className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs font-medium text-destructive underline-offset-2 hover:underline"
+                aria-label="Échec de l'enregistrement, réessayer"
+              >
+                <CloudOff className="h-3.5 w-3.5" aria-hidden="true" />
+                Échec · Réessayer
+              </button>
+            ) : pendingCount > 0 ? (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">Modifications non enregistrées</span>
             ) : savedAt ? (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-                Enregistré
+                Enregistré {savedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
               </span>
             ) : null}
           </div>
