@@ -14,10 +14,12 @@ interface Props {
   onChange: (value: AnswerValue) => void;
   disabled?: boolean;
   invalid?: boolean;
+  /** Message d'erreur affiché sous le champ. */
+  error?: string;
 }
 
 /** Champ de saisie terrain : cibles tactiles ≥ 44px, libellés jamais tronqués. */
-export function VisitFieldInput({ field, value, onChange, disabled, invalid }: Props) {
+export function VisitFieldInput({ field, value, onChange, disabled, invalid, error }: Props) {
   const id = `f-${field.answerKey}`;
   const describedBy = field.help ? `${id}-help` : undefined;
 
@@ -113,6 +115,11 @@ export function VisitFieldInput({ field, value, onChange, disabled, invalid }: P
         />
       )}
 
+      {error ? (
+        <p role="alert" className="text-xs font-medium leading-snug text-destructive">
+          {error}
+        </p>
+      ) : null}
       {field.help ? (
         <p id={`${id}-help`} className="text-xs leading-snug text-muted-foreground">
           {field.help}

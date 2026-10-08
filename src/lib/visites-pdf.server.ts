@@ -44,7 +44,18 @@ function wrap(font: PDFFont, text: string, size: number, maxWidth: number): stri
   for (const para of pdfSafe(text).split(/\n/)) {
     const words = para.split(/\s+/).filter(Boolean);
     let cur = "";
-    for (const w of words) {
+    for (let w of words) {
+      // Mot sans espace plus large que la colonne (URL, référence…) : coupé de force.
+      while (font.widthOfTextAtSize(w, size) > maxWidth && w.length > 1) {
+        let n = w.length - 1;
+        while (n > 1 && font.widthOfTextAtSize(w.slice(0, n), size) > maxWidth) n--;
+        if (cur) {
+          out.push(cur);
+          cur = "";
+        }
+        out.push(w.slice(0, n));
+        w = w.slice(n);
+      }
       const next = cur ? `${cur} ${w}` : w;
       if (font.widthOfTextAtSize(next, size) > maxWidth && cur) {
         out.push(cur);
@@ -73,7 +84,7 @@ export async function buildVisitReportPdf(
   companyId: string,
   visitId: string,
 ): Promise<{ bytes: Uint8Array; fileName: string }> {
-  const { data: visit } = await supabaseAdmin
+  const { data: visit, error: visitErr } = await supabaseAdmin
     .from("technical_visits")
     .select(
       "*,chantier:chantiers(reference,name,address),client:clients(name,company_name,client_type,email,phone,address)",
@@ -81,6 +92,7 @@ export async function buildVisitReportPdf(
     .eq("id", visitId)
     .eq("company_id", companyId)
     .maybeSingle();
+  if (visitErr) throw new Error("Lecture de la visite impossible. Réessayez dans un instant.");
   if (!visit) throw new Error("Visite introuvable.");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- jointures Supabase non typées
   const v = visit as unknown as Record<string, any>;
@@ -103,6 +115,11 @@ export async function buildVisitReportPdf(
       .eq("visit_id", visitId)
       .order("created_at", { ascending: true }),
   ]);
+
+  // Ne jamais produire un rapport faussement complet : toute lecture en échec bloque la génération.
+  if (answersRes.error || photosRes.error || skipsRes.error || constraintsRes.error) {
+    throw new Error("Lecture des données de la visite incomplète : rapport non généré. Réessayez dans un instant.");
+  }
 
   let assignee = "-";
   if (v.assigned_to) {
@@ -297,15 +314,18 @@ export async function buildVisitReportPdf(
   const shown = photos.slice(0, VISIT_PDF_MAX_PHOTOS);
   for (const p of shown) {
     let img: PDFImage | null = null;
+    let missingReason = "photo non disponible (fichier introuvable ou illisible)";
     try {
-      const { data: blob } = await supabaseAdmin.storage
+      const { data: blob, error: dlErr } = await supabaseAdmin.storage
         .from(VISIT_BUCKET)
         .download(p.storage_path);
+      if (dlErr || !blob) missingReason = "photo non disponible (fichier introuvable dans le stockage)";
       if (blob) {
         const buf = new Uint8Array(await blob.arrayBuffer());
         const isPng = buf[0] === 0x89 && buf[1] === 0x50;
         const isJpg = buf[0] === 0xff && buf[1] === 0xd8;
         img = isPng ? await pdf.embedPng(buf) : isJpg ? await pdf.embedJpg(buf) : null;
+        if (!img) missingReason = "photo non intégrable dans le PDF (format non JPEG/PNG) — consultable dans PVIA";
       }
     } catch {
       img = null;
@@ -328,7 +348,7 @@ export async function buildVisitReportPdf(
       y -= h + 4;
     } else {
       need(20);
-      text("(image non intégrable dans le PDF)", { size: 8, color: muted });
+      text(`(${missingReason})`, { size: 8, color: muted });
     }
     text(caption, { size: 8, color: muted });
     if (p.comment) text(p.comment, { size: 8 });

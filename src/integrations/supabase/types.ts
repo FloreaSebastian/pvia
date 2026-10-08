@@ -7151,6 +7151,19 @@ export type Database = {
         Args: { p_code_hash: string; p_otp_id: string }
         Returns: Json
       }
+      create_technical_visit_atomic: {
+        Args: {
+          _chantier_id: string
+          _client_id: string
+          _company_id: string
+          _event_title: string
+          _idempotency_key: string
+          _new_chantier: Json
+          _planning: Json
+          _visit_type: string
+        }
+        Returns: Json
+      }
       enqueue_webhook_event: {
         Args: { _company_id: string; _event: string; _payload: Json }
         Returns: undefined
@@ -7261,6 +7274,26 @@ export type Database = {
       sc_membership_readable: {
         Args: { _membership_id: string }
         Returns: boolean
+      }
+      search_technical_visits: {
+        Args: {
+          _assigned_to?: string
+          _chantier_id?: string
+          _client_id?: string
+          _company_id: string
+          _from?: string
+          _include_archived?: boolean
+          _limit?: number
+          _offset?: number
+          _status?: string
+          _term: string
+          _to?: string
+          _visit_type?: string
+        }
+        Returns: {
+          id: string
+          total: number
+        }[]
       }
       solar_apply_electrical_design: {
         Args: {
@@ -7457,6 +7490,15 @@ export type Database = {
       }
       solar_normalize_text: { Args: { _t: string }; Returns: string }
       unaccent_safe: { Args: { _t: string }; Returns: string }
+      update_technical_visit_planning: {
+        Args: {
+          _company_id: string
+          _event_title: string
+          _planning: Json
+          _visit_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "user" | "platform_admin"

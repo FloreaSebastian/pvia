@@ -2,12 +2,15 @@
  * Visites techniques — server functions.
  * Fichier « thin wrapper » : uniquement des imports et des déclarations de server functions.
  */
+import { sniffImage } from "@/lib/visites/validation";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "./audit.server";
 import { assertPlanFeature } from "./plan-guard.server";
-import { searchVisits } from "./visites/search";
+import { getVisitTemplate } from "./visites/templates";
+import { findTemplateSlot, validateAnswerEntries, VISIT_PHOTO_EXT, VISIT_PHOTO_MAX_BYTES } from "./visites/validation";
+import { friendlyVisitDbError } from "./visites/errors";
 import {
   AnswerEntrySchema,
   ConstraintPayloadSchema,
@@ -35,9 +38,6 @@ import {
   VISIT_BUCKET,
 } from "./visites.server";
 
-/** Nombre maximal de visites parcourues par une recherche texte. */
-const VISIT_SEARCH_CAP = 1000;
-
 /** Liste paginée + compteurs KPI. */
 export const listTechnicalVisits = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -64,20 +64,52 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
     if (data.from) q = q.gte("scheduled_at", `${data.from}T00:00:00Z`);
     if (data.to) q = q.lte("scheduled_at", `${data.to}T23:59:59Z`);
 
-    const term = data.search.trim().toLowerCase();
-    // Avec une recherche, on filtre sur l'ensemble des visites (plafonné) puis on
-    // pagine en mémoire : auparavant seule la page courante était filtrée, si bien
-    // qu'une visite existante pouvait être introuvable.
-    const ordered = q
-      .order("scheduled_at", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false });
-    const { data: rows, error, count } = term
-      ? await ordered.range(0, VISIT_SEARCH_CAP - 1)
-      : await ordered.range(data.offset, data.offset + data.limit - 1);
-    if (error) throw new Error(error.message);
-
-    const searched = term ? searchVisits((rows ?? []) as never[], term, data.offset, data.limit) : null;
-    const filtered = searched ? searched.page : rows ?? [];
+    const term = data.search.trim();
+    let filtered: any[] = [];
+    let total = 0;
+    if (term) {
+      // Recherche globale côté base sur tout le jeu de l'entreprise (RLS appliquée),
+      // puis chargement des lignes de la page dans l'ordre retourné.
+      const { data: hits, error: sErr } = await supabase.rpc("search_technical_visits", {
+        _company_id: data.companyId,
+        _term: term,
+        _visit_type: data.visit_type ?? undefined,
+        _status: data.status ?? undefined,
+        _assigned_to: data.assigned_to ?? undefined,
+        _chantier_id: data.chantier_id ?? undefined,
+        _client_id: data.client_id ?? undefined,
+        _from: data.from ?? undefined,
+        _to: data.to ?? undefined,
+        _include_archived: data.include_archived,
+        _offset: data.offset,
+        _limit: data.limit,
+      });
+      if (sErr) throw new Error("Recherche impossible pour le moment. Réessayez.");
+      const ids = (hits ?? []).map((h) => h.id);
+      total = Number(hits?.[0]?.total ?? 0);
+      if (ids.length) {
+        const { data: rows, error } = await q.in("id", ids);
+        if (error) throw new Error("Lecture des visites impossible.");
+        const byId = new Map((rows ?? []).map((r: any) => [r.id, r]));
+        filtered = ids.map((id) => byId.get(id)).filter(Boolean);
+      } else if (data.offset > 0) {
+        // Page au-delà des résultats : on recompte pour garder un total exact.
+        const { data: first } = await supabase.rpc("search_technical_visits", {
+          _company_id: data.companyId, _term: term, _visit_type: data.visit_type ?? undefined, _status: data.status ?? undefined,
+          _assigned_to: data.assigned_to ?? undefined, _chantier_id: data.chantier_id ?? undefined, _client_id: data.client_id ?? undefined,
+          _from: data.from ?? undefined, _to: data.to ?? undefined, _include_archived: data.include_archived, _offset: 0, _limit: 1,
+        });
+        total = Number(first?.[0]?.total ?? 0);
+      }
+    } else {
+      const { data: rows, error, count } = await q
+        .order("scheduled_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .range(data.offset, data.offset + data.limit - 1);
+      if (error) throw new Error("Lecture des visites impossible.");
+      filtered = rows ?? [];
+      total = count ?? filtered.length;
+    }
 
     const { data: kpiRows } = await supabase
       .from("technical_visits")
@@ -96,8 +128,8 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
 
     return {
       visits: filtered,
-      total: searched ? searched.total : count ?? filtered.length,
-      hasMore: searched ? searched.hasMore : (count ?? 0) > data.offset + data.limit,
+      total,
+      hasMore: total > data.offset + data.limit,
       kpis,
     };
   });
@@ -141,7 +173,7 @@ export const getTechnicalVisit = createServerFn({ method: "POST" })
     const visit = visitRow as unknown as Record<string, any>;
 
     const [answersRes, photosRes, skipsRes, constraintsRes, editableRes] = await Promise.all([
-      supabase.from("technical_visit_answers").select("section_key,field_key,value").eq("visit_id", data.visitId),
+      supabase.from("technical_visit_answers").select("section_key,field_key,value,updated_at").eq("visit_id", data.visitId),
       supabase
         .from("technical_visit_photos")
         .select("id,section_key,slot_key,storage_path,caption,comment,latitude,longitude,taken_at,file_name,created_at,uploaded_by")
@@ -157,7 +189,14 @@ export const getTechnicalVisit = createServerFn({ method: "POST" })
     ]);
 
     const answers: Record<string, any> = {};
-    for (const a of answersRes.data ?? []) answers[a.field_key] = a.value;
+    const answerUpdatedAt: Record<string, string> = {};
+    if (answersRes.error || photosRes.error || skipsRes.error || constraintsRes.error) {
+      throw new Error("Lecture de la visite incomplète. Réessayez dans un instant.");
+    }
+    for (const a of answersRes.data ?? []) {
+      answers[a.field_key] = a.value;
+      answerUpdatedAt[a.field_key] = a.updated_at;
+    }
 
     let assigneeName: string | null = null;
     if (visit.assigned_to) {
@@ -168,6 +207,7 @@ export const getTechnicalVisit = createServerFn({ method: "POST" })
     return {
       visit,
       answers,
+      answerUpdatedAt,
       photos: await signVisitPhotos(supabase, photosRes.data ?? []),
       skips: skipsRes.data ?? [],
       constraints: constraintsRes.data ?? [],
@@ -229,149 +269,83 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
     if (clientErr) throw new Error("Lecture du client impossible.");
     if (!client) throw new Error("Client introuvable.");
 
-    let chantierId = data.chantier_id ?? null;
-    let chantierCreated = false;
-
-    if (!chantierId) {
+    const template = getVisitTemplate(data.visit_type);
+    let newChantier: Record<string, unknown> | null = null;
+    if (!data.chantier_id) {
       const nc = data.new_chantier ?? { name: "", address_line1: "", postal_code: "", city: "" };
       const address = {
         address_line1: nc.address_line1 || client.address_line1 || "",
         postal_code: nc.postal_code || client.postal_code || "",
         city: nc.city || client.city || "",
       };
-
       if (!data.force_new_chantier) {
         const duplicates = await findChantierDuplicates(supabase, data.companyId, client.id, data.visit_type, address);
         if (duplicates.length > 0) {
           return { ok: false as const, reason: "duplicate_chantier" as const, duplicates };
         }
       }
-
       const clientLabel = (client.client_type === "entreprise" || client.client_type === "professionnel") ? client.company_name || client.name : client.name;
-      const { data: created, error: chErr } = await supabase
-        .from("chantiers")
-        .insert({
-          company_id: data.companyId,
-          owner_id: userId,
-          client_id: client.id,
-          name: (nc.name || buildChantierName(data.visit_type, clientLabel ?? "")).slice(0, 200),
-          type: (await import("./visites/templates")).getVisitTemplate(data.visit_type).chantierType,
-          status: "preparation",
-          address: composeAddress(address.address_line1, address.postal_code, address.city) ?? client.address ?? null,
-          address_line1: address.address_line1 || null,
-          postal_code: address.postal_code || null,
-          city: address.city || null,
-          latitude: nc.latitude ?? client.latitude ?? null,
-          longitude: nc.longitude ?? client.longitude ?? null,
-        } as never)
-        .select("id,reference,name")
-        .single();
-      if (chErr || !created) throw new Error(chErr?.message ?? "Création du chantier impossible.");
-      chantierId = created.id;
-      chantierCreated = true;
-      await writeAuditLog({
-        companyId: data.companyId,
-        userId,
-        entityType: "chantier",
-        entityId: created.id,
-        action: "chantier.create",
-        newValues: { name: created.name, reference: created.reference },
-        metadata: { source: "visite_technique", visit_type: data.visit_type },
-      });
-    } else {
-      const { data: ch } = await supabase
-        .from("chantiers")
-        .select("id")
-        .eq("id", chantierId)
-        .eq("company_id", data.companyId)
-        .maybeSingle();
-      if (!ch) throw new Error("Chantier introuvable.");
+      newChantier = {
+        name: (nc.name || buildChantierName(data.visit_type, clientLabel ?? "")).slice(0, 200),
+        type: template.chantierType,
+        address: composeAddress(address.address_line1, address.postal_code, address.city) ?? client.address ?? null,
+        address_line1: address.address_line1 || null,
+        postal_code: address.postal_code || null,
+        city: address.city || null,
+        latitude: nc.latitude ?? client.latitude ?? null,
+        longitude: nc.longitude ?? client.longitude ?? null,
+      };
     }
 
     const planning = VisitPlanningSchema.parse(data.planning ?? {});
-    const { data: chantierRow } = await supabase
-      .from("chantiers")
-      .select("address,name")
-      .eq("id", chantierId)
-      .maybeSingle();
-
-    const { data: visit, error: vErr } = await supabase
-      .from("technical_visits")
-      .insert({
-        company_id: data.companyId,
-        chantier_id: chantierId,
-        client_id: client.id,
-        visit_type: data.visit_type,
-        status: planning.scheduled_at ? "planifiee" : "a_planifier",
-        assigned_to: planning.assigned_to ?? null,
-        scheduled_at: planning.scheduled_at ?? null,
-        site_contact_name: planning.site_contact_name || null,
-        site_contact_phone: planning.site_contact_phone || null,
-        site_address: chantierRow?.address ?? null,
-        prep_notes: planning.prep_notes || null,
-        created_by: userId,
-        idempotency_key: data.idempotency_key,
-      } as never)
-      .select("id,reference")
-      .single();
-    if (vErr || !visit) {
-      if (vErr?.code === "23505") {
-        const { data: race } = await supabase
-          .from("technical_visits")
-          .select("id,reference,chantier_id")
-          .eq("company_id", data.companyId)
-          .eq("idempotency_key", data.idempotency_key)
-          .maybeSingle();
-        if (race) {
-          return { ok: true as const, id: race.id, reference: race.reference, chantierId: race.chantier_id, duplicates: [], reused: true };
-        }
-      }
-      // Compensation : si le chantier vient d'être créé pour cette visite et que
-      // l'insertion de la visite échoue, on le supprime pour ne pas laisser de
-      // chantier orphelin (« fantôme ») dans la liste.
-      if (chantierCreated) {
-        await supabase.from("chantiers").delete().eq("id", chantierId).eq("company_id", data.companyId);
-      }
-      throw new Error(vErr?.message ?? "Création de la visite impossible.");
-    }
-
-    if (planning.scheduled_at) {
-      const template = (await import("./visites/templates")).getVisitTemplate(data.visit_type);
-      const start = new Date(planning.scheduled_at);
-      const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
-      const { data: event } = await supabase
-        .from("chantier_events")
-        .insert({
-          company_id: data.companyId,
-          chantier_id: chantierId,
-          client_id: client.id,
-          title: `Visite technique ${template.label} — ${visit.reference}`,
-          description: planning.prep_notes || null,
-          event_type: "visite_technique",
-          status: "planifie",
-          start_at: start.toISOString(),
-          end_at: end.toISOString(),
-          all_day: false,
-          assigned_to: planning.assigned_to ?? null,
-          location: chantierRow?.address ?? null,
-          created_by: userId,
-        } as never)
-        .select("id")
-        .maybeSingle();
-      if (event?.id) await supabase.from("technical_visits").update({ calendar_event_id: event.id }).eq("id", visit.id);
-    }
-
-    await writeAuditLog({
-      companyId: data.companyId,
-      userId,
-      entityType: "technical_visit",
-      entityId: visit.id,
-      action: "visite.create",
-      newValues: { reference: visit.reference, visit_type: data.visit_type, chantier_id: chantierId },
-      metadata: { chantier_created: chantierCreated, scheduled_at: planning.scheduled_at ?? null },
+    // Une seule transaction en base : verrou sur la clé d'idempotence, contrôle
+    // entreprise + client du chantier, création chantier/visite/événement. Toute
+    // erreur annule l'ensemble : aucun chantier ni événement orphelin possible.
+    const { data: res, error: rpcErr } = await supabase.rpc("create_technical_visit_atomic", {
+      _company_id: data.companyId,
+      _client_id: client.id,
+      _visit_type: data.visit_type,
+      _idempotency_key: data.idempotency_key,
+      _chantier_id: data.chantier_id ?? (null as never),
+      _new_chantier: (newChantier ?? {}) as never,
+      _planning: planning as never,
+      _event_title: `Visite technique ${template.label}`,
     });
+    if (rpcErr || !res) throw new Error(friendlyVisitDbError(rpcErr?.message, "Création de la visite impossible."));
+    const out = res as { id: string; reference: string; chantier_id: string; chantier_created: boolean; reused: boolean };
 
-    return { ok: true as const, id: visit.id, reference: visit.reference, chantierId, chantierCreated, duplicates: [], reused: false };
+    if (!out.reused) {
+      if (out.chantier_created) {
+        await writeAuditLog({
+          companyId: data.companyId,
+          userId,
+          entityType: "chantier",
+          entityId: out.chantier_id,
+          action: "chantier.create",
+          newValues: { name: newChantier?.name },
+          metadata: { source: "visite_technique", visit_type: data.visit_type },
+        });
+      }
+      await writeAuditLog({
+        companyId: data.companyId,
+        userId,
+        entityType: "technical_visit",
+        entityId: out.id,
+        action: "visite.create",
+        newValues: { reference: out.reference, visit_type: data.visit_type, chantier_id: out.chantier_id },
+        metadata: { chantier_created: out.chantier_created, scheduled_at: planning.scheduled_at ?? null },
+      });
+    }
+
+    return {
+      ok: true as const,
+      id: out.id,
+      reference: out.reference,
+      chantierId: out.chantier_id,
+      chantierCreated: out.chantier_created,
+      duplicates: [],
+      reused: out.reused,
+    };
   });
 
 /** Mise à jour de la planification / du contexte de la visite. */
@@ -384,31 +358,15 @@ export const updateTechnicalVisit = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
     const prev = await loadVisitScoped(supabase, data.companyId, data.visitId);
-    if (prev.status === "archivee") throw new Error("Visite archivée : modification impossible.");
-
-    const patch = {
-      assigned_to: data.planning.assigned_to ?? null,
-      scheduled_at: data.planning.scheduled_at ?? null,
-      site_contact_name: data.planning.site_contact_name || null,
-      site_contact_phone: data.planning.site_contact_phone || null,
-      prep_notes: data.planning.prep_notes || null,
-      status: prev.status === "a_planifier" && data.planning.scheduled_at ? "planifiee" : prev.status,
-    };
-    const { error } = await supabase.from("technical_visits").update(patch as never).eq("id", data.visitId).eq("company_id", data.companyId);
-    if (error) throw new Error(error.message);
-
-    if (prev.calendar_event_id && patch.scheduled_at) {
-      const start = new Date(patch.scheduled_at);
-      await supabase
-        .from("chantier_events")
-        .update({
-          start_at: start.toISOString(),
-          end_at: new Date(start.getTime() + 2 * 60 * 60 * 1000).toISOString(),
-          assigned_to: patch.assigned_to,
-        } as never)
-        .eq("id", prev.calendar_event_id)
-        .eq("company_id", data.companyId);
-    }
+    const template = getVisitTemplate(prev.visit_type as never);
+    const { data: res, error } = await supabase.rpc("update_technical_visit_planning", {
+      _company_id: data.companyId,
+      _visit_id: data.visitId,
+      _planning: data.planning as never,
+      _event_title: `Visite technique ${template.label}`,
+    });
+    if (error || !res) throw new Error(friendlyVisitDbError(error?.message, "Mise à jour de la planification impossible."));
+    const out = res as { status: string; calendar_event_id: string | null; event_action: string };
 
     await writeAuditLog({
       companyId: data.companyId,
@@ -416,10 +374,11 @@ export const updateTechnicalVisit = createServerFn({ method: "POST" })
       entityType: "technical_visit",
       entityId: data.visitId,
       action: "visite.update",
-      oldValues: { assigned_to: prev.assigned_to, scheduled_at: prev.scheduled_at },
-      newValues: patch,
+      oldValues: { assigned_to: prev.assigned_to, scheduled_at: prev.scheduled_at, status: prev.status },
+      newValues: { ...data.planning, status: out.status },
+      metadata: { calendar: out.event_action },
     });
-    return { ok: true };
+    return { ok: true, status: out.status, calendarEventId: out.calendar_event_id, calendar: out.event_action };
   });
 
 /** Enregistrement des réponses (autosave terrain). Recalcule la complétude. */
@@ -438,7 +397,17 @@ export const saveVisitAnswers = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const visit = await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
 
-    const rows = data.entries.map((e) => ({
+    // Validation sémantique contre le modèle métier. Les entrées invalides sont
+    // refusées une par une (erreur par champ) ; les valides sont enregistrées.
+    // Les réponses déjà en base ne sont jamais supprimées.
+    const fieldErrors = validateAnswerEntries(getVisitTemplate(visit.visit_type as never), data.entries);
+    const rejected = new Set(fieldErrors.map((e) => e.field_key));
+    const accepted = data.entries.filter((e) => !rejected.has(e.field_key));
+    if (accepted.length === 0) {
+      return { ok: false as const, fieldErrors, savedKeys: [] as string[], completion_percent: visit.completion_percent ?? 0 };
+    }
+
+    const rows = accepted.map((e) => ({
       visit_id: data.visitId,
       company_id: data.companyId,
       section_key: e.section_key,
@@ -448,7 +417,7 @@ export const saveVisitAnswers = createServerFn({ method: "POST" })
     const { error } = await supabase
       .from("technical_visit_answers")
       .upsert(rows as never, { onConflict: "visit_id,field_key" });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error("Enregistrement des réponses impossible. Réessayez.");
 
     const patch: Record<string, unknown> = {};
     if (visit.status === "planifiee" || visit.status === "a_planifier") {
@@ -467,60 +436,136 @@ export const saveVisitAnswers = createServerFn({ method: "POST" })
     }
 
     const percent = await refreshVisitCompletion(supabase, data.visitId);
-    return { ok: true, completion_percent: percent };
+    return { ok: true as const, fieldErrors, savedKeys: accepted.map((e) => e.field_key), completion_percent: percent };
   });
 
 /** Métadonnées d'une photo après upload direct dans le stockage. */
 export const addVisitPhoto = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) =>
-    z.object({ companyId: z.string().uuid(), visitId: z.string().uuid(), photo: VisitPhotoPayloadSchema }).parse(i),
+    z
+      .object({
+        companyId: z.string().uuid(),
+        visitId: z.string().uuid(),
+        photo: VisitPhotoPayloadSchema,
+        replace_photo_id: z.string().uuid().optional(),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
-    if (!data.photo.storage_path.startsWith(`${data.companyId}/visites/${data.visitId}/`)) {
+    const p = data.photo;
+    const removeUpload = () => supabase.storage.from(VISIT_BUCKET).remove([p.storage_path]).catch(() => undefined);
+    // Le chemin doit appartenir à cette entreprise, cette visite ET cet emplacement.
+    const prefix = `${data.companyId}/visites/${data.visitId}/${p.slot_key}/`;
+    if (!p.storage_path.startsWith(prefix) || p.storage_path.includes("..")) {
       throw new Error("Chemin de stockage invalide.");
     }
+    let visit;
+    try {
+      visit = await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
+    } catch (e) {
+      await removeUpload();
+      throw e;
+    }
+    const fail = async (msg: string): Promise<never> => {
+      await removeUpload();
+      throw new Error(msg);
+    };
+    const hit = findTemplateSlot(getVisitTemplate(visit.visit_type as never), p.section_key, p.slot_key);
+    if (!hit) await fail("Emplacement photo inconnu pour cette étape.");
+    if (!VISIT_PHOTO_EXT.test(p.storage_path)) await fail("Format non supporté : JPEG, PNG ou WebP uniquement.");
+    if (p.file_size != null && p.file_size > VISIT_PHOTO_MAX_BYTES) await fail("Photo trop lourde (10 Mo maximum).");
 
-    const { data: row, error } = await supabase
+    // Le fichier doit réellement exister dans le stockage.
+    const dir = p.storage_path.slice(0, p.storage_path.lastIndexOf("/"));
+    const fname = p.storage_path.slice(p.storage_path.lastIndexOf("/") + 1);
+    const { data: listed } = await supabase.storage.from(VISIT_BUCKET).list(dir, { search: fname, limit: 5 });
+    const obj = (listed ?? []).find((o) => o.name === fname);
+    if (!obj) throw new Error("Fichier photo introuvable : renvoyez la photo.");
+    const realSize = Number((obj.metadata as { size?: number } | null)?.size ?? p.file_size ?? 0);
+    if (realSize > VISIT_PHOTO_MAX_BYTES) await fail("Photo trop lourde (10 Mo maximum).");
+    // Contenu réel vérifié (signature JPEG/PNG/WebP) : un fichier renommé en .jpg est refusé.
+    {
+      const { data: blob, error: dlErr } = await supabase.storage.from(VISIT_BUCKET).download(p.storage_path);
+      if (dlErr || !blob) throw new Error("Fichier photo illisible : renvoyez la photo.");
+      const head = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+      if (!sniffImage(head)) await fail("Ce fichier n'est pas une image JPEG, PNG ou WebP valide.");
+    }
+
+    const { data: existing } = await supabase
       .from("technical_visit_photos")
-      .insert({
-        visit_id: data.visitId,
-        company_id: data.companyId,
-        section_key: data.photo.section_key,
-        slot_key: data.photo.slot_key,
-        storage_path: data.photo.storage_path,
-        caption: data.photo.caption ?? null,
-        comment: data.photo.comment ?? null,
-        latitude: data.photo.latitude ?? null,
-        longitude: data.photo.longitude ?? null,
-        accuracy: data.photo.accuracy ?? null,
-        taken_at: data.photo.taken_at ?? null,
-        exif_metadata: data.photo.exif_metadata ?? null,
-        file_hash: data.photo.file_hash ?? null,
-        file_name: data.photo.file_name ?? null,
-        file_size: data.photo.file_size ?? null,
-        uploaded_by: userId,
-      } as never)
-      .select("id,storage_path,slot_key,section_key,caption,comment,created_at,taken_at,latitude,longitude,file_name,uploaded_by")
-      .single();
-    if (error || !row) throw new Error(error?.message ?? "Enregistrement de la photo impossible.");
+      .select("id,storage_path")
+      .eq("visit_id", data.visitId)
+      .eq("company_id", data.companyId)
+      .eq("slot_key", p.slot_key)
+      .order("created_at", { ascending: true });
 
-    await supabase.from("technical_visit_photo_skips").delete().eq("visit_id", data.visitId).eq("slot_key", data.photo.slot_key);
+    const meta = {
+      section_key: p.section_key,
+      slot_key: p.slot_key,
+      storage_path: p.storage_path,
+      caption: p.caption ?? null,
+      comment: p.comment ?? null,
+      latitude: p.latitude ?? null,
+      longitude: p.longitude ?? null,
+      accuracy: p.accuracy ?? null,
+      taken_at: p.taken_at ?? null,
+      exif_metadata: p.exif_metadata ?? null,
+      file_hash: p.file_hash ?? null,
+      file_name: p.file_name ?? null,
+      file_size: realSize || null,
+      uploaded_by: userId,
+    };
+    const select = "id,storage_path,slot_key,section_key,caption,comment,created_at,taken_at,latitude,longitude,file_name,uploaded_by";
+
+    let row: any = null;
+    let replacedPath: string | null = null;
+    if (data.replace_photo_id) {
+      const target = (existing ?? []).find((e) => e.id === data.replace_photo_id);
+      if (!target) await fail("La photo à remplacer n'existe plus : rechargez la visite.");
+      // Remplacement effectif : la ligne existante pointe vers le nouveau fichier.
+      // En cas d'échec, l'ancienne photo reste intacte et le nouveau fichier est retiré.
+      const { data: upd, error } = await supabase
+        .from("technical_visit_photos")
+        .update(meta as never)
+        .eq("id", target!.id)
+        .eq("company_id", data.companyId)
+        .select(select)
+        .single();
+      if (error || !upd) await fail("Remplacement de la photo impossible. L'ancienne photo est conservée.");
+      row = upd;
+      replacedPath = target!.storage_path;
+    } else {
+      if (!hit!.slot.multiple && (existing ?? []).length > 0) {
+        await fail("Cet emplacement accepte une seule photo : utilisez « Remplacer ».");
+      }
+      const { data: ins, error } = await supabase
+        .from("technical_visit_photos")
+        .insert({ ...meta, visit_id: data.visitId, company_id: data.companyId } as never)
+        .select(select)
+        .single();
+      if (error || !ins) await fail("Enregistrement de la photo impossible.");
+      row = ins;
+    }
+
+    if (replacedPath && replacedPath !== p.storage_path) {
+      await supabase.storage.from(VISIT_BUCKET).remove([replacedPath]).catch(() => undefined);
+    }
+    await supabase.from("technical_visit_photo_skips").delete().eq("visit_id", data.visitId).eq("slot_key", p.slot_key);
 
     await writeAuditLog({
       companyId: data.companyId,
       userId,
       entityType: "technical_visit",
       entityId: data.visitId,
-      action: "visite.photo_added",
-      metadata: { slot_key: data.photo.slot_key, section_key: data.photo.section_key },
+      action: replacedPath ? "visite.photo_replaced" : "visite.photo_added",
+      metadata: { slot_key: p.slot_key, section_key: p.section_key },
     });
 
     const [signed] = await signVisitPhotos(supabase, [row]);
     const percent = await refreshVisitCompletion(supabase, data.visitId);
-    return { ok: true, photo: signed, completion_percent: percent };
+    return { ok: true, photo: signed, completion_percent: percent, replaced: !!replacedPath };
   });
 
 export const deleteVisitPhoto = createServerFn({ method: "POST" })
