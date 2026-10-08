@@ -7,7 +7,8 @@
  *
  * Règle de nettoyage : le fichier n'est supprimé QUE sur un refus métier
  * déterministe explicitement marqué par le serveur (validation du fichier ou
- * de l'emplacement, autorisation). Une erreur réseau ou non classifiable n'est
+ * de l'emplacement). Les contrôles d'accès dépendent de la base/du réseau et
+ * de l'état : une erreur à ce stade n'est PAS un refus, jamais de suppression.
  * jamais un refus, même si les lectures suivantes ne trouvent pas la photo :
  * l'appel initial peut encore être en cours et valider plus tard. Dans ce cas
  * le fichier est conservé et le résultat est « incertain ».

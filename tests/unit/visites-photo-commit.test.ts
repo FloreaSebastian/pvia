@@ -159,6 +159,29 @@ describe("photo — erreurs non classifiables : jamais de suppression", () => {
     expect(removed).toBe(false);
   });
 
+  // Régression : l'assertion d'accès de addVisitPhoto n'est plus entourée d'un
+  // catch qui marquait TOUTE erreur en refus + suppression. Une panne DB/réseau
+  // ou un changement d'état pendant l'assertion doit laisser le fichier intact.
+  test("erreur de contrôle d'accès (panne DB/réseau) non marquée : pas de marqueur, pas de suppression", async () => {
+    let removed = false;
+    let attempts = 0;
+    const err = new Error("Vérification de l'accès impossible. Réessayez.");
+    expect(isDeterministicPhotoRefusal(err)).toBe(false);
+    const out = await commitVisitPhoto({
+      add: async () => {
+        attempts++;
+        throw err; // assertCanEditVisit échoue (DB/réseau/état), erreur brute propagée
+      },
+      isReferenced: async () => false, // la photo n'est évidemment pas enregistrée
+      removeFile: async () => {
+        removed = true; // ne doit JAMAIS être appelé sur ce type d'erreur
+      },
+    });
+    expect(attempts).toBe(2);
+    expect(out.status).toBe("uncertain");
+    expect(removed).toBe(false);
+  });
+
   test("marqueur de refus : reconnu et retiré du message affiché", () => {
     const e = photoRefusal("Photo trop lourde (10 Mo maximum).");
     expect(isDeterministicPhotoRefusal(e)).toBe(true);
