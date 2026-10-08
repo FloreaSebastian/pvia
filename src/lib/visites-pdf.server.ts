@@ -7,7 +7,14 @@
  * dimensionnement ni conclusion de conformité n'est produit ici.
  * Appelé uniquement après contrôle d'appartenance + formule côté serveur.
  */
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import {
+  PDFDocument,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFImage,
+  type PDFPage,
+} from "pdf-lib";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getCompanyBranding, formatBrandingAddress } from "./branding.server";
 import { getVisitTemplate } from "./visites/templates";
@@ -70,11 +77,18 @@ function fmtDate(iso: string | null | undefined, withTime = false): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "-";
   return withTime
-    ? d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Paris" })
+    ? d.toLocaleString("fr-FR", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "Europe/Paris",
+      })
     : d.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
 }
 
-export async function buildVisitReportPdf(companyId: string, visitId: string): Promise<{ bytes: Uint8Array; fileName: string }> {
+export async function buildVisitReportPdf(
+  companyId: string,
+  visitId: string,
+): Promise<{ bytes: Uint8Array; fileName: string }> {
   const { data: visit } = await supabaseAdmin
     .from("technical_visits")
     .select(
@@ -94,7 +108,10 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
       .select("slot_key,section_key,storage_path,caption,comment,taken_at")
       .eq("visit_id", visitId)
       .order("created_at", { ascending: true }),
-    supabaseAdmin.from("technical_visit_photo_skips").select("slot_key,reason,justification").eq("visit_id", visitId),
+    supabaseAdmin
+      .from("technical_visit_photo_skips")
+      .select("slot_key,reason,justification")
+      .eq("visit_id", visitId),
     supabaseAdmin
       .from("technical_visit_constraints")
       .select("category,level,title,description,recommendation")
@@ -104,7 +121,11 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
 
   let assignee = "-";
   if (v.assigned_to) {
-    const { data: p } = await supabaseAdmin.from("profiles").select("full_name").eq("id", v.assigned_to).maybeSingle();
+    const { data: p } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", v.assigned_to)
+      .maybeSingle();
     assignee = p?.full_name || "-";
   }
 
@@ -141,7 +162,16 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
   const need = (h: number) => {
     if (y - h < MARGIN + 20) newPage();
   };
-  const text = (t: string, opts: { size?: number; f?: PDFFont; color?: ReturnType<typeof rgb>; x?: number; width?: number } = {}) => {
+  const text = (
+    t: string,
+    opts: {
+      size?: number;
+      f?: PDFFont;
+      color?: ReturnType<typeof rgb>;
+      x?: number;
+      width?: number;
+    } = {},
+  ) => {
     const size = opts.size ?? 10;
     const f = opts.f ?? font;
     const x = opts.x ?? MARGIN;
@@ -154,7 +184,13 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
   const heading = (t: string) => {
     need(40);
     y -= 8;
-    page.drawRectangle({ x: MARGIN, y: y - 18, width: W, height: 20, color: rgb(0.93, 0.95, 0.97) });
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - 18,
+      width: W,
+      height: 20,
+      color: rgb(0.93, 0.95, 0.97),
+    });
     page.drawText(pdfSafe(t), { x: MARGIN + 6, y: y - 13, size: 11, font: bold, color: accent });
     y -= 26;
   };
@@ -164,8 +200,12 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
     const vLines = wrap(font, value, 9, W - lw);
     const h = Math.max(lLines.length, vLines.length) * 12 + 2;
     need(h);
-    lLines.forEach((l, i) => page.drawText(l, { x: MARGIN, y: y - 9 - i * 12, size: 9, font: bold, color: muted }));
-    vLines.forEach((l, i) => page.drawText(l, { x: MARGIN + lw, y: y - 9 - i * 12, size: 9, font, color: ink }));
+    lLines.forEach((l, i) =>
+      page.drawText(l, { x: MARGIN, y: y - 9 - i * 12, size: 9, font: bold, color: muted }),
+    );
+    vLines.forEach((l, i) =>
+      page.drawText(l, { x: MARGIN + lw, y: y - 9 - i * 12, size: 9, font, color: ink }),
+    );
     y -= h;
   };
 
@@ -175,7 +215,13 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
   if (branding) {
     const addr = formatBrandingAddress(branding).replace(/\n/g, " - ");
     if (addr) text(addr, { size: 8, color: muted });
-    const contact = [branding.phone, branding.email, branding.siret ? `SIRET ${branding.siret}` : null].filter(Boolean).join(" - ");
+    const contact = [
+      branding.phone,
+      branding.email,
+      branding.siret ? `SIRET ${branding.siret}` : null,
+    ]
+      .filter(Boolean)
+      .join(" - ");
     if (contact) text(contact, { size: 8, color: muted });
   }
   y -= 10;
@@ -185,12 +231,16 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
 
   heading("Informations générales");
   const client = v.client ?? {};
-  const clientLabel = client.client_type === "entreprise" ? client.company_name || client.name : client.name;
+  const clientLabel =
+    client.client_type === "entreprise" ? client.company_name || client.name : client.name;
   row("Client", clientLabel || "-");
   row("Contact client", [client.phone, client.email].filter(Boolean).join(" - ") || "-");
   row("Chantier", [v.chantier?.reference, v.chantier?.name].filter(Boolean).join(" - ") || "-");
   row("Adresse du site", v.site_address || v.chantier?.address || client.address || "-");
-  row("Contact sur site", [v.site_contact_name, v.site_contact_phone].filter(Boolean).join(" - ") || "-");
+  row(
+    "Contact sur site",
+    [v.site_contact_name, v.site_contact_phone].filter(Boolean).join(" - ") || "-",
+  );
   row("Technicien", assignee);
   row("Date prévue", fmtDate(v.scheduled_at, true));
   row("Visite réalisée le", fmtDate(v.completed_at ?? v.started_at, true));
@@ -199,7 +249,9 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
   if (v.validated_at) row("Validée le", fmtDate(v.validated_at, true));
 
   // Éléments manquants
-  const missing = progress.sections.filter((s) => s.missingFieldLabels.length + s.missingPhotoLabels.length > 0);
+  const missing = progress.sections.filter(
+    (s) => s.missingFieldLabels.length + s.missingPhotoLabels.length > 0,
+  );
   heading("Éléments manquants");
   if (missing.length === 0) text("Aucun élément obligatoire manquant.", { size: 9, color: muted });
   for (const s of missing) {
@@ -225,7 +277,10 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
       for (const slot of block.photos) {
         const skip = skips.find((s) => s.slot_key === slot.answerKey);
         if (skip) {
-          row(`Photo : ${slot.label}`, `Non photographiée - ${PHOTO_SKIP_REASON_LABEL[skip.reason as PhotoSkipReason] ?? skip.reason}${skip.justification ? ` (${skip.justification})` : ""}`);
+          row(
+            `Photo : ${slot.label}`,
+            `Non photographiée - ${PHOTO_SKIP_REASON_LABEL[skip.reason as PhotoSkipReason] ?? skip.reason}${skip.justification ? ` (${skip.justification})` : ""}`,
+          );
           any = true;
         }
       }
@@ -248,14 +303,19 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
 
   // Photos
   const slotLabel = new Map<string, string>();
-  for (const rs of sections) for (const b of rs.blocks) for (const p of b.photos) slotLabel.set(p.answerKey, b.label ? `${p.label} (${b.label})` : p.label);
+  for (const rs of sections)
+    for (const b of rs.blocks)
+      for (const p of b.photos)
+        slotLabel.set(p.answerKey, b.label ? `${p.label} (${b.label})` : p.label);
   heading(`Photos (${photos.length})`);
   if (photos.length === 0) text("Aucune photo.", { size: 9, color: muted });
   const shown = photos.slice(0, VISIT_PDF_MAX_PHOTOS);
   for (const p of shown) {
     let img: PDFImage | null = null;
     try {
-      const { data: blob } = await supabaseAdmin.storage.from(VISIT_BUCKET).download(p.storage_path);
+      const { data: blob } = await supabaseAdmin.storage
+        .from(VISIT_BUCKET)
+        .download(p.storage_path);
       if (blob) {
         const buf = new Uint8Array(await blob.arrayBuffer());
         const isPng = buf[0] === 0x89 && buf[1] === 0x50;
@@ -265,7 +325,11 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
     } catch {
       img = null;
     }
-    const caption = [slotLabel.get(p.slot_key) ?? p.slot_key, p.caption, p.taken_at ? fmtDate(p.taken_at, true) : null]
+    const caption = [
+      slotLabel.get(p.slot_key) ?? p.slot_key,
+      p.caption,
+      p.taken_at ? fmtDate(p.taken_at, true) : null,
+    ]
       .filter(Boolean)
       .join(" - ");
     if (img) {
@@ -286,7 +350,10 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
     y -= 8;
   }
   if (photos.length > shown.length) {
-    text(`${photos.length - shown.length} photo(s) supplémentaire(s) consultable(s) dans PVIA.`, { size: 8, color: muted });
+    text(`${photos.length - shown.length} photo(s) supplémentaire(s) consultable(s) dans PVIA.`, {
+      size: 8,
+      color: muted,
+    });
   }
 
   heading("Portée du document");
@@ -295,13 +362,16 @@ export async function buildVisitReportPdf(companyId: string, visitId: string): P
   // Pied de page
   const pages = pdf.getPages();
   pages.forEach((pg, i) => {
-    pg.drawText(pdfSafe(`${v.reference} - Rapport de visite technique - page ${i + 1}/${pages.length}`), {
-      x: MARGIN,
-      y: 22,
-      size: 7,
-      font,
-      color: muted,
-    });
+    pg.drawText(
+      pdfSafe(`${v.reference} - Rapport de visite technique - page ${i + 1}/${pages.length}`),
+      {
+        x: MARGIN,
+        y: 22,
+        size: 7,
+        font,
+        color: muted,
+      },
+    );
   });
 
   const bytes = await pdf.save();

@@ -18,7 +18,8 @@ export function isFeatureEnabled(flag: FeatureFlag): boolean {
 }
 
 /** Message utilisateur unique pour un module masqué. */
-export const MODULE_UNAVAILABLE_MESSAGE = "Ce module est en cours de développement et n'est pas encore disponible.";
+export const MODULE_UNAVAILABLE_MESSAGE =
+  "Ce module est en cours de développement et n'est pas encore disponible.";
 
 /** Lève une erreur compréhensible si le module est désactivé (gardes serveur). */
 export function assertFeatureEnabled(flag: FeatureFlag): void {
