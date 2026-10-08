@@ -242,7 +242,7 @@ function TerrainPage() {
   const locked = !canEdit || billingBlocked;
 
   return (
-    <div className="mx-auto w-full max-w-3xl min-w-0 pb-32">
+    <div className="mx-auto w-full max-w-3xl min-w-0 pb-48 lg:pb-32">
       <header className="sticky top-0 z-20 -mx-0 border-b bg-background/95 px-3 py-2 backdrop-blur sm:px-4">
         <div className="flex min-w-0 items-center gap-2">
           <Button asChild variant="ghost" size="icon" className="h-11 w-11 shrink-0">
