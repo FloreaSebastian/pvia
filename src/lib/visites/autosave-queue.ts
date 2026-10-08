@@ -54,7 +54,9 @@ export async function sendDirtySnapshot<R>(
   save: (entries: { field_key: string; section_key: string; value: unknown }[]) => Promise<R>,
 ): Promise<{ result: R; sentKeys: string[] }> {
   const snapshot = Array.from(dirty.entries());
-  const result = await save(snapshot.map(([field_key, v]) => ({ field_key, section_key: v.section_key, value: v.value })));
+  const result = await save(
+    snapshot.map(([field_key, v]) => ({ field_key, section_key: v.section_key, value: v.value })),
+  );
   for (const [key, ref] of snapshot) {
     if (dirty.get(key) === ref) dirty.delete(key);
   }
