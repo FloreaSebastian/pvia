@@ -869,10 +869,17 @@ export const quickCreateVisitClient = createServerFn({ method: "POST" })
     const phone = data.phone ? data.phone.replace(/\s+/g, "") : null;
     const select = "id,name,company_name,client_type,address_line1,postal_code,city";
 
-    if (email || phone) {
-      let dq = supabase.from("clients").select(select).eq("company_id", data.companyId).is("archived_at", null).limit(1);
-      dq = email && phone ? dq.or(`email.eq.${email},phone.eq.${phone}`) : email ? dq.eq("email", email) : dq.eq("phone", phone!);
-      const { data: existing } = await dq.maybeSingle();
+    // Deux requêtes paramétrées (pas de filtre `or` construit à partir de la saisie).
+    for (const [col, val] of [["email", email], ["phone", phone]] as const) {
+      if (!val) continue;
+      const { data: existing } = await supabase
+        .from("clients")
+        .select(select)
+        .eq("company_id", data.companyId)
+        .is("archived_at", null)
+        .eq(col, val)
+        .limit(1)
+        .maybeSingle();
       if (existing) return { client: existing, reused: true as const };
     }
 
