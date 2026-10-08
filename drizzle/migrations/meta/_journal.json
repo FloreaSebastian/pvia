@@ -22,6 +22,13 @@
       "when": 1791495790922,
       "tag": "0002_technical_visit_rpc_role_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791496650887,
+      "tag": "0003_technical_visit_photo_path_unique",
+      "breakpoints": true
     }
   ]
 }
