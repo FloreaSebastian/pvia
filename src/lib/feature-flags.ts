@@ -6,10 +6,10 @@
  * en douceur et ses fonctions serveur refusent l'accès. Pour le réactiver,
  * passer la valeur à `true` — aucune migration n'est nécessaire.
  */
-export const FEATURE_FLAGS = {
+export const FEATURE_FLAGS: Readonly<Record<"studies", boolean>> = {
   /** « Cahiers des charges » (pré-études) + Solar Studio rattaché — en développement. */
   studies: false,
-} as const;
+};
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
 
