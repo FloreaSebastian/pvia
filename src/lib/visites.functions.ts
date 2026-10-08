@@ -263,7 +263,7 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
         }
       }
 
-      const clientLabel = client.client_type === "professionnel" ? client.company_name || client.name : client.name;
+      const clientLabel = (client.client_type === "entreprise" || client.client_type === "professionnel") ? client.company_name || client.name : client.name;
       const { data: created, error: chErr } = await supabase
         .from("chantiers")
         .insert({
@@ -843,7 +843,7 @@ export const previewChantierNameForVisit = createServerFn({ method: "POST" })
       .eq("company_id", data.companyId)
       .maybeSingle();
     if (!client) throw new Error("Client introuvable.");
-    const label = client.client_type === "professionnel" ? client.company_name || client.name : client.name;
+    const label = (client.client_type === "entreprise" || client.client_type === "professionnel") ? client.company_name || client.name : client.name;
     return {
       name: buildChantierName(data.visit_type, label ?? ""),
       addressKey: normalizeAddressKey(client),

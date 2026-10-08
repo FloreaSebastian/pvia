@@ -17,7 +17,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
-import { createTechnicalVisit, listVisitAssignees } from "@/lib/visites.functions";
+import { createTechnicalVisit, listVisitAssignees, quickCreateVisitClient } from "@/lib/visites.functions";
+import { UserPlus } from "lucide-react";
 import { VISIT_TYPE_OPTIONS } from "@/lib/visites/templates";
 import type { VisitType } from "@/lib/visites/types";
 import { FeatureGate } from "@/components/billing/FeatureGate";
@@ -83,6 +84,41 @@ function NouvelleVisitePage() {
 
   const createFn = useServerFn(createTechnicalVisit);
   const assigneesFn = useServerFn(listVisitAssignees);
+  const quickClientFn = useServerFn(quickCreateVisitClient);
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newClientBusy, setNewClientBusy] = useState(false);
+  const [newClient, setNewClient] = useState({
+    client_type: "particulier" as "particulier" | "entreprise",
+    name: "",
+    company_name: "",
+    phone: "",
+    email: "",
+    address_line1: "",
+    postal_code: "",
+    city: "",
+  });
+
+  async function submitNewClient() {
+    if (!activeCompanyId) return;
+    if (newClient.name.trim().length < 2) {
+      toast.error("Indiquez le nom du client.");
+      return;
+    }
+    setNewClientBusy(true);
+    try {
+      const r = await quickClientFn({ data: { companyId: activeCompanyId, ...newClient } });
+      const c = r.client as unknown as ClientRow;
+      setClients((prev) => (prev.some((p) => p.id === c.id) ? prev : [c, ...prev]));
+      setClientId(c.id);
+      setNewClientOpen(false);
+      toast.success(r.reused ? "Client existant retrouvé (même e-mail ou téléphone) : sélectionné." : "Client créé et sélectionné.");
+    } catch (e: any) {
+      const msg = String(e?.message ?? "");
+      toast.error(msg.startsWith("[") ? "Vérifiez les informations du client (nom, e-mail, téléphone, code postal)." : msg || "Création du client impossible.");
+    } finally {
+      setNewClientBusy(false);
+    }
+  }
 
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -288,12 +324,79 @@ function NouvelleVisitePage() {
               className="h-11 pl-9"
             />
           </div>
+          <Button
+            type="button"
+            variant={newClientOpen ? "secondary" : "outline"}
+            className="h-11 w-full gap-2 sm:w-auto"
+            onClick={() => {
+              setNewClientOpen((o) => !o);
+              setNewClient((p) => ({ ...p, name: p.name || clientQuery.trim() }));
+            }}
+            aria-expanded={newClientOpen}
+          >
+            <UserPlus className="h-4 w-4" aria-hidden="true" /> Nouveau client
+          </Button>
+          {newClientOpen ? (
+            <Card className="min-w-0 space-y-3 p-3 sm:p-4">
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Type de client">
+                {(["particulier", "entreprise"] as const).map((t) => (
+                  <Button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={newClient.client_type === t}
+                    variant={newClient.client_type === t ? "default" : "outline"}
+                    className="h-11"
+                    onClick={() => setNewClient((p) => ({ ...p, client_type: t }))}
+                  >
+                    {t === "particulier" ? "Particulier" : "Professionnel"}
+                  </Button>
+                ))}
+              </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <div className="min-w-0 space-y-1">
+                  <Label htmlFor="nc-name">{newClient.client_type === "entreprise" ? "Contact" : "Nom"} *</Label>
+                  <Input id="nc-name" className="h-11" autoComplete="name" value={newClient.name} onChange={(e) => setNewClient((p) => ({ ...p, name: e.target.value }))} />
+                </div>
+                {newClient.client_type === "entreprise" ? (
+                  <div className="min-w-0 space-y-1">
+                    <Label htmlFor="nc-company">Raison sociale</Label>
+                    <Input id="nc-company" className="h-11" autoComplete="organization" value={newClient.company_name} onChange={(e) => setNewClient((p) => ({ ...p, company_name: e.target.value }))} />
+                  </div>
+                ) : null}
+                <div className="min-w-0 space-y-1">
+                  <Label htmlFor="nc-phone">Téléphone</Label>
+                  <Input id="nc-phone" className="h-11" type="tel" inputMode="tel" autoComplete="tel" value={newClient.phone} onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label htmlFor="nc-email">E-mail</Label>
+                  <Input id="nc-email" className="h-11" type="email" inputMode="email" autoComplete="email" value={newClient.email} onChange={(e) => setNewClient((p) => ({ ...p, email: e.target.value }))} />
+                </div>
+                <div className="min-w-0 space-y-1 sm:col-span-2">
+                  <Label htmlFor="nc-addr">Adresse du site</Label>
+                  <Input id="nc-addr" className="h-11" autoComplete="street-address" value={newClient.address_line1} onChange={(e) => setNewClient((p) => ({ ...p, address_line1: e.target.value }))} />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label htmlFor="nc-cp">Code postal</Label>
+                  <Input id="nc-cp" className="h-11" inputMode="numeric" maxLength={5} autoComplete="postal-code" value={newClient.postal_code} onChange={(e) => setNewClient((p) => ({ ...p, postal_code: e.target.value.replace(/\D/g, "") }))} />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label htmlFor="nc-city">Ville</Label>
+                  <Input id="nc-city" className="h-11" autoComplete="address-level2" value={newClient.city} onChange={(e) => setNewClient((p) => ({ ...p, city: e.target.value }))} />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Si un client porte déjà cet e-mail ou ce téléphone, il est simplement sélectionné (aucun doublon).
+              </p>
+              <Button type="button" className="h-11 w-full sm:w-auto" onClick={() => void submitNewClient()} disabled={newClientBusy}>
+                {newClientBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                Créer et sélectionner
+              </Button>
+            </Card>
+          ) : null}
           {filteredClients.length === 0 ? (
             <Card className="p-4 text-sm text-muted-foreground">
-              Aucun client trouvé.{" "}
-              <Link to="/clients" className="underline">
-                Créer un client
-              </Link>
+              Aucun client trouvé : utilisez « Nouveau client » ci-dessus.
             </Card>
           ) : (
             <ul className="space-y-2">
@@ -311,7 +414,7 @@ function NouvelleVisitePage() {
                     >
                       <span className="min-w-0">
                         <span className="block break-words text-sm font-medium">
-                          {c.client_type === "professionnel" ? c.company_name || c.name : c.name}
+                          {c.client_type === "entreprise" || c.client_type === "professionnel" ? c.company_name || c.name : c.name}
                         </span>
                         <span className="block break-words text-xs text-muted-foreground">
                           {[c.address_line1, c.postal_code, c.city].filter(Boolean).join(" · ") || "Adresse non renseignée"}
