@@ -1,3 +1,5 @@
+import { redirect } from "@tanstack/react-router";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -25,6 +27,10 @@ import {
 
 
 export const Route = createFileRoute("/_authenticated/cahiers-des-charges/")({
+  // Module masqué tant que FEATURE_FLAGS.studies est false (redirection douce, sans boucle).
+  beforeLoad: () => {
+    if (!isFeatureEnabled("studies")) throw redirect({ to: "/visites-techniques", replace: true });
+  },
   head: () => ({
     meta: [
       { title: "Cahiers des charges — PVIA" },

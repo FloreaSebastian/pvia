@@ -67,6 +67,8 @@ function TerrainPage() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  /** Dernier envoi en échec (hors blocage abonnement) : affiché tant qu'il n'est pas rattrapé. */
+  const [saveFailed, setSaveFailed] = useState(false);
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [finishing, setFinishing] = useState(false);
   /** Nombre de champs saisis non encore confirmés côté serveur (mémoire écran). */
@@ -159,6 +161,7 @@ function TerrainPage() {
         if (dirtyRef.current.get(key) === ref) dirtyRef.current.delete(key);
       }
       setSavedAt(new Date());
+      setSaveFailed(false);
       setSyncSuspended(false);
       setPendingCount(dirtyRef.current.size);
     } catch (e: any) {
@@ -172,7 +175,8 @@ function TerrainPage() {
         reportError(e);
         return;
       }
-      toast.error(e?.message ?? "Enregistrement différé : réessayez.");
+      setSaveFailed(true);
+      toast.error("Enregistrement échoué : vos dernières réponses ne sont pas sauvegardées. Touchez « Réessayer ».");
     } finally {
       inFlightRef.current = false;
       setSaving(false);
@@ -207,6 +211,10 @@ function TerrainPage() {
     setFinishing(true);
     try {
       await flush();
+      if (dirtyRef.current.size > 0) {
+        toast.error("Certaines réponses ne sont pas encore enregistrées. Réessayez la sauvegarde avant de terminer.");
+        return;
+      }
       await statusFn({ data: { companyId: activeCompanyId, visitId: id, status: "terminee" } });
       toast.success("Visite terminée : en attente de validation.");
       navigate({ to: "/visites-techniques/$id", params: { id } });
@@ -234,7 +242,7 @@ function TerrainPage() {
   const locked = !canEdit || billingBlocked;
 
   return (
-    <div className="mx-auto w-full max-w-3xl min-w-0 pb-32">
+    <div className="mx-auto w-full max-w-3xl min-w-0 pb-48 lg:pb-32">
       <header className="sticky top-0 z-20 -mx-0 border-b bg-background/95 px-3 py-2 backdrop-blur sm:px-4">
         <div className="flex min-w-0 items-center gap-2">
           <Button asChild variant="ghost" size="icon" className="h-11 w-11 shrink-0">
@@ -259,10 +267,22 @@ function TerrainPage() {
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 Enregistrement
               </span>
+            ) : saveFailed && pendingCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => void flush()}
+                className="inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs font-medium text-destructive underline-offset-2 hover:underline"
+                aria-label="Échec de l'enregistrement, réessayer"
+              >
+                <CloudOff className="h-3.5 w-3.5" aria-hidden="true" />
+                Échec · Réessayer
+              </button>
+            ) : pendingCount > 0 ? (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">Modifications non enregistrées</span>
             ) : savedAt ? (
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-                Enregistré
+                Enregistré {savedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
               </span>
             ) : null}
           </div>
@@ -460,7 +480,7 @@ function TerrainPage() {
 
       <nav
         aria-label="Navigation des étapes"
-        className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur"
+        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex gap-2 border-t bg-background/95 p-3 backdrop-blur lg:bottom-0 lg:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
       >
         <Button
           type="button"

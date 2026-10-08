@@ -8,6 +8,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { isFeatureEnabled, assertFeatureEnabled } from "@/lib/feature-flags";
 import { requireClientScope, ACCESS_DENIED, companyKey } from "@/lib/client-access.server";
 
 const VISIBLE_STATUSES = ["sent", "accepted", "refused"] as const;
@@ -27,6 +28,7 @@ export type ClientStudyRow = {
 
 /** Liste des cahiers des charges reçus par le client connecté. */
 export const getClientStudies = createServerFn({ method: "GET" }).handler(async (): Promise<ClientStudyRow[]> => {
+  if (!isFeatureEnabled("studies")) return [];
   const scope = await requireClientScope();
   if (scope.clientIds.length === 0) return [];
 
@@ -71,6 +73,7 @@ export const getClientStudies = createServerFn({ method: "GET" }).handler(async 
 export const getClientStudyPdfUrl = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ studyId: z.string().uuid() }).parse(i))
   .handler(async ({ data }): Promise<{ url: string }> => {
+    assertFeatureEnabled("studies");
     const scope = await requireClientScope();
 
     const { data: study } = await supabaseAdmin

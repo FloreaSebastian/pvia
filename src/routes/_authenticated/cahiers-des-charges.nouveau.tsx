@@ -1,3 +1,5 @@
+import { redirect } from "@tanstack/react-router";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -17,6 +19,10 @@ import { STUDY_TYPE_OPTIONS } from "@/lib/etudes/templates";
 import type { StudyType } from "@/lib/etudes/types";
 
 export const Route = createFileRoute("/_authenticated/cahiers-des-charges/nouveau")({
+  // Module masqué tant que FEATURE_FLAGS.studies est false (redirection douce, sans boucle).
+  beforeLoad: () => {
+    if (!isFeatureEnabled("studies")) throw redirect({ to: "/visites-techniques", replace: true });
+  },
   head: () => ({
     meta: [
       { title: "Nouveau cahier des charges — PVIA" },

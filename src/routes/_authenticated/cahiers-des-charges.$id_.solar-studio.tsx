@@ -1,3 +1,5 @@
+import { redirect } from "@tanstack/react-router";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { ClientOnly } from "@tanstack/react-router";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -93,6 +95,10 @@ import {
 const SolarScene = lazy(() => import("@/components/solar/SolarScene"));
 
 export const Route = createFileRoute("/_authenticated/cahiers-des-charges/$id_/solar-studio")({
+  // Module masqué tant que FEATURE_FLAGS.studies est false (redirection douce, sans boucle).
+  beforeLoad: () => {
+    if (!isFeatureEnabled("studies")) throw redirect({ to: "/visites-techniques", replace: true });
+  },
   ssr: false,
   head: () => ({
     meta: [

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Camera, Loader2, Trash2, Ban, MapPin, Check, X } from "lucide-react";
+import { Camera, Loader2, Trash2, Ban, MapPin, Check, X, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +70,7 @@ export function VisitPhotoSlotCard({
   companyId, visitId, sectionKey, slot, photos, skip, canEdit, onChanged,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [skipOpen, setSkipOpen] = useState(false);
   const [skipReason, setSkipReason] = useState<PhotoSkipReason>("inaccessible");
@@ -91,6 +92,7 @@ export function VisitPhotoSlotCard({
     // si l'entreprise est en lecture seule.
     if (!requireWrite("ajouter une photo de visite")) {
       if (inputRef.current) inputRef.current.value = "";
+      if (galleryRef.current) galleryRef.current.value = "";
       return;
     }
     setBusy(true);
@@ -155,6 +157,7 @@ export function VisitPhotoSlotCard({
       }
     }
     if (inputRef.current) inputRef.current.value = "";
+    if (galleryRef.current) galleryRef.current.value = "";
     setBusy(false);
     if (ok > 0) {
       toast.success(ok > 1 ? `${ok} photos ajoutées` : "Photo ajoutée");
@@ -327,6 +330,25 @@ export function VisitPhotoSlotCard({
               <Camera className="mr-2 h-4 w-4" aria-hidden="true" />
             )}
             {done ? (slot.multiple ? "Ajouter" : "Remplacer") : "Photographier"}
+          </Button>
+          <input
+            ref={galleryRef}
+            type="file"
+            accept="image/*"
+            multiple={slot.multiple}
+            className="hidden"
+            onChange={(e) => upload(e.target.files)}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-11 flex-1 min-w-[8rem]"
+            onClick={() => galleryRef.current?.click()}
+            disabled={busy}
+          >
+            <ImageIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+            Galerie
           </Button>
           {!done && !skipped ? (
             <Button

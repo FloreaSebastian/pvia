@@ -19,7 +19,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
-import { deleteTechnicalVisit, getTechnicalVisit, setVisitStatus } from "@/lib/visites.functions";
+import { deleteTechnicalVisit, generateVisitReportPdf, getTechnicalVisit, setVisitStatus } from "@/lib/visites.functions";
+import { FileDown } from "lucide-react";
 import { getVisitTemplate, isVisitType } from "@/lib/visites/templates";
 import { computeProgress, resolveSections, formatAnswer } from "@/lib/visites/engine";
 import { CONSTRAINT_CATEGORY_LABEL, type AnswerMap, type ConstraintCategory } from "@/lib/visites/types";
@@ -65,6 +66,30 @@ function VisiteDetailPage() {
   const getFn = useServerFn(getTechnicalVisit);
   const statusFn = useServerFn(setVisitStatus);
   const deleteFn = useServerFn(deleteTechnicalVisit);
+  const pdfFn = useServerFn(generateVisitReportPdf);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  async function downloadPdf() {
+    if (!activeCompanyId) return;
+    setPdfBusy(true);
+    try {
+      const r = await pdfFn({ data: { companyId: activeCompanyId, visitId: id } });
+      const bin = atob(r.base64);
+      const buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([buf], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = r.fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Génération du rapport impossible. Réessayez.");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
   const { deny } = useBlockedActionGuard();
 
   const [loading, setLoading] = useState(true);
@@ -279,9 +304,12 @@ function VisiteDetailPage() {
             Réouvrir
           </Button>
         ) : null}
-        <Button variant="outline" className="h-11" onClick={() => window.print()}>
-          <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
-          Rapport
+        <Button variant="outline" className="h-11" onClick={() => void downloadPdf()} disabled={pdfBusy}>
+          {pdfBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />}
+          Rapport PDF
+        </Button>
+        <Button variant="ghost" className="h-11" onClick={() => window.print()} aria-label="Imprimer la fiche">
+          <Printer className="h-4 w-4" aria-hidden="true" />
         </Button>
         {canManage && visit.status === "validee" ? (
           <Button variant="outline" className="h-11" onClick={() => { if (deny("archiver la visite")) return; void changeStatus("archivee"); }} disabled={busy}>

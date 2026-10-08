@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "./audit.server";
 import { assertPlanFeature } from "./plan-guard.server";
+import { searchVisits } from "./visites/search";
 import {
   AnswerEntrySchema,
   ConstraintPayloadSchema,
@@ -17,6 +18,7 @@ import {
   VisitPlanningSchema,
   VisitStatusSchema,
   VisitTypeSchema,
+  QuickClientSchema,
 } from "./visites/schemas";
 import {
   assertCanEditVisit,
@@ -32,6 +34,9 @@ import {
   signVisitPhotos,
   VISIT_BUCKET,
 } from "./visites.server";
+
+/** Nombre maximal de visites parcourues par une recherche texte. */
+const VISIT_SEARCH_CAP = 1000;
 
 /** Liste paginée + compteurs KPI. */
 export const listTechnicalVisits = createServerFn({ method: "POST" })
@@ -59,30 +64,20 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
     if (data.from) q = q.gte("scheduled_at", `${data.from}T00:00:00Z`);
     if (data.to) q = q.lte("scheduled_at", `${data.to}T23:59:59Z`);
 
-    const { data: rows, error, count } = await q
+    const term = data.search.trim().toLowerCase();
+    // Avec une recherche, on filtre sur l'ensemble des visites (plafonné) puis on
+    // pagine en mémoire : auparavant seule la page courante était filtrée, si bien
+    // qu'une visite existante pouvait être introuvable.
+    const ordered = q
       .order("scheduled_at", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .range(data.offset, data.offset + data.limit - 1);
+      .order("created_at", { ascending: false });
+    const { data: rows, error, count } = term
+      ? await ordered.range(0, VISIT_SEARCH_CAP - 1)
+      : await ordered.range(data.offset, data.offset + data.limit - 1);
     if (error) throw new Error(error.message);
 
-    const term = data.search.trim().toLowerCase();
-    const filtered = !term
-      ? rows ?? []
-      : (rows ?? []).filter((r: any) => {
-          const hay = [
-            r.reference,
-            r.chantier?.name,
-            r.chantier?.reference,
-            r.chantier?.address,
-            r.chantier?.city,
-            r.client?.name,
-            r.client?.company_name,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(term);
-        });
+    const searched = term ? searchVisits((rows ?? []) as never[], term, data.offset, data.limit) : null;
+    const filtered = searched ? searched.page : rows ?? [];
 
     const { data: kpiRows } = await supabase
       .from("technical_visits")
@@ -101,8 +96,8 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
 
     return {
       visits: filtered,
-      total: count ?? filtered.length,
-      hasMore: (count ?? 0) > data.offset + data.limit,
+      total: searched ? searched.total : count ?? filtered.length,
+      hasMore: searched ? searched.hasMore : (count ?? 0) > data.offset + data.limit,
       kpis,
     };
   });
@@ -252,7 +247,7 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
         }
       }
 
-      const clientLabel = client.client_type === "professionnel" ? client.company_name || client.name : client.name;
+      const clientLabel = (client.client_type === "entreprise" || client.client_type === "professionnel") ? client.company_name || client.name : client.name;
       const { data: created, error: chErr } = await supabase
         .from("chantiers")
         .insert({
@@ -832,7 +827,7 @@ export const previewChantierNameForVisit = createServerFn({ method: "POST" })
       .eq("company_id", data.companyId)
       .maybeSingle();
     if (!client) throw new Error("Client introuvable.");
-    const label = client.client_type === "professionnel" ? client.company_name || client.name : client.name;
+    const label = (client.client_type === "entreprise" || client.client_type === "professionnel") ? client.company_name || client.name : client.name;
     return {
       name: buildChantierName(data.visit_type, label ?? ""),
       addressKey: normalizeAddressKey(client),
@@ -840,4 +835,93 @@ export const previewChantierNameForVisit = createServerFn({ method: "POST" })
       postal_code: client.postal_code ?? "",
       city: client.city ?? "",
     };
+  });
+
+/**
+ * Création rapide d'un client depuis l'assistant de visite.
+ * Anti-doublon : si un client actif de l'entreprise porte déjà cet e-mail ou ce
+ * téléphone, il est renvoyé tel quel (jamais modifié ni dupliqué).
+ */
+export const quickCreateVisitClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => QuickClientSchema.parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanManage(supabase, data.companyId, userId);
+
+    const email = data.email ? data.email.trim().toLowerCase() : null;
+    const phone = data.phone ? data.phone.replace(/\s+/g, "") : null;
+    const select = "id,name,company_name,client_type,address_line1,postal_code,city";
+
+    // Deux requêtes paramétrées (pas de filtre `or` construit à partir de la saisie).
+    for (const [col, val] of [["email", email], ["phone", phone]] as const) {
+      if (!val) continue;
+      const { data: existing } = await supabase
+        .from("clients")
+        .select(select)
+        .eq("company_id", data.companyId)
+        .is("archived_at", null)
+        .eq(col, val)
+        .limit(1)
+        .maybeSingle();
+      if (existing) return { client: existing, reused: true as const };
+    }
+
+    const isPro = data.client_type === "entreprise";
+    const line1 = data.address_line1.trim();
+    const postal = data.postal_code.trim();
+    const city = data.city.trim();
+    const { data: created, error } = await supabase
+      .from("clients")
+      .insert({
+        company_id: data.companyId,
+        owner_id: userId,
+        client_type: data.client_type,
+        name: data.name.trim(),
+        company_name: isPro ? data.company_name?.trim() || data.name.trim() : null,
+        email,
+        phone,
+        address_line1: line1 || null,
+        postal_code: postal || null,
+        city: city || null,
+        address: composeAddress(line1, postal, city),
+      } as never)
+      .select(select)
+      .single();
+    if (error || !created) throw new Error("Création du client impossible. Vérifiez les informations saisies.");
+
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId,
+      entityType: "client",
+      entityId: (created as { id: string }).id,
+      action: "client.create",
+      metadata: { source: "visite_technique" },
+    });
+    return { client: created, reused: false as const };
+  });
+
+/**
+ * Rapport PDF technique de la visite (téléchargement direct, rien n'est stocké).
+ * Accès : membre actif de l'entreprise + formule incluant la visite technique.
+ */
+export const generateVisitReportPdf = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), visitId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertIsMember(supabase, data.companyId, userId);
+    await assertPlanFeature(data.companyId, "technical_visits", userId);
+    // Contrôle d'appartenance via le client utilisateur (RLS) AVANT toute lecture privilégiée.
+    await loadVisitScoped(supabase, data.companyId, data.visitId);
+    const { buildVisitReportPdf } = await import("./visites-pdf.server");
+    const { bytes, fileName } = await buildVisitReportPdf(data.companyId, data.visitId);
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId,
+      entityType: "technical_visit",
+      entityId: data.visitId,
+      action: "visite.report_pdf",
+    });
+    return { fileName, base64: Buffer.from(bytes).toString("base64") };
   });

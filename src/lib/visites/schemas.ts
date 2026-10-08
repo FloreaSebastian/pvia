@@ -137,3 +137,35 @@ export type CreateVisitInput = z.infer<typeof CreateVisitSchema>;
 export type VisitFiltersInput = z.infer<typeof VisitFiltersSchema>;
 export type ConstraintPayload = z.infer<typeof ConstraintPayloadSchema>;
 export type VisitPhotoPayload = z.infer<typeof VisitPhotoPayloadSchema>;
+
+/** Création rapide d'un client depuis l'assistant de visite technique. */
+export const QuickClientSchema = z
+  .object({
+    companyId: z.string().uuid(),
+    client_type: z.enum(["particulier", "entreprise"]).default("particulier"),
+    name: z.string().trim().min(2, "Nom du client requis (2 caractères minimum).").max(200),
+    company_name: z.string().trim().max(200).optional().nullable(),
+    email: z
+      .string()
+      .trim()
+      .max(254)
+      .optional()
+      .nullable()
+      .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "Adresse e-mail invalide."),
+    phone: z
+      .string()
+      .trim()
+      .max(30)
+      .optional()
+      .nullable()
+      .refine((v) => !v || /^\+?[0-9 .-]{6,20}$/.test(v), "Numéro de téléphone invalide."),
+    address_line1: z.string().trim().max(300).default(""),
+    postal_code: z
+      .string()
+      .trim()
+      .max(10)
+      .default("")
+      .refine((v) => !v || /^[0-9]{5}$/.test(v), "Code postal : 5 chiffres."),
+    city: z.string().trim().max(150).default(""),
+  });
+export type QuickClientInput = z.infer<typeof QuickClientSchema>;
