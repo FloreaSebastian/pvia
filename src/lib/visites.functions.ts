@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "./audit.server";
 import { assertPlanFeature } from "./plan-guard.server";
+import { searchVisits } from "./visites/search";
 import {
   AnswerEntrySchema,
   ConstraintPayloadSchema,
@@ -75,25 +76,8 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
       : await ordered.range(data.offset, data.offset + data.limit - 1);
     if (error) throw new Error(error.message);
 
-    const matched = !term
-      ? rows ?? []
-      : (rows ?? []).filter((r: any) => {
-          const hay = [
-            r.reference,
-            r.chantier?.name,
-            r.chantier?.reference,
-            r.chantier?.address,
-            r.chantier?.city,
-            r.client?.name,
-            r.client?.company_name,
-            r.chantier?.postal_code,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(term);
-        });
-    const filtered = term ? matched.slice(data.offset, data.offset + data.limit) : matched;
+    const searched = term ? searchVisits((rows ?? []) as never[], term, data.offset, data.limit) : null;
+    const filtered = searched ? searched.page : rows ?? [];
 
     const { data: kpiRows } = await supabase
       .from("technical_visits")
@@ -112,8 +96,8 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
 
     return {
       visits: filtered,
-      total: term ? matched.length : count ?? filtered.length,
-      hasMore: term ? matched.length > data.offset + data.limit : (count ?? 0) > data.offset + data.limit,
+      total: searched ? searched.total : count ?? filtered.length,
+      hasMore: searched ? searched.hasMore : (count ?? 0) > data.offset + data.limit,
       kpis,
     };
   });
