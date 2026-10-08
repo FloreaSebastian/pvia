@@ -52,7 +52,7 @@ export function pdfSafe(value: unknown): string {
     .replace(/[\u2013\u2014]/g, "-")
     .replace(/\u2026/g, "...")
     .replace(/[\u00A0\u202F]/g, " ")
-    .replace(/[^\x00-\xFF]/g, "");
+    .replace(/[^\t\n\r\u0020-\u00FF]/g, "");
 }
 
 function wrap(font: PDFFont, text: string, size: number, maxWidth: number): string[] {
@@ -98,6 +98,7 @@ export async function buildVisitReportPdf(
     .eq("company_id", companyId)
     .maybeSingle();
   if (!visit) throw new Error("Visite introuvable.");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- jointures Supabase non typées
   const v = visit as unknown as Record<string, any>;
 
   const [branding, answersRes, photosRes, skipsRes, constraintsRes] = await Promise.all([
