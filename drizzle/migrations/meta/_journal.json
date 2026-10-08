@@ -15,6 +15,13 @@
       "when": 1791494255362,
       "tag": "0001_technical_visit_rpc_plan_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791495790922,
+      "tag": "0002_technical_visit_rpc_role_guard",
+      "breakpoints": true
     }
   ]
 }
