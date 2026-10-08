@@ -10,7 +10,8 @@ function fakeServer() {
     rows,
     files,
     add(path: string) {
-      if (![...rows.values()].some((r) => r.path === path)) rows.set(`p${++n}`, { id: `p${n}`, path });
+      if (![...rows.values()].some((r) => r.path === path))
+        rows.set(`p${++n}`, { id: `p${n}`, path });
     },
     replace(id: string, path: string) {
       const r = rows.get(id)!;
@@ -64,9 +65,15 @@ describe("enregistrement photo — réponse réseau perdue", () => {
   test("vérification impossible : résultat incertain, fichier jamais effacé", async () => {
     let removed = false;
     const out = await commitVisitPhoto({
-      add: async () => { throw new TypeError("offline"); },
-      isReferenced: async () => { throw new TypeError("offline"); },
-      removeFile: async () => { removed = true; },
+      add: async () => {
+        throw new TypeError("offline");
+      },
+      isReferenced: async () => {
+        throw new TypeError("offline");
+      },
+      removeFile: async () => {
+        removed = true;
+      },
     });
     expect(out.status).toBe("uncertain");
     expect(removed).toBe(false);
@@ -95,7 +102,9 @@ describe("enregistrement photo — réponse réseau perdue", () => {
     s.files.add("old.jpg");
     s.files.add("bad.jpg");
     const out = await commitVisitPhoto({
-      add: async () => { throw new Error("Ce fichier n'est pas une image JPEG, PNG ou WebP valide."); },
+      add: async () => {
+        throw new Error("Ce fichier n'est pas une image JPEG, PNG ou WebP valide.");
+      },
       isReferenced: async () => s.referenced("bad.jpg"),
       removeFile: async () => s.files.delete("bad.jpg"),
     });
