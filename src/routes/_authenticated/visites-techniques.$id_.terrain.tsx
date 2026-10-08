@@ -211,6 +211,10 @@ function TerrainPage() {
     setFinishing(true);
     try {
       await flush();
+      if (dirtyRef.current.size > 0) {
+        toast.error("Certaines réponses ne sont pas encore enregistrées. Réessayez la sauvegarde avant de terminer.");
+        return;
+      }
       await statusFn({ data: { companyId: activeCompanyId, visitId: id, status: "terminee" } });
       toast.success("Visite terminée : en attente de validation.");
       navigate({ to: "/visites-techniques/$id", params: { id } });
