@@ -92,6 +92,7 @@ export function VisitPhotoSlotCard({
     // si l'entreprise est en lecture seule.
     if (!requireWrite("ajouter une photo de visite")) {
       if (inputRef.current) inputRef.current.value = "";
+      if (galleryRef.current) galleryRef.current.value = "";
       return;
     }
     setBusy(true);
@@ -156,6 +157,7 @@ export function VisitPhotoSlotCard({
       }
     }
     if (inputRef.current) inputRef.current.value = "";
+    if (galleryRef.current) galleryRef.current.value = "";
     setBusy(false);
     if (ok > 0) {
       toast.success(ok > 1 ? `${ok} photos ajoutées` : "Photo ajoutée");
