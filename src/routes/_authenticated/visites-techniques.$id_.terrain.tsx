@@ -1,4 +1,4 @@
-import { createAutosaveQueue } from "@/lib/visites/autosave-queue";
+import { createAutosaveQueue, sendDirtySnapshot } from "@/lib/visites/autosave-queue";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -179,23 +179,20 @@ function TerrainPage() {
     [template, answers, photoSlotSet, skipSlotSet, constraints.length],
   );
 
-  /** Envoie la file en attente. Renvoie true si la file est vide à l'issue de l'envoi. */
+  /** Envoie la file en attente. true = envoi réussi (la file décide s'il reste des saisies), false = échec. */
   const sendOnce = useCallback(async (): Promise<boolean> => {
     if (!activeCompanyId) return false;
     if (dirtyRef.current.size === 0) return true;
-    // Snapshot par identité : une saisie remplacée pendant l'appel reste en file.
-    const snapshot = Array.from(dirtyRef.current.entries());
-    const entries = snapshot.map(([field_key, v]) => ({ field_key, section_key: v.section_key, value: v.value }));
     setSaving(true);
     try {
-      const res = await saveFn({ data: { companyId: activeCompanyId, visitId: id, entries } });
+      // Snapshot par identité : une saisie remplacée pendant l'appel reste en file.
+      const { result: res, sentKeys } = await sendDirtySnapshot(dirtyRef.current as never, (entries) =>
+        saveFn({ data: { companyId: activeCompanyId, visitId: id, entries: entries as never } }),
+      );
       const rejected = new Map((res.fieldErrors ?? []).map((e) => [e.field_key, e.message]));
-      for (const [key, ref] of snapshot) {
-        if (dirtyRef.current.get(key) === ref) dirtyRef.current.delete(key);
-      }
       setFieldErrors((prev) => {
         const next = { ...prev };
-        for (const [key] of snapshot) delete next[key];
+        for (const key of sentKeys) delete next[key];
         for (const [k, m] of rejected) next[k] = m;
         return next;
       });
@@ -205,7 +202,7 @@ function TerrainPage() {
       setSyncSuspended(false);
       setPendingCount(dirtyRef.current.size);
       persistLocal();
-      return dirtyRef.current.size === 0;
+      return true;
     } catch (e: any) {
       setPendingCount(dirtyRef.current.size);
       persistLocal();
