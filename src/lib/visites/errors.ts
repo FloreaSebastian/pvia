@@ -8,6 +8,8 @@ const MESSAGES: Record<string, string> = {
   VT_ASSIGNEE_INVALID: "Le technicien choisi n'est pas un membre actif de votre entreprise.",
   VT_VISIT_NOT_FOUND: "Visite introuvable.",
   VT_PLAN_REQUIRED: "Les visites techniques sont incluses dans les offres Pro, Business et Entreprise.",
+  VT_FORBIDDEN: "Seuls les responsables de l’entreprise peuvent créer ou planifier une visite.",
+  VT_WRITE_LOCKED: "Abonnement inactif : modification impossible pour le moment.",
   VT_VISIT_ARCHIVED: "Visite archivée : modification impossible.",
 };
 

@@ -455,7 +455,27 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const p = data.photo;
-    const removeUpload = () => supabase.storage.from(VISIT_BUCKET).remove([p.storage_path]).catch(() => undefined);
+    const select = "id,storage_path,slot_key,section_key,caption,comment,created_at,taken_at,latitude,longitude,file_name,uploaded_by";
+    const findByPath = async () => {
+      const { data: r, error } = await supabase
+        .from("technical_visit_photos")
+        .select(select)
+        .eq("visit_id", data.visitId)
+        .eq("company_id", data.companyId)
+        .eq("storage_path", p.storage_path)
+        .maybeSingle();
+      if (error) throw new Error("Vérification de la photo impossible. Réessayez.");
+      return r as any;
+    };
+    // Ne supprime jamais un fichier déjà référencé par une photo (ni en cas de doute).
+    const removeUpload = async () => {
+      try {
+        if (await findByPath()) return;
+      } catch {
+        return;
+      }
+      await supabase.storage.from(VISIT_BUCKET).remove([p.storage_path]).catch(() => undefined);
+    };
     // Le chemin doit appartenir à cette entreprise, cette visite ET cet emplacement.
     const prefix = `${data.companyId}/visites/${data.visitId}/${p.slot_key}/`;
     if (!p.storage_path.startsWith(prefix) || p.storage_path.includes("..")) {
@@ -467,6 +487,15 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
     } catch (e) {
       await removeUpload();
       throw e;
+    }
+    // Idempotence par chemin : une nouvelle tentative après réponse perdue renvoie la photo déjà enregistrée.
+    {
+      const already = await findByPath();
+      if (already) {
+        const [signed] = await signVisitPhotos(supabase, [already]);
+        const percent = await refreshVisitCompletion(supabase, data.visitId);
+        return { ok: true, photo: signed, completion_percent: percent, replaced: false, reused: true };
+      }
     }
     const fail = async (msg: string): Promise<never> => {
       await removeUpload();
@@ -517,8 +546,6 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
       file_size: realSize || null,
       uploaded_by: userId,
     };
-    const select = "id,storage_path,slot_key,section_key,caption,comment,created_at,taken_at,latitude,longitude,file_name,uploaded_by";
-
     let row: any = null;
     let replacedPath: string | null = null;
     if (data.replace_photo_id) {
@@ -565,7 +592,27 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
 
     const [signed] = await signVisitPhotos(supabase, [row]);
     const percent = await refreshVisitCompletion(supabase, data.visitId);
-    return { ok: true, photo: signed, completion_percent: percent, replaced: !!replacedPath };
+    return { ok: true, photo: signed, completion_percent: percent, replaced: !!replacedPath, reused: false };
+  });
+
+/** Réconciliation après réponse perdue : la photo de ce chemin est-elle enregistrée ? */
+export const findVisitPhotoByPath = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({ companyId: z.string().uuid(), visitId: z.string().uuid(), storagePath: z.string().min(1).max(600) }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
+    const { data: r, error } = await supabase
+      .from("technical_visit_photos")
+      .select("id")
+      .eq("visit_id", data.visitId)
+      .eq("company_id", data.companyId)
+      .eq("storage_path", data.storagePath)
+      .maybeSingle();
+    if (error) throw new Error("Vérification de la photo impossible.");
+    return { referenced: !!r };
   });
 
 export const deleteVisitPhoto = createServerFn({ method: "POST" })

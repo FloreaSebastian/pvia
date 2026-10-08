@@ -9,11 +9,12 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { commitVisitPhoto } from "@/lib/visites/photo-commit";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { useServerFn } from "@tanstack/react-start";
-import { addVisitPhoto, deleteVisitPhoto, skipVisitPhoto, removeVisitPhotoSkip } from "@/lib/visites.functions";
+import { addVisitPhoto, findVisitPhotoByPath, deleteVisitPhoto, skipVisitPhoto, removeVisitPhotoSkip } from "@/lib/visites.functions";
 import { compressImageFile } from "@/lib/image-compress";
 import { readExif, sanitizeExifForUpload, tryGetGps } from "@/lib/photo-exif";
 import { PHOTO_SKIP_REASON_LABEL, type PhotoSkipReason } from "@/lib/visites/types";
@@ -83,6 +84,7 @@ export function VisitPhotoSlotCard({
 
   const { requireWrite } = useBillingGate();
   const addFn = useServerFn(addVisitPhoto);
+  const findFn = useServerFn(findVisitPhotoByPath);
   const delFn = useServerFn(deleteVisitPhoto);
   const skipFn = useServerFn(skipVisitPhoto);
   const unskipFn = useServerFn(removeVisitPhotoSkip);
@@ -148,7 +150,7 @@ export function VisitPhotoSlotCard({
         if (upErr) throw new Error("Envoi du fichier impossible. Vérifiez la connexion et réessayez.");
         uploadedPath = storagePath;
 
-        await addFn({
+        const addPayload = {
           data: {
             companyId,
             visitId,
@@ -168,12 +170,23 @@ export function VisitPhotoSlotCard({
               file_size: file.size,
             },
           },
+        };
+        const outcome = await commitVisitPhoto({
+          add: () => addFn(addPayload),
+          isReferenced: async () =>
+            (await findFn({ data: { companyId, visitId, storagePath } })).referenced,
+          removeFile: () => supabase.storage.from("pv-assets").remove([storagePath]),
         });
+        // Le fichier est désormais soit référencé, soit déjà nettoyé, soit volontairement conservé.
         uploadedPath = null;
+        if (outcome.status === "uncertain") {
+          throw new Error("Connexion perdue : la photo est peut-être enregistrée. Rechargez la visite avant de réessayer.");
+        }
+        if (outcome.status === "refused") throw outcome.error;
         ok++;
         if (!slot.multiple) break;
       } catch (e: any) {
-        // Métadonnées refusées : le fichier envoyé ne doit pas rester orphelin.
+        // Seul un envoi non encore soumis au serveur est nettoyé ici.
         if (uploadedPath) await supabase.storage.from("pv-assets").remove([uploadedPath]).catch(() => undefined);
         toast.error(e?.message ?? "Envoi de la photo impossible");
         if (!slot.multiple) break;
