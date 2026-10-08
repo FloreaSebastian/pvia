@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { commitVisitPhoto } from "@/lib/visites/photo-commit";
+import { commitVisitPhoto, photoErrorMessage } from "@/lib/visites/photo-commit";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useBillingGate } from "@/components/billing/BillingGate";
@@ -188,7 +188,7 @@ export function VisitPhotoSlotCard({
       } catch (e: any) {
         // Seul un envoi non encore soumis au serveur est nettoyé ici.
         if (uploadedPath) await supabase.storage.from("pv-assets").remove([uploadedPath]).catch(() => undefined);
-        toast.error(e?.message ?? "Envoi de la photo impossible");
+        toast.error(photoErrorMessage(e));
         if (!slot.multiple) break;
       }
     }

@@ -11,6 +11,7 @@ import { assertPlanFeature } from "./plan-guard.server";
 import { getVisitTemplate } from "./visites/templates";
 import { findTemplateSlot, validateAnswerEntries, VISIT_PHOTO_EXT, VISIT_PHOTO_MAX_BYTES } from "./visites/validation";
 import { friendlyVisitDbError } from "./visites/errors";
+import { photoRefusal } from "./visites/photo-commit";
 import {
   AnswerEntrySchema,
   ConstraintPayloadSchema,
@@ -479,26 +480,40 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
     // Le chemin doit appartenir à cette entreprise, cette visite ET cet emplacement.
     const prefix = `${data.companyId}/visites/${data.visitId}/${p.slot_key}/`;
     if (!p.storage_path.startsWith(prefix) || p.storage_path.includes("..")) {
-      throw new Error("Chemin de stockage invalide.");
+      throw photoRefusal("Chemin de stockage invalide.");
     }
     let visit;
     try {
       visit = await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
     } catch (e) {
+      // Accès refusé : décision d'autorisation, identique pour un appel concurrent.
       await removeUpload();
-      throw e;
+      throw photoRefusal((e as Error)?.message ?? "Accès refusé.");
     }
     // Idempotence par chemin : une nouvelle tentative après réponse perdue renvoie la photo déjà enregistrée.
+    const reuseRow = async (already: any) => {
+      const [signed] = await signVisitPhotos(supabase, [already]);
+      const percent = await refreshVisitCompletion(supabase, data.visitId);
+      return { ok: true, photo: signed, completion_percent: percent, replaced: false, reused: true };
+    };
+    const reuse = async () => {
+      const already = await findByPath();
+      if (!already) throw new Error("Enregistrement de la photo incertain : rechargez la visite.");
+      return reuseRow(already);
+    };
     {
       const already = await findByPath();
-      if (already) {
-        const [signed] = await signVisitPhotos(supabase, [already]);
-        const percent = await refreshVisitCompletion(supabase, data.visitId);
-        return { ok: true, photo: signed, completion_percent: percent, replaced: false, reused: true };
-      }
+      if (already) return reuseRow(already);
     }
+    // Refus déterministe (même résultat pour tout appel concurrent du même fichier) : nettoyage autorisé.
     const fail = async (msg: string): Promise<never> => {
       await removeUpload();
+      throw photoRefusal(msg);
+    };
+    // Refus dépendant de l'état (concurrence possible) : jamais de suppression du fichier.
+    const failKeep = async (msg: string) => {
+      const already = await findByPath().catch(() => null);
+      if (already) return reuseRow(already);
       throw new Error(msg);
     };
     const hit = findTemplateSlot(getVisitTemplate(visit.visit_type as never), p.section_key, p.slot_key);
@@ -550,7 +565,7 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
     let replacedPath: string | null = null;
     if (data.replace_photo_id) {
       const target = (existing ?? []).find((e) => e.id === data.replace_photo_id);
-      if (!target) await fail("La photo à remplacer n'existe plus : rechargez la visite.");
+      if (!target) return await failKeep("La photo à remplacer n'existe plus : rechargez la visite.");
       // Remplacement effectif : la ligne existante pointe vers le nouveau fichier.
       // En cas d'échec, l'ancienne photo reste intacte et le nouveau fichier est retiré.
       const { data: upd, error } = await supabase
@@ -560,19 +575,22 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
         .eq("company_id", data.companyId)
         .select(select)
         .single();
-      if (error || !upd) await fail("Remplacement de la photo impossible. L'ancienne photo est conservée.");
+      if (error?.code === "23505") return await reuse();
+      if (error || !upd) throw new Error("Remplacement de la photo impossible. L'ancienne photo est conservée.");
       row = upd;
       replacedPath = target!.storage_path;
     } else {
       if (!hit!.slot.multiple && (existing ?? []).length > 0) {
-        await fail("Cet emplacement accepte une seule photo : utilisez « Remplacer ».");
+        return await failKeep("Cet emplacement accepte une seule photo : utilisez « Remplacer ».");
       }
       const { data: ins, error } = await supabase
         .from("technical_visit_photos")
         .insert({ ...meta, visit_id: data.visitId, company_id: data.companyId } as never)
         .select(select)
         .single();
-      if (error || !ins) await fail("Enregistrement de la photo impossible.");
+      // Conflit d'unicité (appel concurrent du même chemin) : on relit la photo existante.
+      if (error?.code === "23505") return await reuse();
+      if (error || !ins) throw new Error("Enregistrement de la photo impossible.");
       row = ins;
     }
 
