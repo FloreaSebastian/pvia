@@ -33,6 +33,9 @@ import {
   VISIT_BUCKET,
 } from "./visites.server";
 
+/** Nombre maximal de visites parcourues par une recherche texte. */
+const VISIT_SEARCH_CAP = 1000;
+
 /** Liste paginée + compteurs KPI. */
 export const listTechnicalVisits = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -59,14 +62,19 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
     if (data.from) q = q.gte("scheduled_at", `${data.from}T00:00:00Z`);
     if (data.to) q = q.lte("scheduled_at", `${data.to}T23:59:59Z`);
 
-    const { data: rows, error, count } = await q
+    const term = data.search.trim().toLowerCase();
+    // Avec une recherche, on filtre sur l'ensemble des visites (plafonné) puis on
+    // pagine en mémoire : auparavant seule la page courante était filtrée, si bien
+    // qu'une visite existante pouvait être introuvable.
+    const ordered = q
       .order("scheduled_at", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .range(data.offset, data.offset + data.limit - 1);
+      .order("created_at", { ascending: false });
+    const { data: rows, error, count } = term
+      ? await ordered.range(0, VISIT_SEARCH_CAP - 1)
+      : await ordered.range(data.offset, data.offset + data.limit - 1);
     if (error) throw new Error(error.message);
 
-    const term = data.search.trim().toLowerCase();
-    const filtered = !term
+    const matched = !term
       ? rows ?? []
       : (rows ?? []).filter((r: any) => {
           const hay = [
@@ -77,12 +85,14 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
             r.chantier?.city,
             r.client?.name,
             r.client?.company_name,
+            r.chantier?.postal_code,
           ]
             .filter(Boolean)
             .join(" ")
             .toLowerCase();
           return hay.includes(term);
         });
+    const filtered = term ? matched.slice(data.offset, data.offset + data.limit) : matched;
 
     const { data: kpiRows } = await supabase
       .from("technical_visits")
@@ -101,8 +111,8 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
 
     return {
       visits: filtered,
-      total: count ?? filtered.length,
-      hasMore: (count ?? 0) > data.offset + data.limit,
+      total: term ? matched.length : count ?? filtered.length,
+      hasMore: term ? matched.length > data.offset + data.limit : (count ?? 0) > data.offset + data.limit,
       kpis,
     };
   });
