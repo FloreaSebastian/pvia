@@ -220,7 +220,7 @@ function TerrainPage() {
     } finally {
       setSaving(false);
     }
-  }, [activeCompanyId, id, saveFn, reportError, persistLocal]);
+  }, [activeCompanyId, id, saveFn, reportError, persistLocal, setFieldErrors]);
 
   /** Sérialise les envois : attend l'envoi en cours avant d'en lancer un nouveau. */
   const flush = useCallback(async (): Promise<boolean> => {
