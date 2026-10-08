@@ -70,6 +70,7 @@ export function VisitPhotoSlotCard({
   companyId, visitId, sectionKey, slot, photos, skip, canEdit, onChanged,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [skipOpen, setSkipOpen] = useState(false);
   const [skipReason, setSkipReason] = useState<PhotoSkipReason>("inaccessible");
@@ -327,6 +328,25 @@ export function VisitPhotoSlotCard({
               <Camera className="mr-2 h-4 w-4" aria-hidden="true" />
             )}
             {done ? (slot.multiple ? "Ajouter" : "Remplacer") : "Photographier"}
+          </Button>
+          <input
+            ref={galleryRef}
+            type="file"
+            accept="image/*"
+            multiple={slot.multiple}
+            className="hidden"
+            onChange={(e) => upload(e.target.files)}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-11 flex-1 min-w-[8rem]"
+            onClick={() => galleryRef.current?.click()}
+            disabled={busy}
+          >
+            <ImageIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+            Galerie
           </Button>
           {!done && !skipped ? (
             <Button
