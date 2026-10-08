@@ -482,14 +482,10 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
     if (!p.storage_path.startsWith(prefix) || p.storage_path.includes("..")) {
       throw photoRefusal("Chemin de stockage invalide.");
     }
-    let visit;
-    try {
-      visit = await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
-    } catch (e) {
-      // Accès refusé : décision d'autorisation, identique pour un appel concurrent.
-      await removeUpload();
-      throw photoRefusal((e as Error)?.message ?? "Accès refusé.");
-    }
+    // Assertion d'accès : dépend de la base/du réseau et de l'état (panne, concurrence).
+    // Une erreur ici n'est PAS un refus déterministe : on propage sans nettoyer le fichier
+    // (il reste "incertain", jamais supprimé) et sans marqueur de refus.
+    const visit = await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
     // Idempotence par chemin : une nouvelle tentative après réponse perdue renvoie la photo déjà enregistrée.
     const reuseRow = async (already: any) => {
       const [signed] = await signVisitPhotos(supabase, [already]);
