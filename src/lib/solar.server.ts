@@ -26,6 +26,7 @@ import type {
 import { DEFAULT_BUILDING_PARAMS, normalizeValidityStatus } from "./solar/types";
 import type { TerrainGrid } from "./solar/terrain";
 import type { CoverageStatus } from "./solar/providers/types";
+import { assertFeatureEnabled } from "./feature-flags";
 
 type SB = SupabaseClient<Database>;
 
@@ -37,6 +38,8 @@ export type SolarMeasurementRow = Database["public"]["Tables"]["solar_measuremen
 
 /** Lecture : tout membre actif de l'entreprise. */
 export async function assertSolarMember(sb: SB, companyId: string, userId: string) {
+  // Module « Études / Solar Studio » masqué : refus avant toute lecture.
+  assertFeatureEnabled("studies");
   const { data, error } = await sb.rpc("is_company_member", {
     _company_id: companyId,
     _user_id: userId,
@@ -47,6 +50,7 @@ export async function assertSolarMember(sb: SB, companyId: string, userId: strin
 
 /** Écriture : rôle de gestion ET entreprise en droit d'écrire (abonnement). */
 export async function assertSolarManage(sb: SB, companyId: string, userId: string) {
+  assertFeatureEnabled("studies");
   const { data, error } = await sb.rpc("can_manage_company", {
     _company_id: companyId,
     _user_id: userId,

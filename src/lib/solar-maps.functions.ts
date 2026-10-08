@@ -10,6 +10,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertSolarMember } from "./solar.server";
+import { assertFeatureEnabled } from "./feature-flags";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/google_maps";
 
@@ -38,6 +39,8 @@ function credentials(): { lovable: string; connection: string } | null {
 export const getMapsBrowserKey = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async (): Promise<{ key: string | null; source: "pvia" | "pvia_dev" | "none"; buildId: string }> => {
+    // Clé utilisée exclusivement par la carte Solar Studio : refusée si le module est masqué.
+    assertFeatureEnabled("studies");
     const buildId = process.env["BUILD_ID"] ?? process.env["VITE_BUILD_ID"] ?? "inconnu";
     // Séparation stricte fondée sur l'origine réelle de l'appel : une origine
     // locale ne reçoit jamais la clé de production, et inversement.
