@@ -916,3 +916,31 @@ export const quickCreateVisitClient = createServerFn({ method: "POST" })
     });
     return { client: created, reused: false as const };
   });
+
+/**
+ * Rapport PDF technique de la visite (téléchargement direct, rien n'est stocké).
+ * Accès : membre actif de l'entreprise + formule incluant la visite technique.
+ */
+export const generateVisitReportPdf = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), visitId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertIsMember(supabase, data.companyId, userId);
+    const { hasPlanFeature } = await import("./plan-guard.server");
+    if (!(await hasPlanFeature(data.companyId, "technical_visits"))) {
+      throw new Error("Fonctionnalité « Visite technique » non incluse dans votre plan actuel.");
+    }
+    // Contrôle d'appartenance via le client utilisateur (RLS) AVANT toute lecture privilégiée.
+    await loadVisitScoped(supabase, data.companyId, data.visitId);
+    const { buildVisitReportPdf } = await import("./visites-pdf.server");
+    const { bytes, fileName } = await buildVisitReportPdf(data.companyId, data.visitId);
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId,
+      entityType: "technical_visit",
+      entityId: data.visitId,
+      action: "visite.report_pdf",
+    });
+    return { fileName, base64: Buffer.from(bytes).toString("base64") };
+  });
