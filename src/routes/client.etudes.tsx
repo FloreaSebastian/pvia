@@ -13,9 +13,11 @@ import { getClientStudies, getClientStudyPdfUrl } from "@/lib/etudes-client.func
 import { getStudyTemplate } from "@/lib/etudes/templates";
 import { STUDY_STATUS_META, type StudyStatus, type StudyType } from "@/lib/etudes/types";
 import { toast } from "sonner";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
 export const Route = createFileRoute("/client/etudes")({
   beforeLoad: async () => {
+    if (!isFeatureEnabled("studies")) throw redirect({ to: "/client/dashboard", replace: true });
     const s = await getClientSession();
     if (!s) throw redirect({ to: "/client/login" });
     return { session: s };

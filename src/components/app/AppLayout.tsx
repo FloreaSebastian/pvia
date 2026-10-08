@@ -45,6 +45,7 @@ import { useViewport } from "@/hooks/use-viewport";
 import { ImmersiveProvider, useImmersive } from "@/hooks/use-immersive";
 import { GlobalSearch } from "@/components/app/GlobalSearch";
 import { isAdminRole, isOwnerRole } from "@/lib/roles";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
 import { getCompanyVisualIdentity } from "@/lib/company-visual";
@@ -57,17 +58,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const mainNav = [
+const allMainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/pv", label: "Procès-verbaux", icon: FileText },
   { to: "/reserves", label: "Réserves", icon: AlertCircle },
-  { to: "/cahiers-des-charges", label: "Cahiers des charges", icon: ClipboardCheck },
+  { to: "/cahiers-des-charges", label: "Cahiers des charges", icon: ClipboardCheck, flag: "studies" as const },
   { to: "/visites-techniques", label: "Visites techniques", icon: ClipboardList },
   { to: "/chantiers/calendrier", label: "Calendrier", icon: Calendar },
   { to: "/chantiers", label: "Chantiers", icon: HardHat },
   { to: "/clients", label: "Clients", icon: Users },
   { to: "/statistiques", label: "Statistiques", icon: BarChart3 },
 ] as const;
+
+/** Navigation principale filtrée par les interrupteurs de modules. */
+const mainNav = allMainNav.filter((n) => !("flag" in n) || isFeatureEnabled(n.flag));
 
 type CompanyMenuItem = {
   to: string;

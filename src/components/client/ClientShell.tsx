@@ -8,13 +8,16 @@ import { logoutClientSession } from "@/lib/client-auth.functions";
 import { toast } from "sonner";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 
-const NAV = [
+const ALL_NAV = [
   { to: "/client/dashboard", label: "Mes PV", icon: LayoutDashboard },
-  { to: "/client/etudes", label: "Cahiers", icon: ClipboardCheck },
+  { to: "/client/etudes", label: "Cahiers", icon: ClipboardCheck, flag: "studies" as const },
   { to: "/client/historique", label: "Historique", icon: History },
   { to: "/client/profil", label: "Profil", icon: User },
 ] as const;
+
+const NAV = ALL_NAV.filter((n) => !("flag" in n) || isFeatureEnabled(n.flag));
 
 export function ClientShell({
   email,

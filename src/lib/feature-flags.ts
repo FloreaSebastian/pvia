@@ -24,11 +24,3 @@ export const MODULE_UNAVAILABLE_MESSAGE = "Ce module est en cours de développem
 export function assertFeatureEnabled(flag: FeatureFlag): void {
   if (!isFeatureEnabled(flag)) throw new Error(MODULE_UNAVAILABLE_MESSAGE);
 }
-
-/**
- * Garde de route : redirige vers une page existante et toujours accessible
- * (jamais vers une route elle-même masquée → aucune boucle possible).
- */
-export function studiesRouteGuard(fallback: "/visites-techniques" | "/client/dashboard" = "/visites-techniques") {
-  return fallback;
-}

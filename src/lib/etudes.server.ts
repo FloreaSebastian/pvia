@@ -1,3 +1,4 @@
+import { assertFeatureEnabled } from "./feature-flags";
 /**
  * Cahiers des charges — helpers serveur (droits, complétude, instantanés).
  * Importé uniquement par src/lib/etudes.functions.ts et le générateur PDF.
@@ -19,6 +20,7 @@ type StudyRow = Database["public"]["Tables"]["technical_studies"]["Row"];
 
 /** Lecture : tout membre actif de l'entreprise. */
 export async function assertStudyMember(sb: SB, companyId: string, userId: string) {
+  assertFeatureEnabled("studies");
   const { data, error } = await sb.rpc("is_company_member", { _company_id: companyId, _user_id: userId });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Accès refusé.");
@@ -26,6 +28,7 @@ export async function assertStudyMember(sb: SB, companyId: string, userId: strin
 
 /** Écriture : rôle de gestion + entreprise en droit d'écrire (abonnement). */
 export async function assertStudyManage(sb: SB, companyId: string, userId: string) {
+  assertFeatureEnabled("studies");
   const { data, error } = await sb.rpc("can_manage_company", { _company_id: companyId, _user_id: userId });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Droits insuffisants.");
@@ -35,6 +38,7 @@ export async function assertStudyManage(sb: SB, companyId: string, userId: strin
 
 /** Administration (validation, décision commerciale, suppression). */
 export async function assertStudyAdmin(sb: SB, companyId: string, userId: string) {
+  assertFeatureEnabled("studies");
   const { data, error } = await sb.rpc("is_company_admin", { _company_id: companyId, _user_id: userId });
   if (error) throw new Error("Vérification des droits impossible.");
   if (data !== true) throw new Error("Droits insuffisants : action réservée à la direction.");
