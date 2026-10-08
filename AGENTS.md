@@ -1,0 +1,2 @@
+- Technical-visit creation and planning go through the `create_technical_visit_atomic` / `update_technical_visit_planning` database functions (plan check, company/client checks, calendar sync in one transaction) — why: separate inserts left orphan chantiers/events under double submission.
+- Technical-visit answers are validated by the shared `src/lib/visites/validation.ts` on both client and server, and only valid answers count toward completion — why: the server must never accept or count values the template does not allow.
