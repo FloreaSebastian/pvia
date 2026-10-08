@@ -911,10 +911,7 @@ export const generateVisitReportPdf = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertIsMember(supabase, data.companyId, userId);
-    const { hasPlanFeature } = await import("./plan-guard.server");
-    if (!(await hasPlanFeature(data.companyId, "technical_visits"))) {
-      throw new Error("Fonctionnalité « Visite technique » non incluse dans votre plan actuel.");
-    }
+    await assertPlanFeature(data.companyId, "technical_visits", userId);
     // Contrôle d'appartenance via le client utilisateur (RLS) AVANT toute lecture privilégiée.
     await loadVisitScoped(supabase, data.companyId, data.visitId);
     const { buildVisitReportPdf } = await import("./visites-pdf.server");
