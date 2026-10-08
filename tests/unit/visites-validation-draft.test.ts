@@ -104,3 +104,11 @@ describe("contrôle du contenu des photos", () => {
     expect(sniffImage(new TextEncoder().encode("not an image"))).toBeNull();
   });
 });
+
+describe("planification en heure de Paris", () => {
+  it("14:30 à Paris en hiver = 13:30 UTC, en été = 12:30 UTC", () => {
+    expect(localInputToIso("2026-11-20", "14:30")).toBe("2026-11-20T13:30:00.000Z");
+    expect(localInputToIso("2026-07-01", "14:30")).toBe("2026-07-01T12:30:00.000Z");
+    expect(isoToLocalInputs("2026-11-20T13:30:00.000Z")).toEqual({ date: "2026-11-20", time: "14:30" });
+  });
+});

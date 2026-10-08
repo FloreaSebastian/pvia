@@ -99,7 +99,7 @@ export function VisitPlanningDialog({ open, onOpenChange, companyId, visit, onSa
       <DialogContent className="max-h-[90dvh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Planification</DialogTitle>
-          <DialogDescription>Date, technicien et contact sur site. Le calendrier est mis à jour automatiquement.</DialogDescription>
+          <DialogDescription>Date et heure de Paris, technicien et contact sur site. Le calendrier est mis à jour automatiquement.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
