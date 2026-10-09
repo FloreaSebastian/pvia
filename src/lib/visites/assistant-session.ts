@@ -56,12 +56,20 @@ export async function ensureSavedBeforeAsk(opts: {
   if (opts.hasFieldErrors()) return { ok: false, message: fieldMsg };
   if (opts.pending() > 0) {
     if (!opts.online) {
-      return { ok: false, message: "Hors ligne : vos dernières réponses ne sont pas encore enregistrées. Réessayez au retour du réseau (votre texte est conservé)." };
+      return {
+        ok: false,
+        message:
+          "Hors ligne : vos dernières réponses ne sont pas encore enregistrées. Réessayez au retour du réseau (votre texte est conservé).",
+      };
     }
     let ok = await opts.flush();
     for (let i = 0; i < 2 && (!ok || opts.pending() > 0); i++) ok = await opts.flush();
     if (!ok || opts.pending() > 0) {
-      return { ok: false, message: "Vos dernières réponses ne sont pas enregistrées : l'assistant ne peut pas les voir. Réessayez l'enregistrement puis relancez (votre texte est conservé)." };
+      return {
+        ok: false,
+        message:
+          "Vos dernières réponses ne sont pas enregistrées : l'assistant ne peut pas les voir. Réessayez l'enregistrement puis relancez (votre texte est conservé).",
+      };
     }
   }
   if (opts.hasFieldErrors()) return { ok: false, message: fieldMsg };
