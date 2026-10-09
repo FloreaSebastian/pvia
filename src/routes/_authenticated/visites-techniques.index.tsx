@@ -153,7 +153,7 @@ function VisitesTechniquesPage() {
         setLoadingMore(false);
       }
     },
-    [activeCompanyId, listFn, debounced, type, status, assignee, includeArchived],
+    [activeCompanyId, listFn, debounced, type, lot, status, assignee, includeArchived],
   );
 
   useEffect(() => {
@@ -161,7 +161,7 @@ function VisitesTechniquesPage() {
   }, [load]);
 
   const activeFilters =
-    (type !== "all" ? 1 : 0) + (status !== "all" ? 1 : 0) + (assignee !== "all" ? 1 : 0) + (includeArchived ? 1 : 0);
+    (type !== "all" ? 1 : 0) + (lot !== "all" ? 1 : 0) + (status !== "all" ? 1 : 0) + (assignee !== "all" ? 1 : 0) + (includeArchived ? 1 : 0);
 
   const kpiCards = useMemo(
     () => [
@@ -357,6 +357,7 @@ function VisitesTechniquesPage() {
                 className="h-11 flex-1"
                 onClick={() => {
                   setType("all");
+                  setLot("all");
                   setStatus("all");
                   setAssignee("all");
                   setIncludeArchived(false);
