@@ -74,6 +74,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
   const [confirmOverwrite, setConfirmOverwrite] = useState<{ turnId: number; list: ReviewedCandidate[] } | null>(null);
   const gateRef = useRef(createRequestGate());
   const [applying, setApplying] = useState(false);
+  const applyGateRef = useRef(createRequestGate());
   const idRef = useRef(1);
   const endRef = useRef<HTMLDivElement | null>(null);
   const dictRef = useRef<ReturnType<typeof createDictation> | null>(null);
@@ -96,11 +97,11 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
 
   // Fermeture / navigation : micro et lecture coupés, réponses tardives ignorées.
   useEffect(() => {
-    if (!open) { abortListening(); stopSpeaking(); gateRef.current.invalidate(); setBusy(null); }
+    if (!open) { abortListening(); stopSpeaking(); gateRef.current.invalidate(); applyGateRef.current.invalidate(); setBusy(null); }
   }, [open, abortListening, stopSpeaking]);
   // Changement d'entreprise ou de visite : session entièrement réinitialisée.
   useEffect(() => {
-    gateRef.current.invalidate();
+    gateRef.current.invalidate(); applyGateRef.current.invalidate();
     abortListening();
     stopSpeaking();
     setTurns([]); setText(""); setBusy(null); setSelected({}); setApplied({}); setConfirmOverwrite(null);
@@ -223,7 +224,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
   async function doApply(turnId: number, list: ReviewedCandidate[]) {
     if (!props.onApply || list.length === 0 || applying) return;
     if (!props.canApply) { toast.error("Saisie verrouillée : rien n'a été appliqué."); return; }
-    const gen = gateRef.current.next();
+    const gen = applyGateRef.current.next();
     setApplying(true);
     let res: { accepted: string[]; rejected: RejectedCandidate[] };
     try {
@@ -231,12 +232,12 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
       field_key: p.field_key, section_key: p.section_key, label: p.label, proposed: p.proposed, expectedCurrent: p.current,
     })));
     } catch (e) {
-      if (gateRef.current.isCurrent(gen)) toast.error(e instanceof Error && e.message.length < 200 ? e.message : "Application impossible. Réessayez.");
+      if (applyGateRef.current.isCurrent(gen)) toast.error(e instanceof Error && e.message.length < 200 ? e.message : "Application impossible. Réessayez.");
       return;
     } finally {
       setApplying(false);
     }
-    if (!gateRef.current.isCurrent(gen)) return;
+    if (!applyGateRef.current.isCurrent(gen)) return;
     if (res.accepted.length) {
       setApplied((prev) => {
         const n = { ...prev };
