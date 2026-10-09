@@ -312,7 +312,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                               <span className="block break-words">
                                 Proposé : <strong>{p.proposedText}</strong>
                               </span>
-                              {p.rationale ? <span className="block break-words text-xs text-muted-foreground">« {p.rationale} »</span> : null}
+                              {p.rationale ? <span className="block break-words text-xs text-muted-foreground">{p.rationale}</span> : null}
                               <span className="flex flex-wrap gap-1">
                                 {p.hypothesis ? <Badge variant="outline">Hypothèse à vérifier</Badge> : null}
                                 {p.overwrites ? <Badge variant="destructive">Remplace une valeur</Badge> : null}
