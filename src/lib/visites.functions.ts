@@ -452,6 +452,82 @@ export const saveVisitAnswers = createServerFn({ method: "POST" })
     return { ok: true as const, fieldErrors, savedKeys: accepted.map((e) => e.field_key), completion_percent: percent };
   });
 
+/**
+ * Application des propositions de l'assistant, sur clic explicite de l'utilisateur uniquement.
+ * Compare-and-set atomique en base : un champ n'est écrit que si sa valeur serveur est encore
+ * celle confirmée par l'utilisateur ; sinon conflit renvoyé avec la valeur serveur actuelle.
+ */
+export const applyAssistantAnswers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        visitId: z.string().uuid(),
+        entries: z
+          .array(AnswerEntrySchema.extend({ expected: AnswerEntrySchema.shape.value.nullable() }))
+          .min(1)
+          .max(50),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const visit = await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
+    const tpl = resolveVisitTemplate(visit);
+    if (!tpl) throw new Error("Type de visite inconnu.");
+    const { resolveSections } = await import("./visites/engine");
+    const fieldErrors = validateAnswerEntries(tpl, data.entries);
+    // Visibilité relue sur les réponses serveur (pas celles du navigateur).
+    const { data: rows, error: readErr } = await supabase
+      .from("technical_visit_answers")
+      .select("field_key,value")
+      .eq("visit_id", data.visitId);
+    if (readErr) throw new Error("Lecture des réponses impossible. Réessayez.");
+    const serverAnswers = Object.fromEntries((rows ?? []).map((r) => [r.field_key, r.value])) as never;
+    const visible = new Set(
+      resolveSections(tpl, serverAnswers).flatMap((rs) => rs.blocks.flatMap((b) => b.fields.map((f) => f.answerKey))),
+    );
+    for (const e of data.entries) {
+      if (!visible.has(e.field_key) && !fieldErrors.some((f) => f.field_key === e.field_key)) {
+        fieldErrors.push({ field_key: e.field_key, message: "Champ masqué par les réponses actuelles." });
+      }
+    }
+    const rejected = new Set(fieldErrors.map((e) => e.field_key));
+    const accepted = data.entries.filter((e) => !rejected.has(e.field_key));
+    if (accepted.length === 0) return { applied: [] as string[], conflicts: [] as { field_key: string; current: unknown }[], fieldErrors };
+
+    const { data: res, error } = await supabase.rpc("apply_technical_visit_answers_cas" as never, {
+      _company_id: data.companyId,
+      _visit_id: data.visitId,
+      _entries: accepted.map((e) => ({ section_key: e.section_key, field_key: e.field_key, value: e.value, expected: e.expected ?? null })),
+    } as never);
+    if (error) {
+      const m = String(error.message ?? "");
+      if (m.includes("locked")) throw new Error("Saisie verrouillée : rien n'a été appliqué.");
+      if (m.includes("forbidden") || m.includes("visit_not_found")) throw new Error("Droits insuffisants pour modifier cette visite.");
+      throw new Error("Application impossible. Réessayez.");
+    }
+    const out = res as unknown as { applied: string[]; conflicts: { field_key: string; current: unknown }[] };
+    if (out.applied.length) {
+      if (visit.status === "planifiee" || visit.status === "a_planifier") {
+        await supabase
+          .from("technical_visits")
+          .update({ status: "en_cours", started_at: visit.started_at ?? new Date().toISOString() } as never)
+          .eq("id", data.visitId);
+      }
+      await writeAuditLog({
+        companyId: data.companyId,
+        userId,
+        entityType: "technical_visit",
+        entityId: data.visitId,
+        action: "visite.assistant_applied",
+      });
+      await refreshVisitCompletion(supabase, data.visitId);
+    }
+    return { applied: out.applied, conflicts: out.conflicts, fieldErrors };
+  });
+
 /** Métadonnées d'une photo après upload direct dans le stockage. */
 export const addVisitPhoto = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
