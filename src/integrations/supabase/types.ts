@@ -7124,6 +7124,10 @@ export type Database = {
         Args: { _company_id: string; _lots: string[]; _visit_id: string }
         Returns: string[]
       }
+      apply_technical_visit_answers_cas: {
+        Args: { _company_id: string; _entries: Json; _visit_id: string }
+        Returns: Json
+      }
       business_month_start: { Args: never; Returns: string }
       can_add_member: { Args: { _company_id: string }; Returns: boolean }
       can_create_company: { Args: { _user_id: string }; Returns: boolean }
