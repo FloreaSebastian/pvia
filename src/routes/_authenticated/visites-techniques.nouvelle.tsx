@@ -29,10 +29,10 @@ export const Route = createFileRoute("/_authenticated/visites-techniques/nouvell
       { title: "Nouvelle visite technique — PVIA" },
       {
         name: "description",
-        content: "Créez une visite technique photovoltaïque ou pompe à chaleur : client, chantier et planification en 4 étapes.",
+        content: "Créez une visite technique BTP multi-lots : lots, client, chantier et planification en 4 étapes.",
       },
       { property: "og:title", content: "Nouvelle visite technique — PVIA" },
-      { property: "og:description", content: "Création guidée d'une visite technique PV ou PAC avec chantier automatique." },
+      { property: "og:description", content: "Création guidée d'une visite technique BTP avec chantier rattaché automatiquement." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -67,7 +67,7 @@ type ChantierRow = {
 
 type Duplicate = { id: string; reference: string | null; name: string; status: string; reason: string };
 
-const STEPS = ["Métier", "Client", "Chantier", "Planification"] as const;
+const STEPS = ["Lots de travaux", "Client", "Chantier", "Planification"] as const;
 
 function NouvelleVisiteRoute() {
   return (

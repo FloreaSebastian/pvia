@@ -10,13 +10,14 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { listChantierTechnicalVisits } from "@/lib/visites.functions";
-import { getVisitTemplate, isVisitType } from "@/lib/visites/templates";
+import { visitLabel } from "@/lib/visites/templates";
 import { VisitStatusBadge } from "@/components/visites/VisitStatusBadge";
 
 interface Row {
   id: string;
   reference: string;
   visit_type: string;
+  lots?: string[] | null;
   status: string;
   scheduled_at: string | null;
   completion_percent: number | null;
@@ -104,7 +105,7 @@ export function ChantierVisitesTab({
                     <span className="font-mono text-xs text-muted-foreground">{v.reference}</span>
                     <VisitStatusBadge status={v.status} />
                     <Badge variant="outline">
-                      {isVisitType(v.visit_type) ? getVisitTemplate(v.visit_type).label : v.visit_type}
+                      {visitLabel(v)}
                     </Badge>
                   </div>
                   <p className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">

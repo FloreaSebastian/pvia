@@ -22,7 +22,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
 import { listTechnicalVisits, listVisitAssignees } from "@/lib/visites.functions";
-import { VISIT_TEMPLATES, VISIT_TYPE_OPTIONS } from "@/lib/visites/templates";
+import { VISIT_TYPE_OPTIONS, resolveVisitTemplate } from "@/lib/visites/templates";
 import { VISIT_STATUS_META, type VisitStatus, type VisitType } from "@/lib/visites/types";
 import { VisitStatusBadge } from "@/components/visites/VisitStatusBadge";
 
@@ -53,6 +53,7 @@ type VisitRow = {
   id: string;
   reference: string;
   visit_type: string;
+  lots?: string[] | null;
   status: string;
   scheduled_at: string | null;
   completed_at: string | null;
@@ -378,7 +379,7 @@ function VisitesTechniquesPage() {
       ) : (
         <ul className="space-y-2">
           {rows.map((v) => {
-            const template = VISIT_TEMPLATES[v.visit_type as VisitType];
+            const template = resolveVisitTemplate(v);
             const percent = v.completion_percent ?? 0;
             return (
               <li key={v.id}>
