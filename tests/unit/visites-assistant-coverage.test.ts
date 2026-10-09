@@ -43,9 +43,10 @@ describe("contexte IA — 20 zones + électricité + PV", () => {
     expect(text).toContain(`- ${elecKey} |`);
     expect(text).toContain("- btp_conclusion |");
     expect(text).toContain("- photovoltaique.");
-    expect(coverage.omitted).toBeGreaterThan(0);
-    expect(coverage.omittedSections.length).toBeGreaterThan(0);
-    expect(text).toContain("COUVERTURE PARTIELLE");
+    // Les zones passent désormais par un dictionnaire compact : plus aucune clé omise.
+    expect(coverage.omitted).toBe(0);
+    expect(text).toContain("BLOC RÉPÉTÉ btp_zones");
+    expect(text).not.toContain("COUVERTURE PARTIELLE");
   });
 
   test("synthèse : toute la visite couverte, données métier et conclusion présentes", () => {
