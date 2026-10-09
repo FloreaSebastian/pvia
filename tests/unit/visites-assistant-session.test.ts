@@ -60,6 +60,7 @@ describe("assistant — saisies en attente avant demande", () => {
     let pending = 2;
     let calls = 0;
     const r = await ensureSavedBeforeAsk({
+      hasFieldErrors: () => false,
       online: true,
       pending: () => pending,
       flush: async () => {
@@ -73,6 +74,7 @@ describe("assistant — saisies en attente avant demande", () => {
   });
   test("échec d'enregistrement : demande bloquée", async () => {
     const r = await ensureSavedBeforeAsk({
+      hasFieldErrors: () => false,
       online: true,
       pending: () => 1,
       flush: async () => false,
@@ -82,6 +84,7 @@ describe("assistant — saisies en attente avant demande", () => {
   test("hors ligne avec saisies en attente : demande bloquée sans envoi", async () => {
     let calls = 0;
     const r = await ensureSavedBeforeAsk({
+      hasFieldErrors: () => false,
       online: false,
       pending: () => 1,
       flush: async () => {
@@ -91,6 +94,35 @@ describe("assistant — saisies en attente avant demande", () => {
     });
     expect(r.ok).toBe(false);
     expect(calls).toBe(0);
+  });
+  test("aucune saisie en attente mais valeur locale refusée (ex. -1 m) : demande bloquée", async () => {
+    let calls = 0;
+    const r = await ensureSavedBeforeAsk({
+      hasFieldErrors: () => true,
+      online: true,
+      pending: () => 0,
+      flush: async () => {
+        calls++;
+        return true;
+      },
+    });
+    expect(r.ok).toBe(false);
+    expect(calls).toBe(0);
+  });
+  test("erreur de champ révélée par l'enregistrement : demande bloquée après envoi", async () => {
+    let errors = false;
+    let pending = 1;
+    const r = await ensureSavedBeforeAsk({
+      hasFieldErrors: () => errors,
+      online: true,
+      pending: () => pending,
+      flush: async () => {
+        pending = 0;
+        errors = true;
+        return true;
+      },
+    });
+    expect(r.ok).toBe(false);
   });
 });
 
