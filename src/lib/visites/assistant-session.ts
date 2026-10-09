@@ -12,14 +12,17 @@ export function proposalCardId(turnId: number, fieldKey: string): string {
   return `${turnId}:${fieldKey}`;
 }
 
-/** Texte à remettre dans la zone de saisie après un échec, sans perdre ce qui a été tapé entre-temps. */
-export function mergeRestoredText(current: string, sent: string): string {
-  const cur = current.trim();
+/**
+ * Texte restant dans la zone de saisie après une réponse RÉUSSIE : on retire seulement ce qui
+ * a été envoyé ; ce qui a été tapé pendant la requête est conservé. En cas d'échec, rien n'est retiré.
+ */
+export function textAfterSuccess(current: string, sent: string): string {
   const s = sent.trim();
   if (!s) return current;
-  if (!cur) return sent;
-  if (cur === s || cur.startsWith(s)) return current;
-  return `${s} ${cur}`;
+  const cur = current.trim();
+  if (cur === s) return "";
+  if (cur.startsWith(s)) return cur.slice(s.length).trimStart();
+  return current;
 }
 
 /** Garde de génération : seule la dernière requête de la session courante est prise en compte. */
