@@ -26,7 +26,7 @@ import type { AnswerMap, AnswerValue } from "@/lib/visites/types";
 import { VisitFieldInput } from "@/components/visites/VisitFieldInput";
 import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "@/components/visites/VisitPhotoSlotCard";
 import { VisitAssistantSheet } from "@/components/visites/VisitAssistantSheet";
-import { ensureSavedBeforeAsk, planApply, reviewCandidates } from "@/lib/visites/assistant-session";
+import { ensureSavedBeforeAsk, mergeApplyResult, planApply, reviewCandidates } from "@/lib/visites/assistant-session";
 import { VisitConstraintsPanel, type VisitConstraintRow } from "@/components/visites/VisitConstraintsPanel";
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { classifyBillingError } from "@/lib/billing-errors";
