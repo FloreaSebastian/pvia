@@ -947,7 +947,7 @@ export const listVisitAssignees = createServerFn({ method: "POST" })
 /** Vérifie côté serveur qu'une adresse normalisée correspond (utilisé par les tests d'anti-doublon). */
 export const previewChantierNameForVisit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => z.object({ companyId: z.string().uuid(), clientId: z.string().uuid(), visit_type: VisitTypeSchema }).parse(i))
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), clientId: z.string().uuid(), visit_type: VisitTypeSchema, lots: z.array(VisitLotSchema).max(9).optional().default([]) }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertIsMember(supabase, data.companyId, userId);
@@ -960,7 +960,7 @@ export const previewChantierNameForVisit = createServerFn({ method: "POST" })
     if (!client) throw new Error("Client introuvable.");
     const label = (client.client_type === "entreprise" || client.client_type === "professionnel") ? client.company_name || client.name : client.name;
     return {
-      name: buildChantierName(data.visit_type, label ?? ""),
+      name: buildChantierName(resolveVisitTemplate({ visit_type: data.visit_type, lots: data.lots }) ?? { label: "Visite", chantierType: "Visite", type: "btp" }, label ?? ""),
       addressKey: normalizeAddressKey(client),
       address_line1: client.address_line1 ?? "",
       postal_code: client.postal_code ?? "",
