@@ -18,6 +18,7 @@ import {
   createRequestGate, proposalCardId, textAfterSuccess,
   type ApplyCandidate, type RejectedCandidate, type ReviewedCandidate,
 } from "@/lib/visites/assistant-session";
+import { createDictation, createSpeaker, type SpeechRecLike } from "@/lib/visites/assistant-voice";
 
 interface Turn {
   id: number;
@@ -50,15 +51,10 @@ export interface VisitAssistantSheetProps {
 }
 
 // Web Speech API (préfixée selon le navigateur).
-type SR = {
-  lang: string; continuous: boolean; interimResults: boolean;
-  start(): void; stop(): void; abort(): void;
-  onresult: ((e: any) => void) | null; onerror: ((e: any) => void) | null; onend: (() => void) | null;
-};
-function getRecognition(): (new () => SR) | null {
+function getRecognition(): (new () => SpeechRecLike) | null {
   if (typeof window === "undefined") return null;
-  const w = window as any;
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+  const w = window as unknown as Record<string, unknown>;
+  return (w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null) as (new () => SpeechRecLike) | null;
 }
 
 const DICTATION_MAX_MS = 90_000;
@@ -77,43 +73,38 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
   const [applied, setApplied] = useState<Record<string, boolean>>({});
   const [confirmOverwrite, setConfirmOverwrite] = useState<{ turnId: number; list: ReviewedCandidate[] } | null>(null);
   const gateRef = useRef(createRequestGate());
-  const recRef = useRef<SR | null>(null);
-  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const baseText = useRef("");
   const idRef = useRef(1);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const dictRef = useRef<ReturnType<typeof createDictation> | null>(null);
+  const speakerRef = useRef<ReturnType<typeof createSpeaker<SpeechSynthesisUtterance>> | null>(null);
 
   useEffect(() => {
     setSpeechOk(!!getRecognition());
     setTtsOk(typeof window !== "undefined" && "speechSynthesis" in window);
   }, []);
 
-  const stopListening = useCallback(() => {
-    if (stopTimer.current) clearTimeout(stopTimer.current);
-    stopTimer.current = null;
-    const rec = recRef.current;
-    recRef.current = null; // détaché d'abord : ses callbacks tardifs sont ignorés
-    try { rec?.stop(); } catch { /* déjà arrêté */ }
-    setListening(false);
-  }, []);
+  /** Coupure immédiate (fermeture, navigation, clavier) : les résultats tardifs sont ignorés. */
+  const abortListening = useCallback(() => { dictRef.current?.abort(); }, []);
+  /** Arrêt manuel : on attend les derniers mots reconnus avant de rendre la main. */
+  const stopListeningGracefully = useCallback(() => dictRef.current?.stop() ?? Promise.resolve(), []);
 
   const stopSpeaking = useCallback(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
-    setSpeakingId(null);
+    if (speakerRef.current) speakerRef.current.stop();
+    else setSpeakingId(null);
   }, []);
 
   // Fermeture / navigation : micro et lecture coupés, réponses tardives ignorées.
   useEffect(() => {
-    if (!open) { stopListening(); stopSpeaking(); gateRef.current.invalidate(); setBusy(null); }
-  }, [open, stopListening, stopSpeaking]);
+    if (!open) { abortListening(); stopSpeaking(); gateRef.current.invalidate(); setBusy(null); }
+  }, [open, abortListening, stopSpeaking]);
   // Changement d'entreprise ou de visite : session entièrement réinitialisée.
   useEffect(() => {
     gateRef.current.invalidate();
-    stopListening();
+    abortListening();
     stopSpeaking();
     setTurns([]); setText(""); setBusy(null); setSelected({}); setApplied({}); setConfirmOverwrite(null);
-  }, [props.companyId, props.visitId, stopListening, stopSpeaking]);
-  useEffect(() => () => { stopListening(); stopSpeaking(); }, [stopListening, stopSpeaking]);
+  }, [props.companyId, props.visitId, abortListening, stopSpeaking]);
+  useEffect(() => () => { abortListening(); stopSpeaking(); }, [abortListening, stopSpeaking]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [turns, busy]);
 
@@ -121,66 +112,49 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
     const Ctor = getRecognition();
     if (!Ctor) { setSpeechOk(false); return; }
     stopSpeaking();
-    const rec = new Ctor();
-    rec.lang = "fr-FR";
-    rec.continuous = true;
-    rec.interimResults = true;
-    baseText.current = text ? `${text.trimEnd()} ` : "";
-    rec.onresult = (e: any) => {
-      if (recRef.current !== rec) return;
-      let finalT = "";
-      let interim = "";
-      for (let i = 0; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalT += r[0].transcript;
-        else interim += r[0].transcript;
-      }
-      setText((baseText.current + finalT + interim).slice(0, ASSISTANT_LIMITS.messageMax));
-    };
-    rec.onerror = (e: any) => {
-      if (recRef.current !== rec) return;
-      const code = e?.error;
-      toast.error(
-        code === "not-allowed" || code === "service-not-allowed"
-          ? "Micro refusé par le navigateur. Autorisez-le ou saisissez au clavier."
-          : code === "no-speech"
-            ? "Aucune parole détectée. Réessayez ou saisissez au clavier."
-            : "Dictée interrompue. Vous pouvez continuer au clavier.",
-      );
-      stopListening();
-    };
-    rec.onend = () => {
-      if (recRef.current !== rec) return;
-      if (stopTimer.current) clearTimeout(stopTimer.current);
-      stopTimer.current = null;
-      recRef.current = null;
-      setListening(false);
-    };
-    try {
-      rec.start();
-      recRef.current = rec;
-      setListening(true);
-      stopTimer.current = setTimeout(() => { if (recRef.current !== rec) return; stopListening(); toast.info("Dictée arrêtée après 90 s. Relisez puis envoyez."); }, DICTATION_MAX_MS);
-    } catch {
-      toast.error("Impossible de démarrer la dictée. Saisissez au clavier.");
+    if (!dictRef.current) {
+      dictRef.current = createDictation({
+        Ctor,
+        maxMs: DICTATION_MAX_MS,
+        maxLength: ASSISTANT_LIMITS.messageMax,
+        onText: setText,
+        onListening: setListening,
+        onTimeout: () => toast.info("Dictée arrêtée après 90 s. Relisez puis envoyez."),
+        onError: (code) =>
+          toast.error(
+            code === "not-allowed" || code === "service-not-allowed"
+              ? "Micro refusé par le navigateur. Autorisez-le ou saisissez au clavier."
+              : code === "no-speech"
+                ? "Aucune parole détectée. Réessayez ou saisissez au clavier."
+                : code === "start-failed"
+                  ? "Impossible de démarrer la dictée. Saisissez au clavier."
+                  : "Dictée interrompue. Vous pouvez continuer au clavier.",
+          ),
+      });
     }
+    dictRef.current.start(text);
   }
 
   function speak(turn: Turn) {
     if (!ttsOk) return;
-    if (speakingId === turn.id) { stopSpeaking(); return; }
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance([turn.text, ...(turn.questions ?? [])].join(". "));
-    u.lang = "fr-FR";
-    u.onend = () => setSpeakingId(null);
-    u.onerror = () => setSpeakingId(null);
-    setSpeakingId(turn.id);
-    window.speechSynthesis.speak(u);
+    if (!speakerRef.current) {
+      speakerRef.current = createSpeaker({
+        synth: window.speechSynthesis,
+        makeUtterance: (t) => new SpeechSynthesisUtterance(t),
+        onSpeaking: setSpeakingId,
+      });
+    }
+    speakerRef.current.speak(turn.id, [turn.text, ...(turn.questions ?? [])].join(". "));
   }
 
   async function run(action: AssistantAction) {
     if (busy) return;
-    stopListening();
+    if (listening) {
+      // Ne jamais envoyer avant les derniers mots : on arrête proprement, l'utilisateur relit.
+      await stopListeningGracefully();
+      toast.info("Dictée arrêtée : relisez le texte puis envoyez.");
+      return;
+    }
     const message = action === "dictee" || action === "question" ? text.trim() : "";
     if ((action === "dictee" || action === "question") && message.length < 2) {
       toast.error("Saisissez ou dictez un texte d'abord.");
@@ -306,7 +280,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
             <Bot className="h-5 w-5" aria-hidden="true" /> Assistant de visite
           </SheetTitle>
           <SheetDescription className="text-xs">
-            Vos demandes, dictées et les relevés de cette visite sont envoyés au service IA de PVIA pour répondre. L'audio n'est pas enregistré. Rien n'est enregistré dans la visite sans votre clic sur « Appliquer ».
+            Vos demandes, dictées et les relevés de cette visite sont envoyés au service IA de PVIA pour répondre. PVIA ne conserve pas l'enregistrement audio ; la dictée peut utiliser le service de reconnaissance vocale de votre navigateur. Rien n'est enregistré dans la visite sans votre clic sur « Appliquer ».
           </SheetDescription>
         </SheetHeader>
 
@@ -414,7 +388,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
           <Textarea
             value={text}
             onChange={(e) => {
-              if (listening) stopListening(); // la saisie clavier prime : le micro ne l'écrasera pas
+              if (listening) abortListening(); // la saisie clavier prime : le micro ne l'écrasera pas
               setText(e.target.value.slice(0, ASSISTANT_LIMITS.messageMax));
             }}
             placeholder="Votre question ou vos constats dictés…"
@@ -428,7 +402,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                 type="button"
                 variant={listening ? "destructive" : "outline"}
                 className="h-11 shrink-0"
-                onClick={() => (listening ? stopListening() : startListening())}
+                onClick={() => (listening ? void stopListeningGracefully() : startListening())}
                 aria-pressed={listening}
               >
                 {listening ? <MicOff className="mr-2 h-4 w-4" aria-hidden="true" /> : <Mic className="mr-2 h-4 w-4" aria-hidden="true" />}
