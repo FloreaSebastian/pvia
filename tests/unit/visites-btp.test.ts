@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { composeBtpTemplate, normalizeLots, resolveVisitTemplate, PHOTOVOLTAIQUE_TEMPLATE } from "../../src/lib/visites/templates";
 import { computeProgress, formatAnswer, resolveSections } from "../../src/lib/visites/engine";
 import { findTemplateField, findTemplateSlot, validateAnswerEntries, validateFieldValue } from "../../src/lib/visites/validation";
