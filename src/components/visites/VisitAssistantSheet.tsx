@@ -29,7 +29,10 @@ interface Turn {
   rejected?: number;
   studyRequired?: boolean;
   error?: boolean;
-  coverage?: { total: number; included: number; omitted: number; omittedSections: string[] };
+  coverage?: {
+    total: number; included: number; omitted: number; omittedSections: string[];
+    truncatedTexts?: number; constraintsTotal?: number; constraintsIncluded?: number;
+  };
 }
 
 export interface VisitAssistantSheetProps {
@@ -327,9 +330,12 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                         {t.questions.map((q, i) => <li key={i}>{q}</li>)}
                       </ul>
                     ) : null}
-                    {t.coverage && t.coverage.omitted > 0 ? (
+                    {t.coverage && (t.coverage.omitted > 0 || (t.coverage.truncatedTexts ?? 0) > 0 || (t.coverage.constraintsTotal ?? 0) > (t.coverage.constraintsIncluded ?? 0)) ? (
                       <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
-                        Analyse partielle : {t.coverage.included} champ(s) sur {t.coverage.total} transmis. Non pris en compte : {t.coverage.omittedSections.join(", ")}.
+                        Analyse partielle :
+                        {t.coverage.omitted > 0 ? ` ${t.coverage.omitted} champ(s) sur ${t.coverage.total} non transmis (${t.coverage.omittedSections.join(", ")}).` : ""}
+                        {(t.coverage.constraintsTotal ?? 0) > (t.coverage.constraintsIncluded ?? 0) ? ` ${(t.coverage.constraintsTotal ?? 0) - (t.coverage.constraintsIncluded ?? 0)} point(s) d'attention de moindre priorité non transmis.` : ""}
+                        {(t.coverage.truncatedTexts ?? 0) > 0 ? ` ${t.coverage.truncatedTexts} texte(s) long(s) écourté(s).` : ""}
                       </p>
                     ) : null}
                     {t.studyRequired ? <Badge variant="outline">Étude technique requise</Badge> : null}
