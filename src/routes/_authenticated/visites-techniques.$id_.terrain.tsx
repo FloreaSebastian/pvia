@@ -25,6 +25,7 @@ import type { AnswerMap, AnswerValue } from "@/lib/visites/types";
 import { VisitFieldInput } from "@/components/visites/VisitFieldInput";
 import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "@/components/visites/VisitPhotoSlotCard";
 import { VisitAssistantSheet } from "@/components/visites/VisitAssistantSheet";
+import { ensureSavedBeforeAsk, planApply, reviewCandidates } from "@/lib/visites/assistant-session";
 import { VisitConstraintsPanel, type VisitConstraintRow } from "@/components/visites/VisitConstraintsPanel";
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { classifyBillingError } from "@/lib/billing-errors";
@@ -159,6 +160,8 @@ function TerrainPage() {
     setVisit(res.visit);
   }, [activeCompanyId, getFn, id]);
 
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
   const template = useMemo(
     () => (visit ? resolveVisitTemplate(visit) : null),
     [visit],
@@ -473,10 +476,20 @@ function TerrainPage() {
               phase={current.section.phase ?? null}
               sectionKey={current.section.key}
               canApply={!locked}
-              currentAnswers={answers}
+              key={`${activeCompanyId}:${id}`}
+              beforeAsk={() => {
+                if (timerRef.current) clearTimeout(timerRef.current);
+                return ensureSavedBeforeAsk({
+                  online: typeof navigator === "undefined" ? true : navigator.onLine,
+                  pending: () => dirtyRef.current.size,
+                  flush,
+                });
+              }}
+              review={(list) => (template ? reviewCandidates(template, answersRef.current, list) : { ok: [], rejected: list.map((c) => ({ field_key: c.field_key, label: c.label, reason: "modèle indisponible" })) })}
               onApply={(entries) => {
-                if (locked) return;
-                for (const e of entries) onFieldChange(e.section_key, e.field_key, e.value);
+                const plan = planApply(template, answersRef.current, entries, locked || finishingRef.current);
+                for (const e of plan.accepted) onFieldChange(e.section_key, e.field_key, e.proposed);
+                return { accepted: plan.accepted.map((e) => e.field_key), rejected: plan.rejected };
               }}
               triggerClassName="h-11 shrink-0 px-3"
             />
