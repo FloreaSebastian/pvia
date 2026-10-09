@@ -5,6 +5,7 @@ import {
   createRequestGate,
   ensureSavedBeforeAsk,
   planApply,
+  mergeApplyResult,
   proposalCardId,
   reviewCandidates,
   textAfterSuccess,
