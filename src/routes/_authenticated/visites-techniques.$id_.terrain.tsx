@@ -17,7 +17,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/hooks/use-company";
 import { useOnlineStatus } from "@/hooks/use-online-status";
-import { getTechnicalVisit, saveVisitAnswers, setVisitStatus } from "@/lib/visites.functions";
+import { applyAssistantAnswers, getTechnicalVisit, saveVisitAnswers, setVisitStatus } from "@/lib/visites.functions";
 import { resolveVisitTemplate } from "@/lib/visites/templates";
 import { VISIT_PHASES } from "@/lib/visites/types";
 import { computeProgress, resolveSections } from "@/lib/visites/engine";
@@ -66,6 +66,7 @@ function TerrainPage() {
 
   const getFn = useServerFn(getTechnicalVisit);
   const saveFn = useServerFn(saveVisitAnswers);
+  const applyFn = useServerFn(applyAssistantAnswers);
   const statusFn = useServerFn(setVisitStatus);
 
   const [loading, setLoading] = useState(true);
@@ -285,6 +286,60 @@ function TerrainPage() {
     timerRef.current = setTimeout(() => void flush(), 900);
   }
 
+  /**
+   * Application des propositions IA (clic utilisateur) : enregistre d'abord la file en attente,
+   * puis compare-and-set serveur. Les valeurs confirmées par le serveur sont intégrées
+   * directement (jamais remises dans la file d'autosave, qui pourrait écraser un conflit).
+   */
+  async function applyAssistant(entries: Parameters<NonNullable<React.ComponentProps<typeof VisitAssistantSheet>["onApply"]>>[0]) {
+    const plan = planApply(template, answersRef.current, entries, locked || finishingRef.current);
+    if (plan.accepted.length === 0 || !activeCompanyId) return { accepted: [], rejected: plan.rejected };
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const pre = await ensureSavedBeforeAsk({
+      online: typeof navigator === "undefined" ? true : navigator.onLine,
+      pending: () => dirtyRef.current.size,
+      flush,
+      hasFieldErrors: () => false,
+    });
+    if (!pre.ok) {
+      return { accepted: [], rejected: plan.accepted.map((e) => ({ field_key: e.field_key, label: e.label, reason: "réponses en attente non enregistrées" })) };
+    }
+    const res = await applyFn({
+      data: {
+        companyId: activeCompanyId,
+        visitId: id,
+        entries: plan.accepted.map((e) => ({ section_key: e.section_key, field_key: e.field_key, value: e.proposed, expected: e.expectedCurrent })) as never,
+      },
+    });
+    const byKey = new Map(plan.accepted.map((e) => [e.field_key, e]));
+    const applied = new Set(res.applied);
+    const conflicts = new Map(res.conflicts.map((c) => [c.field_key, c.current as AnswerValue]));
+    setAnswers((prev) => {
+      const next = { ...prev };
+      for (const k of applied) next[k] = byKey.get(k)!.proposed;
+      for (const [k, v] of conflicts) {
+        // Valeur serveur intégrée seulement si l'utilisateur n'a pas retapé ce champ entre-temps.
+        if (!dirtyRef.current.has(k)) next[k] = v;
+      }
+      return next;
+    });
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      for (const k of applied) delete next[k];
+      return next;
+    });
+    persistLocal();
+    const rejected = [...plan.rejected];
+    for (const [k, v] of conflicts) {
+      const e = byKey.get(k)!;
+      const hit = template ? findTemplateField(template, k) : null;
+      const shown = v === null || v === undefined ? "(vide)" : hit ? formatAnswer(hit.field, v) : String(v);
+      rejected.push({ field_key: k, label: e.label, reason: `modifié entre-temps, valeur enregistrée : ${shown}` });
+    }
+    for (const f of res.fieldErrors) rejected.push({ field_key: f.field_key, label: byKey.get(f.field_key)?.label ?? f.field_key, reason: f.message });
+    return { accepted: [...applied], rejected };
+  }
+
   async function finish() {
     if (!activeCompanyId || finishingRef.current) return;
     finishingRef.current = true; // verrou synchrone : double appui et saisie bloqués
@@ -487,11 +542,7 @@ function TerrainPage() {
                 });
               }}
               review={(list) => (template ? reviewCandidates(template, answersRef.current, list) : { ok: [], rejected: list.map((c) => ({ field_key: c.field_key, label: c.label, reason: "modèle indisponible" })) })}
-              onApply={(entries) => {
-                const plan = planApply(template, answersRef.current, entries, locked || finishingRef.current);
-                for (const e of plan.accepted) onFieldChange(e.section_key, e.field_key, e.proposed);
-                return { accepted: plan.accepted.map((e) => e.field_key), rejected: plan.rejected };
-              }}
+              onApply={applyAssistant}
               triggerClassName="h-11 shrink-0 px-3"
             />
           ) : null}
