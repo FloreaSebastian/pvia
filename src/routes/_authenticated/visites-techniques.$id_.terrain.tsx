@@ -24,6 +24,7 @@ import { computeProgress, resolveSections } from "@/lib/visites/engine";
 import type { AnswerMap, AnswerValue } from "@/lib/visites/types";
 import { VisitFieldInput } from "@/components/visites/VisitFieldInput";
 import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "@/components/visites/VisitPhotoSlotCard";
+import { VisitAssistantSheet } from "@/components/visites/VisitAssistantSheet";
 import { VisitConstraintsPanel, type VisitConstraintRow } from "@/components/visites/VisitConstraintsPanel";
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { classifyBillingError } from "@/lib/billing-errors";
@@ -465,6 +466,21 @@ function TerrainPage() {
         <div className="mt-2 flex items-center gap-2">
           <Progress value={progress.percent} className="h-1.5 flex-1" aria-label={`Complétude ${progress.percent}%`} />
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{progress.percent}%</span>
+          {activeCompanyId ? (
+            <VisitAssistantSheet
+              companyId={activeCompanyId}
+              visitId={id}
+              phase={current.section.phase ?? null}
+              sectionKey={current.section.key}
+              canApply={!locked}
+              currentAnswers={answers}
+              onApply={(entries) => {
+                if (locked) return;
+                for (const e of entries) onFieldChange(e.section_key, e.field_key, e.value);
+              }}
+              triggerClassName="h-11 shrink-0 px-3"
+            />
+          ) : null}
         </div>
         {current.section.phase ? (
           <ol className="mt-2 grid grid-cols-5 gap-1" aria-label="Parcours de la visite">
