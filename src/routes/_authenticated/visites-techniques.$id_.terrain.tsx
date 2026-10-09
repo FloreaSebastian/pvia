@@ -297,6 +297,9 @@ function TerrainPage() {
    */
   async function applyAssistant(entries: Parameters<NonNullable<ComponentProps<typeof VisitAssistantSheet>["onApply"]>>[0]) {
     const plan = planApply(template, answersRef.current, entries, locked || finishingRef.current);
+    // Révisions capturées avec le plan, AVANT tout await : une saisie pendant le flush/preflight
+    // compte comme modification et n'est jamais écrasée par le retour CAS.
+    const revAtSend = new Map(plan.accepted.map((e) => [e.field_key, fieldRevRef.current.get(e.field_key) ?? 0]));
     if (plan.accepted.length === 0 || !activeCompanyId) return { accepted: [], rejected: plan.rejected };
     if (timerRef.current) clearTimeout(timerRef.current);
     const pre = await ensureSavedBeforeAsk({
@@ -308,7 +311,6 @@ function TerrainPage() {
     if (!pre.ok) {
       return { accepted: [], rejected: plan.accepted.map((e) => ({ field_key: e.field_key, label: e.label, reason: "réponses en attente non enregistrées" })) };
     }
-    const revAtSend = new Map(plan.accepted.map((e) => [e.field_key, fieldRevRef.current.get(e.field_key) ?? 0]));
     const res = await applyFn({
       data: {
         companyId: activeCompanyId,
