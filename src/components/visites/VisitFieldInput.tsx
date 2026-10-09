@@ -50,7 +50,14 @@ export function VisitFieldInput({ field, value: rawValue, onChange, disabled, in
           <span className="text-sm text-muted-foreground">{value === true ? "Oui" : "Non"}</span>
         </div>
       ) : field.type === "select" ? (
-        <Select value={value == null ? "" : String(value)} onValueChange={(v) => onChange(v)} disabled={disabled}>
+        <Select
+          value={value == null ? "" : String(value)}
+          // Radix renvoie "" quand la valeur affichée est vidée (statut choisi) : ne jamais écraser le statut.
+          onValueChange={(v) => {
+            if (v) onChange(v);
+          }}
+          disabled={disabled}
+        >
           <SelectTrigger id={id} className={cn("h-11", invalid && "border-destructive")} aria-describedby={describedBy}>
             <SelectValue placeholder="Sélectionner…" />
           </SelectTrigger>
