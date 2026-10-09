@@ -24,6 +24,7 @@ import { FileDown, Pencil } from "lucide-react";
 import { VisitPlanningDialog } from "@/components/visites/VisitPlanningDialog";
 import { resolveVisitTemplate } from "@/lib/visites/templates";
 import { VisitAddLotsDialog } from "@/components/visites/VisitAddLotsDialog";
+import { VisitAssistantSheet } from "@/components/visites/VisitAssistantSheet";
 import { computeProgress, resolveSections, formatAnswer } from "@/lib/visites/engine";
 import { CONSTRAINT_CATEGORY_LABEL, type AnswerMap, type ConstraintCategory } from "@/lib/visites/types";
 import { VisitStatusBadge, ConstraintLevelBadge } from "@/components/visites/VisitStatusBadge";
@@ -325,6 +326,7 @@ function VisiteDetailPage() {
         {canEdit && visit.visit_type === "btp" && ["a_planifier", "planifiee", "en_cours", "a_completer"].includes(visit.status) && activeCompanyId ? (
           <VisitAddLotsDialog companyId={activeCompanyId} visitId={id} currentLots={visit.lots ?? []} onAdded={load} />
         ) : null}
+        {activeCompanyId ? <VisitAssistantSheet companyId={activeCompanyId} visitId={id} canApply={false} /> : null}
         <Button variant="outline" className="h-11" onClick={() => void downloadPdf()} disabled={pdfBusy}>
           {pdfBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />}
           Rapport PDF
