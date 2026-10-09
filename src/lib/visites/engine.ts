@@ -61,7 +61,11 @@ export function matchesConditions(
     const scoped = index === null ? undefined : answers[repeatKey(c.field, index)];
     const value = scoped !== undefined ? scoped : answers[c.field];
     if (c.truthy !== undefined) return c.truthy ? isFilled(value) && value !== false : !isFilled(value) || value === false;
-    if (c.in) return c.in.some((v) => sameValue(value, v));
+    // Choix multiple : visible si AU MOINS une valeur cochée figure dans la liste.
+    if (c.in) {
+      if (Array.isArray(value)) return value.some((item) => c.in!.some((v) => sameValue(item, v)));
+      return c.in.some((v) => sameValue(value, v));
+    }
     if (c.equals !== undefined) return sameValue(value, c.equals);
     return isFilled(value);
   });
