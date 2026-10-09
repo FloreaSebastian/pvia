@@ -19,8 +19,8 @@ import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
 import { createTechnicalVisit, listVisitAssignees, quickCreateVisitClient } from "@/lib/visites.functions";
 import { UserPlus } from "lucide-react";
-import { VISIT_TYPE_OPTIONS } from "@/lib/visites/templates";
-import type { VisitType } from "@/lib/visites/types";
+import { BTP_LOT_OPTIONS } from "@/lib/visites/templates";
+import type { VisitLot } from "@/lib/visites/types";
 import { FeatureGate } from "@/components/billing/FeatureGate";
 
 export const Route = createFileRoute("/_authenticated/visites-techniques/nouvelle")({
@@ -40,7 +40,7 @@ export const Route = createFileRoute("/_authenticated/visites-techniques/nouvell
   component: NouvelleVisiteRoute,
 });
 
-const TYPE_ICON: Record<VisitType, typeof Sun> = {
+const LOT_ICON: Partial<Record<VisitLot, typeof Sun>> = {
   photovoltaique: Sun,
   pac_air_air: Wind,
   pac_air_eau: Droplets,
@@ -124,7 +124,8 @@ function NouvelleVisitePage() {
   const [submitting, setSubmitting] = useState(false);
   const [idemKey] = useState(() => `vt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 
-  const [visitType, setVisitType] = useState<VisitType | null>(null);
+  const [lots, setLots] = useState<VisitLot[]>([]);
+  const visitType = lots.length > 0 ? ("btp" as const) : null;
 
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [clientQuery, setClientQuery] = useState("");
@@ -236,6 +237,7 @@ function NouvelleVisitePage() {
         data: {
           companyId: activeCompanyId,
           visit_type: visitType,
+          lots,
           client_id: clientId,
           chantier_id: chantierMode === "existing" ? chantierId : null,
           new_chantier: chantierMode === "new" ? newChantier : undefined,
@@ -286,29 +288,35 @@ function NouvelleVisitePage() {
       <Progress value={((step + 1) / STEPS.length) * 100} className="h-1.5" aria-label="Progression de la création" />
 
       {step === 0 ? (
-        <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-          {VISIT_TYPE_OPTIONS.map((o) => {
-            const Icon = TYPE_ICON[o.value as VisitType];
-            const active = visitType === o.value;
-            return (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => setVisitType(o.value as VisitType)}
-                aria-pressed={active}
-                className={`min-w-0 rounded-xl border p-4 text-left transition ${
-                  active ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40"
-                }`}
-              >
-                <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
-                <p className="mt-2 break-words font-medium">{o.label}</p>
-                <p className="mt-1 break-words text-xs text-muted-foreground">{o.tagline}</p>
-                <Badge variant="outline" className="mt-2">
-                  {o.stepCount} étapes
-                </Badge>
-              </button>
-            );
-          })}
+        <div className="min-w-0 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Sélectionnez un ou plusieurs lots. Le socle commun (accès, zones, documents, points d'attention, conclusion) est toujours inclus.
+          </p>
+          <div className="grid min-w-0 gap-2 sm:grid-cols-3">
+            {BTP_LOT_OPTIONS.map((o) => {
+              const Icon = LOT_ICON[o.value] ?? Check;
+              const active = lots.includes(o.value);
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setLots((l) => (active ? l.filter((x) => x !== o.value) : [...l, o.value]))}
+                  aria-pressed={active}
+                  className={`flex min-h-14 min-w-0 items-center gap-3 rounded-xl border p-3 text-left transition ${
+                    active ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40"
+                  }`}
+                >
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border ${active ? "border-primary bg-primary text-primary-foreground" : ""}`}>
+                    {active ? <Check className="h-4 w-4" aria-hidden="true" /> : <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+                  </span>
+                  <span className="min-w-0 break-words text-sm font-medium">{o.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {lots.length > 0 ? (
+            <Badge variant="outline">{lots.length} lot{lots.length > 1 ? "s" : ""} retenu{lots.length > 1 ? "s" : ""}</Badge>
+          ) : null}
         </div>
       ) : null}
 
