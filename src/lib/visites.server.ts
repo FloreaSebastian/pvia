@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { resolveVisitTemplate } from "./visites/templates";
 import { computeProgress } from "./visites/engine";
-import type { AnswerMap, VisitType } from "./visites/types";
+import type { AnswerMap, VisitTemplate } from "./visites/types";
 
 export const VISIT_BUCKET = "pv-assets";
 export const VISIT_SIGNED_TTL = 60 * 60; // 1 h
