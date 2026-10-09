@@ -8,7 +8,7 @@
  * - ne produit jamais d'écriture : l'application reste une action explicite de l'utilisateur
  *   via le flux d'enregistrement existant.
  */
-import { computeProgress, formatAnswer, resolveSections } from "./engine";
+import { REPEAT_SEP, computeProgress, formatAnswer, resolveSections } from "./engine";
 import { findTemplateField, isValidFilled, validateFieldValue } from "./validation";
 import {
   ANSWER_STATUS_TOKENS,
@@ -61,11 +61,27 @@ export interface ContextInput {
     category: string;
     location?: string | null;
     action?: string | null;
+    description?: string | null;
+    responsible?: string | null;
+    lot?: string | null;
   }[];
+  /** Nombre exact de points d'attention de la visite (peut dépasser la liste fournie). */
+  constraintsTotal?: number;
 }
 
-function clip(s: string, n: number) {
-  return s.length > n ? `${s.slice(0, n)}…` : s;
+/** Ordre de priorité des points d'attention (bloquants d'abord). */
+export const CONSTRAINT_LEVEL_RANK: Record<string, number> = { bloquant: 0, important: 1, a_verifier: 2, information: 3 };
+export function sortConstraints<T extends { level: string }>(list: T[]): T[] {
+  return list
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => (CONSTRAINT_LEVEL_RANK[a.c.level] ?? 9) - (CONSTRAINT_LEVEL_RANK[b.c.level] ?? 9) || a.i - b.i)
+    .map((x) => x.c);
+}
+
+function clip(s: string, n: number, trunc?: { n: number }) {
+  if (s.length <= n) return s;
+  if (trunc) trunc.n++;
+  return `${s.slice(0, n)}…`;
 }
 
 function describeType(f: VisitField): string {
@@ -81,11 +97,11 @@ function describeType(f: VisitField): string {
   return parts.join(", ");
 }
 
-function currentText(f: VisitField, v: AnswerValue | undefined): string {
+function currentText(f: VisitField, v: AnswerValue | undefined, trunc?: { n: number }): string {
   if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0))
     return "(vide)";
   if (isAnswerStatusToken(v)) return ANSWER_STATUS_TOKENS[v];
-  return clip(formatAnswer(f, v), ASSISTANT_LIMITS.freeTextMax);
+  return clip(formatAnswer(f, v), ASSISTANT_LIMITS.freeTextMax, trunc);
 }
 
 export interface AssistantCoverage {
@@ -95,6 +111,10 @@ export interface AssistantCoverage {
   omitted: number;
   /** Titres des étapes dont des champs ont été omis. */
   omittedSections: string[];
+  /** Textes (valeurs, points d'attention) écourtés pour tenir dans la limite. */
+  truncatedTexts: number;
+  constraintsTotal: number;
+  constraintsIncluded: number;
 }
 
 /** Construit le contexte texte borné de la visite pour une action. */
@@ -124,8 +144,9 @@ export function buildAssistantContextWithMeta(
       Object.keys(input.photoSlotCounts).filter((k) => input.photoSlotCounts[k] > 0),
     ),
     skippedSlots: input.skippedSlots,
-    constraintCount: input.constraints.length,
+    constraintCount: input.constraintsTotal ?? input.constraints.length,
   });
+  const trunc = { n: 0 };
   const compact = action === "synthese" || action === "manque";
 
   const rank = (s: (typeof resolved)[number]) => {
@@ -160,9 +181,23 @@ export function buildAssistantContextWithMeta(
   let included = 0;
   const omittedSections = new Set<string>();
   for (const rs of ordered) {
+    // Hors synthèse : une étape répétée (zones…) est décrite par un dictionnaire compact
+    // (champs une seule fois + format de clé), puis seules ses valeurs renseignées sont listées.
+    // Toutes les clés de tous les blocs restent ainsi accessibles, dans un budget borné.
+    const dict = !compact && !!rs.section.repeat && rs.blocks.length > 1;
+    if (dict) {
+      const bases = new Map<string, (typeof rs.blocks)[number]["fields"][number]>();
+      for (const b of rs.blocks) for (const f of b.fields) if (!bases.has(f.key)) bases.set(f.key, f);
+      lines.push(
+        `BLOC RÉPÉTÉ ${rs.section.key} « ${rs.section.title} » : ${rs.blocks.length} × ${rs.section.repeat!.itemLabel}. Clé d'un champ = <clé>${REPEAT_SEP}<index>, index 0 à ${rs.blocks.length - 1} (${rs.section.repeat!.itemLabel} 1 = index 0). Champs :`,
+      );
+      for (const f of bases.values()) lines.push(`  · ${f.key} | ${f.label} | ${describeType(f)}`);
+      lines.push("  Valeurs renseignées :");
+    }
     for (const b of rs.blocks) {
       for (const f of b.fields) {
-        const cur = currentText(f, answers[f.answerKey]);
+        const cur = currentText(f, answers[f.answerKey], trunc);
+        if (dict && cur === "(vide)") continue; // couvert par le dictionnaire
         if (compact && cur === "(vide)") continue; // les manquants sont listés plus bas
         total++;
         if (included >= max) {
@@ -172,7 +207,7 @@ export function buildAssistantContextWithMeta(
         included++;
         const where = `${f.label}${b.label ? ` (${b.label})` : ""}`;
         lines.push(
-          compact
+          compact || dict
             ? `- ${f.answerKey} | ${rs.section.key} | ${where} = ${cur}`
             : `- ${f.answerKey} | ${rs.section.key} | ${where} | ${describeType(f)} | ${cur}`,
         );
@@ -192,6 +227,9 @@ export function buildAssistantContextWithMeta(
     included,
     omitted: total - included,
     omittedSections: [...omittedSections],
+    truncatedTexts: 0,
+    constraintsTotal: Math.max(input.constraintsTotal ?? 0, input.constraints.length),
+    constraintsIncluded: 0,
   };
   if (coverage.omitted > 0) {
     lines.push(
@@ -209,14 +247,32 @@ export function buildAssistantContextWithMeta(
         );
     }
   }
-  if (input.constraints.length) {
+  if (coverage.constraintsTotal > 0) {
+    const shown = sortConstraints(input.constraints).slice(0, ASSISTANT_LIMITS.constraintsMax);
+    coverage.constraintsIncluded = shown.length;
+    const byLevel = new Map<string, number>();
+    for (const c of input.constraints) byLevel.set(c.level, (byLevel.get(c.level) ?? 0) + 1);
     lines.push("");
-    lines.push("POINTS D'ATTENTION SAISIS:");
-    for (const c of input.constraints.slice(0, ASSISTANT_LIMITS.constraintsMax)) {
+    lines.push(
+      `POINTS D'ATTENTION SAISIS (${coverage.constraintsTotal} au total : ${[...byLevel].map(([l, n]) => `${n} ${l}`).join(", ")}; bloquants puis importants d'abord):`,
+    );
+    for (const c of shown) {
       lines.push(
-        `- [${c.level}/${c.category}] ${clip(c.title, 200)}${c.location ? ` — lieu: ${clip(c.location, 120)}` : ""}${c.action ? ` — action: ${clip(c.action, 200)}` : ""}`,
+        `- [${c.level}/${c.category}${c.lot ? `/lot ${c.lot}` : ""}] ${clip(c.title, 200, trunc)}` +
+          (c.location ? ` — lieu: ${clip(c.location, 120, trunc)}` : "") +
+          (c.description ? ` — constat: ${clip(c.description, 300, trunc)}` : "") +
+          (c.action ? ` — action: ${clip(c.action, 200, trunc)}` : "") +
+          (c.responsible ? ` — responsable: ${clip(c.responsible, 120, trunc)}` : ""),
       );
     }
+    const omittedC = coverage.constraintsTotal - shown.length;
+    if (omittedC > 0) {
+      lines.push(`POINTS NON TRANSMIS: ${omittedC} point(s) d'attention de moindre priorité non transmis (limite). Signale-le ; ne dis pas que la liste est complète.`);
+    }
+  }
+  coverage.truncatedTexts = trunc.n;
+  if (trunc.n > 0) {
+    lines.push(`TEXTES ÉCOURTÉS: ${trunc.n} texte(s) long(s) tronqué(s) (marqués …). Ne prétends pas les avoir lus en entier.`);
   }
   return { text: lines.join("\n"), coverage };
 }

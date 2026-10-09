@@ -159,10 +159,13 @@ export const askVisitAssistant = createServerFn({ method: "POST" })
       supabase.from("technical_visit_photo_skips").select("slot_key").eq("visit_id", visit.id).eq("company_id", data.companyId),
       supabase
         .from("technical_visit_constraints")
-        .select("title,level,category,location,recommendation")
+        .select("title,level,category,location,recommendation,description,responsible,lot", { count: "exact" })
         .eq("visit_id", visit.id)
         .eq("company_id", data.companyId)
-        .limit(ASSISTANT_LIMITS.constraintsMax),
+        // Ordre déterministe ; la priorité (bloquants d'abord) est appliquée au contexte.
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .limit(500),
     ]);
     if (answersRes.error || photosRes.error || skipsRes.error || constraintsRes.error) {
       throw new Error("Lecture de la visite impossible. Réessayez.");
@@ -185,7 +188,11 @@ export const askVisitAssistant = createServerFn({ method: "POST" })
           category: c.category,
           location: c.location,
           action: c.recommendation,
+          description: c.description,
+          responsible: c.responsible,
+          lot: c.lot,
         })),
+        constraintsTotal: constraintsRes.count ?? (constraintsRes.data ?? []).length,
       },
       data.action,
       { phase: (data.phase ?? null) as never, sectionKey: data.sectionKey ?? null },
