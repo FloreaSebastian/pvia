@@ -101,3 +101,65 @@ describe("conditions multi-choix", () => {
     expect(text).toContain("- isolation_facade.surface_murs |");
   });
 });
+
+describe("contexte IA — zones répétées, points d'attention, textes longs", () => {
+  test("dictée : dictionnaire compact, la zone 20 est atteignable et proposable", () => {
+    const answers = { btp_zones_count: 20 } as never;
+    const { text, coverage } = buildAssistantContextWithMeta(
+      { ...base, template: tpl, answers },
+      "dictee",
+      { sectionKey: "electricite.releves" },
+    );
+    expect(text).toContain("BLOC RÉPÉTÉ btp_zones");
+    expect(text).toContain("index 0 à 19");
+    expect(text).toContain("· zone_surface |");
+    expect(coverage.omitted).toBe(0);
+    const r = sanitizeProposals(tpl, answers, [
+      { field_key: "zone_surface__19", value_json: "18" },
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].label).toContain("Zone 20");
+  });
+
+  test("31 points dont un bloquant en dernier : présenté, nombre exact et omission annoncée", () => {
+    const constraints = Array.from({ length: 30 }, (_, i) => ({
+      title: `Info ${i}`,
+      level: "information",
+      category: "acces",
+    }));
+    constraints.push({
+      title: "Charpente fragilisée",
+      level: "bloquant",
+      category: "structure",
+      description: "Fissure",
+      responsible: "Bureau d'études",
+      lot: "toiture",
+    } as never);
+    const { text, coverage } = buildAssistantContextWithMeta(
+      { ...base, template: tpl, answers: {}, constraints, constraintsTotal: 31 },
+      "synthese",
+      {},
+    );
+    expect(coverage.constraintsTotal).toBe(31);
+    expect(coverage.constraintsIncluded).toBe(30);
+    const first = text.split("\n").find((l) => l.startsWith("- [bloquant"))!;
+    expect(first).toContain("Charpente fragilisée");
+    expect(first).toContain("constat: Fissure");
+    expect(first).toContain("responsable: Bureau d'études");
+    expect(first).toContain("lot toiture");
+    expect(text).toContain("31 au total");
+    expect(text).toContain("POINTS NON TRANSMIS: 1");
+  });
+
+  test("texte long écourté : signalé dans le contexte et la couverture", () => {
+    const k = "btp_documents_autres";
+    const answers = { btp_documents: ["autre"], [k]: "x".repeat(800) } as never;
+    const { text, coverage } = buildAssistantContextWithMeta(
+      { ...base, template: tpl, answers },
+      "synthese",
+      {},
+    );
+    expect(coverage.truncatedTexts).toBe(1);
+    expect(text).toContain("TEXTES ÉCOURTÉS: 1");
+  });
+});

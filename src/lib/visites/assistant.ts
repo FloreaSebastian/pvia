@@ -70,11 +70,20 @@ export interface ContextInput {
 }
 
 /** Ordre de priorité des points d'attention (bloquants d'abord). */
-export const CONSTRAINT_LEVEL_RANK: Record<string, number> = { bloquant: 0, important: 1, a_verifier: 2, information: 3 };
+export const CONSTRAINT_LEVEL_RANK: Record<string, number> = {
+  bloquant: 0,
+  important: 1,
+  a_verifier: 2,
+  information: 3,
+};
 export function sortConstraints<T extends { level: string }>(list: T[]): T[] {
   return list
     .map((c, i) => ({ c, i }))
-    .sort((a, b) => (CONSTRAINT_LEVEL_RANK[a.c.level] ?? 9) - (CONSTRAINT_LEVEL_RANK[b.c.level] ?? 9) || a.i - b.i)
+    .sort(
+      (a, b) =>
+        (CONSTRAINT_LEVEL_RANK[a.c.level] ?? 9) - (CONSTRAINT_LEVEL_RANK[b.c.level] ?? 9) ||
+        a.i - b.i,
+    )
     .map((x) => x.c);
 }
 
@@ -187,7 +196,8 @@ export function buildAssistantContextWithMeta(
     const dict = !compact && !!rs.section.repeat && rs.blocks.length > 1;
     if (dict) {
       const bases = new Map<string, (typeof rs.blocks)[number]["fields"][number]>();
-      for (const b of rs.blocks) for (const f of b.fields) if (!bases.has(f.key)) bases.set(f.key, f);
+      for (const b of rs.blocks)
+        for (const f of b.fields) if (!bases.has(f.key)) bases.set(f.key, f);
       lines.push(
         `BLOC RÉPÉTÉ ${rs.section.key} « ${rs.section.title} » : ${rs.blocks.length} × ${rs.section.repeat!.itemLabel}. Clé d'un champ = <clé>${REPEAT_SEP}<index>, index 0 à ${rs.blocks.length - 1} (${rs.section.repeat!.itemLabel} 1 = index 0). Champs :`,
       );
@@ -267,12 +277,16 @@ export function buildAssistantContextWithMeta(
     }
     const omittedC = coverage.constraintsTotal - shown.length;
     if (omittedC > 0) {
-      lines.push(`POINTS NON TRANSMIS: ${omittedC} point(s) d'attention de moindre priorité non transmis (limite). Signale-le ; ne dis pas que la liste est complète.`);
+      lines.push(
+        `POINTS NON TRANSMIS: ${omittedC} point(s) d'attention de moindre priorité non transmis (limite). Signale-le ; ne dis pas que la liste est complète.`,
+      );
     }
   }
   coverage.truncatedTexts = trunc.n;
   if (trunc.n > 0) {
-    lines.push(`TEXTES ÉCOURTÉS: ${trunc.n} texte(s) long(s) tronqué(s) (marqués …). Ne prétends pas les avoir lus en entier.`);
+    lines.push(
+      `TEXTES ÉCOURTÉS: ${trunc.n} texte(s) long(s) tronqué(s) (marqués …). Ne prétends pas les avoir lus en entier.`,
+    );
   }
   return { text: lines.join("\n"), coverage };
 }
