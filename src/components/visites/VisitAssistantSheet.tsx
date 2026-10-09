@@ -46,7 +46,7 @@ export interface VisitAssistantSheetProps {
   /** Applique ; seuls les champs retournés dans `accepted` sont marqués appliqués. */
   onApply?: (
     entries: (ApplyCandidate & { expectedCurrent: ReviewedCandidate["current"] })[],
-  ) => { accepted: string[]; rejected: RejectedCandidate[] };
+  ) => Promise<{ accepted: string[]; rejected: RejectedCandidate[] }>;
   triggerClassName?: string;
 }
 
@@ -73,6 +73,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
   const [applied, setApplied] = useState<Record<string, boolean>>({});
   const [confirmOverwrite, setConfirmOverwrite] = useState<{ turnId: number; list: ReviewedCandidate[] } | null>(null);
   const gateRef = useRef(createRequestGate());
+  const [applying, setApplying] = useState(false);
   const idRef = useRef(1);
   const endRef = useRef<HTMLDivElement | null>(null);
   const dictRef = useRef<ReturnType<typeof createDictation> | null>(null);
@@ -219,19 +220,30 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
     }
   }
 
-  function doApply(turnId: number, list: ReviewedCandidate[]) {
-    if (!props.onApply || list.length === 0) return;
+  async function doApply(turnId: number, list: ReviewedCandidate[]) {
+    if (!props.onApply || list.length === 0 || applying) return;
     if (!props.canApply) { toast.error("Saisie verrouillée : rien n'a été appliqué."); return; }
-    const res = props.onApply(list.map((p) => ({
+    const gen = gateRef.current.next();
+    setApplying(true);
+    let res: { accepted: string[]; rejected: RejectedCandidate[] };
+    try {
+      res = await props.onApply(list.map((p) => ({
       field_key: p.field_key, section_key: p.section_key, label: p.label, proposed: p.proposed, expectedCurrent: p.current,
     })));
+    } catch (e) {
+      if (gateRef.current.isCurrent(gen)) toast.error(e instanceof Error && e.message.length < 200 ? e.message : "Application impossible. Réessayez.");
+      return;
+    } finally {
+      setApplying(false);
+    }
+    if (!gateRef.current.isCurrent(gen)) return;
     if (res.accepted.length) {
       setApplied((prev) => {
         const n = { ...prev };
         for (const k of res.accepted) n[proposalCardId(turnId, k)] = true;
         return n;
       });
-      toast.success(`${res.accepted.length} relevé${res.accepted.length > 1 ? "s" : ""} appliqué${res.accepted.length > 1 ? "s" : ""} — enregistrement automatique en cours.`);
+      toast.success(`${res.accepted.length} relevé${res.accepted.length > 1 ? "s" : ""} appliqué${res.accepted.length > 1 ? "s" : ""} et enregistré${res.accepted.length > 1 ? "s" : ""}.`);
     }
     if (res.rejected.length) {
       toast.error(`Non appliqué : ${res.rejected.map((r) => `${r.label} (${r.reason})`).join(", ")}.`);
@@ -250,7 +262,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
     if (rejected.length) toast.error(`Écarté : ${rejected.map((r) => `${r.label} (${r.reason})`).join(", ")}.`);
     if (ok.length === 0) return;
     if (ok.some((p) => p.overwrites)) setConfirmOverwrite({ turnId: turn.id, list: ok });
-    else doApply(turn.id, ok);
+    else void doApply(turn.id, ok);
   }
 
   const actionBtn = (a: AssistantAction, Icon: typeof Bot, label: string, disabled = false) => (
@@ -349,7 +361,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                             </span>
                           </label>
                         ); })}
-                        <Button type="button" className="h-11 w-full" onClick={() => applyFrom(t)} disabled={!props.onApply || !props.canApply}>
+                        <Button type="button" className="h-11 w-full" onClick={() => applyFrom(t)} disabled={!props.onApply || !props.canApply || applying}>
                           <Check className="mr-2 h-4 w-4" aria-hidden="true" /> Appliquer la sélection
                         </Button>
                       </div>
@@ -437,12 +449,12 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                   const c = confirmOverwrite;
                   setConfirmOverwrite(null);
                   const keep = (c?.list ?? []).filter((p) => !p.overwrites);
-                  if (c && keep.length) doApply(c.turnId, keep);
+                  if (c && keep.length) void doApply(c.turnId, keep);
                 }}
               >
                 Appliquer sans remplacer
               </AlertDialogCancel>
-              <AlertDialogAction className="h-11" onClick={() => { const c = confirmOverwrite; setConfirmOverwrite(null); if (c) doApply(c.turnId, c.list); }}>
+              <AlertDialogAction className="h-11" onClick={() => { const c = confirmOverwrite; setConfirmOverwrite(null); if (c) void doApply(c.turnId, c.list); }}>
                 Remplacer
               </AlertDialogAction>
             </AlertDialogFooter>
