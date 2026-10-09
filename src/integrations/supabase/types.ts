@@ -7120,6 +7120,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      add_technical_visit_lots: {
+        Args: { _company_id: string; _lots: string[]; _visit_id: string }
+        Returns: string[]
+      }
       business_month_start: { Args: never; Returns: string }
       can_add_member: { Args: { _company_id: string }; Returns: boolean }
       can_create_company: { Args: { _user_id: string }; Returns: boolean }
@@ -7302,26 +7306,48 @@ export type Database = {
         Args: { _membership_id: string }
         Returns: boolean
       }
-      search_technical_visits: {
-        Args: {
-          _assigned_to?: string
-          _chantier_id?: string
-          _client_id?: string
-          _company_id: string
-          _from?: string
-          _include_archived?: boolean
-          _limit?: number
-          _offset?: number
-          _status?: string
-          _term: string
-          _to?: string
-          _visit_type?: string
-        }
-        Returns: {
-          id: string
-          total: number
-        }[]
-      }
+      search_technical_visits:
+        | {
+            Args: {
+              _assigned_to?: string
+              _chantier_id?: string
+              _client_id?: string
+              _company_id: string
+              _from?: string
+              _include_archived?: boolean
+              _limit?: number
+              _offset?: number
+              _status?: string
+              _term: string
+              _to?: string
+              _visit_type?: string
+            }
+            Returns: {
+              id: string
+              total: number
+            }[]
+          }
+        | {
+            Args: {
+              _assigned_to: string
+              _chantier_id: string
+              _client_id: string
+              _company_id: string
+              _from: string
+              _include_archived: boolean
+              _limit: number
+              _lot: string
+              _offset: number
+              _status: string
+              _term: string
+              _to: string
+              _visit_type: string
+            }
+            Returns: {
+              id: string
+              total: number
+            }[]
+          }
       solar_apply_electrical_design: {
         Args: {
           _company_id: string
