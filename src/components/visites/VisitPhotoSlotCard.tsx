@@ -317,7 +317,7 @@ export function VisitPhotoSlotCard({
                   type="button"
                   size="icon"
                   variant="destructive"
-                  className="absolute right-1 top-1 h-9 w-9"
+                  className="absolute right-1 top-1 h-11 w-11"
                   onClick={() => setPendingDelete(p.id)}
                   aria-label={`Supprimer la photo ${p.caption || slot.label}`}
                 >
