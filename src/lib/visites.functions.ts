@@ -5,6 +5,7 @@
 import { sniffImage } from "@/lib/visites/validation";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { AnswerValue } from "./visites/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "./audit.server";
 import { assertPlanFeature } from "./plan-guard.server";
@@ -495,7 +496,7 @@ export const applyAssistantAnswers = createServerFn({ method: "POST" })
     }
     const rejected = new Set(fieldErrors.map((e) => e.field_key));
     const accepted = data.entries.filter((e) => !rejected.has(e.field_key));
-    if (accepted.length === 0) return { applied: [] as string[], conflicts: [] as { field_key: string; current: unknown }[], fieldErrors };
+    if (accepted.length === 0) return { applied: [] as string[], conflicts: [] as { field_key: string; current: AnswerValue }[], fieldErrors };
 
     const { data: res, error } = await supabase.rpc("apply_technical_visit_answers_cas" as never, {
       _company_id: data.companyId,
@@ -508,7 +509,7 @@ export const applyAssistantAnswers = createServerFn({ method: "POST" })
       if (m.includes("forbidden") || m.includes("visit_not_found")) throw new Error("Droits insuffisants pour modifier cette visite.");
       throw new Error("Application impossible. Réessayez.");
     }
-    const out = res as unknown as { applied: string[]; conflicts: { field_key: string; current: unknown }[] };
+    const out = res as unknown as { applied: string[]; conflicts: { field_key: string; current: AnswerValue }[] };
     if (out.applied.length) {
       if (visit.status === "planifiee" || visit.status === "a_planifier") {
         await supabase
