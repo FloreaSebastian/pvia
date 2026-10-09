@@ -185,3 +185,26 @@ export function planApply(
   }
   return { accepted, rejected };
 }
+
+/**
+ * Intègre le résultat d'une application IA côté terrain. Un champ retapé localement
+ * depuis l'envoi (révision changée) garde la nouvelle saisie : ni valeur serveur, ni effacement d'erreur.
+ */
+export function mergeApplyResult<V>(
+  prev: Record<string, V>,
+  res: { applied: string[]; conflicts: { field_key: string; current: V }[] },
+  proposed: Map<string, V>,
+  revAtSend: Map<string, number>,
+  revNow: (key: string) => number,
+): { answers: Record<string, V>; settled: string[] } {
+  const next = { ...prev };
+  const settled: string[] = [];
+  const unchanged = (k: string) => (revAtSend.get(k) ?? 0) === revNow(k);
+  for (const k of res.applied) {
+    if (!unchanged(k) || !proposed.has(k)) continue;
+    next[k] = proposed.get(k)!;
+    settled.push(k);
+  }
+  for (const c of res.conflicts) if (unchanged(c.field_key)) next[c.field_key] = c.current;
+  return { answers: next, settled };
+}

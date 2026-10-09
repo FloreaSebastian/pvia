@@ -26,7 +26,7 @@ import type { AnswerMap, AnswerValue } from "@/lib/visites/types";
 import { VisitFieldInput } from "@/components/visites/VisitFieldInput";
 import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "@/components/visites/VisitPhotoSlotCard";
 import { VisitAssistantSheet } from "@/components/visites/VisitAssistantSheet";
-import { ensureSavedBeforeAsk, planApply, reviewCandidates } from "@/lib/visites/assistant-session";
+import { ensureSavedBeforeAsk, mergeApplyResult, planApply, reviewCandidates } from "@/lib/visites/assistant-session";
 import { VisitConstraintsPanel, type VisitConstraintRow } from "@/components/visites/VisitConstraintsPanel";
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { classifyBillingError } from "@/lib/billing-errors";
@@ -89,6 +89,8 @@ function TerrainPage() {
 
   const dirtyRef = useRef<Map<string, PendingEntry>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Révision locale par champ : détecte une nouvelle saisie pendant une application IA. */
+  const fieldRevRef = useRef<Map<string, number>>(new Map());
   /** Envoi en cours (autosave, reprise réseau ou clôture) : un seul à la fois. */
   const inFlightRef = useRef<Promise<boolean> | null>(null);
   /** Erreurs de validation par champ (client ou serveur). */
@@ -263,6 +265,7 @@ function TerrainPage() {
 
   function onFieldChange(sectionKey: string, answerKey: string, value: AnswerValue) {
     if (finishingRef.current) return;
+    fieldRevRef.current.set(answerKey, (fieldRevRef.current.get(answerKey) ?? 0) + 1);
     setAnswers((prev) => ({ ...prev, [answerKey]: value }));
     // Validation immédiate avec les mêmes règles que le serveur : une valeur
     // invalide est signalée sur le champ et n'est pas envoyée.
@@ -305,6 +308,7 @@ function TerrainPage() {
     if (!pre.ok) {
       return { accepted: [], rejected: plan.accepted.map((e) => ({ field_key: e.field_key, label: e.label, reason: "réponses en attente non enregistrées" })) };
     }
+    const revAtSend = new Map(plan.accepted.map((e) => [e.field_key, fieldRevRef.current.get(e.field_key) ?? 0]));
     const res = await applyFn({
       data: {
         companyId: activeCompanyId,
@@ -315,18 +319,19 @@ function TerrainPage() {
     const byKey = new Map(plan.accepted.map((e) => [e.field_key, e]));
     const applied = new Set(res.applied);
     const conflicts = new Map(res.conflicts.map((c) => [c.field_key, c.current as AnswerValue]));
+    const proposed = new Map(plan.accepted.map((e) => [e.field_key, e.proposed as AnswerValue]));
+    const revNow = (k: string) => fieldRevRef.current.get(k) ?? 0;
+    const merged = mergeApplyResult(answersRef.current, { applied: [...applied], conflicts: [...conflicts].map(([field_key, current]) => ({ field_key, current })) }, proposed, revAtSend, revNow);
+    // Fusion appliquée sur l'état le plus récent, pour les seuls champs inchangés depuis l'envoi.
     setAnswers((prev) => {
       const next = { ...prev };
-      for (const k of applied) next[k] = byKey.get(k)!.proposed;
-      for (const [k, v] of conflicts) {
-        // Valeur serveur intégrée seulement si l'utilisateur n'a pas retapé ce champ entre-temps.
-        if (!dirtyRef.current.has(k)) next[k] = v;
-      }
+      for (const k of merged.settled) next[k] = merged.answers[k];
+      for (const [k] of conflicts) if (revNow(k) === (revAtSend.get(k) ?? 0)) next[k] = merged.answers[k];
       return next;
     });
     setFieldErrors((prev) => {
       const next = { ...prev };
-      for (const k of applied) delete next[k];
+      for (const k of merged.settled) delete next[k];
       return next;
     });
     persistLocal();

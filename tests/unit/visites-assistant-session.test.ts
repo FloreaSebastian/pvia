@@ -5,6 +5,7 @@ import {
   createRequestGate,
   ensureSavedBeforeAsk,
   planApply,
+  mergeApplyResult,
   proposalCardId,
   reviewCandidates,
   textAfterSuccess,
@@ -156,5 +157,23 @@ describe("assistant — conflit / verrou à l'application", () => {
     expect(planApply(tpl, { btp_documents: [] }, [e], false).rejected[0].reason).toBe(
       "champ masqué par les réponses actuelles",
     );
+  });
+});
+
+describe("mergeApplyResult — saisie pendant une application IA", () => {
+  test("champ retapé pendant l'envoi : la nouvelle saisie reste, pas d'effacement d'erreur", () => {
+    const rev = new Map([["a", 3]]);
+    const r = mergeApplyResult({ a: 55 } as Record<string, unknown>, { applied: ["a"], conflicts: [] }, new Map([["a", 40]]), new Map([["a", 2]]), (k) => rev.get(k) ?? 0);
+    expect(r.answers.a).toBe(55);
+    expect(r.settled).toEqual([]);
+  });
+  test("champ inchangé : valeur appliquée intégrée et réglée", () => {
+    const r = mergeApplyResult({ a: 35 } as Record<string, unknown>, { applied: ["a"], conflicts: [] }, new Map([["a", 40]]), new Map([["a", 2]]), () => 2);
+    expect(r.answers.a).toBe(40);
+    expect(r.settled).toEqual(["a"]);
+  });
+  test("conflit sur champ retapé : saisie locale conservée", () => {
+    const r = mergeApplyResult({ a: 60 } as Record<string, unknown>, { applied: [], conflicts: [{ field_key: "a", current: 50 }] }, new Map([["a", 40]]), new Map([["a", 1]]), () => 2);
+    expect(r.answers.a).toBe(60);
   });
 });
