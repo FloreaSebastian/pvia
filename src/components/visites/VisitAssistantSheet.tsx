@@ -28,6 +28,7 @@ interface Turn {
   rejected?: number;
   studyRequired?: boolean;
   error?: boolean;
+  coverage?: { total: number; included: number; omitted: number; omittedSections: string[] };
 }
 
 export interface VisitAssistantSheetProps {
@@ -231,6 +232,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
           proposals: res.proposals,
           rejected: res.rejectedProposals,
           studyRequired: res.studyRequired,
+          coverage: res.coverage,
         },
       ]);
     } catch (e) {
@@ -337,6 +339,11 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                       <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
                         {t.questions.map((q, i) => <li key={i}>{q}</li>)}
                       </ul>
+                    ) : null}
+                    {t.coverage && t.coverage.omitted > 0 ? (
+                      <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                        Analyse partielle : {t.coverage.included} champ(s) sur {t.coverage.total} transmis. Non pris en compte : {t.coverage.omittedSections.join(", ")}.
+                      </p>
                     ) : null}
                     {t.studyRequired ? <Badge variant="outline">Étude technique requise</Badge> : null}
                     {t.proposals && t.proposals.length > 0 ? (

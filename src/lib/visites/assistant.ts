@@ -173,7 +173,7 @@ export function buildAssistantContextWithMeta(
     lines.push("MANQUANTS:");
     for (const s of progress.sections) {
       const miss = [...s.missingFieldLabels, ...s.missingPhotoLabels.map((l) => `photo ${l}`)];
-      if (miss.length) lines.push(`- ${s.title}: ${miss.slice(0, 15).join("; ")}`);
+      if (miss.length) lines.push(`- ${s.title}: ${miss.slice(0, 15).join("; ")}${miss.length > 15 ? ` (+${miss.length - 15} autre(s))` : ""}`);
     }
   }
   if (input.constraints.length) {
