@@ -13,7 +13,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { askVisitAssistant } from "@/lib/visites-ai.functions";
 import { ASSISTANT_LIMITS, type AssistantAction, type AssistantProposal } from "@/lib/visites/assistant";
-import type { AnswerValue, VisitPhase } from "@/lib/visites/types";
+import type { VisitPhase } from "@/lib/visites/types";
+import {
+  createRequestGate, proposalCardId, textAfterSuccess,
+  type ApplyCandidate, type RejectedCandidate, type ReviewedCandidate,
+} from "@/lib/visites/assistant-session";
 
 interface Turn {
   id: number;
@@ -33,9 +37,14 @@ export interface VisitAssistantSheetProps {
   sectionKey?: string | null;
   /** Saisie autorisée (mode terrain, droits d'édition) : active dictée → propositions. */
   canApply: boolean;
-  /** Valeurs actuelles à l'écran, pour signaler un remplacement au moment d'appliquer. */
-  currentAnswers?: Record<string, AnswerValue>;
-  onApply?: (entries: { section_key: string; field_key: string; value: AnswerValue }[]) => void;
+  /** Avant toute demande : enregistre les saisies en attente ; refus = demande bloquée, texte conservé. */
+  beforeAsk?: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  /** Relit l'état courant (visibilité, type, valeur actuelle) pour la confirmation. */
+  review?: (list: ApplyCandidate[]) => { ok: ReviewedCandidate[]; rejected: RejectedCandidate[] };
+  /** Applique ; seuls les champs retournés dans `accepted` sont marqués appliqués. */
+  onApply?: (
+    entries: (ApplyCandidate & { expectedCurrent: ReviewedCandidate["current"] })[],
+  ) => { accepted: string[]; rejected: RejectedCandidate[] };
   triggerClassName?: string;
 }
 
@@ -65,7 +74,8 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
   const [speakingId, setSpeakingId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [applied, setApplied] = useState<Record<string, boolean>>({});
-  const [confirmOverwrite, setConfirmOverwrite] = useState<AssistantProposal[] | null>(null);
+  const [confirmOverwrite, setConfirmOverwrite] = useState<{ turnId: number; list: ReviewedCandidate[] } | null>(null);
+  const gateRef = useRef(createRequestGate());
   const recRef = useRef<SR | null>(null);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseText = useRef("");
@@ -80,8 +90,9 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
   const stopListening = useCallback(() => {
     if (stopTimer.current) clearTimeout(stopTimer.current);
     stopTimer.current = null;
-    try { recRef.current?.stop(); } catch { /* déjà arrêté */ }
-    recRef.current = null;
+    const rec = recRef.current;
+    recRef.current = null; // détaché d'abord : ses callbacks tardifs sont ignorés
+    try { rec?.stop(); } catch { /* déjà arrêté */ }
     setListening(false);
   }, []);
 
@@ -90,10 +101,17 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
     setSpeakingId(null);
   }, []);
 
-  // Fermeture / navigation : micro et lecture coupés.
+  // Fermeture / navigation : micro et lecture coupés, réponses tardives ignorées.
   useEffect(() => {
-    if (!open) { stopListening(); stopSpeaking(); }
+    if (!open) { stopListening(); stopSpeaking(); gateRef.current.invalidate(); setBusy(null); }
   }, [open, stopListening, stopSpeaking]);
+  // Changement d'entreprise ou de visite : session entièrement réinitialisée.
+  useEffect(() => {
+    gateRef.current.invalidate();
+    stopListening();
+    stopSpeaking();
+    setTurns([]); setText(""); setBusy(null); setSelected({}); setApplied({}); setConfirmOverwrite(null);
+  }, [props.companyId, props.visitId, stopListening, stopSpeaking]);
   useEffect(() => () => { stopListening(); stopSpeaking(); }, [stopListening, stopSpeaking]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [turns, busy]);
@@ -108,6 +126,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
     rec.interimResults = true;
     baseText.current = text ? `${text.trimEnd()} ` : "";
     rec.onresult = (e: any) => {
+      if (recRef.current !== rec) return;
       let finalT = "";
       let interim = "";
       for (let i = 0; i < e.results.length; i++) {
@@ -118,6 +137,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
       setText((baseText.current + finalT + interim).slice(0, ASSISTANT_LIMITS.messageMax));
     };
     rec.onerror = (e: any) => {
+      if (recRef.current !== rec) return;
       const code = e?.error;
       toast.error(
         code === "not-allowed" || code === "service-not-allowed"
@@ -128,12 +148,18 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
       );
       stopListening();
     };
-    rec.onend = () => { setListening(false); recRef.current = null; };
+    rec.onend = () => {
+      if (recRef.current !== rec) return;
+      if (stopTimer.current) clearTimeout(stopTimer.current);
+      stopTimer.current = null;
+      recRef.current = null;
+      setListening(false);
+    };
     try {
       rec.start();
       recRef.current = rec;
       setListening(true);
-      stopTimer.current = setTimeout(() => { stopListening(); toast.info("Dictée arrêtée après 90 s. Relisez puis envoyez."); }, DICTATION_MAX_MS);
+      stopTimer.current = setTimeout(() => { if (recRef.current !== rec) return; stopListening(); toast.info("Dictée arrêtée après 90 s. Relisez puis envoyez."); }, DICTATION_MAX_MS);
     } catch {
       toast.error("Impossible de démarrer la dictée. Saisissez au clavier.");
     }
@@ -164,10 +190,15 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
       .slice(-ASSISTANT_LIMITS.historyTurns)
       .map((t) => ({ role: t.role, text: t.text.slice(0, ASSISTANT_LIMITS.historyItemMax) }));
     const label = message || ({ guide: "Guide-moi pour cette étape", manque: "Que manque-t-il ?", synthese: "Prépare la synthèse", dictee: "", question: "" } as const)[action];
-    setTurns((prev) => [...prev, { id: idRef.current++, role: "user", text: label }]);
-    if (message) setText("");
+    const gen = gateRef.current.next();
     setBusy(action);
     try {
+      if (props.beforeAsk) {
+        const pre = await props.beforeAsk();
+        if (!gateRef.current.isCurrent(gen)) return;
+        if (!pre.ok) { toast.error(pre.message); return; }
+      }
+      setTurns((prev) => [...prev, { id: idRef.current++, role: "user", text: label }]);
       const res = await ask({
         data: {
           companyId: props.companyId,
@@ -179,17 +210,21 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
           history,
         },
       });
+      if (!gateRef.current.isCurrent(gen)) return; // réponse tardive (fermeture, autre visite)
       if (!res.ok) {
         setTurns((prev) => [...prev, { id: idRef.current++, role: "assistant", text: res.message, error: true }]);
         return;
       }
+      // Succès seulement : on retire le texte envoyé, en gardant ce qui a été tapé entre-temps.
+      if (message) setText((cur) => textAfterSuccess(cur, message));
+      const turnId = idRef.current++;
       const sel: Record<string, boolean> = {};
-      for (const p of res.proposals) sel[p.field_key] = !p.overwrites && !p.hypothesis;
+      for (const p of res.proposals) sel[proposalCardId(turnId, p.field_key)] = !p.overwrites && !p.hypothesis;
       setSelected((prev) => ({ ...prev, ...sel }));
       setTurns((prev) => [
         ...prev,
         {
-          id: idRef.current++,
+          id: turnId,
           role: "assistant",
           text: res.reply || "Pas de réponse exploitable.",
           questions: res.questions,
@@ -199,35 +234,47 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
         },
       ]);
     } catch (e) {
-      const msg = e instanceof Error && e.message.length < 200 ? e.message : "Assistant indisponible. Réessayez.";
+      if (!gateRef.current.isCurrent(gen)) return;
+      const base = e instanceof Error && e.message.length < 200 ? e.message : "Assistant indisponible.";
+      const msg = message ? `${base} Votre texte est conservé : touchez à nouveau pour réessayer.` : `${base} Réessayez.`;
       setTurns((prev) => [...prev, { id: idRef.current++, role: "assistant", text: msg, error: true }]);
     } finally {
-      setBusy(null);
+      if (gateRef.current.isCurrent(gen)) setBusy(null);
     }
   }
 
-  function doApply(list: AssistantProposal[]) {
+  function doApply(turnId: number, list: ReviewedCandidate[]) {
     if (!props.onApply || list.length === 0) return;
-    props.onApply(list.map((p) => ({ section_key: p.section_key, field_key: p.field_key, value: p.proposed })));
-    setApplied((prev) => {
-      const n = { ...prev };
-      for (const p of list) n[p.field_key] = true;
-      return n;
-    });
-    toast.success(`${list.length} relevé${list.length > 1 ? "s" : ""} appliqué${list.length > 1 ? "s" : ""} — enregistrement automatique en cours.`);
+    if (!props.canApply) { toast.error("Saisie verrouillée : rien n'a été appliqué."); return; }
+    const res = props.onApply(list.map((p) => ({
+      field_key: p.field_key, section_key: p.section_key, label: p.label, proposed: p.proposed, expectedCurrent: p.current,
+    })));
+    if (res.accepted.length) {
+      setApplied((prev) => {
+        const n = { ...prev };
+        for (const k of res.accepted) n[proposalCardId(turnId, k)] = true;
+        return n;
+      });
+      toast.success(`${res.accepted.length} relevé${res.accepted.length > 1 ? "s" : ""} appliqué${res.accepted.length > 1 ? "s" : ""} — enregistrement automatique en cours.`);
+    }
+    if (res.rejected.length) {
+      toast.error(`Non appliqué : ${res.rejected.map((r) => `${r.label} (${r.reason})`).join(", ")}.`);
+    }
   }
 
   function applyFrom(turn: Turn) {
-    const chosen = (turn.proposals ?? []).filter((p) => selected[p.field_key] && !applied[p.field_key]);
-    if (chosen.length === 0) { toast.error("Cochez au moins une proposition."); return; }
-    // Remplacement : relu sur la valeur affichée maintenant, pas celle du moment de la demande.
-    const live = chosen.map((p) => {
-      const cur = props.currentAnswers?.[p.field_key];
-      const has = cur !== undefined && cur !== null && cur !== "" && !(Array.isArray(cur) && cur.length === 0);
-      return { ...p, overwrites: has && JSON.stringify(cur) !== JSON.stringify(p.proposed) };
+    if (!props.canApply || !props.onApply || !props.review) { toast.error("Saisie verrouillée : rien n'a été appliqué."); return; }
+    const chosen = (turn.proposals ?? []).filter((p) => {
+      const id = proposalCardId(turn.id, p.field_key);
+      return selected[id] && !applied[id];
     });
-    if (live.some((p) => p.overwrites)) setConfirmOverwrite(live);
-    else doApply(live);
+    if (chosen.length === 0) { toast.error("Cochez au moins une proposition."); return; }
+    // Relu sur l'état actuel de la visite, pas celui du moment de la demande.
+    const { ok, rejected } = props.review(chosen.map((p) => ({ field_key: p.field_key, section_key: p.section_key, label: p.label, proposed: p.proposed })));
+    if (rejected.length) toast.error(`Écarté : ${rejected.map((r) => `${r.label} (${r.reason})`).join(", ")}.`);
+    if (ok.length === 0) return;
+    if (ok.some((p) => p.overwrites)) setConfirmOverwrite({ turnId: turn.id, list: ok });
+    else doApply(turn.id, ok);
   }
 
   const actionBtn = (a: AssistantAction, Icon: typeof Bot, label: string, disabled = false) => (
@@ -295,13 +342,13 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                     {t.proposals && t.proposals.length > 0 ? (
                       <div className="space-y-2">
                         <p className="text-xs font-medium">Relevés proposés — cochez puis appliquez :</p>
-                        {t.proposals.map((p) => (
-                          <label key={p.field_key} className="flex min-h-11 cursor-pointer gap-3 rounded-md border p-3">
+                        {t.proposals.map((p) => { const cid = proposalCardId(t.id, p.field_key); return (
+                          <label key={cid} className="flex min-h-11 cursor-pointer gap-3 rounded-md border p-3">
                             <Checkbox
                               className="mt-0.5 h-5 w-5"
-                              checked={!!selected[p.field_key]}
-                              disabled={!!applied[p.field_key]}
-                              onCheckedChange={(v) => setSelected((s) => ({ ...s, [p.field_key]: v === true }))}
+                              checked={!!selected[cid]}
+                              disabled={!!applied[cid]}
+                              onCheckedChange={(v) => setSelected((s) => ({ ...s, [cid]: v === true }))}
                               aria-label={`Sélectionner ${p.label}`}
                             />
                             <span className="min-w-0 flex-1 space-y-1">
@@ -316,12 +363,12 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                               <span className="flex flex-wrap gap-1">
                                 {p.hypothesis ? <Badge variant="outline">Hypothèse à vérifier</Badge> : null}
                                 {p.overwrites ? <Badge variant="destructive">Remplace une valeur</Badge> : null}
-                                {applied[p.field_key] ? <Badge><Check className="mr-1 h-3 w-3" aria-hidden="true" />Appliqué</Badge> : null}
+                                {applied[cid] ? <Badge><Check className="mr-1 h-3 w-3" aria-hidden="true" />Appliqué</Badge> : null}
                               </span>
                             </span>
                           </label>
-                        ))}
-                        <Button type="button" className="h-11 w-full" onClick={() => applyFrom(t)} disabled={!props.onApply}>
+                        ); })}
+                        <Button type="button" className="h-11 w-full" onClick={() => applyFrom(t)} disabled={!props.onApply || !props.canApply}>
                           <Check className="mr-2 h-4 w-4" aria-hidden="true" /> Appliquer la sélection
                         </Button>
                       </div>
@@ -359,7 +406,10 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
           ) : null}
           <Textarea
             value={text}
-            onChange={(e) => setText(e.target.value.slice(0, ASSISTANT_LIMITS.messageMax))}
+            onChange={(e) => {
+              if (listening) stopListening(); // la saisie clavier prime : le micro ne l'écrasera pas
+              setText(e.target.value.slice(0, ASSISTANT_LIMITS.messageMax));
+            }}
             placeholder="Votre question ou vos constats dictés…"
             rows={3}
             className="text-base"
@@ -388,22 +438,30 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Remplacer des valeurs existantes ?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {confirmOverwrite?.filter((p) => p.overwrites).map((p) => p.label).join(", ")} : la valeur déjà saisie sera remplacée par la proposition.
-              </AlertDialogDescription>
+              <AlertDialogDescription>Valeurs relues à l'instant. Choisissez pour chaque remplacement.</AlertDialogDescription>
             </AlertDialogHeader>
+            <ul className="space-y-2 text-sm">
+              {(confirmOverwrite?.list ?? []).filter((p) => p.overwrites).map((p) => (
+                <li key={p.field_key} className="rounded-md border p-2">
+                  <span className="block font-medium break-words">{p.label}</span>
+                  <span className="block break-words text-muted-foreground">Actuel : {p.currentText}</span>
+                  <span className="block break-words">Proposé : <strong>{p.proposedText}</strong></span>
+                </li>
+              ))}
+            </ul>
             <AlertDialogFooter>
               <AlertDialogCancel
                 className="h-11"
                 onClick={() => {
-                  const keep = (confirmOverwrite ?? []).filter((p) => !p.overwrites);
+                  const c = confirmOverwrite;
                   setConfirmOverwrite(null);
-                  if (keep.length) doApply(keep);
+                  const keep = (c?.list ?? []).filter((p) => !p.overwrites);
+                  if (c && keep.length) doApply(c.turnId, keep);
                 }}
               >
                 Appliquer sans remplacer
               </AlertDialogCancel>
-              <AlertDialogAction className="h-11" onClick={() => { const l = confirmOverwrite ?? []; setConfirmOverwrite(null); doApply(l); }}>
+              <AlertDialogAction className="h-11" onClick={() => { const c = confirmOverwrite; setConfirmOverwrite(null); if (c) doApply(c.turnId, c.list); }}>
                 Remplacer
               </AlertDialogAction>
             </AlertDialogFooter>
