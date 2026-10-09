@@ -22,6 +22,7 @@ import {
   VisitPlanningSchema,
   VisitStatusSchema,
   VisitTypeSchema,
+  VisitLotSchema,
   QuickClientSchema,
 } from "./visites/schemas";
 import {
@@ -520,7 +521,7 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
       if (already) return reuseRow(already);
       throw new Error(msg);
     };
-    const hit = findTemplateSlot(resolveVisitTemplate(visit) ?? getEmptyTemplate(), p.section_key, p.slot_key);
+    const hit = (() => { const t = resolveVisitTemplate(visit); return t ? findTemplateSlot(t, p.section_key, p.slot_key) : null; })();
     if (!hit) await fail("Emplacement photo inconnu pour cette étape.");
     if (!VISIT_PHOTO_EXT.test(p.storage_path)) await fail("Format non supporté : JPEG, PNG ou WebP uniquement.");
     if (p.file_size != null && p.file_size > VISIT_PHOTO_MAX_BYTES) await fail("Photo trop lourde (10 Mo maximum).");
