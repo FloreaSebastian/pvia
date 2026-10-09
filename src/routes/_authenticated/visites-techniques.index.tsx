@@ -22,8 +22,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
 import { listTechnicalVisits, listVisitAssignees } from "@/lib/visites.functions";
-import { LOT_META, VISIT_TYPE_OPTIONS, resolveVisitTemplate } from "@/lib/visites/templates";
-import { VISIT_STATUS_META, type VisitStatus, type VisitType } from "@/lib/visites/types";
+import { BTP_LOT_OPTIONS, LOT_META, VISIT_TYPE_OPTIONS, resolveVisitTemplate } from "@/lib/visites/templates";
+import { VISIT_STATUS_META, type VisitLot, type VisitStatus, type VisitType } from "@/lib/visites/types";
 import { VisitStatusBadge } from "@/components/visites/VisitStatusBadge";
 
 export const Route = createFileRoute("/_authenticated/visites-techniques/")({
@@ -101,6 +101,7 @@ function VisitesTechniquesPage() {
   const [debounced, setDebounced] = useState("");
   const [type, setType] = useState<VisitType | "all">("all");
   const [status, setStatus] = useState<VisitStatus | "all">("all");
+  const [lot, setLot] = useState<VisitLot | "all">("all");
   const [assignee, setAssignee] = useState<string | "all">("all");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -133,6 +134,7 @@ function VisitesTechniquesPage() {
             companyId: activeCompanyId,
             search: debounced,
             visit_type: type === "all" ? null : type,
+            lot: lot === "all" ? null : lot,
             status: status === "all" ? null : status,
             assigned_to: assignee === "all" ? null : assignee,
             include_archived: includeArchived,
@@ -277,6 +279,24 @@ function VisitesTechniquesPage() {
                       Tous les métiers
                     </SelectItem>
                     {VISIT_TYPE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value} className="min-h-11">
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="f-lot">Lot de travaux</Label>
+                <Select value={lot} onValueChange={(v) => setLot(v as VisitLot | "all")}>
+                  <SelectTrigger id="f-lot" className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="min-h-11">
+                      Tous les lots
+                    </SelectItem>
+                    {BTP_LOT_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={o.value} className="min-h-11">
                         {o.label}
                       </SelectItem>
