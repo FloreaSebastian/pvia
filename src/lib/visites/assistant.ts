@@ -37,6 +37,8 @@ export const ASSISTANT_LIMITS = {
   historyTurns: 6,
   historyItemMax: 1500,
   fieldsMax: 160,
+  /** Synthèse/manquants : format compact « clé = valeur », couvre toute la visite. */
+  compactFieldsMax: 600,
   proposalsMax: 25,
   constraintsMax: 30,
   freeTextMax: 300,
@@ -78,8 +80,30 @@ function currentText(f: VisitField, v: AnswerValue | undefined): string {
   return clip(formatAnswer(f, v), ASSISTANT_LIMITS.freeTextMax);
 }
 
+export interface AssistantCoverage {
+  /** Champs visibles considérés (pour la synthèse : renseignés). */
+  total: number;
+  included: number;
+  omitted: number;
+  /** Titres des étapes dont des champs ont été omis. */
+  omittedSections: string[];
+}
+
 /** Construit le contexte texte borné de la visite pour une action. */
 export function buildAssistantContext(input: ContextInput, action: AssistantAction, scope: AssistantScope): string {
+  return buildAssistantContextWithMeta(input, action, scope).text;
+}
+
+/**
+ * Contexte borné avec couverture explicite. Guide/dictée/question : étape active d'abord,
+ * puis étapes uniques (socle, lots, conclusion), puis blocs répétés (zones) — jamais l'inverse.
+ * Synthèse/manquants : format compact couvrant toute la visite ; toute omission est déclarée.
+ */
+export function buildAssistantContextWithMeta(
+  input: ContextInput,
+  action: AssistantAction,
+  scope: AssistantScope,
+): { text: string; coverage: AssistantCoverage } {
   const { template, answers } = input;
   const resolved = resolveSections(template, answers);
   const progress = computeProgress(template, {
@@ -88,13 +112,16 @@ export function buildAssistantContext(input: ContextInput, action: AssistantActi
     skippedSlots: input.skippedSlots,
     constraintCount: input.constraints.length,
   });
+  const compact = action === "synthese" || action === "manque";
 
-  const inScope = (s: (typeof resolved)[number]) => {
-    if (action === "synthese" || action === "manque" || action === "dictee" || action === "question") return true;
-    if (scope.phase && s.section.phase) return s.section.phase === scope.phase;
-    if (scope.sectionKey) return s.section.key === scope.sectionKey;
-    return true;
+  const rank = (s: (typeof resolved)[number]) => {
+    if (scope.sectionKey && s.section.key === scope.sectionKey) return 0;
+    if (scope.phase && s.section.phase === scope.phase) return 1;
+    return s.section.repeat ? 3 : 2;
   };
+  const ordered = compact
+    ? resolved
+    : resolved.map((rs, i) => ({ rs, i })).sort((a, b) => rank(a.rs) - rank(b.rs) || a.i - b.i).map((x) => x.rs);
 
   const lines: string[] = [];
   lines.push(`Visite: ${template.label}${input.visit.reference ? ` (${input.visit.reference})` : ""}, statut ${input.visit.status}.`);
@@ -102,18 +129,27 @@ export function buildAssistantContext(input: ContextInput, action: AssistantActi
   if (scope.phase) lines.push(`Étape en cours: ${scope.phase}.`);
   lines.push(`Complétude: ${progress.percent} %, ${progress.missingCount} élément(s) obligatoire(s) manquant(s).`);
   lines.push("");
-  lines.push("CHAMPS (clé | étape | libellé | type | valeur actuelle):");
-  let count = 0;
-  for (const rs of resolved) {
-    if (!inScope(rs)) continue;
+  lines.push(compact ? "CHAMPS RENSEIGNÉS (clé | étape | libellé = valeur):" : "CHAMPS (clé | étape | libellé | type | valeur actuelle):");
+  const max = compact ? ASSISTANT_LIMITS.compactFieldsMax : ASSISTANT_LIMITS.fieldsMax;
+  let total = 0;
+  let included = 0;
+  const omittedSections = new Set<string>();
+  for (const rs of ordered) {
     for (const b of rs.blocks) {
       for (const f of b.fields) {
-        if (count >= ASSISTANT_LIMITS.fieldsMax) break;
-        // Pour la synthèse, seuls les champs renseignés sont utiles.
-        if (action === "synthese" && currentText(f, answers[f.answerKey]) === "(vide)") continue;
-        count++;
+        const cur = currentText(f, answers[f.answerKey]);
+        if (compact && cur === "(vide)") continue; // les manquants sont listés plus bas
+        total++;
+        if (included >= max) {
+          omittedSections.add(rs.section.title);
+          continue;
+        }
+        included++;
+        const where = `${f.label}${b.label ? ` (${b.label})` : ""}`;
         lines.push(
-          `- ${f.answerKey} | ${rs.section.key} | ${f.label}${b.label ? ` (${b.label})` : ""} | ${describeType(f)} | ${currentText(f, answers[f.answerKey])}`,
+          compact
+            ? `- ${f.answerKey} | ${rs.section.key} | ${where} = ${cur}`
+            : `- ${f.answerKey} | ${rs.section.key} | ${where} | ${describeType(f)} | ${cur}`,
         );
       }
       for (const p of b.photos) {
@@ -125,6 +161,12 @@ export function buildAssistantContext(input: ContextInput, action: AssistantActi
         }
       }
     }
+  }
+  const coverage: AssistantCoverage = { total, included, omitted: total - included, omittedSections: [...omittedSections] };
+  if (coverage.omitted > 0) {
+    lines.push(
+      `COUVERTURE PARTIELLE: ${coverage.omitted} champ(s) sur ${total} non transmis (limite de contexte) dans : ${coverage.omittedSections.join(", ")}. Ne conclus rien sur ces champs et signale-le.`,
+    );
   }
   if (action === "manque" || action === "synthese") {
     lines.push("");
@@ -143,7 +185,7 @@ export function buildAssistantContext(input: ContextInput, action: AssistantActi
       );
     }
   }
-  return lines.join("\n");
+  return { text: lines.join("\n"), coverage };
 }
 
 export const ASSISTANT_SYSTEM_PROMPT = `Tu es l'assistant terrain BTP de PVIA, utilisé pendant une visite technique avant travaux. Tu réponds en français, de façon brève et concrète, pour un technicien sur chantier avec un téléphone.
