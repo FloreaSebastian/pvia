@@ -483,6 +483,7 @@ function TerrainPage() {
                   online: typeof navigator === "undefined" ? true : navigator.onLine,
                   pending: () => dirtyRef.current.size,
                   flush,
+                  hasFieldErrors: () => Object.keys(fieldErrorsRef.current).length > 0,
                 });
               }}
               review={(list) => (template ? reviewCandidates(template, answersRef.current, list) : { ok: [], rejected: list.map((c) => ({ field_key: c.field_key, label: c.label, reason: "modèle indisponible" })) })}
