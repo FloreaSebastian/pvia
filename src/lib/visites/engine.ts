@@ -60,7 +60,8 @@ export function matchesConditions(
     // On tente d'abord la clé indexée (même bloc), puis la clé globale.
     const scoped = index === null ? undefined : answers[repeatKey(c.field, index)];
     const value = scoped !== undefined ? scoped : answers[c.field];
-    if (c.truthy !== undefined) return c.truthy ? isFilled(value) && value !== false : !isFilled(value) || value === false;
+    if (c.truthy !== undefined)
+      return c.truthy ? isFilled(value) && value !== false : !isFilled(value) || value === false;
     // Choix multiple : visible si AU MOINS une valeur cochée figure dans la liste.
     if (c.in) {
       if (Array.isArray(value)) return value.some((item) => c.in!.some((v) => sameValue(item, v)));
@@ -190,12 +191,16 @@ export function computeProgress(
         const raw = answers[field.answerKey];
         // Une valeur non conforme au modèle (type, options, bornes) ne compte pas comme renseignée.
         const filled = isValidFilled(field, raw);
-        const invalid = isFilled(raw) && raw !== undefined && validateFieldValue(field, raw) !== null;
+        const invalid =
+          isFilled(raw) && raw !== undefined && validateFieldValue(field, raw) !== null;
         if (filled || invalid) touched = true;
         if (field.required) {
           requiredFields++;
           if (filled) filledRequiredFields++;
-          else missingFieldLabels.push(`${field.label}${suffix}${invalid ? " — valeur à corriger" : ""}`);
+          else
+            missingFieldLabels.push(
+              `${field.label}${suffix}${invalid ? " — valeur à corriger" : ""}`,
+            );
         }
       }
       for (const slot of block.photos) {
@@ -217,7 +222,15 @@ export function computeProgress(
     totalDone += done;
 
     const state: SectionState =
-      required === 0 ? (touched ? "complete" : "empty") : done === required ? "complete" : done > 0 || touched ? "partial" : "empty";
+      required === 0
+        ? touched
+          ? "complete"
+          : "empty"
+        : done === required
+          ? "complete"
+          : done > 0 || touched
+            ? "partial"
+            : "empty";
 
     sections.push({
       key: section.key,
@@ -235,7 +248,12 @@ export function computeProgress(
     });
   }
 
-  const percent = totalRequired === 0 ? (sections.some((s) => s.touched) ? 100 : 0) : Math.round((totalDone / totalRequired) * 100);
+  const percent =
+    totalRequired === 0
+      ? sections.some((s) => s.touched)
+        ? 100
+        : 0
+      : Math.round((totalDone / totalRequired) * 100);
   const missingCount = totalRequired - totalDone;
 
   return {
@@ -269,9 +287,7 @@ export function formatAnswer(field: VisitField, value: AnswerValue | undefined):
   if (isAnswerStatusToken(value)) return ANSWER_STATUS_TOKENS[value];
   if (field.type === "boolean") return value ? "Oui" : "Non";
   if (Array.isArray(value)) {
-    return value
-      .map((v) => field.options?.find((o) => o.value === v)?.label ?? v)
-      .join(", ");
+    return value.map((v) => field.options?.find((o) => o.value === v)?.label ?? v).join(", ");
   }
   if (field.type === "select") {
     return field.options?.find((o) => String(o.value) === String(value))?.label ?? String(value);
