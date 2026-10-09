@@ -37,6 +37,8 @@ export const ASSISTANT_LIMITS = {
   historyTurns: 6,
   historyItemMax: 1500,
   fieldsMax: 160,
+  /** Synthèse/manquants : format compact « clé = valeur », couvre toute la visite. */
+  compactFieldsMax: 600,
   proposalsMax: 25,
   constraintsMax: 30,
   freeTextMax: 300,
@@ -53,7 +55,13 @@ export interface ContextInput {
   answers: AnswerMap;
   photoSlotCounts: Record<string, number>;
   skippedSlots: Set<string>;
-  constraints: { title: string; level: string; category: string; location?: string | null; action?: string | null }[];
+  constraints: {
+    title: string;
+    level: string;
+    category: string;
+    location?: string | null;
+    action?: string | null;
+  }[];
 }
 
 function clip(s: string, n: number) {
@@ -66,54 +74,107 @@ function describeType(f: VisitField): string {
   if (f.min !== undefined) parts.push(`min ${f.min}`);
   if (f.max !== undefined) parts.push(`max ${f.max}`);
   if (f.step !== undefined && f.step >= 1) parts.push("entier");
-  if (f.options?.length) parts.push(`options: ${f.options.map((o) => `${o.value}=${o.label}`).join(" | ")}`);
+  if (f.options?.length)
+    parts.push(`options: ${f.options.map((o) => `${o.value}=${o.label}`).join(" | ")}`);
   if (f.allowStatus) parts.push("statuts autorisés: __inconnu | __non_verifie | __non_applicable");
   if (f.required) parts.push("obligatoire");
   return parts.join(", ");
 }
 
 function currentText(f: VisitField, v: AnswerValue | undefined): string {
-  if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)) return "(vide)";
+  if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0))
+    return "(vide)";
   if (isAnswerStatusToken(v)) return ANSWER_STATUS_TOKENS[v];
   return clip(formatAnswer(f, v), ASSISTANT_LIMITS.freeTextMax);
 }
 
+export interface AssistantCoverage {
+  /** Champs visibles considérés (pour la synthèse : renseignés). */
+  total: number;
+  included: number;
+  omitted: number;
+  /** Titres des étapes dont des champs ont été omis. */
+  omittedSections: string[];
+}
+
 /** Construit le contexte texte borné de la visite pour une action. */
-export function buildAssistantContext(input: ContextInput, action: AssistantAction, scope: AssistantScope): string {
+export function buildAssistantContext(
+  input: ContextInput,
+  action: AssistantAction,
+  scope: AssistantScope,
+): string {
+  return buildAssistantContextWithMeta(input, action, scope).text;
+}
+
+/**
+ * Contexte borné avec couverture explicite. Guide/dictée/question : étape active d'abord,
+ * puis étapes uniques (socle, lots, conclusion), puis blocs répétés (zones) — jamais l'inverse.
+ * Synthèse/manquants : format compact couvrant toute la visite ; toute omission est déclarée.
+ */
+export function buildAssistantContextWithMeta(
+  input: ContextInput,
+  action: AssistantAction,
+  scope: AssistantScope,
+): { text: string; coverage: AssistantCoverage } {
   const { template, answers } = input;
   const resolved = resolveSections(template, answers);
   const progress = computeProgress(template, {
     answers,
-    photoSlots: new Set(Object.keys(input.photoSlotCounts).filter((k) => input.photoSlotCounts[k] > 0)),
+    photoSlots: new Set(
+      Object.keys(input.photoSlotCounts).filter((k) => input.photoSlotCounts[k] > 0),
+    ),
     skippedSlots: input.skippedSlots,
     constraintCount: input.constraints.length,
   });
+  const compact = action === "synthese" || action === "manque";
 
-  const inScope = (s: (typeof resolved)[number]) => {
-    if (action === "synthese" || action === "manque" || action === "dictee" || action === "question") return true;
-    if (scope.phase && s.section.phase) return s.section.phase === scope.phase;
-    if (scope.sectionKey) return s.section.key === scope.sectionKey;
-    return true;
+  const rank = (s: (typeof resolved)[number]) => {
+    if (scope.sectionKey && s.section.key === scope.sectionKey) return 0;
+    if (scope.phase && s.section.phase === scope.phase) return 1;
+    return s.section.repeat ? 3 : 2;
   };
+  const ordered = compact
+    ? resolved
+    : resolved
+        .map((rs, i) => ({ rs, i }))
+        .sort((a, b) => rank(a.rs) - rank(b.rs) || a.i - b.i)
+        .map((x) => x.rs);
 
   const lines: string[] = [];
-  lines.push(`Visite: ${template.label}${input.visit.reference ? ` (${input.visit.reference})` : ""}, statut ${input.visit.status}.`);
+  lines.push(
+    `Visite: ${template.label}${input.visit.reference ? ` (${input.visit.reference})` : ""}, statut ${input.visit.status}.`,
+  );
   if (input.visit.lots?.length) lines.push(`Lots: ${input.visit.lots.join(", ")}.`);
   if (scope.phase) lines.push(`Étape en cours: ${scope.phase}.`);
-  lines.push(`Complétude: ${progress.percent} %, ${progress.missingCount} élément(s) obligatoire(s) manquant(s).`);
+  lines.push(
+    `Complétude: ${progress.percent} %, ${progress.missingCount} élément(s) obligatoire(s) manquant(s).`,
+  );
   lines.push("");
-  lines.push("CHAMPS (clé | étape | libellé | type | valeur actuelle):");
-  let count = 0;
-  for (const rs of resolved) {
-    if (!inScope(rs)) continue;
+  lines.push(
+    compact
+      ? "CHAMPS RENSEIGNÉS (clé | étape | libellé = valeur):"
+      : "CHAMPS (clé | étape | libellé | type | valeur actuelle):",
+  );
+  const max = compact ? ASSISTANT_LIMITS.compactFieldsMax : ASSISTANT_LIMITS.fieldsMax;
+  let total = 0;
+  let included = 0;
+  const omittedSections = new Set<string>();
+  for (const rs of ordered) {
     for (const b of rs.blocks) {
       for (const f of b.fields) {
-        if (count >= ASSISTANT_LIMITS.fieldsMax) break;
-        // Pour la synthèse, seuls les champs renseignés sont utiles.
-        if (action === "synthese" && currentText(f, answers[f.answerKey]) === "(vide)") continue;
-        count++;
+        const cur = currentText(f, answers[f.answerKey]);
+        if (compact && cur === "(vide)") continue; // les manquants sont listés plus bas
+        total++;
+        if (included >= max) {
+          omittedSections.add(rs.section.title);
+          continue;
+        }
+        included++;
+        const where = `${f.label}${b.label ? ` (${b.label})` : ""}`;
         lines.push(
-          `- ${f.answerKey} | ${rs.section.key} | ${f.label}${b.label ? ` (${b.label})` : ""} | ${describeType(f)} | ${currentText(f, answers[f.answerKey])}`,
+          compact
+            ? `- ${f.answerKey} | ${rs.section.key} | ${where} = ${cur}`
+            : `- ${f.answerKey} | ${rs.section.key} | ${where} | ${describeType(f)} | ${cur}`,
         );
       }
       for (const p of b.photos) {
@@ -126,12 +187,26 @@ export function buildAssistantContext(input: ContextInput, action: AssistantActi
       }
     }
   }
+  const coverage: AssistantCoverage = {
+    total,
+    included,
+    omitted: total - included,
+    omittedSections: [...omittedSections],
+  };
+  if (coverage.omitted > 0) {
+    lines.push(
+      `COUVERTURE PARTIELLE: ${coverage.omitted} champ(s) sur ${total} non transmis (limite de contexte) dans : ${coverage.omittedSections.join(", ")}. Ne conclus rien sur ces champs et signale-le.`,
+    );
+  }
   if (action === "manque" || action === "synthese") {
     lines.push("");
     lines.push("MANQUANTS:");
     for (const s of progress.sections) {
       const miss = [...s.missingFieldLabels, ...s.missingPhotoLabels.map((l) => `photo ${l}`)];
-      if (miss.length) lines.push(`- ${s.title}: ${miss.slice(0, 15).join("; ")}`);
+      if (miss.length)
+        lines.push(
+          `- ${s.title}: ${miss.slice(0, 15).join("; ")}${miss.length > 15 ? ` (+${miss.length - 15} autre(s))` : ""}`,
+        );
     }
   }
   if (input.constraints.length) {
@@ -143,7 +218,7 @@ export function buildAssistantContext(input: ContextInput, action: AssistantActi
       );
     }
   }
-  return lines.join("\n");
+  return { text: lines.join("\n"), coverage };
 }
 
 export const ASSISTANT_SYSTEM_PROMPT = `Tu es l'assistant terrain BTP de PVIA, utilisé pendant une visite technique avant travaux. Tu réponds en français, de façon brève et concrète, pour un technicien sur chantier avec un téléphone.
@@ -214,7 +289,8 @@ function coerce(field: VisitField, raw: unknown): AnswerValue | undefined {
   switch (field.type) {
     case "number": {
       if (typeof raw === "number") return raw;
-      if (typeof raw === "string" && /^-?\d+([.,]\d+)?$/.test(raw.trim())) return Number(raw.trim().replace(",", "."));
+      if (typeof raw === "string" && /^-?\d+([.,]\d+)?$/.test(raw.trim()))
+        return Number(raw.trim().replace(",", "."));
       return undefined;
     }
     case "boolean":
@@ -223,7 +299,9 @@ function coerce(field: VisitField, raw: unknown): AnswerValue | undefined {
       if (raw === "false" || raw === "non") return false;
       return undefined;
     case "multiselect":
-      return Array.isArray(raw) && raw.every((x) => typeof x === "string") ? (raw as string[]) : undefined;
+      return Array.isArray(raw) && raw.every((x) => typeof x === "string")
+        ? (raw as string[])
+        : undefined;
     default:
       return typeof raw === "string" ? raw : undefined;
   }
@@ -233,9 +311,14 @@ function coerce(field: VisitField, raw: unknown): AnswerValue | undefined {
  * Ne garde que les propositions applicables : clé connue et visible, valeur non vide
  * conforme au modèle, différente de la valeur actuelle. Jamais d'effacement.
  */
-export function sanitizeProposals(template: VisitTemplate, answers: AnswerMap, raw: RawProposal[]): AssistantProposal[] {
+export function sanitizeProposals(
+  template: VisitTemplate,
+  answers: AnswerMap,
+  raw: RawProposal[],
+): AssistantProposal[] {
   const visible = new Set<string>();
-  for (const rs of resolveSections(template, answers)) for (const b of rs.blocks) for (const f of b.fields) visible.add(f.answerKey);
+  for (const rs of resolveSections(template, answers))
+    for (const b of rs.blocks) for (const f of b.fields) visible.add(f.answerKey);
 
   const out: AssistantProposal[] = [];
   const seen = new Set<string>();
@@ -258,12 +341,20 @@ export function sanitizeProposals(template: VisitTemplate, answers: AnswerMap, r
     if (validateFieldValue(hit.field, value) !== null) continue;
     const current = answers[p.field_key];
     if (JSON.stringify(current ?? null) === JSON.stringify(value)) continue;
-    const hasCurrent = current !== undefined && current !== null && current !== "" && !(Array.isArray(current) && current.length === 0);
+    const hasCurrent =
+      current !== undefined &&
+      current !== null &&
+      current !== "" &&
+      !(Array.isArray(current) && current.length === 0);
     seen.add(p.field_key);
     out.push({
       field_key: p.field_key,
       section_key: hit.section.key,
-      label: hit.field.label + (hit.repeatIndex !== null && hit.section.repeat ? ` (${hit.section.repeat.itemLabel} ${hit.repeatIndex + 1})` : ""),
+      label:
+        hit.field.label +
+        (hit.repeatIndex !== null && hit.section.repeat
+          ? ` (${hit.section.repeat.itemLabel} ${hit.repeatIndex + 1})`
+          : ""),
       unit: hit.field.unit ?? null,
       current: hasCurrent ? (current as AnswerValue) : null,
       currentText: currentText(hit.field, current),

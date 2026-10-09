@@ -19,7 +19,7 @@ import {
   ASSISTANT_LIMITS,
   ASSISTANT_OUTPUT_SCHEMA,
   ASSISTANT_SYSTEM_PROMPT,
-  buildAssistantContext,
+  buildAssistantContextWithMeta,
   sanitizeProposals,
   type AssistantAction,
   type RawProposal,
@@ -172,7 +172,7 @@ export const askVisitAssistant = createServerFn({ method: "POST" })
     const photoSlotCounts: Record<string, number> = {};
     for (const p of photosRes.data ?? []) photoSlotCounts[p.slot_key] = (photoSlotCounts[p.slot_key] ?? 0) + 1;
 
-    const ctx = buildAssistantContext(
+    const { text: ctx, coverage } = buildAssistantContextWithMeta(
       {
         template,
         visit: { reference: visit.reference, status: visit.status, lots: (visit as { lots?: string[] }).lots ?? null },
@@ -246,6 +246,7 @@ export const askVisitAssistant = createServerFn({ method: "POST" })
       proposals,
       rejectedProposals: data.action === "dictee" ? Math.max(0, rawCount - proposals.length) : 0,
       studyRequired: parsed.study_required === true,
+      coverage,
       usage: { input: result.usage?.input_tokens ?? null, output: result.usage?.output_tokens ?? null },
     };
   });
