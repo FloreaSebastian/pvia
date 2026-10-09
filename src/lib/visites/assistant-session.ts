@@ -5,7 +5,13 @@
  */
 import { formatAnswer, resolveSections } from "./engine";
 import { findTemplateField, isValidFilled, validateFieldValue } from "./validation";
-import { ANSWER_STATUS_TOKENS, isAnswerStatusToken, type AnswerMap, type AnswerValue, type VisitTemplate } from "./types";
+import {
+  ANSWER_STATUS_TOKENS,
+  isAnswerStatusToken,
+  type AnswerMap,
+  type AnswerValue,
+  type VisitTemplate,
+} from "./types";
 
 /** Identifiant d'une carte : propre à la réponse (turn) ET au champ. */
 export function proposalCardId(turnId: number, fieldKey: string): string {
@@ -46,12 +52,20 @@ export async function ensureSavedBeforeAsk(opts: {
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   if (opts.pending() === 0) return { ok: true };
   if (!opts.online) {
-    return { ok: false, message: "Hors ligne : vos dernières réponses ne sont pas encore enregistrées. Réessayez au retour du réseau (votre texte est conservé)." };
+    return {
+      ok: false,
+      message:
+        "Hors ligne : vos dernières réponses ne sont pas encore enregistrées. Réessayez au retour du réseau (votre texte est conservé).",
+    };
   }
   let ok = await opts.flush();
   for (let i = 0; i < 2 && (!ok || opts.pending() > 0); i++) ok = await opts.flush();
   if (!ok || opts.pending() > 0) {
-    return { ok: false, message: "Vos dernières réponses ne sont pas enregistrées : l'assistant ne peut pas les voir. Réessayez l'enregistrement puis relancez (votre texte est conservé)." };
+    return {
+      ok: false,
+      message:
+        "Vos dernières réponses ne sont pas enregistrées : l'assistant ne peut pas les voir. Réessayez l'enregistrement puis relancez (votre texte est conservé).",
+    };
   }
   return { ok: true };
 }
@@ -95,12 +109,17 @@ function checkField(template: VisitTemplate, answers: AnswerMap, c: ApplyCandida
     rs.blocks.some((b) => b.fields.some((f) => f.answerKey === c.field_key)),
   );
   if (!visible) return "champ masqué par les réponses actuelles";
-  if (!isValidFilled(hit.field, c.proposed) || validateFieldValue(hit.field, c.proposed) !== null) return "valeur non conforme au modèle";
+  if (!isValidFilled(hit.field, c.proposed) || validateFieldValue(hit.field, c.proposed) !== null)
+    return "valeur non conforme au modèle";
   return null;
 }
 
 /** Relit l'état courant pour la confirmation : actuel/proposé à jour, champs devenus masqués ou invalides écartés. */
-export function reviewCandidates(template: VisitTemplate, answers: AnswerMap, list: ApplyCandidate[]) {
+export function reviewCandidates(
+  template: VisitTemplate,
+  answers: AnswerMap,
+  list: ApplyCandidate[],
+) {
   const ok: ReviewedCandidate[] = [];
   const rejected: RejectedCandidate[] = [];
   for (const c of list) {
@@ -138,7 +157,11 @@ export function planApply(
   if (locked || !template) {
     return {
       accepted: [] as typeof entries,
-      rejected: entries.map((e) => ({ field_key: e.field_key, label: e.label, reason: "saisie verrouillée" })),
+      rejected: entries.map((e) => ({
+        field_key: e.field_key,
+        label: e.label,
+        reason: "saisie verrouillée",
+      })),
     };
   }
   const accepted: typeof entries = [];
@@ -146,7 +169,12 @@ export function planApply(
   for (const e of entries) {
     const reason = checkField(template, answers, e);
     if (reason) rejected.push({ field_key: e.field_key, label: e.label, reason });
-    else if (!same(answers[e.field_key], e.expectedCurrent)) rejected.push({ field_key: e.field_key, label: e.label, reason: "valeur modifiée entre-temps" });
+    else if (!same(answers[e.field_key], e.expectedCurrent))
+      rejected.push({
+        field_key: e.field_key,
+        label: e.label,
+        reason: "valeur modifiée entre-temps",
+      });
     else accepted.push(e);
   }
   return { accepted, rejected };
