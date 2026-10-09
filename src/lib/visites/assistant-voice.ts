@@ -127,8 +127,10 @@ export function createDictation(o: DictationOptions) {
 
 export interface UtteranceLike {
   lang: string;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onend: ((...args: any[]) => unknown) | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onerror: ((...args: any[]) => unknown) | null;
 }
 export interface SpeakerOptions<U extends UtteranceLike> {
   synth: { speak(u: U): void; cancel(): void };
