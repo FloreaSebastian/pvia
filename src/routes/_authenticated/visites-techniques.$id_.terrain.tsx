@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { createAutosaveQueue, sendDirtySnapshot } from "@/lib/visites/autosave-queue";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,7 +21,7 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { applyAssistantAnswers, getTechnicalVisit, saveVisitAnswers, setVisitStatus } from "@/lib/visites.functions";
 import { resolveVisitTemplate } from "@/lib/visites/templates";
 import { VISIT_PHASES } from "@/lib/visites/types";
-import { computeProgress, resolveSections } from "@/lib/visites/engine";
+import { computeProgress, formatAnswer, resolveSections } from "@/lib/visites/engine";
 import type { AnswerMap, AnswerValue } from "@/lib/visites/types";
 import { VisitFieldInput } from "@/components/visites/VisitFieldInput";
 import { VisitPhotoSlotCard, type VisitPhotoRow, type VisitPhotoSkipRow } from "@/components/visites/VisitPhotoSlotCard";
@@ -291,7 +292,7 @@ function TerrainPage() {
    * puis compare-and-set serveur. Les valeurs confirmées par le serveur sont intégrées
    * directement (jamais remises dans la file d'autosave, qui pourrait écraser un conflit).
    */
-  async function applyAssistant(entries: Parameters<NonNullable<React.ComponentProps<typeof VisitAssistantSheet>["onApply"]>>[0]) {
+  async function applyAssistant(entries: Parameters<NonNullable<ComponentProps<typeof VisitAssistantSheet>["onApply"]>>[0]) {
     const plan = planApply(template, answersRef.current, entries, locked || finishingRef.current);
     if (plan.accepted.length === 0 || !activeCompanyId) return { accepted: [], rejected: plan.rejected };
     if (timerRef.current) clearTimeout(timerRef.current);
