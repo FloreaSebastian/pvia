@@ -50,6 +50,13 @@
       "when": 1791582235347,
       "tag": "0006_technical_visit_lots_no_shrink",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791585199905,
+      "tag": "0007_technical_visit_answers_cas",
+      "breakpoints": true
     }
   ]
 }
