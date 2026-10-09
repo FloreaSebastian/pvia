@@ -17,6 +17,7 @@ import type {
   VisitTemplate,
 } from "./types";
 import { isValidFilled, validateFieldValue } from "./validation";
+import { ANSWER_STATUS_TOKENS, isAnswerStatusToken } from "./types";
 
 export const REPEAT_SEP = "__";
 
@@ -261,6 +262,7 @@ export function fieldLabelMap(template: VisitTemplate, answers: AnswerMap): Map<
 /** Formate une valeur de réponse pour l'affichage (rapport, PDF, récap). */
 export function formatAnswer(field: VisitField, value: AnswerValue | undefined): string {
   if (!isFilled(value)) return "—";
+  if (isAnswerStatusToken(value)) return ANSWER_STATUS_TOKENS[value];
   if (field.type === "boolean") return value ? "Oui" : "Non";
   if (Array.isArray(value)) {
     return value

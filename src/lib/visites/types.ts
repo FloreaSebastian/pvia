@@ -6,9 +6,57 @@
  * Les réponses sont stockées en clé/valeur dans technical_visit_answers.
  */
 
-export type VisitType = "photovoltaique" | "pac_air_air" | "pac_air_eau";
+export type VisitType = "photovoltaique" | "pac_air_air" | "pac_air_eau" | "btp";
 
-export const VISIT_TYPES: VisitType[] = ["photovoltaique", "pac_air_air", "pac_air_eau"];
+export const VISIT_TYPES: VisitType[] = ["photovoltaique", "pac_air_air", "pac_air_eau", "btp"];
+
+/** Lots métier d'une visite BTP composée (visit_type = "btp"). */
+export type VisitLot =
+  | "photovoltaique"
+  | "pac_air_air"
+  | "pac_air_eau"
+  | "electricite"
+  | "plomberie"
+  | "ventilation"
+  | "isolation_facade"
+  | "toiture"
+  | "renovation";
+
+export const VISIT_LOTS: VisitLot[] = [
+  "photovoltaique",
+  "pac_air_air",
+  "pac_air_eau",
+  "electricite",
+  "plomberie",
+  "ventilation",
+  "isolation_facade",
+  "toiture",
+  "renovation",
+];
+
+/**
+ * Statuts de relevé distincts d'une valeur constatée. Jamais assimilés à « conforme » :
+ * ils indiquent seulement que la question a été traitée sur place.
+ */
+export const ANSWER_STATUS_TOKENS = {
+  __inconnu: "Inconnu",
+  __non_verifie: "Non vérifié",
+  __non_applicable: "Non applicable",
+} as const;
+export type AnswerStatusToken = keyof typeof ANSWER_STATUS_TOKENS;
+export function isAnswerStatusToken(v: unknown): v is AnswerStatusToken {
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(ANSWER_STATUS_TOKENS, v);
+}
+
+/** Les 5 étapes du parcours terrain BTP. */
+export type VisitPhase = "client" | "etat_des_lieux" | "releves" | "photos_points" | "synthese";
+export const VISIT_PHASES: { key: VisitPhase; label: string }[] = [
+  { key: "client", label: "Client / chantier" },
+  { key: "etat_des_lieux", label: "État des lieux" },
+  { key: "releves", label: "Relevés métier" },
+  { key: "photos_points", label: "Photos et points d'attention" },
+  { key: "synthese", label: "Synthèse" },
+];
 
 export type VisitStatus =
   | "a_planifier"
@@ -81,6 +129,8 @@ export interface VisitField {
   /** Occupe toute la largeur sur desktop. */
   wide?: boolean;
   visibleIf?: VisibleIf[];
+  /** Autorise Inconnu / Non vérifié / Non applicable (visites BTP). */
+  allowStatus?: boolean;
 }
 
 export interface PhotoSlot {
@@ -119,6 +169,10 @@ export interface VisitSection {
   visibleIf?: VisibleIf[];
   /** Étape « Contraintes & points de vigilance » (UI dédiée). */
   kind?: "form" | "constraints" | "review";
+  /** Étape du parcours terrain BTP (visites composées). */
+  phase?: VisitPhase;
+  /** Lot métier d'origine (visites composées). */
+  lot?: VisitLot;
 }
 
 export interface VisitTemplate {
@@ -130,6 +184,8 @@ export interface VisitTemplate {
   sections: VisitSection[];
   /** Ordre d'affichage des catégories dans la galerie et le rapport PDF. */
   photoCategories: string[];
+  /** Lots retenus (visites BTP composées uniquement). */
+  lots?: VisitLot[];
 }
 
 export const VISIT_STATUS_META: Record<
