@@ -401,7 +401,7 @@ export function VisitAssistantSheet(props: VisitAssistantSheetProps) {
                   if (keep.length) doApply(keep);
                 }}
               >
-                Ne pas remplacer
+                Appliquer sans remplacer
               </AlertDialogCancel>
               <AlertDialogAction className="h-11" onClick={() => { const l = confirmOverwrite ?? []; setConfirmOverwrite(null); doApply(l); }}>
                 Remplacer
