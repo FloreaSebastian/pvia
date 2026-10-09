@@ -177,3 +177,12 @@ describe("mergeApplyResult — saisie pendant une application IA", () => {
     expect(r.answers.a).toBe(60);
   });
 });
+
+test("mergeApplyResult — saisie (même invalide) pendant le preflight : révision 0 au début, 1 ensuite, retour CAS ignoré", () => {
+  const revAtStart = new Map([["a", 0]]);
+  const rev = new Map([["a", 0]]);
+  rev.set("a", 1); // retape pendant flush/preflight
+  const r = mergeApplyResult({ a: -1 } as Record<string, unknown>, { applied: ["a"], conflicts: [] }, new Map([["a", 40]]), revAtStart, (k) => rev.get(k) ?? 0);
+  expect(r.answers.a).toBe(-1);
+  expect(r.settled).toEqual([]);
+});
