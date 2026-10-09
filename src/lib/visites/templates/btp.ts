@@ -417,8 +417,11 @@ function prefixSection(lot: VisitLot, s: VisitSection): VisitSection {
   };
 }
 
+/** Champs de décision : jamais « Inconnu / N/A » (la conclusion doit être explicite). */
+const NO_STATUS = new Set(["btp_conclusion", "btp_zones_count"]);
+
 function commonWithStatus(s: VisitSection): VisitSection {
-  return { ...s, fields: s.fields.map(withStatus) };
+  return { ...s, fields: s.fields.map((f) => (NO_STATUS.has(f.key) ? f : withStatus(f))) };
 }
 
 /** Ordre canonique et dédoublonnage des lots. */

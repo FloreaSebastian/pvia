@@ -542,6 +542,28 @@ function TerrainPage() {
         ) : null}
 
         {current.section.kind === "constraints" ? (
+          <div className="min-w-0 space-y-4">
+          {current.blocks.flatMap((b) => b.photos).length > 0 ? (
+            <div className="min-w-0 space-y-2">
+              <h3 className="text-sm font-semibold">1. Prenez les photos des points d'attention</h3>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                {current.blocks.flatMap((b) => b.photos).map((slot) => (
+                  <VisitPhotoSlotCard
+                    key={slot.answerKey}
+                    companyId={activeCompanyId!}
+                    visitId={id}
+                    sectionKey={current.section.key}
+                    slot={slot}
+                    photos={photos.filter((p) => p.slot_key === slot.answerKey)}
+                    skip={skips.find((s) => s.slot_key === slot.answerKey) ?? null}
+                    canEdit={canEdit}
+                    onChanged={refreshChildren}
+                  />
+                ))}
+              </div>
+              <h3 className="pt-2 text-sm font-semibold">2. Décrivez chaque point et liez ses photos</h3>
+            </div>
+          ) : null}
           <VisitConstraintsPanel
             companyId={activeCompanyId!}
             visitId={id}
@@ -552,6 +574,7 @@ function TerrainPage() {
             photos={photos}
             lots={template?.lots ?? []}
           />
+          </div>
         ) : current.section.kind === "review" ? (
           <div className="min-w-0 space-y-3">
             {progress.canComplete ? (

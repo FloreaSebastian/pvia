@@ -36,6 +36,20 @@
       "when": 1791581115397,
       "tag": "0004_technical_visit_btp_lots",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791582021240,
+      "tag": "0005_technical_visit_btp_lots_fix_search_add",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791582235347,
+      "tag": "0006_technical_visit_lots_no_shrink",
+      "breakpoints": true
     }
   ]
 }

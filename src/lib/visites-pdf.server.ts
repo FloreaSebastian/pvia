@@ -371,7 +371,8 @@ export async function buildVisitReportPdf(
     const cat = slotCategory.get(p.slot_key) ?? "Autres photos";
     if (cat !== currentCat) {
       currentCat = cat;
-      need(30);
+      // Titre de groupe jamais orphelin : réserver la place du titre + d'une photo.
+      need(340);
       y -= 4;
       text(cat, { size: 10, f: bold, color: accent });
     }
@@ -394,7 +395,7 @@ export async function buildVisitReportPdf(
     }
     const caption = [
       slotLabel.get(p.slot_key) ?? p.slot_key,
-      p.caption,
+      p.caption && p.caption.trim() !== (slotLabel.get(p.slot_key) ?? p.slot_key) ? p.caption : null,
       p.taken_at ? fmtDate(p.taken_at, true) : null,
       linkedTo.has(p.storage_path) ? `Point d'attention : ${linkedTo.get(p.storage_path)}` : null,
     ]

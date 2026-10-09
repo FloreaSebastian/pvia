@@ -59,6 +59,7 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
 
     if (!data.include_archived) q = q.neq("status", "archivee");
     if (data.visit_type) q = q.eq("visit_type", data.visit_type);
+    if (data.lot) q = q.contains("lots", [data.lot]);
     if (data.status) q = q.eq("status", data.status);
     if (data.assigned_to) q = q.eq("assigned_to", data.assigned_to);
     if (data.chantier_id) q = q.eq("chantier_id", data.chantier_id);
@@ -85,6 +86,7 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
         _include_archived: data.include_archived,
         _offset: data.offset,
         _limit: data.limit,
+        _lot: data.lot ?? (null as never),
       });
       if (sErr) throw new Error("Recherche impossible pour le moment. Réessayez.");
       const ids = (hits ?? []).map((h) => h.id);
@@ -100,6 +102,7 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
           _company_id: data.companyId, _term: term, _visit_type: data.visit_type ?? undefined, _status: data.status ?? undefined,
           _assigned_to: data.assigned_to ?? undefined, _chantier_id: data.chantier_id ?? undefined, _client_id: data.client_id ?? undefined,
           _from: data.from ?? undefined, _to: data.to ?? undefined, _include_archived: data.include_archived, _offset: 0, _limit: 1,
+          _lot: data.lot ?? (null as never),
         });
         total = Number(first?.[0]?.total ?? 0);
       }
@@ -1055,4 +1058,39 @@ export const generateVisitReportPdf = createServerFn({ method: "POST" })
       action: "visite.report_pdf",
     });
     return { fileName, base64: Buffer.from(bytes).toString("base64") };
+  });
+
+/**
+ * Ajout de lots à une visite BTP non clôturée (jamais de retrait).
+ * Réponses et photos existantes conservées ; complétude recalculée sur le nouveau modèle.
+ */
+export const addVisitLots = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({ companyId: z.string().uuid(), visitId: z.string().uuid(), lots: z.array(VisitLotSchema).min(1).max(9) }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const visit = await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
+    if (visit.visit_type !== "btp") throw new Error("Seules les visites BTP multi-lots acceptent des lots supplémentaires.");
+    if (!["a_planifier", "planifiee", "en_cours", "a_completer"].includes(visit.status)) {
+      throw new Error("Cette visite est terminée ou clôturée : ajout de lot impossible.");
+    }
+    const { data: lots, error } = await supabase.rpc("add_technical_visit_lots", {
+      _company_id: data.companyId,
+      _visit_id: data.visitId,
+      _lots: data.lots,
+    });
+    if (error) throw new Error(friendlyVisitDbError(error.message, "Ajout du lot impossible. Réessayez."));
+    await writeAuditLog({
+      companyId: data.companyId,
+      userId,
+      entityType: "technical_visit",
+      entityId: data.visitId,
+      action: "visite.update",
+      oldValues: { lots: visit.lots },
+      newValues: { lots },
+    });
+    const percent = await refreshVisitCompletion(supabase, data.visitId);
+    return { ok: true as const, lots: (lots ?? []) as string[], completion_percent: percent };
   });

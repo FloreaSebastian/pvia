@@ -10,6 +10,10 @@ const MESSAGES: Record<string, string> = {
   VT_PLAN_REQUIRED: "Les visites techniques sont incluses dans les offres Pro, Business et Entreprise.",
   VT_FORBIDDEN: "Seuls les responsables de l’entreprise peuvent créer ou planifier une visite.",
   VT_WRITE_LOCKED: "Abonnement inactif : modification impossible pour le moment.",
+  VT_LOTS_REQUIRED: "Choisissez au moins un lot de travaux.",
+  VT_LOTS_INVALID: "Lot de travaux non reconnu pour cette visite.",
+  VT_VISIT_LOCKED: "Cette visite est terminée ou clôturée : ajout de lot impossible.",
+  VT_LOTS_SHRINK: "Un lot ne peut pas être retiré d'une visite.",
   VT_VISIT_ARCHIVED: "Visite archivée : modification impossible.",
 };
 
