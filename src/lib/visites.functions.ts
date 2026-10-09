@@ -646,16 +646,18 @@ export const applyAssistantAnswers = createServerFn({ method: "POST" })
     const out = res as unknown as {
       applied: string[];
       conflicts: { field_key: string; current: AnswerValue }[];
+      started?: boolean;
     };
     if (out.applied.length) {
-      if (visit.status === "planifiee" || visit.status === "a_planifier") {
-        await supabase
-          .from("technical_visits")
-          .update({
-            status: "en_cours",
-            started_at: visit.started_at ?? new Date().toISOString(),
-          } as never)
-          .eq("id", data.visitId);
+      // Le passage « en_cours » est fait dans la RPC, sous verrou, uniquement depuis planifiee/a_planifier.
+      if (out.started) {
+        await writeAuditLog({
+          companyId: data.companyId,
+          userId,
+          entityType: "technical_visit",
+          entityId: data.visitId,
+          action: "visite.started",
+        });
       }
       await writeAuditLog({
         companyId: data.companyId,
