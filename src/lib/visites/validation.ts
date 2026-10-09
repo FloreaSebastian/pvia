@@ -5,7 +5,7 @@
  * étape correcte, type, options autorisées, bornes et format. Module pur.
  */
 const REPEAT_SEP = "__";
-import type { AnswerValue, VisitField, VisitSection, VisitTemplate } from "./types";
+import { isAnswerStatusToken, type AnswerValue, type VisitField, type VisitSection, type VisitTemplate } from "./types";
 
 export interface FieldLookup {
   section: VisitSection;
@@ -50,6 +50,9 @@ export function validateFieldValue(field: VisitField, value: AnswerValue): strin
   if (value === null) return null;
   if (typeof value === "string" && value.trim() === "" && field.type !== "boolean") return null;
   const label = `« ${field.label} »`;
+  if (isAnswerStatusToken(value)) {
+    return field.allowStatus ? null : `${label} : statut non autorisé pour ce champ.`;
+  }
   switch (field.type) {
     case "text":
       if (typeof value !== "string") return `${label} : texte attendu.`;

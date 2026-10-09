@@ -17,7 +17,7 @@ import {
 } from "pdf-lib";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getCompanyBranding, formatBrandingAddress } from "./branding.server";
-import { getVisitTemplate } from "./visites/templates";
+import { LOT_META, resolveVisitTemplate } from "./visites/templates";
 import { computeProgress, formatAnswer, resolveSections } from "./visites/engine";
 import {
   CONSTRAINT_CATEGORY_LABEL,
@@ -28,8 +28,8 @@ import {
   type ConstraintCategory,
   type ConstraintLevel,
   type PhotoSkipReason,
+  type VisitLot,
   type VisitStatus,
-  type VisitType,
 } from "./visites/types";
 import { VISIT_BUCKET } from "./visites.server";
 import { VISIT_PDF_SCOPE_NOTE, pdfSafe } from "./visites/report";
@@ -111,7 +111,7 @@ export async function buildVisitReportPdf(
       .eq("visit_id", visitId),
     supabaseAdmin
       .from("technical_visit_constraints")
-      .select("category,level,title,description,recommendation")
+      .select("category,level,title,description,recommendation,location,responsible,lot,photo_paths")
       .eq("visit_id", visitId)
       .order("created_at", { ascending: true }),
   ]);
@@ -136,7 +136,8 @@ export async function buildVisitReportPdf(
   const photos = photosRes.data ?? [];
   const skips = skipsRes.data ?? [];
   const constraints = constraintsRes.data ?? [];
-  const template = getVisitTemplate(v.visit_type as VisitType);
+  const template = resolveVisitTemplate(v as { visit_type: string; lots?: string[] });
+  if (!template) throw new Error("Type de visite inconnu : rapport non généré.");
   const sections = resolveSections(template, answers);
   const progress = computeProgress(template, {
     answers,
@@ -250,6 +251,40 @@ export async function buildVisitReportPdf(
   row("Statut", VISIT_STATUS_META[v.status as VisitStatus]?.label ?? String(v.status));
   row("Complétude", `${progress.percent} %`);
   if (v.validated_at) row("Validée le", fmtDate(v.validated_at, true));
+  if (template.lots?.length) row("Lots relevés", template.lots.map((l) => LOT_META[l].label).join(", "));
+
+  // Synthèse (visites BTP) : uniquement ce que le technicien a saisi.
+  if (template.type === "btp") {
+    const fieldOf = (key: string) => {
+      for (const rs of sections) for (const b of rs.blocks) for (const f of b.fields) if (f.answerKey === key) return f;
+      return null;
+    };
+    const show = (key: string, label?: string) => {
+      const f = fieldOf(key);
+      const val = answers[key];
+      if (!f || val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) return false;
+      row(label ?? f.label, formatAnswer(f, val));
+      return true;
+    };
+    heading("Synthèse de la visite");
+    let any = false;
+    any = show("btp_conclusion") || any;
+    any = show("btp_conditions") || any;
+    any = show("btp_complements") || any;
+    any = show("btp_prochaines_etapes") || any;
+    any = show("btp_travaux_prep", "Travaux préparatoires") || any;
+    any = show("btp_travaux_prep_detail") || any;
+    any = show("btp_documents") || any;
+    any = show("btp_documents_autres") || any;
+    const blocking = constraints.filter((c) => c.level === "bloquant" || c.level === "important").length;
+    if (constraints.length) {
+      row("Points d'attention", `${constraints.length} relevé(s), dont ${blocking} important(s) ou bloquant(s)`);
+      any = true;
+    }
+    if (!any) text("Conclusion non renseignée par le technicien.", { size: 9, color: muted });
+    if (progress.missingCount > 0) text(`Visite incomplète : ${progress.missingCount} élément(s) obligatoire(s) manquant(s).`, { size: 9, f: bold });
+    text("Constat de visite avant travaux : ce document ne vaut ni procès-verbal de réception ni liste de réserves de fin de travaux.", { size: 8, color: muted });
+  }
 
   // Éléments manquants
   const missing = progress.sections.filter(
@@ -267,15 +302,19 @@ export async function buildVisitReportPdf(
   // Constats par section
   for (const rs of sections) {
     if (rs.section.kind === "constraints" || rs.section.kind === "review") continue;
+    // Sections et champs vides omis : le rapport ne montre que ce qui a été relevé.
+    const isEmpty = (val: unknown) => val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+    const blocksWithData = rs.blocks.filter(
+      (b) => b.fields.some((f) => !isEmpty(answers[f.answerKey])) || b.photos.some((sl) => skips.some((s) => s.slot_key === sl.answerKey)),
+    );
+    if (blocksWithData.length === 0) continue;
     heading(rs.section.title);
-    let any = false;
-    for (const block of rs.blocks) {
+    for (const block of blocksWithData) {
       if (block.label) text(block.label, { size: 10, f: bold });
       for (const f of block.fields) {
         const value = answers[f.answerKey];
-        if (value === undefined || value === null || value === "") continue;
+        if (isEmpty(value)) continue;
         row(f.label, formatAnswer(f, value));
-        any = true;
       }
       for (const slot of block.photos) {
         const skip = skips.find((s) => s.slot_key === slot.answerKey);
@@ -284,36 +323,58 @@ export async function buildVisitReportPdf(
             `Photo : ${slot.label}`,
             `Non photographiée - ${PHOTO_SKIP_REASON_LABEL[skip.reason as PhotoSkipReason] ?? skip.reason}${skip.justification ? ` (${skip.justification})` : ""}`,
           );
-          any = true;
         }
       }
     }
-    if (!any) text("Aucune donnée saisie.", { size: 9, color: muted });
   }
 
   // Contraintes
-  heading("Contraintes et points de vigilance");
-  if (constraints.length === 0) text("Aucune contrainte relevée.", { size: 9, color: muted });
+  heading(template.type === "btp" ? "Points d'attention" : "Contraintes et points de vigilance");
+  if (constraints.length === 0) text("Aucun point d'attention relevé.", { size: 9, color: muted });
   for (const c of constraints) {
     const lvl = CONSTRAINT_LEVEL_META[c.level as ConstraintLevel]?.label ?? c.level;
     const cat = CONSTRAINT_CATEGORY_LABEL[c.category as ConstraintCategory] ?? c.category;
     text(`[${lvl}] ${c.title}`, { size: 10, f: bold });
     text(cat, { size: 8, color: muted });
     if (c.description) text(c.description, { size: 9 });
-    if (c.recommendation) text(`Recommandation : ${c.recommendation}`, { size: 9 });
+    if (c.lot && LOT_META[c.lot as VisitLot]) text(`Lot : ${LOT_META[c.lot as VisitLot].label}`, { size: 9 });
+    if (c.location) text(`Emplacement : ${c.location}`, { size: 9 });
+    if (c.recommendation) text(`${template.type === "btp" ? "Action" : "Recommandation"} : ${c.recommendation}`, { size: 9 });
+    if (c.responsible) text(`Responsable : ${c.responsible}`, { size: 9 });
+    const linked = (c.photo_paths ?? []).length;
+    if (linked) text(`Photo(s) liée(s) : ${linked} — voir section Photos`, { size: 8, color: muted });
     y -= 4;
   }
 
   // Photos
   const slotLabel = new Map<string, string>();
+  const slotCategory = new Map<string, string>();
   for (const rs of sections)
     for (const b of rs.blocks)
-      for (const p of b.photos)
+      for (const p of b.photos) {
         slotLabel.set(p.answerKey, b.label ? `${p.label} (${b.label})` : p.label);
+        slotCategory.set(p.answerKey, p.category);
+      }
+  const linkedTo = new Map<string, string>();
+  for (const c of constraints) for (const path of c.photo_paths ?? []) linkedTo.set(path, c.title);
   heading(`Photos (${photos.length})`);
   if (photos.length === 0) text("Aucune photo.", { size: 9, color: muted });
-  const shown = photos.slice(0, VISIT_PDF_MAX_PHOTOS);
+  // Classement par catégorie (zone / lot) dans l'ordre du modèle.
+  const order = (cat: string) => {
+    const i = template.photoCategories.indexOf(cat);
+    return i === -1 ? 999 : i;
+  };
+  const sorted = [...photos].sort((a, b) => order(slotCategory.get(a.slot_key) ?? "") - order(slotCategory.get(b.slot_key) ?? ""));
+  const shown = sorted.slice(0, VISIT_PDF_MAX_PHOTOS);
+  let currentCat: string | null = null;
   for (const p of shown) {
+    const cat = slotCategory.get(p.slot_key) ?? "Autres photos";
+    if (cat !== currentCat) {
+      currentCat = cat;
+      need(30);
+      y -= 4;
+      text(cat, { size: 10, f: bold, color: accent });
+    }
     let img: PDFImage | null = null;
     let missingReason = "photo non disponible (fichier introuvable ou illisible)";
     try {
@@ -335,12 +396,13 @@ export async function buildVisitReportPdf(
       slotLabel.get(p.slot_key) ?? p.slot_key,
       p.caption,
       p.taken_at ? fmtDate(p.taken_at, true) : null,
+      linkedTo.has(p.storage_path) ? `Point d'attention : ${linkedTo.get(p.storage_path)}` : null,
     ]
       .filter(Boolean)
       .join(" - ");
     if (img) {
-      const maxW = W * 0.6;
-      const maxH = 230;
+      const maxW = W * 0.75;
+      const maxH = 300;
       const scale = Math.min(maxW / img.width, maxH / img.height, 1);
       const w = img.width * scale;
       const h = img.height * scale;

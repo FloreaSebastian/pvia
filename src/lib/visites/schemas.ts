@@ -4,7 +4,19 @@
  */
 import { z } from "zod";
 
-export const VisitTypeSchema = z.enum(["photovoltaique", "pac_air_air", "pac_air_eau"]);
+export const VisitTypeSchema = z.enum(["photovoltaique", "pac_air_air", "pac_air_eau", "btp"]);
+
+export const VisitLotSchema = z.enum([
+  "photovoltaique",
+  "pac_air_air",
+  "pac_air_eau",
+  "electricite",
+  "plomberie",
+  "ventilation",
+  "isolation_facade",
+  "toiture",
+  "renovation",
+]);
 
 export const VisitStatusSchema = z.enum([
   "a_planifier",
@@ -86,10 +98,16 @@ export const CreateVisitSchema = z
     force_new_chantier: z.boolean().optional().default(false),
     /** Clé générée côté client, une par tentative de soumission. */
     idempotency_key: z.string().min(8).max(80),
+    /** Lots métier (visite BTP). */
+    lots: z.array(VisitLotSchema).max(9).optional().default([]),
   })
   .refine((v) => !!v.chantier_id || !!v.new_chantier, {
     message: "Chantier existant ou nouveau chantier requis.",
     path: ["chantier_id"],
+  })
+  .refine((v) => v.visit_type !== "btp" || v.lots.length > 0, {
+    message: "Choisissez au moins un lot.",
+    path: ["lots"],
   });
 
 export const VisitFiltersSchema = z.object({
@@ -115,6 +133,10 @@ export const ConstraintPayloadSchema = z.object({
   title: z.string().trim().min(1, "Titre requis").max(200),
   description: z.string().trim().max(3000).optional().default(""),
   recommendation: z.string().trim().max(3000).optional().default(""),
+  location: z.string().trim().max(300).optional().default(""),
+  responsible: z.string().trim().max(200).optional().default(""),
+  lot: VisitLotSchema.nullable().optional(),
+  photo_paths: z.array(z.string().min(1).max(500)).max(10).optional().default([]),
 });
 
 export const VisitPhotoPayloadSchema = z.object({

@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { ResolvedField } from "@/lib/visites/engine";
-import type { AnswerValue } from "@/lib/visites/types";
+import { ANSWER_STATUS_TOKENS, isAnswerStatusToken, type AnswerStatusToken, type AnswerValue } from "@/lib/visites/types";
 
 interface Props {
   field: ResolvedField;
@@ -19,8 +19,11 @@ interface Props {
 }
 
 /** Champ de saisie terrain : cibles tactiles ≥ 44px, libellés jamais tronqués. */
-export function VisitFieldInput({ field, value, onChange, disabled, invalid, error }: Props) {
+export function VisitFieldInput({ field, value: rawValue, onChange, disabled, invalid, error }: Props) {
   const id = `f-${field.answerKey}`;
+  const status = isAnswerStatusToken(rawValue) ? rawValue : null;
+  // Un statut (Inconnu / Non vérifié / N/A) remplace la valeur : le champ s'affiche vide.
+  const value = status ? undefined : rawValue;
   const describedBy = field.help ? `${id}-help` : undefined;
 
   return (
@@ -114,6 +117,26 @@ export function VisitFieldInput({ field, value, onChange, disabled, invalid, err
           className={cn("h-11", invalid && "border-destructive")}
         />
       )}
+
+      {field.allowStatus ? (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Statut du relevé ${field.label}`}>
+          {(Object.keys(ANSWER_STATUS_TOKENS) as AnswerStatusToken[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              disabled={disabled}
+              aria-pressed={status === t}
+              onClick={() => onChange(status === t ? null : t)}
+              className={cn(
+                "min-h-10 rounded-full border px-3 text-xs font-medium",
+                status === t ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {ANSWER_STATUS_TOKENS[t]}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {error ? (
         <p role="alert" className="text-xs font-medium leading-snug text-destructive">

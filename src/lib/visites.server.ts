@@ -4,9 +4,9 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { getVisitTemplate } from "./visites/templates";
+import { resolveVisitTemplate } from "./visites/templates";
 import { computeProgress } from "./visites/engine";
-import type { AnswerMap, VisitType } from "./visites/types";
+import type { AnswerMap, VisitTemplate } from "./visites/types";
 
 export const VISIT_BUCKET = "pv-assets";
 export const VISIT_SIGNED_TTL = 60 * 60; // 1 h
@@ -84,8 +84,8 @@ export function composeAddress(line1: string, postal: string, city: string): str
 }
 
 /** Nom de chantier généré automatiquement : « Photovoltaïque — M. Dupont ». */
-export function buildChantierName(visitType: VisitType, clientLabel: string): string {
-  const label = getVisitTemplate(visitType).label;
+export function buildChantierName(template: Pick<VisitTemplate, "label" | "chantierType" | "type">, clientLabel: string): string {
+  const label = template.type === "btp" ? template.chantierType : template.label;
   const who = clientLabel.trim();
   return (who ? `${label} — ${who}` : label).slice(0, 200);
 }
@@ -108,7 +108,7 @@ export async function findChantierDuplicates(
   sb: SB,
   companyId: string,
   clientId: string,
-  visitType: VisitType,
+  template: Pick<VisitTemplate, "chantierType">,
   address: { address_line1?: string | null; postal_code?: string | null; city?: string | null },
 ): Promise<DuplicateCandidate[]> {
   const { data, error } = await sb
@@ -122,7 +122,7 @@ export async function findChantierDuplicates(
   if (error) return [];
 
   const target = normalizeAddressKey(address);
-  const chantierType = getVisitTemplate(visitType).chantierType.toLowerCase();
+  const chantierType = template.chantierType.toLowerCase();
   const out: DuplicateCandidate[] = [];
   for (const c of data ?? []) {
     const key = normalizeAddressKey(c);
@@ -160,7 +160,7 @@ export async function signVisitPhotos<T extends { storage_path: string }>(
 export async function refreshVisitCompletion(sb: SB, visitId: string): Promise<number> {
   const { data: visit } = await sb
     .from("technical_visits")
-    .select("id,visit_type,status")
+    .select("id,visit_type,status,lots")
     .eq("id", visitId)
     .maybeSingle();
   if (!visit) return 0;
@@ -179,7 +179,9 @@ export async function refreshVisitCompletion(sb: SB, visitId: string): Promise<n
   const answers: AnswerMap = {};
   for (const a of answersRes.data ?? []) answers[a.field_key] = a.value as never;
 
-  const progress = computeProgress(getVisitTemplate(visit.visit_type as VisitType), {
+  const template = resolveVisitTemplate(visit);
+  if (!template) return -1;
+  const progress = computeProgress(template, {
     answers,
     photoSlots: new Set((photosRes.data ?? []).map((p) => p.slot_key)),
     skippedSlots: new Set((skipsRes.data ?? []).map((s) => s.slot_key)),

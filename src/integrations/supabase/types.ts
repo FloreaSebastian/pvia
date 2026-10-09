@@ -6636,8 +6636,11 @@ export type Database = {
           description: string | null
           id: string
           level: string
+          location: string | null
+          lot: string | null
           photo_paths: string[]
           recommendation: string | null
+          responsible: string | null
           section_key: string | null
           title: string
           updated_at: string
@@ -6651,8 +6654,11 @@ export type Database = {
           description?: string | null
           id?: string
           level?: string
+          location?: string | null
+          lot?: string | null
           photo_paths?: string[]
           recommendation?: string | null
+          responsible?: string | null
           section_key?: string | null
           title: string
           updated_at?: string
@@ -6666,8 +6672,11 @@ export type Database = {
           description?: string | null
           id?: string
           level?: string
+          location?: string | null
+          lot?: string | null
           photo_paths?: string[]
           recommendation?: string | null
+          responsible?: string | null
           section_key?: string | null
           title?: string
           updated_at?: string
@@ -6838,6 +6847,7 @@ export type Database = {
           created_by: string | null
           id: string
           idempotency_key: string | null
+          lots: string[]
           prep_notes: string | null
           reference: string
           scheduled_at: string | null
@@ -6863,6 +6873,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           idempotency_key?: string | null
+          lots?: string[]
           prep_notes?: string | null
           reference?: string
           scheduled_at?: string | null
@@ -6888,6 +6899,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           idempotency_key?: string | null
+          lots?: string[]
           prep_notes?: string | null
           reference?: string
           scheduled_at?: string | null
@@ -7151,19 +7163,34 @@ export type Database = {
         Args: { p_code_hash: string; p_otp_id: string }
         Returns: Json
       }
-      create_technical_visit_atomic: {
-        Args: {
-          _chantier_id: string
-          _client_id: string
-          _company_id: string
-          _event_title: string
-          _idempotency_key: string
-          _new_chantier: Json
-          _planning: Json
-          _visit_type: string
-        }
-        Returns: Json
-      }
+      create_technical_visit_atomic:
+        | {
+            Args: {
+              _chantier_id: string
+              _client_id: string
+              _company_id: string
+              _event_title: string
+              _idempotency_key: string
+              _new_chantier: Json
+              _planning: Json
+              _visit_type: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _chantier_id: string
+              _client_id: string
+              _company_id: string
+              _event_title: string
+              _idempotency_key: string
+              _lots: string[]
+              _new_chantier: Json
+              _planning: Json
+              _visit_type: string
+            }
+            Returns: Json
+          }
       enqueue_webhook_event: {
         Args: { _company_id: string; _event: string; _payload: Json }
         Returns: undefined

@@ -8,7 +8,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAuditLog } from "./audit.server";
 import { assertPlanFeature } from "./plan-guard.server";
-import { getVisitTemplate } from "./visites/templates";
+import { resolveVisitTemplate } from "./visites/templates";
 import { findTemplateSlot, validateAnswerEntries, VISIT_PHOTO_EXT, VISIT_PHOTO_MAX_BYTES } from "./visites/validation";
 import { friendlyVisitDbError } from "./visites/errors";
 import { photoRefusal } from "./visites/photo-commit";
@@ -22,6 +22,7 @@ import {
   VisitPlanningSchema,
   VisitStatusSchema,
   VisitTypeSchema,
+  VisitLotSchema,
   QuickClientSchema,
 } from "./visites/schemas";
 import {
@@ -50,7 +51,7 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
     let q = supabase
       .from("technical_visits")
       .select(
-        "id,reference,visit_type,status,scheduled_at,completed_at,validated_at,completion_percent,assigned_to,created_at," +
+        "id,reference,visit_type,lots,status,scheduled_at,completed_at,validated_at,completion_percent,assigned_to,created_at," +
           "chantier:chantiers(id,reference,name,address,city,postal_code),client:clients(id,name,company_name,client_type)",
         { count: "exact" },
       )
@@ -144,7 +145,7 @@ export const listChantierTechnicalVisits = createServerFn({ method: "POST" })
     await assertIsMember(supabase, data.companyId, userId);
     const { data: rows, error } = await supabase
       .from("technical_visits")
-      .select("id,reference,visit_type,status,scheduled_at,completed_at,validated_at,completion_percent,assigned_to,created_at")
+      .select("id,reference,visit_type,lots,status,scheduled_at,completed_at,validated_at,completion_percent,assigned_to,created_at")
       .eq("company_id", data.companyId)
       .eq("chantier_id", data.chantierId)
       .order("created_at", { ascending: false });
@@ -183,7 +184,7 @@ export const getTechnicalVisit = createServerFn({ method: "POST" })
       supabase.from("technical_visit_photo_skips").select("id,section_key,slot_key,reason,justification").eq("visit_id", data.visitId),
       supabase
         .from("technical_visit_constraints")
-        .select("id,section_key,category,level,title,description,recommendation,created_at")
+        .select("id,section_key,category,level,title,description,recommendation,location,responsible,lot,photo_paths,created_at")
         .eq("visit_id", data.visitId)
         .order("created_at", { ascending: true }),
       supabase.rpc("can_edit_technical_visit", { _visit_id: data.visitId, _user_id: userId }),
@@ -226,6 +227,7 @@ export const findVisitChantierDuplicates = createServerFn({ method: "POST" })
         companyId: z.string().uuid(),
         clientId: z.string().uuid(),
         visit_type: VisitTypeSchema,
+        lots: z.array(VisitLotSchema).max(9).optional().default([]),
         address_line1: z.string().max(300).optional().default(""),
         postal_code: z.string().max(20).optional().default(""),
         city: z.string().max(150).optional().default(""),
@@ -235,7 +237,9 @@ export const findVisitChantierDuplicates = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertIsMember(supabase, data.companyId, userId);
-    const duplicates = await findChantierDuplicates(supabase, data.companyId, data.clientId, data.visit_type, data);
+    const tpl = resolveVisitTemplate({ visit_type: data.visit_type, lots: data.lots });
+    if (!tpl) throw new Error("Type de visite inconnu.");
+    const duplicates = await findChantierDuplicates(supabase, data.companyId, data.clientId, tpl, data);
     return { duplicates };
   });
 
@@ -270,7 +274,8 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
     if (clientErr) throw new Error("Lecture du client impossible.");
     if (!client) throw new Error("Client introuvable.");
 
-    const template = getVisitTemplate(data.visit_type);
+    const template = resolveVisitTemplate({ visit_type: data.visit_type, lots: data.lots });
+    if (!template) throw new Error("Type de visite inconnu.");
     let newChantier: Record<string, unknown> | null = null;
     if (!data.chantier_id) {
       const nc = data.new_chantier ?? { name: "", address_line1: "", postal_code: "", city: "" };
@@ -280,14 +285,14 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
         city: nc.city || client.city || "",
       };
       if (!data.force_new_chantier) {
-        const duplicates = await findChantierDuplicates(supabase, data.companyId, client.id, data.visit_type, address);
+        const duplicates = await findChantierDuplicates(supabase, data.companyId, client.id, template, address);
         if (duplicates.length > 0) {
           return { ok: false as const, reason: "duplicate_chantier" as const, duplicates };
         }
       }
       const clientLabel = (client.client_type === "entreprise" || client.client_type === "professionnel") ? client.company_name || client.name : client.name;
       newChantier = {
-        name: (nc.name || buildChantierName(data.visit_type, clientLabel ?? "")).slice(0, 200),
+        name: (nc.name || buildChantierName(template, clientLabel ?? "")).slice(0, 200),
         type: template.chantierType,
         address: composeAddress(address.address_line1, address.postal_code, address.city) ?? client.address ?? null,
         address_line1: address.address_line1 || null,
@@ -311,6 +316,7 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
       _new_chantier: (newChantier ?? {}) as never,
       _planning: planning as never,
       _event_title: `Visite technique ${template.label}`,
+      _lots: template.lots ?? [],
     });
     if (rpcErr || !res) throw new Error(friendlyVisitDbError(rpcErr?.message, "Création de la visite impossible."));
     const out = res as { id: string; reference: string; chantier_id: string; chantier_created: boolean; reused: boolean };
@@ -333,7 +339,7 @@ export const createTechnicalVisit = createServerFn({ method: "POST" })
         entityType: "technical_visit",
         entityId: out.id,
         action: "visite.create",
-        newValues: { reference: out.reference, visit_type: data.visit_type, chantier_id: out.chantier_id },
+        newValues: { reference: out.reference, visit_type: data.visit_type, lots: template.lots ?? [], chantier_id: out.chantier_id },
         metadata: { chantier_created: out.chantier_created, scheduled_at: planning.scheduled_at ?? null },
       });
     }
@@ -359,7 +365,8 @@ export const updateTechnicalVisit = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertCanManage(supabase, data.companyId, userId);
     const prev = await loadVisitScoped(supabase, data.companyId, data.visitId);
-    const template = getVisitTemplate(prev.visit_type as never);
+    const template = resolveVisitTemplate(prev);
+    if (!template) throw new Error("Type de visite inconnu.");
     const { data: res, error } = await supabase.rpc("update_technical_visit_planning", {
       _company_id: data.companyId,
       _visit_id: data.visitId,
@@ -401,7 +408,9 @@ export const saveVisitAnswers = createServerFn({ method: "POST" })
     // Validation sémantique contre le modèle métier. Les entrées invalides sont
     // refusées une par une (erreur par champ) ; les valides sont enregistrées.
     // Les réponses déjà en base ne sont jamais supprimées.
-    const fieldErrors = validateAnswerEntries(getVisitTemplate(visit.visit_type as never), data.entries);
+    const tpl = resolveVisitTemplate(visit);
+    if (!tpl) throw new Error("Type de visite inconnu.");
+    const fieldErrors = validateAnswerEntries(tpl, data.entries);
     const rejected = new Set(fieldErrors.map((e) => e.field_key));
     const accepted = data.entries.filter((e) => !rejected.has(e.field_key));
     if (accepted.length === 0) {
@@ -512,7 +521,7 @@ export const addVisitPhoto = createServerFn({ method: "POST" })
       if (already) return reuseRow(already);
       throw new Error(msg);
     };
-    const hit = findTemplateSlot(getVisitTemplate(visit.visit_type as never), p.section_key, p.slot_key);
+    const hit = (() => { const t = resolveVisitTemplate(visit); return t ? findTemplateSlot(t, p.section_key, p.slot_key) : null; })();
     if (!hit) await fail("Emplacement photo inconnu pour cette étape.");
     if (!VISIT_PHOTO_EXT.test(p.storage_path)) await fail("Format non supporté : JPEG, PNG ou WebP uniquement.");
     if (p.file_size != null && p.file_size > VISIT_PHOTO_MAX_BYTES) await fail("Photo trop lourde (10 Mo maximum).");
@@ -732,6 +741,18 @@ export const saveVisitConstraint = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     await assertCanEditVisit(supabase, data.companyId, data.visitId, userId);
     const c = data.constraint;
+    // Une photo liée doit appartenir à cette visite (jamais un chemin arbitraire).
+    const photoPaths = Array.from(new Set(c.photo_paths ?? []));
+    if (photoPaths.length) {
+      const { data: owned, error: ownErr } = await supabase
+        .from("technical_visit_photos")
+        .select("storage_path")
+        .eq("visit_id", data.visitId)
+        .eq("company_id", data.companyId)
+        .in("storage_path", photoPaths);
+      if (ownErr) throw new Error("Vérification des photos impossible. Réessayez.");
+      if ((owned ?? []).length !== photoPaths.length) throw new Error("Une photo liée n'appartient pas à cette visite.");
+    }
     const payload = {
       visit_id: data.visitId,
       company_id: data.companyId,
@@ -741,6 +762,10 @@ export const saveVisitConstraint = createServerFn({ method: "POST" })
       title: c.title,
       description: c.description || null,
       recommendation: c.recommendation || null,
+      location: c.location || null,
+      responsible: c.responsible || null,
+      lot: c.lot ?? null,
+      photo_paths: photoPaths,
       created_by: userId,
     };
 
@@ -922,7 +947,7 @@ export const listVisitAssignees = createServerFn({ method: "POST" })
 /** Vérifie côté serveur qu'une adresse normalisée correspond (utilisé par les tests d'anti-doublon). */
 export const previewChantierNameForVisit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i) => z.object({ companyId: z.string().uuid(), clientId: z.string().uuid(), visit_type: VisitTypeSchema }).parse(i))
+  .inputValidator((i) => z.object({ companyId: z.string().uuid(), clientId: z.string().uuid(), visit_type: VisitTypeSchema, lots: z.array(VisitLotSchema).max(9).optional().default([]) }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertIsMember(supabase, data.companyId, userId);
@@ -935,7 +960,7 @@ export const previewChantierNameForVisit = createServerFn({ method: "POST" })
     if (!client) throw new Error("Client introuvable.");
     const label = (client.client_type === "entreprise" || client.client_type === "professionnel") ? client.company_name || client.name : client.name;
     return {
-      name: buildChantierName(data.visit_type, label ?? ""),
+      name: buildChantierName(resolveVisitTemplate({ visit_type: data.visit_type, lots: data.lots }) ?? { label: "Visite", chantierType: "Visite", type: "btp" }, label ?? ""),
       addressKey: normalizeAddressKey(client),
       address_line1: client.address_line1 ?? "",
       postal_code: client.postal_code ?? "",

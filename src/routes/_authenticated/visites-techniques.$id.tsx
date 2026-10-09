@@ -22,7 +22,7 @@ import { isManageRole } from "@/lib/roles";
 import { deleteTechnicalVisit, generateVisitReportPdf, getTechnicalVisit, setVisitStatus } from "@/lib/visites.functions";
 import { FileDown, Pencil } from "lucide-react";
 import { VisitPlanningDialog } from "@/components/visites/VisitPlanningDialog";
-import { getVisitTemplate, isVisitType } from "@/lib/visites/templates";
+import { resolveVisitTemplate } from "@/lib/visites/templates";
 import { computeProgress, resolveSections, formatAnswer } from "@/lib/visites/engine";
 import { CONSTRAINT_CATEGORY_LABEL, type AnswerMap, type ConstraintCategory } from "@/lib/visites/types";
 import { VisitStatusBadge, ConstraintLevelBadge } from "@/components/visites/VisitStatusBadge";
@@ -129,7 +129,7 @@ function VisiteDetailPage() {
   }, [load]);
 
   const template = useMemo(
-    () => (visit && isVisitType(visit.visit_type) ? getVisitTemplate(visit.visit_type) : null),
+    () => (visit ? resolveVisitTemplate(visit) : null),
     [visit],
   );
   const sections = useMemo(() => (template ? resolveSections(template, answers) : []), [template, answers]);

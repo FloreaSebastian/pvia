@@ -22,7 +22,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCompany } from "@/hooks/use-company";
 import { isManageRole } from "@/lib/roles";
 import { listTechnicalVisits, listVisitAssignees } from "@/lib/visites.functions";
-import { VISIT_TEMPLATES, VISIT_TYPE_OPTIONS } from "@/lib/visites/templates";
+import { LOT_META, VISIT_TYPE_OPTIONS, resolveVisitTemplate } from "@/lib/visites/templates";
 import { VISIT_STATUS_META, type VisitStatus, type VisitType } from "@/lib/visites/types";
 import { VisitStatusBadge } from "@/components/visites/VisitStatusBadge";
 
@@ -53,6 +53,7 @@ type VisitRow = {
   id: string;
   reference: string;
   visit_type: string;
+  lots?: string[] | null;
   status: string;
   scheduled_at: string | null;
   completed_at: string | null;
@@ -378,7 +379,7 @@ function VisitesTechniquesPage() {
       ) : (
         <ul className="space-y-2">
           {rows.map((v) => {
-            const template = VISIT_TEMPLATES[v.visit_type as VisitType];
+            const template = resolveVisitTemplate(v);
             const percent = v.completion_percent ?? 0;
             return (
               <li key={v.id}>
@@ -393,7 +394,7 @@ function VisitesTechniquesPage() {
                         <span className="font-mono text-xs text-muted-foreground">{v.reference}</span>
                         <VisitStatusBadge status={v.status} />
                         <Badge variant="outline" className="max-w-full truncate">
-                          {template?.label ?? v.visit_type}
+                          {template?.lots?.length ? template.lots.map((l) => LOT_META[l].short).join(" · ") : (template?.label ?? v.visit_type)}
                         </Badge>
                       </div>
                       <p className="mt-1 break-words text-sm font-medium">{v.chantier?.name ?? "Chantier"}</p>
@@ -426,6 +427,13 @@ function VisitesTechniquesPage() {
                     <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{percent}%</span>
                   </div>
                 </Link>
+                {["a_planifier", "planifiee", "en_cours", "a_completer"].includes(v.status) ? (
+                  <Button asChild variant="secondary" className="mt-1 h-11 w-full">
+                    <Link to="/visites-techniques/$id/terrain" params={{ id: v.id }}>
+                      {v.status === "en_cours" || v.status === "a_completer" ? "Reprendre la saisie" : "Commencer la saisie"}
+                    </Link>
+                  </Button>
+                ) : null}
               </li>
             );
           })}

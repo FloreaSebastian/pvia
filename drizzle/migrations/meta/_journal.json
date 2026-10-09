@@ -29,6 +29,13 @@
       "when": 1791496650887,
       "tag": "0003_technical_visit_photo_path_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791581115397,
+      "tag": "0004_technical_visit_btp_lots",
+      "breakpoints": true
     }
   ]
 }

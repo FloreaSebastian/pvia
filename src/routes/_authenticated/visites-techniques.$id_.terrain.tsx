@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
 import { useCompany } from "@/hooks/use-company";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { getTechnicalVisit, saveVisitAnswers, setVisitStatus } from "@/lib/visites.functions";
-import { getVisitTemplate, isVisitType } from "@/lib/visites/templates";
+import { resolveVisitTemplate } from "@/lib/visites/templates";
+import { VISIT_PHASES } from "@/lib/visites/types";
 import { computeProgress, resolveSections } from "@/lib/visites/engine";
 import type { AnswerMap, AnswerValue } from "@/lib/visites/types";
 import { VisitFieldInput } from "@/components/visites/VisitFieldInput";
@@ -158,7 +159,7 @@ function TerrainPage() {
   }, [activeCompanyId, getFn, id]);
 
   const template = useMemo(
-    () => (visit && isVisitType(visit.visit_type) ? getVisitTemplate(visit.visit_type) : null),
+    () => (visit ? resolveVisitTemplate(visit) : null),
     [visit],
   );
   const sections = useMemo(() => (template ? resolveSections(template, answers) : []), [template, answers]);
@@ -465,8 +466,39 @@ function TerrainPage() {
           <Progress value={progress.percent} className="h-1.5 flex-1" aria-label={`Complétude ${progress.percent}%`} />
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{progress.percent}%</span>
         </div>
+        {current.section.phase ? (
+          <ol className="mt-2 grid grid-cols-5 gap-1" aria-label="Parcours de la visite">
+            {VISIT_PHASES.map((ph, pi) => {
+              const idx = sections.findIndex((x) => x.section.phase === ph.key);
+              const phaseSections = progress.sections.filter((ps) => sections.find((x) => x.section.key === ps.key)?.section.phase === ph.key);
+              const done = ph.key === "client" || (phaseSections.length > 0 && phaseSections.every((ps) => ps.state === "complete" || ps.kind === "review"));
+              const active = current.section.phase === ph.key;
+              return (
+                <li key={ph.key} className="min-w-0">
+                  <button
+                    type="button"
+                    disabled={ph.key === "client" || idx === -1}
+                    onClick={() => {
+                      void flush();
+                      if (idx >= 0) setStep(idx);
+                    }}
+                    aria-current={active ? "step" : undefined}
+                    className={cn(
+                      "flex min-h-12 w-full flex-col items-center justify-center rounded-md border px-0.5 text-center text-[10px] font-medium leading-tight sm:text-xs",
+                      active ? "border-primary bg-primary text-primary-foreground" : done ? "border-emerald-300 text-emerald-700 dark:text-emerald-300" : "text-muted-foreground",
+                    )}
+                  >
+                    <span className="tabular-nums">{pi + 1}</span>
+                    <span className="line-clamp-2 break-words">{ph.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
         <div className="-mx-3 mt-2 flex gap-1 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4" role="tablist" aria-label="Étapes de la visite">
           {sections.map((s, i) => {
+            if (current.section.phase && s.section.phase !== current.section.phase) return null;
             const st = progress.sections.find((p) => p.key === s.section.key);
             return (
               <button
@@ -517,6 +549,8 @@ function TerrainPage() {
             constraints={constraints}
             canEdit={canEdit}
             onChanged={refreshChildren}
+            photos={photos}
+            lots={template?.lots ?? []}
           />
         ) : current.section.kind === "review" ? (
           <div className="min-w-0 space-y-3">
