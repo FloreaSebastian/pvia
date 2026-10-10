@@ -17,7 +17,9 @@ export const Route = createFileRoute("/_authenticated/parametres/numerotation")(
 });
 
 function NumerotationSettings() {
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, can } = useCompany();
+  // Lecture pour tous les membres ; enregistrement réservé aux administrateurs (serveur : isAdminRole).
+  const canEdit = can("admin");
   const getFn = useServerFn(getPvNumberingSettings);
   const saveFn = useServerFn(savePvNumberingSettings);
   const [loading, setLoading] = useState(true);
@@ -32,11 +34,13 @@ function NumerotationSettings() {
 
   useEffect(() => {
     if (!activeCompanyId) return;
+    let alive = true;
     setLoading(true);
     getFn({ data: { companyId: activeCompanyId } })
-      .then((r) => setForm(r))
-      .catch((e) => toast.error(e?.message || "Chargement impossible"))
-      .finally(() => setLoading(false));
+      .then((r) => { if (alive) setForm(r); })
+      .catch((e) => { if (alive) toast.error(e?.message || "Chargement impossible"); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompanyId]);
 
@@ -49,7 +53,7 @@ function NumerotationSettings() {
   }, [form]);
 
   async function onSave() {
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || !canEdit) return;
     setSaving(true);
     try {
       await saveFn({ data: { companyId: activeCompanyId, ...form } });
@@ -72,7 +76,13 @@ function NumerotationSettings() {
         <p className="mt-1 text-sm text-muted-foreground">Définissez le format du numéro attribué automatiquement à chaque procès-verbal.</p>
       </div>
 
+      {!canEdit && (
+        <p role="note" className="border-l-4 border-border bg-muted px-3 py-2 text-sm">
+          Consultation uniquement : seuls la direction et le responsable d’exploitation peuvent modifier la numérotation.
+        </p>
+      )}
       <Card className="space-y-5 p-6">
+        <fieldset disabled={!canEdit} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label>Préfixe</Label>
@@ -101,12 +111,15 @@ function NumerotationSettings() {
           <div className="mt-1 font-mono text-2xl font-bold text-primary">{preview}</div>
         </div>
 
-        <div className="flex justify-end">
-          <Button onClick={onSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Enregistrer
-          </Button>
-        </div>
+        </fieldset>
+        {canEdit && (
+          <div className="flex justify-end">
+            <Button onClick={onSave} disabled={saving} className="min-h-11">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer la numérotation
+            </Button>
+          </div>
+        )}
       </Card>
     </div>
   );
