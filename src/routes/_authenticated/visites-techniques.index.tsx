@@ -25,8 +25,10 @@ import { listTechnicalVisits, listVisitAssignees } from "@/lib/visites.functions
 import { BTP_LOT_OPTIONS, LOT_META, VISIT_TYPE_OPTIONS, resolveVisitTemplate } from "@/lib/visites/templates";
 import { VISIT_STATUS_META, type VisitLot, type VisitStatus, type VisitType } from "@/lib/visites/types";
 import { VisitStatusBadge } from "@/components/visites/VisitStatusBadge";
+import { visitListSearchValidator, visitGroupStatuses } from "@/lib/visites/resume-filter";
 
 export const Route = createFileRoute("/_authenticated/visites-techniques/")({
+  validateSearch: visitListSearchValidator,
   head: () => ({
     meta: [
       { title: "Visites techniques — PVIA" },
@@ -82,6 +84,9 @@ function fmtDate(iso: string | null): string {
 }
 
 function VisitesTechniquesPage() {
+  const { group } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const resumeGroup = !!visitGroupStatuses(group);
   const { activeCompanyId, activeRole } = useCompany();
   const { hasFeature, isLoading: planLoading } = useSubscription();
   const planAllowed = hasFeature("technical_visits");
@@ -136,6 +141,7 @@ function VisitesTechniquesPage() {
             visit_type: type === "all" ? null : type,
             lot: lot === "all" ? null : lot,
             status: status === "all" ? null : status,
+            group: resumeGroup ? "a_reprendre" : "all",
             assigned_to: assignee === "all" ? null : assignee,
             include_archived: includeArchived,
             offset: nextOffset,
@@ -153,7 +159,7 @@ function VisitesTechniquesPage() {
         setLoadingMore(false);
       }
     },
-    [activeCompanyId, listFn, debounced, type, lot, status, assignee, includeArchived],
+    [activeCompanyId, listFn, debounced, type, lot, status, assignee, includeArchived, resumeGroup],
   );
 
   useEffect(() => {
@@ -161,7 +167,7 @@ function VisitesTechniquesPage() {
   }, [load]);
 
   const activeFilters =
-    (type !== "all" ? 1 : 0) + (lot !== "all" ? 1 : 0) + (status !== "all" ? 1 : 0) + (assignee !== "all" ? 1 : 0) + (includeArchived ? 1 : 0);
+    (type !== "all" ? 1 : 0) + (lot !== "all" ? 1 : 0) + (status !== "all" ? 1 : 0) + (assignee !== "all" ? 1 : 0) + (includeArchived ? 1 : 0) + (resumeGroup ? 1 : 0);
 
   const kpiCards = useMemo(
     () => [
@@ -199,6 +205,15 @@ function VisitesTechniquesPage() {
           ) : null}
         </div>
       </header>
+      {resumeGroup && (
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b py-2">
+          <p className="text-sm font-medium">À reprendre · visites à préparer ou à compléter</p>
+          <Button variant="ghost" className="min-h-11 shrink-0" aria-label="Retirer le filtre À reprendre"
+            onClick={() => void navigate({ search: (prev) => ({ ...prev, group: "all" }) })}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {!planLoading && !planAllowed ? (
         <Card className="flex min-w-0 flex-col gap-3 border-dashed border-primary/40 bg-primary/5 p-4">
@@ -361,6 +376,7 @@ function VisitesTechniquesPage() {
                   setStatus("all");
                   setAssignee("all");
                   setIncludeArchived(false);
+                  void navigate({ search: (prev) => ({ ...prev, group: "all" }) });
                 }}
               >
                 Réinitialiser
@@ -448,7 +464,7 @@ function VisitesTechniquesPage() {
                     <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{percent}%</span>
                   </div>
                 </Link>
-                {["a_planifier", "planifiee", "en_cours", "a_completer"].includes(v.status) ? (
+                {visitGroupStatuses("a_reprendre")?.includes(v.status) ? (
                   <Button asChild variant="secondary" className="mt-1 h-11 w-full">
                     <Link to="/visites-techniques/$id/terrain" params={{ id: v.id }}>
                       {v.status === "en_cours" || v.status === "a_completer" ? "Reprendre la saisie" : "Commencer la saisie"}

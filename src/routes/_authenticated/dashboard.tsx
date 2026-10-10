@@ -7,6 +7,7 @@ import { useSuspension } from "@/hooks/use-suspension";
 import { supabase } from "@/integrations/supabase/client";
 import { loadDashboard } from "@/lib/dashboard";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { ComplianceWidget } from "@/components/dashboard/ComplianceWidget";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -66,6 +67,7 @@ function Dashboard() {
       canTerrain={canWrite && (can("manage") || activeRole === "technicien")}
       userId={user?.id}
       today={today}
+      documentaryFollowup={activeCompanyId ? <ComplianceWidget key={activeCompanyId} companyId={activeCompanyId} /> : null}
       retry={() => {
         void query.refetch();
       }}

@@ -3,6 +3,7 @@
  * Fichier « thin wrapper » : uniquement des imports et des déclarations de server functions.
  */
 import { sniffImage } from "@/lib/visites/validation";
+import { groupedVisitPage, visitGroupStatuses } from "./visites/resume-filter";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { AnswerValue } from "./visites/types";
@@ -67,6 +68,8 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
     if (data.visit_type) q = q.eq("visit_type", data.visit_type);
     if (data.lot) q = q.contains("lots", [data.lot]);
     if (data.status) q = q.eq("status", data.status);
+    const groupStatuses = visitGroupStatuses(data.group);
+    if (groupStatuses) q = q.in("status", groupStatuses);
     if (data.assigned_to) q = q.eq("assigned_to", data.assigned_to);
     if (data.chantier_id) q = q.eq("chantier_id", data.chantier_id);
     if (data.client_id) q = q.eq("client_id", data.client_id);
@@ -76,7 +79,27 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
     const term = data.search.trim();
     let filtered: any[] = [];
     let total = 0;
-    if (term) {
+    if (term && groupStatuses) {
+      const statuses = data.status ? groupStatuses.filter((s) => s === data.status) : groupStatuses;
+      const result = await groupedVisitPage<any>(statuses, data.offset, data.limit, async (status, offset, limit) => {
+        const { data: hits, error } = await supabase.rpc("search_technical_visits", {
+          _company_id: data.companyId, _term: term, _status: status,
+          _visit_type: data.visit_type ?? undefined, _lot: data.lot ?? (null as never),
+          _assigned_to: data.assigned_to ?? undefined, _chantier_id: data.chantier_id ?? undefined,
+          _client_id: data.client_id ?? undefined, _from: data.from ?? undefined, _to: data.to ?? undefined,
+          _include_archived: data.include_archived, _offset: offset, _limit: limit,
+        });
+        if (error) throw new Error("Recherche impossible pour le moment. Réessayez.");
+        const ids = (hits ?? []).map((h) => h.id);
+        if (!ids.length) return { rows: [], total: 0 };
+        const { data: rows, error: rowError } = await q.in("id", ids);
+        if (rowError) throw new Error("Lecture des visites impossible.");
+        const byId = new Map((rows ?? []).map((r: any) => [r.id, r]));
+        return { rows: ids.map((id) => byId.get(id)).filter(Boolean), total: Number(hits?.[0]?.total ?? 0) };
+      });
+      filtered = result.page;
+      total = result.total;
+    } else if (term) {
       // Recherche globale côté base sur tout le jeu de l'entreprise (RLS appliquée),
       // puis chargement des lignes de la page dans l'ordre retourné.
       const { data: hits, error: sErr } = await supabase.rpc("search_technical_visits", {
