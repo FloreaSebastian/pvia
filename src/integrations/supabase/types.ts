@@ -7283,6 +7283,16 @@ export type Database = {
         Args: { _bucket: string; _key: string; _window_start: string }
         Returns: number
       }
+      invite_recipient_matches: {
+        Args: {
+          _email: string
+          _expires_at: string
+          _invited_email: string
+          _status: Database["public"]["Enums"]["member_status"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_active_subcontractor: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
