@@ -16,6 +16,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
+import { useRoleCaps } from "@/hooks/use-role-caps";
+import { isManageRole } from "@/lib/roles";
 import { PvStatusPill, StatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
 import { useContainerWidth } from "@/hooks/use-viewport";
@@ -102,7 +104,10 @@ function reservesCount(p: Pv) {
 }
 
 function PvList() {
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, activeRole } = useCompany();
+  // Création/suppression : rôle de gestion ET écriture confirmée ; sinon consultation.
+  const caps = useRoleCaps();
+  const roleCanManage = isManageRole(activeRole);
   const navigate = useNavigate();
   const { deny } = useBlockedActionGuard();
   const [items, setItems] = useState<Pv[]>([]);
@@ -204,6 +209,7 @@ function PvList() {
     (reserveFilter !== "all" ? 1 : 0);
 
   async function remove(id: string) {
+    if (!caps.manage) return;
     if (deny("supprimer un PV")) return;
     if (!confirm("Supprimer ce PV ?")) return;
     const { error } = await supabase.from("pv").delete().eq("id", id);
@@ -260,11 +266,13 @@ function PvList() {
         contained={false}
         className="border-0 bg-transparent px-0 py-0"
         actions={
-          <WriteAccessGate label="Nouveau PV">
-            <Link to="/pv/new" search={{ fresh: 1 }} className="shrink-0">
-              <Button className="h-11 shadow-brand sm:h-10"><Plus className="h-4 w-4" /> Nouveau PV</Button>
-            </Link>
-          </WriteAccessGate>
+          roleCanManage ? (
+            <WriteAccessGate label="Nouveau PV">
+              <Link to="/pv/new" search={{ fresh: 1 }} className="shrink-0">
+                <Button className="h-11 shadow-brand sm:h-10"><Plus className="h-4 w-4" /> Nouveau PV</Button>
+              </Link>
+            </WriteAccessGate>
+          ) : undefined
         }
       />
 
@@ -395,7 +403,7 @@ function PvList() {
                 onOpen={() => navigate({ to: "/pv/$id", params: { id: p.id } })}
                 onDownload={() => download(p.pdf_url)}
                 onShare={() => share(p)}
-                onRemove={() => remove(p.id)}
+                onRemove={caps.manage ? () => remove(p.id) : undefined}
               />
             ))}
           </div>
@@ -473,9 +481,11 @@ function PvList() {
                             <Button size="icon" variant="ghost" onClick={() => share(p)} title="Partager" aria-label={`Partager le PV ${p.numero}`}>
                               <Share2 className="h-4 w-4" />
                             </Button>
-                            <Button size="icon" variant="ghost" onClick={() => remove(p.id)} title="Supprimer" aria-label={`Supprimer le PV ${p.numero}`}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {caps.manage && (
+                              <Button size="icon" variant="ghost" onClick={() => remove(p.id)} title="Supprimer" aria-label={`Supprimer le PV ${p.numero}`}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -618,7 +628,7 @@ function PvCard({
   onOpen: () => void;
   onDownload: () => void;
   onShare: () => void;
-  onRemove: () => void;
+  onRemove?: () => void;
 }) {
   const ch = pv.chantiers?.name;
   const chRef = pv.chantiers?.reference;
@@ -682,9 +692,11 @@ function PvCard({
           <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onShare} aria-label={`Partager le PV ${pv.numero}`}>
             <Share2 className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onRemove} aria-label={`Supprimer le PV ${pv.numero}`}>
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+          {onRemove && (
+            <Button size="icon" variant="ghost" className="h-11 w-11" onClick={onRemove} aria-label={`Supprimer le PV ${pv.numero}`}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
