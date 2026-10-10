@@ -1,6 +1,6 @@
 import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ClipboardList, Plus, Search, SlidersHorizontal, Loader2, MapPin, CalendarClock,
   User as UserIcon, ChevronRight, X, ClipboardCheck, Sparkles,
@@ -128,9 +128,13 @@ function VisitesTechniquesPage() {
     };
   }, [activeCompanyId, assigneesFn]);
 
+  // Every new query (company, search, filters) bumps the generation; late
+  // responses from an older generation are ignored.
+  const loadGen = useRef(0);
   const load = useCallback(
     async (nextOffset: number, append: boolean) => {
       if (!activeCompanyId) return;
+      const gen = append ? loadGen.current : ++loadGen.current;
       if (append) setLoadingMore(true);
       else setLoading(true);
       try {
@@ -148,19 +152,31 @@ function VisitesTechniquesPage() {
             limit: PAGE,
           },
         });
+        if (gen !== loadGen.current) return;
         setRows((prev) => (append ? [...prev, ...(res.visits as unknown as VisitRow[])] : (res.visits as unknown as VisitRow[])));
         setKpis(res.kpis);
         setHasMore(res.hasMore);
         setOffset(nextOffset);
       } catch (e: any) {
+        if (gen !== loadGen.current) return;
         toast.error(e?.message ?? "Chargement des visites impossible");
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (gen === loadGen.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [activeCompanyId, listFn, debounced, type, lot, status, assignee, includeArchived, resumeGroup],
   );
+
+  // Never show another company's rows while the new company loads.
+  useEffect(() => {
+    setRows([]);
+    setKpis({ total: 0, a_planifier: 0, aujourdhui: 0, en_cours: 0, a_valider: 0 });
+    setHasMore(false);
+    setOffset(0);
+  }, [activeCompanyId]);
 
   useEffect(() => {
     void load(0, false);
