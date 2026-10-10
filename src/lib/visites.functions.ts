@@ -92,7 +92,12 @@ export const listTechnicalVisits = createServerFn({ method: "POST" })
         if (error) throw new Error("Recherche impossible pour le moment. Réessayez.");
         const ids = (hits ?? []).map((h) => h.id);
         if (!ids.length) return { rows: [], total: 0 };
-        const { data: rows, error: rowError } = await q.in("id", ids);
+        const { data: rows, error: rowError } = await supabase
+          .from("technical_visits")
+          .select("id,reference,visit_type,lots,status,scheduled_at,completed_at,validated_at,completion_percent,assigned_to,created_at,chantier:chantiers(id,reference,name,address,city,postal_code),client:clients(id,name,company_name,client_type)")
+          .eq("company_id", data.companyId)
+          .in("status", groupStatuses)
+          .in("id", ids);
         if (rowError) throw new Error("Lecture des visites impossible.");
         const byId = new Map((rows ?? []).map((r: any) => [r.id, r]));
         return { rows: ids.map((id) => byId.get(id)).filter(Boolean), total: Number(hits?.[0]?.total ?? 0) };
