@@ -114,7 +114,7 @@ export const ROLE_PROFILES: Record<CompanyRoleValue, RoleProfile> = {
     subtitle: "Les visites qui vous sont affectées et votre planning.",
     can: ["Saisir les visites qui vous sont affectées", "Consulter chantiers, PV et réserves"],
     cannot: ["Créer ou signer un PV", "Lever une réserve", "Gérer l’équipe"],
-    order: ["visits", "main", "recent", "metrics"],
+    order: ["visits", "main", "banner", "recent", "metrics"],
     planningFirst: true,
     mobile: ["visites", "calendrier", "reserves"],
     tone: "success",
