@@ -1,26 +1,35 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminRole, isManageRole, isOwnerRole, type CompanyRoleValue } from "@/lib/roles";
 import {
-  isAdminRole,
-  isManageRole,
-  isOwnerRole,
-  type CompanyRoleValue,
-} from "@/lib/roles";
+  IDLE_STATE,
+  createCompanyController,
+  effectiveRole,
+  type CompanyCtxState,
+  type CompanyCtxStatus,
+  type CompanyMembership,
+} from "@/lib/company-context";
 
 export type CompanyRole = CompanyRoleValue;
-export type Membership = {
-  id: string;
-  company_id: string;
-  role: CompanyRole;
-  status: "active" | "invited" | "suspended";
-  company: { id: string; name: string; logo_url: string | null; icon_url: string | null };
-};
+export type Membership = CompanyMembership;
 
 type Ctx = {
+  /** true tant que les adhésions ne sont pas confirmées (chargement initial). */
   loading: boolean;
+  status: CompanyCtxStatus;
+  error: string | null;
   memberships: Membership[];
   activeCompanyId: string | null;
+  /** Rôle confirmé ; null pendant chargement/erreur. */
   activeRole: CompanyRole | null;
   setActiveCompanyId: (id: string) => void;
   refresh: () => Promise<void>;
@@ -47,67 +56,73 @@ function storeCompanyId(id: string): void {
   }
 }
 
-export function CompanyProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const [memberships, setMemberships] = useState<Membership[]>([]);
-  // Valeur déterministe au SSR et au premier rendu client. La préférence
-  // locale est restaurée dans refresh(), après hydratation.
-  const [activeCompanyId, setActiveId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+async function fetchMemberships(userId: string) {
+  const { data, error } = await supabase
+    .from("company_members")
+    .select("id,company_id,role,status,company:companies(id,name,logo_url,icon_url)")
+    .eq("user_id", userId)
+    .eq("status", "active");
+  return { data: (data as unknown as Membership[]) ?? null, error };
+}
 
-  async function refresh() {
-    if (!user) {
-      setMemberships([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const { data } = await supabase
-      .from("company_members")
-      .select("id,company_id,role,status,company:companies(id,name,logo_url,icon_url)")
-      .eq("user_id", user.id)
-      .eq("status", "active");
-    const list = ((data as unknown) as Membership[]) ?? [];
-    setMemberships(list);
-    const preferredCompanyId = activeCompanyId ?? readStoredCompanyId();
-    if (list.length && (!preferredCompanyId || !list.find((m) => m.company_id === preferredCompanyId))) {
-      const id = list[0].company_id;
-      setActiveId(id);
-      storeCompanyId(id);
-    } else if (preferredCompanyId !== activeCompanyId) {
-      setActiveId(preferredCompanyId);
-    }
-    setLoading(false);
+export function CompanyProvider({ children }: { children: ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
+  const [state, setState] = useState<CompanyCtxState>(IDLE_STATE);
+  const ctrlRef = useRef<ReturnType<typeof createCompanyController> | null>(null);
+  if (!ctrlRef.current) {
+    ctrlRef.current = createCompanyController(
+      { fetchMemberships, readStored: readStoredCompanyId, store: storeCompanyId },
+      setState,
+    );
   }
+  const ctrl = ctrlRef.current;
+
+  useEffect(() => () => ctrl.dispose(), [ctrl]);
 
   useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    if (authLoading) return;
+    ctrl.setUser(user?.id ?? null);
+  }, [ctrl, user?.id, authLoading]);
 
-  function setActiveCompanyId(id: string) {
-    setActiveId(id);
-    storeCompanyId(id);
-  }
+  // Retour au premier plan : relecture autorisée des adhésions (révocation, suspension).
+  // company_members n'est pas publié en realtime : aucun canal n'est créé.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void ctrl.refresh(true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [ctrl]);
 
-  const activeRole = useMemo(
-    () => memberships.find((m) => m.company_id === activeCompanyId)?.role ?? null,
-    [memberships, activeCompanyId],
+  // Un utilisateur différent de celui de l'état n'a jamais accès aux données affichées.
+  const scoped: CompanyCtxState =
+    state.userId && state.userId === (user?.id ?? null) ? state : IDLE_STATE;
+  const activeRole = effectiveRole(scoped);
+
+  const value = useMemo<Ctx>(
+    () => ({
+      loading: authLoading || scoped.status === "loading" || (scoped.status === "idle" && !!user),
+      status: scoped.status,
+      error: scoped.error,
+      memberships: scoped.status === "ready" ? scoped.memberships : [],
+      activeCompanyId: scoped.status === "ready" ? scoped.activeCompanyId : null,
+      activeRole,
+      setActiveCompanyId: (id: string) => {
+        ctrl.select(id);
+      },
+      refresh: () => ctrl.refresh(false),
+      can: (action) => {
+        if (!activeRole) return false;
+        if (action === "owner") return isOwnerRole(activeRole);
+        if (action === "admin") return isAdminRole(activeRole);
+        if (action === "manage") return isManageRole(activeRole);
+        return false;
+      },
+    }),
+    [authLoading, scoped, user, activeRole, ctrl],
   );
 
-  function can(action: "manage" | "admin" | "owner") {
-    if (!activeRole) return false;
-    if (action === "owner") return isOwnerRole(activeRole);
-    if (action === "admin") return isAdminRole(activeRole);
-    if (action === "manage") return isManageRole(activeRole);
-    return false;
-  }
-
-  return (
-    <CompanyContext.Provider value={{ loading, memberships, activeCompanyId, activeRole, setActiveCompanyId, refresh, can }}>
-      {children}
-    </CompanyContext.Provider>
-  );
+  return <CompanyContext.Provider value={value}>{children}</CompanyContext.Provider>;
 }
 
 export function useCompany() {

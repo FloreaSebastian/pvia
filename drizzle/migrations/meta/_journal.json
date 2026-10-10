@@ -85,6 +85,13 @@
       "when": 1791651977128,
       "tag": "0011_role_guards_feature_status_proofs",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791654322709,
+      "tag": "0012_team_invite_guards",
+      "breakpoints": true
     }
   ]
 }

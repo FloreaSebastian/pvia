@@ -1,4 +1,5 @@
 import { WriteAccessGate } from "@/components/billing/WriteAccessGate";
+import { CompanyContextError } from "@/components/app/CompanyContextBanner";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -425,6 +426,7 @@ function AppShell({
           </div>
         </header>
 
+        <CompanyContextError />
         <SuspensionBanner />
         <SubscriptionBanner />
 

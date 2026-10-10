@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useCompany } from "@/hooks/use-company";
 import { CollapsibleSection } from "@/components/app/CollapsibleSection";
+import { RoleBadge } from "@/components/app/RoleBadge";
 import { SaveStatusBadge } from "@/components/app/SaveStatusBadge";
 import { useAutosave } from "@/hooks/use-autosave";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
@@ -40,56 +41,103 @@ type LocalePrefs = {
 };
 const DEFAULT_PREFS: LocalePrefs = { language: "fr", timezone: "Europe/Paris", currency: "EUR", dateFormat: "fr" };
 
+type Loaded<T> =
+  | { scope: string; status: "loading" }
+  | { scope: string; status: "error" }
+  | { scope: string; status: "ready"; data: T };
+
 function GeneralSettings() {
   const { user } = useAuth();
-  const { activeCompanyId, memberships, can } = useCompany();
+  const { activeCompanyId, memberships, can, activeRole, status: companyStatus } = useCompany();
   const company = memberships.find((m) => m.company_id === activeCompanyId)?.company ?? null;
   const isAdmin = can("admin");
+  const userId = user?.id ?? null;
+  const profileScope = userId ? `profile:${userId}` : null;
+  const prefsScope = userId && activeCompanyId && companyStatus === "ready" ? `prefs:${userId}:${activeCompanyId}` : null;
 
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<Profile>(PROFILE_EMPTY);
-  const [prefs, setPrefs] = useState<LocalePrefs>(DEFAULT_PREFS);
+  const [profileLoad, setProfileLoad] = useState<Loaded<Profile> | null>(null);
+  const [prefsLoad, setPrefsLoad] = useState<Loaded<LocalePrefs> | null>(null);
+  const [profileEdit, setProfileEdit] = useState<{ scope: string; v: Profile } | null>(null);
+  const [prefsEdit, setPrefsEdit] = useState<{ scope: string; v: LocalePrefs } | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
+  // Profil personnel : borné à l'utilisateur (modifiable aussi en lecture seule).
   useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const [{ data: p }, { data: cs }] = await Promise.all([
-        supabase.from("profiles").select("first_name,last_name,phone,job_title").eq("id", user.id).maybeSingle(),
-        activeCompanyId
-          ? supabase.from("company_settings").select("locale,timezone,currency,date_format").eq("company_id", activeCompanyId).maybeSingle()
-          : Promise.resolve({ data: null }),
-      ]);
-      if (p) {
+    if (!profileScope || !userId) return;
+    let alive = true;
+    setProfileLoad({ scope: profileScope, status: "loading" });
+    setProfileEdit(null);
+    supabase
+      .from("profiles")
+      .select("first_name,last_name,phone,job_title")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data: p, error }) => {
+        if (!alive) return;
+        if (error) return setProfileLoad({ scope: profileScope, status: "error" });
         const next: Profile = {
-          first_name: p.first_name ?? "",
-          last_name: p.last_name ?? "",
-          phone: p.phone ?? "",
-          job_title: p.job_title ?? "",
+          first_name: p?.first_name ?? "",
+          last_name: p?.last_name ?? "",
+          phone: p?.phone ?? "",
+          job_title: p?.job_title ?? "",
         };
-        setProfile(next);
-        profileSave.resetBaseline(next);
-      }
-      if (cs) {
-        const next: LocalePrefs = {
-          language: (cs.locale as LocalePrefs["language"]) ?? "fr",
-          timezone: cs.timezone ?? "Europe/Paris",
-          currency: (cs.currency as LocalePrefs["currency"]) ?? "EUR",
-          dateFormat: (cs.date_format as LocalePrefs["dateFormat"]) ?? "fr",
-        };
-        setPrefs(next);
-        prefsSave.resetBaseline(next);
-      }
-      setLoading(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, activeCompanyId]);
+        setProfileLoad({ scope: profileScope, status: "ready", data: next });
+        setProfileEdit({ scope: profileScope, v: next });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [profileScope, userId, reloadTick]);
+
+  // Préférences entreprise : bornées à utilisateur + entreprise.
+  useEffect(() => {
+    setPrefsEdit(null);
+    if (!prefsScope || !activeCompanyId) {
+      setPrefsLoad(null);
+      return;
+    }
+    let alive = true;
+    setPrefsLoad({ scope: prefsScope, status: "loading" });
+    supabase
+      .from("company_settings")
+      .select("locale,timezone,currency,date_format")
+      .eq("company_id", activeCompanyId)
+      .maybeSingle()
+      .then(({ data: cs, error }) => {
+        if (!alive) return;
+        if (error) return setPrefsLoad({ scope: prefsScope, status: "error" });
+        const next: LocalePrefs = cs
+          ? {
+              language: (cs.locale as LocalePrefs["language"]) ?? "fr",
+              timezone: cs.timezone ?? "Europe/Paris",
+              currency: (cs.currency as LocalePrefs["currency"]) ?? "EUR",
+              dateFormat: (cs.date_format as LocalePrefs["dateFormat"]) ?? "fr",
+            }
+          : DEFAULT_PREFS;
+        setPrefsLoad({ scope: prefsScope, status: "ready", data: next });
+        setPrefsEdit({ scope: prefsScope, v: next });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [prefsScope, activeCompanyId, reloadTick]);
+
+  const profileReady = profileLoad && profileLoad.scope === profileScope && profileLoad.status === "ready" ? profileLoad : null;
+  const prefsReady = prefsLoad && prefsLoad.scope === prefsScope && prefsLoad.status === "ready" ? prefsLoad : null;
+  const profile = profileEdit && profileEdit.scope === profileScope ? profileEdit.v : profileReady?.data ?? PROFILE_EMPTY;
+  const prefs = prefsEdit && prefsEdit.scope === prefsScope ? prefsEdit.v : prefsReady?.data ?? DEFAULT_PREFS;
+  const setProfile = (v: Profile) => profileScope && profileReady && setProfileEdit({ scope: profileScope, v });
+  const setPrefs = (v: LocalePrefs) => prefsScope && prefsReady && isAdmin && setPrefsEdit({ scope: prefsScope, v });
 
   /* ---------- Autosave: profile ---------- */
   const profileSave = useAutosave<Profile>({
+    scope: profileReady ? profileScope : null,
+    loaded: profileReady?.data,
     value: profile,
-    onSave: async (v) => {
-      if (!user) throw new Error("Non authentifié");
-      const { error } = await supabase
+    valueScope: profileEdit?.scope ?? null,
+    onSave: async (scope, v) => {
+      const uid = scope.slice("profile:".length);
+      const { data: rows, error } = await supabase
         .from("profiles")
         .update({
           first_name: v.first_name.trim() || null,
@@ -98,26 +146,30 @@ function GeneralSettings() {
           job_title: v.job_title.trim() || null,
           full_name: `${v.first_name} ${v.last_name}`.trim() || null,
         })
-        .eq("id", user.id);
+        .eq("id", uid)
+        .select("id");
       if (error) throw new Error(error.message);
+      if (!rows || rows.length !== 1) throw new Error("Profil non enregistré.");
     },
   });
 
   /* ---------- Autosave: company prefs ---------- */
   const prefsSave = useAutosave<LocalePrefs>({
+    scope: prefsReady ? prefsScope : null,
+    loaded: prefsReady?.data,
     value: prefs,
-    disabled: !activeCompanyId || !isAdmin,
-    onSave: async (v) => {
-      if (!activeCompanyId) throw new Error("Aucune entreprise active");
-      if (!isAdmin) throw new Error("Réservé aux administrateurs.");
+    valueScope: prefsEdit?.scope ?? null,
+    disabled: !isAdmin,
+    onSave: async (scope, v) => {
+      const [, uid, companyId] = scope.split(":");
       const { error } = await supabase.from("company_settings").upsert(
         {
-          company_id: activeCompanyId,
+          company_id: companyId,
           locale: v.language,
           timezone: v.timezone,
           currency: v.currency,
           date_format: v.dateFormat,
-          updated_by: user?.id,
+          updated_by: uid,
         },
         { onConflict: "company_id" },
       );
@@ -128,17 +180,30 @@ function GeneralSettings() {
   const anyDirty = profileSave.isDirty || prefsSave.isDirty;
   useUnsavedGuard(anyDirty);
 
+  async function saveAll() {
+    const results = await Promise.all([
+      profileSave.isDirty ? profileSave.saveNow() : Promise.resolve(true),
+      prefsSave.isDirty ? prefsSave.saveNow() : Promise.resolve(true),
+    ]);
+    if (results.every(Boolean)) toast.success("Modifications enregistrées.");
+    else toast.error("Certaines modifications n'ont pas été enregistrées. Réessayez.");
+  }
+
   useKeyboardShortcut("mod+s", async (e) => {
     e.preventDefault();
     if (!anyDirty) return;
-    await Promise.all([profileSave.saveNow(), prefsSave.saveNow()]);
-    toast.success("Modifications enregistrées.");
+    await saveAll();
   });
 
   function resetPrefs() {
+    if (!prefsReady || !isAdmin) return;
     setPrefs(DEFAULT_PREFS);
     toast("Préférences restaurées. Sauvegarde automatique en cours…");
   }
+
+  const profileFailed = profileLoad?.scope === profileScope && profileLoad?.status === "error";
+  const prefsFailed = prefsLoad?.scope === prefsScope && prefsLoad?.status === "error";
+  const loading = !profileReady && !profileFailed;
 
   if (loading) {
     return (
@@ -159,7 +224,10 @@ function GeneralSettings() {
         icon={<UserIcon className="h-4 w-4" />}
         actions={<SaveStatusBadge status={profileSave.status} lastSavedAt={profileSave.lastSavedAt} />}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        {profileFailed && (
+          <LoadError message="Impossible de charger votre profil." onRetry={() => setReloadTick((t) => t + 1)} />
+        )}
+        <fieldset disabled={!profileReady} className="grid gap-4 sm:grid-cols-2">
           <Field label="Prénom">
             <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value })} />
           </Field>
@@ -175,12 +243,20 @@ function GeneralSettings() {
           <Field label="Email">
             <Input value={user?.email ?? ""} disabled />
           </Field>
-        </div>
+        </fieldset>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
-            Sauvegarde automatique après modification — ou <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">⌘S</kbd>.
+            Sauvegarde automatique après modification — ou <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-xs">⌘S</kbd>.
           </p>
-          <Button size="sm" onClick={() => profileSave.saveNow()} disabled={!profileSave.isDirty || profileSave.status === "saving"}>
+          <Button
+            size="sm"
+            className="h-11"
+            onClick={async () => {
+              const ok = await profileSave.saveNow();
+              if (!ok) toast.error("Profil non enregistré. Réessayez.");
+            }}
+            disabled={!profileReady || !profileSave.isDirty || profileSave.status === "saving"}
+          >
             <Save className="mr-2 h-4 w-4" /> Enregistrer
           </Button>
         </div>
@@ -192,16 +268,24 @@ function GeneralSettings() {
         description="Identité légale, SIREN/SIRET, TVA — gérés dans une page dédiée."
         icon={<Building2 className="h-4 w-4" />}
         actions={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/entreprise">Gérer</Link>
-          </Button>
+          isAdmin ? (
+            <Button asChild variant="outline" size="sm" className="h-11">
+              <Link to="/entreprise">Gérer</Link>
+            </Button>
+          ) : undefined
         }
       >
-        <div className="text-sm">
-          <div className="font-medium">{company?.name ?? "—"}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Vous pouvez modifier l'identité légale, l'adresse, le SIREN/SIRET et la TVA dans la page Entreprise.
+        <div className="min-w-0 text-sm">
+          <div className="break-words font-medium">{company?.name ?? "—"}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>Votre rôle :</span>
+            <RoleBadge role={activeRole} long self />
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {isAdmin
+              ? "Vous pouvez modifier l'identité légale, l'adresse, le SIREN/SIRET et la TVA dans la page Entreprise."
+              : "L'identité de l'entreprise est gérée par la direction ou le responsable d'exploitation."}
+          </p>
         </div>
       </CollapsibleSection>
 
@@ -213,16 +297,19 @@ function GeneralSettings() {
         actions={
           <div className="flex items-center gap-3">
             <SaveStatusBadge status={prefsSave.status} lastSavedAt={prefsSave.lastSavedAt} />
-            <ResetButton onConfirm={resetPrefs} disabled={!isAdmin} />
+            <ResetButton onConfirm={resetPrefs} disabled={!isAdmin || !prefsReady} />
           </div>
         }
       >
+        {prefsFailed && (
+          <LoadError message="Impossible de charger les préférences de l'entreprise." onRetry={() => setReloadTick((t) => t + 1)} />
+        )}
         {!isAdmin && (
           <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             Lecture seule — seuls les administrateurs peuvent modifier ces préférences.
           </p>
         )}
-        <fieldset disabled={!isAdmin} className="grid gap-4 sm:grid-cols-2">
+        <fieldset disabled={!isAdmin || !prefsReady} className="grid gap-4 sm:grid-cols-2">
           <Field label="Langue">
             <Select value={prefs.language} onValueChange={(v) => setPrefs({ ...prefs, language: v as LocalePrefs["language"] })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -277,10 +364,8 @@ function GeneralSettings() {
             />
             <Button
               size="sm"
-              onClick={async () => {
-                await Promise.all([profileSave.saveNow(), prefsSave.saveNow()]);
-                toast.success("Tout est enregistré.");
-              }}
+              className="h-11"
+              onClick={saveAll}
             >
               <Save className="mr-2 h-4 w-4" />
               Enregistrer
@@ -288,6 +373,17 @@ function GeneralSettings() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+      <span className="min-w-0 flex-1">{message}</span>
+      <Button size="sm" variant="outline" className="h-11" onClick={onRetry}>
+        Réessayer
+      </Button>
     </div>
   );
 }
