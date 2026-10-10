@@ -59,7 +59,7 @@ import { sendInvite } from "@/lib/invites.functions";
 import { logUserAction } from "@/lib/audit.functions";
 import { ROLE_META, ROLE_ORDER, isOwnerRole, type CompanyRoleValue } from "@/lib/roles";
 import { ROLE_PROFILES } from "@/lib/role-access";
-import { RoleBadge } from "@/components/app/RoleBadge";
+import { RoleBadge as AppRoleBadge } from "@/components/app/RoleBadge";
 
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 import { ADMIN_ROLES } from "@/lib/roles";
@@ -757,7 +757,7 @@ function TeamPage() {
             <ul className="mt-3 grid gap-3 md:grid-cols-2">
               {ROLE_ORDER.map((r) => (
                 <li key={r} className="min-w-0 rounded-md border border-border p-3">
-                  <RoleBadge role={r} long />
+                  <AppRoleBadge role={r} long />
                   <RoleSummary role={r} />
                 </li>
               ))}
