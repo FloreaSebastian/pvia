@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- casts historiques sur des tables/réponses non typées ; la garde d'accès typée vit dans pv-create-access.ts */
 /**
  * createPv: server-side end-to-end PV creation.
  *
@@ -728,7 +729,9 @@ export const createPv = createServerFn({ method: "POST" })
       try {
         const { bumpPhotosFailed } = await import("@/lib/processing-status.server");
         await bumpPhotosFailed(pvId, failedPhotos);
-      } catch {}
+      } catch {
+        // Compteur d'échec best-effort : ne doit jamais faire échouer la création.
+      }
     }
 
     // 9b. Link OTP to PV for onsite mode
