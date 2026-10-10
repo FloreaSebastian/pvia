@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, mock } from "bun:test";
 import { authorizePvCreate, type PvCreateGateDeps } from "@/lib/pv-create-access";
 import { createScopeGuard } from "@/lib/scope-guard";
 
@@ -7,7 +7,12 @@ function deps(
   member: { role: string; status: string } | null,
   parents: Record<string, string> = {},
 ) {
-  const effects = { insert: vi.fn(), upload: vi.fn(), notify: vi.fn(), pdf: vi.fn() };
+  const effects = {
+    insert: mock(() => {}),
+    upload: mock(() => {}),
+    notify: mock(() => {}),
+    pdf: mock(() => {}),
+  };
   const d: PvCreateGateDeps = {
     getMember: async () => member,
     parentInCompany: async (_t, id, companyId) => parents[id] === companyId,
