@@ -131,14 +131,9 @@ function friendlyError(err: unknown, fallback: string) {
   return fallback;
 }
 
+// Badge commun (jetons sémantiques, texte toujours présent) pour les membres de l'équipe.
 function RoleBadge({ role }: { role: CompanyRoleValue }) {
-  const meta = ROLE_META[role];
-  return (
-    <Badge className={`gap-1 ${meta.badgeClass}`}>
-      <span aria-hidden>{meta.emoji}</span>
-      <span>{meta.short}</span>
-    </Badge>
-  );
+  return <AppRoleBadge role={role} />;
 }
 
 function StatusBadge({ m }: { m: Member }) {
