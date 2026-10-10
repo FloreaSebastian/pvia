@@ -1,4 +1,8 @@
-import { LockedActionButton, useWriteAccess, useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
+import {
+  LockedActionButton,
+  useWriteAccess,
+  useBlockedActionGuard,
+} from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -19,7 +23,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +41,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,7 +84,9 @@ import {
 function ScopedTeamPage() {
   const { activeCompanyId, activeRole } = useCompany();
   const { user } = useAuth();
-  return <TeamPage key={`${activeCompanyId ?? "none"}:${user?.id ?? "anon"}:${activeRole ?? "none"}`} />;
+  return (
+    <TeamPage key={`${activeCompanyId ?? "none"}:${user?.id ?? "anon"}:${activeRole ?? "none"}`} />
+  );
 }
 
 function GuardedTeamPage() {
@@ -85,10 +104,14 @@ export const Route = createFileRoute("/_authenticated/equipe")({
       { title: "Équipe & rôles — PVIA" },
       {
         name: "description",
-        content: "Gérez les membres de votre entreprise PVIA : invitations, rôles BTP et suspension des accès.",
+        content:
+          "Gérez les membres de votre entreprise PVIA : invitations, rôles BTP et suspension des accès.",
       },
       { property: "og:title", content: "Équipe & rôles — PVIA" },
-      { property: "og:description", content: "Invitations, rôles BTP et gestion des accès de votre entreprise." },
+      {
+        property: "og:description",
+        content: "Invitations, rôles BTP et gestion des accès de votre entreprise.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -101,8 +124,13 @@ type Member = TeamMember;
 function friendlyError(err: unknown, fallback: string) {
   const raw = (err as { message?: string } | null)?.message ?? "";
   if (!raw) return fallback;
-  if (/Directeur|invitation|Invitation|siège|utilisateurs|déjà|droits/i.test(raw) && raw.length < 200) return raw;
-  if (/row-level security|permission denied|42501/i.test(raw)) return "Droits insuffisants pour cette action.";
+  if (
+    /Directeur|invitation|Invitation|siège|utilisateurs|déjà|droits/i.test(raw) &&
+    raw.length < 200
+  )
+    return raw;
+  if (/row-level security|permission denied|42501/i.test(raw))
+    return "Droits insuffisants pour cette action.";
   if (/duplicate key|unique/i.test(raw)) return "Cette personne est déjà membre ou déjà invitée.";
   if (/rate|trop de/i.test(raw)) return "Trop de tentatives, réessayez dans quelques minutes.";
   if (/JWT|token|fetch|network/i.test(raw)) return "Connexion interrompue, réessayez.";
@@ -148,7 +176,8 @@ function TeamPage() {
   const { deny: denyWrite } = useBlockedActionGuard();
   const writeOpen = writeKnown && !writeBlocked;
   const rowCtx = { currentUserId, actorRole: activeRole, writeOpen };
-  const isAdmin = !!asKnownRole(activeRole) && (ADMIN_ROLES as readonly string[]).includes(activeRole!);
+  const isAdmin =
+    !!asKnownRole(activeRole) && (ADMIN_ROLES as readonly string[]).includes(activeRole!);
 
   const scopeRef = useRef<ScopeGuard | null>(null);
   if (!scopeRef.current) scopeRef.current = createScopeGuard();
@@ -156,7 +185,8 @@ function TeamPage() {
   useEffect(() => () => scope.dispose(), [scope]);
   const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
   /** Les mutations n'agissent que sur la liste chargée pour l'entreprise active. */
-  const scopeCompanyId = loadedCompanyId && loadedCompanyId === activeCompanyId ? loadedCompanyId : null;
+  const scopeCompanyId =
+    loadedCompanyId && loadedCompanyId === activeCompanyId ? loadedCompanyId : null;
 
   async function load() {
     const gen = scope.next();
@@ -185,7 +215,10 @@ function TeamPage() {
     const ids = raw.map((m) => m.user_id).filter((x): x is string => !!x);
     let profileMap: Record<string, string | null> = {};
     if (ids.length) {
-      const { data: profs, error: pErr } = await supabase.from("profiles").select("id,full_name").in("id", ids);
+      const { data: profs, error: pErr } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .in("id", ids);
       if (!scope.isCurrent(gen)) return;
       if (pErr) {
         setLoading(false);
@@ -194,7 +227,12 @@ function TeamPage() {
       }
       profileMap = Object.fromEntries((profs ?? []).map((p) => [p.id, p.full_name]));
     }
-    setMembers(raw.map((m) => ({ ...m, profile: m.user_id ? { full_name: profileMap[m.user_id] ?? null } : null })));
+    setMembers(
+      raw.map((m) => ({
+        ...m,
+        profile: m.user_id ? { full_name: profileMap[m.user_id] ?? null } : null,
+      })),
+    );
     setLoadedCompanyId(companyId);
     setLoading(false);
   }
@@ -244,7 +282,9 @@ function TeamPage() {
     const companyId = scopeCompanyId;
     setSending(true);
     try {
-      await sendInviteFn({ data: { companyId, email, role: inviteRole as Exclude<CompanyRoleValue, "directeur"> } });
+      await sendInviteFn({
+        data: { companyId, email, role: inviteRole as Exclude<CompanyRoleValue, "directeur"> },
+      });
       if (!scope.alive()) return;
       toast.success(`Invitation envoyée à ${email}`);
       setInviteOpen(false);
@@ -264,7 +304,11 @@ function TeamPage() {
     const companyId = scopeCompanyId!;
     try {
       await sendInviteFn({
-        data: { companyId, email: m.invited_email, role: m.role as Exclude<CompanyRoleValue, "directeur"> },
+        data: {
+          companyId,
+          email: m.invited_email,
+          role: m.role as Exclude<CompanyRoleValue, "directeur">,
+        },
       });
       if (!scope.alive()) return;
       toast.success(`Invitation renvoyée à ${m.invited_email}`);
@@ -410,7 +454,9 @@ function TeamPage() {
           <div className="min-w-0 flex-1">
             <p className="break-words font-medium leading-snug [overflow-wrap:anywhere]">
               {id.primary}
-              {r.isSelf && <span className="ml-2 text-xs font-normal text-muted-foreground">(vous)</span>}
+              {r.isSelf && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">(vous)</span>
+              )}
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <RoleBadge role={m.role} long />
@@ -418,49 +464,89 @@ function TeamPage() {
               {m.status === "invited" && (
                 <Badge variant={expired ? "destructive" : "outline"} className="gap-1 text-xs">
                   <Clock className="h-3 w-3" aria-hidden />
-                  {expired ? `Expirée le ${fmtDate(m.invite_expires_at)}` : `Expire le ${fmtDate(m.invite_expires_at)}`}
+                  {expired
+                    ? `Expirée le ${fmtDate(m.invite_expires_at)}`
+                    : `Expire le ${fmtDate(m.invite_expires_at)}`}
                 </Badge>
               )}
             </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          {busy && <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="Action en cours" />}
+          {busy && (
+            <Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="Action en cours" />
+          )}
           {r.canEditRole && (
-            <Button variant="outline" size="sm" className="h-11" disabled={busy} onClick={() => setRoleEdit({ m, draft: asKnownRole(m.role) ?? "technicien" })}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-11"
+              disabled={busy}
+              onClick={() => setRoleEdit({ m, draft: asKnownRole(m.role) ?? "technicien" })}
+            >
               Modifier le rôle
             </Button>
           )}
           {r.canManageInvite && (
-            <Button variant="outline" size="sm" className="h-11" disabled={busy || !!busyId} onClick={() => resendInvite(m)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-11"
+              disabled={busy || !!busyId}
+              onClick={() => resendInvite(m)}
+            >
               <Send className="h-4 w-4" aria-hidden /> Renvoyer
             </Button>
           )}
           {r.canToggle &&
             (m.status === "suspended" ? (
-              <Button variant="outline" size="sm" className="h-11" disabled={busy} onClick={() => setStatus(m, "active")}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11"
+                disabled={busy}
+                onClick={() => setStatus(m, "active")}
+              >
                 Réactiver
               </Button>
             ) : (
-              <Button variant="outline" size="sm" className="h-11" disabled={busy} onClick={() => setConfirmSuspend(m)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-11"
+                disabled={busy}
+                onClick={() => setConfirmSuspend(m)}
+              >
                 Suspendre
               </Button>
             ))}
           {hasMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-11 w-11" disabled={busy} aria-label={`Autres actions pour ${id.primary}`}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11"
+                  disabled={busy}
+                  aria-label={`Autres actions pour ${id.primary}`}
+                >
                   <MoreHorizontal className="h-4 w-4" aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" collisionPadding={8}>
                 {r.canManageInvite && (
-                  <DropdownMenuItem className="min-h-11 text-destructive" onSelect={() => setConfirmCancel(m)}>
+                  <DropdownMenuItem
+                    className="min-h-11 text-destructive"
+                    onSelect={() => setConfirmCancel(m)}
+                  >
                     Annuler l'invitation
                   </DropdownMenuItem>
                 )}
                 {r.canRemove && (
-                  <DropdownMenuItem className="min-h-11 text-destructive" onSelect={() => setConfirmRemove(m)}>
+                  <DropdownMenuItem
+                    className="min-h-11 text-destructive"
+                    onSelect={() => setConfirmRemove(m)}
+                  >
                     Retirer de l'entreprise
                   </DropdownMenuItem>
                 )}
@@ -482,7 +568,9 @@ function TeamPage() {
           {title} <span className="font-normal text-muted-foreground">({list.length})</span>
         </h2>
         {list.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">{empty}</p>
+          <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+            {empty}
+          </p>
         ) : (
           <Card className="min-w-0 overflow-hidden p-0">
             <ul>
@@ -500,9 +588,13 @@ function TeamPage() {
     <div className="w-full min-w-0 space-y-5 sm:space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wider text-primary">Multi-utilisateurs</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-primary">
+            Multi-utilisateurs
+          </p>
           <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Équipe</h1>
-          <p className="text-sm text-muted-foreground">Gérez les membres, les rôles BTP et les accès de votre entreprise.</p>
+          <p className="text-sm text-muted-foreground">
+            Gérez les membres, les rôles BTP et les accès de votre entreprise.
+          </p>
         </div>
         {isAdmin &&
           (!writeOpen ? (
@@ -510,7 +602,11 @@ function TeamPage() {
               Inviter un membre
             </LockedActionButton>
           ) : (
-            <Button className="h-11 w-full shadow-brand sm:w-auto" disabled={!scopeCompanyId} onClick={() => setInviteOpen(true)}>
+            <Button
+              className="h-11 w-full shadow-brand sm:w-auto"
+              disabled={!scopeCompanyId}
+              onClick={() => setInviteOpen(true)}
+            >
               <Plus className="h-4 w-4" aria-hidden /> Inviter un membre
             </Button>
           ))}
@@ -523,7 +619,10 @@ function TeamPage() {
             ["Invitations", groups.counts.invited],
             ["Suspendus", groups.counts.suspended],
           ].map(([label, n]) => (
-            <div key={label as string} className="min-w-0 rounded-lg border border-border bg-card p-3">
+            <div
+              key={label as string}
+              className="min-w-0 rounded-lg border border-border bg-card p-3"
+            >
               <dt className="truncate text-xs text-muted-foreground">{label}</dt>
               <dd className="text-lg font-semibold tabular-nums">{n}</dd>
             </div>
@@ -533,10 +632,16 @@ function TeamPage() {
 
       {loading ? (
         <Card className="grid h-40 place-items-center">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="Chargement de l'équipe" />
+          <Loader2
+            className="h-5 w-5 animate-spin text-primary"
+            aria-label="Chargement de l'équipe"
+          />
         </Card>
       ) : loadError ? (
-        <Card role="alert" className="flex flex-wrap items-center gap-3 border-destructive/40 p-5 text-sm">
+        <Card
+          role="alert"
+          className="flex flex-wrap items-center gap-3 border-destructive/40 p-5 text-sm"
+        >
           <AlertTriangle className="h-5 w-5 text-destructive" aria-hidden />
           <p className="min-w-0 flex-1">{loadError}</p>
           <Button variant="outline" className="h-11" onClick={() => load()}>
@@ -544,11 +649,16 @@ function TeamPage() {
           </Button>
         </Card>
       ) : groups.total === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">Aucun membre pour l'instant.</Card>
+        <Card className="p-8 text-center text-sm text-muted-foreground">
+          Aucun membre pour l'instant.
+        </Card>
       ) : (
         <>
           <div className="relative sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
             <Input
               type="search"
               aria-label="Rechercher un membre par nom ou email"
@@ -567,10 +677,22 @@ function TeamPage() {
             </Card>
           ) : (
             <div className="space-y-6">
-              <Section title="Actifs" list={groups.active} empty="Aucun membre actif dans cette recherche." />
-              <Section title="Invitations" list={groups.invited} empty="Aucune invitation en attente." />
+              <Section
+                title="Actifs"
+                list={groups.active}
+                empty="Aucun membre actif dans cette recherche."
+              />
+              <Section
+                title="Invitations"
+                list={groups.invited}
+                empty="Aucune invitation en attente."
+              />
               {groups.counts.suspended > 0 && (
-                <Section title="Suspendus" list={groups.suspended} empty="Aucun membre suspendu dans cette recherche." />
+                <Section
+                  title="Suspendus"
+                  list={groups.suspended}
+                  empty="Aucun membre suspendu dans cette recherche."
+                />
               )}
             </div>
           )}
@@ -584,7 +706,9 @@ function TeamPage() {
           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
         </summary>
         <div className="px-4 pb-4">
-          <p className="text-sm text-muted-foreground">Ce que chaque rôle permet réellement dans PVIA. Le serveur applique les mêmes règles.</p>
+          <p className="text-sm text-muted-foreground">
+            Ce que chaque rôle permet réellement dans PVIA. Le serveur applique les mêmes règles.
+          </p>
           <ul className="mt-3 grid gap-3 md:grid-cols-2">
             {ROLE_ORDER.map((r) => (
               <li key={r} className="min-w-0 rounded-md border border-border p-3">
@@ -601,7 +725,9 @@ function TeamPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Inviter un membre</DialogTitle>
-            <DialogDescription>La personne reçoit un lien valable 7 jours pour rejoindre l'entreprise.</DialogDescription>
+            <DialogDescription>
+              La personne reçoit un lien valable 7 jours pour rejoindre l'entreprise.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={invite} className="space-y-4">
             <div className="space-y-1.5">
@@ -620,7 +746,10 @@ function TeamPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="invite-role">Rôle</Label>
-              <Select value={inviteRole} onValueChange={(v) => asKnownRole(v) && setInviteRole(v as CompanyRoleValue)}>
+              <Select
+                value={inviteRole}
+                onValueChange={(v) => asKnownRole(v) && setInviteRole(v as CompanyRoleValue)}
+              >
                 <SelectTrigger id="invite-role" className="h-11">
                   <SelectValue>{ROLE_META[inviteRole].label}</SelectValue>
                 </SelectTrigger>
@@ -633,11 +762,21 @@ function TeamPage() {
               </div>
             </div>
             <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" className="h-11" disabled={sending} onClick={() => setInviteOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                disabled={sending}
+                onClick={() => setInviteOpen(false)}
+              >
                 Annuler
               </Button>
               <Button type="submit" disabled={sending || !writeOpen} className="h-11 shadow-brand">
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Mail className="h-4 w-4" aria-hidden />}
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Mail className="h-4 w-4" aria-hidden />
+                )}
                 {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
               </Button>
             </DialogFooter>
@@ -683,7 +822,12 @@ function TeamPage() {
             </div>
           )}
           <DialogFooter className="gap-2">
-            <Button variant="outline" className="h-11" disabled={!!busyId} onClick={() => setRoleEdit(null)}>
+            <Button
+              variant="outline"
+              className="h-11"
+              disabled={!!busyId}
+              onClick={() => setRoleEdit(null)}
+            >
               Annuler
             </Button>
             <Button
@@ -703,8 +847,8 @@ function TeamPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Suspendre ce membre ?</AlertDialogTitle>
             <AlertDialogDescription className="break-words [overflow-wrap:anywhere]">
-              {confirmSuspend ? memberIdentity(confirmSuspend).primary : ""} ne pourra plus accéder à cette entreprise
-              jusqu'à sa réactivation. Ses documents restent conservés.
+              {confirmSuspend ? memberIdentity(confirmSuspend).primary : ""} ne pourra plus accéder
+              à cette entreprise jusqu'à sa réactivation. Ses documents restent conservés.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -724,8 +868,8 @@ function TeamPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Retirer ce membre ?</AlertDialogTitle>
             <AlertDialogDescription className="break-words [overflow-wrap:anywhere]">
-              {confirmRemove ? memberIdentity(confirmRemove).primary : ""} perdra immédiatement l'accès à cette entreprise.
-              Les documents créés restent conservés.
+              {confirmRemove ? memberIdentity(confirmRemove).primary : ""} perdra immédiatement
+              l'accès à cette entreprise. Les documents créés restent conservés.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -745,7 +889,8 @@ function TeamPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Annuler cette invitation ?</AlertDialogTitle>
             <AlertDialogDescription className="break-words [overflow-wrap:anywhere]">
-              Le lien envoyé à {confirmCancel?.invited_email ?? "cette adresse"} sera immédiatement inutilisable.
+              Le lien envoyé à {confirmCancel?.invited_email ?? "cette adresse"} sera immédiatement
+              inutilisable.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

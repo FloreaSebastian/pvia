@@ -47,7 +47,8 @@ export function inviteUsableFor(
   const state = inviteOpenState(row, now);
   if (state) return { ok: false, reason: state };
   const e = normalizeInviteEmail(email);
-  if (!e || e !== normalizeInviteEmail(row!.invited_email)) return { ok: false, reason: "wrong_recipient" };
+  if (!e || e !== normalizeInviteEmail(row!.invited_email))
+    return { ok: false, reason: "wrong_recipient" };
   return { ok: true };
 }
 
@@ -95,7 +96,10 @@ const REASON_MESSAGE: Record<InviteReason, string> = {
 /* ------------------------------------------------------------------ */
 
 export type PrepareInviteDeps = {
-  getCallerMembership: (companyId: string, userId: string) => Promise<{ role: string; status: string } | null>;
+  getCallerMembership: (
+    companyId: string,
+    userId: string,
+  ) => Promise<{ role: string; status: string } | null>;
   hasWriteAccess: (companyId: string) => Promise<boolean>;
   /** Invitation non rattachée (user_id NULL) pour cet email (insensible à la casse). */
   findPendingInvite: (companyId: string, email: string) => Promise<InviteRow | null>;
@@ -138,7 +142,10 @@ export type PrepareInviteInput = {
 export async function prepareInvite(deps: PrepareInviteDeps, input: PrepareInviteInput) {
   const email = normalizeInviteEmail(input.email);
   if ((input.role as string) === "directeur")
-    throw new InviteError("forbidden", "Le rôle Directeur ne peut pas être attribué par invitation.");
+    throw new InviteError(
+      "forbidden",
+      "Le rôle Directeur ne peut pas être attribué par invitation.",
+    );
   const m = await deps.getCallerMembership(input.companyId, input.userId);
   if (!m || m.status !== "active" || !isAdminRole(m.role))
     throw new InviteError("forbidden", "Vous n'avez pas les droits pour inviter des membres.");
@@ -167,7 +174,8 @@ export async function prepareInvite(deps: PrepareInviteDeps, input: PrepareInvit
       expires_at: expiresAt,
       invited_by: input.userId,
     });
-    if (!row) throw new InviteError("conflict", "L'invitation a changé entre-temps. Rechargez l'équipe.");
+    if (!row)
+      throw new InviteError("conflict", "L'invitation a changé entre-temps. Rechargez l'équipe.");
   } else {
     row = await deps.insertInvite({
       company_id: input.companyId,
@@ -189,7 +197,10 @@ export type AcceptInviteDeps = {
   findInviteByHash: (hash: string) => Promise<InviteRow | null>;
   /** Email et vérification lus côté Auth (jamais depuis la metadata). */
   getAuthIdentity: (userId: string) => Promise<{ email: string | null; verified: boolean } | null>;
-  findMembership: (companyId: string, userId: string) => Promise<{ id: string; status: string } | null>;
+  findMembership: (
+    companyId: string,
+    userId: string,
+  ) => Promise<{ id: string; status: string } | null>;
   /** UPDATE … WHERE id, hash présenté, status invited, user_id NULL, non expirée → active. */
   casActivate: (invite: InviteRow, hash: string, userId: string) => Promise<InviteRow | null>;
   /** DELETE … WHERE id, hash présenté, status invited, user_id NULL. */
@@ -198,13 +209,22 @@ export type AcceptInviteDeps = {
 
 export async function acceptInviteCore(
   deps: AcceptInviteDeps,
-  input: { userId: string; sessionEmail: string | null | undefined; tokenHash: string; now: number },
+  input: {
+    userId: string;
+    sessionEmail: string | null | undefined;
+    tokenHash: string;
+    now: number;
+  },
 ) {
   const sessionEmail = normalizeInviteEmail(input.sessionEmail);
-  if (!sessionEmail) throw new InviteError("unverified", "Votre session ne comporte pas d'adresse email vérifiée.");
+  if (!sessionEmail)
+    throw new InviteError("unverified", "Votre session ne comporte pas d'adresse email vérifiée.");
   const identity = await deps.getAuthIdentity(input.userId);
   if (!identity || !identity.verified || normalizeInviteEmail(identity.email) !== sessionEmail)
-    throw new InviteError("unverified", "Confirmez d'abord votre adresse email, puis rouvrez l'invitation.");
+    throw new InviteError(
+      "unverified",
+      "Confirmez d'abord votre adresse email, puis rouvrez l'invitation.",
+    );
 
   const invite = await deps.findInviteByHash(input.tokenHash);
   const usable = inviteUsableFor(invite, sessionEmail, input.now);
@@ -213,16 +233,30 @@ export async function acceptInviteCore(
   const existing = await deps.findMembership(invite!.company_id, input.userId);
   if (existing) {
     if (existing.status !== "active")
-      throw new InviteError("suspended", "Votre accès à cette entreprise est suspendu. Contactez un administrateur.");
+      throw new InviteError(
+        "suspended",
+        "Votre accès à cette entreprise est suspendu. Contactez un administrateur.",
+      );
     // Consomme uniquement CETTE invitation (token présenté), sans toucher l'adhésion.
     const consumed = await deps.casConsume(invite!, input.tokenHash);
     if (!consumed) throw new InviteError("used", REASON_MESSAGE.used);
-    return { ok: true as const, alreadyMember: true as const, companyId: invite!.company_id, role: invite!.role };
+    return {
+      ok: true as const,
+      alreadyMember: true as const,
+      companyId: invite!.company_id,
+      role: invite!.role,
+    };
   }
 
   const row = await deps.casActivate(invite!, input.tokenHash, input.userId);
   if (!row) throw new InviteError("used", "Cette invitation a changé ou a déjà été utilisée.");
-  return { ok: true as const, alreadyMember: false as const, companyId: row.company_id, role: row.role, inviteId: row.id };
+  return {
+    ok: true as const,
+    alreadyMember: false as const,
+    companyId: row.company_id,
+    role: row.role,
+    inviteId: row.id,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -246,7 +280,11 @@ export async function enterpriseLoginEligibility(
   input: { email: string; inviteToken?: string | null; now: number },
 ): Promise<
   | { ok: true; userId: string; companyId: string; via: "member" | "invite" }
-  | { ok: false; userId: string | null; reason: "unknown_enterprise_email" | "not_active_enterprise_member" | InviteReason }
+  | {
+      ok: false;
+      userId: string | null;
+      reason: "unknown_enterprise_email" | "not_active_enterprise_member" | InviteReason;
+    }
 > {
   const email = normalizeInviteEmail(input.email);
   const user = await deps.findUserByEmail(email);
@@ -289,9 +327,13 @@ export async function inviteSignupCore(
   deps: InviteSignupDeps,
   input: { token: string; password: string; fullName: string; now: number },
 ) {
-  if (!INVITE_TOKEN_RE.test(input.token)) throw new InviteError("not_found", REASON_MESSAGE.not_found);
+  if (!INVITE_TOKEN_RE.test(input.token))
+    throw new InviteError("not_found", REASON_MESSAGE.not_found);
   if (input.password.length < INVITE_PASSWORD_MIN)
-    throw new InviteError("forbidden", `Mot de passe trop court (${INVITE_PASSWORD_MIN} caractères minimum).`);
+    throw new InviteError(
+      "forbidden",
+      `Mot de passe trop court (${INVITE_PASSWORD_MIN} caractères minimum).`,
+    );
   const invite = await deps.findInviteByHash(await deps.hashToken(input.token));
   const state = inviteOpenState(invite, input.now);
   if (state) throw new InviteError(state, REASON_MESSAGE[state]);
@@ -304,6 +346,10 @@ export async function inviteSignupCore(
     fullName: input.fullName.trim().slice(0, 120),
     token: input.token,
   });
-  if (res.error) throw new InviteError("conflict", "Création du compte impossible. Si vous avez déjà un compte, connectez-vous.");
+  if (res.error)
+    throw new InviteError(
+      "conflict",
+      "Création du compte impossible. Si vous avez déjà un compte, connectez-vous.",
+    );
   return { ok: true as const, email };
 }

@@ -26,7 +26,15 @@ type Options<T> = {
  * Autosave différé, borné à une portée. `saveNow()` renvoie true seulement si
  * l'enregistrement a réellement réussi — jamais de succès après une erreur absorbée.
  */
-export function useAutosave<T>({ scope, loaded, value, valueScope, onSave, delay = 800, disabled }: Options<T>) {
+export function useAutosave<T>({
+  scope,
+  loaded,
+  value,
+  valueScope,
+  onSave,
+  delay = 800,
+  disabled,
+}: Options<T>) {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const saveRef = useRef(onSave);

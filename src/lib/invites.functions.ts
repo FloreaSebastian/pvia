@@ -52,7 +52,12 @@ async function findInviteByHash(hash: string): Promise<InviteRow | null> {
   return (data as unknown as InviteRow) ?? null;
 }
 
-function renderEmail(opts: { companyName: string; inviterName: string; roleLabel: string; acceptUrl: string }) {
+function renderEmail(opts: {
+  companyName: string;
+  inviterName: string;
+  roleLabel: string;
+  acceptUrl: string;
+}) {
   const { companyName, inviterName, roleLabel, acceptUrl } = opts;
   return `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a">
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0">
@@ -79,7 +84,10 @@ function renderEmail(opts: { companyName: string; inviterName: string; roleLabel
 }
 
 function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 }
 
 export const sendInvite = createServerFn({ method: "POST" })
@@ -190,9 +198,15 @@ export const sendInvite = createServerFn({ method: "POST" })
               .single();
             if (error) {
               if (/duplicate|unique/i.test(error.message))
-                throw new InviteError("conflict", "Une invitation vient d'être créée pour cette adresse.");
+                throw new InviteError(
+                  "conflict",
+                  "Une invitation vient d'être créée pour cette adresse.",
+                );
               if (/SEAT_QUOTA/i.test(error.message))
-                throw new InviteError("forbidden", "Nombre maximal d'utilisateurs atteint pour votre formule.");
+                throw new InviteError(
+                  "forbidden",
+                  "Nombre maximal d'utilisateurs atteint pour votre formule.",
+                );
               throw new Error(error.message);
             }
             return ins as unknown as InviteRow;
@@ -200,7 +214,8 @@ export const sendInvite = createServerFn({ method: "POST" })
         },
         {
           userId,
-          callerEmail: ((context.claims as { email?: string } | undefined)?.email as string) ?? null,
+          callerEmail:
+            ((context.claims as { email?: string } | undefined)?.email as string) ?? null,
           companyId: data.companyId,
           email: data.email,
           role: data.role,
@@ -266,7 +281,9 @@ export const sendInvite = createServerFn({ method: "POST" })
     return { ok: true as const, resent: prepared.resent };
   });
 
-const TokenSchema = z.object({ token: z.string().regex(INVITE_TOKEN_RE, "Lien d'invitation invalide.") });
+const TokenSchema = z.object({
+  token: z.string().regex(INVITE_TOKEN_RE, "Lien d'invitation invalide."),
+});
 
 export const getInviteByToken = createServerFn({ method: "POST" })
   .inputValidator((input) => TokenSchema.parse(input))
@@ -349,7 +366,10 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
               .select(INVITE_COLS);
             if (error) {
               if (/SEAT_QUOTA/i.test(error.message))
-                throw new InviteError("forbidden", "L'entreprise a atteint son nombre maximal d'utilisateurs.");
+                throw new InviteError(
+                  "forbidden",
+                  "L'entreprise a atteint son nombre maximal d'utilisateurs.",
+                );
               throw new Error("Impossible d'accepter cette invitation.");
             }
             return ((rows as unknown as InviteRow[]) ?? [])[0] ?? null;
@@ -412,7 +432,12 @@ export const signUpWithInvite = createServerFn({ method: "POST" })
     try {
       const { getRequest } = await import("@tanstack/react-start/server");
       const ip = getClientIp(getRequest());
-      await enforceRateLimit({ bucket: "invite.signup", key: `${ip}:${data.token.slice(0, 16)}`, limit: 5, windowSec: 900 });
+      await enforceRateLimit({
+        bucket: "invite.signup",
+        key: `${ip}:${data.token.slice(0, 16)}`,
+        limit: 5,
+        windowSec: 900,
+      });
     } catch (e) {
       if ((e as { name?: string })?.name === "RateLimitError") throw e;
     }
@@ -430,7 +455,8 @@ export const signUpWithInvite = createServerFn({ method: "POST" })
               global: {
                 fetch: (input, init) => {
                   const h = new Headers(init?.headers);
-                  if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
+                  if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`)
+                    h.delete("Authorization");
                   h.set("apikey", key);
                   return fetch(input, { ...init, headers: h });
                 },
@@ -439,7 +465,10 @@ export const signUpWithInvite = createServerFn({ method: "POST" })
             const { error } = await client.auth.signUp({
               email,
               password,
-              options: { emailRedirectTo: redirectTo, data: { full_name: fullName, invite_token: token } },
+              options: {
+                emailRedirectTo: redirectTo,
+                data: { full_name: fullName, invite_token: token },
+              },
             });
             return { error: error ? error.message : null };
           },

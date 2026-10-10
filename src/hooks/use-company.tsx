@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { isAdminRole, isManageRole, isOwnerRole, type CompanyRoleValue } from "@/lib/roles";
@@ -87,7 +95,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   }, [ctrl]);
 
   // Un utilisateur différent de celui de l'état n'a jamais accès aux données affichées.
-  const scoped: CompanyCtxState = state.userId && state.userId === (user?.id ?? null) ? state : IDLE_STATE;
+  const scoped: CompanyCtxState =
+    state.userId && state.userId === (user?.id ?? null) ? state : IDLE_STATE;
   const activeRole = effectiveRole(scoped);
 
   const value = useMemo<Ctx>(

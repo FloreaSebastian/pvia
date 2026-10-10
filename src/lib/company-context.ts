@@ -24,7 +24,9 @@ export type CompanyCtxState = {
 };
 
 export type CompanyCtxDeps = {
-  fetchMemberships: (userId: string) => Promise<{ data: CompanyMembership[] | null; error: unknown }>;
+  fetchMemberships: (
+    userId: string,
+  ) => Promise<{ data: CompanyMembership[] | null; error: unknown }>;
   readStored: () => string | null;
   store: (id: string) => void;
 };
@@ -44,7 +46,10 @@ export function effectiveRole(s: CompanyCtxState): CompanyRoleValue | null {
   return asKnownRole(m?.role ?? null);
 }
 
-export function createCompanyController(deps: CompanyCtxDeps, onChange: (s: CompanyCtxState) => void) {
+export function createCompanyController(
+  deps: CompanyCtxDeps,
+  onChange: (s: CompanyCtxState) => void,
+) {
   let state: CompanyCtxState = IDLE_STATE;
   let gen = 0;
   const emit = (next: CompanyCtxState) => {
@@ -64,7 +69,13 @@ export function createCompanyController(deps: CompanyCtxDeps, onChange: (s: Comp
     }
     if (token !== gen || state.userId !== userId) return; // réponse dépassée / autre utilisateur
     if (res.error) {
-      emit({ userId, status: "error", memberships: [], activeCompanyId: null, error: "Impossible de vérifier vos accès entreprise." });
+      emit({
+        userId,
+        status: "error",
+        memberships: [],
+        activeCompanyId: null,
+        error: "Impossible de vérifier vos accès entreprise.",
+      });
       return;
     }
     const list = (res.data ?? []).filter((m) => m.status === "active" && !!asKnownRole(m.role));
@@ -72,7 +83,8 @@ export function createCompanyController(deps: CompanyCtxDeps, onChange: (s: Comp
     const preferred = current ?? deps.readStored();
     let active: string | null = null;
     if (list.length) {
-      active = preferred && list.some((m) => m.company_id === preferred) ? preferred : list[0].company_id;
+      active =
+        preferred && list.some((m) => m.company_id === preferred) ? preferred : list[0].company_id;
       deps.store(active);
     }
     emit({ userId, status: "ready", memberships: list, activeCompanyId: active, error: null });
@@ -102,7 +114,8 @@ export function createCompanyController(deps: CompanyCtxDeps, onChange: (s: Comp
     /** Choix uniquement parmi les adhésions actives confirmées. */
     select(companyId: string): boolean {
       if (state.status !== "ready") return false;
-      if (!state.memberships.some((m) => m.company_id === companyId && m.status === "active")) return false;
+      if (!state.memberships.some((m) => m.company_id === companyId && m.status === "active"))
+        return false;
       deps.store(companyId);
       emit({ ...state, activeCompanyId: companyId });
       return true;

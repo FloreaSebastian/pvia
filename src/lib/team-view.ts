@@ -18,12 +18,16 @@ export type TeamMember = {
 export const ASSIGNABLE_ROLES: CompanyRoleValue[] = ROLE_ORDER.filter((r) => r !== "directeur");
 
 export function memberIdentity(m: TeamMember): { primary: string; secondary: string | null } {
-  if (m.status === "invited" && !m.user_id) return { primary: m.invited_email || "Invitation", secondary: null };
+  if (m.status === "invited" && !m.user_id)
+    return { primary: m.invited_email || "Invitation", secondary: null };
   return { primary: m.profile?.full_name?.trim() || "Membre sans nom", secondary: null };
 }
 
 export function inviteExpired(m: TeamMember, now: number): boolean {
-  return m.status === "invited" && (!m.invite_expires_at || new Date(m.invite_expires_at).getTime() <= now);
+  return (
+    m.status === "invited" &&
+    (!m.invite_expires_at || new Date(m.invite_expires_at).getTime() <= now)
+  );
 }
 
 function norm(s: string) {

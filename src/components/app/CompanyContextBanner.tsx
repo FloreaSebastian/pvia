@@ -19,8 +19,12 @@ export function CompanyContextError({ compact = false }: { compact?: boolean }) 
     >
       <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden />
       <p className="min-w-0 flex-1">
-        <span className="font-medium">{error ?? "Impossible de vérifier vos accès entreprise."}</span>{" "}
-        <span className="text-muted-foreground">Les actions restent fermées tant que vos accès ne sont pas confirmés.</span>
+        <span className="font-medium">
+          {error ?? "Impossible de vérifier vos accès entreprise."}
+        </span>{" "}
+        <span className="text-muted-foreground">
+          Les actions restent fermées tant que vos accès ne sont pas confirmés.
+        </span>
       </p>
       <Button
         size="sm"
@@ -36,7 +40,11 @@ export function CompanyContextError({ compact = false }: { compact?: boolean }) 
           }
         }}
       >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <RotateCcw className="h-4 w-4" aria-hidden />}
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        ) : (
+          <RotateCcw className="h-4 w-4" aria-hidden />
+        )}
         Réessayer
       </Button>
     </div>

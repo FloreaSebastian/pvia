@@ -9,7 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { getInviteByToken, acceptInviteForCurrentUser, signUpWithInvite } from "@/lib/invites.functions";
+import {
+  getInviteByToken,
+  acceptInviteForCurrentUser,
+  signUpWithInvite,
+} from "@/lib/invites.functions";
 import { INVITE_PASSWORD_MIN, INVITE_TOKEN_RE, normalizeInviteEmail } from "@/lib/invite-core";
 import { ROLE_PROFILES, asKnownRole } from "@/lib/role-access";
 import { RoleBadge } from "@/components/app/RoleBadge";
@@ -20,7 +24,10 @@ export const Route = createFileRoute("/invite/$token")({
   head: () => ({
     meta: [
       { title: "Rejoindre une entreprise — PVIA" },
-      { name: "description", content: "Acceptez votre invitation pour rejoindre l'espace de votre entreprise sur PVIA." },
+      {
+        name: "description",
+        content: "Acceptez votre invitation pour rejoindre l'espace de votre entreprise sur PVIA.",
+      },
       { property: "og:title", content: "Rejoindre une entreprise — PVIA" },
       { property: "og:description", content: "Invitation à rejoindre un espace entreprise PVIA." },
       { property: "og:type", content: "website" },
@@ -31,7 +38,14 @@ export const Route = createFileRoute("/invite/$token")({
 });
 
 type InviteInfo =
-  | { valid: true; email: string; role: string; roleLabel: string; companyName: string; expiresAt: string | null }
+  | {
+      valid: true;
+      email: string;
+      role: string;
+      roleLabel: string;
+      companyName: string;
+      expiresAt: string | null;
+    }
   | { valid: false; reason?: "used" | "expired" | "wrong_recipient" };
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -104,7 +118,9 @@ function InvitePage() {
         <div role="alert" className="text-center">
           <XCircle className="mx-auto h-10 w-10 text-destructive" aria-hidden />
           <h1 className="mt-3 text-lg font-semibold">Invitation impossible à charger</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Vérifiez votre connexion puis réessayez.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Vérifiez votre connexion puis réessayez.
+          </p>
           <Button className="mt-4 h-11 w-full" onClick={load}>
             <RotateCcw className="h-4 w-4" aria-hidden /> Réessayer
           </Button>
@@ -115,7 +131,11 @@ function InvitePage() {
 
   if (!info || authLoading) {
     return (
-      <div className="grid min-h-screen place-items-center" role="status" aria-label="Chargement de l'invitation">
+      <div
+        className="grid min-h-screen place-items-center"
+        role="status"
+        aria-label="Chargement de l'invitation"
+      >
         <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
       </div>
     );
@@ -127,7 +147,11 @@ function InvitePage() {
         <div className="text-center">
           <XCircle className="mx-auto h-10 w-10 text-destructive" aria-hidden />
           <h1 className="mt-3 text-lg font-semibold">
-            {info.reason === "expired" ? "Invitation expirée" : info.reason === "used" ? "Invitation déjà utilisée" : "Invitation invalide"}
+            {info.reason === "expired"
+              ? "Invitation expirée"
+              : info.reason === "used"
+                ? "Invitation déjà utilisée"
+                : "Invitation invalide"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {info.reason === "expired"
@@ -171,7 +195,9 @@ function InvitePage() {
       </h1>
       <p className="mt-1.5 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
         Invitation pour <strong className="text-foreground">{info.email}</strong>
-        {info.expiresAt && <> · valable jusqu'au {new Date(info.expiresAt).toLocaleDateString("fr-FR")}</>}
+        {info.expiresAt && (
+          <> · valable jusqu'au {new Date(info.expiresAt).toLocaleDateString("fr-FR")}</>
+        )}
       </p>
 
       <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-sm">
@@ -195,7 +221,10 @@ function InvitePage() {
         <div className="mt-6 space-y-3" aria-live="polite">
           {acceptError ? (
             <>
-              <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+              <p
+                role="alert"
+                className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              >
                 {acceptError}
               </p>
               <Button className="h-11 w-full" onClick={runAccept}>
@@ -213,8 +242,8 @@ function InvitePage() {
       {wrongRecipient && (
         <div role="alert" className="mt-6 space-y-3 text-sm">
           <p className="break-words rounded-md border border-warning/50 bg-warning/10 p-3 [overflow-wrap:anywhere]">
-            Vous êtes connecté avec <strong>{sessionEmail || "un autre compte"}</strong>, mais cette invitation est destinée à{" "}
-            <strong>{info.email}</strong>.
+            Vous êtes connecté avec <strong>{sessionEmail || "un autre compte"}</strong>, mais cette
+            invitation est destinée à <strong>{info.email}</strong>.
           </p>
           <Button
             className="h-11 w-full"
@@ -235,7 +264,8 @@ function InvitePage() {
               <MailCheck className="h-4 w-4 text-success" aria-hidden /> Vérifiez votre boîte mail
             </p>
             <p className="text-muted-foreground">
-              Ouvrez le lien de confirmation envoyé à {info.email}. Vous reviendrez ici pour finaliser votre arrivée.
+              Ouvrez le lien de confirmation envoyé à {info.email}. Vous reviendrez ici pour
+              finaliser votre arrivée.
             </p>
           </div>
         ) : (
@@ -251,7 +281,14 @@ function InvitePage() {
             <form onSubmit={onSignup} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="inv-name">Nom complet</Label>
-                <Input id="inv-name" className="h-11" required autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                <Input
+                  id="inv-name"
+                  className="h-11"
+                  required
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="inv-email">Email</Label>
@@ -269,10 +306,16 @@ function InvitePage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">{INVITE_PASSWORD_MIN} caractères minimum.</p>
+                <p className="text-xs text-muted-foreground">
+                  {INVITE_PASSWORD_MIN} caractères minimum.
+                </p>
               </div>
               <Button type="submit" className="h-11 w-full" disabled={busy}>
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CheckCircle2 className="h-4 w-4" aria-hidden />}
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" aria-hidden />
+                )}
                 Créer mon compte
               </Button>
             </form>

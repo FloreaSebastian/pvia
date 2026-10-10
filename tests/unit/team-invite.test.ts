@@ -59,7 +59,14 @@ function prepDeps(over: Partial<PrepareInviteDeps> = {}, log: string[] = []) {
   };
   return d;
 }
-const input = { userId: "u1", callerEmail: "boss@ex.fr", companyId: "c1", email: "Bob@Ex.fr ", role: "technicien" as const, now: NOW };
+const input = {
+  userId: "u1",
+  callerEmail: "boss@ex.fr",
+  companyId: "c1",
+  email: "Bob@Ex.fr ",
+  role: "technicien" as const,
+  now: NOW,
+};
 
 describe("invitation : envoi et renvoi", () => {
   test("refus avant tout effet : non admin, membre suspendu, écriture fermée", async () => {
@@ -114,30 +121,55 @@ describe("invitation : envoi et renvoi", () => {
     expect(log).not.toContain("cas");
   });
   test("CAS perdu (renvoi concurrent) : aucune ligne → erreur, pas d'email", async () => {
-    const deps = prepDeps({ findPendingInvite: async () => invite(), casRotateInvite: async () => null });
+    const deps = prepDeps({
+      findPendingInvite: async () => invite(),
+      casRotateInvite: async () => null,
+    });
     await expect(prepareInvite(deps, input)).rejects.toMatchObject({ code: "conflict" });
   });
   test("email normalisé, rôle directeur refusé, auto-invitation refusée", async () => {
     let seen = "";
-    await prepareInvite(prepDeps({ findPendingInvite: async (_c, e) => ((seen = e), null) }), input);
+    await prepareInvite(
+      prepDeps({ findPendingInvite: async (_c, e) => ((seen = e), null) }),
+      input,
+    );
     expect(seen).toBe("bob@ex.fr");
-    await expect(prepareInvite(prepDeps(), { ...input, role: "directeur" as never })).rejects.toMatchObject({ code: "forbidden" });
-    await expect(prepareInvite(prepDeps(), { ...input, email: "BOSS@ex.fr" })).rejects.toMatchObject({ code: "self" });
+    await expect(
+      prepareInvite(prepDeps(), { ...input, role: "directeur" as never }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      prepareInvite(prepDeps(), { ...input, email: "BOSS@ex.fr" }),
+    ).rejects.toMatchObject({ code: "self" });
   });
 });
 
 /* ---------------- Acceptation ---------------- */
-function acceptDeps(state: { row: InviteRow | null; membership?: { id: string; status: string } | null; verified?: boolean; authEmail?: string }) {
+function acceptDeps(state: {
+  row: InviteRow | null;
+  membership?: { id: string; status: string } | null;
+  verified?: boolean;
+  authEmail?: string;
+}) {
   const calls: string[] = [];
   return {
     calls,
     deps: {
-      findInviteByHash: async (h: string) => (state.row && state.row.invite_token_hash === h ? state.row : null),
-      getAuthIdentity: async () => ({ email: state.authEmail ?? "bob@ex.fr", verified: state.verified ?? true }),
+      findInviteByHash: async (h: string) =>
+        state.row && state.row.invite_token_hash === h ? state.row : null,
+      getAuthIdentity: async () => ({
+        email: state.authEmail ?? "bob@ex.fr",
+        verified: state.verified ?? true,
+      }),
       findMembership: async () => state.membership ?? null,
       casActivate: async (i: InviteRow, h: string, uid: string) => {
         calls.push("activate");
-        if (!state.row || state.row.invite_token_hash !== h || state.row.status !== "invited" || state.row.user_id) return null;
+        if (
+          !state.row ||
+          state.row.invite_token_hash !== h ||
+          state.row.status !== "invited" ||
+          state.row.user_id
+        )
+          return null;
         state.row = { ...state.row, status: "active", user_id: uid, invite_token_hash: null };
         return state.row;
       },
@@ -152,7 +184,12 @@ function acceptDeps(state: { row: InviteRow | null; membership?: { id: string; s
 describe("invitation : acceptation", () => {
   test("bon destinataire vérifié : activation", async () => {
     const { deps, calls } = acceptDeps({ row: invite() });
-    const r = await acceptInviteCore(deps, { userId: "u2", sessionEmail: "BOB@ex.fr", tokenHash: HASH, now: NOW });
+    const r = await acceptInviteCore(deps, {
+      userId: "u2",
+      sessionEmail: "BOB@ex.fr",
+      tokenHash: HASH,
+      now: NOW,
+    });
     expect(r.alreadyMember).toBe(false);
     expect(calls).toEqual(["activate"]);
   });
@@ -168,30 +205,63 @@ describe("invitation : acceptation", () => {
     ];
     for (const [st, email, code] of cases) {
       const { deps, calls } = acceptDeps(st);
-      await expect(acceptInviteCore(deps, { userId: "u2", sessionEmail: email, tokenHash: HASH, now: NOW })).rejects.toMatchObject({ code });
+      await expect(
+        acceptInviteCore(deps, { userId: "u2", sessionEmail: email, tokenHash: HASH, now: NOW }),
+      ).rejects.toMatchObject({ code });
       expect(calls).toEqual([]);
     }
   });
   test("jeton remplacé entre l'envoi et l'acceptation : ancien lien inutilisable", async () => {
     const st = { row: invite({ invite_token_hash: "nouveau" }) };
     const { deps, calls } = acceptDeps(st);
-    await expect(acceptInviteCore(deps, { userId: "u2", sessionEmail: "bob@ex.fr", tokenHash: HASH, now: NOW })).rejects.toMatchObject({ code: "not_found" });
+    await expect(
+      acceptInviteCore(deps, {
+        userId: "u2",
+        sessionEmail: "bob@ex.fr",
+        tokenHash: HASH,
+        now: NOW,
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
     expect(calls).toEqual([]);
   });
   test("déjà membre actif : consomme seulement ce jeton ; suspendu : refus sans effet", async () => {
     const a = acceptDeps({ row: invite(), membership: { id: "m", status: "active" } });
-    const r = await acceptInviteCore(a.deps, { userId: "u2", sessionEmail: "bob@ex.fr", tokenHash: HASH, now: NOW });
+    const r = await acceptInviteCore(a.deps, {
+      userId: "u2",
+      sessionEmail: "bob@ex.fr",
+      tokenHash: HASH,
+      now: NOW,
+    });
     expect(r.alreadyMember).toBe(true);
     expect(a.calls).toEqual(["consume"]);
     const b = acceptDeps({ row: invite(), membership: { id: "m", status: "suspended" } });
-    await expect(acceptInviteCore(b.deps, { userId: "u2", sessionEmail: "bob@ex.fr", tokenHash: HASH, now: NOW })).rejects.toMatchObject({ code: "suspended" });
+    await expect(
+      acceptInviteCore(b.deps, {
+        userId: "u2",
+        sessionEmail: "bob@ex.fr",
+        tokenHash: HASH,
+        now: NOW,
+      }),
+    ).rejects.toMatchObject({ code: "suspended" });
     expect(b.calls).toEqual([]);
   });
   test("double acceptation : la seconde échoue (CAS)", async () => {
     const st = { row: invite() };
     const { deps } = acceptDeps(st);
-    await acceptInviteCore(deps, { userId: "u2", sessionEmail: "bob@ex.fr", tokenHash: HASH, now: NOW });
-    await expect(acceptInviteCore(deps, { userId: "u2", sessionEmail: "bob@ex.fr", tokenHash: HASH, now: NOW })).rejects.toBeInstanceOf(InviteError);
+    await acceptInviteCore(deps, {
+      userId: "u2",
+      sessionEmail: "bob@ex.fr",
+      tokenHash: HASH,
+      now: NOW,
+    });
+    await expect(
+      acceptInviteCore(deps, {
+        userId: "u2",
+        sessionEmail: "bob@ex.fr",
+        tokenHash: HASH,
+        now: NOW,
+      }),
+    ).rejects.toBeInstanceOf(InviteError);
   });
 });
 
@@ -207,12 +277,26 @@ function eligDeps(o: { user?: boolean; member?: string | null; row?: InviteRow |
 
 describe("code de connexion avec invitation", () => {
   test("membre actif : connexion normale inchangée", async () => {
-    const r = await enterpriseLoginEligibility(eligDeps({ member: "c9" }), { email: "bob@ex.fr", now: NOW });
+    const r = await enterpriseLoginEligibility(eligDeps({ member: "c9" }), {
+      email: "bob@ex.fr",
+      now: NOW,
+    });
     expect(r).toMatchObject({ ok: true, via: "member", companyId: "c9" });
   });
   test("compte sans adhésion : refusé sans jeton, accepté avec jeton valide destiné à cet email", async () => {
-    expect((await enterpriseLoginEligibility(eligDeps({ row: invite() }), { email: "bob@ex.fr", now: NOW })).ok).toBe(false);
-    const r = await enterpriseLoginEligibility(eligDeps({ row: invite() }), { email: "bob@ex.fr", inviteToken: TOKEN, now: NOW });
+    expect(
+      (
+        await enterpriseLoginEligibility(eligDeps({ row: invite() }), {
+          email: "bob@ex.fr",
+          now: NOW,
+        })
+      ).ok,
+    ).toBe(false);
+    const r = await enterpriseLoginEligibility(eligDeps({ row: invite() }), {
+      email: "bob@ex.fr",
+      inviteToken: TOKEN,
+      now: NOW,
+    });
     expect(r).toMatchObject({ ok: true, via: "invite", companyId: "c1" });
   });
   test("jeton valide mais email différent / expirée / utilisée / suspendue / inconnu : refus", async () => {
@@ -224,10 +308,18 @@ describe("code de connexion avec invitation", () => {
       [null, "bob@ex.fr", "not_found"],
     ];
     for (const [row, email, reason] of cases) {
-      const r = await enterpriseLoginEligibility(eligDeps({ row }), { email, inviteToken: TOKEN, now: NOW });
+      const r = await enterpriseLoginEligibility(eligDeps({ row }), {
+        email,
+        inviteToken: TOKEN,
+        now: NOW,
+      });
       expect(r).toMatchObject({ ok: false, reason });
     }
-    const unknown = await enterpriseLoginEligibility(eligDeps({ user: false, row: invite() }), { email: "bob@ex.fr", inviteToken: TOKEN, now: NOW });
+    const unknown = await enterpriseLoginEligibility(eligDeps({ user: false, row: invite() }), {
+      email: "bob@ex.fr",
+      inviteToken: TOKEN,
+      now: NOW,
+    });
     expect(unknown).toMatchObject({ ok: false, reason: "unknown_enterprise_email" });
   });
   test("retour après vérification : uniquement /invite/<jeton>", () => {
@@ -250,7 +342,12 @@ describe("inscription bornée à l'invitation", () => {
   });
   test("email dérivé du serveur et redirection fixe", async () => {
     const seen: { email?: string; redirect?: string } = {};
-    await inviteSignupCore(deps(invite({ invited_email: " Bob@Ex.fr" }), seen), { token: TOKEN, password: "12345678", fullName: "Bob", now: NOW });
+    await inviteSignupCore(deps(invite({ invited_email: " Bob@Ex.fr" }), seen), {
+      token: TOKEN,
+      password: "12345678",
+      fullName: "Bob",
+      now: NOW,
+    });
     expect(seen).toEqual({ email: "bob@ex.fr", redirect: `https://pvia.fr/invite/${TOKEN}` });
   });
   test("mot de passe court, invitation expirée ou utilisée : aucun compte créé", async () => {
@@ -260,7 +357,14 @@ describe("inscription bornée à l'invitation", () => {
       [invite({ status: "active" }), "12345678"],
     ] as const) {
       const seen: { email?: string } = {};
-      await expect(inviteSignupCore(deps(row, seen), { token: TOKEN, password: pwd, fullName: "Bob", now: NOW })).rejects.toBeInstanceOf(InviteError);
+      await expect(
+        inviteSignupCore(deps(row, seen), {
+          token: TOKEN,
+          password: pwd,
+          fullName: "Bob",
+          now: NOW,
+        }),
+      ).rejects.toBeInstanceOf(InviteError);
       expect(seen.email).toBeUndefined();
     }
   });

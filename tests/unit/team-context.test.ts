@@ -1,10 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { createCompanyController, effectiveRole, type CompanyCtxState, type CompanyMembership } from "@/lib/company-context";
+import {
+  createCompanyController,
+  effectiveRole,
+  type CompanyCtxState,
+  type CompanyMembership,
+} from "@/lib/company-context";
 import { createAutosaveCore } from "@/lib/autosave-core";
-import { canRunAction, createRoleEdit, groupMembers, memberRights, type TeamMember } from "@/lib/team-view";
+import {
+  canRunAction,
+  createRoleEdit,
+  groupMembers,
+  memberRights,
+  type TeamMember,
+} from "@/lib/team-view";
 
 const mem = (company_id: string, role: string = "directeur"): CompanyMembership =>
-  ({ id: "m-" + company_id, company_id, role, status: "active", company: { id: company_id, name: company_id, logo_url: null, icon_url: null } }) as CompanyMembership;
+  ({
+    id: "m-" + company_id,
+    company_id,
+    role,
+    status: "active",
+    company: { id: company_id, name: company_id, logo_url: null, icon_url: null },
+  }) as CompanyMembership;
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
@@ -13,7 +30,10 @@ function deferred<T>() {
 }
 
 function setup(stored: string | null = null) {
-  const pending = new Map<string, ReturnType<typeof deferred<{ data: CompanyMembership[] | null; error: unknown }>>[]>();
+  const pending = new Map<
+    string,
+    ReturnType<typeof deferred<{ data: CompanyMembership[] | null; error: unknown }>>[]
+  >();
   const stores: string[] = [];
   let last: CompanyCtxState | null = null;
   const ctrl = createCompanyController(
@@ -112,7 +132,10 @@ describe("contexte entreprise", () => {
 describe("autosave borné à la portée", () => {
   test("saisie en A puis passage à B : A n'est jamais enregistré dans B", async () => {
     const saved: [string, string][] = [];
-    const core = createAutosaveCore<string>({ save: async (s, v) => void saved.push([s, v]), onStatus: () => {} });
+    const core = createAutosaveCore<string>({
+      save: async (s, v) => void saved.push([s, v]),
+      onStatus: () => {},
+    });
     core.open("A", "a0");
     core.update("A", "a1");
     core.open("B", "b0");
@@ -137,7 +160,12 @@ describe("autosave borné à la portée", () => {
     expect(core.isDirty()).toBe(false);
   });
   test("erreur : flush renvoie false (pas de faux succès)", async () => {
-    const core = createAutosaveCore<string>({ save: async () => { throw new Error("x"); }, onStatus: () => {} });
+    const core = createAutosaveCore<string>({
+      save: async () => {
+        throw new Error("x");
+      },
+      onStatus: () => {},
+    });
     core.open("A", "a0");
     core.update("A", "a1");
     expect(await core.flush()).toBe(false);
@@ -196,7 +224,12 @@ describe("équipe : actions et rôles", () => {
     expect(canRunAction("remove", m({}), { ...ctx, actorRole: "directeur" })).toBe(true);
     expect(canRunAction("suspend", m({}), ctx)).toBe(true);
     expect(canRunAction("suspend", m({}), { ...ctx, writeOpen: false })).toBe(false);
-    expect(canRunAction("resend", m({ user_id: null, status: "invited" }), { ...ctx, actorRole: "conducteur_travaux" })).toBe(false);
+    expect(
+      canRunAction("resend", m({ user_id: null, status: "invited" }), {
+        ...ctx,
+        actorRole: "conducteur_travaux",
+      }),
+    ).toBe(false);
     expect(memberRights(m({}), { ...ctx, actorRole: null }).canToggle).toBe(false);
   });
   test("regroupement et recherche : actifs/invitations/suspendus, sans résultat ≠ équipe vide", () => {

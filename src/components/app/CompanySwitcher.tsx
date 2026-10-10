@@ -29,7 +29,11 @@ export function CompanySwitcher() {
           aria-label={`Entreprise active : ${active.company.name}, rôle ${roleLabel(activeRole)}. Changer d'entreprise`}
         >
           <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-md bg-primary/15 text-primary">
-            {activeIcon ? <img src={activeIcon} alt="" className="h-full w-full object-cover" /> : <Building2 className="h-4 w-4" />}
+            {activeIcon ? (
+              <img src={activeIcon} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Building2 className="h-4 w-4" />
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold" title={active.company.name}>
@@ -63,10 +67,17 @@ export function CompanySwitcher() {
                 <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               )}
               <span className="min-w-0 flex-1">
-                <span className="block break-words text-sm [overflow-wrap:anywhere]">{m.company.name}</span>
+                <span className="block break-words text-sm [overflow-wrap:anywhere]">
+                  {m.company.name}
+                </span>
                 <RoleBadge role={m.role} long className="mt-1" />
               </span>
-              {isActive && <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-label="Entreprise active" />}
+              {isActive && (
+                <Check
+                  className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                  aria-label="Entreprise active"
+                />
+              )}
             </DropdownMenuItem>
           );
         })}

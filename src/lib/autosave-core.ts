@@ -33,7 +33,9 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
       return scope;
     },
     isDirty() {
-      return scope !== null && latest !== undefined && baseline !== undefined && !eq(latest, baseline);
+      return (
+        scope !== null && latest !== undefined && baseline !== undefined && !eq(latest, baseline)
+      );
     },
     /** Ouvre une portée avec sa base chargée avec succès. null = fermé (chargement/erreur). */
     open(nextScope: string | null, loaded?: T) {
