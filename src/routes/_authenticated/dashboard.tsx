@@ -1,15 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
+import { zodValidator } from "@tanstack/zod-adapter";
 import { useCompany } from "@/hooks/use-company";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useSuspension } from "@/hooks/use-suspension";
 import { supabase } from "@/integrations/supabase/client";
-import { loadDashboard } from "@/lib/dashboard";
-import { DashboardView } from "@/components/dashboard/DashboardView";
+import { OperationalDashboard } from "@/components/dashboard/OperationalDashboard";
 import { ComplianceWidget } from "@/components/dashboard/ComplianceWidget";
+import { canSignAsCompany } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  validateSearch: zodValidator(
+    z.object({ planning: z.enum(["today", "upcoming"]).optional().catch(undefined) }),
+  ),
   component: Dashboard,
   head: () => ({
     meta: [
@@ -29,63 +33,51 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   }),
 });
 function Dashboard() {
-  const { activeCompanyId, activeRole, can } = useCompany();
+  const { activeCompanyId, activeRole, memberships, loading, can } = useCompany();
   const { user } = useAuth();
   const billing = useSubscription();
   const suspension = useSuspension();
-  const canVisit = !billing.isLoading && !billing.isError && billing.hasFeature("technical_visits");
+  const { planning } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const canVisit = !billing.isPending && !billing.isError && billing.hasFeature("technical_visits");
   const canWrite =
+    !billing.isPending &&
     !!billing.access &&
     !billing.blocked &&
     !billing.isError &&
     !suspension.isLoading &&
     !suspension.suspended;
-  const query = useQuery({
-    queryKey: ["dashboard", activeCompanyId, user?.id, canVisit],
-    queryFn: () => {
-      if (!activeCompanyId) throw new Error("Entreprise non disponible");
-      return loadDashboard(supabase, activeCompanyId, canVisit);
-    },
-    enabled: !!activeCompanyId && !billing.isLoading,
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
-    // No placeholderData: switching company never shows another tenant's figures.
-  });
-  const updatedAt = query.dataUpdatedAt
-    ? new Date(query.dataUpdatedAt).toLocaleTimeString("fr-FR", {
-        timeZone: "Europe/Paris",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : undefined;
-  const today = new Date().toLocaleDateString("fr-FR", {
-    timeZone: "Europe/Paris",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const company = memberships.find((m) => m.company_id === activeCompanyId)?.company;
+  if (loading)
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        Chargement de vos entreprises…
+      </p>
+    );
+  if (!activeCompanyId || !company || !user)
+    return (
+      <section className="space-y-2">
+        <h1 className="font-display text-2xl font-semibold">Tableau de bord</h1>
+        <p className="text-sm text-muted-foreground">
+          Aucune entreprise active disponible. Sélectionnez une entreprise pour consulter son
+          activité.
+        </p>
+      </section>
+    );
   return (
-    <DashboardView
-      data={query.data}
-      loading={query.isPending}
-      error={query.isError}
-      refreshing={query.isFetching && !query.isPending}
-      refreshError={query.isError && !!query.data}
-      updatedAt={query.data ? updatedAt : undefined}
+    <OperationalDashboard
+      key={`${activeCompanyId}:${user.id}:${activeRole}:${canVisit}`}
+      client={supabase}
+      scope={{ companyId: activeCompanyId, userId: user.id, role: activeRole, canVisit }}
+      companyName={company.name}
       canCreate={can("manage") && canWrite}
-      canVisit={canVisit}
       canTerrain={canWrite && (can("manage") || activeRole === "technicien")}
-      userId={user?.id}
-      today={today}
-      documentaryFollowup={
-        activeCompanyId ? (
-          <ComplianceWidget key={activeCompanyId} companyId={activeCompanyId} />
-        ) : null
-      }
-      retry={() => {
-        void query.refetch();
+      canLift={canWrite && canSignAsCompany(activeRole)}
+      period={planning ?? "today"}
+      onPeriodChange={(period) => {
+        void navigate({ search: (prev) => ({ ...prev, planning: period }) });
       }}
+      documentaryFollowup={<ComplianceWidget key={activeCompanyId} companyId={activeCompanyId} />}
     />
   );
 }

@@ -56,7 +56,7 @@ export type DashboardEvent = {
 };
 export function eventPhase(e: Pick<DashboardEvent, "start_at" | "status">, now = new Date()) {
   if (e.status === "reporte") return "reporte" as const;
-  if (e.status === "en_cours" || (e.start_at && new Date(e.start_at).getTime() <= now.getTime()))
+  if (e.status === "en_cours")
     return "en_cours" as const;
   return "a_venir" as const;
 }

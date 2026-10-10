@@ -7,4 +7,5 @@
 
 - Dashboard counts use exact RLS-scoped HEAD queries independent of bounded preview lists; navigation filters share status groups and signature age cutoff — why: row caps and mislabeled statuses must never distort operational totals.
 - The visit-list resume URL group uses the dashboard's shared status set before pagination; grouped text search merges bounded per-status RPC streams — why: preserve exact navigation/count agreement without changing existing database functions.
-- Dashboard upcoming events show in-progress (end_at not passed) and future events, excluding closed statuses from the shared EVENT_CLOSED_STATUSES list; refresh keeps valid data and never uses placeholder data across companies — why: no stale or cross-tenant figures.
+- Dashboard sections use independent tenant/user/role/feature-scoped Query keys and retain only their own successful refresh data; Paris calendar-day queries exclude closed events, and only explicit in-progress statuses are labeled started — why: partial failures, local midnight and company switches must not mislead operators.
+- Dashboard visit previews read status-priority streams before bounded sampling and scope technicians to their assignment; the destination list accepts the same assignment in URL search — why: urgent assigned work must not be buried by unrelated visits.
