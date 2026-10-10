@@ -221,9 +221,17 @@ function TeamPage() {
     busyRef.current = false;
     if (scope.alive()) setBusyId(null);
   }
-  function audit(entry: Parameters<typeof logAction>[0]["data"]) {
+  function audit(entry: {
+    companyId: string;
+    entityType: string;
+    entityId: string;
+    action: string;
+    oldValues?: Record<string, unknown>;
+    newValues?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+  }) {
     if (!scope.alive()) return;
-    logAction({ data: entry }).catch(() => {});
+    logAction({ data: entry as never }).catch(() => {});
   }
 
   async function invite(e: React.FormEvent) {
