@@ -147,8 +147,8 @@ export function DashboardView({
       ? { ...VISIT_RESUME_SEARCH, assigned: scope.userId }
       : VISIT_RESUME_SEARCH;
   return (
-    <div className="min-w-0 space-y-5 pb-6 [&_h1]:tracking-normal [&_h2]:tracking-normal">
-      <header className="min-w-0 space-y-2">
+    <div className="flex min-w-0 flex-col gap-5 pb-6 [&_h1]:tracking-normal [&_h2]:tracking-normal">
+      <header className="order-1 min-w-0 space-y-2">
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
           <div className="min-w-0">
             <h1 className="font-display text-2xl font-semibold">Tableau de bord</h1>
@@ -218,7 +218,7 @@ export function DashboardView({
       </header>
       {priorityReliable && (
         <p
-          className={`border-l-4 px-3 py-2 text-sm font-medium ${q.reserves.data?.count || q.late.data?.count ? "border-warning bg-warning/10" : "border-success bg-success/10"}`}
+          className={`order-2 border-l-4 px-3 py-2 text-sm font-medium ${q.reserves.data?.count || q.late.data?.count ? "border-warning bg-warning/10" : "border-success bg-success/10"}`}
           role="status"
         >
           {q.reserves.data?.count
@@ -228,7 +228,7 @@ export function DashboardView({
               : "Aucune réserve prioritaire ni signature en retard."}
         </p>
       )}
-      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+      <div className="order-4 grid grid-cols-2 gap-2 xl:order-3 xl:grid-cols-4">
         {metrics.map((m) => (
           <Link
             key={m.label}
@@ -237,7 +237,7 @@ export function DashboardView({
             className="focus-ring grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-md border border-border bg-card px-3 py-2 hover:bg-accent"
           >
             <div className="min-w-0">
-              <p className="text-xl font-semibold tabular-nums">
+              <p className="text-xl font-semibold tabular-nums [overflow-wrap:anywhere]">
                 {m.query.data === undefined ? "—" : m.query.data.toLocaleString("fr-FR")}
               </p>
               <p className="text-sm font-medium leading-snug [overflow-wrap:anywhere]">{m.label}</p>
@@ -251,7 +251,7 @@ export function DashboardView({
           </Link>
         ))}
       </div>
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="order-3 grid min-w-0 gap-6 xl:order-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section className="min-w-0" aria-label="Priorités">
           <SectionTitle title="Priorités" icon={AlertTriangle} />
           {priorityReliable && !q.reserves.data?.count && !q.late.data?.count ? (
@@ -428,7 +428,7 @@ export function DashboardView({
         </section>
       </div>
       {scope.canVisit && (
-        <section className="min-w-0" aria-label="Visites à reprendre">
+        <section className="order-5 min-w-0" aria-label="Visites à reprendre">
           <GroupHeading
             label={scope.role === "technicien" ? "Mes visites à reprendre" : "Visites à reprendre"}
             count={q.visits.data?.count}
@@ -506,7 +506,7 @@ export function DashboardView({
           </SectionState>
         </section>
       )}
-      <section className="min-w-0" aria-label="Derniers dossiers PV">
+      <section className="order-6 min-w-0" aria-label="Derniers dossiers PV">
         <GroupHeading label="Derniers dossiers PV">
           <Link
             to="/pv"
@@ -555,7 +555,7 @@ export function DashboardView({
         </SectionState>
       </section>
       {documentaryFollowup && (
-        <details className="min-w-0 border-t border-border">
+        <details className="order-7 min-w-0 border-t border-border">
           <summary className="focus-ring min-h-11 cursor-pointer py-3 text-sm font-semibold">
             Suivi documentaire · preuves et réserves
           </summary>
