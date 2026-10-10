@@ -7263,6 +7263,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["company_role"]
       }
       get_company_seat_usage: { Args: { _company_id: string }; Returns: number }
+      has_company_role: {
+        Args: { _company_id: string; _roles: string[]; _user_id: string }
+        Returns: boolean
+      }
       has_plan_feature: {
         Args: { _company_id: string; _feature: string }
         Returns: boolean

@@ -13,20 +13,21 @@ export type SuspensionInfo = {
  * Returns suspension status for the active company.
  * Read via RLS (members can SELECT companies).
  */
-export function useSuspension(): SuspensionInfo & { isLoading: boolean } {
+export function useSuspension(): SuspensionInfo & { isLoading: boolean; isError: boolean } {
   const { activeCompanyId } = useCompany();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["company-suspension", activeCompanyId],
     queryFn: async (): Promise<SuspensionInfo> => {
       if (!activeCompanyId)
         return { suspended: false, reason: null, status: null, companyName: null };
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("companies")
         .select("name,suspended_at,suspension_reason,support_status")
         .eq("id", activeCompanyId)
         .maybeSingle();
-      const suspended =
-        !!data?.suspended_at || data?.support_status === "blocked";
+      // Une erreur de lecture ne doit jamais être lue comme « non suspendu ».
+      if (error) throw new Error("Statut de l'entreprise indisponible.");
+      const suspended = !!data?.suspended_at || data?.support_status === "blocked";
       return {
         suspended,
         reason: (data?.suspension_reason as string | null) ?? null,
@@ -43,6 +44,7 @@ export function useSuspension(): SuspensionInfo & { isLoading: boolean } {
     status: data?.status ?? null,
     companyName: data?.companyName ?? null,
     isLoading,
+    isError,
   };
 }
 

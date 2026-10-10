@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- casts historiques sur des tables/réponses non typées ; la garde d'accès typée vit dans pv-create-access.ts */
 /**
  * createPv: server-side end-to-end PV creation.
  *
@@ -30,7 +31,7 @@ import {
 import { getPublicAppUrl } from "./app-url.server";
 
 const PhotoSchema = z.object({
-  base64: z.string().min(1).max(6_000_000),     // ~4.5 MB raw after decode
+  base64: z.string().min(1).max(6_000_000), // ~4.5 MB raw after decode
   mimeType: z.string().min(1).max(100),
   fileName: z.string().min(1).max(200),
   kind: z.enum(["avant", "apres", "autre", "reserve"]).default("autre"),
@@ -52,10 +53,13 @@ const ReserveSchema = z.object({
   status: z.enum(["ouverte", "en_cours", "levee", "en_attente_validation", "validee", "rejetee"]),
   nature: z.string().trim().max(200).optional().default(""),
   work_to_execute: z.string().trim().max(2000).optional().default(""),
-  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  due_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
   photos: z.array(PhotoSchema).max(20).optional().default([]),
 });
-
 
 const InputSchema = z.object({
   companyId: z.string().uuid(),
@@ -78,16 +82,23 @@ const InputSchema = z.object({
   reception_with_reserves: z.boolean().optional().default(false),
   work_reference_type: z.enum(["devis", "bon_commande", "marche", "manuel"]).nullable().optional(),
   work_reference_number: z.string().trim().max(100).nullable().optional(),
-  work_reference_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  work_reference_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
   work_reference_amount: z.number().nonnegative().nullable().optional(),
   reserve_completion_delay: z.string().trim().max(120).nullable().optional(),
-  reserve_due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  reserve_due_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
   // Chantier address snapshot (from autocomplete)
   chantier_address: z.string().trim().max(500).optional().default(""),
   chantier_postal_code: z.string().trim().max(20).optional().default(""),
   chantier_city: z.string().trim().max(200).optional().default(""),
 });
-
 
 export const createPv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -95,13 +106,20 @@ export const createPv = createServerFn({ method: "POST" })
     try {
       return InputSchema.parse(i);
     } catch (e: any) {
-      const issues = e?.issues as Array<{ path: (string | number)[]; code: string; message: string }> | undefined;
+      const issues = e?.issues as
+        | Array<{ path: (string | number)[]; code: string; message: string }>
+        | undefined;
       const photoTooLarge = issues?.find((it) => {
         const p = it.path?.join(".") ?? "";
-        return /photos?\.\d+\.base64/.test(p) && (it.code === "too_big" || /at most/i.test(it.message ?? ""));
+        return (
+          /photos?\.\d+\.base64/.test(p) &&
+          (it.code === "too_big" || /at most/i.test(it.message ?? ""))
+        );
       });
       if (photoTooLarge) {
-        const err = new Error("Une photo de réserve est trop volumineuse. Merci d'utiliser une photo plus légère.");
+        const err = new Error(
+          "Une photo de réserve est trop volumineuse. Merci d'utiliser une photo plus légère.",
+        );
         (err as any).code = "PHOTO_TOO_LARGE";
         throw err;
       }
@@ -111,15 +129,35 @@ export const createPv = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const userId = context.userId;
 
-    // 1. Membership check
-    const { data: member } = await supabaseAdmin
-      .from("company_members")
-      .select("role,status")
-      .eq("company_id", data.companyId)
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
-    if (!member) throw new Error("Accès refusé.");
+    // 1. Rôle (MANAGE / SIGN) + tenant des parents, AVANT tout effet.
+    const { authorizePvCreate } = await import("./pv-create-access");
+    await authorizePvCreate(
+      {
+        getMember: async (companyId, uid) => {
+          const { data: m, error } = await supabaseAdmin
+            .from("company_members")
+            .select("role,status")
+            .eq("company_id", companyId)
+            .eq("user_id", uid)
+            .eq("status", "active")
+            .maybeSingle();
+          if (error) throw new Error("Vérification des droits impossible.");
+          return m ? { role: String(m.role), status: String(m.status) } : null;
+        },
+        parentInCompany: async (table, id, companyId) => {
+          const { data: row, error } = await supabaseAdmin
+            .from(table)
+            .select("id")
+            .eq("id", id)
+            .eq("company_id", companyId)
+            .maybeSingle();
+          if (error) throw new Error("Vérification impossible.");
+          return !!row;
+        },
+      },
+      data,
+      userId,
+    );
 
     // 1a. Suspension + plan quota gate (throws COMPANY_SUSPENDED:* or SUBSCRIPTION_REQUIRED:*)
     const { assertCanCreatePv, assertPlanFeature } = await import("./plan-guard.server");
@@ -132,14 +170,15 @@ export const createPv = createServerFn({ method: "POST" })
       await assertPlanFeature(data.companyId, "remote_sign", userId);
     }
 
-
     // 1b. Company branding completeness (server-authoritative)
     const branding = await getCompanyBranding(data.companyId);
     const hasAddress = !!(branding?.address_line1 || branding?.address);
     const hasIdent = !!(branding?.siret || branding?.siren);
     const hasContact = !!(branding?.email || branding?.phone);
     if (!branding?.name || !hasIdent || !hasAddress || !hasContact) {
-      const err = new Error("Fiche entreprise incomplète. Complétez nom, SIRET/SIREN, adresse et contact.");
+      const err = new Error(
+        "Fiche entreprise incomplète. Complétez nom, SIRET/SIREN, adresse et contact.",
+      );
       (err as any).code = "COMPANY_INCOMPLETE";
       throw err;
     }
@@ -147,7 +186,13 @@ export const createPv = createServerFn({ method: "POST" })
     // 2. Status / signature mode coherence (server-authoritative).
     const sigMode = data.signature_mode ?? null;
     const status = data.status;
-    type OtpRecord = { id: string; email: string; pv_id: string | null; company_id: string; used_at: string | null };
+    type OtpRecord = {
+      id: string;
+      email: string;
+      pv_id: string | null;
+      company_id: string;
+      used_at: string | null;
+    };
     let otpRecord: OtpRecord | null = null;
     if (status === "signe") {
       if (!data.company_signature) {
@@ -156,7 +201,9 @@ export const createPv = createServerFn({ method: "POST" })
         throw err;
       }
       if (sigMode === "remote") {
-        const err = new Error("Mode signature à distance : utilisez le statut en_attente puis l'envoi au client.");
+        const err = new Error(
+          "Mode signature à distance : utilisez le statut en_attente puis l'envoi au client.",
+        );
         (err as any).code = "REMOTE_MUST_WAIT_CLIENT";
         throw err;
       }
@@ -202,7 +249,6 @@ export const createPv = createServerFn({ method: "POST" })
       }
     }
 
-
     // 2b. With/without reserves — server-authoritative invariant
     const withReserves = !!data.reception_with_reserves;
     let normalizedReserves = data.reserves;
@@ -231,7 +277,6 @@ export const createPv = createServerFn({ method: "POST" })
     (data as { reserves: typeof normalizedReserves }).reserves = normalizedReserves;
     (data as { photos: typeof normalizedPhotos }).photos = normalizedPhotos;
 
-
     // 3. Validate signature payloads (PNG data URL)
     const sigOrNull = (raw: string | null | undefined): string | null => {
       if (!raw) return null;
@@ -242,7 +287,8 @@ export const createPv = createServerFn({ method: "POST" })
       const sniffed = sniffImageMime(bytes);
       if (sniffed !== "image/png") throw new Error("Signature : format PNG attendu.");
       // Normalise back to a data URL the DB column already accepts
-      if (mime && normMime(mime) !== "image/png") throw new Error("Signature : format PNG attendu.");
+      if (mime && normMime(mime) !== "image/png")
+        throw new Error("Signature : format PNG attendu.");
       return raw;
     };
     const clientSig = sigOrNull(data.client_signature ?? null);
@@ -250,10 +296,14 @@ export const createPv = createServerFn({ method: "POST" })
 
     // 4. Validate photos (mime + magic-number + size)
     type PhotoMeta = {
-      latitude: number | null; longitude: number | null; accuracy: number | null;
-      takenAt: string | null; deviceInfo: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      accuracy: number | null;
+      takenAt: string | null;
+      deviceInfo: string | null;
       exifMetadata: Record<string, any> | null;
-      fileHash: string | null; photoLabel: string | null;
+      fileHash: string | null;
+      photoLabel: string | null;
     };
     const extractMeta = (p: z.infer<typeof PhotoSchema>): PhotoMeta => ({
       latitude: p.latitude ?? null,
@@ -266,7 +316,12 @@ export const createPv = createServerFn({ method: "POST" })
       photoLabel: p.photoLabel ?? null,
     });
     const photoBuffers: Array<{
-      bytes: Uint8Array; mime: string; fileName: string; kind: string; caption: string; meta: PhotoMeta;
+      bytes: Uint8Array;
+      mime: string;
+      fileName: string;
+      kind: string;
+      caption: string;
+      meta: PhotoMeta;
     }> = [];
     for (const p of data.photos) {
       const declared = p.mimeType.toLowerCase();
@@ -294,8 +349,9 @@ export const createPv = createServerFn({ method: "POST" })
     }
 
     // 5. Authoritative quota check (uses subscriptions table via SQL fn)
-    const { data: canCreate, error: quotaErr } = await supabaseAdmin
-      .rpc("can_create_pv", { _company_id: data.companyId });
+    const { data: canCreate, error: quotaErr } = await supabaseAdmin.rpc("can_create_pv", {
+      _company_id: data.companyId,
+    });
     if (quotaErr) throw new Error(quotaErr.message);
     if (!canCreate) {
       const err = new Error("Quota PV mensuel atteint ou abonnement requis.");
@@ -322,8 +378,6 @@ export const createPv = createServerFn({ method: "POST" })
       }
     }
 
-
-
     // 6. Resolve / create client
     let clientId = data.client_id || null;
     if (!clientId && data.new_client_name.trim()) {
@@ -344,12 +398,14 @@ export const createPv = createServerFn({ method: "POST" })
     // 7. Generate atomic PV number (server-authoritative) + insert PV.
     // One retry in the (impossible-via-RPC) case the unique constraint trips.
     const nowIso = new Date().toISOString();
-    let pvIns: { id: string; numero: string; company_id: string | null; owner_id: string } | null = null;
+    let pvIns: { id: string; numero: string; company_id: string | null; owner_id: string } | null =
+      null;
     let lastErr: { message: string } | null = null;
     let assignedNumero = "";
     for (let attempt = 0; attempt < 2 && !pvIns; attempt++) {
-      const { data: numRes, error: numErr } = await supabaseAdmin
-        .rpc("generate_next_pv_number", { _company_id: data.companyId });
+      const { data: numRes, error: numErr } = await supabaseAdmin.rpc("generate_next_pv_number", {
+        _company_id: data.companyId,
+      });
       if (numErr || !numRes) throw new Error(`Numérotation : ${numErr?.message ?? "indisponible"}`);
       assignedNumero = numRes as unknown as string;
       const { data: ins, error: pvErr } = await supabaseAdmin
@@ -374,22 +430,29 @@ export const createPv = createServerFn({ method: "POST" })
           client_identity_verified_at: otpRecord ? nowIso : null,
           client_identity_verified_by: otpRecord ? "onsite_otp" : null,
           client_otp_verified: !!otpRecord,
-          sent_to_email: data.status === "signe" ? (data.client_identity_email ?? otpRecord?.email ?? null) : null,
+          sent_to_email:
+            data.status === "signe"
+              ? (data.client_identity_email ?? otpRecord?.email ?? null)
+              : null,
           reception_with_reserves: withReserves,
           work_reference_type: data.work_reference_type ?? null,
           work_reference_number: data.work_reference_number?.trim() || null,
           work_reference_date: data.work_reference_date ?? null,
           work_reference_amount: data.work_reference_amount ?? null,
-          reserve_completion_delay: withReserves ? (data.reserve_completion_delay?.trim() || null) : null,
+          reserve_completion_delay: withReserves
+            ? data.reserve_completion_delay?.trim() || null
+            : null,
           reserve_due_date: withReserves ? (data.reserve_due_date ?? null) : null,
           chantier_address: data.chantier_address?.trim() || null,
           chantier_postal_code: data.chantier_postal_code?.trim() || null,
           chantier_city: data.chantier_city?.trim() || null,
-
         } as never)
         .select("id,numero,company_id,owner_id")
         .single();
-      if (!pvErr && ins) { pvIns = ins; break; }
+      if (!pvErr && ins) {
+        pvIns = ins;
+        break;
+      }
       lastErr = pvErr ?? { message: "inconnue" };
     }
     if (!pvIns) {
@@ -429,7 +492,11 @@ export const createPv = createServerFn({ method: "POST" })
       if (resErr) {
         const { recordProcessingError } = await import("@/lib/processing-status.server");
         await recordProcessingError({
-          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          table: "pv",
+          id: pvId,
+          companyId: data.companyId,
+          pvId,
+          userId,
           step: "insert_reserves",
           error: resErr,
           meta: { count: data.reserves.length },
@@ -461,7 +528,10 @@ export const createPv = createServerFn({ method: "POST" })
         // Rollback interne (création jamais aboutie) : le quota ne doit pas
         // être consommé. Compensation réservée à ce chemin serveur — une
         // suppression utilisateur d'un PV réellement créé reste comptée.
-        await supabaseAdmin.from("pv_quota_ledger" as never).delete().eq("pv_id", pvId);
+        await supabaseAdmin
+          .from("pv_quota_ledger" as never)
+          .delete()
+          .eq("pv_id", pvId);
       } catch (e) {
         console.error("[pv-create] rollback failed", reason, e);
       }
@@ -478,10 +548,14 @@ export const createPv = createServerFn({ method: "POST" })
       caption: string,
       reserveId: string | null,
       meta: {
-        latitude: number | null; longitude: number | null; accuracy: number | null;
-        takenAt: string | null; deviceInfo: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        accuracy: number | null;
+        takenAt: string | null;
+        deviceInfo: string | null;
         exifMetadata: Record<string, any> | null;
-        fileHash: string | null; photoLabel: string | null;
+        fileHash: string | null;
+        photoLabel: string | null;
       } | null,
       blocking = false,
     ): Promise<{ ok: boolean; path?: string; reason?: string }> => {
@@ -494,17 +568,30 @@ export const createPv = createServerFn({ method: "POST" })
         failedPhotos += 1;
         if (blocking) {
           await writeAuditLog({
-            companyId: data.companyId, userId, pvId,
-            entityType: "pv_photo", entityId: reserveId ?? pvId,
+            companyId: data.companyId,
+            userId,
+            pvId,
+            entityType: "pv_photo",
+            entityId: reserveId ?? pvId,
             action: "pv.reserve_photo_upload_failed_blocking",
-            metadata: { path, kind, reserve_id: reserveId, file_name: fileName, reason: upErr.message ?? "upload_failed" },
+            metadata: {
+              path,
+              kind,
+              reserve_id: reserveId,
+              file_name: fileName,
+              reason: upErr.message ?? "upload_failed",
+            },
             actor: "user",
           });
           return { ok: false, reason: upErr.message ?? "upload_failed" };
         }
         const { recordProcessingError } = await import("@/lib/processing-status.server");
         await recordProcessingError({
-          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          table: "pv",
+          id: pvId,
+          companyId: data.companyId,
+          pvId,
+          userId,
           step: "upload_photo",
           error: upErr,
           meta: { path, kind, reserveId },
@@ -515,9 +602,7 @@ export const createPv = createServerFn({ method: "POST" })
       if (blocking) uploadedReservePaths.push(path);
       else uploadedGlobalPaths.push(path);
 
-      const captionPrefix = meta?.photoLabel
-        ? `[${kind}] ${meta.photoLabel}`
-        : `[${kind}]`;
+      const captionPrefix = meta?.photoLabel ? `[${kind}] ${meta.photoLabel}` : `[${kind}]`;
       const { error: phErr } = await supabaseAdmin.from("pv_photos").insert({
         pv_id: pvId,
         owner_id: userId,
@@ -541,17 +626,30 @@ export const createPv = createServerFn({ method: "POST" })
         failedPhotos += 1;
         if (blocking) {
           await writeAuditLog({
-            companyId: data.companyId, userId, pvId,
-            entityType: "pv_photo", entityId: reserveId ?? pvId,
+            companyId: data.companyId,
+            userId,
+            pvId,
+            entityType: "pv_photo",
+            entityId: reserveId ?? pvId,
             action: "pv.reserve_photo_insert_failed_blocking",
-            metadata: { path, kind, reserve_id: reserveId, file_name: fileName, reason: phErr.message },
+            metadata: {
+              path,
+              kind,
+              reserve_id: reserveId,
+              file_name: fileName,
+              reason: phErr.message,
+            },
             actor: "user",
           });
           return { ok: false, path, reason: phErr.message };
         }
         const { recordProcessingError } = await import("@/lib/processing-status.server");
         await recordProcessingError({
-          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          table: "pv",
+          id: pvId,
+          companyId: data.companyId,
+          pvId,
+          userId,
           step: "insert_pv_photo_row",
           error: phErr,
           meta: { path, kind, reserveId },
@@ -596,7 +694,8 @@ export const createPv = createServerFn({ method: "POST" })
             await rollbackPv("reserve_photo_invalid_content");
             throw new Error(`Photo réserve "${p.fileName}" : contenu non reconnu.`);
           }
-          const photoLabel = p.photoLabel || `RES-${reserveNum}-CONST-${String(j + 1).padStart(3, "0")}`;
+          const photoLabel =
+            p.photoLabel || `RES-${reserveNum}-CONST-${String(j + 1).padStart(3, "0")}`;
           const res = await persistPhoto(
             bytes,
             normMime(sniffed),
@@ -630,10 +729,10 @@ export const createPv = createServerFn({ method: "POST" })
       try {
         const { bumpPhotosFailed } = await import("@/lib/processing-status.server");
         await bumpPhotosFailed(pvId, failedPhotos);
-      } catch {}
+      } catch {
+        // Compteur d'échec best-effort : ne doit jamais faire échouer la création.
+      }
     }
-
-
 
     // 9b. Link OTP to PV for onsite mode
     if (otpRecord) {
@@ -644,7 +743,8 @@ export const createPv = createServerFn({ method: "POST" })
     // 10. Generate signed PDF server-side + auto-email — WF-M5/WF-M8.
     let pdfPath: string | null = null;
     if (data.status === "signe") {
-      const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
+      const { markPdfGenerationStatus, recordProcessingError } =
+        await import("@/lib/processing-status.server");
       await markPdfGenerationStatus("pv", pvId, "pending");
       try {
         pdfPath = await buildAndStorePvPdf(pvId);
@@ -662,7 +762,11 @@ export const createPv = createServerFn({ method: "POST" })
       } catch (e) {
         await markPdfGenerationStatus("pv", pvId, "failed");
         await recordProcessingError({
-          table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+          table: "pv",
+          id: pvId,
+          companyId: data.companyId,
+          pvId,
+          userId,
           step: "build_signed_pdf",
           error: e,
           audit: { action: "pv.pdf_generation_failed", entityType: "pv" },
@@ -672,11 +776,14 @@ export const createPv = createServerFn({ method: "POST" })
         try {
           const { deliverSignedPv } = await import("./email.server");
           const res = await deliverSignedPv({ pvId, trigger: "auto" });
-          const anyFail =
-            res.client?.status === "failed" || res.company?.status === "failed";
+          const anyFail = res.client?.status === "failed" || res.company?.status === "failed";
           if (anyFail) {
             await recordProcessingError({
-              table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+              table: "pv",
+              id: pvId,
+              companyId: data.companyId,
+              pvId,
+              userId,
               step: "send_signed_email",
               error: res.client?.error || res.company?.error || "unknown",
               meta: { client: res.client?.status, company: res.company?.status },
@@ -685,7 +792,11 @@ export const createPv = createServerFn({ method: "POST" })
           }
         } catch (e) {
           await recordProcessingError({
-            table: "pv", id: pvId, companyId: data.companyId, pvId, userId,
+            table: "pv",
+            id: pvId,
+            companyId: data.companyId,
+            pvId,
+            userId,
             step: "send_signed_email",
             error: e,
             audit: { action: "pv.signed_email_failed", entityType: "pv" },
@@ -717,8 +828,11 @@ export const createPv = createServerFn({ method: "POST" })
           .eq("id", pvId);
         if (tokErr) {
           await writeAuditLog({
-            companyId: data.companyId, userId, pvId,
-            entityType: "pv", entityId: pvId,
+            companyId: data.companyId,
+            userId,
+            pvId,
+            entityType: "pv",
+            entityId: pvId,
             action: "pv.sign_token_persist_failed",
             metadata: { error: tokErr.message },
             actor: "system",
@@ -730,12 +844,22 @@ export const createPv = createServerFn({ method: "POST" })
         const { sendEmailWithRetryLog } = await import("@/lib/email-sender.server");
         const [{ data: company }, { data: clientRow }] = await Promise.all([
           supabaseAdmin.from("companies").select("name").eq("id", data.companyId).maybeSingle(),
-          clientId ? supabaseAdmin.from("clients").select("name").eq("id", clientId).maybeSingle() : Promise.resolve({ data: null }),
+          clientId
+            ? supabaseAdmin.from("clients").select("name").eq("id", clientId).maybeSingle()
+            : Promise.resolve({ data: null }),
         ]);
         const companyName = company?.name || "PVIA";
         const clientName = (clientRow as any)?.name || "Cher client";
-        const expFr = new Date(expiresAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-        const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+        const expFr = new Date(expiresAt).toLocaleDateString("fr-FR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+        const esc = (s: string) =>
+          s.replace(
+            /[&<>"']/g,
+            (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+          );
         const html = `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:-apple-system,sans-serif;color:#0f172a"><table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0"><tr><td align="center"><table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden"><tr><td style="padding:32px 40px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff"><div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.7">PVIA · Signature électronique</div><div style="font-size:24px;font-weight:600;margin-top:8px">N° ${esc(assignedNumero)} à signer</div></td></tr><tr><td style="padding:32px 40px"><p style="font-size:15px;line-height:1.6">Bonjour ${esc(clientName)},</p><p style="font-size:15px;line-height:1.6"><strong>${esc(companyName)}</strong> vous transmet le procès-verbal <strong>${esc(assignedNumero)}</strong> pour signature électronique.</p><table cellpadding="0" cellspacing="0"><tr><td style="border-radius:10px;background:#1e3a8a"><a href="${remoteSignUrl}" style="display:inline-block;padding:14px 28px;color:#fff;text-decoration:none;font-weight:600">Consulter et signer →</a></td></tr></table><p style="margin-top:24px;font-size:12px;color:#94a3b8">Lien valable jusqu'au ${expFr}.</p></td></tr></table></td></tr></table></body></html>`;
         const sendRes = await sendEmailWithRetryLog({
           emailType: "pv_sign_link",
@@ -761,9 +885,10 @@ export const createPv = createServerFn({ method: "POST" })
           pvId,
           entityType: "pv",
           entityId: pvId,
-          action: remoteSignEmailStatus === "sent"
-            ? "pv.remote_signature_sent"
-            : "pv.remote_signature_send_failed",
+          action:
+            remoteSignEmailStatus === "sent"
+              ? "pv.remote_signature_sent"
+              : "pv.remote_signature_send_failed",
           newValues: { sent_to_email: data.client_identity_email },
           metadata: { numero: assignedNumero, error: remoteSignEmailError },
           actor: "user",
@@ -785,8 +910,6 @@ export const createPv = createServerFn({ method: "POST" })
         });
       }
     }
-
-
 
     // 11. Audit log
     await writeAuditLog({
@@ -845,9 +968,10 @@ export const createPv = createServerFn({ method: "POST" })
     // 12. Push notification fan-out (best-effort)
     try {
       const title = data.status === "signe" ? "PV signé" : "Nouveau PV";
-      const body = data.status === "signe"
-        ? `Le PV ${pvIns.numero} a été signé.`
-        : `Le PV ${pvIns.numero} vient d'être créé.`;
+      const body =
+        data.status === "signe"
+          ? `Le PV ${pvIns.numero} a été signé.`
+          : `Le PV ${pvIns.numero} vient d'être créé.`;
       firePushToCompany(
         data.companyId,
         {
@@ -866,7 +990,10 @@ export const createPv = createServerFn({ method: "POST" })
         entityType: "pv",
         entityId: pvId,
         action: "push.sent",
-        metadata: { trigger: data.status === "signe" ? "pv.signed" : "pv.created", channel: "web_push" },
+        metadata: {
+          trigger: data.status === "signe" ? "pv.signed" : "pv.created",
+          channel: "web_push",
+        },
         actor: "push",
       });
     } catch (e) {
@@ -888,4 +1015,3 @@ export const createPv = createServerFn({ method: "POST" })
       status: data.status,
     };
   });
-

@@ -32,10 +32,18 @@ export type RoleCapabilities = {
   readOnly: boolean;
 };
 
+/** Rôle runtime inconnu ou invalide → null (échec fermé). */
+export function asKnownRole(role: unknown): CompanyRoleValue | null {
+  return typeof role === "string" && Object.prototype.hasOwnProperty.call(ROLE_META, role)
+    ? (role as CompanyRoleValue)
+    : null;
+}
+
 export function roleCapabilities(
-  role: CompanyRoleValue | null | undefined,
+  rawRole: CompanyRoleValue | string | null | undefined,
   { writeOpen }: WriteAccess,
 ): RoleCapabilities {
+  const role = asKnownRole(rawRole);
   const known = !!role;
   return {
     manage: known && writeOpen && isManageRole(role),
@@ -111,7 +119,7 @@ export const ROLE_PROFILES: Record<CompanyRoleValue, RoleProfile> = {
   },
   technicien: {
     title: "Votre terrain",
-    subtitle: "Les visites qui vous sont affectées et votre planning.",
+    subtitle: "Les visites qui vous sont affectées et le planning de l’entreprise.",
     can: ["Saisir les visites qui vous sont affectées", "Consulter chantiers, PV et réserves"],
     cannot: ["Créer ou signer un PV", "Lever une réserve", "Gérer l’équipe"],
     order: ["visits", "main", "banner", "recent", "metrics"],
@@ -156,8 +164,8 @@ export type RoleShortcut = {
 };
 
 /** Raccourci secondaire de consultation/organisation propre au rôle (jamais une écriture). */
-export function roleShortcuts(role: CompanyRoleValue | null | undefined): RoleShortcut[] {
-  switch (role) {
+export function roleShortcuts(raw: CompanyRoleValue | string | null | undefined): RoleShortcut[] {
+  switch (asKnownRole(raw)) {
     case "directeur":
       return [{ to: "/equipe", label: "Gérer l’équipe" }];
     case "responsable_exploitation":
@@ -168,7 +176,7 @@ export function roleShortcuts(role: CompanyRoleValue | null | undefined): RoleSh
     case "conducteur_travaux":
       return [{ to: "/reserves", label: "Suivre les réserves" }];
     case "technicien":
-      return [{ to: "/chantiers/calendrier", label: "Mon planning" }];
+      return [{ to: "/chantiers/calendrier", label: "Consulter le planning" }];
     case "assistant_admin":
       return [
         { to: "/clients", label: "Gérer les clients" },
@@ -184,18 +192,21 @@ export function roleShortcuts(role: CompanyRoleValue | null | undefined): RoleSh
   }
 }
 
-export function roleLabel(role: CompanyRoleValue | null | undefined): string {
+export function roleLabel(raw: CompanyRoleValue | string | null | undefined): string {
+  const role = asKnownRole(raw);
   return role ? ROLE_META[role].label : "Rôle inconnu";
 }
 
-export function roleShort(role: CompanyRoleValue | null | undefined): string {
+export function roleShort(raw: CompanyRoleValue | string | null | undefined): string {
+  const role = asKnownRole(raw);
   return role ? ROLE_META[role].short : "Rôle inconnu";
 }
 
 export function mobileDestinations(
-  role: CompanyRoleValue | null | undefined,
+  raw: CompanyRoleValue | string | null | undefined,
   { canVisit }: { canVisit: boolean },
 ): MobileKey[] {
+  const role = asKnownRole(raw);
   const base = role ? ROLE_PROFILES[role].mobile : (["pv", "reserves", "chantiers"] as MobileKey[]);
   const out = base.map((k) => (k === "visites" && !canVisit ? "pv" : k));
   return Array.from(new Set(out)).slice(0, 3);
@@ -204,9 +215,23 @@ export function mobileDestinations(
 /* ---------------- Paramètres : liste unique autorisée ---------------- */
 
 export type SettingsAccess = "all" | "admin";
+export type SettingsPath =
+  | "/parametres"
+  | "/parametres/preferences"
+  | "/parametres/securite"
+  | "/parametres/notifications"
+  | "/entreprise"
+  | "/parametres/branding"
+  | "/equipe"
+  | "/billing"
+  | "/parametres/numerotation"
+  | "/parametres/integrations"
+  | "/parametres/api"
+  | "/parametres/audit"
+  | "/parametres/donnees";
 
 export type SettingsEntry = {
-  to: string;
+  to: SettingsPath;
   group: "Compte" | "Organisation" | "Communication" | "Développeurs";
   label: string;
   desc: string;
@@ -316,7 +341,10 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
 ];
 
 /** Liste autorisée unique pour menu desktop, mobile, recherche et palette. */
-export function allowedSettings(role: CompanyRoleValue | null | undefined): SettingsEntry[] {
+export function allowedSettings(
+  raw: CompanyRoleValue | string | null | undefined,
+): SettingsEntry[] {
+  const role = asKnownRole(raw);
   const admin = !!role && isAdminRole(role);
   return SETTINGS_ENTRIES.filter((e) => e.access === "all" || admin);
 }

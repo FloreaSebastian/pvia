@@ -80,7 +80,7 @@ function NavList({
               return (
                 <Link
                   key={it.to}
-                  to={it.to as any}
+                  to={it.to}
                   onClick={onPick}
                   className={cn(
                     "group flex min-h-11 items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition-colors",

@@ -63,15 +63,22 @@ import { sendInvite } from "@/lib/invites.functions";
 import { logUserAction } from "@/lib/audit.functions";
 import { ROLE_META, ROLE_ORDER, isOwnerRole, type CompanyRoleValue } from "@/lib/roles";
 import { ROLE_PROFILES } from "@/lib/role-access";
+import { createScopeGuard, type ScopeGuard } from "@/lib/scope-guard";
 import { RoleBadge as AppRoleBadge } from "@/components/app/RoleBadge";
 
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 import { ADMIN_ROLES } from "@/lib/roles";
 
+/** Une instance par entreprise : changer de société démonte l'ancienne page et clôt sa portée. */
+function ScopedTeamPage() {
+  const { activeCompanyId } = useCompany();
+  return <TeamPage key={activeCompanyId ?? "none"} />;
+}
+
 function GuardedTeamPage() {
   return (
     <RouteRoleGuard allow={ADMIN_ROLES}>
-      <TeamPage />
+      <ScopedTeamPage />
     </RouteRoleGuard>
   );
 }
@@ -171,15 +178,18 @@ function TeamPage() {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
   }, []);
 
-  // Garde de génération : une réponse tardive d'une autre entreprise est ignorée.
-  const loadGen = useRef(0);
+  // Portée de l'instance : toute suite d'await après démontage/changement de société est abandonnée.
+  const scopeRef = useRef<ScopeGuard | null>(null);
+  if (!scopeRef.current) scopeRef.current = createScopeGuard();
+  const scope = scopeRef.current;
+  useEffect(() => () => scope.dispose(), [scope]);
   const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
   /** Les mutations n'agissent que sur la liste chargée pour l'entreprise active. */
   const scopeCompanyId =
     loadedCompanyId && loadedCompanyId === activeCompanyId ? loadedCompanyId : null;
 
   async function load() {
-    const gen = ++loadGen.current;
+    const gen = scope.next();
     const companyId = activeCompanyId;
     setLoadedCompanyId(null);
     if (!companyId) {
@@ -195,7 +205,7 @@ function TeamPage() {
       .select("id,user_id,role,status,invited_email,invite_expires_at,created_at")
       .eq("company_id", companyId)
       .order("created_at", { ascending: true });
-    if (gen !== loadGen.current) return;
+    if (!scope.isCurrent(gen)) return;
     if (error) {
       setLoading(false);
       toast.error(friendlyError(error, "Impossible de charger l'équipe."));
@@ -206,7 +216,7 @@ function TeamPage() {
     let profileMap: Record<string, string | null> = {};
     if (ids.length) {
       const { data: profs } = await supabase.from("profiles").select("id,full_name").in("id", ids);
-      if (gen !== loadGen.current) return;
+      if (!scope.isCurrent(gen)) return;
       profileMap = Object.fromEntries((profs ?? []).map((p) => [p.id, p.full_name]));
     }
     setMembers(
@@ -244,15 +254,17 @@ function TeamPage() {
           role: inviteRole as Exclude<CompanyRoleValue, "directeur">,
         },
       });
+      if (!scope.alive()) return;
       toast.success(`Invitation envoyée à ${email}`);
       setInviteOpen(false);
       setInviteEmail("");
       setInviteRole("technicien");
       load();
     } catch (err) {
+      if (!scope.alive()) return;
       toast.error(friendlyError(err, "Échec de l'envoi de l'invitation."));
     } finally {
-      setSending(false);
+      if (scope.alive()) setSending(false);
     }
   }
 
@@ -263,17 +275,19 @@ function TeamPage() {
     try {
       await sendInviteFn({
         data: {
-          companyId: activeCompanyId,
+          companyId: scopeCompanyId,
           email: m.invited_email,
           role: m.role as Exclude<CompanyRoleValue, "directeur">,
         },
       });
+      if (!scope.alive()) return;
       toast.success(`Invitation renvoyée à ${m.invited_email}`);
       load();
     } catch (err) {
+      if (!scope.alive()) return;
       toast.error(friendlyError(err, "Impossible de renvoyer l'invitation."));
     } finally {
-      setBusyId(null);
+      if (scope.alive()) setBusyId(null);
     }
   }
 
@@ -287,6 +301,7 @@ function TeamPage() {
       .eq("id", m.id)
       .eq("company_id", scopeCompanyId)
       .eq("status", "invited");
+    if (!scope.alive()) return;
     setBusyId(null);
     setConfirmCancel(null);
     if (error) return toast.error(friendlyError(error, "Annulation impossible."));
@@ -317,6 +332,7 @@ function TeamPage() {
       .eq("id", id)
       .eq("company_id", scopeCompanyId)
       .select("id");
+    if (!scope.alive()) return;
     setBusyId(null);
     if (error) return toast.error(friendlyError(error, "Modification refusée."));
     if (!updated || updated.length === 0)
@@ -349,6 +365,7 @@ function TeamPage() {
       .eq("id", m.id)
       .eq("company_id", scopeCompanyId)
       .select("id");
+    if (!scope.alive()) return;
     setBusyId(null);
     if (error) return toast.error(friendlyError(error, "Action refusée."));
     if (!updated || updated.length === 0)
@@ -380,6 +397,7 @@ function TeamPage() {
       .eq("id", m.id)
       .eq("company_id", scopeCompanyId)
       .select("id");
+    if (!scope.alive()) return;
     setBusyId(null);
     setConfirmRemove(null);
     if (error) return toast.error(friendlyError(error, "Suppression refusée."));
