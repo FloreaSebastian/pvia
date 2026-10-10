@@ -212,7 +212,9 @@ export function DashboardView({
             ? "Actualisation…"
             : updatedAt
               ? `Mis à jour à ${timeStamp(updatedAt)} · heure de Paris`
-              : "Chargement de l’activité…"}
+              : errors > 0
+                ? "Activité indisponible pour le moment"
+                : "Chargement de l’activité…"}
           {errors > 0 ? " · Certaines sections sont indisponibles" : ""}
         </p>
       </header>
