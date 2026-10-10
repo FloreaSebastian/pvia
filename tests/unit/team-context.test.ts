@@ -264,6 +264,7 @@ describe("autosave : commande en file et démontage", () => {
     core.open("A", "a0");
     core.update("A", "a1");
     const f1 = core.flush(); // écriture A émise
+    await tick(); // l'écriture différée démarre réellement
     core.update("A", "a2");
     const f2 = core.flush(); // en file derrière A
     core.open("B", "b0");
@@ -288,6 +289,7 @@ describe("autosave : commande en file et démontage", () => {
     core.open("A", "a0");
     core.update("A", "a1");
     const f = core.flush();
+    await tick(); // l'écriture différée démarre réellement
     const queued = core.flush();
     const n = statuses.length;
     core.dispose();
