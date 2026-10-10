@@ -11,8 +11,10 @@ type Options<T> = {
   scope: string | null;
   /** Base chargée pour cette portée (requise quand scope est non null). */
   loaded: T | undefined;
-  /** Valeur courante saisie dans `scope`. */
+  /** Valeur courante… */
   value: T;
+  /** …et la portée dans laquelle elle a été saisie (valeur d'une autre portée ignorée). */
+  valueScope: string | null;
   /** Enregistre `value` dans `scope` (jamais la portée active au moment de l'appel). */
   onSave: (scope: string, value: T) => Promise<void>;
   delay?: number;
@@ -24,7 +26,7 @@ type Options<T> = {
  * Autosave différé, borné à une portée. `saveNow()` renvoie true seulement si
  * l'enregistrement a réellement réussi — jamais de succès après une erreur absorbée.
  */
-export function useAutosave<T>({ scope, loaded, value, onSave, delay = 800, disabled }: Options<T>) {
+export function useAutosave<T>({ scope, loaded, value, valueScope, onSave, delay = 800, disabled }: Options<T>) {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const saveRef = useRef(onSave);
@@ -53,7 +55,7 @@ export function useAutosave<T>({ scope, loaded, value, onSave, delay = 800, disa
   }, [scope, loaded, core]);
 
   useEffect(() => {
-    if (!core.update(openedRef.current ?? null, value)) return;
+    if (valueScope !== openedRef.current || !core.update(valueScope, value)) return;
     if (disabled || !core.isDirty()) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
@@ -62,7 +64,7 @@ export function useAutosave<T>({ scope, loaded, value, onSave, delay = 800, disa
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [value, delay, disabled, core]);
+  }, [value, valueScope, delay, disabled, core]);
 
   useEffect(() => {
     if (status !== "saved") return;
