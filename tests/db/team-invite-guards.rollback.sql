@@ -32,9 +32,12 @@ BEGIN
 
   -- Fixtures (annulées)
   INSERT INTO public.companies(id, name, email) VALUES (c, 'ZZ test 0012', 'zz@test.invalid'), (c2, 'ZZ test 0012 b', 'zz2@test.invalid');
+  -- Fixtures hors triggers (quota de la formule par défaut), triggers rétablis ensuite.
+  PERFORM set_config('session_replication_role', 'replica', true);
   INSERT INTO public.company_members(company_id,user_id,role,status) VALUES (c,u_dir,'directeur','active') RETURNING id INTO m_dir;
   INSERT INTO public.company_members(company_id,user_id,role,status) VALUES (c,u_adm,'responsable_exploitation','active');
   INSERT INTO public.company_members(company_id,user_id,role,status) VALUES (c,u_tech,'technicien','active') RETURNING id INTO m_tech;
+  PERFORM set_config('session_replication_role', 'origin', true);
 
   -- 3. Gouvernance : company_id immuable côté client
   PERFORM set_config('request.jwt.claims', json_build_object('sub',u_adm,'role','authenticated')::text, true);
