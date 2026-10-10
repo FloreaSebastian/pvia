@@ -145,3 +145,31 @@ describe("dashboard operational data", () => {
     expect(blocking?.calls).toContainEqual(["not", "status", "in", "(validee,rejetee)"]);
   });
 });
+
+describe("dashboard events and feature gating", () => {
+  it("upcoming events include in-progress ones and exclude cancelled/finished statuses", async () => {
+    const { sb, requests } = client();
+    const now = new Date("2026-10-10T12:00:00Z");
+    await loadDashboard(sb, "company-A", true, now);
+    const ev = requests.find((r) => r.table === "chantier_events")!;
+    expect(ev.calls).toContainEqual(["not", "status", "in", "(annule,termine)"]);
+    expect(ev.calls).toContainEqual([
+      "or",
+      `start_at.gte.${now.toISOString()},end_at.gte.${now.toISOString()}`,
+    ]);
+    expect(ev.calls).toContainEqual(["eq", "company_id", "company-A"]);
+  });
+  it("never reads technical visits when the feature is unavailable", async () => {
+    const { sb, requests } = client();
+    const data = await loadDashboard(sb, "company-A", false);
+    expect(requests.some((r) => r.table === "technical_visits")).toBe(false);
+    expect(data.counts.visits).toBeNull();
+  });
+  it("labels started events as in progress and postponed as reporte", async () => {
+    const { eventPhase } = await import("../../src/lib/dashboard");
+    const now = new Date("2026-10-10T12:00:00Z");
+    expect(eventPhase({ start_at: "2026-10-10T11:00:00Z", status: "prevu" }, now)).toBe("en_cours");
+    expect(eventPhase({ start_at: "2026-10-11T08:00:00Z", status: "prevu" }, now)).toBe("a_venir");
+    expect(eventPhase({ start_at: "2026-10-11T08:00:00Z", status: "reporte" }, now)).toBe("reporte");
+  });
+});
