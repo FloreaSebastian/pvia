@@ -341,7 +341,9 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
 ];
 
 /** Liste autorisée unique pour menu desktop, mobile, recherche et palette. */
-export function allowedSettings(raw: CompanyRoleValue | string | null | undefined): SettingsEntry[] {
+export function allowedSettings(
+  raw: CompanyRoleValue | string | null | undefined,
+): SettingsEntry[] {
   const role = asKnownRole(raw);
   const admin = !!role && isAdminRole(role);
   return SETTINGS_ENTRIES.filter((e) => e.access === "all" || admin);

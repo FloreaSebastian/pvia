@@ -1,6 +1,12 @@
 import { cn } from "@/lib/utils";
 import type { CompanyRoleValue } from "@/lib/roles";
-import { ROLE_PROFILES, ROLE_TONE_CLASS, asKnownRole, roleLabel, roleShort } from "@/lib/role-access";
+import {
+  ROLE_PROFILES,
+  ROLE_TONE_CLASS,
+  asKnownRole,
+  roleLabel,
+  roleShort,
+} from "@/lib/role-access";
 
 /** Badge de rôle lisible : couleur + texte, jamais la couleur seule. */
 export function RoleBadge({

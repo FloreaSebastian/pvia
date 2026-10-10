@@ -27,8 +27,7 @@ export function useSuspension(): SuspensionInfo & { isLoading: boolean; isError:
         .maybeSingle();
       // Une erreur de lecture ne doit jamais être lue comme « non suspendu ».
       if (error) throw new Error("Statut de l'entreprise indisponible.");
-      const suspended =
-        !!data?.suspended_at || data?.support_status === "blocked";
+      const suspended = !!data?.suspended_at || data?.support_status === "blocked";
       return {
         suspended,
         reason: (data?.suspension_reason as string | null) ?? null,
