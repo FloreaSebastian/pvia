@@ -49,6 +49,8 @@ export async function serverActionDeps(): Promise<ActionAccessDeps> {
         .maybeSingle();
       return data ? { role: String(data.role), status: String(data.status) } : null;
     },
-    assertWriteAccess: (companyId, userId) => assertCompanyWriteAccess(companyId, userId),
+    assertWriteAccess: async (companyId, userId) => {
+      await assertCompanyWriteAccess(companyId, userId);
+    },
   };
 }
