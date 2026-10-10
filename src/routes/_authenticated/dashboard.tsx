@@ -49,7 +49,15 @@ function Dashboard() {
     enabled: !!activeCompanyId && !billing.isLoading,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
+    // No placeholderData: switching company never shows another tenant's figures.
   });
+  const updatedAt = query.dataUpdatedAt
+    ? new Date(query.dataUpdatedAt).toLocaleTimeString("fr-FR", {
+        timeZone: "Europe/Paris",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : undefined;
   const today = new Date().toLocaleDateString("fr-FR", {
     timeZone: "Europe/Paris",
     weekday: "long",
@@ -62,6 +70,9 @@ function Dashboard() {
       data={query.data}
       loading={query.isPending}
       error={query.isError}
+      refreshing={query.isFetching && !query.isPending}
+      refreshError={query.isError && !!query.data}
+      updatedAt={query.data ? updatedAt : undefined}
       canCreate={can("manage") && canWrite}
       canVisit={canVisit}
       canTerrain={canWrite && (can("manage") || activeRole === "technicien")}

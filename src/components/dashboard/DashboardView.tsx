@@ -191,7 +191,7 @@ export function DashboardView({
                   className="block h-9 w-14 animate-pulse rounded bg-muted"
                   aria-label="Chargement"
                 />
-              ) : error || k.value === undefined ? (
+              ) : initialError || k.value === undefined ? (
                 "—"
               ) : (
                 k.value.toLocaleString("fr-FR")
