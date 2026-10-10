@@ -1,6 +1,6 @@
 import { LockedActionButton, useWriteAccess, useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Mail,
   Plus,
@@ -58,6 +58,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { sendInvite } from "@/lib/invites.functions";
 import { logUserAction } from "@/lib/audit.functions";
 import { ROLE_META, ROLE_ORDER, isOwnerRole, type CompanyRoleValue } from "@/lib/roles";
+import { ROLE_PROFILES } from "@/lib/role-access";
+import { RoleBadge } from "@/components/app/RoleBadge";
 
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 import { ADMIN_ROLES } from "@/lib/roles";
@@ -176,8 +178,17 @@ function TeamPage() {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
   }, []);
 
+  // Garde de génération : une réponse tardive d'une autre entreprise est ignorée.
+  const loadGen = useRef(0);
+  const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
+  /** Les mutations n'agissent que sur la liste chargée pour l'entreprise active. */
+  const scopeCompanyId = loadedCompanyId && loadedCompanyId === activeCompanyId ? loadedCompanyId : null;
+
   async function load() {
-    if (!activeCompanyId) {
+    const gen = ++loadGen.current;
+    const companyId = activeCompanyId;
+    setLoadedCompanyId(null);
+    if (!companyId) {
       setMembers([]);
       setLoading(false);
       return;
@@ -188,8 +199,9 @@ function TeamPage() {
     const { data, error } = await supabase
       .from("company_members")
       .select("id,user_id,role,status,invited_email,invite_expires_at,created_at")
-      .eq("company_id", activeCompanyId)
+      .eq("company_id", companyId)
       .order("created_at", { ascending: true });
+    if (gen !== loadGen.current) return;
     if (error) {
       setLoading(false);
       toast.error(friendlyError(error, "Impossible de charger l'équipe."));
@@ -203,6 +215,7 @@ function TeamPage() {
         .from("profiles")
         .select("id,full_name")
         .in("id", ids);
+      if (gen !== loadGen.current) return;
       profileMap = Object.fromEntries(
         (profs ?? []).map((p) => [p.id, p.full_name]),
       );
@@ -213,9 +226,15 @@ function TeamPage() {
         profile: m.user_id ? { full_name: profileMap[m.user_id] ?? null } : null,
       })),
     );
+    setLoadedCompanyId(companyId);
     setLoading(false);
   }
   useEffect(() => {
+    // Changement d'entreprise : dialogues et actions en cours de l'ancienne société fermés.
+    setInviteOpen(false);
+    setConfirmRemove(null);
+    setConfirmCancel(null);
+    setBusyId(null);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompanyId]);
@@ -249,7 +268,7 @@ function TeamPage() {
   }
 
   async function resendInvite(m: Member) {
-    if (!activeCompanyId || !m.invited_email || busyId) return;
+    if (!scopeCompanyId || !m.invited_email || busyId || !members.some((x) => x.id === m.id)) return;
     setBusyId(m.id);
     try {
       await sendInviteFn({
@@ -270,11 +289,13 @@ function TeamPage() {
 
   async function cancelInvite(m: Member) {
     if (denyWrite("annuler une invitation")) return;
+    if (!scopeCompanyId || !members.some((x) => x.id === m.id)) return;
     setBusyId(m.id);
     const { error } = await supabase
       .from("company_members")
       .delete()
       .eq("id", m.id)
+      .eq("company_id", scopeCompanyId)
       .eq("status", "invited");
     setBusyId(null);
     setConfirmCancel(null);
@@ -298,11 +319,13 @@ function TeamPage() {
   async function changeRole(id: string, role: CompanyRoleValue) {
     if (denyWrite("modifier le rôle d’un membre")) return;
     const prev = members.find((m) => m.id === id);
+    if (!scopeCompanyId || !prev) return;
     setBusyId(id);
     const { data: updated, error } = await supabase
       .from("company_members")
       .update({ role })
       .eq("id", id)
+      .eq("company_id", scopeCompanyId)
       .select("id");
     setBusyId(null);
     if (error) return toast.error(friendlyError(error, "Modification refusée."));
@@ -328,11 +351,13 @@ function TeamPage() {
   async function toggleStatus(m: Member) {
     if (denyWrite("suspendre ou réactiver un membre")) return;
     const next = m.status === "suspended" ? "active" : "suspended";
+    if (!scopeCompanyId || !members.some((x) => x.id === m.id)) return;
     setBusyId(m.id);
     const { data: updated, error } = await supabase
       .from("company_members")
       .update({ status: next })
       .eq("id", m.id)
+      .eq("company_id", scopeCompanyId)
       .select("id");
     setBusyId(null);
     if (error) return toast.error(friendlyError(error, "Action refusée."));
@@ -357,11 +382,13 @@ function TeamPage() {
 
   async function remove(m: Member) {
     if (denyWrite("retirer un membre")) return;
+    if (!scopeCompanyId || !members.some((x) => x.id === m.id)) return;
     setBusyId(m.id);
     const { data: deleted, error } = await supabase
       .from("company_members")
       .delete()
       .eq("id", m.id)
+      .eq("company_id", scopeCompanyId)
       .select("id");
     setBusyId(null);
     setConfirmRemove(null);
@@ -593,6 +620,7 @@ function TeamPage() {
                       })}
                     </SelectContent>
                   </Select>
+                  <RoleSummary role={inviteRole} />
                 </div>
                 <DialogFooter>
                   <Button
@@ -722,21 +750,17 @@ function TeamPage() {
         <div className="flex items-start gap-3">
           <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0 text-sm">
-            <p className="font-semibold">Rôles & permissions</p>
-            <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
-              {ROLE_ORDER.map((r) => {
-                const meta = ROLE_META[r];
-                return (
-                  <li key={r} className="flex items-start gap-2">
-                    <span aria-hidden className="mt-px">
-                      {meta.emoji}
-                    </span>
-                    <span className="min-w-0 break-words">
-                      <b className="text-foreground">{meta.label}</b> — {meta.description}
-                    </span>
-                  </li>
-                );
-              })}
+            <h2 className="font-semibold">Guide des rôles</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ce que chaque rôle permet réellement dans PVIA. Le serveur applique les mêmes règles.
+            </p>
+            <ul className="mt-3 grid gap-3 md:grid-cols-2">
+              {ROLE_ORDER.map((r) => (
+                <li key={r} className="min-w-0 rounded-md border border-border p-3">
+                  <RoleBadge role={r} long />
+                  <RoleSummary role={r} />
+                </li>
+              ))}
             </ul>
           </div>
         </div>
@@ -789,6 +813,23 @@ function TeamPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function RoleSummary({ role }: { role: CompanyRoleValue }) {
+  const p = ROLE_PROFILES[role];
+  return (
+    <div className="mt-2 text-sm">
+      <p className="font-medium">{p.title}</p>
+      <ul className="mt-1 space-y-0.5">
+        {p.can.map((t) => (
+          <li key={t}><span aria-hidden>✓ </span><span className="sr-only">Autorisé : </span>{t}</li>
+        ))}
+        {p.cannot.map((t) => (
+          <li key={t} className="text-muted-foreground"><span aria-hidden>✕ </span><span className="sr-only">Non autorisé : </span>{t}</li>
+        ))}
+      </ul>
     </div>
   );
 }
