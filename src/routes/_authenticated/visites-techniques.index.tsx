@@ -265,7 +265,6 @@ function VisitesTechniquesPage() {
               </p>
             )
           ) : null}
-
         </Card>
       ) : null}
 
