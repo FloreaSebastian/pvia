@@ -11,6 +11,8 @@ export const PV_PENDING_STATUSES = [
 export const ACTIVE_CHANTIER_STATUSES = ["preparation", "planifie", "en_cours", "en_attente"];
 export const VISIT_DRAFT_STATUSES = ["a_planifier", "planifiee", "en_cours", "a_completer"];
 export const SIGNATURE_WAIT_DAYS = 7;
+/** chantier_events statuses (prevu, planifie, en_cours, reporte, termine, annule): closed ones never appear as upcoming. */
+export const EVENT_CLOSED_STATUSES = ["annule", "termine"];
 export function signatureCutoff(now = new Date()) {
   return new Date(now.getTime() - SIGNATURE_WAIT_DAYS * 86400000).toISOString();
 }
@@ -47,9 +49,17 @@ export type DashboardEvent = {
   id: string;
   title: string;
   start_at: string | null;
+  end_at: string | null;
+  status: string;
   chantier_id: string;
   chantiers: { name: string } | null;
 };
+export function eventPhase(e: Pick<DashboardEvent, "start_at" | "status">, now = new Date()) {
+  if (e.status === "reporte") return "reporte" as const;
+  if (e.status === "en_cours" || (e.start_at && new Date(e.start_at).getTime() <= now.getTime()))
+    return "en_cours" as const;
+  return "a_venir" as const;
+}
 export type DashboardData = {
   counts: {
     drafts: number;
@@ -121,10 +131,11 @@ export async function loadDashboard(
       .limit(3),
     sb
       .from("chantier_events")
-      .select("id,title,start_at,chantier_id,chantiers(name)")
+      .select("id,title,start_at,end_at,status,chantier_id,chantiers(name)")
       .eq("company_id", companyId)
-      .gte("start_at", now.toISOString())
-      .not("status", "in", "(cancelled,annule,annulee,done,termine)")
+      // Upcoming, or already started and not yet ended (in progress).
+      .or(`start_at.gte.${now.toISOString()},end_at.gte.${now.toISOString()}`)
+      .not("status", "in", `(${EVENT_CLOSED_STATUSES.join(",")})`)
       .order("start_at")
       .order("id")
       .limit(5),

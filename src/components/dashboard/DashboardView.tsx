@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { PvStatusPill, StatusPill, isKnownPvStatus } from "@/components/ui/status-pill";
 import { VisitStatusBadge } from "@/components/visites/VisitStatusBadge";
 import type { VisitStatus } from "@/lib/visites/types";
-import { dashboardDate, PV_DRAFT_STATUSES, type DashboardData } from "@/lib/dashboard";
+import { dashboardDate, eventPhase, PV_DRAFT_STATUSES, type DashboardData } from "@/lib/dashboard";
 import { VISIT_RESUME_SEARCH } from "@/lib/visites/resume-filter";
 import type { ReactNode } from "react";
 
@@ -28,6 +28,12 @@ export type DashboardViewProps = {
   canTerrain: boolean;
   userId?: string;
   retry: () => void;
+  /** Background refresh while valid data stays displayed. */
+  refreshing?: boolean;
+  /** Last refresh failed but previous data is still shown. */
+  refreshError?: boolean;
+  /** Last successful load, already formatted (Europe/Paris). */
+  updatedAt?: string;
   today: string;
   documentaryFollowup?: ReactNode;
 };
@@ -42,9 +48,13 @@ export function DashboardView({
   canTerrain,
   userId,
   retry,
+  refreshing = false,
+  refreshError = false,
+  updatedAt,
   today,
   documentaryFollowup,
 }: DashboardViewProps) {
+  const initialError = error && !data;
   const metrics = [
     {
       label: "PV à terminer",
@@ -90,9 +100,9 @@ export function DashboardView({
             Votre activité chantier, au même endroit.
           </p>
         </div>
-        <div className="grid gap-2 min-[400px]:grid-cols-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {canCreate && (
-            <Button asChild className="min-h-11">
+            <Button asChild className="col-span-2 min-h-11">
               <Link to="/pv/new" search={{ fresh: 1 }}>
                 <Plus />
                 Nouveau PV
@@ -123,8 +133,33 @@ export function DashboardView({
             </Button>
           )}
         </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <Button
+            variant="ghost"
+            className="min-h-11 px-3"
+            onClick={retry}
+            disabled={loading || refreshing}
+            aria-label="Actualiser le tableau de bord"
+          >
+            <RefreshCw className={refreshing ? "animate-spin" : undefined} />
+            {refreshing ? "Actualisation…" : "Actualiser"}
+          </Button>
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            {refreshing
+              ? "Mise à jour en cours, les données affichées restent valables."
+              : updatedAt
+                ? `Mis à jour à ${updatedAt}`
+                : null}
+          </p>
+        </div>
+        {refreshError && data ? (
+          <p role="alert" className="border-l-4 border-warning bg-warning/10 p-3 text-sm">
+            Actualisation impossible. Les chiffres affichés datent de{" "}
+            {updatedAt ?? "la dernière mise à jour"}.
+          </p>
+        ) : null}
       </header>
-      {error ? (
+      {initialError ? (
         <div
           role="alert"
           className="flex flex-col gap-3 border-l-4 border-destructive bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -136,34 +171,33 @@ export function DashboardView({
           </Button>
         </div>
       ) : null}
-      <div
-        className="grid grid-cols-1 gap-3 min-[375px]:grid-cols-2 xl:grid-cols-4"
-        aria-busy={loading}
-      >
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4" aria-busy={loading}>
         {metrics.map((k) => (
           <Link
             key={k.label}
             to={k.to}
             search={k.search}
-            className="focus-ring min-w-0 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50"
+            className="focus-ring flex min-h-11 min-w-0 flex-col rounded-lg border border-border bg-card p-3 transition-colors hover:border-primary/50 sm:p-4"
           >
             <div className="flex items-center justify-between gap-2">
-              <k.icon className={`h-5 w-5 shrink-0 ${k.tone}`} />
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <k.icon className={`h-5 w-5 shrink-0 ${k.tone}`} aria-hidden />
+              <ArrowRight className="hidden h-4 w-4 text-muted-foreground sm:block" aria-hidden />
             </div>
-            <p className="mt-3 text-3xl font-semibold tabular-nums">
+            <p className="mt-2 text-2xl font-semibold tabular-nums sm:mt-3 sm:text-3xl">
               {loading ? (
                 <span
                   className="block h-9 w-14 animate-pulse rounded bg-muted"
                   aria-label="Chargement"
                 />
-              ) : error || k.value === undefined ? (
+              ) : initialError || k.value === undefined ? (
                 "—"
               ) : (
                 k.value.toLocaleString("fr-FR")
               )}
             </p>
-            <p className="mt-2 text-sm font-medium">{k.label}</p>
+            <p className="mt-1 text-sm font-medium leading-tight [overflow-wrap:anywhere] sm:mt-2">
+              {k.label}
+            </p>
           </Link>
         ))}
       </div>
@@ -172,7 +206,7 @@ export function DashboardView({
           <p className="text-sm text-muted-foreground">Chargement de votre activité…</p>
           <div className="h-40 animate-pulse rounded-md bg-muted" />
         </div>
-      ) : !error && data ? (
+      ) : data ? (
         <>
           <div className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <section className="min-w-0">
@@ -242,7 +276,7 @@ export function DashboardView({
             <section className="min-w-0">
               <SectionTitle title="Prochains rendez-vous" icon={CalendarDays} />
               <p className="mt-1 text-sm text-muted-foreground">
-                Les 5 prochains événements · heure de Paris
+                En cours ou à venir, hors annulés et terminés · heure de Paris
               </p>
               <div className="mt-3 divide-y divide-border border-y border-border">
                 {data.events.length ? (
@@ -255,7 +289,12 @@ export function DashboardView({
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-primary">
-                          {e.start_at ? dashboardDate(e.start_at, true) : "Non planifié"}
+                          {eventPhase(e) === "en_cours"
+                            ? "En cours"
+                            : e.start_at
+                              ? dashboardDate(e.start_at, true)
+                              : "Non planifié"}
+                          {eventPhase(e) === "reporte" ? " · Reporté" : ""}
                         </p>
                         <p className="mt-1 truncate text-sm font-medium">{e.title}</p>
                         <p className="truncate text-sm text-muted-foreground">
@@ -346,13 +385,13 @@ export function DashboardView({
                   >
                     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                       <p className="truncate text-sm font-semibold">{p.numero}</p>
-                      {isKnownPvStatus(p.status) ? (
-                        <PvStatusPill status={p.status} size="sm" />
-                      ) : (
-                        <StatusPill tone="neutral" size="sm">
-                          En traitement
-                        </StatusPill>
-                      )}
+                      <span className="[&>span]:h-7 [&>span]:text-sm">
+                        {isKnownPvStatus(p.status) ? (
+                          <PvStatusPill status={p.status} />
+                        ) : (
+                          <StatusPill tone="neutral">En traitement</StatusPill>
+                        )}
+                      </span>
                     </div>
                     <p className="mt-3 truncate text-sm font-medium">
                       {p.clients?.name || "Client non renseigné"}
