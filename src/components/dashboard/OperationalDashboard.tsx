@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   dashboardQueries,
+  retryDashboardSection,
   type DashboardScope,
   type PlanningPeriod,
 } from "@/lib/dashboard-queries";
@@ -70,6 +71,13 @@ export function OperationalDashboard({
       onPeriodChange={onPeriodChange}
       refreshing={refreshing}
       retry={retry}
+      onRetry={{
+        reserves: () => retryDashboardSection(reserves),
+        late: () => retryDashboardSection(late),
+        planning: () => retryDashboardSection(planning),
+        visits: () => retryDashboardSection(visits),
+        recent: () => retryDashboardSection(recent),
+      }}
       documentaryFollowup={documentaryFollowup}
     />
   );

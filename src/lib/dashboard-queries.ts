@@ -14,6 +14,14 @@ import {
 } from "./dashboard";
 import { isoToLocalInputs, localInputToIso } from "./visites/planning";
 
+/** Retry only this section; Query also deduplicates any in-flight fetch. */
+export function retryDashboardSection(query: {
+  isFetching: boolean;
+  refetch: () => Promise<unknown>;
+}) {
+  if (!query.isFetching) void query.refetch();
+}
+
 export type DashboardScope = {
   companyId: string;
   userId: string;
