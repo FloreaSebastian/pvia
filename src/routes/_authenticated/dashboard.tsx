@@ -10,14 +10,22 @@ import { DashboardView } from "@/components/dashboard/DashboardView";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
-  head: () => ({ meta: [
-    { title: "Tableau de bord chantier — PVIA" },
-    { name: "description", content: "Suivez vos PV, réserves, visites techniques et prochains rendez-vous chantier." },
-    { property: "og:title", content: "Tableau de bord chantier — PVIA" },
-    { property: "og:description", content: "L’activité opérationnelle de votre entreprise BTP, en un coup d’œil." },
-    { property: "og:type", content: "website" },
-    { name: "twitter:card", content: "summary" },
-  ] }),
+  head: () => ({
+    meta: [
+      { title: "Tableau de bord chantier — PVIA" },
+      {
+        name: "description",
+        content: "Suivez vos PV, réserves, visites techniques et prochains rendez-vous chantier.",
+      },
+      { property: "og:title", content: "Tableau de bord chantier — PVIA" },
+      {
+        property: "og:description",
+        content: "L’activité opérationnelle de votre entreprise BTP, en un coup d’œil.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
 });
 function Dashboard() {
   const { activeCompanyId, activeRole, can } = useCompany();
@@ -25,7 +33,12 @@ function Dashboard() {
   const billing = useSubscription();
   const suspension = useSuspension();
   const canVisit = !billing.isLoading && !billing.isError && billing.hasFeature("technical_visits");
-  const canWrite = !!billing.access && !billing.blocked && !billing.isError && !suspension.isLoading && !suspension.suspended;
+  const canWrite =
+    !!billing.access &&
+    !billing.blocked &&
+    !billing.isError &&
+    !suspension.isLoading &&
+    !suspension.suspended;
   const query = useQuery({
     queryKey: ["dashboard", activeCompanyId, user?.id, canVisit],
     queryFn: () => {
@@ -36,6 +49,26 @@ function Dashboard() {
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
-  const today = new Date().toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  return <DashboardView data={query.data} loading={query.isPending} error={query.isError} canCreate={can("manage") && canWrite} canVisit={canVisit} canTerrain={canWrite && (can("manage") || activeRole === "technicien")} userId={user?.id} today={today} retry={() => { void query.refetch(); }} />;
+  const today = new Date().toLocaleDateString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return (
+    <DashboardView
+      data={query.data}
+      loading={query.isPending}
+      error={query.isError}
+      canCreate={can("manage") && canWrite}
+      canVisit={canVisit}
+      canTerrain={canWrite && (can("manage") || activeRole === "technicien")}
+      userId={user?.id}
+      today={today}
+      retry={() => {
+        void query.refetch();
+      }}
+    />
+  );
 }
