@@ -366,6 +366,7 @@ function PvDetail() {
   }
 
   function handleNewAttemptAfterRejection() {
+    if (!caps.sign) return;
     if (deny("relancer une levée de réserves")) return;
     // Open the existing lift dialog scoped to rejected reserves (the dialog
     // already filters reserves with status 'rejetee'). A fresh report is
@@ -868,7 +869,7 @@ function PvDetail() {
                 {total > 0 && <span className="text-xs text-muted-foreground">· {total} au total</span>}
               </div>
               <div className="flex flex-wrap gap-2">
-                {(liftStatus === "pending" || liftStatus === "partial") && (
+                {caps.sign && (liftStatus === "pending" || liftStatus === "partial") && (
                   <Button size="sm" className="h-11 sm:h-8" onClick={() => {
                     const open = reserves.filter((r) => ["ouverte", "en_cours", "rejetee"].includes(r.status));
                     if (open.length === 0) { toast.error("Aucune réserve ouverte à lever."); return; }
@@ -1026,7 +1027,7 @@ function PvDetail() {
                         <span className="text-[11px] text-muted-foreground">{new Date(l.signed_at || l.created_at).toLocaleDateString("fr-FR")}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {editable && (
+                        {caps.sign && editable && (
                           <Button size="sm" variant="default" className="h-11 sm:h-8" onClick={() => { setLiftPreselectedId(null); setLiftDialogOpen(true); }}>
                             <Pencil className="h-3.5 w-3.5" /> Reprendre
                           </Button>
