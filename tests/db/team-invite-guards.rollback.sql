@@ -32,12 +32,13 @@ BEGIN
 
   -- Fixtures (annulées)
   INSERT INTO public.companies(id, name, email) VALUES (c, 'ZZ test 0012', 'zz@test.invalid'), (c2, 'ZZ test 0012 b', 'zz2@test.invalid');
-  -- Fixtures hors triggers (quota de la formule par défaut), triggers rétablis ensuite.
-  PERFORM set_config('session_replication_role', 'replica', true);
+  -- Formule fictive à 20 sièges, écriture fermée (résiliée sans fin de période programmée).
+  UPDATE public.companies SET trial_ends_at = now() - interval '1 day' WHERE id = c;
+  INSERT INTO public.subscriptions(company_id,user_id,stripe_customer_id,stripe_subscription_id,plan,status,current_period_end,cancel_at_period_end)
+    VALUES (c,u_dir,'cus_zz_test','sub_zz_test_'||c,'business','canceled',now()+interval '10 days',false);
   INSERT INTO public.company_members(company_id,user_id,role,status) VALUES (c,u_dir,'directeur','active') RETURNING id INTO m_dir;
   INSERT INTO public.company_members(company_id,user_id,role,status) VALUES (c,u_adm,'responsable_exploitation','active');
   INSERT INTO public.company_members(company_id,user_id,role,status) VALUES (c,u_tech,'technicien','active') RETURNING id INTO m_tech;
-  PERFORM set_config('session_replication_role', 'origin', true);
 
   -- 3. Gouvernance : company_id immuable côté client
   PERFORM set_config('request.jwt.claims', json_build_object('sub',u_adm,'role','authenticated')::text, true);
@@ -67,7 +68,6 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN ok := ok+1; END;
 
   -- 7. RLS : mutation client refusée tant que l'écriture n'est pas ouverte
-  UPDATE public.companies SET trial_ends_at = now() - interval '1 day' WHERE id = c;
   EXECUTE 'SET LOCAL ROLE authenticated';
   UPDATE public.company_members SET status = 'suspended' WHERE id = m_tech;
   GET DIAGNOSTICS n = ROW_COUNT;
@@ -78,7 +78,7 @@ BEGIN
   EXECUTE 'RESET ROLE';
 
   -- 8. Écriture ouverte : l'administrateur actif peut suspendre un technicien
-  UPDATE public.companies SET trial_ends_at = now() + interval '5 days' WHERE id = c;
+  UPDATE public.subscriptions SET cancel_at_period_end = true WHERE company_id = c;
   EXECUTE 'SET LOCAL ROLE authenticated';
   UPDATE public.company_members SET status = 'suspended' WHERE id = m_tech;
   GET DIAGNOSTICS n = ROW_COUNT;
