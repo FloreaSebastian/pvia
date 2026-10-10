@@ -19,11 +19,16 @@ import { useCompany } from "@/hooks/use-company";
 import { PvStatusPill, StatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
 import { useContainerWidth } from "@/hooks/use-viewport";
+import { signatureCutoff, PV_DRAFT_STATUSES, PV_PENDING_STATUSES } from "@/lib/dashboard";
 
 /** Largeur réelle (conteneur, pas fenêtre) à partir de laquelle le tableau tient. */
 const TABLE_MIN_WIDTH = 900;
 
 export const Route = createFileRoute("/_authenticated/pv/")({
+  validateSearch: (search: { status?: unknown; late?: unknown }): { status?: StatusFilterId; late?: boolean } => ({
+    status: (["all", "brouillon", "en_attente", "signe", "refuse"].includes(String(search.status)) ? String(search.status) : "all") as StatusFilterId,
+    late: search.late === true || search.late === "true",
+  }),
   component: PvList,
   head: () => ({ meta: [{ title: "Procès-verbaux — PVIA" }] }),
 });
@@ -49,8 +54,8 @@ type Pv = {
  * (brouillon, en_cours, envoye, en_attente(_signature), signe, cloture, refuse, annule).
  */
 const STATUS_GROUPS = {
-  brouillon: ["brouillon", "en_cours"],
-  en_attente: ["en_attente", "en_attente_signature", "envoye", "envoye_au_client"],
+  brouillon: PV_DRAFT_STATUSES,
+  en_attente: PV_PENDING_STATUSES,
   signe: ["signe", "signe_par_client", "cloture"],
   refuse: ["refuse", "annule"],
 } as const;
@@ -102,7 +107,9 @@ function PvList() {
   const { deny } = useBlockedActionGuard();
   const [items, setItems] = useState<Pv[]>([]);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilterId>("all");
+  const search = Route.useSearch();
+  const statusFilter = search.status ?? "all";
+  const setStatusFilter = (status: StatusFilterId) => { void navigate({ to: "/pv", search: { status, late: false } }); };
   const [reserveFilter, setReserveFilter] = useState<ReserveFilterId>("all");
   const [sort, setSort] = useState<SortId>(() => {
     if (typeof window === "undefined") return "recent";
@@ -121,18 +128,20 @@ function PvList() {
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
     setLoading(true);
-    const { data, error } = await supabase
+    let request = supabase
       .from("pv")
       .select("id,numero,type,status,reception_date,created_at,pdf_url,reception_with_reserves,chantier_id,client_id,chantiers(name,reference),clients(name),pv_reserves(count)")
       .eq("company_id", activeCompanyId)
       .order("created_at", { ascending: false });
+    if (search.late) request = request.in("status", [...STATUS_GROUPS.en_attente]).lt("sent_to_client_at", signatureCutoff());
+    const { data, error } = await request;
     if (error) {
       console.error("[pv.index] load error", error);
       toast.error(error.message);
     }
     setItems((data as unknown as Pv[]) ?? []);
     setLoading(false);
-  }, [activeCompanyId]);
+  }, [activeCompanyId, search.late]);
   useEffect(() => { load(); }, [load]);
 
   const counts = useMemo(() => {
@@ -239,7 +248,7 @@ function PvList() {
     { id: "reserves", label: "Réserves", value: counts.reserves_with, icon: ShieldAlert, tone: "text-orange-600 dark:text-orange-400" },
   ];
 
-  const statusLabel = STATUS_FILTERS.find((f) => f.id === statusFilter)?.label ?? "Tous";
+  const statusLabel = search.late ? "Signature attendue depuis plus de 7 jours" : STATUS_FILTERS.find((f) => f.id === statusFilter)?.label ?? "Tous";
   const reserveLabel = RESERVE_FILTERS.find((f) => f.id === reserveFilter)?.label ?? "Toutes";
   const sortLabel = SORT_OPTIONS.find((o) => o.id === sort)?.label ?? "Plus récent";
 

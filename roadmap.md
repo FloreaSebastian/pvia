@@ -34,3 +34,9 @@
 
 - [ ] Avertissement React « state update … hasn't mounted yet » au chargement de Solar Studio (antérieur à P0-A, sans impact visible)
 - [ ] Dette lint historique (mise en forme Prettier et `any` dans d'anciens tests) : `bun run lint` inutilisable comme garde-fou global
+
+## Tableau de bord professionnel
+
+- [x] Auditer les compteurs, les droits et les routes existantes
+- [x] Refaire la vue opérationnelle et ses filtres sans migration ni écriture de données
+- [x] Vérifier les tests et les vues locales 320–1440 px (fixtures locales, pas de parcours connecté)

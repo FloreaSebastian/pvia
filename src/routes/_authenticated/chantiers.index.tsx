@@ -21,9 +21,11 @@ import { useCompany } from "@/hooks/use-company";
 
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
+import { ACTIVE_CHANTIER_STATUSES } from "@/lib/dashboard";
 import { AddressAutocomplete, type AddressValue } from "@/components/pv/AddressAutocomplete";
 
 export const Route = createFileRoute("/_authenticated/chantiers/")({
+  validateSearch: (search: { active?: unknown }): { active?: boolean } => ({ active: search.active === true || search.active === "true" }),
   component: ChantiersPage,
   head: () => ({ meta: [{ title: "Chantiers — PVIA" }] }),
 });
@@ -81,7 +83,12 @@ function ChantiersPage() {
   const [form, setForm] = useState(empty);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
+  const search = Route.useSearch();
+  const [statusFilter, setLocalStatusFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
+  const setStatusFilter = (value: FilterValue) => {
+    setLocalStatusFilter(value);
+    if (search.active) void navigate({ to: "/chantiers", search: { active: false } });
+  };
   const [view, setView] = useState<"grid" | "list">("grid");
   // Largeur réellement disponible pour la page (container query), pas le viewport.
   const { ref: containerRef, width: containerWidth } = useContainerWidth<HTMLDivElement>();
@@ -238,6 +245,7 @@ function ChantiersPage() {
     const q = query.trim().toLowerCase();
     const now = Date.now();
     return items.filter((c) => {
+      if (search.active && !ACTIVE_CHANTIER_STATUSES.includes(c.status)) return false;
       if (statusFilter === "retard") {
         if (!c.end_date) return false;
         if (new Date(c.end_date).getTime() >= now) return false;
@@ -254,7 +262,7 @@ function ChantiersPage() {
         (clientName(c.client_id) ?? "").toLowerCase().includes(q)
       );
     });
-  }, [items, query, statusFilter, clientName]);
+  }, [items, query, statusFilter, clientName, search.active]);
 
   return (
     <div ref={containerRef} className="space-y-3 overflow-x-hidden">
@@ -446,6 +454,7 @@ function ChantiersPage() {
         })}
       </div>
 
+      {search.active && <div className="flex min-w-0 items-center gap-2 text-sm"><span>Chantiers en activité</span><Button variant="ghost" className="min-h-11" onClick={() => setStatusFilter("all")}><X />Effacer</Button></div>}
       {/* Secondary filters + results count */}
       <div className="flex items-center gap-2">
         <Sheet open={showMoreFilters} onOpenChange={setShowMoreFilters}>
