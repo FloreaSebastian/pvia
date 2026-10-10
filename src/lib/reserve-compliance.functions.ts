@@ -11,7 +11,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 function pct(n: number, d: number): number {
   if (!d) return 0;
@@ -22,20 +21,22 @@ export const getReserveComplianceMetrics = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ companyId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
-    const { data: m } = await supabaseAdmin
+    const { data: m, error: memberError } = await context.supabase
       .from("company_members")
       .select("id")
       .eq("company_id", data.companyId)
       .eq("user_id", context.userId)
       .eq("status", "active")
       .maybeSingle();
-    if (!m) throw new Error("Accès refusé.");
+    if (memberError || !m) throw new Error("Accès refusé.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Reserves
-    const { data: reserves } = await supabaseAdmin
+    const { data: reserves, error: reservesError } = await supabaseAdmin
       .from("pv_reserves")
       .select("id,status,assigned_to,due_date,lifted_at")
       .eq("company_id", data.companyId);
+    if (reservesError) throw new Error("Suivi documentaire indisponible.");
 
     const reservesTotal = (reserves ?? []).length;
     let validated = 0, rejected = 0, unassigned = 0, overdue = 0;
@@ -54,12 +55,13 @@ export const getReserveComplianceMetrics = createServerFn({ method: "POST" })
     }
 
     // Photos (sample latest 1000 to keep widget cheap on large tenants)
-    const { data: photos } = await supabaseAdmin
+    const { data: photos, error: photosError } = await supabaseAdmin
       .from("reserve_lift_item_photos" as any)
       .select("id,latitude,longitude,exif_metadata")
       .eq("company_id", data.companyId)
       .order("uploaded_at", { ascending: false })
       .limit(1000);
+    if (photosError) throw new Error("Suivi documentaire indisponible.");
 
     const photosTotal = (photos ?? []).length;
     let withGps = 0, withExif = 0;
@@ -69,24 +71,26 @@ export const getReserveComplianceMetrics = createServerFn({ method: "POST" })
     }
 
     // Anti-fraud: count audit events flagged as suspicious metadata
-    const { count: suspiciousCount } = await supabaseAdmin
+    const { count: suspiciousCount, error: suspiciousError } = await supabaseAdmin
       .from("audit_logs")
       .select("id", { count: "exact", head: true })
       .eq("company_id", data.companyId)
       .eq("action", "reserve_lift_photo.suspicious_metadata");
+    if (suspiciousError || suspiciousCount === null) throw new Error("Suivi documentaire indisponible.");
     const suspicious = suspiciousCount ?? 0;
 
     // Reserve-lift reports overall
-    const { count: liftsTotal } = await supabaseAdmin
+    const { count: liftsTotal, error: liftsError } = await supabaseAdmin
       .from("reserve_lift_reports")
       .select("id", { count: "exact", head: true })
       .eq("company_id", data.companyId);
 
-    const { count: liftsValidated } = await supabaseAdmin
+    const { count: liftsValidated, error: validatedError } = await supabaseAdmin
       .from("reserve_lift_reports")
       .select("id", { count: "exact", head: true })
       .eq("company_id", data.companyId)
       .eq("status", "client_validated");
+    if (liftsError || validatedError || liftsTotal === null || liftsValidated === null) throw new Error("Suivi documentaire indisponible.");
 
     return {
       reserves: {

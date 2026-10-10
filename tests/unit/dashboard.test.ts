@@ -2,6 +2,9 @@ import { describe, expect, it } from "bun:test";
 import { loadDashboard, signatureCutoff, dashboardDate } from "../../src/lib/dashboard";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/integrations/supabase/types";
+import { VISIT_DRAFT_STATUSES } from "../../src/lib/dashboard";
+import { groupedVisitPage, VISIT_RESUME_SEARCH, visitGroupStatuses, visitListSearchValidator } from "../../src/lib/visites/resume-filter";
+import { VisitFiltersSchema } from "../../src/lib/visites/schemas";
 
 function client(fail = false) {
   const requests: { table: string; head: boolean; calls: [string, ...unknown[]][] }[] = [];
@@ -35,6 +38,37 @@ function client(fail = false) {
   return { sb, requests };
 }
 describe("dashboard operational data", () => {
+  it("resume URL validates and uses exactly the counted visit statuses", async () => {
+    const validated = visitListSearchValidator.parse(VISIT_RESUME_SEARCH);
+    expect(validated).toEqual({ group: "a_reprendre" });
+    expect(visitListSearchValidator.parse({ group: 123 })).toEqual({ group: "all" });
+    expect(visitGroupStatuses("unknown")).toBeUndefined();
+    expect(VisitFiltersSchema.parse({ companyId: "11111111-1111-4111-8111-111111111111", ...validated }).group).toBe("a_reprendre");
+    const { sb, requests } = client();
+    await loadDashboard(sb, "company-A", true);
+    const visits = requests.filter((r) => r.table === "technical_visits");
+    expect(visits).toHaveLength(2);
+    for (const r of visits) expect(r.calls).toContainEqual(["in", "status", visitGroupStatuses(validated.group)]);
+    expect(visitGroupStatuses(validated.group)).toEqual(["a_planifier", "planifiee", "en_cours", "a_completer"]);
+  });
+  it("grouped search pages all four statuses before pagination without losing exact totals", async () => {
+    const streams = Object.fromEntries(VISIT_DRAFT_STATUSES.map((s, i) => [s, Array.from({ length: 35 }, (_, n) => ({
+      id: `${s}-${n}`, scheduled_at: n === 34 ? null : new Date(Date.UTC(2026, 9, 10, 0, 140 - n * 4 - i)).toISOString(),
+      created_at: "2026-10-01T00:00:00Z",
+    }))]));
+    const calls: number[] = [];
+    const read = async (s: string, offset: number, limit: number) => {
+      calls.push(limit);
+      return { rows: streams[s].slice(offset, offset + limit), total: streams[s].length };
+    };
+    const expected = Object.values(streams).flat().sort((a, b) =>
+      (b.scheduled_at ?? "").localeCompare(a.scheduled_at ?? "") || a.id.localeCompare(b.id));
+    const result = await groupedVisitPage(VISIT_DRAFT_STATUSES, 120, 10, read);
+    expect(result.total).toBe(140);
+    expect(result.page.map((r) => r.id)).toEqual(expected.slice(120, 130).map((r) => r.id));
+    expect(calls.every((n) => n === 10)).toBe(true);
+    expect((await groupedVisitPage(VISIT_DRAFT_STATUSES, 150, 10, read)).page).toEqual([]);
+  });
   it("counts remain exact beyond list limits and every query is company scoped", async () => {
     const { sb, requests } = client();
     const data = await loadDashboard(sb, "company-A", true, new Date("2026-10-10T12:00:00Z"));
