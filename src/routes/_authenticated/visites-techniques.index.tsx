@@ -173,6 +173,7 @@ function VisitesTechniquesPage() {
   // Never show another company's rows while the new company loads.
   useEffect(() => {
     setRows([]);
+    setKpis({ total: 0, a_planifier: 0, aujourdhui: 0, en_cours: 0, a_valider: 0 });
     setHasMore(false);
     setOffset(0);
   }, [activeCompanyId]);
