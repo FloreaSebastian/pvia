@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { useCompany } from "@/hooks/use-company";
 import { useRoleCaps } from "@/hooks/use-role-caps";
+import { canEnterVisitField } from "@/lib/role-access";
 import { useAuth } from "@/hooks/use-auth";
 import { isManageRole } from "@/lib/roles";
 import { listTechnicalVisits, listVisitAssignees } from "@/lib/visites.functions";
@@ -98,9 +99,7 @@ function VisitesTechniquesPage() {
   const caps = useRoleCaps();
   const { user } = useAuth();
   const canEnterField = (v: { assigned_to: string | null; status: string }) =>
-    planAllowed &&
-    !["validee", "archivee"].includes(v.status) &&
-    (caps.manage || (activeRole === "technicien" && caps.terrainAssigned && !!user?.id && v.assigned_to === user.id));
+    canEnterVisitField(caps, activeRole, user?.id, v, planAllowed);
 
   const listFn = useServerFn(listTechnicalVisits);
   const assigneesFn = useServerFn(listVisitAssignees);

@@ -41,11 +41,7 @@ export const MANAGE_ROLES = [
 ] as const;
 
 /** Peut signer côté entreprise (PV, levées). */
-export const SIGN_ROLES = [
-  "directeur",
-  "responsable_exploitation",
-  "conducteur_travaux",
-] as const;
+export const SIGN_ROLES = ["directeur", "responsable_exploitation", "conducteur_travaux"] as const;
 
 export function isOwnerRole(role?: string | null): boolean {
   return !!role && (OWNER_ROLES as readonly string[]).includes(role);
@@ -88,7 +84,8 @@ export const ROLE_META: Record<
   technicien: {
     label: "Technicien",
     short: "Technicien",
-    description: "Saisie terrain des visites qui lui sont affectées (réponses, photos de visite et de PV). Consultation du reste, sans création de PV, signature ni validation.",
+    description:
+      "Saisie terrain des visites qui lui sont affectées (réponses, photos de visite et de PV). Consultation du reste, sans création de PV, signature ni validation.",
     badgeClass: "bg-green-600 text-white hover:bg-green-600/90",
     emoji: "🔧",
   },

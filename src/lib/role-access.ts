@@ -348,3 +348,20 @@ export function allowedSettings(
   const admin = !!role && isAdminRole(role);
   return SETTINGS_ENTRIES.filter((e) => e.access === "all" || admin);
 }
+
+/**
+ * Peut ouvrir la saisie terrain d'une visite (miroir de can_edit_technical_visit) :
+ * gestionnaire, ou technicien actif affecté ; écriture confirmée, fonctionnalité
+ * incluse et visite non figée.
+ */
+export function canEnterVisitField(
+  caps: Pick<RoleCapabilities, "manage" | "terrainAssigned">,
+  role: string | null | undefined,
+  userId: string | null | undefined,
+  visit: { assigned_to: string | null; status: string },
+  featureIncluded: boolean,
+): boolean {
+  if (!featureIncluded || ["validee", "archivee"].includes(visit.status)) return false;
+  if (caps.manage) return true;
+  return role === "technicien" && caps.terrainAssigned && !!userId && visit.assigned_to === userId;
+}
