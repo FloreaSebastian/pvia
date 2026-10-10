@@ -154,7 +154,8 @@ export function DashboardView({
         </div>
         {refreshError && data ? (
           <p role="alert" className="border-l-4 border-warning bg-warning/10 p-3 text-sm">
-            Actualisation impossible. Les chiffres affichés datent de {updatedAt ?? "la dernière mise à jour"}.
+            Actualisation impossible. Les chiffres affichés datent de{" "}
+            {updatedAt ?? "la dernière mise à jour"}.
           </p>
         ) : null}
       </header>
@@ -170,10 +171,7 @@ export function DashboardView({
           </Button>
         </div>
       ) : null}
-      <div
-        className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4"
-        aria-busy={loading}
-      >
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4" aria-busy={loading}>
         {metrics.map((k) => (
           <Link
             key={k.label}
@@ -197,7 +195,9 @@ export function DashboardView({
                 k.value.toLocaleString("fr-FR")
               )}
             </p>
-            <p className="mt-1 text-sm font-medium leading-tight [overflow-wrap:anywhere] sm:mt-2">{k.label}</p>
+            <p className="mt-1 text-sm font-medium leading-tight [overflow-wrap:anywhere] sm:mt-2">
+              {k.label}
+            </p>
           </Link>
         ))}
       </div>
@@ -385,13 +385,13 @@ export function DashboardView({
                   >
                     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                       <p className="truncate text-sm font-semibold">{p.numero}</p>
-                      {isKnownPvStatus(p.status) ? (
-                        <PvStatusPill status={p.status} />
-                      ) : (
-                        <StatusPill tone="neutral">
-                          En traitement
-                        </StatusPill>
-                      )}
+                      <span className="[&>span]:h-7 [&>span]:text-sm">
+                        {isKnownPvStatus(p.status) ? (
+                          <PvStatusPill status={p.status} />
+                        ) : (
+                          <StatusPill tone="neutral">En traitement</StatusPill>
+                        )}
+                      </span>
                     </div>
                     <p className="mt-3 truncate text-sm font-medium">
                       {p.clients?.name || "Client non renseigné"}
