@@ -80,7 +80,7 @@ export const ROLE_PROFILES: Record<CompanyRoleValue, RoleProfile> = {
       "Consulter toute l’activité",
     ],
     cannot: [],
-    order: ["banner", "metrics", "main", "recent", "visits"],
+    order: ["banner", "main", "metrics", "recent", "visits"],
     planningFirst: false,
     mobile: ["pv", "reserves", "chantiers"],
     tone: "primary",
@@ -134,7 +134,7 @@ export const ROLE_PROFILES: Record<CompanyRoleValue, RoleProfile> = {
     subtitle: "Suivez l’activité sans modifier les dossiers.",
     can: ["Consulter PV, réserves, chantiers et planning"],
     cannot: ["Créer, modifier, signer ou valider", "Saisir une visite, même affectée"],
-    order: ["banner", "metrics", "main", "recent", "visits"],
+    order: ["banner", "main", "recent", "metrics", "visits"],
     planningFirst: false,
     mobile: ["pv", "reserves", "chantiers"],
     tone: "muted",
@@ -149,6 +149,28 @@ export const ROLE_TONE_CLASS: Record<RoleProfile["tone"], string> = {
   accent: "border-border bg-secondary text-secondary-foreground",
   muted: "border-border bg-muted text-foreground",
 };
+
+export type RoleShortcut = { to: "/equipe" | "/chantiers/calendrier" | "/clients" | "/reserves" | "/pv" | "/chantiers"; label: string };
+
+/** Raccourci secondaire de consultation/organisation propre au rôle (jamais une écriture). */
+export function roleShortcuts(role: CompanyRoleValue | null | undefined): RoleShortcut[] {
+  switch (role) {
+    case "directeur":
+      return [{ to: "/equipe", label: "Gérer l’équipe" }];
+    case "responsable_exploitation":
+      return [{ to: "/chantiers/calendrier", label: "Ouvrir le planning" }, { to: "/equipe", label: "Gérer l’équipe" }];
+    case "conducteur_travaux":
+      return [{ to: "/reserves", label: "Suivre les réserves" }];
+    case "technicien":
+      return [{ to: "/chantiers/calendrier", label: "Mon planning" }];
+    case "assistant_admin":
+      return [{ to: "/clients", label: "Gérer les clients" }, { to: "/chantiers/calendrier", label: "Organiser le planning" }];
+    case "lecture_seule":
+      return [{ to: "/pv", label: "Consulter les PV" }, { to: "/reserves", label: "Consulter les réserves" }];
+    default:
+      return [];
+  }
+}
 
 export function roleLabel(role: CompanyRoleValue | null | undefined): string {
   return role ? ROLE_META[role].label : "Rôle inconnu";
