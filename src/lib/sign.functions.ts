@@ -2,6 +2,7 @@ import { toInetOrNull } from "@/lib/client-auth.server";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { canSignAsCompany } from "@/lib/roles";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildAndStorePvPdf } from "./pdf.server";
@@ -74,12 +75,16 @@ export const sendPvToClient = createServerFn({ method: "POST" })
     // Verify caller is member of company
     const { data: membership } = await supabaseAdmin
       .from("company_members")
-      .select("id")
+      .select("id,role")
       .eq("company_id", pv.company_id)
       .eq("user_id", userId)
       .eq("status", "active")
       .maybeSingle();
     if (!membership) throw new Error("Accès refusé.");
+    // Envoi à signer = finalisation : rôles signataires uniquement (comme createPv).
+    if (!canSignAsCompany((membership as { role?: string }).role ?? null)) {
+      throw new Error("Votre rôle ne permet pas d'envoyer un PV à signer.");
+    }
 
     await (await import("./plan-guard.server")).assertCompanyWriteAccess(pv.company_id, userId);
 
