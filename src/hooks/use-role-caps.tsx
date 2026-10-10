@@ -11,7 +11,6 @@ export function useRoleCaps(): RoleCapabilities & {
   role: string | null;
   /** true quand rôle et accès écriture sont connus (ouverts ou non). */
   known: boolean;
-  userId?: never;
 } {
   const { activeRole, loading } = useCompany();
   const { writeKnown, blocked } = useBillingGate();
