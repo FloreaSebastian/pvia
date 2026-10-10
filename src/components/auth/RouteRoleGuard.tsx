@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/use-company";
 import type { CompanyRoleValue } from "@/lib/roles";
+import { CompanyContextError } from "@/components/app/CompanyContextBanner";
 
 type Props = {
   allow: readonly CompanyRoleValue[];
@@ -20,14 +21,14 @@ type Props = {
  * route level, blocking direct URL navigation.
  */
 export function RouteRoleGuard({ allow, children, redirectTo = "/dashboard" }: Props) {
-  const { loading, activeRole, memberships } = useCompany();
+  const { loading, activeRole, memberships, status } = useCompany();
   const navigate = useNavigate();
   const denied = useRef(false);
 
   const isAllowed = !!activeRole && (allow as readonly string[]).includes(activeRole);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || status === "error") return;
     // No active company / no role at all → let other flows handle it
     if (!activeRole && memberships.length === 0) return;
     if (!isAllowed && !denied.current) {
@@ -35,7 +36,12 @@ export function RouteRoleGuard({ allow, children, redirectTo = "/dashboard" }: P
       toast.error("Vous n'avez pas les droits nécessaires pour accéder à cette page.");
       navigate({ to: redirectTo });
     }
-  }, [loading, activeRole, memberships.length, isAllowed, navigate, redirectTo]);
+  }, [loading, status, activeRole, memberships.length, isAllowed, navigate, redirectTo]);
+
+  // Erreur de lecture des accès : message + reprise dans le bandeau, pas de redirection.
+  if (status === "error") {
+    return <CompanyContextError compact />;
+  }
 
   if (loading || !isAllowed) {
     return (
