@@ -49,6 +49,7 @@ import { isFeatureEnabled } from "@/lib/feature-flags";
 import { useSuspension } from "@/hooks/use-suspension";
 import { useIsPlatformAdmin } from "@/hooks/use-platform-admin";
 import { getCompanyVisualIdentity } from "@/lib/company-visual";
+import { RoleBadge } from "@/components/app/RoleBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,7 +90,7 @@ const companyMenu: readonly CompanyMenuItem[] = [
   { to: "/equipe", label: "Équipe", icon: UsersRound, adminOnly: true },
   { to: "/sous-traitants", label: "Sous-traitants", icon: Handshake, adminOnly: true },
   { to: "/conformite", label: "Centre de conformité", icon: ShieldCheck, adminOnly: true },
-  { to: "/billing", label: "Facturation", icon: CreditCard, ownerOnly: true },
+  { to: "/billing", label: "Facturation", icon: CreditCard, adminOnly: true },
   { to: "/dashboard", label: "Aide & support", icon: HelpCircle },
 ] as const;
 
@@ -371,6 +372,7 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
               </WriteAccessGate>
               </div>
             )}
+            <HeaderRoleBadge />
             <NotificationsBell />
 
             <div
@@ -390,13 +392,18 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
           {children}
         </main>
       </div>
-      <BottomNav />
+      <BottomNav onOpenMenu={() => setOpen(true)} menuOpen={open} />
       <InstallPrompt companyId={activeCompanyId} />
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 }
 
+
+function HeaderRoleBadge() {
+  const { activeRole } = useCompany();
+  return <RoleBadge role={activeRole} className="hidden sm:inline-flex" />;
+}
 
 function CompanyMenu({
   userEmail,
@@ -436,7 +443,8 @@ function CompanyMenu({
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-semibold text-foreground">{companyName}</p>
-            <p className="truncate text-[10px] text-muted-foreground">{userEmail ?? "Utilisateur"}</p>
+            <p className="truncate text-xs text-muted-foreground">{userEmail ?? "Utilisateur"}</p>
+            <RoleBadge role={activeRole} className="mt-1" />
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
