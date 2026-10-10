@@ -100,9 +100,9 @@ export function DashboardView({
             Votre activité chantier, au même endroit.
           </p>
         </div>
-        <div className="grid gap-2 min-[400px]:grid-cols-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {canCreate && (
-            <Button asChild className="min-h-11">
+            <Button asChild className="col-span-2 min-h-11">
               <Link to="/pv/new" search={{ fresh: 1 }}>
                 <Plus />
                 Nouveau PV
