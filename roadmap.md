@@ -39,4 +39,4 @@
 
 - [x] Auditer les compteurs, les droits et les routes existantes
 - [x] Refaire la vue opérationnelle et ses filtres sans migration ni écriture de données
-- [ ] Vérifier les tests et les vues locales 320–1440 px
+- [x] Vérifier les tests et les vues locales 320–1440 px (fixtures locales, pas de parcours connecté)

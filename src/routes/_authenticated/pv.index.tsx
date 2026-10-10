@@ -19,7 +19,7 @@ import { useCompany } from "@/hooks/use-company";
 import { PvStatusPill, StatusPill } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/app/PageHeader";
 import { useContainerWidth } from "@/hooks/use-viewport";
-import { signatureCutoff } from "@/lib/dashboard";
+import { signatureCutoff, PV_DRAFT_STATUSES, PV_PENDING_STATUSES } from "@/lib/dashboard";
 
 /** Largeur réelle (conteneur, pas fenêtre) à partir de laquelle le tableau tient. */
 const TABLE_MIN_WIDTH = 900;
@@ -54,8 +54,8 @@ type Pv = {
  * (brouillon, en_cours, envoye, en_attente(_signature), signe, cloture, refuse, annule).
  */
 const STATUS_GROUPS = {
-  brouillon: ["brouillon", "en_cours"],
-  en_attente: ["en_attente", "en_attente_signature", "envoye", "envoye_au_client"],
+  brouillon: PV_DRAFT_STATUSES,
+  en_attente: PV_PENDING_STATUSES,
   signe: ["signe", "signe_par_client", "cloture"],
   refuse: ["refuse", "annule"],
 } as const;
