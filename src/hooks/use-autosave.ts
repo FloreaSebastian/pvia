@@ -1,105 +1,97 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createAutosaveCore, type SaveStatus } from "@/lib/autosave-core";
 
-export type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "error";
+export type { SaveStatus };
 
 type Options<T> = {
-  /** Current value of the form */
+  /**
+   * Portée de l'éditeur (ex. `user:company`). null = données non chargées
+   * avec succès : autosave et enregistrement manuel fermés.
+   */
+  scope: string | null;
+  /** Base chargée pour cette portée (requise quand scope est non null). */
+  loaded: T | undefined;
+  /** Valeur courante saisie dans `scope`. */
   value: T;
-  /** Async save handler. Throw to mark as error. */
-  onSave: (value: T) => Promise<void>;
-  /** Debounce delay in ms before auto-save fires after last change. Default 800. */
+  /** Enregistre `value` dans `scope` (jamais la portée active au moment de l'appel). */
+  onSave: (scope: string, value: T) => Promise<void>;
   delay?: number;
-  /** Disable autosave (still allows manual save via saveNow). */
+  /** Autosave désactivé (droits) ; enregistrement manuel aussi refusé. */
   disabled?: boolean;
-  /** Compare equality to detect "dirty". Defaults to JSON deep-equality. */
-  isEqual?: (a: T, b: T) => boolean;
 };
 
 /**
- * Debounced autosave hook with status indicator + dirty detection.
- *
- * - "dirty" appears as soon as `value` differs from the last committed baseline.
- * - After `delay` ms of inactivity, saves automatically.
- * - `saveNow()` triggers an immediate save (e.g. Cmd+S).
- * - `reset()` snaps the baseline to the current value without saving.
+ * Autosave différé, borné à une portée. `saveNow()` renvoie true seulement si
+ * l'enregistrement a réellement réussi — jamais de succès après une erreur absorbée.
  */
-export function useAutosave<T>({
-  value,
-  onSave,
-  delay = 800,
-  disabled,
-  isEqual,
-}: Options<T>) {
+export function useAutosave<T>({ scope, loaded, value, onSave, delay = 800, disabled }: Options<T>) {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const baselineRef = useRef<T>(value);
+  const saveRef = useRef(onSave);
+  saveRef.current = onSave;
+  const coreRef = useRef<ReturnType<typeof createAutosaveCore<T>> | null>(null);
+  if (!coreRef.current) {
+    coreRef.current = createAutosaveCore<T>({
+      save: (s, v) => saveRef.current(s, v),
+      onStatus: setStatus,
+      onSaved: setLastSavedAt,
+    });
+  }
+  const core = coreRef.current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inFlightRef = useRef<Promise<void> | null>(null);
-  const latestRef = useRef<T>(value);
 
-  const eq = useCallback(
-    (a: T, b: T) => (isEqual ? isEqual(a, b) : JSON.stringify(a) === JSON.stringify(b)),
-    [isEqual],
-  );
-
-  const commit = useCallback(async () => {
-    if (inFlightRef.current) await inFlightRef.current;
-    const snapshot = latestRef.current;
-    if (eq(snapshot, baselineRef.current)) {
-      setStatus("idle");
-      return;
-    }
-    setStatus("saving");
-    const p = (async () => {
-      try {
-        await onSave(snapshot);
-        baselineRef.current = snapshot;
-        setLastSavedAt(new Date());
-        // If the value moved again while saving, stay dirty
-        if (!eq(latestRef.current, baselineRef.current)) setStatus("dirty");
-        else setStatus("saved");
-      } catch {
-        setStatus("error");
-      } finally {
-        inFlightRef.current = null;
-      }
-    })();
-    inFlightRef.current = p;
-    await p;
-  }, [eq, onSave]);
-
-  // Track latest value
-  useEffect(() => { latestRef.current = value; }, [value]);
-
-  // Trigger autosave on dirty
+  // Ouverture/fermeture de portée : minuterie et réponses de l'ancienne portée abandonnées.
+  const openedRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (disabled) return;
-    const dirty = !eq(value, baselineRef.current);
-    if (!dirty) return;
-    setStatus("dirty");
+    const key = scope !== null && loaded !== undefined ? scope : null;
+    if (openedRef.current === key) return;
+    openedRef.current = key;
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => { void commit(); }, delay);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [value, delay, disabled, commit, eq]);
+    timerRef.current = null;
+    core.open(key, key === null ? undefined : loaded);
+    setLastSavedAt(null);
+  }, [scope, loaded, core]);
 
-  // Auto-clear "saved" badge after a moment
+  useEffect(() => {
+    if (!core.update(openedRef.current ?? null, value)) return;
+    if (disabled || !core.isDirty()) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      void core.flush();
+    }, delay);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [value, delay, disabled, core]);
+
   useEffect(() => {
     if (status !== "saved") return;
     const t = setTimeout(() => setStatus((s) => (s === "saved" ? "idle" : s)), 2000);
     return () => clearTimeout(t);
   }, [status]);
 
-  const saveNow = useCallback(async () => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    await commit();
-  }, [commit]);
+  const saveNow = useCallback(async (): Promise<boolean> => {
+    if (disabled) return false;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    return core.flush();
+  }, [core, disabled]);
 
-  const resetBaseline = useCallback((next?: T) => {
-    baselineRef.current = next ?? latestRef.current;
-    setStatus("idle");
-  }, []);
+  const resetBaseline = useCallback(
+    (next: T) => {
+      if (openedRef.current) core.rebase(openedRef.current, next);
+    },
+    [core],
+  );
 
-  const isDirty = !eq(value, baselineRef.current);
-
-  return { status, lastSavedAt, isDirty, saveNow, resetBaseline };
+  return {
+    status,
+    lastSavedAt,
+    isDirty: core.isDirty(),
+    ready: openedRef.current !== null && openedRef.current !== undefined,
+    saveNow,
+    resetBaseline,
+  };
 }
