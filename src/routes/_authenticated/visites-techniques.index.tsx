@@ -451,7 +451,6 @@ function VisitesTechniquesPage() {
               </Button>
             </WriteAccessGate>
           ) : null}
-
         </Card>
       ) : (
         <ul className="space-y-2">
