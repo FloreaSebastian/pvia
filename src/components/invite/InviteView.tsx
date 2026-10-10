@@ -71,7 +71,8 @@ function CodeLink({ token, label }: { token: string; label: string }) {
   return (
     <Button asChild className="h-auto min-h-11 w-full whitespace-normal py-2 text-center">
       <Link to="/login" search={{ invite: token }}>
-        <KeyRound className="h-4 w-4" aria-hidden /> {label}
+        <KeyRound className="h-4 w-4" aria-hidden />
+        <span className="min-w-0">{label}</span>
       </Link>
     </Button>
   );
