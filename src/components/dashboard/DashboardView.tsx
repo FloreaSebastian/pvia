@@ -146,9 +146,17 @@ export function DashboardView({
   const timestamps = all.map((x) => x.dataUpdatedAt).filter(Boolean);
   const updatedAt = timestamps.length ? Math.min(...timestamps) : 0;
   const errors = all.filter((x) => x.isError).length;
-  const roleKey = (scope.role && scope.role in ROLE_PROFILES ? scope.role : null) as CompanyRoleValue | null;
+  const roleKey = (
+    scope.role && scope.role in ROLE_PROFILES ? scope.role : null
+  ) as CompanyRoleValue | null;
   const profile = roleKey ? ROLE_PROFILES[roleKey] : null;
-  const layout: DashboardBlock[] = profile?.order ?? ["banner", "main", "metrics", "visits", "recent"];
+  const layout: DashboardBlock[] = profile?.order ?? [
+    "banner",
+    "main",
+    "metrics",
+    "visits",
+    "recent",
+  ];
   const shortcuts = roleShortcuts(roleKey);
   const priorityReliable =
     q.reserves.data !== undefined &&
@@ -172,7 +180,8 @@ export function DashboardView({
             </p>
             {profile && (
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{profile.title}</span> · {profile.subtitle}
+                <span className="font-medium text-foreground">{profile.title}</span> ·{" "}
+                {profile.subtitle}
               </p>
             )}
             <p className="text-sm text-muted-foreground">
@@ -236,13 +245,23 @@ export function DashboardView({
         </div>
         {profile && (
           <details className="rounded-md border border-border bg-card px-3 text-sm">
-            <summary className="focus-ring min-h-11 cursor-pointer py-3 font-semibold">Vos accès</summary>
+            <summary className="focus-ring min-h-11 cursor-pointer py-3 font-semibold">
+              Vos accès
+            </summary>
             <ul className="space-y-1 pb-3">
               {profile.can.map((t) => (
-                <li key={t}><span aria-hidden>✓ </span><span className="sr-only">Autorisé : </span>{t}</li>
+                <li key={t}>
+                  <span aria-hidden>✓ </span>
+                  <span className="sr-only">Autorisé : </span>
+                  {t}
+                </li>
               ))}
               {profile.cannot.map((t) => (
-                <li key={t} className="text-muted-foreground"><span aria-hidden>✕ </span><span className="sr-only">Non autorisé : </span>{t}</li>
+                <li key={t} className="text-muted-foreground">
+                  <span aria-hidden>✕ </span>
+                  <span className="sr-only">Non autorisé : </span>
+                  {t}
+                </li>
               ))}
             </ul>
           </details>
@@ -298,7 +317,11 @@ export function DashboardView({
         className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
         style={blockOrder(layout, "main")}
       >
-        <section className="min-w-0" aria-label="Priorités" style={{ order: profile?.planningFirst ? 2 : 1 }}>
+        <section
+          className="min-w-0"
+          aria-label="Priorités"
+          style={{ order: profile?.planningFirst ? 2 : 1 }}
+        >
           <SectionTitle title="Priorités" icon={AlertTriangle} />
           {priorityReliable && !q.reserves.data?.count && !q.late.data?.count ? (
             <p className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
@@ -406,7 +429,11 @@ export function DashboardView({
             </div>
           )}
         </section>
-        <section className="min-w-0" aria-label="Planning" style={{ order: profile?.planningFirst ? 1 : 2 }}>
+        <section
+          className="min-w-0"
+          aria-label="Planning"
+          style={{ order: profile?.planningFirst ? 1 : 2 }}
+        >
           <SectionTitle title="Planning" icon={CalendarDays} />
           <Tabs
             value={period}
@@ -478,7 +505,11 @@ export function DashboardView({
         </section>
       </div>
       {scope.canVisit && (
-        <section className="min-w-0" aria-label="Visites à reprendre" style={blockOrder(layout, "visits")}>
+        <section
+          className="min-w-0"
+          aria-label="Visites à reprendre"
+          style={blockOrder(layout, "visits")}
+        >
           <GroupHeading
             label={scope.role === "technicien" ? "Mes visites à reprendre" : "Visites à reprendre"}
             count={q.visits.data?.count}
@@ -556,7 +587,11 @@ export function DashboardView({
           </SectionState>
         </section>
       )}
-      <section className="min-w-0" aria-label="Derniers dossiers PV" style={blockOrder(layout, "recent")}>
+      <section
+        className="min-w-0"
+        aria-label="Derniers dossiers PV"
+        style={blockOrder(layout, "recent")}
+      >
         <GroupHeading label="Derniers dossiers PV">
           <Link
             to="/pv"

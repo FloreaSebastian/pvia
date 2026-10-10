@@ -1,4 +1,8 @@
-import { LockedActionButton, useWriteAccess, useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
+import {
+  LockedActionButton,
+  useWriteAccess,
+  useBlockedActionGuard,
+} from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -105,9 +109,7 @@ type Member = {
 };
 
 // Rôles disponibles à l'invitation / modification (le rôle Directeur ne se distribue pas).
-const ASSIGNABLE_ROLES: CompanyRoleValue[] = ROLE_ORDER.filter(
-  (r) => r !== "directeur",
-);
+const ASSIGNABLE_ROLES: CompanyRoleValue[] = ROLE_ORDER.filter((r) => r !== "directeur");
 
 /** Messages techniques (PostgREST / Postgres) → messages métier lisibles. */
 function friendlyError(err: unknown, fallback: string) {
@@ -116,12 +118,9 @@ function friendlyError(err: unknown, fallback: string) {
   if (/Directeur/i.test(raw)) return raw; // messages métier déjà en clair (triggers)
   if (/row-level security|permission denied|42501/i.test(raw))
     return "Droits insuffisants pour cette action.";
-  if (/duplicate key|unique/i.test(raw))
-    return "Cette personne est déjà membre ou déjà invitée.";
-  if (/rate|trop de/i.test(raw))
-    return "Trop de tentatives, réessayez dans quelques minutes.";
-  if (/JWT|token|fetch|network/i.test(raw))
-    return "Connexion interrompue, réessayez.";
+  if (/duplicate key|unique/i.test(raw)) return "Cette personne est déjà membre ou déjà invitée.";
+  if (/rate|trop de/i.test(raw)) return "Trop de tentatives, réessayez dans quelques minutes.";
+  if (/JWT|token|fetch|network/i.test(raw)) return "Connexion interrompue, réessayez.";
   return fallback;
 }
 
@@ -137,15 +136,9 @@ function RoleBadge({ role }: { role: CompanyRoleValue }) {
 
 function StatusBadge({ m }: { m: Member }) {
   const expired =
-    m.status === "invited" &&
-    !!m.invite_expires_at &&
-    new Date(m.invite_expires_at) < new Date();
+    m.status === "invited" && !!m.invite_expires_at && new Date(m.invite_expires_at) < new Date();
   if (m.status === "active")
-    return (
-      <Badge className="bg-success text-success-foreground hover:bg-success/90">
-        Actif
-      </Badge>
-    );
+    return <Badge className="bg-success text-success-foreground hover:bg-success/90">Actif</Badge>;
   if (m.status === "suspended") return <Badge variant="destructive">Suspendu</Badge>;
   return (
     <Badge variant="outline" className="gap-1">
@@ -182,7 +175,8 @@ function TeamPage() {
   const loadGen = useRef(0);
   const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
   /** Les mutations n'agissent que sur la liste chargée pour l'entreprise active. */
-  const scopeCompanyId = loadedCompanyId && loadedCompanyId === activeCompanyId ? loadedCompanyId : null;
+  const scopeCompanyId =
+    loadedCompanyId && loadedCompanyId === activeCompanyId ? loadedCompanyId : null;
 
   async function load() {
     const gen = ++loadGen.current;
@@ -207,18 +201,13 @@ function TeamPage() {
       toast.error(friendlyError(error, "Impossible de charger l'équipe."));
       return;
     }
-    const raw = ((data as unknown) as Member[]) ?? [];
+    const raw = (data as unknown as Member[]) ?? [];
     const ids = raw.map((m) => m.user_id).filter((x): x is string => !!x);
     let profileMap: Record<string, string | null> = {};
     if (ids.length) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id,full_name")
-        .in("id", ids);
+      const { data: profs } = await supabase.from("profiles").select("id,full_name").in("id", ids);
       if (gen !== loadGen.current) return;
-      profileMap = Object.fromEntries(
-        (profs ?? []).map((p) => [p.id, p.full_name]),
-      );
+      profileMap = Object.fromEntries((profs ?? []).map((p) => [p.id, p.full_name]));
     }
     setMembers(
       raw.map((m) => ({
@@ -268,7 +257,8 @@ function TeamPage() {
   }
 
   async function resendInvite(m: Member) {
-    if (!scopeCompanyId || !m.invited_email || busyId || !members.some((x) => x.id === m.id)) return;
+    if (!scopeCompanyId || !m.invited_email || busyId || !members.some((x) => x.id === m.id))
+      return;
     setBusyId(m.id);
     try {
       await sendInviteFn({
@@ -438,8 +428,7 @@ function TeamPage() {
   function RowActions({ m }: { m: Member }) {
     const r = rights(m);
     const busy = busyId === m.id;
-    if (r.isSelf)
-      return <span className="text-xs text-muted-foreground">Vous</span>;
+    if (r.isSelf) return <span className="text-xs text-muted-foreground">Vous</span>;
     if (!r.canToggle && !r.canRemove && !r.canManageInvite)
       return <span className="text-xs text-muted-foreground">—</span>;
     return (
@@ -518,7 +507,10 @@ function TeamPage() {
         disabled={busyId === m.id}
         onValueChange={(v) => changeRole(m.id, v as CompanyRoleValue)}
       >
-        <SelectTrigger className="h-11 w-full min-w-0 sm:w-44" aria-label={`Rôle de ${memberLabel(m)}`}>
+        <SelectTrigger
+          className="h-11 w-full min-w-0 sm:w-44"
+          aria-label={`Rôle de ${memberLabel(m)}`}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -553,93 +545,92 @@ function TeamPage() {
           <p className="text-xs font-medium uppercase tracking-wider text-primary">
             Multi-utilisateurs
           </p>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
-            Équipe
-          </h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Équipe</h1>
           <p className="text-sm text-muted-foreground">
             Gérez les membres, les rôles BTP et les accès de votre entreprise.
           </p>
         </div>
-        {isAdmin && (writeBlocked ? (
-          <LockedActionButton label="Inviter un membre" className="h-11 w-full sm:w-auto">
-            Inviter un membre
-          </LockedActionButton>
-        ) : (
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
-              <Button className="h-11 w-full shadow-brand sm:w-auto">
-                <Plus className="h-4 w-4" aria-hidden /> Inviter un membre
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Inviter un membre</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={invite} className="space-y-4">
-                <div>
-                  <Label htmlFor="invite-email">Email *</Label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    inputMode="email"
-                    className="h-11"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="collegue@entreprise.fr"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    À l'inscription avec cet email, l'invitation sera automatiquement acceptée.
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="invite-role">Rôle</Label>
-                  <Select
-                    value={inviteRole}
-                    onValueChange={(v) => setInviteRole(v as CompanyRoleValue)}
-                  >
-                    <SelectTrigger id="invite-role" className="h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ASSIGNABLE_ROLES.map((r) => {
-                        const m = ROLE_META[r];
-                        return (
-                          <SelectItem key={r} value={r}>
-                            <div>
-                              <div className="font-medium">
-                                {m.emoji} {m.label}
+        {isAdmin &&
+          (writeBlocked ? (
+            <LockedActionButton label="Inviter un membre" className="h-11 w-full sm:w-auto">
+              Inviter un membre
+            </LockedActionButton>
+          ) : (
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <Button className="h-11 w-full shadow-brand sm:w-auto">
+                  <Plus className="h-4 w-4" aria-hidden /> Inviter un membre
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Inviter un membre</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={invite} className="space-y-4">
+                  <div>
+                    <Label htmlFor="invite-email">Email *</Label>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      inputMode="email"
+                      className="h-11"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="collegue@entreprise.fr"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      À l'inscription avec cet email, l'invitation sera automatiquement acceptée.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="invite-role">Rôle</Label>
+                    <Select
+                      value={inviteRole}
+                      onValueChange={(v) => setInviteRole(v as CompanyRoleValue)}
+                    >
+                      <SelectTrigger id="invite-role" className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ASSIGNABLE_ROLES.map((r) => {
+                          const m = ROLE_META[r];
+                          return (
+                            <SelectItem key={r} value={r}>
+                              <div>
+                                <div className="font-medium">
+                                  {m.emoji} {m.label}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  {m.description}
+                                </div>
                               </div>
-                              <div className="text-[11px] text-muted-foreground">
-                                {m.description}
-                              </div>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <RoleSummary role={inviteRole} />
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="submit"
-                    disabled={sending}
-                    className="h-11 w-full shadow-brand sm:w-auto"
-                  >
-                    {sending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : (
-                      <Mail className="h-4 w-4" aria-hidden />
-                    )}
-                    {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        ))}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <RoleSummary role={inviteRole} />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="submit"
+                      disabled={sending}
+                      className="h-11 w-full shadow-brand sm:w-auto"
+                    >
+                      {sending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      ) : (
+                        <Mail className="h-4 w-4" aria-hidden />
+                      )}
+                      {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ))}
       </div>
 
       {loading ? (
@@ -671,9 +662,7 @@ function TeamPage() {
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusBadge m={m} />
-                        {!rights(m).canEditRole && (
-                          <RoleBadge role={m.role as CompanyRoleValue} />
-                        )}
+                        {!rights(m).canEditRole && <RoleBadge role={m.role as CompanyRoleValue} />}
                       </div>
                     </div>
                   </div>
@@ -766,16 +755,13 @@ function TeamPage() {
         </div>
       </Card>
 
-      <AlertDialog
-        open={!!confirmRemove}
-        onOpenChange={(o) => !o && setConfirmRemove(null)}
-      >
+      <AlertDialog open={!!confirmRemove} onOpenChange={(o) => !o && setConfirmRemove(null)}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Retirer ce membre ?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmRemove ? memberLabel(confirmRemove) : ""} perdra immédiatement
-              l'accès à cette entreprise. Les documents créés restent conservés.
+              {confirmRemove ? memberLabel(confirmRemove) : ""} perdra immédiatement l'accès à cette
+              entreprise. Les documents créés restent conservés.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -790,16 +776,13 @@ function TeamPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={!!confirmCancel}
-        onOpenChange={(o) => !o && setConfirmCancel(null)}
-      >
+      <AlertDialog open={!!confirmCancel} onOpenChange={(o) => !o && setConfirmCancel(null)}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Annuler cette invitation ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le lien envoyé à {confirmCancel?.invited_email ?? "cette adresse"} sera
-              immédiatement inutilisable.
+              Le lien envoyé à {confirmCancel?.invited_email ?? "cette adresse"} sera immédiatement
+              inutilisable.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -824,10 +807,18 @@ function RoleSummary({ role }: { role: CompanyRoleValue }) {
       <p className="font-medium">{p.title}</p>
       <ul className="mt-1 space-y-0.5">
         {p.can.map((t) => (
-          <li key={t}><span aria-hidden>✓ </span><span className="sr-only">Autorisé : </span>{t}</li>
+          <li key={t}>
+            <span aria-hidden>✓ </span>
+            <span className="sr-only">Autorisé : </span>
+            {t}
+          </li>
         ))}
         {p.cannot.map((t) => (
-          <li key={t} className="text-muted-foreground"><span aria-hidden>✕ </span><span className="sr-only">Non autorisé : </span>{t}</li>
+          <li key={t} className="text-muted-foreground">
+            <span aria-hidden>✕ </span>
+            <span className="sr-only">Non autorisé : </span>
+            {t}
+          </li>
         ))}
       </ul>
     </div>

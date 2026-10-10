@@ -63,7 +63,12 @@ const allMainNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/pv", label: "Procès-verbaux", icon: FileText },
   { to: "/reserves", label: "Réserves", icon: AlertCircle },
-  { to: "/cahiers-des-charges", label: "Cahiers des charges", icon: ClipboardCheck, flag: "studies" as const },
+  {
+    to: "/cahiers-des-charges",
+    label: "Cahiers des charges",
+    icon: ClipboardCheck,
+    flag: "studies" as const,
+  },
   { to: "/visites-techniques", label: "Visites techniques", icon: ClipboardList },
   { to: "/chantiers/calendrier", label: "Calendrier", icon: Calendar },
   { to: "/chantiers", label: "Chantiers", icon: HardHat },
@@ -105,8 +110,13 @@ const adminMenu = [
   { to: "/admin/emails", label: "Emails", icon: Mail },
 ] as const;
 
-
-export function AppLayout({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
+export function AppLayout({
+  children,
+  userEmail,
+}: {
+  children: React.ReactNode;
+  userEmail?: string | null;
+}) {
   return (
     <ImmersiveProvider>
       <AppShell userEmail={userEmail}>{children}</AppShell>
@@ -114,7 +124,13 @@ export function AppLayout({ children, userEmail }: { children: React.ReactNode; 
   );
 }
 
-function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
+function AppShell({
+  children,
+  userEmail,
+}: {
+  children: React.ReactNode;
+  userEmail?: string | null;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -215,7 +231,9 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
     try {
       const { wipeMyPushDevices } = await import("@/lib/push-devices.functions");
       await wipeMyPushDevices();
-    } catch { /* network/offline — best-effort */ }
+    } catch {
+      /* network/offline — best-effort */
+    }
     await supabase.auth.signOut();
     toast.success("Déconnecté avec succès");
     navigate({ to: "/login" });
@@ -225,7 +243,11 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
 
   const isActive = (to: string) => {
     const p = location.pathname;
-    if (to === "/chantiers") return p === "/chantiers" || (p.startsWith("/chantiers/") && !p.startsWith("/chantiers/calendrier"));
+    if (to === "/chantiers")
+      return (
+        p === "/chantiers" ||
+        (p.startsWith("/chantiers/") && !p.startsWith("/chantiers/calendrier"))
+      );
     return p === to || p.startsWith(to + "/");
   };
 
@@ -271,17 +293,28 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
 
         {canWrite && (
           <div className="px-3 pt-3">
-            <WriteAccessGate label="Nouveau PV" lockedProps={{ className: "min-h-11 w-full lg:min-h-9", size: "sm" }}>
-            <Link to="/pv/new" search={{ fresh: 1 }} onClick={() => setOpen(false)} className="block">
-              <Button className="min-h-11 w-full shadow-brand lg:min-h-9" size="sm">
-                <Plus className="h-4 w-4" /> Nouveau PV
-              </Button>
-            </Link>
+            <WriteAccessGate
+              label="Nouveau PV"
+              lockedProps={{ className: "min-h-11 w-full lg:min-h-9", size: "sm" }}
+            >
+              <Link
+                to="/pv/new"
+                search={{ fresh: 1 }}
+                onClick={() => setOpen(false)}
+                className="block"
+              >
+                <Button className="min-h-11 w-full shadow-brand lg:min-h-9" size="sm">
+                  <Plus className="h-4 w-4" /> Nouveau PV
+                </Button>
+              </Link>
             </WriteAccessGate>
           </div>
         )}
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto p-3" aria-label="Navigation principale (latérale)">
+        <nav
+          className="flex-1 space-y-0.5 overflow-y-auto p-3"
+          aria-label="Navigation principale (latérale)"
+        >
           <p className="px-3 pb-1.5 pt-3 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Navigation
           </p>
@@ -301,14 +334,18 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
                 }`}
               >
                 {active && (
-                  <span className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" aria-hidden />
+                  <span
+                    className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                    aria-hidden
+                  />
                 )}
-                <Icon className={`h-4 w-4 transition-transform group-hover:scale-110 ${active ? "" : "text-muted-foreground"}`} />
+                <Icon
+                  className={`h-4 w-4 transition-transform group-hover:scale-110 ${active ? "" : "text-muted-foreground"}`}
+                />
                 <span className="flex-1 truncate">{i.label}</span>
               </Link>
             );
           })}
-
         </nav>
 
         {/* Footer: company menu */}
@@ -362,14 +399,17 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
             </button>
             {canWrite && (
               <div className="hidden xs:block">
-              <WriteAccessGate label="Créer un PV" lockedProps={{ size: "sm", className: "touch-target" }}>
-              <Link to="/pv/new" search={{ fresh: 1 }}>
-                <Button size="sm" className="touch-target shadow-elevation-sm">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Créer un PV</span>
-                </Button>
-              </Link>
-              </WriteAccessGate>
+                <WriteAccessGate
+                  label="Créer un PV"
+                  lockedProps={{ size: "sm", className: "touch-target" }}
+                >
+                  <Link to="/pv/new" search={{ fresh: 1 }}>
+                    <Button size="sm" className="touch-target shadow-elevation-sm">
+                      <Plus className="h-4 w-4" />
+                      <span className="hidden sm:inline">Créer un PV</span>
+                    </Button>
+                  </Link>
+                </WriteAccessGate>
               </div>
             )}
             <HeaderRoleBadge />
@@ -398,7 +438,6 @@ function AppShell({ children, userEmail }: { children: React.ReactNode; userEmai
     </div>
   );
 }
-
 
 function HeaderRoleBadge() {
   const { activeRole } = useCompany();
@@ -486,7 +525,10 @@ function CompanyMenu({
         )}
 
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+        <DropdownMenuItem
+          onClick={onSignOut}
+          className="cursor-pointer text-destructive focus:text-destructive"
+        >
           <LogOut className="h-4 w-4" />
           <span>Déconnexion</span>
         </DropdownMenuItem>

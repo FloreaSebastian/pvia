@@ -69,7 +69,13 @@ export function WriteAccessGate({
   // Accès inconnu (chargement, erreur) : action fermée, jamais ouverte par défaut.
   if (!writeKnown) {
     return (
-      <Button {...lockedProps} type="button" variant={lockedProps?.variant ?? "outline"} disabled aria-busy="true">
+      <Button
+        {...lockedProps}
+        type="button"
+        variant={lockedProps?.variant ?? "outline"}
+        disabled
+        aria-busy="true"
+      >
         <span className="truncate">Vérification des accès…</span>
       </Button>
     );

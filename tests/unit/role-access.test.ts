@@ -13,9 +13,18 @@ const open = { writeOpen: true };
 const closed = { writeOpen: false };
 
 describe("capacités par rôle (alignées serveur)", () => {
-  const expected: Record<CompanyRoleValue, { manage: boolean; sign: boolean; terrain: boolean; admin: boolean; owner: boolean }> = {
+  const expected: Record<
+    CompanyRoleValue,
+    { manage: boolean; sign: boolean; terrain: boolean; admin: boolean; owner: boolean }
+  > = {
     directeur: { manage: true, sign: true, terrain: true, admin: true, owner: true },
-    responsable_exploitation: { manage: true, sign: true, terrain: true, admin: true, owner: false },
+    responsable_exploitation: {
+      manage: true,
+      sign: true,
+      terrain: true,
+      admin: true,
+      owner: false,
+    },
     conducteur_travaux: { manage: true, sign: true, terrain: true, admin: false, owner: false },
     assistant_admin: { manage: true, sign: false, terrain: true, admin: false, owner: false },
     technicien: { manage: false, sign: false, terrain: true, admin: false, owner: false },
@@ -25,7 +34,13 @@ describe("capacités par rôle (alignées serveur)", () => {
     test(role, () => {
       const c = roleCapabilities(role, open);
       const e = expected[role];
-      expect([c.manage, c.sign, c.terrainAssigned, c.admin, c.owner]).toEqual([e.manage, e.sign, e.terrain, e.admin, e.owner]);
+      expect([c.manage, c.sign, c.terrainAssigned, c.admin, c.owner]).toEqual([
+        e.manage,
+        e.sign,
+        e.terrain,
+        e.admin,
+        e.owner,
+      ]);
       expect(c.billing).toBe(e.admin);
     });
   }
@@ -38,7 +53,13 @@ describe("capacités par rôle (alignées serveur)", () => {
       expect([c.manage, c.sign, c.terrainAssigned]).toEqual([false, false, false]);
     }
     const none = roleCapabilities(null, open);
-    expect([none.manage, none.sign, none.terrainAssigned, none.admin, none.billing]).toEqual([false, false, false, false, false]);
+    expect([none.manage, none.sign, none.terrainAssigned, none.admin, none.billing]).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
   });
   test("le directeur n'obtient aucun droit plateforme", () => {
     expect(Object.keys(roleCapabilities("directeur", open))).not.toContain("platformAdmin");
@@ -46,7 +67,13 @@ describe("capacités par rôle (alignées serveur)", () => {
 });
 
 describe("paramètres : liste unique autorisée", () => {
-  const admin = ["/entreprise", "/equipe", "/billing", "/parametres/integrations", "/parametres/api"];
+  const admin = [
+    "/entreprise",
+    "/equipe",
+    "/billing",
+    "/parametres/integrations",
+    "/parametres/api",
+  ];
   test("administrateurs voient l'organisation", () => {
     for (const r of ["directeur", "responsable_exploitation"] as const) {
       const to = allowedSettings(r).map((e) => e.to);
@@ -54,7 +81,12 @@ describe("paramètres : liste unique autorisée", () => {
     }
   });
   test("autres rôles : compte personnel + consultations, sans pages réservées", () => {
-    for (const r of ["conducteur_travaux", "technicien", "assistant_admin", "lecture_seule"] as const) {
+    for (const r of [
+      "conducteur_travaux",
+      "technicien",
+      "assistant_admin",
+      "lecture_seule",
+    ] as const) {
       const to = allowedSettings(r).map((e) => e.to);
       for (const a of admin) expect(to).not.toContain(a);
       expect(to).toContain("/parametres");
@@ -75,7 +107,8 @@ describe("navigation mobile", () => {
     }
   });
   test("sans module visites, aucune destination Visites", () => {
-    for (const r of ROLE_ORDER) expect(mobileDestinations(r, { canVisit: false })).not.toContain("visites");
+    for (const r of ROLE_ORDER)
+      expect(mobileDestinations(r, { canVisit: false })).not.toContain("visites");
   });
   test("technicien : visites en premier", () => {
     expect(mobileDestinations("technicien", { canVisit: true })[0]).toBe("visites");
@@ -84,7 +117,13 @@ describe("navigation mobile", () => {
 
 describe("vues par rôle", () => {
   test("chaque rôle a un ordre distinct de blocs ou de priorités", () => {
-    const sigs = ROLE_ORDER.map((r) => JSON.stringify([ROLE_PROFILES[r].order, ROLE_PROFILES[r].planningFirst, ROLE_PROFILES[r].mobile]));
+    const sigs = ROLE_ORDER.map((r) =>
+      JSON.stringify([
+        ROLE_PROFILES[r].order,
+        ROLE_PROFILES[r].planningFirst,
+        ROLE_PROFILES[r].mobile,
+      ]),
+    );
     expect(new Set(sigs).size).toBe(ROLE_ORDER.length);
   });
   test("technicien : visites affectées en premier", () => {

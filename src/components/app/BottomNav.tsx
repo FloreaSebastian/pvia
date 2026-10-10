@@ -30,19 +30,59 @@ type NavItem = {
   badge?: boolean;
 };
 
-const HOME: NavItem = { key: "accueil", label: "Accueil", icon: LayoutDashboard, href: "/dashboard", matches: ["/dashboard"] };
+const HOME: NavItem = {
+  key: "accueil",
+  label: "Accueil",
+  icon: LayoutDashboard,
+  href: "/dashboard",
+  matches: ["/dashboard"],
+};
 
 const ITEMS: Record<MobileKey, NavItem> = {
-  calendrier: { key: "calendrier", label: "Calendrier", icon: CalendarDays, href: "/chantiers/calendrier", matches: ["/chantiers/calendrier"] },
-  chantiers: { key: "chantiers", label: "Chantiers", icon: HardHat, href: "/chantiers", matches: ["/chantiers"] },
+  calendrier: {
+    key: "calendrier",
+    label: "Calendrier",
+    icon: CalendarDays,
+    href: "/chantiers/calendrier",
+    matches: ["/chantiers/calendrier"],
+  },
+  chantiers: {
+    key: "chantiers",
+    label: "Chantiers",
+    icon: HardHat,
+    href: "/chantiers",
+    matches: ["/chantiers"],
+  },
   pv: { key: "pv", label: "PV", icon: FileText, href: "/pv", matches: ["/pv"] },
-  reserves: { key: "reserves", label: "Réserves", icon: AlertCircle, href: "/reserves", matches: ["/reserves"], badge: true },
-  clients: { key: "clients", label: "Clients", icon: Users, href: "/clients", matches: ["/clients"] },
-  visites: { key: "visites", label: "Visites", icon: ClipboardList, href: "/visites-techniques", matches: ["/visites-techniques"] },
+  reserves: {
+    key: "reserves",
+    label: "Réserves",
+    icon: AlertCircle,
+    href: "/reserves",
+    matches: ["/reserves"],
+    badge: true,
+  },
+  clients: {
+    key: "clients",
+    label: "Clients",
+    icon: Users,
+    href: "/clients",
+    matches: ["/clients"],
+  },
+  visites: {
+    key: "visites",
+    label: "Visites",
+    icon: ClipboardList,
+    href: "/visites-techniques",
+    matches: ["/visites-techniques"],
+  },
 };
 
 /** Item actif : correspondance la plus longue (Calendrier gagne sur Chantiers). */
-export function getActiveMobileNavItem(pathname: string, items: readonly NavItem[]): NavItem | null {
+export function getActiveMobileNavItem(
+  pathname: string,
+  items: readonly NavItem[],
+): NavItem | null {
   let best: NavItem | null = null;
   let len = -1;
   for (const it of items) {
@@ -63,7 +103,9 @@ export function BottomNav({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; me
   // Accueil + 3 destinations selon le rôle + Menu (toutes les autres consultations).
   const navigationItems = [
     HOME,
-    ...mobileDestinations(activeRole, { canVisit: billing.hasFeature("technical_visits") }).map((k) => ITEMS[k]),
+    ...mobileDestinations(activeRole, { canVisit: billing.hasFeature("technical_visits") }).map(
+      (k) => ITEMS[k],
+    ),
   ];
   const [unread, setUnread] = useState(0);
   // Vue immersive active (plein écran calendrier, etc.) : la barre s'efface.
@@ -77,7 +119,10 @@ export function BottomNav({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; me
     const load = async () => {
       const { data: userRes } = await supabase.auth.getUser();
       const userId = userRes.user?.id;
-      if (!userId) { if (!cancelled) setUnread(0); return; }
+      if (!userId) {
+        if (!cancelled) setUnread(0);
+        return;
+      }
       const actionableStatuses = ["ouverte", "en_cours", "en_attente_validation"];
       const { count } = await supabase
         .from("pv_reserves")
@@ -93,11 +138,19 @@ export function BottomNav({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; me
       .channel(`bn-reserves-${activeCompanyId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "pv_reserves", filter: `company_id=eq.${activeCompanyId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "pv_reserves",
+          filter: `company_id=eq.${activeCompanyId}`,
+        },
         () => load(),
       )
       .subscribe();
-    return () => { cancelled = true; supabase.removeChannel(ch); };
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch);
+    };
   }, [activeCompanyId]);
 
   const activeItem = getActiveMobileNavItem(location.pathname, navigationItems);
@@ -171,7 +224,9 @@ export function BottomNav({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; me
             aria-controls="pvia-sidebar"
             className="relative flex min-h-[60px] w-full min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
-            <span className="grid h-9 w-9 place-items-center rounded-full"><Menu className="h-5 w-5" /></span>
+            <span className="grid h-9 w-9 place-items-center rounded-full">
+              <Menu className="h-5 w-5" />
+            </span>
             <span className="max-w-full truncate text-[11px] font-medium leading-none">Menu</span>
           </button>
         </li>

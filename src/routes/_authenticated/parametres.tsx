@@ -1,8 +1,23 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
-  Settings as SettingsIcon, Building2, Palette, Bell, Shield, Users, CreditCard,
-  Plug, Webhook, Sliders, Database, Search, ExternalLink, Activity, Menu, Command as CmdIcon, Hash,
+  Settings as SettingsIcon,
+  Building2,
+  Palette,
+  Bell,
+  Shield,
+  Users,
+  CreditCard,
+  Plug,
+  Webhook,
+  Sliders,
+  Database,
+  Search,
+  ExternalLink,
+  Activity,
+  Menu,
+  Command as CmdIcon,
+  Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -21,16 +36,32 @@ export const Route = createFileRoute("/_authenticated/parametres")({
 type Item = SettingsEntry & { icon: typeof SettingsIcon };
 
 const ICONS: Record<string, typeof SettingsIcon> = {
-  "/parametres": SettingsIcon, "/parametres/preferences": Sliders, "/parametres/securite": Shield,
-  "/parametres/notifications": Bell, "/entreprise": Building2, "/parametres/branding": Palette,
-  "/equipe": Users, "/billing": CreditCard, "/parametres/numerotation": Hash,
-  "/parametres/integrations": Plug, "/parametres/api": Webhook, "/parametres/audit": Activity,
+  "/parametres": SettingsIcon,
+  "/parametres/preferences": Sliders,
+  "/parametres/securite": Shield,
+  "/parametres/notifications": Bell,
+  "/entreprise": Building2,
+  "/parametres/branding": Palette,
+  "/equipe": Users,
+  "/billing": CreditCard,
+  "/parametres/numerotation": Hash,
+  "/parametres/integrations": Plug,
+  "/parametres/api": Webhook,
+  "/parametres/audit": Activity,
   "/parametres/donnees": Database,
 };
 
 function NavList({
-  items, path, onPick, readOnly,
-}: { items: Item[]; path: string; onPick?: () => void; readOnly: boolean }) {
+  items,
+  path,
+  onPick,
+  readOnly,
+}: {
+  items: Item[];
+  path: string;
+  onPick?: () => void;
+  readOnly: boolean;
+}) {
   const grouped = items.reduce<Record<string, Item[]>>((acc, it) => {
     (acc[it.group] ||= []).push(it);
     return acc;
@@ -66,7 +97,10 @@ function NavList({
                     <span className="shrink-0 text-xs text-muted-foreground">Consultation</span>
                   )}
                   {it.external && (
-                    <ExternalLink className="h-3.5 w-3.5 opacity-60" aria-label="Ouvre une autre page" />
+                    <ExternalLink
+                      className="h-3.5 w-3.5 opacity-60"
+                      aria-label="Ouvre une autre page"
+                    />
                   )}
                 </Link>
               );
@@ -99,18 +133,26 @@ function SettingsLayout() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return ITEMS;
-    return ITEMS.filter((i) =>
-      i.label.toLowerCase().includes(s) ||
-      i.desc.toLowerCase().includes(s) ||
-      i.group.toLowerCase().includes(s),
+    return ITEMS.filter(
+      (i) =>
+        i.label.toLowerCase().includes(s) ||
+        i.desc.toLowerCase().includes(s) ||
+        i.group.toLowerCase().includes(s),
     );
   }, [q, ITEMS]);
 
   const cmdItems: SettingsCommandItem[] = ITEMS.map((i) => ({
-    to: i.to, label: i.label, desc: i.desc, group: i.group, icon: i.icon,
+    to: i.to,
+    label: i.label,
+    desc: i.desc,
+    group: i.group,
+    icon: i.icon,
   }));
 
-  useKeyboardShortcut("mod+k", (e) => { e.preventDefault(); setCmdOpen((o) => !o); });
+  useKeyboardShortcut("mod+k", (e) => {
+    e.preventDefault();
+    setCmdOpen((o) => !o);
+  });
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] lg:p-8">
@@ -118,7 +160,9 @@ function SettingsLayout() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {readOnly ? "Votre compte personnel et la consultation des réglages de l’entreprise." : "Votre compte et l’administration de l’entreprise."}
+            {readOnly
+              ? "Votre compte personnel et la consultation des réglages de l’entreprise."
+              : "Votre compte et l’administration de l’entreprise."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -137,7 +181,12 @@ function SettingsLayout() {
           {/* Mobile: open sidebar */}
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
-              <Button size="icon" variant="outline" className="h-11 w-11 lg:hidden" aria-label="Ouvrir le menu des paramètres">
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-11 w-11 lg:hidden"
+                aria-label="Ouvrir le menu des paramètres"
+              >
                 <Menu className="h-4 w-4" />
               </Button>
             </SheetTrigger>
@@ -154,7 +203,12 @@ function SettingsLayout() {
                   className="h-9 pl-8"
                 />
               </div>
-              <NavList items={filtered} path={path} readOnly={readOnly} onPick={() => setSheetOpen(false)} />
+              <NavList
+                items={filtered}
+                path={path}
+                readOnly={readOnly}
+                onPick={() => setSheetOpen(false)}
+              />
             </SheetContent>
           </Sheet>
         </div>

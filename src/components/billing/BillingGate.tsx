@@ -81,7 +81,13 @@ export function useBillingGate(): BillingGateApi {
  * Copie — matrice état → titre / texte / CTA                          *
  * ------------------------------------------------------------------ */
 
-type Copy = { title: string; body: string; cta: string; secondary: string; tone: "danger" | "warn" };
+type Copy = {
+  title: string;
+  body: string;
+  cta: string;
+  secondary: string;
+  tone: "danger" | "warn";
+};
 
 /**
  * États réellement régularisables via le portail Stripe (un abonnement existe
@@ -98,8 +104,7 @@ export function subscriptionCopy(state?: string | null): Copy {
   if (PAYMENT_STATES.has(s)) {
     return {
       title: "Paiement à régulariser",
-      body:
-        "Vos données restent accessibles. Les nouvelles créations et modifications sont temporairement suspendues jusqu'à la régularisation de votre abonnement.",
+      body: "Vos données restent accessibles. Les nouvelles créations et modifications sont temporairement suspendues jusqu'à la régularisation de votre abonnement.",
       cta: "Régulariser mon abonnement",
       secondary: "Continuer en lecture seule",
       tone: "danger",
@@ -108,8 +113,7 @@ export function subscriptionCopy(state?: string | null): Copy {
   if (ENDED_STATES.has(s)) {
     return {
       title: "Votre abonnement est terminé",
-      body:
-        "Vos données sont conservées et restent consultables. Choisissez une formule pour retrouver la création et la modification.",
+      body: "Vos données sont conservées et restent consultables. Choisissez une formule pour retrouver la création et la modification.",
       cta: "Choisir une formule",
       secondary: "Continuer en lecture seule",
       tone: "danger",
@@ -118,8 +122,7 @@ export function subscriptionCopy(state?: string | null): Copy {
   if (TRIAL_STATES.has(s)) {
     return {
       title: "Votre essai est terminé",
-      body:
-        "Vos données restent accessibles, mais la création et la modification sont suspendues. Choisissez une formule pour continuer à utiliser PVIA.",
+      body: "Vos données restent accessibles, mais la création et la modification sont suspendues. Choisissez une formule pour continuer à utiliser PVIA.",
       cta: "Choisir ma formule",
       secondary: "Continuer en lecture seule",
       tone: "danger",
@@ -128,14 +131,12 @@ export function subscriptionCopy(state?: string | null): Copy {
   // État inconnu / générique : on n'affirme jamais « essai terminé ».
   return {
     title: "Abonnement requis",
-    body:
-      "Vos données restent accessibles, mais la création et la modification sont suspendues. Activez une formule pour reprendre la saisie.",
+    body: "Vos données restent accessibles, mais la création et la modification sont suspendues. Activez une formule pour reprendre la saisie.",
     cta: "Voir les formules",
     secondary: "Continuer en lecture seule",
     tone: "danger",
   };
 }
-
 
 /* ------------------------------------------------------------------ *
  * Provider                                                            *
@@ -160,7 +161,11 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
 
   const openSubscription = useCallback(
     (actionLabel?: string) => {
-      setDialog({ kind: "subscription", state: access?.state ?? "blocked", action: actionLabel ?? null });
+      setDialog({
+        kind: "subscription",
+        state: access?.state ?? "blocked",
+        action: actionLabel ?? null,
+      });
     },
     [access?.state],
   );
@@ -239,7 +244,6 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
     }
   }, [blocked, isLoading, activeCompanyId, dialog?.kind]);
 
-
   const api = useMemo<BillingGateApi>(
     () => ({
       blocked: Boolean(blocked),
@@ -254,7 +258,19 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
       openQuota,
       reportError,
     }),
-    [blocked, isLoading, writeKnown, access?.state, access?.trial_end, access?.current_period_end, requireWrite, openSubscription, openFeature, openQuota, reportError],
+    [
+      blocked,
+      isLoading,
+      writeKnown,
+      access?.state,
+      access?.trial_end,
+      access?.current_period_end,
+      requireWrite,
+      openSubscription,
+      openFeature,
+      openQuota,
+      reportError,
+    ],
   );
 
   return (
@@ -291,7 +307,11 @@ function GateDialogView({
   onClose: () => void;
   access: { state?: string; trial_end?: string | null; current_period_end?: string | null } | null;
   usage: { pv_this_period: number; members: number; seats: number };
-  limits: { max_pv_per_month?: number | null; max_members?: number | null; display_name?: string | null } | null;
+  limits: {
+    max_pv_per_month?: number | null;
+    max_members?: number | null;
+    display_name?: string | null;
+  } | null;
   plan: string;
 }) {
   const open = dialog !== null;
@@ -381,15 +401,17 @@ function GateDialogView({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent
-        className="z-[70] max-h-[min(90dvh,42rem)] w-[calc(100vw-2rem)] max-w-[28rem] overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] landscape:max-h-[calc(100dvh-2rem)] sm:p-6"
-      >
+      <DialogContent className="z-[70] max-h-[min(90dvh,42rem)] w-[calc(100vw-2rem)] max-w-[28rem] overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] landscape:max-h-[calc(100dvh-2rem)] sm:p-6">
         <DialogHeader className="text-left">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 shrink-0">{content.icon}</span>
             <div className="min-w-0">
-              <DialogTitle className="text-base leading-tight sm:text-lg">{content.title}</DialogTitle>
-              <DialogDescription className="mt-1 whitespace-pre-line text-sm">{content.body}</DialogDescription>
+              <DialogTitle className="text-base leading-tight sm:text-lg">
+                {content.title}
+              </DialogTitle>
+              <DialogDescription className="mt-1 whitespace-pre-line text-sm">
+                {content.body}
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -407,7 +429,6 @@ function GateDialogView({
         {dialog?.kind === "subscription" && (
           <p className="text-xs text-muted-foreground">{accessStateHelp(dialog.state)}</p>
         )}
-
 
         {!showPrimary && (
           <p className="rounded-md border border-border bg-muted px-3 py-2 text-sm">

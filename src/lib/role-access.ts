@@ -150,7 +150,10 @@ export const ROLE_TONE_CLASS: Record<RoleProfile["tone"], string> = {
   muted: "border-border bg-muted text-foreground",
 };
 
-export type RoleShortcut = { to: "/equipe" | "/chantiers/calendrier" | "/clients" | "/reserves" | "/pv" | "/chantiers"; label: string };
+export type RoleShortcut = {
+  to: "/equipe" | "/chantiers/calendrier" | "/clients" | "/reserves" | "/pv" | "/chantiers";
+  label: string;
+};
 
 /** Raccourci secondaire de consultation/organisation propre au rôle (jamais une écriture). */
 export function roleShortcuts(role: CompanyRoleValue | null | undefined): RoleShortcut[] {
@@ -158,15 +161,24 @@ export function roleShortcuts(role: CompanyRoleValue | null | undefined): RoleSh
     case "directeur":
       return [{ to: "/equipe", label: "Gérer l’équipe" }];
     case "responsable_exploitation":
-      return [{ to: "/chantiers/calendrier", label: "Ouvrir le planning" }, { to: "/equipe", label: "Gérer l’équipe" }];
+      return [
+        { to: "/chantiers/calendrier", label: "Ouvrir le planning" },
+        { to: "/equipe", label: "Gérer l’équipe" },
+      ];
     case "conducteur_travaux":
       return [{ to: "/reserves", label: "Suivre les réserves" }];
     case "technicien":
       return [{ to: "/chantiers/calendrier", label: "Mon planning" }];
     case "assistant_admin":
-      return [{ to: "/clients", label: "Gérer les clients" }, { to: "/chantiers/calendrier", label: "Organiser le planning" }];
+      return [
+        { to: "/clients", label: "Gérer les clients" },
+        { to: "/chantiers/calendrier", label: "Organiser le planning" },
+      ];
     case "lecture_seule":
-      return [{ to: "/pv", label: "Consulter les PV" }, { to: "/reserves", label: "Consulter les réserves" }];
+      return [
+        { to: "/pv", label: "Consulter les PV" },
+        { to: "/reserves", label: "Consulter les réserves" },
+      ];
     default:
       return [];
   }
@@ -205,19 +217,102 @@ export type SettingsEntry = {
 };
 
 export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
-  { to: "/parametres", group: "Compte", label: "Général", desc: "Profil, langue, fuseau", access: "all" },
-  { to: "/parametres/preferences", group: "Compte", label: "Préférences", desc: "Thème, densité, sons", access: "all" },
-  { to: "/parametres/securite", group: "Compte", label: "Sécurité", desc: "Sessions, appareils", access: "all" },
-  { to: "/parametres/notifications", group: "Compte", label: "Notifications", desc: "Email, push, rappels", access: "all" },
-  { to: "/entreprise", group: "Organisation", label: "Entreprise", desc: "Identité légale, SIREN", access: "admin", external: true },
-  { to: "/parametres/branding", group: "Organisation", label: "Branding", desc: "Logo, couleurs, footer", access: "all", readOnlyForOthers: true },
-  { to: "/equipe", group: "Organisation", label: "Utilisateurs", desc: "Membres, rôles, invitations", access: "admin", external: true },
-  { to: "/billing", group: "Organisation", label: "Facturation", desc: "Plan, factures, essai", access: "admin", external: true },
-  { to: "/parametres/numerotation", group: "Organisation", label: "Numérotation PV", desc: "Format, préfixe, séquence", access: "all", readOnlyForOthers: true },
-  { to: "/parametres/integrations", group: "Communication", label: "Intégrations", desc: "Calendrier, Slack, Discord", access: "admin" },
-  { to: "/parametres/api", group: "Développeurs", label: "API & webhooks", desc: "Clés, endpoints, logs", access: "admin" },
-  { to: "/parametres/audit", group: "Développeurs", label: "Audit & monitoring", desc: "Journal d’activité", access: "all" },
-  { to: "/parametres/donnees", group: "Développeurs", label: "Données & exports", desc: "Export, RGPD", access: "all" },
+  {
+    to: "/parametres",
+    group: "Compte",
+    label: "Général",
+    desc: "Profil, langue, fuseau",
+    access: "all",
+  },
+  {
+    to: "/parametres/preferences",
+    group: "Compte",
+    label: "Préférences",
+    desc: "Thème, densité, sons",
+    access: "all",
+  },
+  {
+    to: "/parametres/securite",
+    group: "Compte",
+    label: "Sécurité",
+    desc: "Sessions, appareils",
+    access: "all",
+  },
+  {
+    to: "/parametres/notifications",
+    group: "Compte",
+    label: "Notifications",
+    desc: "Email, push, rappels",
+    access: "all",
+  },
+  {
+    to: "/entreprise",
+    group: "Organisation",
+    label: "Entreprise",
+    desc: "Identité légale, SIREN",
+    access: "admin",
+    external: true,
+  },
+  {
+    to: "/parametres/branding",
+    group: "Organisation",
+    label: "Branding",
+    desc: "Logo, couleurs, footer",
+    access: "all",
+    readOnlyForOthers: true,
+  },
+  {
+    to: "/equipe",
+    group: "Organisation",
+    label: "Utilisateurs",
+    desc: "Membres, rôles, invitations",
+    access: "admin",
+    external: true,
+  },
+  {
+    to: "/billing",
+    group: "Organisation",
+    label: "Facturation",
+    desc: "Plan, factures, essai",
+    access: "admin",
+    external: true,
+  },
+  {
+    to: "/parametres/numerotation",
+    group: "Organisation",
+    label: "Numérotation PV",
+    desc: "Format, préfixe, séquence",
+    access: "all",
+    readOnlyForOthers: true,
+  },
+  {
+    to: "/parametres/integrations",
+    group: "Communication",
+    label: "Intégrations",
+    desc: "Calendrier, Slack, Discord",
+    access: "admin",
+  },
+  {
+    to: "/parametres/api",
+    group: "Développeurs",
+    label: "API & webhooks",
+    desc: "Clés, endpoints, logs",
+    access: "admin",
+  },
+  {
+    to: "/parametres/audit",
+    group: "Développeurs",
+    label: "Audit & monitoring",
+    desc: "Journal d’activité",
+    access: "all",
+  },
+  {
+    to: "/parametres/donnees",
+    group: "Développeurs",
+    label: "Données & exports",
+    desc: "Export, RGPD",
+    access: "all",
+  },
 ];
 
 /** Liste autorisée unique pour menu desktop, mobile, recherche et palette. */
