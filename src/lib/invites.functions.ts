@@ -12,6 +12,7 @@ import {
   INVITE_TOKEN_RE,
   InviteError,
   acceptInviteCore,
+  hasEmailProof,
   inviteOpenState,
   inviteRoleLabel,
   inviteSignupCore,
@@ -166,6 +167,10 @@ export const sendInvite = createServerFn({ method: "POST" })
             let q = supabaseAdmin
               .from("company_members")
               .update({
+                // status réécrit à l'identique : le trigger de quota (INSERT OR
+                // UPDATE OF status) recompte alors les sièges dans la même
+                // transaction lors du renouvellement d'une invitation expirée.
+                status: "invited",
                 role: patch.role,
                 invite_token_hash: patch.token_hash,
                 invite_expires_at: patch.expires_at,
@@ -179,7 +184,14 @@ export const sendInvite = createServerFn({ method: "POST" })
               ? q.eq("invite_token_hash" as never, existing.invite_token_hash)
               : q.is("invite_token_hash" as never, null);
             const { data: rows, error } = await q.select(INVITE_COLS);
-            if (error) throw new Error(error.message);
+            if (error) {
+              if (/SEAT_QUOTA/i.test(error.message))
+                throw new InviteError(
+                  "forbidden",
+                  "Nombre maximal d'utilisateurs atteint pour votre formule : impossible de renouveler cette invitation expirée.",
+                );
+              throw new Error("Le renvoi de l'invitation a échoué. Réessayez.");
+            }
             return ((rows as unknown as InviteRow[]) ?? [])[0] ?? null;
           },
           insertInvite: async (row) => {
@@ -387,7 +399,7 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
             return (rows ?? []).length === 1;
           },
         },
-        { userId, sessionEmail, tokenHash, now: Date.now() },
+        { userId, sessionEmail, emailProof: hasEmailProof(claims), tokenHash, now: Date.now() },
       );
     } catch (e) {
       if (e instanceof InviteError) throw new Error(e.message);
@@ -419,10 +431,27 @@ export const acceptInviteForCurrentUser = createServerFn({ method: "POST" })
     return { ok: true as const, alreadyMember: res.alreadyMember, companyId: res.companyId };
   });
 
+/** Indique si la session courante porte une preuve email (claims vérifiés). */
+export const getInviteSessionProof = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const claims = context.claims as { email?: string } | undefined;
+    return {
+      email: normalizeInviteEmail(claims?.email ?? null),
+      emailProof: hasEmailProof(context.claims),
+    };
+  });
+
 const InviteSignupSchema = z.object({
   token: z.string().regex(INVITE_TOKEN_RE),
   fullName: z.string().trim().min(1, "Nom requis").max(120),
-  password: z.string().min(INVITE_PASSWORD_MIN).max(128),
+  password: z
+    .string()
+    .min(
+      INVITE_PASSWORD_MIN,
+      `Le mot de passe doit contenir au moins ${INVITE_PASSWORD_MIN} caractères.`,
+    )
+    .max(128),
 });
 
 /** Inscription bornée à l'invitation : email dérivé côté serveur, redirection fixe. */

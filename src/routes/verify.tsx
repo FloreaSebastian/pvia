@@ -204,7 +204,7 @@ function VerifyPage() {
         transition={{ duration: 0.3 }}
         className="w-full max-w-md"
       >
-        <Link to="/login" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Link to="/login" search={{ invite }} className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Modifier l'email
         </Link>
         <Card className="border-border/60 p-7 shadow-brand">

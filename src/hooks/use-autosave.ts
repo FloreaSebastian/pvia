@@ -22,6 +22,23 @@ type Options<T> = {
   disabled?: boolean;
 };
 
+function makeHookCore<T>(
+  saveRef: { current: (scope: string, value: T) => Promise<void> },
+  mountedRef: { current: boolean },
+  setStatus: (s: SaveStatus) => void,
+  setLastSavedAt: (d: Date | null) => void,
+) {
+  return createAutosaveCore<T>({
+    save: (s, v) => saveRef.current(s, v),
+    onStatus: (s) => {
+      if (mountedRef.current) setStatus(s);
+    },
+    onSaved: (at) => {
+      if (mountedRef.current) setLastSavedAt(at);
+    },
+  });
+}
+
 /**
  * Autosave différé, borné à une portée. `saveNow()` renvoie true seulement si
  * l'enregistrement a réellement réussi — jamais de succès après une erreur absorbée.
@@ -40,19 +57,34 @@ export function useAutosave<T>({
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
   const coreRef = useRef<ReturnType<typeof createAutosaveCore<T>> | null>(null);
-  if (!coreRef.current) {
-    coreRef.current = createAutosaveCore<T>({
-      save: (s, v) => saveRef.current(s, v),
-      onStatus: setStatus,
-      onSaved: setLastSavedAt,
-    });
-  }
-  const core = coreRef.current;
+  const openedRef = useRef<string | null | undefined>(undefined);
+  const mountedRef = useRef(true);
+  if (!coreRef.current)
+    coreRef.current = makeHookCore(saveRef, mountedRef, setStatus, setLastSavedAt);
+  const [core, setCore] = useState(() => coreRef.current!);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Ouverture/fermeture de portée : minuterie et réponses de l'ancienne portée abandonnées.
-  const openedRef = useRef<string | null | undefined>(undefined);
+  // Cycle de vie : au démontage, minuterie annulée et cœur invalidé (commandes en
+  // attente et réponses tardives sans effet). Si React remonte le composant
+  // (StrictMode), un cœur neuf est créé et la portée sera rouverte.
   useEffect(() => {
+    mountedRef.current = true;
+    if (coreRef.current?.disposed) {
+      coreRef.current = makeHookCore(saveRef, mountedRef, setStatus, setLastSavedAt);
+      openedRef.current = undefined;
+      setCore(coreRef.current);
+    }
+    return () => {
+      mountedRef.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+      coreRef.current?.dispose();
+    };
+  }, []);
+
+  // Ouverture/fermeture de portée : minuterie et réponses de l'ancienne portée abandonnées.
+  useEffect(() => {
+    if (core.disposed) return;
     const key = scope !== null && loaded !== undefined ? scope : null;
     if (openedRef.current === key) return;
     openedRef.current = key;

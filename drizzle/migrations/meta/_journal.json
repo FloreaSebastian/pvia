@@ -92,6 +92,13 @@
       "when": 1791654322709,
       "tag": "0012_team_invite_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791656140472,
+      "tag": "0013_invite_signup_never_activates",
+      "breakpoints": true
     }
   ]
 }

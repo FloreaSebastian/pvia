@@ -3,11 +3,23 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Save, User as UserIcon, Building2, Globe2, RotateCcw } from "lucide-react";
@@ -24,7 +36,6 @@ import { useUnsavedGuard } from "@/hooks/use-unsaved-guard";
 import { useServerFn } from "@tanstack/react-start";
 import { logSettingsEvent } from "@/lib/settings-audit.functions";
 
-
 export const Route = createFileRoute("/_authenticated/parametres/")({
   component: GeneralSettings,
   head: () => ({ meta: [{ title: "Général — Paramètres PVIA" }] }),
@@ -39,7 +50,12 @@ type LocalePrefs = {
   currency: "EUR" | "USD" | "GBP";
   dateFormat: "fr" | "iso" | "us";
 };
-const DEFAULT_PREFS: LocalePrefs = { language: "fr", timezone: "Europe/Paris", currency: "EUR", dateFormat: "fr" };
+const DEFAULT_PREFS: LocalePrefs = {
+  language: "fr",
+  timezone: "Europe/Paris",
+  currency: "EUR",
+  dateFormat: "fr",
+};
 
 type Loaded<T> =
   | { scope: string; status: "loading" }
@@ -53,13 +69,19 @@ function GeneralSettings() {
   const isAdmin = can("admin");
   const userId = user?.id ?? null;
   const profileScope = userId ? `profile:${userId}` : null;
-  const prefsScope = userId && activeCompanyId && companyStatus === "ready" ? `prefs:${userId}:${activeCompanyId}` : null;
+  const prefsScope =
+    userId && activeCompanyId && companyStatus === "ready"
+      ? `prefs:${userId}:${activeCompanyId}`
+      : null;
 
   const [profileLoad, setProfileLoad] = useState<Loaded<Profile> | null>(null);
   const [prefsLoad, setPrefsLoad] = useState<Loaded<LocalePrefs> | null>(null);
   const [profileEdit, setProfileEdit] = useState<{ scope: string; v: Profile } | null>(null);
   const [prefsEdit, setPrefsEdit] = useState<{ scope: string; v: LocalePrefs } | null>(null);
-  const [reloadTick, setReloadTick] = useState(0);
+  // Reprises indépendantes : réessayer les préférences ne recharge jamais le
+  // profil (et n'efface donc pas une saisie personnelle non enregistrée).
+  const [profileTick, setProfileTick] = useState(0);
+  const [prefsTick, setPrefsTick] = useState(0);
 
   // Profil personnel : borné à l'utilisateur (modifiable aussi en lecture seule).
   useEffect(() => {
@@ -87,7 +109,7 @@ function GeneralSettings() {
     return () => {
       alive = false;
     };
-  }, [profileScope, userId, reloadTick]);
+  }, [profileScope, userId, profileTick]);
 
   // Préférences entreprise : bornées à utilisateur + entreprise.
   useEffect(() => {
@@ -120,14 +142,24 @@ function GeneralSettings() {
     return () => {
       alive = false;
     };
-  }, [prefsScope, activeCompanyId, reloadTick]);
+  }, [prefsScope, activeCompanyId, prefsTick]);
 
-  const profileReady = profileLoad && profileLoad.scope === profileScope && profileLoad.status === "ready" ? profileLoad : null;
-  const prefsReady = prefsLoad && prefsLoad.scope === prefsScope && prefsLoad.status === "ready" ? prefsLoad : null;
-  const profile = profileEdit && profileEdit.scope === profileScope ? profileEdit.v : profileReady?.data ?? PROFILE_EMPTY;
-  const prefs = prefsEdit && prefsEdit.scope === prefsScope ? prefsEdit.v : prefsReady?.data ?? DEFAULT_PREFS;
-  const setProfile = (v: Profile) => profileScope && profileReady && setProfileEdit({ scope: profileScope, v });
-  const setPrefs = (v: LocalePrefs) => prefsScope && prefsReady && isAdmin && setPrefsEdit({ scope: prefsScope, v });
+  const profileReady =
+    profileLoad && profileLoad.scope === profileScope && profileLoad.status === "ready"
+      ? profileLoad
+      : null;
+  const prefsReady =
+    prefsLoad && prefsLoad.scope === prefsScope && prefsLoad.status === "ready" ? prefsLoad : null;
+  const profile =
+    profileEdit && profileEdit.scope === profileScope
+      ? profileEdit.v
+      : (profileReady?.data ?? PROFILE_EMPTY);
+  const prefs =
+    prefsEdit && prefsEdit.scope === prefsScope ? prefsEdit.v : (prefsReady?.data ?? DEFAULT_PREFS);
+  const setProfile = (v: Profile) =>
+    profileScope && profileReady && setProfileEdit({ scope: profileScope, v });
+  const setPrefs = (v: LocalePrefs) =>
+    prefsScope && prefsReady && isAdmin && setPrefsEdit({ scope: prefsScope, v });
 
   /* ---------- Autosave: profile ---------- */
   const profileSave = useAutosave<Profile>({
@@ -222,31 +254,60 @@ function GeneralSettings() {
         title="Profil utilisateur"
         description="Vos informations personnelles, visibles par votre équipe."
         icon={<UserIcon className="h-4 w-4" />}
-        actions={<SaveStatusBadge status={profileSave.status} lastSavedAt={profileSave.lastSavedAt} />}
+        actions={
+          <SaveStatusBadge status={profileSave.status} lastSavedAt={profileSave.lastSavedAt} />
+        }
       >
         {profileFailed && (
-          <LoadError message="Impossible de charger votre profil." onRetry={() => setReloadTick((t) => t + 1)} />
+          <LoadError
+            message="Impossible de charger votre profil."
+            onRetry={() => setProfileTick((t) => t + 1)}
+          />
         )}
         <fieldset disabled={!profileReady} className="grid gap-4 sm:grid-cols-2">
-          <Field label="Prénom">
-            <Input value={profile.first_name} onChange={(e) => setProfile({ ...profile, first_name: e.target.value })} />
+          <Field label="Prénom" id="set-first">
+            <Input
+              id="set-first"
+              className="h-11"
+              value={profile.first_name}
+              onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
+            />
           </Field>
-          <Field label="Nom">
-            <Input value={profile.last_name} onChange={(e) => setProfile({ ...profile, last_name: e.target.value })} />
+          <Field label="Nom" id="set-last">
+            <Input
+              id="set-last"
+              className="h-11"
+              value={profile.last_name}
+              onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+            />
           </Field>
-          <Field label="Téléphone">
-            <Input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} />
+          <Field label="Téléphone" id="set-phone">
+            <Input
+              id="set-phone"
+              className="h-11"
+              value={profile.phone}
+              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+            />
           </Field>
-          <Field label="Fonction">
-            <Input value={profile.job_title} onChange={(e) => setProfile({ ...profile, job_title: e.target.value })} />
+          <Field label="Fonction" id="set-job">
+            <Input
+              id="set-job"
+              className="h-11"
+              value={profile.job_title}
+              onChange={(e) => setProfile({ ...profile, job_title: e.target.value })}
+            />
           </Field>
-          <Field label="Email">
-            <Input value={user?.email ?? ""} disabled />
+          <Field label="Email" id="set-email">
+            <Input id="set-email" className="h-11" value={user?.email ?? ""} disabled />
           </Field>
         </fieldset>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
-            Sauvegarde automatique après modification — ou <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-xs">⌘S</kbd>.
+            Sauvegarde automatique après modification — ou{" "}
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-xs">
+              ⌘S
+            </kbd>
+            .
           </p>
           <Button
             size="sm"
@@ -295,14 +356,17 @@ function GeneralSettings() {
         description="Préférences partagées par toute l'entreprise."
         icon={<Globe2 className="h-4 w-4" />}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <SaveStatusBadge status={prefsSave.status} lastSavedAt={prefsSave.lastSavedAt} />
             <ResetButton onConfirm={resetPrefs} disabled={!isAdmin || !prefsReady} />
           </div>
         }
       >
         {prefsFailed && (
-          <LoadError message="Impossible de charger les préférences de l'entreprise." onRetry={() => setReloadTick((t) => t + 1)} />
+          <LoadError
+            message="Impossible de charger les préférences de l'entreprise."
+            onRetry={() => setPrefsTick((t) => t + 1)}
+          />
         )}
         {!isAdmin && (
           <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
@@ -310,18 +374,28 @@ function GeneralSettings() {
           </p>
         )}
         <fieldset disabled={!isAdmin || !prefsReady} className="grid gap-4 sm:grid-cols-2">
-          <Field label="Langue">
-            <Select value={prefs.language} onValueChange={(v) => setPrefs({ ...prefs, language: v as LocalePrefs["language"] })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+          <Field label="Langue" id="set-lang">
+            <Select
+              value={prefs.language}
+              onValueChange={(v) => setPrefs({ ...prefs, language: v as LocalePrefs["language"] })}
+            >
+              <SelectTrigger id="set-lang" className="h-11">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="fr">Français</SelectItem>
                 <SelectItem value="en">English (bientôt)</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Devise">
-            <Select value={prefs.currency} onValueChange={(v) => setPrefs({ ...prefs, currency: v as LocalePrefs["currency"] })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+          <Field label="Devise" id="set-cur">
+            <Select
+              value={prefs.currency}
+              onValueChange={(v) => setPrefs({ ...prefs, currency: v as LocalePrefs["currency"] })}
+            >
+              <SelectTrigger id="set-cur" className="h-11">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="EUR">EUR — €</SelectItem>
                 <SelectItem value="USD">USD — $</SelectItem>
@@ -329,9 +403,14 @@ function GeneralSettings() {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Fuseau horaire">
-            <Select value={prefs.timezone} onValueChange={(v) => setPrefs({ ...prefs, timezone: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+          <Field label="Fuseau horaire" id="set-tz">
+            <Select
+              value={prefs.timezone}
+              onValueChange={(v) => setPrefs({ ...prefs, timezone: v })}
+            >
+              <SelectTrigger id="set-tz" className="h-11">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Europe/Paris">Europe / Paris</SelectItem>
                 <SelectItem value="Europe/London">Europe / Londres</SelectItem>
@@ -339,9 +418,16 @@ function GeneralSettings() {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Format de date">
-            <Select value={prefs.dateFormat} onValueChange={(v) => setPrefs({ ...prefs, dateFormat: v as LocalePrefs["dateFormat"] })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+          <Field label="Format de date" id="set-date">
+            <Select
+              value={prefs.dateFormat}
+              onValueChange={(v) =>
+                setPrefs({ ...prefs, dateFormat: v as LocalePrefs["dateFormat"] })
+              }
+            >
+              <SelectTrigger id="set-date" className="h-11">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="fr">31/12/2026</SelectItem>
                 <SelectItem value="iso">2026-12-31</SelectItem>
@@ -360,13 +446,13 @@ function GeneralSettings() {
         >
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
             <SaveStatusBadge
-              status={profileSave.status === "saving" || prefsSave.status === "saving" ? "saving" : "dirty"}
+              status={
+                profileSave.status === "saving" || prefsSave.status === "saving"
+                  ? "saving"
+                  : "dirty"
+              }
             />
-            <Button
-              size="sm"
-              className="h-11"
-              onClick={saveAll}
-            >
+            <Button size="sm" className="h-11" onClick={saveAll}>
               <Save className="mr-2 h-4 w-4" />
               Enregistrer
             </Button>
@@ -379,7 +465,10 @@ function GeneralSettings() {
 
 function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+    <div
+      role="alert"
+      className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
+    >
       <span className="min-w-0 flex-1">{message}</span>
       <Button size="sm" variant="outline" className="h-11" onClick={onRetry}>
         Réessayer
@@ -388,10 +477,12 @@ function LoadError({ message, onRetry }: { message: string; onRetry: () => void 
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+        {label}
+      </Label>
       {children}
     </div>
   );
@@ -401,7 +492,7 @@ function ResetButton({ onConfirm, disabled }: { onConfirm: () => void; disabled?
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="ghost" disabled={disabled} className="text-xs">
+        <Button size="sm" variant="ghost" disabled={disabled} className="h-11">
           <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
           Réinitialiser
         </Button>
@@ -410,7 +501,8 @@ function ResetButton({ onConfirm, disabled }: { onConfirm: () => void; disabled?
         <AlertDialogHeader>
           <AlertDialogTitle>Restaurer les valeurs par défaut ?</AlertDialogTitle>
           <AlertDialogDescription>
-            Les préférences de langue, devise, fuseau et format de date seront remises à leurs valeurs initiales et sauvegardées.
+            Les préférences de langue, devise, fuseau et format de date seront remises à leurs
+            valeurs initiales et sauvegardées.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

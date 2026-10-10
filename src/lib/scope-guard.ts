@@ -11,8 +11,9 @@ export type ScopeGuard = {
   dispose: () => void;
 };
 
-export function createScopeGuard(): ScopeGuard {
-  let gen = 0;
+/** `start` : génération initiale (garde recréée après une précédente, jetons jamais réutilisés). */
+export function createScopeGuard(start = 0): ScopeGuard {
+  let gen = start;
   let open = true;
   return {
     next: () => ++gen,

@@ -87,12 +87,17 @@ function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.type]);
 
-  // Session déjà active → on renvoie vers l'espace correspondant.
+  // Session déjà active → on renvoie vers l'espace correspondant. Exception :
+  // parcours invitation, où une session sans preuve email (mot de passe,
+  // inscription) doit pouvoir demander un code ; l'email est prérempli.
   useEffect(() => {
     if (authLoading || !user) return;
     if (audience === "professional") {
-      if (search.invite) navigate({ to: "/invite/$token", params: { token: search.invite } });
-      else navigate({ to: "/dashboard" });
+      if (search.invite) {
+        setEmail((cur) => cur || (user.email ?? ""));
+        return;
+      }
+      navigate({ to: "/dashboard" });
     }
     if (audience === "subcontractor") navigate({ to: "/sous-traitant" });
   }, [authLoading, user, audience, navigate, search.invite]);
