@@ -19,6 +19,7 @@ import {
 } from "@/lib/reserve-status";
 import { deriveDisplayStatus, STATUS_LABELS as LIFT_STATUS_LABELS, STATUS_TONES as LIFT_STATUS_TONES } from "@/lib/reserve-lift-status";
 import { useCompany } from "@/hooks/use-company";
+import { useRoleCaps } from "@/hooks/use-role-caps";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PhotoLightboxDialog, type LightboxPhoto } from "./PhotoLightboxDialog";
 
@@ -133,8 +134,11 @@ export function ReserveDetailDialog({
   const [photoView, setPhotoView] = useState<"sections" | "compare">("sections");
   const [busyLiftId, setBusyLiftId] = useState<string | null>(null);
 
-  const canManage = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux", "technicien"].includes(activeRole);
-  const canValidate = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux"].includes(activeRole);
+  // Changement de statut : les règles base (pv_reserves_write + garde signataire)
+  // n'acceptent que les rôles signataires ; écriture confirmée requise.
+  const caps = useRoleCaps();
+  const canManage = caps.sign;
+  const canValidate = caps.sign;
   const canExport = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux"].includes(activeRole);
 
   useEffect(() => {

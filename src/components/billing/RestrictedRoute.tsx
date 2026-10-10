@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useBillingGate, subscriptionCopy } from "@/components/billing/BillingGate";
 import { accessStateLabel, formatFrDate } from "@/lib/plans";
+import { useCompany } from "@/hooks/use-company";
+import { isManageRole } from "@/lib/roles";
 
 /**
  * Garde de ROUTE pour les pages dont l'unique objet est la création
@@ -16,14 +18,45 @@ import { accessStateLabel, formatFrDate } from "@/lib/plans";
 export function RestrictedRoute({
   action,
   backTo = "/dashboard",
+  require = "manage",
   children,
 }: {
   action: string;
   backTo?: "/dashboard" | "/pv" | "/visites-techniques" | "/chantiers";
+  /** Capacité de rôle exigée (mêmes règles que le serveur). */
+  require?: "manage";
   children: ReactNode;
 }) {
-  const { blocked, isLoading, state, trialEnd, periodEnd } = useBillingGate();
-  if (isLoading || !blocked) return <>{children}</>;
+  const { blocked, writeKnown, state, trialEnd, periodEnd } = useBillingGate();
+  const { activeRole, loading } = useCompany();
+  // Accès inconnu ou en erreur : jamais de formulaire de création.
+  if (loading || (!writeKnown && !blocked)) {
+    return (
+      <div className="mx-auto w-full max-w-xl p-4 sm:p-6 lg:p-8" role="status" aria-live="polite">
+        <Card className="p-5 text-sm text-muted-foreground">Vérification des accès…</Card>
+      </div>
+    );
+  }
+  if (require === "manage" && !isManageRole(activeRole)) {
+    return (
+      <div className="mx-auto w-full max-w-xl p-4 sm:p-6 lg:p-8">
+        <Card className="p-5 sm:p-6">
+          <h1 className="text-lg font-semibold tracking-tight">Consultation uniquement</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Votre rôle ne permet pas la {action}. Contactez la direction ou le responsable
+            d'exploitation si vous en avez besoin.
+          </p>
+          <Button asChild variant="outline" className="mt-5 min-h-[44px] w-full sm:w-auto">
+            <Link to={backTo}>
+              <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
+              Retour à la consultation
+            </Link>
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+  if (!blocked) return <>{children}</>;
 
   const copy = subscriptionCopy(state);
   const dateLine =

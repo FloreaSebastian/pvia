@@ -546,7 +546,7 @@ export function DashboardView({
             <h1 className="font-display text-2xl font-semibold">Tableau de bord</h1>
             <p className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold">
               <span className="[overflow-wrap:anywhere]">{companyName}</span>
-              <RoleBadge role={roleKey} long />
+              <RoleBadge role={roleKey} long self />
             </p>
             {profile && (
               <p className="text-sm text-muted-foreground">

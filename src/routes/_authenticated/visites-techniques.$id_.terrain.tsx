@@ -58,7 +58,7 @@ export const Route = createFileRoute("/_authenticated/visites-techniques/$id_/te
 function TerrainPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, activeRole } = useCompany();
   const { user } = useAuth();
   const online = useOnlineStatus();
   const { blocked: billingBlocked, reportError } = useBillingGate();
@@ -626,7 +626,13 @@ function TerrainPage() {
 
         {locked && !billingBlocked ? (
           <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-            Lecture seule : cette visite est clôturée ou vous n'êtes pas assigné à sa saisie.
+            {activeRole === "lecture_seule"
+              ? "Consultation uniquement : votre rôle « Lecture seule » ne permet pas la saisie, même sur une visite qui vous est affectée."
+              : visit && ["validee", "archivee"].includes(String((visit as { status?: string }).status))
+                ? "Consultation uniquement : cette visite est clôturée."
+                : finishing
+                  ? "Finalisation en cours…"
+                  : "Consultation uniquement : la saisie est réservée aux gestionnaires et au technicien affecté à cette visite."}
           </p>
         ) : null}
 

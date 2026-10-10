@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { isManageRole } from "@/lib/roles";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { deliverSignedPv } from "./email.server";
@@ -32,6 +33,8 @@ export const sendSignedPvEmail = createServerFn({ method: "POST" })
       .eq("status", "active")
       .maybeSingle();
     if (!m) throw new Error("Accès refusé.");
+    // Relance documentaire (PDF déjà signé) : rôles de gestion, assistant inclus.
+    if (!isManageRole((m as { role?: string }).role ?? null)) throw new Error("Votre rôle ne permet pas de renvoyer ce document.");
     await (await import("./plan-guard.server")).assertCompanyWriteAccess(pv.company_id, userId);
 
     // EM-M2: prevent double-click / accidental rapid resends.

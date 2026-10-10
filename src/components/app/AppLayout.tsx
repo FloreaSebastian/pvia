@@ -441,7 +441,7 @@ function AppShell({
 
 function HeaderRoleBadge() {
   const { activeRole } = useCompany();
-  return <RoleBadge role={activeRole} className="hidden sm:inline-flex" />;
+  return <RoleBadge role={activeRole} self className="hidden sm:inline-flex" />;
 }
 
 function CompanyMenu({

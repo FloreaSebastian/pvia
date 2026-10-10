@@ -12,10 +12,13 @@ import {
 export function RoleBadge({
   role,
   long = false,
+  self = false,
   className,
 }: {
   role: CompanyRoleValue | string | null | undefined;
   long?: boolean;
+  /** true seulement quand le badge décrit le rôle de l'utilisateur connecté. */
+  self?: boolean;
   className?: string;
 }) {
   const known = asKnownRole(role);
@@ -29,7 +32,7 @@ export function RoleBadge({
       )}
       title={roleLabel(role)}
     >
-      <span className="sr-only">Votre rôle : </span>
+      <span className="sr-only">{self ? "Votre rôle : " : "Rôle : "}</span>
       <span className="truncate">{long ? roleLabel(role) : roleShort(role)}</span>
     </span>
   );

@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
+import { useAuth } from "@/hooks/use-auth";
 import { vibrate } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
 import { useImmersive } from "@/hooks/use-immersive";
@@ -107,30 +108,35 @@ export function BottomNav({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; me
       (k) => ITEMS[k],
     ),
   ];
-  const [unread, setUnread] = useState(0);
+  // Badge lié à sa portée (entreprise + utilisateur) : jamais d'ancien compteur
+  // affiché sous une autre portée, réponses tardives ignorées.
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const scope = activeCompanyId && userId ? `${activeCompanyId}:${userId}` : null;
+  const [badge, setBadge] = useState<{ scope: string; n: number } | null>(null);
+  const unread = badge && scope && badge.scope === scope ? badge.n : 0;
   // Vue immersive active (plein écran calendrier, etc.) : la barre s'efface.
   const { immersive } = useImmersive();
 
   // Réserves badge
   useEffect(() => {
-    if (!activeCompanyId) return;
+    setBadge(null);
+    if (!activeCompanyId || !userId || !scope) return;
     let cancelled = false;
+    let seq = 0;
 
     const load = async () => {
-      const { data: userRes } = await supabase.auth.getUser();
-      const userId = userRes.user?.id;
-      if (!userId) {
-        if (!cancelled) setUnread(0);
-        return;
-      }
+      const mine = ++seq;
       const actionableStatuses = ["ouverte", "en_cours", "en_attente_validation"];
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("pv_reserves")
         .select("id", { count: "exact", head: true })
         .eq("company_id", activeCompanyId)
         .in("status", actionableStatuses)
         .or(`assigned_to.eq.${userId},assigned_to.is.null`);
-      if (!cancelled) setUnread(count ?? 0);
+      if (cancelled || mine !== seq) return;
+      // Erreur : pas de badge plutôt qu'un faux zéro ou une ancienne valeur.
+      setBadge(error ? null : { scope, n: count ?? 0 });
     };
 
     load();
@@ -151,7 +157,7 @@ export function BottomNav({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; me
       cancelled = true;
       supabase.removeChannel(ch);
     };
-  }, [activeCompanyId]);
+  }, [activeCompanyId, userId, scope]);
 
   const activeItem = getActiveMobileNavItem(location.pathname, navigationItems);
   if (immersive) return null;

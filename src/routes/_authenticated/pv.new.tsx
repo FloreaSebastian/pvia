@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { canSignAsCompany } from "@/lib/roles";
 import { RestrictedRoute } from "@/components/billing/RestrictedRoute";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -163,7 +164,9 @@ function NewPvRoute() {
 
 function NewPv() {
   const navigate = useNavigate();
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, activeRole } = useCompany();
+  // Assistant administratif : préparation en brouillon uniquement (même règle que authorizePvCreate).
+  const canSignPv = canSignAsCompany(activeRole);
   const { hasFeature } = useSubscription();
   const canRemoteSign = hasFeature("remote_sign");
   const createPvFn = useServerFn(createPv);
@@ -746,6 +749,10 @@ function NewPv() {
       return;
     }
 
+    if (action !== "brouillon" && !canSignPv) {
+      toast.error("Votre rôle permet d'enregistrer ce PV en brouillon ; la signature est faite par un conducteur, un responsable ou la direction.");
+      return;
+    }
     // Client-side guards for final signing
     if (action !== "brouillon") {
       if (!signatureMode) {
@@ -961,7 +968,8 @@ function NewPv() {
     // Signatures: mode requis, signature entreprise requise; remote → email client requis;
     // onsite → signature client + OTP vérifié.
     let signaturesError: string | null = null;
-    if (!signatureMode) signaturesError = "Choisissez le mode de signature.";
+    if (!canSignPv) signaturesError = null;
+    else if (!signatureMode) signaturesError = "Choisissez le mode de signature.";
     else if (signatureMode === "remote" && !canRemoteSign)
       signaturesError = "« Signature à distance » non incluse dans votre formule.";
 
@@ -1880,7 +1888,19 @@ function NewPv() {
 
 
 
-              {currentStep.id === ID_SIGNATURES && (
+              {currentStep.id === ID_SIGNATURES && !canSignPv && (
+                <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm" role="note">
+                  <p className="font-semibold">Signature réservée aux rôles signataires</p>
+                  <p className="mt-1 text-muted-foreground">
+                    Vous préparez ce PV : enregistrez-le en brouillon. Un conducteur de travaux, un
+                    responsable d'exploitation ou la direction le signera ou l'enverra au client.
+                  </p>
+                  <Button type="button" variant="outline" className="mt-3 min-h-[44px]" disabled={saving} onClick={() => onSave("brouillon")}>
+                    <Save className="h-4 w-4" /> Enregistrer le brouillon
+                  </Button>
+                </div>
+              )}
+              {currentStep.id === ID_SIGNATURES && canSignPv && (
                 <>
                   <SectionHeader icon={PenLine} title="Signatures électroniques" desc="Choisissez le mode de signature puis validez la signature entreprise." />
 
@@ -2157,6 +2177,11 @@ function NewPv() {
                 )}
               </Tooltip>
             </TooltipProvider>
+          ) : !canSignPv ? (
+            <Button disabled={saving} onClick={() => onSave("brouillon")} className="min-h-[44px] shadow-brand">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer le brouillon pour signature
+            </Button>
           ) : (() => {
             const finalAction: "remote" | "onsite" | null = signatureMode;
             const finalReady =

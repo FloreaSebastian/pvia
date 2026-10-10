@@ -20,6 +20,9 @@ import {
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { useCompany } from "@/hooks/use-company";
+import { useRoleCaps } from "@/hooks/use-role-caps";
+import { canEnterVisitField } from "@/lib/role-access";
+import { useAuth } from "@/hooks/use-auth";
 import { isManageRole } from "@/lib/roles";
 import { listTechnicalVisits, listVisitAssignees } from "@/lib/visites.functions";
 import { BTP_LOT_OPTIONS, LOT_META, VISIT_TYPE_OPTIONS, resolveVisitTemplate } from "@/lib/visites/templates";
@@ -91,6 +94,12 @@ function VisitesTechniquesPage() {
   const { hasFeature, isLoading: planLoading } = useSubscription();
   const planAllowed = hasFeature("technical_visits");
   const canManage = isManageRole(activeRole) && planAllowed;
+  // Saisie terrain : gestionnaire, ou technicien actif affecté à la ligne ;
+  // écriture confirmée + fonctionnalité incluse (même règle que can_edit_technical_visit).
+  const caps = useRoleCaps();
+  const { user } = useAuth();
+  const canEnterField = (v: { assigned_to: string | null; status: string }) =>
+    canEnterVisitField(caps, activeRole, user?.id, v, planAllowed);
 
   const listFn = useServerFn(listTechnicalVisits);
   const assigneesFn = useServerFn(listVisitAssignees);
@@ -482,11 +491,19 @@ function VisitesTechniquesPage() {
                   </div>
                 </Link>
                 {visitGroupStatuses("a_reprendre")?.includes(v.status) ? (
-                  <Button asChild variant="secondary" className="mt-1 h-11 w-full">
-                    <Link to="/visites-techniques/$id/terrain" params={{ id: v.id }}>
-                      {v.status === "en_cours" || v.status === "a_completer" ? "Reprendre la saisie" : "Commencer la saisie"}
-                    </Link>
-                  </Button>
+                  canEnterField(v) ? (
+                    <Button asChild variant="secondary" className="mt-1 h-11 w-full">
+                      <Link to="/visites-techniques/$id/terrain" params={{ id: v.id }}>
+                        {v.status === "en_cours" || v.status === "a_completer" ? "Reprendre la saisie" : "Commencer la saisie"}
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button asChild variant="outline" className="mt-1 h-11 w-full">
+                      <Link to="/visites-techniques/$id" params={{ id: v.id }} aria-label={`Consulter la visite ${v.id.slice(0, 8)}`}>
+                        Consulter la fiche
+                      </Link>
+                    </Button>
+                  )
                 ) : null}
               </li>
             );
