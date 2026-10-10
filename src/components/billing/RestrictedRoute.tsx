@@ -8,10 +8,9 @@ import { accessStateLabel, formatFrDate } from "@/lib/plans";
 import { useCompany } from "@/hooks/use-company";
 import { useSuspension } from "@/hooks/use-suspension";
 import { isAdminRole, isManageRole } from "@/lib/roles";
-
-
 /**
  * Garde de ROUTE pour les pages dont l'unique objet est la création
+
  * (ex. /pv/new, /visites-techniques/nouvelle). En accès restreint, l'écran
  * de création n'est jamais affiché : l'utilisateur reçoit immédiatement
  * l'explication et le CTA, y compris en arrivant par URL directe.
@@ -140,6 +139,5 @@ export function RestrictedRoute({
         </div>
       </Card>
     </div>
-
   );
 }
