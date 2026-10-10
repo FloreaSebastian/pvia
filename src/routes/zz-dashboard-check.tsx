@@ -89,7 +89,7 @@ function Fixture() {
                     setTimeout(
                       () =>
                         resolve({
-                          count: scenario === "empty" ? 0 : 12345,
+                          count: scenario === "empty" ? 0 : 123456789,
                           data: head ? null : rows.slice(0, limit),
                           error,
                         }),
@@ -120,7 +120,7 @@ function Fixture() {
       </div>
       <OperationalDashboard
         client={sb}
-        scope={{ companyId, userId, role, canVisit: true }}
+        scope={{ companyId, userId, role, canVisit: scenario !== "nofeature" }}
         companyName={`${companyId} · Entreprise des métiers du bâtiment et des travaux publics`}
         canCreate={role === "directeur"}
         canTerrain={role !== "lecture_seule"}
