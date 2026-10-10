@@ -66,11 +66,16 @@ describe("independent dashboard sections", () => {
     const saved = cache.getQueryData(options.reserves.queryKey);
     requests.length = 0;
     let release = () => {};
-    const wait = new Promise<void>((resolve) => { release = resolve; });
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const observer = new QueryObserver(cache, {
       ...options.reserves,
       staleTime: Infinity,
-      queryFn: async () => { await wait; return options.reserves.queryFn(); },
+      queryFn: async () => {
+        await wait;
+        return options.reserves.queryFn();
+      },
     });
     const unsubscribe = observer.subscribe(() => {});
     retryDashboardSection(observer.getCurrentResult());

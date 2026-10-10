@@ -265,7 +265,11 @@ export function DashboardView({
             </p>
           ) : (
             <div className="mt-2 space-y-4">
-              <SectionState query={q.reserves} label="Réserves prioritaires" retry={onRetry.reserves}>
+              <SectionState
+                query={q.reserves}
+                label="Réserves prioritaires"
+                retry={onRetry.reserves}
+              >
                 {!!q.reserves.data?.count && (
                   <>
                     <GroupHeading label="Réserves prioritaires" count={q.reserves.data.count}>
@@ -630,14 +634,22 @@ function SectionState<T>({
           {query.data === undefined
             ? "chargement impossible."
             : `non actualisé, données de ${timeStamp(query.dataUpdatedAt)}.`}
-          <Button variant="link" onClick={retry} disabled={query.isFetching} className="min-h-11 px-1">
+          <Button
+            variant="link"
+            onClick={retry}
+            disabled={query.isFetching}
+            className="min-h-11 px-1"
+          >
             Réessayer
           </Button>
         </div>
       )}
       {query.isFetching && !query.isPending && (
         <p role="status" className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-          <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          <RefreshCw
+            className="h-4 w-4 animate-spin motion-reduce:animate-none"
+            aria-hidden="true"
+          />
           Actualisation · {label.toLowerCase()}…
         </p>
       )}
