@@ -21,9 +21,11 @@ import { logUserAuthEvent } from "@/lib/user-auth.functions";
 import { assertPasswordFallbackAllowed, getAuthFallbackConfig } from "@/lib/auth-fallback.functions";
 import { getRememberMePreference, applyRememberMePreference } from "@/lib/remember-me";
 import { toast } from "sonner";
+import { INVITE_TOKEN_RE } from "@/lib/invite-core";
 
 const searchSchema = z.object({
   email: z.string().email().optional(),
+  invite: z.string().regex(INVITE_TOKEN_RE).optional().catch(undefined),
 });
 
 const FALLBACK_AFTER = 3;
@@ -52,7 +54,7 @@ export const Route = createFileRoute("/verify")({
 });
 
 function VerifyPage() {
-  const { email = "" } = Route.useSearch();
+  const { email = "", invite } = Route.useSearch();
   const navigate = useNavigate();
   const logEvent = useServerFn(logUserAuthEvent);
   const resendLoginCode = useServerFn(sendEnterpriseLoginCode);
@@ -101,13 +103,15 @@ function VerifyPage() {
         isAdmin = !!role;
       }
     }
+    // Parcours invitation : retour uniquement vers /invite/<jeton> (acceptation serveur ensuite).
+    if (invite && !isAdmin) return navigate({ to: "/invite/$token", params: { token: invite } });
     navigate({ to: isAdmin ? "/admin/dashboard" : "/dashboard" });
   }
 
   async function submit(value: string) {
     if (!email) {
       toast.error("Email manquant. Recommencez la connexion.");
-      navigate({ to: "/login" });
+      navigate({ to: "/login", search: { invite } });
       return;
     }
     setLoading(true);
@@ -152,7 +156,7 @@ function VerifyPage() {
   async function onResend() {
     if (cooldown > 0 || !email) return;
     try {
-      await resendLoginCode({ data: { email } });
+      await resendLoginCode({ data: { email, inviteToken: invite } });
       await logEvent({ data: { action: "user.login_code_sent", email } }).catch(() => {});
       toast.success("Nouveau code envoyé");
       setCooldown(60);

@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { useServerFn } from "@tanstack/react-start";
 import { sendEnterpriseLoginCode } from "@/lib/enterprise-auth.functions";
+import { INVITE_TOKEN_RE } from "@/lib/invite-core";
 import { sendClientLoginCode, getClientSession } from "@/lib/client-auth.functions";
 import { sendSubcontractorLoginCode } from "@/lib/subcontractor-auth.functions";
 import { logUserAuthEvent } from "@/lib/user-auth.functions";
@@ -28,6 +29,8 @@ type AudienceType = "professional" | "client" | "subcontractor";
 
 const searchSchema = z.object({
   type: z.enum(["professional", "client", "subcontractor"]).optional(),
+  // Jeton d'invitation : seul retour autorisé = /invite/<jeton>.
+  invite: z.string().regex(INVITE_TOKEN_RE).optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/login")({
@@ -87,13 +90,16 @@ function LoginPage() {
   // Session déjà active → on renvoie vers l'espace correspondant.
   useEffect(() => {
     if (authLoading || !user) return;
-    if (audience === "professional") navigate({ to: "/dashboard" });
+    if (audience === "professional") {
+      if (search.invite) navigate({ to: "/invite/$token", params: { token: search.invite } });
+      else navigate({ to: "/dashboard" });
+    }
     if (audience === "subcontractor") navigate({ to: "/sous-traitant" });
-  }, [authLoading, user, audience, navigate]);
+  }, [authLoading, user, audience, navigate, search.invite]);
 
   function selectAudience(next: AudienceType) {
     setAudience(next);
-    navigate({ to: "/login", search: { type: next }, replace: true });
+    navigate({ to: "/login", search: { type: next, invite: search.invite }, replace: true });
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -110,7 +116,8 @@ function LoginPage() {
         : "Si un accès existe pour cet email, un code vient d'être envoyé.";
 
     const goVerify = () => {
-      if (audience === "professional") return navigate({ to: "/verify", search: { email: normalized } });
+      if (audience === "professional")
+        return navigate({ to: "/verify", search: { email: normalized, invite: search.invite } });
       if (audience === "subcontractor")
         return navigate({ to: "/sous-traitant/verify", search: { email: normalized } });
       return navigate({ to: "/client/verify", search: { email: normalized } });
@@ -118,7 +125,7 @@ function LoginPage() {
 
     try {
       if (audience === "professional") {
-        await sendProCode({ data: { email: normalized } });
+        await sendProCode({ data: { email: normalized, inviteToken: search.invite } });
         await logEvent({ data: { action: "user.login_code_sent", email: normalized } }).catch(() => {});
       } else if (audience === "subcontractor") {
         await sendSubCode({ data: { email: normalized } });
