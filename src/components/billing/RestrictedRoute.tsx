@@ -65,6 +65,36 @@ export function RestrictedRoute({
   }
   if (!blocked) return <>{children}</>;
 
+  // Entreprise suspendue : distincte d'un blocage d'abonnement. Aucun CTA
+  // facturation — la suspension ne se règle pas via un changement de formule.
+  if (suspension.suspended) {
+    return (
+      <div className="mx-auto w-full max-w-xl p-4 sm:p-6 lg:p-8">
+        <Card className="overflow-hidden p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
+            <div className="min-w-0">
+              <h1 className="text-lg font-semibold tracking-tight">Entreprise suspendue</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Votre entreprise est temporairement suspendue. Vos données restent conservées et
+                consultables, mais la {action} n'est pas possible pour le moment. Contactez le
+                support PVIA pour rétablir l'accès.
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <Button asChild variant="ghost" className="min-h-[44px] w-full sm:w-auto">
+              <Link to={backTo}>
+                <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
+                Continuer en lecture seule
+              </Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   const copy = subscriptionCopy(state);
   const dateLine =
     state === "trial_expired" && trialEnd
@@ -88,12 +118,19 @@ export function RestrictedRoute({
           </div>
         </div>
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <Button asChild className="min-h-[44px] w-full sm:w-auto">
-            <Link to="/billing">
-              <CreditCard className="mr-2 h-4 w-4" aria-hidden />
-              {copy.cta}
-            </Link>
-          </Button>
+          {canBilling ? (
+            <Button asChild className="min-h-[44px] w-full sm:w-auto">
+              <Link to="/billing">
+                <CreditCard className="mr-2 h-4 w-4" aria-hidden />
+                {copy.cta}
+              </Link>
+            </Button>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Contactez un administrateur de votre entreprise (direction ou responsable
+              d'exploitation) pour régulariser l'abonnement.
+            </p>
+          )}
           <Button asChild variant="ghost" className="min-h-[44px] w-full sm:w-auto">
             <Link to={backTo}>
               <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
@@ -103,5 +140,6 @@ export function RestrictedRoute({
         </div>
       </Card>
     </div>
+
   );
 }
