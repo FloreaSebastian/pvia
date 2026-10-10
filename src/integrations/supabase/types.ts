@@ -7263,6 +7263,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["company_role"]
       }
       get_company_seat_usage: { Args: { _company_id: string }; Returns: number }
+      guard_applies: { Args: never; Returns: boolean }
       has_company_role: {
         Args: { _company_id: string; _roles: string[]; _user_id: string }
         Returns: boolean

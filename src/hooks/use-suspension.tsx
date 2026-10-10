@@ -18,33 +18,51 @@ export function useSuspension(): SuspensionInfo & { isLoading: boolean; isError:
   const { data, isLoading, isError } = useQuery({
     queryKey: ["company-suspension", activeCompanyId],
     queryFn: async (): Promise<SuspensionInfo> => {
-      if (!activeCompanyId)
-        return { suspended: false, reason: null, status: null, companyName: null };
+      if (!activeCompanyId) throw new Error("Aucune entreprise active.");
       const { data, error } = await supabase
         .from("companies")
         .select("name,suspended_at,suspension_reason,support_status")
         .eq("id", activeCompanyId)
         .maybeSingle();
-      // Une erreur de lecture ne doit jamais être lue comme « non suspendu ».
-      if (error) throw new Error("Statut de l'entreprise indisponible.");
-      const suspended = !!data?.suspended_at || data?.support_status === "blocked";
-      return {
-        suspended,
-        reason: (data?.suspension_reason as string | null) ?? null,
-        status: (data?.support_status as string | null) ?? null,
-        companyName: (data?.name as string | null) ?? null,
-      };
+      return interpretSuspensionRow(data, error);
     },
     enabled: !!activeCompanyId,
     staleTime: 30_000,
   });
+  // Sans entreprise ou sans réponse : état inconnu, jamais « accès confirmé ».
+  const unknown = !activeCompanyId;
   return {
     suspended: data?.suspended ?? false,
     reason: data?.reason ?? null,
     status: data?.status ?? null,
     companyName: data?.companyName ?? null,
-    isLoading,
-    isError,
+    isLoading: !unknown && (isLoading || (!data && !isError)),
+    isError: unknown || isError,
+  };
+}
+
+type SuspensionRow = {
+  name?: string | null;
+  suspended_at?: string | null;
+  suspension_reason?: string | null;
+  support_status?: string | null;
+};
+
+/**
+ * Lecture du statut : une erreur OU une ligne absente (entreprise invisible)
+ * ne doit jamais être lue comme « non suspendu ».
+ */
+export function interpretSuspensionRow(
+  data: SuspensionRow | null | undefined,
+  error: unknown,
+): SuspensionInfo {
+  if (error) throw new Error("Statut de l'entreprise indisponible.");
+  if (!data) throw new Error("Entreprise introuvable : accès non confirmé.");
+  return {
+    suspended: !!data.suspended_at || data.support_status === "blocked",
+    reason: data.suspension_reason ?? null,
+    status: data.support_status ?? null,
+    companyName: data.name ?? null,
   };
 }
 

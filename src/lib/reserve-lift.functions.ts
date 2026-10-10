@@ -807,6 +807,8 @@ export const resendReserveLiftValidationEmail = createServerFn({ method: "POST" 
     if (!member || !(SIGN_ROLES as readonly string[]).includes(member.role as string)) {
       throw new Error("Accès refusé.");
     }
+    // Accès écriture (abonnement/suspension) avant tout email, comme les autres relances.
+    await (await import("./plan-guard.server")).assertCompanyWriteAccess(report.company_id as string, userId);
 
     // EM-M2: throttle manual resends.
     const { assertNotRecentlySent } = await import("@/lib/email-throttle.server");
