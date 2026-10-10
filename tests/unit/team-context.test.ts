@@ -470,3 +470,40 @@ describe("autosave : file sérialisée (même portée)", () => {
     expect(core.isDirty()).toBe(false);
   });
 });
+
+describe("autosave : garde avant l'écriture différée", () => {
+  test("flush puis dispose immédiat : false et aucune écriture", async () => {
+    const saves: string[] = [];
+    const core = createAutosaveCore<string>({
+      save: async (s, v) => {
+        saves.push(s + v);
+      },
+      onStatus: () => {},
+    });
+    core.open("A", "0");
+    core.update("A", "1");
+    const p = core.flush();
+    core.dispose();
+    expect(await p).toBe(false);
+    expect(saves).toEqual([]);
+  });
+  test("flush puis open(B) immédiat : ancienne demande false, B attend sa propre commande", async () => {
+    const saves: string[] = [];
+    const core = createAutosaveCore<string>({
+      save: async (s, v) => {
+        saves.push(s + v);
+      },
+      onStatus: () => {},
+    });
+    core.open("A", "0");
+    core.update("A", "1");
+    const p = core.flush();
+    core.open("B", "b0");
+    core.update("B", "b1");
+    expect(await p).toBe(false);
+    for (let i = 0; i < 5; i++) await tick();
+    expect(saves).toEqual([]);
+    expect(await core.flush()).toBe(true);
+    expect(saves).toEqual(["Bb1"]);
+  });
+});

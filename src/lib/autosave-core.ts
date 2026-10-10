@@ -109,6 +109,8 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
       // synchrone) ; il n'est effacé que s'il désigne encore cette écriture.
       const p: Promise<boolean> = Promise.resolve().then(async () => {
         try {
+          // Microtâche différée : refus si démontage/changement de portée entre-temps.
+          if (disposed || myGen !== gen || scope !== myScope) return false;
           await opts.save(myScope, snapshot);
           if (disposed || myGen !== gen) return false; // portée changée : résultat ignoré
           baseline = snapshot;
