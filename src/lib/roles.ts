@@ -88,14 +88,14 @@ export const ROLE_META: Record<
   technicien: {
     label: "Technicien",
     short: "Technicien",
-    description: "Consultation terrain des chantiers et suivi opérationnel. Peut ajouter des photos si autorisé, sans droit de création, signature ou validation.",
+    description: "Saisie terrain des visites qui lui sont affectées (réponses, photos de visite et de PV). Consultation du reste, sans création de PV, signature ni validation.",
     badgeClass: "bg-green-600 text-white hover:bg-green-600/90",
     emoji: "🔧",
   },
   assistant_admin: {
     label: "Assistant administratif",
     short: "Assistant",
-    description: "Clients, documents, planning et préparation des PV.",
+    description: "Clients, documents, planning et préparation des PV en brouillon, sans signature.",
     badgeClass: "bg-purple-600 text-white hover:bg-purple-600/90",
     emoji: "📝",
   },
