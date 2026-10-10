@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
+import { zodValidator } from "@tanstack/zod-adapter";
 import { useCompany } from "@/hooks/use-company";
 import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -9,9 +11,7 @@ import { ComplianceWidget } from "@/components/dashboard/ComplianceWidget";
 import { canSignAsCompany } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    planning: s.planning === "upcoming" ? ("upcoming" as const) : ("today" as const),
-  }),
+  validateSearch: zodValidator(z.object({ planning: z.enum(["today", "upcoming"]).optional().catch(undefined) })),
   component: Dashboard,
   head: () => ({
     meta: [
@@ -71,7 +71,7 @@ function Dashboard() {
       canCreate={can("manage") && canWrite}
       canTerrain={canWrite && (can("manage") || activeRole === "technicien")}
       canLift={canWrite && canSignAsCompany(activeRole)}
-      period={planning}
+      period={planning ?? "today"}
       onPeriodChange={(period) => {
         void navigate({ search: (prev) => ({ ...prev, planning: period }) });
       }}
