@@ -76,6 +76,7 @@ export class InviteError extends Error {
       | "expired"
       | "wrong_recipient"
       | "unverified"
+      | "email_proof_required"
       | "suspended",
     message: string,
   ) {
@@ -207,11 +208,48 @@ export type AcceptInviteDeps = {
   casConsume: (invite: InviteRow, hash: string) => Promise<boolean>;
 };
 
+/* ------------------------------------------------------------------ */
+/* Preuve de possession de l'email                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Méthodes Supabase Auth (claim `amr`, valeurs de AuthenticationMethod.String()
+ * dans supabase/auth internal/models/factor.go) prouvant la lecture d'un code ou
+ * lien reçu par email. Le flux pro existant (generateLink magiclink →
+ * verifyOtp token_hash) émet "otp" ; "magiclink" couvre l'ancien flux direct.
+ * Exclus : password, email/signup (inscription auto-confirmée possible),
+ * oauth, recovery, invite, anonymous, token_refresh, etc.
+ */
+export const EMAIL_PROOF_AMR = ["otp", "magiclink"] as const;
+
+/**
+ * Preuve stricte à partir des claims DÉJÀ VÉRIFIÉS par requireSupabaseAuth
+ * (getClaims). Jamais depuis user_metadata, email_confirmed_at ou le navigateur.
+ */
+export function hasEmailProof(claims: unknown): boolean {
+  if (!claims || typeof claims !== "object") return false;
+  const c = claims as { email?: unknown; amr?: unknown; is_anonymous?: unknown };
+  if (c.is_anonymous === true) return false;
+  if (typeof c.email !== "string" || !normalizeInviteEmail(c.email)) return false;
+  if (!Array.isArray(c.amr)) return false;
+  return c.amr.some((entry) => {
+    const method =
+      typeof entry === "string"
+        ? entry
+        : entry && typeof entry === "object"
+          ? (entry as { method?: unknown }).method
+          : null;
+    return typeof method === "string" && (EMAIL_PROOF_AMR as readonly string[]).includes(method);
+  });
+}
+
 export async function acceptInviteCore(
   deps: AcceptInviteDeps,
   input: {
     userId: string;
     sessionEmail: string | null | undefined;
+    /** Résultat de hasEmailProof(claims vérifiés). */
+    emailProof: boolean;
     tokenHash: string;
     now: number;
   },
@@ -219,6 +257,13 @@ export async function acceptInviteCore(
   const sessionEmail = normalizeInviteEmail(input.sessionEmail);
   if (!sessionEmail)
     throw new InviteError("unverified", "Votre session ne comporte pas d'adresse email vérifiée.");
+  // Avant toute lecture/mutation : une session par mot de passe ou issue d'une
+  // inscription ne prouve pas la lecture de l'email, même si email_confirmed_at existe.
+  if (!input.emailProof)
+    throw new InviteError(
+      "email_proof_required",
+      "Pour rejoindre l'entreprise, confirmez votre adresse avec un code reçu par email.",
+    );
   const identity = await deps.getAuthIdentity(input.userId);
   if (!identity || !identity.verified || normalizeInviteEmail(identity.email) !== sessionEmail)
     throw new InviteError(
@@ -308,7 +353,8 @@ export function inviteReturnPath(token: string | null | undefined): string | nul
 /* Inscription bornée à l'invitation                                   */
 /* ------------------------------------------------------------------ */
 
-export const INVITE_PASSWORD_MIN = 8;
+/** Même règle que l'inscription professionnelle (12 caractères minimum). */
+export const INVITE_PASSWORD_MIN = 12;
 
 export type InviteSignupDeps = {
   findInviteByHash: (hash: string) => Promise<InviteRow | null>;

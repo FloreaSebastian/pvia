@@ -19,8 +19,10 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
   let latest: T | undefined;
   let status: SaveStatus = "idle";
   let inFlight: Promise<boolean> | null = null;
+  let disposed = false;
 
   const setStatus = (s: SaveStatus) => {
+    if (disposed) return;
     status = s;
     opts.onStatus(s);
   };
@@ -39,6 +41,7 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
     },
     /** Ouvre une portée avec sa base chargée avec succès. null = fermé (chargement/erreur). */
     open(nextScope: string | null, loaded?: T) {
+      if (disposed) return;
       gen += 1;
       scope = nextScope;
       baseline = nextScope === null ? undefined : loaded;
@@ -46,26 +49,50 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
       inFlight = null;
       setStatus("idle");
     },
+    /**
+     * Invalide définitivement le cœur (démontage) : les commandes en attente et
+     * les réponses tardives n'ont plus aucun effet. Une écriture déjà émise pour
+     * sa portée d'origine n'est pas annulée côté serveur.
+     */
+    dispose() {
+      disposed = true;
+      gen += 1;
+      scope = null;
+      baseline = undefined;
+      latest = undefined;
+      inFlight = null;
+    },
+    get disposed() {
+      return disposed;
+    },
     /** Saisie dans la portée indiquée ; ignorée si ce n'est pas la portée ouverte. */
     update(forScope: string | null, value: T) {
-      if (forScope === null || forScope !== scope || baseline === undefined) return false;
+      if (disposed || forScope === null || forScope !== scope || baseline === undefined)
+        return false;
       latest = value;
       setStatus(eq(value, baseline) ? "idle" : "dirty");
       return true;
     },
     /** Rebase sans enregistrer (ex. après rechargement). */
     rebase(forScope: string, value: T) {
-      if (forScope !== scope) return;
+      if (disposed || forScope !== scope) return;
       baseline = value;
       latest = value;
       setStatus("idle");
     },
-    /** true seulement si tout est réellement enregistré dans la portée courante. */
+    /**
+     * true seulement si tout est réellement enregistré dans la portée où la
+     * commande a été émise. La portée et la génération sont capturées AVANT
+     * d'attendre l'écriture en cours : si elles changent pendant l'attente,
+     * la commande est refusée (jamais d'enregistrement de B par une commande de A).
+     */
     async flush(): Promise<boolean> {
-      if (inFlight) await inFlight;
       const myScope = scope;
       const myGen = gen;
-      if (myScope === null || baseline === undefined || latest === undefined) return false;
+      if (disposed || myScope === null) return false;
+      if (inFlight) await inFlight;
+      if (disposed || myGen !== gen || scope !== myScope) return false;
+      if (baseline === undefined || latest === undefined) return false;
       const snapshot = latest;
       if (eq(snapshot, baseline)) {
         if (status !== "error") setStatus("idle");
@@ -75,13 +102,13 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
       const p = (async () => {
         try {
           await opts.save(myScope, snapshot);
-          if (myGen !== gen) return false; // portée changée : résultat ignoré
+          if (disposed || myGen !== gen) return false; // portée changée : résultat ignoré
           baseline = snapshot;
           opts.onSaved?.(new Date());
           setStatus(latest !== undefined && !eq(latest, baseline) ? "dirty" : "saved");
           return true;
         } catch {
-          if (myGen !== gen) return false;
+          if (disposed || myGen !== gen) return false;
           setStatus("error");
           return false;
         } finally {

@@ -245,3 +245,114 @@ describe("équipe : actions et rôles", () => {
     expect(groupMembers([], "x").noResult).toBe(false);
   });
 });
+
+/* ---------- Revue : file d'attente, démontage, entreprise rejointe ---------- */
+import { acceptAndSelectCompany } from "@/lib/active-company-storage";
+import { memberIdentity } from "@/lib/team-view";
+
+describe("autosave : commande en file et démontage", () => {
+  test("flush émis en A, en attente derrière A, réveillé après open(B) : B jamais enregistré", async () => {
+    const saves: [string, string][] = [];
+    const first = deferred<void>();
+    const core = createAutosaveCore<string>({
+      save: async (s, v) => {
+        saves.push([s, v]);
+        if (saves.length === 1) await first.p;
+      },
+      onStatus: () => {},
+    });
+    core.open("A", "a0");
+    core.update("A", "a1");
+    const f1 = core.flush(); // écriture A émise
+    core.update("A", "a2");
+    const f2 = core.flush(); // en file derrière A
+    core.open("B", "b0");
+    core.update("B", "b1"); // B modifié pendant l'attente
+    first.resolve();
+    expect(await f1).toBe(false); // résultat A ignoré (portée changée), sans faux succès
+    expect(await f2).toBe(false); // commande de A refusée après l'attente
+    expect(saves).toEqual([["A", "a1"]]);
+    expect(core.isDirty()).toBe(true); // B reste à enregistrer, par une commande de B
+  });
+  test("dispose : commandes en attente et réponses tardives sans effet", async () => {
+    const statuses: string[] = [];
+    const saves: string[] = [];
+    const d = deferred<void>();
+    const core = createAutosaveCore<string>({
+      save: async (s, v) => {
+        saves.push(s + v);
+        await d.p;
+      },
+      onStatus: (s) => statuses.push(s),
+    });
+    core.open("A", "a0");
+    core.update("A", "a1");
+    const f = core.flush();
+    const queued = core.flush();
+    const n = statuses.length;
+    core.dispose();
+    d.resolve();
+    expect(await f).toBe(false);
+    expect(await queued).toBe(false);
+    expect(statuses.length).toBe(n); // aucune mise à jour après démontage
+    core.open("B", "b0");
+    expect(core.update("B", "b1")).toBe(false);
+    expect(await core.flush()).toBe(false);
+    expect(saves).toEqual(["Aa1"]);
+  });
+});
+
+describe("invitation acceptée : entreprise confirmée par le serveur", () => {
+  const A = "11111111-1111-4111-8111-111111111111";
+  const B = "22222222-2222-4222-8222-222222222222";
+  test("membre actif de A + invitation B : arrive dans B", async () => {
+    let stored: string | null = A;
+    const id = await acceptAndSelectCompany(
+      async () => ({ ok: true as const, companyId: B }),
+      (x) => (stored = x),
+    );
+    expect(id).toBe(B);
+    const t = setup(stored);
+    t.ctrl.setUser("u");
+    t.pending.get("u")![0].resolve({ data: [mem(A), mem(B, "technicien")], error: null });
+    await tick();
+    expect(t.state().activeCompanyId).toBe(B);
+    expect(effectiveRole(t.state())).toBe("technicien");
+  });
+  test("acceptation échouée ou réponse invalide : sélection inchangée", async () => {
+    let stored: string | null = A;
+    await expect(
+      acceptAndSelectCompany(
+        async () => {
+          throw new Error("refus");
+        },
+        (x) => (stored = x),
+      ),
+    ).rejects.toThrow("refus");
+    await expect(
+      acceptAndSelectCompany(
+        async () => ({ ok: true as const, companyId: "pas-un-uuid" }),
+        (x) => (stored = x),
+      ),
+    ).rejects.toThrow();
+    expect(stored).toBe(A);
+  });
+});
+
+describe("identité de membre", () => {
+  test("membre actif sans nom : email normalisé en repli", () => {
+    const m = {
+      id: "1",
+      user_id: "u",
+      role: "technicien",
+      status: "active",
+      invited_email: " Bob@Ex.FR ",
+      invite_expires_at: null,
+      created_at: "",
+      profile: { full_name: null },
+    };
+    expect(memberIdentity(m).primary).toBe("bob@ex.fr");
+    expect(memberIdentity({ ...m, invited_email: null }).primary).toBe("Membre sans nom");
+    expect(memberIdentity({ ...m, profile: { full_name: "Bob" } }).primary).toBe("Bob");
+  });
+});

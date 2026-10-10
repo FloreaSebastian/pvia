@@ -18,6 +18,7 @@ import {
   type CompanyCtxStatus,
   type CompanyMembership,
 } from "@/lib/company-context";
+import { readStoredCompanyId, storeCompanyId } from "@/lib/active-company-storage";
 
 export type CompanyRole = CompanyRoleValue;
 export type Membership = CompanyMembership;
@@ -37,25 +38,6 @@ type Ctx = {
 };
 
 const CompanyContext = createContext<Ctx | null>(null);
-const LS_KEY = "pvia:activeCompany";
-
-function readStoredCompanyId(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage.getItem(LS_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function storeCompanyId(id: string): void {
-  try {
-    window.localStorage.setItem(LS_KEY, id);
-  } catch {
-    // Le stockage peut être indisponible dans certaines WebView/tablettes.
-  }
-}
-
 async function fetchMemberships(userId: string) {
   const { data, error } = await supabase
     .from("company_members")

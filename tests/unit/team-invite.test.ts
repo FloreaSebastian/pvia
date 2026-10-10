@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   InviteError,
+  EMAIL_PROOF_AMR,
+  INVITE_PASSWORD_MIN,
   acceptInviteCore,
+  hasEmailProof,
   enterpriseLoginEligibility,
   inviteReturnPath,
   inviteSignupCore,
@@ -187,6 +190,7 @@ describe("invitation : acceptation", () => {
     const r = await acceptInviteCore(deps, {
       userId: "u2",
       sessionEmail: "BOB@ex.fr",
+      emailProof: true,
       tokenHash: HASH,
       now: NOW,
     });
@@ -206,7 +210,7 @@ describe("invitation : acceptation", () => {
     for (const [st, email, code] of cases) {
       const { deps, calls } = acceptDeps(st);
       await expect(
-        acceptInviteCore(deps, { userId: "u2", sessionEmail: email, tokenHash: HASH, now: NOW }),
+        acceptInviteCore(deps, { userId: "u2", sessionEmail: email, emailProof: true, tokenHash: HASH, now: NOW }),
       ).rejects.toMatchObject({ code });
       expect(calls).toEqual([]);
     }
@@ -218,6 +222,7 @@ describe("invitation : acceptation", () => {
       acceptInviteCore(deps, {
         userId: "u2",
         sessionEmail: "bob@ex.fr",
+        emailProof: true,
         tokenHash: HASH,
         now: NOW,
       }),
@@ -229,6 +234,7 @@ describe("invitation : acceptation", () => {
     const r = await acceptInviteCore(a.deps, {
       userId: "u2",
       sessionEmail: "bob@ex.fr",
+      emailProof: true,
       tokenHash: HASH,
       now: NOW,
     });
@@ -239,6 +245,7 @@ describe("invitation : acceptation", () => {
       acceptInviteCore(b.deps, {
         userId: "u2",
         sessionEmail: "bob@ex.fr",
+        emailProof: true,
         tokenHash: HASH,
         now: NOW,
       }),
@@ -251,6 +258,7 @@ describe("invitation : acceptation", () => {
     await acceptInviteCore(deps, {
       userId: "u2",
       sessionEmail: "bob@ex.fr",
+      emailProof: true,
       tokenHash: HASH,
       now: NOW,
     });
@@ -258,6 +266,7 @@ describe("invitation : acceptation", () => {
       acceptInviteCore(deps, {
         userId: "u2",
         sessionEmail: "bob@ex.fr",
+        emailProof: true,
         tokenHash: HASH,
         now: NOW,
       }),
@@ -344,7 +353,7 @@ describe("inscription bornée à l'invitation", () => {
     const seen: { email?: string; redirect?: string } = {};
     await inviteSignupCore(deps(invite({ invited_email: " Bob@Ex.fr" }), seen), {
       token: TOKEN,
-      password: "12345678",
+      password: "123456789012",
       fullName: "Bob",
       now: NOW,
     });
@@ -352,9 +361,9 @@ describe("inscription bornée à l'invitation", () => {
   });
   test("mot de passe court, invitation expirée ou utilisée : aucun compte créé", async () => {
     for (const [row, pwd] of [
-      [invite(), "1234567"],
-      [invite({ invite_expires_at: PAST }), "12345678"],
-      [invite({ status: "active" }), "12345678"],
+      [invite(), "12345678901"],
+      [invite({ invite_expires_at: PAST }), "123456789012"],
+      [invite({ status: "active" }), "123456789012"],
     ] as const) {
       const seen: { email?: string } = {};
       await expect(
@@ -367,5 +376,121 @@ describe("inscription bornée à l'invitation", () => {
       ).rejects.toBeInstanceOf(InviteError);
       expect(seen.email).toBeUndefined();
     }
+  });
+});
+
+/* ---------------- Preuve email (claims vérifiés) ---------------- */
+describe("preuve de possession de l'email", () => {
+  const claims = (amr: unknown, extra: Record<string, unknown> = {}) => ({
+    sub: "u2",
+    email: "bob@ex.fr",
+    amr,
+    ...extra,
+  });
+  test("flux pro existant (verifyOtp token_hash) = amr otp ; magiclink accepté", () => {
+    expect([...EMAIL_PROOF_AMR]).toEqual(["otp", "magiclink"]);
+    expect(hasEmailProof(claims([{ method: "otp", timestamp: 1 }]))).toBe(true);
+    expect(hasEmailProof(claims([{ method: "magiclink", timestamp: 1 }]))).toBe(true);
+    expect(hasEmailProof(claims(["otp"]))).toBe(true);
+  });
+  test("mot de passe, inscription, oauth, anonyme, sans amr/email : refus", () => {
+    for (const c of [
+      claims([{ method: "password", timestamp: 1 }]),
+      claims([{ method: "email/signup", timestamp: 1 }]),
+      claims([{ method: "oauth", timestamp: 1 }]),
+      claims([{ method: "token_refresh", timestamp: 1 }]),
+      claims([{ method: "otp" }], { is_anonymous: true }),
+      claims([{ method: "otp" }], { email: "" }),
+      claims(undefined),
+      claims("otp"),
+      // email_confirmed_at / user_metadata ne comptent jamais
+      claims([{ method: "password" }], {
+        email_confirmed_at: "2026-01-01",
+        user_metadata: { amr: "otp", email_verified: true },
+      }),
+      null,
+    ])
+      expect(hasEmailProof(c)).toBe(false);
+  });
+  test("acceptation sans preuve : refus AVANT toute lecture/mutation, même email confirmé", async () => {
+    const reads: string[] = [];
+    const { deps, calls } = acceptDeps({ row: invite(), verified: true });
+    const spy = {
+      ...deps,
+      findInviteByHash: async (h: string) => {
+        reads.push("invite");
+        return deps.findInviteByHash(h);
+      },
+      getAuthIdentity: async (u: string) => {
+        reads.push("identity");
+        return deps.getAuthIdentity(u);
+      },
+    };
+    await expect(
+      acceptInviteCore(spy, {
+        userId: "u2",
+        sessionEmail: "bob@ex.fr",
+        emailProof: hasEmailProof(claims([{ method: "password" }])),
+        tokenHash: HASH,
+        now: NOW,
+      }),
+    ).rejects.toMatchObject({ code: "email_proof_required" });
+    expect(reads).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+  test("mot de passe invitation : 12 caractères comme l'inscription pro", () => {
+    expect(INVITE_PASSWORD_MIN).toBe(12);
+  });
+});
+
+/* ---------------- Renouvellement d'invitations expirées ---------------- */
+describe("renouvellement expiré : quota vérifié", () => {
+  test("deux invitations expirées, un seul siège : une seule renouvelée", async () => {
+    let seatsLeft = 1;
+    const results: string[] = [];
+    for (const email of ["a@ex.fr", "b@ex.fr"]) {
+      const existing = invite({ id: email, invited_email: email, invite_expires_at: PAST });
+      const log: string[] = [];
+      const deps = prepDeps(
+        {
+          findPendingInvite: async () => existing,
+          assertCanAddSeat: async () => {
+            log.push("seat");
+            if (seatsLeft <= 0) throw new InviteError("forbidden", "Nombre maximal atteint");
+          },
+          casRotateInvite: async (e, p) => {
+            log.push("cas");
+            seatsLeft -= 1;
+            return { ...e, invite_token_hash: p.token_hash, invite_expires_at: p.expires_at };
+          },
+        },
+        log,
+      );
+      try {
+        await prepareInvite(deps, {
+          userId: "u1",
+          callerEmail: "dir@ex.fr",
+          companyId: "c1",
+          email,
+          role: "technicien",
+          now: NOW,
+        });
+        results.push("ok");
+      } catch (e) {
+        results.push((e as InviteError).code);
+        expect(log).not.toContain("cas");
+      }
+    }
+    expect(results).toEqual(["ok", "forbidden"]);
+  });
+  test("le CAS de renouvellement réécrit status pour déclencher le trigger quota", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/lib/invites.functions.ts", "utf8");
+    const cas = src.slice(src.indexOf("casRotateInvite: async"), src.indexOf("insertInvite: async"));
+    expect(cas).toContain('status: "invited"');
+    expect(cas).toContain('.eq("status", "invited")');
+    expect(cas).toContain('.is("user_id", null)');
+    expect(cas).toContain("invite_token_hash");
+    expect(cas).toMatch(/SEAT_QUOTA[\s\S]*Nombre maximal d'utilisateurs/);
   });
 });

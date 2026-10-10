@@ -18,9 +18,9 @@ export type TeamMember = {
 export const ASSIGNABLE_ROLES: CompanyRoleValue[] = ROLE_ORDER.filter((r) => r !== "directeur");
 
 export function memberIdentity(m: TeamMember): { primary: string; secondary: string | null } {
-  if (m.status === "invited" && !m.user_id)
-    return { primary: m.invited_email || "Invitation", secondary: null };
-  return { primary: m.profile?.full_name?.trim() || "Membre sans nom", secondary: null };
+  const email = (m.invited_email ?? "").trim().toLowerCase() || null;
+  if (m.status === "invited" && !m.user_id) return { primary: email || "Invitation", secondary: null };
+  return { primary: m.profile?.full_name?.trim() || email || "Membre sans nom", secondary: null };
 }
 
 export function inviteExpired(m: TeamMember, now: number): boolean {

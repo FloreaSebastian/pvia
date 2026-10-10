@@ -1,5 +1,5 @@
 import {
-  LockedActionButton,
+  WriteAccessGate,
   useWriteAccess,
   useBlockedActionGuard,
 } from "@/components/billing/WriteAccessGate";
@@ -179,10 +179,21 @@ function TeamPage() {
   const isAdmin =
     !!asKnownRole(activeRole) && (ADMIN_ROLES as readonly string[]).includes(activeRole!);
 
-  const scopeRef = useRef<ScopeGuard | null>(null);
-  if (!scopeRef.current) scopeRef.current = createScopeGuard();
-  const scope = scopeRef.current;
-  useEffect(() => () => scope.dispose(), [scope]);
+  // Garde recréée à chaque montage effectif : un démontage/remontage (StrictMode
+  // en développement) ne doit pas laisser une garde close bloquer le chargement.
+  const scopeRef = useRef<ScopeGuard>(createScopeGuard());
+  const scope: ScopeGuard = {
+    next: () => scopeRef.current.next(),
+    isCurrent: (t) => scopeRef.current.isCurrent(t),
+    alive: () => scopeRef.current.alive(),
+    dispose: () => scopeRef.current.dispose(),
+  };
+  useEffect(() => {
+    if (!scopeRef.current.alive())
+      scopeRef.current = createScopeGuard(scopeRef.current.next());
+    const current = scopeRef.current;
+    return () => current.dispose();
+  }, []);
   const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
   /** Les mutations n'agissent que sur la liste chargée pour l'entreprise active. */
   const scopeCompanyId =
@@ -596,12 +607,11 @@ function TeamPage() {
             Gérez les membres, les rôles BTP et les accès de votre entreprise.
           </p>
         </div>
-        {isAdmin &&
-          (!writeOpen ? (
-            <LockedActionButton label="Inviter un membre" className="h-11 w-full sm:w-auto">
-              Inviter un membre
-            </LockedActionButton>
-          ) : (
+        {isAdmin && (
+          <WriteAccessGate
+            label="Inviter un membre"
+            lockedProps={{ className: "h-11 w-full sm:w-auto", children: "Inviter un membre" }}
+          >
             <Button
               className="h-11 w-full shadow-brand sm:w-auto"
               disabled={!scopeCompanyId}
@@ -609,7 +619,8 @@ function TeamPage() {
             >
               <Plus className="h-4 w-4" aria-hidden /> Inviter un membre
             </Button>
-          ))}
+          </WriteAccessGate>
+        )}
       </div>
 
       {!loading && !loadError && (

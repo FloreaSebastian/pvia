@@ -44,13 +44,13 @@ export function CollapsibleSection({
         className,
       )}
     >
-      <header className="flex items-center gap-3 p-4 sm:p-5">
+      <header className="flex flex-wrap items-center gap-3 p-4 sm:flex-nowrap sm:p-5">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-controls={`${id}-panel`}
-          className="flex flex-1 items-center gap-3 text-left"
+          className="flex min-h-11 min-w-0 flex-1 basis-56 items-center gap-3 text-left"
         >
           {icon && (
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -70,7 +70,7 @@ export function CollapsibleSection({
             )}
           />
         </button>
-        {actions && <div className="shrink-0">{actions}</div>}
+        {actions && <div className="ml-auto min-w-0 max-w-full shrink-0">{actions}</div>}
       </header>
       <div
         id={`${id}-panel`}
