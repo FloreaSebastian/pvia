@@ -116,6 +116,7 @@ export const VisitFiltersSchema = z.object({
   visit_type: VisitTypeSchema.nullable().optional(),
   lot: VisitLotSchema.nullable().optional(),
   status: VisitStatusSchema.nullable().optional(),
+  group: z.enum(["all", "a_reprendre"]).optional().default("all"),
   assigned_to: z.string().uuid().nullable().optional(),
   chantier_id: z.string().uuid().nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),

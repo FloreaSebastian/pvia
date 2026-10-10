@@ -6,3 +6,4 @@
 - Applying technical-visit AI proposals goes through the `apply_technical_visit_answers_cas` compare-and-set RPC (expected value per field, same edit/plan/tenant guards), never through the blind autosave upsert — why: a concurrent edit by another technician must surface as a conflict, not be overwritten.
 
 - Dashboard counts use exact RLS-scoped HEAD queries independent of bounded preview lists; navigation filters share status groups and signature age cutoff — why: row caps and mislabeled statuses must never distort operational totals.
+- The visit-list resume URL group uses the dashboard's shared status set before pagination; grouped text search merges bounded per-status RPC streams — why: preserve exact navigation/count agreement without changing existing database functions.

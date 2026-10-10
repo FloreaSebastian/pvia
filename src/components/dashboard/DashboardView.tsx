@@ -16,6 +16,8 @@ import { PvStatusPill, StatusPill, isKnownPvStatus } from "@/components/ui/statu
 import { VisitStatusBadge } from "@/components/visites/VisitStatusBadge";
 import type { VisitStatus } from "@/lib/visites/types";
 import { dashboardDate, PV_DRAFT_STATUSES, type DashboardData } from "@/lib/dashboard";
+import { VISIT_RESUME_SEARCH } from "@/lib/visites/resume-filter";
+import type { ReactNode } from "react";
 
 export type DashboardViewProps = {
   data?: DashboardData;
@@ -27,6 +29,7 @@ export type DashboardViewProps = {
   userId?: string;
   retry: () => void;
   today: string;
+  documentaryFollowup?: ReactNode;
 };
 const linkClass =
   "focus-ring grid min-h-11 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-3 py-3 hover:bg-accent transition-colors";
@@ -40,6 +43,7 @@ export function DashboardView({
   userId,
   retry,
   today,
+  documentaryFollowup,
 }: DashboardViewProps) {
   const metrics = [
     {
@@ -228,7 +232,7 @@ export function DashboardView({
                   <span className="text-xl font-semibold tabular-nums">{data.counts.drafts}</span>
                 </Link>
                 {data.counts.visits !== null && (
-                  <Link to="/visites-techniques" className={linkClass}>
+                  <Link to="/visites-techniques" search={VISIT_RESUME_SEARCH} className={linkClass}>
                     <span className="text-sm font-medium">Visites à préparer ou à compléter</span>
                     <span className="text-xl font-semibold tabular-nums">{data.counts.visits}</span>
                   </Link>
@@ -374,6 +378,7 @@ export function DashboardView({
           </section>
         </>
       ) : null}
+      {documentaryFollowup}
     </div>
   );
 }
