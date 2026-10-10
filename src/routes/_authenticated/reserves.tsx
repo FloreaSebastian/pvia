@@ -39,6 +39,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useCompany } from "@/hooks/use-company";
+import { useRoleCaps } from "@/hooks/use-role-caps";
+import { isManageRole } from "@/lib/roles";
 import { useServerFn } from "@tanstack/react-start";
 import {
   updateReserveStatus, deleteReserve, assignReserve,
@@ -203,8 +205,12 @@ function ReservesPage() {
     if (typeof window !== "undefined") window.localStorage.setItem(VIEW_STORAGE_KEY, view);
   }, [view]);
 
-  const canManage = activeRole && ["directeur", "responsable_exploitation", "conducteur_travaux"].includes(activeRole);
-  const canDelete = activeRole && ["directeur", "responsable_exploitation"].includes(activeRole);
+  // Mêmes listes que reserves.functions (gestion = signataires, suppression = admin),
+  // et toujours fermé tant que l'écriture n'est pas confirmée.
+  const caps = useRoleCaps();
+  const canManage = caps.sign;
+  const canDelete = caps.manage && !!activeRole && ["directeur", "responsable_exploitation"].includes(activeRole);
+  const canCreate = isManageRole(activeRole);
 
   const updateStatusFn = useServerFn(updateReserveStatus);
   const deleteFn = useServerFn(deleteReserve);
@@ -597,14 +603,16 @@ function ReservesPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <WriteAccessGate label="Nouvelle réserve" lockedProps={{ size: "sm", className: "h-11 shrink-0 sm:h-9" }}>
-            <Button asChild size="sm" className="h-11 shrink-0 sm:h-9">
-              <Link to="/pv">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Nouvelle réserve</span>
-              </Link>
-            </Button>
-          </WriteAccessGate>
+          {canCreate && (
+            <WriteAccessGate label="Nouvelle réserve" lockedProps={{ size: "sm", className: "h-11 shrink-0 sm:h-9" }}>
+              <Button asChild size="sm" className="h-11 shrink-0 sm:h-9">
+                <Link to="/pv" aria-label="Nouvelle réserve">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Nouvelle réserve</span>
+                </Link>
+              </Button>
+            </WriteAccessGate>
+          )}
         </div>
       </div>
 
@@ -982,9 +990,9 @@ function ReservesPage() {
         onOpenChange={(o) => !o && setDetail(null)}
         reserve={reserveDetail}
         onChanged={() => { load(); }}
-        onLever={(rsv) => {
+        onLever={canManage ? (rsv) => {
           navigate({ to: "/pv/$id", params: { id: rsv.pv_id }, search: { openLift: rsv.id } as any });
-        }}
+        } : undefined}
       />
 
       {/* Assign / due date / priority dialog */}
@@ -1216,7 +1224,7 @@ function ReserveCard({
         >
           <Pencil className="h-4 w-4" />
         </Button>
-        {r.status !== "validee" && r.status !== "levee" && (
+        {canManage && !["validee", "levee", "en_attente_validation"].includes(r.status) && (
           <Button size="sm" variant="outline" className="h-11 sm:h-9" onClick={onLever} aria-label={`Lever la réserve`}>
             <CheckCircle2 className="h-3.5 w-3.5" /> Lever
           </Button>
