@@ -1079,7 +1079,7 @@ function PvDetail() {
                             Réouvrir
                           </Button>
                         )}
-                        {rejected && (
+                        {caps.sign && rejected && (
                           <Button size="sm" variant="default" className="h-11 sm:h-8" onClick={handleNewAttemptAfterRejection}>
                             <PlusCircle className="h-3.5 w-3.5" />
                             Nouvelle tentative
