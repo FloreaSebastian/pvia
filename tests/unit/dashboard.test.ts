@@ -169,7 +169,9 @@ describe("dashboard events and feature gating", () => {
     const { eventPhase } = await import("../../src/lib/dashboard");
     const now = new Date("2026-10-10T12:00:00Z");
     expect(eventPhase({ start_at: "2026-10-10T11:00:00Z", status: "prevu" }, now)).toBe("a_venir");
-    expect(eventPhase({ start_at: "2026-10-10T11:00:00Z", status: "en_cours" }, now)).toBe("en_cours");
+    expect(eventPhase({ start_at: "2026-10-10T11:00:00Z", status: "en_cours" }, now)).toBe(
+      "en_cours",
+    );
     expect(eventPhase({ start_at: "2026-10-11T08:00:00Z", status: "prevu" }, now)).toBe("a_venir");
     expect(eventPhase({ start_at: "2026-10-11T08:00:00Z", status: "reporte" }, now)).toBe(
       "reporte",

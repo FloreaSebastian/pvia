@@ -11,7 +11,9 @@ import { ComplianceWidget } from "@/components/dashboard/ComplianceWidget";
 import { canSignAsCompany } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  validateSearch: zodValidator(z.object({ planning: z.enum(["today", "upcoming"]).optional().catch(undefined) })),
+  validateSearch: zodValidator(
+    z.object({ planning: z.enum(["today", "upcoming"]).optional().catch(undefined) }),
+  ),
   component: Dashboard,
   head: () => ({
     meta: [
