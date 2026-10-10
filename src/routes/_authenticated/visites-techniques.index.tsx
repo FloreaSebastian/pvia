@@ -23,7 +23,7 @@ import { useCompany } from "@/hooks/use-company";
 import { useRoleCaps } from "@/hooks/use-role-caps";
 import { canEnterVisitField } from "@/lib/role-access";
 import { useAuth } from "@/hooks/use-auth";
-import { isManageRole } from "@/lib/roles";
+import { isAdminRole, isManageRole } from "@/lib/roles";
 import { listTechnicalVisits, listVisitAssignees } from "@/lib/visites.functions";
 import { BTP_LOT_OPTIONS, LOT_META, VISIT_TYPE_OPTIONS, resolveVisitTemplate } from "@/lib/visites/templates";
 import { VISIT_STATUS_META, type VisitLot, type VisitStatus, type VisitType } from "@/lib/visites/types";
@@ -251,9 +251,21 @@ function VisitesTechniquesPage() {
             Vos visites déjà enregistrées restent consultables. La création de nouvelles visites
             nécessite un plan Pro, Business ou Entreprise.
           </p>
-          <Button asChild className="h-11 self-start">
-            <Link to="/billing">Voir les formules</Link>
-          </Button>
+          {/* CTA facturation : rôles ADMIN uniquement ; les autres rôles
+              contactent un administrateur. La consultation reste possible. */}
+          {activeRole ? (
+            isAdminRole(activeRole) ? (
+              <Button asChild className="h-11 self-start">
+                <Link to="/billing">Voir les formules</Link>
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Contactez un administrateur de votre entreprise (direction ou responsable
+                d'exploitation) pour changer de formule.
+              </p>
+            )
+          ) : null}
+
         </Card>
       ) : null}
 
@@ -431,13 +443,16 @@ function VisitesTechniquesPage() {
             </p>
           </div>
           {canManage ? (
-            <Button asChild className="h-11">
-              <Link to="/visites-techniques/nouvelle">
-                <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-                Nouvelle visite
-              </Link>
-            </Button>
+            <WriteAccessGate label="Nouvelle visite">
+              <Button asChild className="h-11">
+                <Link to="/visites-techniques/nouvelle">
+                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Nouvelle visite
+                </Link>
+              </Button>
+            </WriteAccessGate>
           ) : null}
+
         </Card>
       ) : (
         <ul className="space-y-2">
