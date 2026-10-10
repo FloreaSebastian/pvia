@@ -987,7 +987,7 @@ function NewPv() {
       [ID_SIGNATURES]: signaturesError,
       [ID_APERCU]: signaturesError ? "Complétez les signatures avant d'accéder à l'aperçu." : null,
     };
-  }, [brandingComplete, form, withReserves, reserves, signatureMode, canRemoteSign, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpEmail, onsiteOtpVerified]);
+  }, [brandingComplete, form, withReserves, reserves, signatureMode, canRemoteSign, canSignPv, companySignatureDataUrl, clientSignatureDataUrl, onsiteOtpEmail, onsiteOtpVerified]);
 
   // Résumé court par étape — affiché dans le stepper et la checklist finale.
   const stepSummaries = useMemo<Record<string, string>>(() => {
