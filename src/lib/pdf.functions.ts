@@ -20,14 +20,9 @@ export const regeneratePvPdf = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!pv?.company_id) throw new Error("PV introuvable.");
 
-    const { data: m } = await supabaseAdmin
-      .from("company_members")
-      .select("id")
-      .eq("company_id", pv.company_id)
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
-    if (!m) throw new Error("Accès refusé.");
+    // Membre actif + rôle de gestion + accès écriture, avant tout effet.
+    const { authorizeCompanyAction, serverActionDeps } = await import("./action-access");
+    await authorizeCompanyAction(await serverActionDeps(), pv.company_id, userId, "manage");
 
     const { markPdfGenerationStatus, recordProcessingError } = await import("@/lib/processing-status.server");
     await markPdfGenerationStatus("pv", pv.id, "pending");
