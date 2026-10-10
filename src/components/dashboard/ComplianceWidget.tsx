@@ -8,7 +8,17 @@
  */
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { ShieldCheck, MapPin, AlertTriangle, Camera, CheckCircle2, XCircle, UserX, Clock, type LucideIcon } from "lucide-react";
+import {
+  ShieldCheck,
+  MapPin,
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  XCircle,
+  UserX,
+  Clock,
+  type LucideIcon,
+} from "lucide-react";
 import { getReserveComplianceMetrics } from "@/lib/reserve-compliance.functions";
 
 type Metrics = Awaited<ReturnType<typeof getReserveComplianceMetrics>>;
@@ -58,20 +68,28 @@ export function ComplianceWidget({ companyId }: { companyId: string }) {
         if (!cancelled) setErr("Suivi documentaire indisponible pour le moment.");
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [companyId, fetchFn]);
 
   if (err) {
     return (
       <section className="min-w-0 border-t border-border pt-5" aria-label="Suivi documentaire">
         <h2 className="font-display text-lg font-semibold">Suivi documentaire</h2>
-        <p role="status" className="mt-2 text-sm text-muted-foreground">{err}</p>
+        <p role="status" className="mt-2 text-sm text-muted-foreground">
+          {err}
+        </p>
       </section>
     );
   }
 
   return (
-    <section className="min-w-0 border-t border-border pt-5" aria-label="Suivi documentaire" aria-busy={!m}>
+    <section
+      className="min-w-0 border-t border-border pt-5"
+      aria-label="Suivi documentaire"
+      aria-busy={!m}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -79,13 +97,19 @@ export function ComplianceWidget({ companyId }: { companyId: string }) {
           </div>
           <div>
             <h2 className="font-display text-lg font-semibold">Suivi documentaire</h2>
-            <p className="text-sm text-muted-foreground">Preuves photo et traitement des réserves</p>
+            <p className="text-sm text-muted-foreground">
+              Preuves photo et traitement des réserves
+            </p>
           </div>
         </div>
       </div>
 
       {!m ? (
-        <div className="mt-4 grid gap-2" role="status" aria-label="Chargement du suivi documentaire">
+        <div
+          className="mt-4 grid gap-2"
+          role="status"
+          aria-label="Chargement du suivi documentaire"
+        >
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-9 animate-pulse rounded-md bg-muted/40" />
           ))}
@@ -93,17 +117,61 @@ export function ComplianceWidget({ companyId }: { companyId: string }) {
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">Photos ({m.photos.total}) · 1 000 dernières au maximum</p>
-            <Row icon={MapPin} label="Avec GPS" value={`${m.photos.withGpsPct}%`} detail={`${m.photos.withGps}/${m.photos.total}`} tone="text-primary" />
-            <Row icon={Camera} label="Avec EXIF" value={`${m.photos.withExifPct}%`} detail={`${m.photos.withExif}/${m.photos.total}`} />
-            <Row icon={AlertTriangle} label="Métadonnées suspectes" value={String(m.photos.suspicious)} tone={m.photos.suspicious > 0 ? "text-destructive" : "text-success"} />
+            <p className="text-sm font-medium text-muted-foreground">
+              Photos ({m.photos.total}) · 1 000 dernières au maximum
+            </p>
+            <Row
+              icon={MapPin}
+              label="Avec GPS"
+              value={`${m.photos.withGpsPct}%`}
+              detail={`${m.photos.withGps}/${m.photos.total}`}
+              tone="text-primary"
+            />
+            <Row
+              icon={Camera}
+              label="Avec EXIF"
+              value={`${m.photos.withExifPct}%`}
+              detail={`${m.photos.withExif}/${m.photos.total}`}
+            />
+            <Row
+              icon={AlertTriangle}
+              label="Métadonnées suspectes"
+              value={String(m.photos.suspicious)}
+              tone={m.photos.suspicious > 0 ? "text-destructive" : "text-success"}
+            />
           </div>
           <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">Réserves ({m.reserves.total})</p>
-            <Row icon={CheckCircle2} label="Validées" value={`${m.reserves.validatedPct}%`} detail={`${m.reserves.validated}/${m.reserves.total}`} tone="text-success" />
-            <Row icon={XCircle} label="Rejetées" value={`${m.reserves.rejectedPct}%`} detail={`${m.reserves.rejected}/${m.reserves.total}`} tone={m.reserves.rejected > 0 ? "text-destructive" : "text-muted-foreground"} />
-            <Row icon={UserX} label="Sans responsable" value={`${m.reserves.unassignedPct}%`} detail={`${m.reserves.unassigned}`} tone={m.reserves.unassigned > 0 ? "text-warning" : "text-muted-foreground"} />
-            <Row icon={Clock} label="Hors délai" value={`${m.reserves.overduePct}%`} detail={`${m.reserves.overdue}`} tone={m.reserves.overdue > 0 ? "text-destructive" : "text-success"} />
+            <p className="text-sm font-medium text-muted-foreground">
+              Réserves ({m.reserves.total})
+            </p>
+            <Row
+              icon={CheckCircle2}
+              label="Validées"
+              value={`${m.reserves.validatedPct}%`}
+              detail={`${m.reserves.validated}/${m.reserves.total}`}
+              tone="text-success"
+            />
+            <Row
+              icon={XCircle}
+              label="Rejetées"
+              value={`${m.reserves.rejectedPct}%`}
+              detail={`${m.reserves.rejected}/${m.reserves.total}`}
+              tone={m.reserves.rejected > 0 ? "text-destructive" : "text-muted-foreground"}
+            />
+            <Row
+              icon={UserX}
+              label="Sans responsable"
+              value={`${m.reserves.unassignedPct}%`}
+              detail={`${m.reserves.unassigned}`}
+              tone={m.reserves.unassigned > 0 ? "text-warning" : "text-muted-foreground"}
+            />
+            <Row
+              icon={Clock}
+              label="Hors délai"
+              value={`${m.reserves.overduePct}%`}
+              detail={`${m.reserves.overdue}`}
+              tone={m.reserves.overdue > 0 ? "text-destructive" : "text-success"}
+            />
           </div>
         </div>
       )}

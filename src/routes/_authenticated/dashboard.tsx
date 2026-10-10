@@ -67,7 +67,11 @@ function Dashboard() {
       canTerrain={canWrite && (can("manage") || activeRole === "technicien")}
       userId={user?.id}
       today={today}
-      documentaryFollowup={activeCompanyId ? <ComplianceWidget key={activeCompanyId} companyId={activeCompanyId} /> : null}
+      documentaryFollowup={
+        activeCompanyId ? (
+          <ComplianceWidget key={activeCompanyId} companyId={activeCompanyId} />
+        ) : null
+      }
       retry={() => {
         void query.refetch();
       }}
