@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { useBillingGate, subscriptionCopy } from "@/components/billing/BillingGate";
 import { accessStateLabel, formatFrDate } from "@/lib/plans";
 import { useCompany } from "@/hooks/use-company";
-import { isManageRole } from "@/lib/roles";
+import { useSuspension } from "@/hooks/use-suspension";
+import { isAdminRole, isManageRole } from "@/lib/roles";
+
 
 /**
  * Garde de ROUTE pour les pages dont l'unique objet est la création
@@ -29,7 +31,12 @@ export function RestrictedRoute({
 }) {
   const { blocked, writeKnown, state, trialEnd, periodEnd } = useBillingGate();
   const { activeRole, loading } = useCompany();
+  const suspension = useSuspension();
+  // Facturation : mêmes rôles que /billing (ADMIN_ROLES). Les autres rôles ne
+  // sont jamais renvoyés vers la facturation : ils contactent un administrateur.
+  const canBilling = isAdminRole(activeRole);
   // Accès inconnu ou en erreur : jamais de formulaire de création.
+
   if (loading || (!writeKnown && !blocked)) {
     return (
       <div className="mx-auto w-full max-w-xl p-4 sm:p-6 lg:p-8" role="status" aria-live="polite">
