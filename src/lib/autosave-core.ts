@@ -90,7 +90,13 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
       const myScope = scope;
       const myGen = gen;
       if (disposed || myScope === null) return false;
-      if (inFlight) await inFlight;
+      // File sérialisée : chaque waiter réexamine l'écriture COURANTE après
+      // chaque fin d'écriture ; une seule écriture à la fois par génération.
+      while (inFlight) {
+        const waiting = inFlight;
+        await waiting.catch(() => false);
+        if (disposed || myGen !== gen || scope !== myScope) return false;
+      }
       if (disposed || myGen !== gen || scope !== myScope) return false;
       if (baseline === undefined || latest === undefined) return false;
       const snapshot = latest;
@@ -99,7 +105,9 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
         return status !== "error";
       }
       setStatus("saving");
-      const p = (async () => {
+      // inFlight est posé AVANT l'exécution de save (même si save lève de façon
+      // synchrone) ; il n'est effacé que s'il désigne encore cette écriture.
+      const p: Promise<boolean> = Promise.resolve().then(async () => {
         try {
           await opts.save(myScope, snapshot);
           if (disposed || myGen !== gen) return false; // portée changée : résultat ignoré
@@ -112,9 +120,9 @@ export function createAutosaveCore<T>(opts: AutosaveCoreOptions<T>) {
           setStatus("error");
           return false;
         } finally {
-          if (myGen === gen) inFlight = null;
+          if (inFlight === p) inFlight = null;
         }
-      })();
+      });
       inFlight = p;
       return p;
     },
