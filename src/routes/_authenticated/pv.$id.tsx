@@ -39,6 +39,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/use-company";
+import { useRoleCaps } from "@/hooks/use-role-caps";
 import { isAdminRole, isManageRole } from "@/lib/roles";
 import { toast } from "sonner";
 import { StatusPill, PvStatusPill } from "@/components/ui/status-pill";
@@ -142,7 +143,11 @@ function PvDetail() {
   const { activeRole } = useCompany();
   const { deny, dialog: lockedDialog } = useBlockedActionGuard();
   const canViewInternal = isManageRole(activeRole);
-  const canReopenLift = isAdminRole(activeRole);
+  const caps = useRoleCaps();
+  // Suppression de réserve : serveur = ADMIN_ROLES ; écriture confirmée.
+  const canDeleteReserve = isAdminRole(activeRole) && caps.manage;
+  // Réouverture : rôles admin ET écriture confirmée.
+  const canReopenLift = isAdminRole(activeRole) && caps.manage;
   const sendPv = useServerFn(sendPvToClient);
   const changeStatusFn = useServerFn(updatePvStatus);
   const regenPdf = useServerFn(regeneratePvPdf);
@@ -250,6 +255,13 @@ function PvDetail() {
   // Auto-open lift dialog when navigating with ?openLift=<reserveId>
   useEffect(() => {
     if (!search.openLift || reserves.length === 0) return;
+    // Attendre rôle + accès connus ; sans droit de signature, pas de dialogue de levée.
+    if (!caps.known) return;
+    if (!caps.sign) {
+      toast.message("Votre rôle permet de consulter cette réserve, pas de la lever.");
+      navigate({ to: "/pv/$id", params: { id }, search: {}, replace: true });
+      return;
+    }
     const target = reserves.find((r) => r.id === search.openLift);
     if (!target) return;
     if (["validee", "en_attente_validation", "levee"].includes(target.status)) {
@@ -259,7 +271,7 @@ function PvDetail() {
       setLiftDialogOpen(true);
     }
     navigate({ to: "/pv/$id", params: { id }, search: {}, replace: true });
-  }, [search.openLift, reserves, id, navigate]);
+  }, [search.openLift, reserves, id, navigate, caps.known, caps.sign]);
 
   const loadLogs = useCallback(async () => {
     try {
@@ -396,6 +408,7 @@ function PvDetail() {
 
 
   async function changeStatus(status: string) {
+    if (!caps.sign) return;
     if (deny("changer le statut du PV")) return;
     if (!pv) return;
     if (status === pv.status) return;
@@ -429,6 +442,7 @@ function PvDetail() {
   }
 
   async function deleteReserve(rid: string) {
+    if (!canDeleteReserve) return;
     if (deny("supprimer une réserve")) return;
     if (!pv?.company_id) return;
     if (!confirm("Supprimer cette réserve ?")) return;
@@ -484,6 +498,7 @@ function PvDetail() {
   }
 
   async function deletePv() {
+    if (!caps.manage) return;
     if (deny("supprimer le PV")) return;
     if (!pv) return;
     if (pv.locked_at) return toast.error("Ce PV est signé et verrouillé — suppression interdite.");
@@ -622,12 +637,12 @@ function PvDetail() {
           </div>
         </div>
         <div className="flex min-w-0 flex-wrap gap-2 [&>*]:min-h-11 [&_button]:min-h-11 lg:[&>*]:min-h-0 lg:[&_button]:min-h-0">
-          {!pv.client_signature && !pv.locked_at && (
+          {caps.sign && !pv.client_signature && !pv.locked_at && (
             <Button onClick={openSendDialog} className="w-full sm:w-auto">
               <Send className="h-4 w-4" /> {pv.signature_mode === "remote" && pv.status === "en_attente" ? "Renvoyer le lien de signature" : "Envoyer au client pour signature"}
             </Button>
           )}
-          {pv.status === "signe" && pv.pdf_url && (
+          {caps.manage && pv.status === "signe" && pv.pdf_url && (
             <Button variant="outline" onClick={handleResendSigned} disabled={resendingSigned}>
               {resendingSigned ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
               {resendingSigned ? "Envoi…" : "Renvoyer le PDF signé"}
@@ -642,7 +657,7 @@ function PvDetail() {
                 ? !!pv.client_identity_verified_at
                 : pv.client_otp_verified === true);
             const showRegen = fullySigned && (pv.pdf_generation_status === "failed" || !pv.pdf_url);
-            return showRegen ? (
+            return showRegen && caps.manage ? (
               <Button variant="outline" onClick={handleRegenerate} disabled={regenerating}>
                 {regenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                 {regenerating ? "Génération…" : "Régénérer le PDF"}
@@ -658,7 +673,7 @@ function PvDetail() {
           <Link to="/pv/$id/historique" params={{ id: pv.id }}>
             <Button variant="outline"><ShieldCheck className="h-4 w-4" /> Historique légal</Button>
           </Link>
-          {!pv.locked_at && (
+          {caps.manage && !pv.locked_at && (
             <Button variant="outline" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 text-destructive" /> Supprimer</Button>
           )}
         </div>
@@ -723,7 +738,7 @@ function PvDetail() {
             <h3 className="font-semibold">Informations</h3>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <PvStatusPill status={pv.status} />
-              {!pv.locked_at && (pv.status === "brouillon" || pv.status === "archive") ? (
+              {caps.sign && !pv.locked_at && (pv.status === "brouillon" || pv.status === "archive") ? (
                 <Select value={pv.status} onValueChange={changeStatus}>
                   <SelectTrigger aria-label="Changer le statut du PV" className="h-11 w-40 max-w-full text-xs sm:h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -926,7 +941,7 @@ function PvDetail() {
                           <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => setReserveDetail(r as ReserveDetail)}>
                             Détails
                           </Button>
-                          {(r.status === "ouverte" || r.status === "en_cours" || r.status === "rejetee") && (
+                          {caps.sign && (r.status === "ouverte" || r.status === "en_cours" || r.status === "rejetee") && (
                             <Button
                               size="sm" variant="outline" className="h-11 sm:h-8"
                               onClick={() => {
@@ -940,16 +955,18 @@ function PvDetail() {
                               <CheckCircle2 className="h-3.5 w-3.5" /> Lever
                             </Button>
                           )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-11 w-11 sm:h-8 sm:w-8"
-                            aria-label={`Supprimer la réserve : ${r.description.slice(0, 60)}`}
-                            title="Supprimer la réserve"
-                            onClick={() => deleteReserve(r.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {canDeleteReserve && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-11 w-11 sm:h-8 sm:w-8"
+                              aria-label={`Supprimer la réserve : ${r.description.slice(0, 60)}`}
+                              title="Supprimer la réserve"
+                              onClick={() => deleteReserve(r.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       {reservePhotos.length > 0 && (
@@ -1030,19 +1047,19 @@ function PvDetail() {
                             Export expertise
                           </Button>
                         )}
-                        {!editable && (l.pdf_generation_status === "failed" || (!hasClientPdf && (validated || rejected))) && (
+                        {caps.manage && !editable && (l.pdf_generation_status === "failed" || (!hasClientPdf && (validated || rejected))) && (
                           <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => handleRegenerateLiftPdf(l.id)} disabled={regenLiftId === l.id}>
                             {regenLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
                             {regenLiftId === l.id ? "Génération…" : "Régénérer le PDF"}
                           </Button>
                         )}
-                        {validated && (
+                        {caps.sign && validated && (
                           <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => resendLiftValidatedEmail(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
                             Renvoyer
                           </Button>
                         )}
-                        {display === "envoyee_client" && (
+                        {caps.sign && display === "envoyee_client" && (
                           <Button size="sm" variant="outline" className="h-11 sm:h-8" onClick={() => resendLiftValidationRequest(l.id)} disabled={resendingLiftId === l.id}>
                             {resendingLiftId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                             Relancer
@@ -1083,7 +1100,7 @@ function PvDetail() {
             <Mail className="h-4 w-4 text-primary" />
             <h3 className="font-semibold">Historique des emails ({emailLogs.length})</h3>
           </div>
-          {pv.status === "signe" && pv.pdf_url && (
+          {caps.manage && pv.status === "signe" && pv.pdf_url && (
             <Button size="sm" variant="outline" onClick={handleResendSigned} disabled={resendingSigned}>
               {resendingSigned ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
               Renvoyer le PDF signé
