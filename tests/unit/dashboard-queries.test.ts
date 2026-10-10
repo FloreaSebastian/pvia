@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/integrations/supabase/types";
 import {
   dashboardQueries,
+  retryDashboardSection,
   parisDayBounds,
   dashboardDueDate,
   signatureAge,
@@ -57,6 +58,34 @@ function client(failTable?: string, visitRows: Record<string, number> = {}) {
   return { sb, requests };
 }
 describe("independent dashboard sections", () => {
+  it("local retry reads only its section, retains successful data and ignores duplicate retry", async () => {
+    const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { sb, requests } = client();
+    const options = dashboardQueries(sb, scope, "today", now);
+    await Promise.all([cache.fetchQuery(options.reserves), cache.fetchQuery(options.drafts)]);
+    const saved = cache.getQueryData(options.reserves.queryKey);
+    requests.length = 0;
+    let release = () => {};
+    const wait = new Promise<void>((resolve) => { release = resolve; });
+    const observer = new QueryObserver(cache, {
+      ...options.reserves,
+      staleTime: Infinity,
+      queryFn: async () => { await wait; return options.reserves.queryFn(); },
+    });
+    const unsubscribe = observer.subscribe(() => {});
+    retryDashboardSection(observer.getCurrentResult());
+    expect(observer.getCurrentResult().isFetching).toBe(true);
+    expect(cache.getQueryData(options.reserves.queryKey)).toEqual(saved);
+    expect(cache.getQueryData(options.drafts.queryKey)).toBe(12345);
+    retryDashboardSection(observer.getCurrentResult());
+    release();
+    await observer.getCurrentResult().refetch({ cancelRefetch: false });
+    expect(requests).toHaveLength(2);
+    expect(requests.every((r) => r.table === "pv_reserves")).toBe(true);
+    expect(cache.getQueryData(options.drafts.queryKey)).toBe(12345);
+    unsubscribe();
+    cache.clear();
+  });
   it("a failed reserve section preserves successful PV counts and previews, never zeroes failures", async () => {
     const { sb } = client("pv_reserves");
     const options = dashboardQueries(sb, scope, "today", now);

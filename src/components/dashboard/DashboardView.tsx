@@ -77,6 +77,7 @@ export function DashboardView({
   onPeriodChange,
   refreshing,
   retry,
+  onRetry,
   documentaryFollowup,
 }: {
   queries: DashboardQueries;
@@ -90,6 +91,7 @@ export function DashboardView({
   onPeriodChange: (period: PlanningPeriod) => void;
   refreshing: boolean;
   retry: () => void;
+  onRetry: Record<"reserves" | "late" | "planning" | "visits" | "recent", () => void>;
   documentaryFollowup?: ReactNode;
 }) {
   const metrics = [
@@ -263,7 +265,7 @@ export function DashboardView({
             </p>
           ) : (
             <div className="mt-2 space-y-4">
-              <SectionState query={q.reserves} label="Réserves prioritaires" retry={retry}>
+              <SectionState query={q.reserves} label="Réserves prioritaires" retry={onRetry.reserves}>
                 {!!q.reserves.data?.count && (
                   <>
                     <GroupHeading label="Réserves prioritaires" count={q.reserves.data.count}>
@@ -320,7 +322,7 @@ export function DashboardView({
                   </>
                 )}
               </SectionState>
-              <SectionState query={q.late} label="Signatures en retard" retry={retry}>
+              <SectionState query={q.late} label="Signatures en retard" retry={onRetry.late}>
                 {!!q.late.data?.count && (
                   <>
                     <GroupHeading label="Signature attendue > 7 jours" count={q.late.data.count}>
@@ -374,7 +376,7 @@ export function DashboardView({
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <SectionState query={q.planning} label="Planning" retry={retry}>
+          <SectionState query={q.planning} label="Planning" retry={onRetry.planning}>
             <p className="mt-3 text-sm font-medium">
               {q.planning.data?.count.toLocaleString("fr-FR")} rendez-vous{" "}
               {period === "today" ? "aujourd’hui" : "à partir de demain"}
@@ -445,7 +447,7 @@ export function DashboardView({
             </Link>
           </GroupHeading>
           {!canTerrain && <p className="text-sm text-muted-foreground">Consultation uniquement</p>}
-          <SectionState query={q.visits} label="Visites" retry={retry}>
+          <SectionState query={q.visits} label="Visites" retry={onRetry.visits}>
             <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {q.visits.data?.rows.length ? (
                 q.visits.data.rows.map((v) => {
@@ -518,7 +520,7 @@ export function DashboardView({
             <ArrowRight className="h-4 w-4" />
           </Link>
         </GroupHeading>
-        <SectionState query={q.recent} label="Derniers PV" retry={retry}>
+        <SectionState query={q.recent} label="Derniers PV" retry={onRetry.recent}>
           <div className="mt-2 grid gap-x-6 md:grid-cols-2">
             {q.recent.data?.length ? (
               q.recent.data.map((p) => (
@@ -628,10 +630,16 @@ function SectionState<T>({
           {query.data === undefined
             ? "chargement impossible."
             : `non actualisé, données de ${timeStamp(query.dataUpdatedAt)}.`}
-          <Button variant="link" onClick={retry} className="min-h-11 px-1">
+          <Button variant="link" onClick={retry} disabled={query.isFetching} className="min-h-11 px-1">
             Réessayer
           </Button>
         </div>
+      )}
+      {query.isFetching && !query.isPending && (
+        <p role="status" className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+          <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          Actualisation · {label.toLowerCase()}…
+        </p>
       )}
       {query.data === undefined
         ? !query.isError && (
