@@ -386,9 +386,9 @@ export function DashboardView({
                     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                       <p className="truncate text-sm font-semibold">{p.numero}</p>
                       {isKnownPvStatus(p.status) ? (
-                        <PvStatusPill status={p.status} size="sm" />
+                        <PvStatusPill status={p.status} />
                       ) : (
-                        <StatusPill tone="neutral" size="sm">
+                        <StatusPill tone="neutral">
                           En traitement
                         </StatusPill>
                       )}
