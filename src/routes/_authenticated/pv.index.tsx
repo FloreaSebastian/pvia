@@ -25,7 +25,7 @@ import { signatureCutoff } from "@/lib/dashboard";
 const TABLE_MIN_WIDTH = 900;
 
 export const Route = createFileRoute("/_authenticated/pv/")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: { status?: unknown; late?: unknown }): { status?: StatusFilterId; late?: boolean } => ({
     status: (["all", "brouillon", "en_attente", "signe", "refuse"].includes(String(search.status)) ? String(search.status) : "all") as StatusFilterId,
     late: search.late === true || search.late === "true",
   }),
@@ -108,8 +108,8 @@ function PvList() {
   const [items, setItems] = useState<Pv[]>([]);
   const [query, setQuery] = useState("");
   const search = Route.useSearch();
-  const statusFilter = search.status;
-  const setStatusFilter = (status: StatusFilterId) => { void navigate({ search: { status, late: false } }); };
+  const statusFilter = search.status ?? "all";
+  const setStatusFilter = (status: StatusFilterId) => { void navigate({ to: "/pv", search: { status, late: false } }); };
   const [reserveFilter, setReserveFilter] = useState<ReserveFilterId>("all");
   const [sort, setSort] = useState<SortId>(() => {
     if (typeof window === "undefined") return "recent";
