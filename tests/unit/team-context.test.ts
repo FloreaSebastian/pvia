@@ -356,3 +356,117 @@ describe("identité de membre", () => {
     expect(memberIdentity({ ...m, profile: { full_name: "Bob" } }).primary).toBe("Bob");
   });
 });
+
+describe("autosave : file sérialisée (même portée)", () => {
+  function harness() {
+    const calls: { v: string; d: ReturnType<typeof deferred<void>> }[] = [];
+    let active = 0;
+    let maxActive = 0;
+    let persisted: string | null = null;
+    const statuses: string[] = [];
+    const core = createAutosaveCore<string>({
+      save: async (_s, v) => {
+        const d = deferred<void>();
+        calls.push({ v, d });
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        try {
+          await d.p;
+          persisted = v;
+        } finally {
+          active -= 1;
+        }
+      },
+      onStatus: (s) => statuses.push(s),
+    });
+    return {
+      core,
+      calls,
+      statuses,
+      max: () => maxActive,
+      persisted: () => persisted,
+    };
+  }
+  const settle = async () => {
+    for (let i = 0; i < 10; i++) await tick();
+  };
+
+  test("plusieurs waiters : une seule écriture à la fois, la dernière valeur reste persistée", async () => {
+    const h = harness();
+    h.core.open("A", "0");
+    h.core.update("A", "1");
+    const f1 = h.core.flush();
+    await settle();
+    h.core.update("A", "2");
+    const f2 = h.core.flush();
+    const f3 = h.core.flush();
+    await settle();
+    expect(h.calls.map((c) => c.v)).toEqual(["1"]);
+    h.calls[0].d.resolve();
+    await settle();
+    expect(h.calls.map((c) => c.v)).toEqual(["1", "2"]); // F2 seul ; F3 attend encore
+    h.core.update("A", "3");
+    const f4 = h.core.flush();
+    await settle();
+    expect(h.calls.length).toBe(2);
+    h.calls[1].d.resolve();
+    await settle();
+    expect(h.calls.map((c) => c.v)).toEqual(["1", "2", "3"]);
+    h.calls[2].d.resolve();
+    const results = await Promise.all([f1, f2, f3, f4]);
+    expect(results.every(Boolean)).toBe(true);
+    expect(h.max()).toBe(1);
+    expect(h.persisted()).toBe("3");
+    expect(h.core.isDirty()).toBe(false);
+  });
+
+  test("A→B et dispose pendant l'attente : anciennes commandes refusées", async () => {
+    const h = harness();
+    h.core.open("A", "0");
+    h.core.update("A", "1");
+    const f1 = h.core.flush();
+    await settle();
+    h.core.update("A", "2");
+    const queued = h.core.flush();
+    h.core.open("B", "b0");
+    h.core.update("B", "b1");
+    h.calls[0].d.resolve();
+    expect(await f1).toBe(false);
+    expect(await queued).toBe(false);
+    expect(h.calls.map((c) => c.v)).toEqual(["1"]);
+    const fb = h.core.flush();
+    await settle();
+    const queuedB = h.core.flush();
+    h.core.dispose();
+    h.calls[1].d.resolve();
+    expect(await fb).toBe(false);
+    expect(await queuedB).toBe(false);
+    expect(h.calls.map((c) => c.v)).toEqual(["1", "b1"]);
+  });
+
+  test("save qui lève de façon synchrone : erreur/false, puis nouvel essai sans blocage", async () => {
+    let throwNow = true;
+    const saved: string[] = [];
+    const statuses: string[] = [];
+    const core = createAutosaveCore<string>({
+      save: (_s, v) => {
+        if (throwNow) throw new Error("sync");
+        saved.push(v);
+        return Promise.resolve();
+      },
+      onStatus: (s) => statuses.push(s),
+    });
+    core.open("A", "0");
+    core.update("A", "1");
+    expect(await core.flush()).toBe(false);
+    expect(core.status).toBe("error");
+    throwNow = false;
+    const retry = await Promise.race([
+      core.flush(),
+      new Promise<string>((r) => setTimeout(() => r("hang"), 200)),
+    ]);
+    expect(retry).toBe(true);
+    expect(saved).toEqual(["1"]);
+    expect(core.isDirty()).toBe(false);
+  });
+});
