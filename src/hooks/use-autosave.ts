@@ -59,7 +59,8 @@ export function useAutosave<T>({
   const coreRef = useRef<ReturnType<typeof createAutosaveCore<T>> | null>(null);
   const openedRef = useRef<string | null | undefined>(undefined);
   const mountedRef = useRef(true);
-  if (!coreRef.current) coreRef.current = makeHookCore(saveRef, mountedRef, setStatus, setLastSavedAt);
+  if (!coreRef.current)
+    coreRef.current = makeHookCore(saveRef, mountedRef, setStatus, setLastSavedAt);
   const [core, setCore] = useState(() => coreRef.current!);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

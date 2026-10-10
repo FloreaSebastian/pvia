@@ -19,7 +19,8 @@ export const ASSIGNABLE_ROLES: CompanyRoleValue[] = ROLE_ORDER.filter((r) => r !
 
 export function memberIdentity(m: TeamMember): { primary: string; secondary: string | null } {
   const email = (m.invited_email ?? "").trim().toLowerCase() || null;
-  if (m.status === "invited" && !m.user_id) return { primary: email || "Invitation", secondary: null };
+  if (m.status === "invited" && !m.user_id)
+    return { primary: email || "Invitation", secondary: null };
   return { primary: m.profile?.full_name?.trim() || email || "Membre sans nom", secondary: null };
 }
 

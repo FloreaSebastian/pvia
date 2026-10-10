@@ -175,7 +175,9 @@ export function InviteView(props: InviteViewProps) {
       {(session.kind === "checking" || session.kind === "accepting") && (
         <p className="mt-6 flex items-center gap-2 text-sm" role="status" aria-live="polite">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          {session.kind === "checking" ? "Vérification de votre session…" : "Rattachement à l'entreprise…"}
+          {session.kind === "checking"
+            ? "Vérification de votre session…"
+            : "Rattachement à l'entreprise…"}
         </p>
       )}
 

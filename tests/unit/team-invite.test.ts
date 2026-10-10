@@ -210,7 +210,13 @@ describe("invitation : acceptation", () => {
     for (const [st, email, code] of cases) {
       const { deps, calls } = acceptDeps(st);
       await expect(
-        acceptInviteCore(deps, { userId: "u2", sessionEmail: email, emailProof: true, tokenHash: HASH, now: NOW }),
+        acceptInviteCore(deps, {
+          userId: "u2",
+          sessionEmail: email,
+          emailProof: true,
+          tokenHash: HASH,
+          now: NOW,
+        }),
       ).rejects.toMatchObject({ code });
       expect(calls).toEqual([]);
     }
@@ -486,7 +492,10 @@ describe("renouvellement expiré : quota vérifié", () => {
   test("le CAS de renouvellement réécrit status pour déclencher le trigger quota", async () => {
     const { readFileSync } = await import("node:fs");
     const src = readFileSync("src/lib/invites.functions.ts", "utf8");
-    const cas = src.slice(src.indexOf("casRotateInvite: async"), src.indexOf("insertInvite: async"));
+    const cas = src.slice(
+      src.indexOf("casRotateInvite: async"),
+      src.indexOf("insertInvite: async"),
+    );
     expect(cas).toContain('status: "invited"');
     expect(cas).toContain('.eq("status", "invited")');
     expect(cas).toContain('.is("user_id", null)');
