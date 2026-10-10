@@ -23,6 +23,8 @@ import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
 import { accessStateHelp, accessStateLabel, formatFrDate } from "@/lib/plans";
 import { classifyBillingError } from "@/lib/billing-errors";
+import { isAdminRole } from "@/lib/roles";
+import { toast } from "sonner";
 
 /* ------------------------------------------------------------------ *
  * Types                                                               *
@@ -40,6 +42,8 @@ type BillingGateApi = {
   /** Écriture métier suspendue pour raison d'abonnement (niveau entreprise). */
   blocked: boolean;
   isLoading: boolean;
+  /** Accès abonnement chargé sans erreur. Inconnu = écriture fermée côté UI. */
+  writeKnown: boolean;
   state: string | undefined;
   trialEnd: string | null;
   periodEnd: string | null;
@@ -58,6 +62,7 @@ const Ctx = createContext<BillingGateApi | null>(null);
 const NOOP: BillingGateApi = {
   blocked: false,
   isLoading: false,
+  writeKnown: true,
   state: undefined,
   trialEnd: null,
   periodEnd: null,
@@ -143,8 +148,10 @@ function isQuietPath(pathname: string): boolean {
 }
 
 export function BillingGateProvider({ children }: { children: ReactNode }) {
-  const { activeCompanyId } = useCompany();
-  const { access, blocked, isLoading, usage, limits, plan } = useSubscription();
+  const { activeCompanyId, activeRole, loading: companyLoading } = useCompany();
+  const { access, blocked, isLoading, isError, usage, limits, plan } = useSubscription();
+  // Écriture fermée tant que membership ou abonnement est inconnu ou en erreur.
+  const writeKnown = !companyLoading && !!activeRole && !isLoading && !isError && access != null;
   const location = useLocation();
   const [dialog, setDialog] = useState<GateDialog | null>(null);
   const promptedRef = useRef<string | null>(null);
@@ -168,11 +175,15 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
 
   const requireWrite = useCallback(
     (actionLabel?: string) => {
+      if (!writeKnown) {
+        toast.info("Vérification de vos accès en cours. Réessayez dans un instant.");
+        return false;
+      }
       if (!blocked) return true;
       openSubscription(actionLabel);
       return false;
     },
-    [blocked, openSubscription],
+    [blocked, writeKnown, openSubscription],
   );
 
   const reportError = useCallback((err: unknown) => {
@@ -233,6 +244,7 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
     () => ({
       blocked: Boolean(blocked),
       isLoading,
+      writeKnown,
       state: access?.state,
       trialEnd: access?.trial_end ?? null,
       periodEnd: access?.current_period_end ?? null,
@@ -242,7 +254,7 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
       openQuota,
       reportError,
     }),
-    [blocked, isLoading, access?.state, access?.trial_end, access?.current_period_end, requireWrite, openSubscription, openFeature, openQuota, reportError],
+    [blocked, isLoading, writeKnown, access?.state, access?.trial_end, access?.current_period_end, requireWrite, openSubscription, openFeature, openQuota, reportError],
   );
 
   return (
@@ -255,6 +267,7 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
         usage={usage}
         limits={limits as any}
         plan={plan}
+        canManageBilling={isAdminRole(activeRole)}
       />
     </Ctx.Provider>
   );
@@ -271,7 +284,9 @@ function GateDialogView({
   usage,
   limits,
   plan,
+  canManageBilling,
 }: {
+  canManageBilling: boolean;
   dialog: GateDialog | null;
   onClose: () => void;
   access: { state?: string; trial_end?: string | null; current_period_end?: string | null } | null;
@@ -361,6 +376,8 @@ function GateDialogView({
   }, [dialog, access, usage, limits, plan]);
 
   if (!content) return null;
+  // Seuls les administrateurs facturation reçoivent un lien vers /billing.
+  const showPrimary = content.primary.to !== "/billing" || canManageBilling;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -392,16 +409,25 @@ function GateDialogView({
         )}
 
 
+        {!showPrimary && (
+          <p className="rounded-md border border-border bg-muted px-3 py-2 text-sm">
+            Contactez la direction ou le responsable d’exploitation de votre entreprise : eux seuls
+            peuvent modifier l’abonnement.
+          </p>
+        )}
+
         <DialogFooter className="mt-2 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="ghost" className="min-h-[44px] w-full sm:w-auto" onClick={onClose}>
             {content.secondary}
           </Button>
-          <Button asChild className="min-h-[44px] w-full sm:w-auto">
-            <Link to={content.primary.to} onClick={onClose}>
-              <CreditCard className="mr-2 h-4 w-4" aria-hidden />
-              {content.primary.label}
-            </Link>
-          </Button>
+          {showPrimary && (
+            <Button asChild className="min-h-[44px] w-full sm:w-auto">
+              <Link to={content.primary.to} onClick={onClose}>
+                <CreditCard className="mr-2 h-4 w-4" aria-hidden />
+                {content.primary.label}
+              </Link>
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
