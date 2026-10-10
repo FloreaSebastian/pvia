@@ -16,8 +16,8 @@ export function restrictedCopy(state: string | undefined): RestrictedCopy {
  * (RLS company_has_write_access) restent la sécurité réelle.
  */
 export function useWriteAccess() {
-  const { blocked, isLoading, state } = useBillingGate();
-  return { blocked, isLoading, copy: restrictedCopy(state) };
+  const { blocked, isLoading, writeKnown, state } = useBillingGate();
+  return { blocked, isLoading, writeKnown, copy: restrictedCopy(state) };
 }
 
 /**
@@ -65,8 +65,22 @@ export function WriteAccessGate({
   children: ReactNode;
   lockedProps?: ButtonProps;
 }) {
-  const { blocked, isLoading } = useWriteAccess();
-  if (isLoading || !blocked) return <>{children}</>;
+  const { blocked, writeKnown } = useWriteAccess();
+  // Accès inconnu (chargement, erreur) : action fermée, jamais ouverte par défaut.
+  if (!writeKnown) {
+    return (
+      <Button
+        {...lockedProps}
+        type="button"
+        variant={lockedProps?.variant ?? "outline"}
+        disabled
+        aria-busy="true"
+      >
+        <span className="truncate">Vérification des accès…</span>
+      </Button>
+    );
+  }
+  if (!blocked) return <>{children}</>;
   return <LockedActionButton label={label} {...lockedProps} />;
 }
 
@@ -77,12 +91,12 @@ export function WriteAccessGate({
  * de l'action. La consultation (fiche, export, PDF) n'est jamais gardée.
  */
 export function useBlockedActionGuard() {
-  const { blocked, openSubscription } = useBillingGate();
+  const { blocked, writeKnown, requireWrite, openSubscription } = useBillingGate();
 
   function guard<A extends unknown[]>(actionLabel: string, fn: (...args: A) => unknown) {
     return (...args: A) => {
-      if (blocked) {
-        openSubscription(actionLabel);
+      if (!writeKnown || blocked) {
+        requireWrite(actionLabel);
         return;
       }
       return fn(...args);
@@ -91,13 +105,14 @@ export function useBlockedActionGuard() {
 
   /** À placer en première ligne d'un handler de mutation : `if (deny("…")) return;`. */
   function deny(actionLabel: string): boolean {
-    if (!blocked) return false;
-    openSubscription(actionLabel);
+    if (writeKnown && !blocked) return false;
+    requireWrite(actionLabel);
     return true;
   }
 
   // La popup est rendue une seule fois par l'application (BillingGateProvider).
   const dialog = null;
 
+  void openSubscription;
   return { blocked, guard, deny, dialog };
 }

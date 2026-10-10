@@ -1,8 +1,23 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
-  Settings as SettingsIcon, Building2, Palette, Bell, Shield, Users, CreditCard,
-  Plug, Webhook, Sliders, Database, Search, ExternalLink, Activity, Menu, Command as CmdIcon, Hash,
+  Settings as SettingsIcon,
+  Building2,
+  Palette,
+  Bell,
+  Shield,
+  Users,
+  CreditCard,
+  Plug,
+  Webhook,
+  Sliders,
+  Database,
+  Search,
+  ExternalLink,
+  Activity,
+  Menu,
+  Command as CmdIcon,
+  Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -10,43 +25,43 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import { SettingsCommand, type SettingsCommandItem } from "@/components/app/SettingsCommand";
 import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { useCompany } from "@/hooks/use-company";
+import { allowedSettings, type SettingsEntry } from "@/lib/role-access";
 
 export const Route = createFileRoute("/_authenticated/parametres")({
   component: SettingsLayout,
   head: () => ({ meta: [{ title: "Paramètres — PVIA" }] }),
 });
 
-type Item = {
-  to: string;
-  label: string;
-  desc: string;
-  icon: typeof SettingsIcon;
-  group: string;
-  external?: boolean;
+type Item = SettingsEntry & { icon: typeof SettingsIcon };
+
+const ICONS: Record<string, typeof SettingsIcon> = {
+  "/parametres": SettingsIcon,
+  "/parametres/preferences": Sliders,
+  "/parametres/securite": Shield,
+  "/parametres/notifications": Bell,
+  "/entreprise": Building2,
+  "/parametres/branding": Palette,
+  "/equipe": Users,
+  "/billing": CreditCard,
+  "/parametres/numerotation": Hash,
+  "/parametres/integrations": Plug,
+  "/parametres/api": Webhook,
+  "/parametres/audit": Activity,
+  "/parametres/donnees": Database,
 };
 
-const ITEMS: Item[] = [
-  { to: "/parametres",               group: "Compte",     label: "Général",            desc: "Profil, langue, fuseau",  icon: SettingsIcon },
-  { to: "/parametres/preferences",   group: "Compte",     label: "Préférences",        desc: "Thème, densité, sons",    icon: Sliders },
-  { to: "/parametres/securite",      group: "Compte",     label: "Sécurité",           desc: "Sessions, appareils",     icon: Shield },
-
-  { to: "/entreprise",               group: "Organisation", label: "Entreprise",       desc: "Identité légale, SIREN",  icon: Building2, external: true },
-  { to: "/parametres/branding",      group: "Organisation", label: "Branding",         desc: "Logo, couleurs, footer",  icon: Palette },
-  { to: "/equipe",                   group: "Organisation", label: "Utilisateurs",     desc: "Membres, rôles, invits",  icon: Users, external: true },
-  { to: "/billing",                  group: "Organisation", label: "Facturation",      desc: "Plan, factures, essai",   icon: CreditCard, external: true },
-  { to: "/parametres/numerotation",  group: "Organisation", label: "Numérotation PV",  desc: "Format, préfixe, séquence", icon: Hash },
-
-  { to: "/parametres/notifications", group: "Communication", label: "Notifications",   desc: "Email, push, rappels",    icon: Bell },
-  { to: "/parametres/integrations",  group: "Communication", label: "Intégrations",    desc: "Calendrier, Slack, Discord", icon: Plug },
-
-  { to: "/parametres/api",           group: "Développeurs", label: "API & webhooks",   desc: "Clés, endpoints, logs",   icon: Webhook },
-  { to: "/parametres/audit",         group: "Développeurs", label: "Audit & monitoring", desc: "Journal, webhooks, mail", icon: Activity },
-  { to: "/parametres/donnees",       group: "Développeurs", label: "Données & exports", desc: "Export, RGPD, suppr.",   icon: Database },
-];
-
 function NavList({
-  items, path, onPick,
-}: { items: Item[]; path: string; onPick?: () => void }) {
+  items,
+  path,
+  onPick,
+  readOnly,
+}: {
+  items: Item[];
+  path: string;
+  onPick?: () => void;
+  readOnly: boolean;
+}) {
   const grouped = items.reduce<Record<string, Item[]>>((acc, it) => {
     (acc[it.group] ||= []).push(it);
     return acc;
@@ -68,7 +83,7 @@ function NavList({
                   to={it.to as any}
                   onClick={onPick}
                   className={cn(
-                    "group flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
+                    "group flex min-h-11 items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
                     active
                       ? "bg-primary/10 text-foreground"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -78,8 +93,14 @@ function NavList({
                     <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
                     <span className="truncate">{it.label}</span>
                   </span>
+                  {it.readOnlyForOthers && readOnly && (
+                    <span className="shrink-0 text-xs text-muted-foreground">Consultation</span>
+                  )}
                   {it.external && (
-                    <ExternalLink className="h-3.5 w-3.5 opacity-60" aria-label="Ouvre une autre page" />
+                    <ExternalLink
+                      className="h-3.5 w-3.5 opacity-60"
+                      aria-label="Ouvre une autre page"
+                    />
                   )}
                 </Link>
               );
@@ -101,22 +122,37 @@ function SettingsLayout() {
   const [q, setQ] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  const { activeRole, can } = useCompany();
+  const readOnly = !can("admin");
+  // Liste autorisée unique : desktop, mobile, recherche et palette.
+  const ITEMS = useMemo<Item[]>(
+    () => allowedSettings(activeRole).map((e) => ({ ...e, icon: ICONS[e.to] ?? SettingsIcon })),
+    [activeRole],
+  );
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return ITEMS;
-    return ITEMS.filter((i) =>
-      i.label.toLowerCase().includes(s) ||
-      i.desc.toLowerCase().includes(s) ||
-      i.group.toLowerCase().includes(s),
+    return ITEMS.filter(
+      (i) =>
+        i.label.toLowerCase().includes(s) ||
+        i.desc.toLowerCase().includes(s) ||
+        i.group.toLowerCase().includes(s),
     );
-  }, [q]);
+  }, [q, ITEMS]);
 
   const cmdItems: SettingsCommandItem[] = ITEMS.map((i) => ({
-    to: i.to, label: i.label, desc: i.desc, group: i.group, icon: i.icon,
+    to: i.to,
+    label: i.label,
+    desc: i.desc,
+    group: i.group,
+    icon: i.icon,
   }));
 
-  useKeyboardShortcut("mod+k", (e) => { e.preventDefault(); setCmdOpen((o) => !o); });
+  useKeyboardShortcut("mod+k", (e) => {
+    e.preventDefault();
+    setCmdOpen((o) => !o);
+  });
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] lg:p-8">
@@ -124,7 +160,9 @@ function SettingsLayout() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tout le contrôle de PVIA — entreprise, branding, sécurité, intégrations.
+            {readOnly
+              ? "Votre compte personnel et la consultation des réglages de l’entreprise."
+              : "Votre compte et l’administration de l’entreprise."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -143,7 +181,12 @@ function SettingsLayout() {
           {/* Mobile: open sidebar */}
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
-              <Button size="icon" variant="outline" className="lg:hidden" aria-label="Ouvrir le menu">
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-11 w-11 lg:hidden"
+                aria-label="Ouvrir le menu des paramètres"
+              >
                 <Menu className="h-4 w-4" />
               </Button>
             </SheetTrigger>
@@ -160,7 +203,12 @@ function SettingsLayout() {
                   className="h-9 pl-8"
                 />
               </div>
-              <NavList items={filtered} path={path} onPick={() => setSheetOpen(false)} />
+              <NavList
+                items={filtered}
+                path={path}
+                readOnly={readOnly}
+                onPick={() => setSheetOpen(false)}
+              />
             </SheetContent>
           </Sheet>
         </div>
@@ -178,7 +226,7 @@ function SettingsLayout() {
               className="h-9 pl-8"
             />
           </div>
-          <NavList items={filtered} path={path} />
+          <NavList items={filtered} path={path} readOnly={readOnly} />
         </aside>
 
         <section className="min-w-0">

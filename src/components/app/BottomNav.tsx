@@ -5,6 +5,9 @@ import {
   AlertCircle,
   FileText,
   Users,
+  LayoutDashboard,
+  ClipboardList,
+  Menu,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -14,6 +17,8 @@ import { useCompany } from "@/hooks/use-company";
 import { vibrate } from "@/lib/pwa";
 import { cn } from "@/lib/utils";
 import { useImmersive } from "@/hooks/use-immersive";
+import { useSubscription } from "@/hooks/use-subscription";
+import { mobileDestinations, type MobileKey } from "@/lib/role-access";
 
 type NavItem = {
   key: string;
@@ -25,33 +30,83 @@ type NavItem = {
   badge?: boolean;
 };
 
-const navigationItems: readonly NavItem[] = [
-  { key: "calendrier", label: "Calendrier", icon: CalendarDays, href: "/chantiers/calendrier", matches: ["/chantiers/calendrier"] },
-  { key: "chantiers",  label: "Chantiers",  icon: HardHat,      href: "/chantiers",             matches: ["/chantiers"] },
-  { key: "pv",         label: "PV",         icon: FileText,     href: "/pv",                    matches: ["/pv"] },
-  { key: "reserves",   label: "Réserves",   icon: AlertCircle,  href: "/reserves",              matches: ["/reserves"], badge: true },
-  { key: "clients",    label: "Clients",    icon: Users,        href: "/clients",               matches: ["/clients"] },
-] as const;
+const HOME: NavItem = {
+  key: "accueil",
+  label: "Accueil",
+  icon: LayoutDashboard,
+  href: "/dashboard",
+  matches: ["/dashboard"],
+};
 
-/** Return the parent nav item for the current pathname. Order matters: more-specific matches first. */
-function getActiveMobileNavItem(pathname: string): NavItem | null {
-  // Calendrier must win over Chantiers because /chantiers/calendrier starts with /chantiers.
-  const ordered = [
-    navigationItems[0], // calendrier
-    navigationItems[2], // pv
-    navigationItems[3], // reserves
-    navigationItems[4], // clients
-    navigationItems[1], // chantiers (catch-all last among /chantiers/*)
-  ];
-  for (const it of ordered) {
-    if (it.matches.some((m) => pathname === m || pathname.startsWith(m + "/"))) return it;
+const ITEMS: Record<MobileKey, NavItem> = {
+  calendrier: {
+    key: "calendrier",
+    label: "Calendrier",
+    icon: CalendarDays,
+    href: "/chantiers/calendrier",
+    matches: ["/chantiers/calendrier"],
+  },
+  chantiers: {
+    key: "chantiers",
+    label: "Chantiers",
+    icon: HardHat,
+    href: "/chantiers",
+    matches: ["/chantiers"],
+  },
+  pv: { key: "pv", label: "PV", icon: FileText, href: "/pv", matches: ["/pv"] },
+  reserves: {
+    key: "reserves",
+    label: "Réserves",
+    icon: AlertCircle,
+    href: "/reserves",
+    matches: ["/reserves"],
+    badge: true,
+  },
+  clients: {
+    key: "clients",
+    label: "Clients",
+    icon: Users,
+    href: "/clients",
+    matches: ["/clients"],
+  },
+  visites: {
+    key: "visites",
+    label: "Visites",
+    icon: ClipboardList,
+    href: "/visites-techniques",
+    matches: ["/visites-techniques"],
+  },
+};
+
+/** Item actif : correspondance la plus longue (Calendrier gagne sur Chantiers). */
+export function getActiveMobileNavItem(
+  pathname: string,
+  items: readonly NavItem[],
+): NavItem | null {
+  let best: NavItem | null = null;
+  let len = -1;
+  for (const it of items) {
+    for (const m of it.matches) {
+      if ((pathname === m || pathname.startsWith(m + "/")) && m.length > len) {
+        best = it;
+        len = m.length;
+      }
+    }
   }
-  return null;
+  return best;
 }
 
-export function BottomNav() {
+export function BottomNav({ onOpenMenu, menuOpen }: { onOpenMenu: () => void; menuOpen: boolean }) {
   const location = useLocation();
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, activeRole } = useCompany();
+  const billing = useSubscription();
+  // Accueil + 3 destinations selon le rôle + Menu (toutes les autres consultations).
+  const navigationItems = [
+    HOME,
+    ...mobileDestinations(activeRole, { canVisit: billing.hasFeature("technical_visits") }).map(
+      (k) => ITEMS[k],
+    ),
+  ];
   const [unread, setUnread] = useState(0);
   // Vue immersive active (plein écran calendrier, etc.) : la barre s'efface.
   const { immersive } = useImmersive();
@@ -64,7 +119,10 @@ export function BottomNav() {
     const load = async () => {
       const { data: userRes } = await supabase.auth.getUser();
       const userId = userRes.user?.id;
-      if (!userId) { if (!cancelled) setUnread(0); return; }
+      if (!userId) {
+        if (!cancelled) setUnread(0);
+        return;
+      }
       const actionableStatuses = ["ouverte", "en_cours", "en_attente_validation"];
       const { count } = await supabase
         .from("pv_reserves")
@@ -80,14 +138,22 @@ export function BottomNav() {
       .channel(`bn-reserves-${activeCompanyId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "pv_reserves", filter: `company_id=eq.${activeCompanyId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "pv_reserves",
+          filter: `company_id=eq.${activeCompanyId}`,
+        },
         () => load(),
       )
       .subscribe();
-    return () => { cancelled = true; supabase.removeChannel(ch); };
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch);
+    };
   }, [activeCompanyId]);
 
-  const activeItem = getActiveMobileNavItem(location.pathname);
+  const activeItem = getActiveMobileNavItem(location.pathname, navigationItems);
   if (immersive) return null;
   const activeKey = activeItem?.key ?? null;
 
@@ -132,7 +198,7 @@ export function BottomNav() {
                 </motion.span>
                 <span
                   className={cn(
-                    "max-w-full truncate text-[10px] leading-none sm:text-[11px]",
+                    "max-w-full truncate text-[11px] leading-none",
                     active ? "font-semibold" : "font-medium",
                   )}
                 >
@@ -149,6 +215,21 @@ export function BottomNav() {
             </li>
           );
         })}
+        <li className="min-w-0">
+          <button
+            type="button"
+            onClick={onOpenMenu}
+            aria-label="Menu : toutes les rubriques"
+            aria-expanded={menuOpen}
+            aria-controls="pvia-sidebar"
+            className="relative flex min-h-[60px] w-full min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-full">
+              <Menu className="h-5 w-5" />
+            </span>
+            <span className="max-w-full truncate text-[11px] font-medium leading-none">Menu</span>
+          </button>
+        </li>
       </ul>
     </nav>
   );

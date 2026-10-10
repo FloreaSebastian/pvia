@@ -17,7 +17,9 @@ export const Route = createFileRoute("/_authenticated/parametres/numerotation")(
 });
 
 function NumerotationSettings() {
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, can } = useCompany();
+  // Lecture pour tous les membres ; enregistrement réservé aux administrateurs (serveur : isAdminRole).
+  const canEdit = can("admin");
   const getFn = useServerFn(getPvNumberingSettings);
   const saveFn = useServerFn(savePvNumberingSettings);
   const [loading, setLoading] = useState(true);
@@ -32,11 +34,21 @@ function NumerotationSettings() {
 
   useEffect(() => {
     if (!activeCompanyId) return;
+    let alive = true;
     setLoading(true);
     getFn({ data: { companyId: activeCompanyId } })
-      .then((r) => setForm(r))
-      .catch((e) => toast.error(e?.message || "Chargement impossible"))
-      .finally(() => setLoading(false));
+      .then((r) => {
+        if (alive) setForm(r);
+      })
+      .catch((e) => {
+        if (alive) toast.error(e?.message || "Chargement impossible");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompanyId]);
 
@@ -49,7 +61,7 @@ function NumerotationSettings() {
   }, [form]);
 
   async function onSave() {
-    if (!activeCompanyId) return;
+    if (!activeCompanyId || !canEdit) return;
     setSaving(true);
     try {
       await saveFn({ data: { companyId: activeCompanyId, ...form } });
@@ -62,51 +74,99 @@ function NumerotationSettings() {
   }
 
   if (loading) {
-    return <div className="grid h-64 place-items-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+    return (
+      <div className="grid h-64 place-items-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="flex items-center gap-2 text-xl font-semibold"><Hash className="h-5 w-5 text-primary" /> Numérotation des PV</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Définissez le format du numéro attribué automatiquement à chaque procès-verbal.</p>
+        <h2 className="flex items-center gap-2 text-xl font-semibold">
+          <Hash className="h-5 w-5 text-primary" /> Numérotation des PV
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Définissez le format du numéro attribué automatiquement à chaque procès-verbal.
+        </p>
       </div>
 
+      {!canEdit && (
+        <p role="note" className="border-l-4 border-border bg-muted px-3 py-2 text-sm">
+          Consultation uniquement : seuls la direction et le responsable d’exploitation peuvent
+          modifier la numérotation.
+        </p>
+      )}
       <Card className="space-y-5 p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label>Préfixe</Label>
-            <Input value={form.pv_number_prefix} onChange={(e) => setForm({ ...form, pv_number_prefix: e.target.value })} maxLength={20} />
+        <fieldset disabled={!canEdit} className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label>Préfixe</Label>
+              <Input
+                value={form.pv_number_prefix}
+                onChange={(e) => setForm({ ...form, pv_number_prefix: e.target.value })}
+                maxLength={20}
+              />
+            </div>
+            <div>
+              <Label>Séparateur</Label>
+              <Input
+                value={form.pv_number_separator}
+                onChange={(e) => setForm({ ...form, pv_number_separator: e.target.value })}
+                maxLength={3}
+              />
+            </div>
+            <div>
+              <Label>Prochain numéro</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.pv_number_next}
+                onChange={(e) =>
+                  setForm({ ...form, pv_number_next: Math.max(1, Number(e.target.value) || 1) })
+                }
+              />
+            </div>
+            <div>
+              <Label>Nombre de chiffres</Label>
+              <Input
+                type="number"
+                min={1}
+                max={8}
+                value={form.pv_number_digits}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    pv_number_digits: Math.min(8, Math.max(1, Number(e.target.value) || 5)),
+                  })
+                }
+              />
+            </div>
+            <div className="flex items-center gap-3 sm:col-span-2">
+              <Switch
+                checked={form.pv_number_include_year}
+                onCheckedChange={(v) => setForm({ ...form, pv_number_include_year: v })}
+              />
+              <Label className="!mt-0">Inclure l'année</Label>
+            </div>
           </div>
-          <div>
-            <Label>Séparateur</Label>
-            <Input value={form.pv_number_separator} onChange={(e) => setForm({ ...form, pv_number_separator: e.target.value })} maxLength={3} />
-          </div>
-          <div>
-            <Label>Prochain numéro</Label>
-            <Input type="number" min={1} value={form.pv_number_next} onChange={(e) => setForm({ ...form, pv_number_next: Math.max(1, Number(e.target.value) || 1) })} />
-          </div>
-          <div>
-            <Label>Nombre de chiffres</Label>
-            <Input type="number" min={1} max={8} value={form.pv_number_digits} onChange={(e) => setForm({ ...form, pv_number_digits: Math.min(8, Math.max(1, Number(e.target.value) || 5)) })} />
-          </div>
-          <div className="flex items-center gap-3 sm:col-span-2">
-            <Switch checked={form.pv_number_include_year} onCheckedChange={(v) => setForm({ ...form, pv_number_include_year: v })} />
-            <Label className="!mt-0">Inclure l'année</Label>
-          </div>
-        </div>
 
-        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Prochain numéro</div>
-          <div className="mt-1 font-mono text-2xl font-bold text-primary">{preview}</div>
-        </div>
-
-        <div className="flex justify-end">
-          <Button onClick={onSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Enregistrer
-          </Button>
-        </div>
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Prochain numéro
+            </div>
+            <div className="mt-1 font-mono text-2xl font-bold text-primary">{preview}</div>
+          </div>
+        </fieldset>
+        {canEdit && (
+          <div className="flex justify-end">
+            <Button onClick={onSave} disabled={saving} className="min-h-11">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer la numérotation
+            </Button>
+          </div>
+        )}
       </Card>
     </div>
   );

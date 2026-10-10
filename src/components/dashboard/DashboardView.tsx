@@ -1,4 +1,7 @@
 import { Link } from "@tanstack/react-router";
+import { RoleBadge } from "@/components/app/RoleBadge";
+import type { CompanyRoleValue } from "@/lib/roles";
+import { ROLE_PROFILES, roleShortcuts, type DashboardBlock } from "@/lib/role-access";
 import {
   ArrowRight,
   CalendarDays,
@@ -65,6 +68,11 @@ function timeStamp(ms: number) {
     minute: "2-digit",
   });
 }
+function blockOrder(order: DashboardBlock[], b: DashboardBlock) {
+  const i = order.indexOf(b);
+  return { order: i < 0 ? 50 : i + 1 };
+}
+
 export function DashboardView({
   queries: q,
   companyName,
@@ -138,6 +146,18 @@ export function DashboardView({
   const timestamps = all.map((x) => x.dataUpdatedAt).filter(Boolean);
   const updatedAt = timestamps.length ? Math.min(...timestamps) : 0;
   const errors = all.filter((x) => x.isError).length;
+  const roleKey = (
+    scope.role && scope.role in ROLE_PROFILES ? scope.role : null
+  ) as CompanyRoleValue | null;
+  const profile = roleKey ? ROLE_PROFILES[roleKey] : null;
+  const layout: DashboardBlock[] = profile?.order ?? [
+    "banner",
+    "main",
+    "metrics",
+    "visits",
+    "recent",
+  ];
+  const shortcuts = roleShortcuts(roleKey);
   const priorityReliable =
     q.reserves.data !== undefined &&
     q.late.data !== undefined &&
@@ -150,11 +170,20 @@ export function DashboardView({
       : VISIT_RESUME_SEARCH;
   return (
     <div className="flex min-w-0 flex-col gap-5 pb-6 [&_h1]:tracking-normal [&_h2]:tracking-normal">
-      <header className="order-1 min-w-0 space-y-2">
+      <header className="min-w-0 space-y-2" style={{ order: 0 }}>
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
           <div className="min-w-0">
             <h1 className="font-display text-2xl font-semibold">Tableau de bord</h1>
-            <p className="mt-1 text-sm font-semibold [overflow-wrap:anywhere]">{companyName}</p>
+            <p className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold">
+              <span className="[overflow-wrap:anywhere]">{companyName}</span>
+              <RoleBadge role={roleKey} long />
+            </p>
+            {profile && (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{profile.title}</span> ·{" "}
+                {profile.subtitle}
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">
               {now.toLocaleDateString("fr-FR", {
                 timeZone: "Europe/Paris",
@@ -208,7 +237,35 @@ export function DashboardView({
               )}
             </Button>
           )}
+          {shortcuts.map((s) => (
+            <Button key={s.to} asChild variant="outline" className="min-h-11">
+              <Link to={s.to}>{s.label}</Link>
+            </Button>
+          ))}
         </div>
+        {profile && (
+          <details className="rounded-md border border-border bg-card px-3 text-sm">
+            <summary className="focus-ring min-h-11 cursor-pointer py-3 font-semibold">
+              Vos accès
+            </summary>
+            <ul className="space-y-1 pb-3">
+              {profile.can.map((t) => (
+                <li key={t}>
+                  <span aria-hidden>✓ </span>
+                  <span className="sr-only">Autorisé : </span>
+                  {t}
+                </li>
+              ))}
+              {profile.cannot.map((t) => (
+                <li key={t} className="text-muted-foreground">
+                  <span aria-hidden>✕ </span>
+                  <span className="sr-only">Non autorisé : </span>
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {refreshing
             ? "Actualisation…"
@@ -222,7 +279,8 @@ export function DashboardView({
       </header>
       {priorityReliable && (
         <p
-          className={`order-2 border-l-4 px-3 py-2 text-sm font-medium ${q.reserves.data?.count || q.late.data?.count ? "border-warning bg-warning/10" : "border-success bg-success/10"}`}
+          style={blockOrder(layout, "banner")}
+          className={`border-l-4 px-3 py-2 text-sm font-medium ${q.reserves.data?.count || q.late.data?.count ? "border-warning bg-warning/10" : "border-success bg-success/10"}`}
           role="status"
         >
           {q.reserves.data?.count
@@ -232,7 +290,7 @@ export function DashboardView({
               : "Aucune réserve prioritaire ni signature en retard."}
         </p>
       )}
-      <div className="order-4 grid grid-cols-2 gap-2 xl:order-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4" style={blockOrder(layout, "metrics")}>
         {metrics.map((m) => (
           <Link
             key={m.label}
@@ -255,8 +313,15 @@ export function DashboardView({
           </Link>
         ))}
       </div>
-      <div className="order-3 grid min-w-0 gap-6 xl:order-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <section className="min-w-0" aria-label="Priorités">
+      <div
+        className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+        style={blockOrder(layout, "main")}
+      >
+        <section
+          className="min-w-0"
+          aria-label="Priorités"
+          style={{ order: profile?.planningFirst ? 2 : 1 }}
+        >
           <SectionTitle title="Priorités" icon={AlertTriangle} />
           {priorityReliable && !q.reserves.data?.count && !q.late.data?.count ? (
             <p className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
@@ -364,7 +429,11 @@ export function DashboardView({
             </div>
           )}
         </section>
-        <section className="min-w-0" aria-label="Planning">
+        <section
+          className="min-w-0"
+          aria-label="Planning"
+          style={{ order: profile?.planningFirst ? 1 : 2 }}
+        >
           <SectionTitle title="Planning" icon={CalendarDays} />
           <Tabs
             value={period}
@@ -436,7 +505,11 @@ export function DashboardView({
         </section>
       </div>
       {scope.canVisit && (
-        <section className="order-5 min-w-0" aria-label="Visites à reprendre">
+        <section
+          className="min-w-0"
+          aria-label="Visites à reprendre"
+          style={blockOrder(layout, "visits")}
+        >
           <GroupHeading
             label={scope.role === "technicien" ? "Mes visites à reprendre" : "Visites à reprendre"}
             count={q.visits.data?.count}
@@ -514,7 +587,11 @@ export function DashboardView({
           </SectionState>
         </section>
       )}
-      <section className="order-6 min-w-0" aria-label="Derniers dossiers PV">
+      <section
+        className="min-w-0"
+        aria-label="Derniers dossiers PV"
+        style={blockOrder(layout, "recent")}
+      >
         <GroupHeading label="Derniers dossiers PV">
           <Link
             to="/pv"
@@ -563,7 +640,7 @@ export function DashboardView({
         </SectionState>
       </section>
       {documentaryFollowup && (
-        <details className="order-7 min-w-0 border-t border-border">
+        <details className="min-w-0 border-t border-border" style={{ order: 99 }}>
           <summary className="focus-ring min-h-11 cursor-pointer py-3 text-sm font-semibold">
             Suivi documentaire · preuves et réserves
           </summary>

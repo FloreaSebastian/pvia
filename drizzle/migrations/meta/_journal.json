@@ -64,6 +64,13 @@
       "when": 1791585827996,
       "tag": "0008_technical_visit_answers_cas_terrain_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791648961277,
+      "tag": "0009_visit_edit_excludes_read_only",
+      "breakpoints": true
     }
   ]
 }

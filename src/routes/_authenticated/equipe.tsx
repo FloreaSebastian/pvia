@@ -1,6 +1,10 @@
-import { LockedActionButton, useWriteAccess, useBlockedActionGuard } from "@/components/billing/WriteAccessGate";
+import {
+  LockedActionButton,
+  useWriteAccess,
+  useBlockedActionGuard,
+} from "@/components/billing/WriteAccessGate";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Mail,
   Plus,
@@ -58,6 +62,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { sendInvite } from "@/lib/invites.functions";
 import { logUserAction } from "@/lib/audit.functions";
 import { ROLE_META, ROLE_ORDER, isOwnerRole, type CompanyRoleValue } from "@/lib/roles";
+import { ROLE_PROFILES } from "@/lib/role-access";
+import { RoleBadge as AppRoleBadge } from "@/components/app/RoleBadge";
 
 import { RouteRoleGuard } from "@/components/auth/RouteRoleGuard";
 import { ADMIN_ROLES } from "@/lib/roles";
@@ -103,9 +109,7 @@ type Member = {
 };
 
 // Rôles disponibles à l'invitation / modification (le rôle Directeur ne se distribue pas).
-const ASSIGNABLE_ROLES: CompanyRoleValue[] = ROLE_ORDER.filter(
-  (r) => r !== "directeur",
-);
+const ASSIGNABLE_ROLES: CompanyRoleValue[] = ROLE_ORDER.filter((r) => r !== "directeur");
 
 /** Messages techniques (PostgREST / Postgres) → messages métier lisibles. */
 function friendlyError(err: unknown, fallback: string) {
@@ -114,12 +118,9 @@ function friendlyError(err: unknown, fallback: string) {
   if (/Directeur/i.test(raw)) return raw; // messages métier déjà en clair (triggers)
   if (/row-level security|permission denied|42501/i.test(raw))
     return "Droits insuffisants pour cette action.";
-  if (/duplicate key|unique/i.test(raw))
-    return "Cette personne est déjà membre ou déjà invitée.";
-  if (/rate|trop de/i.test(raw))
-    return "Trop de tentatives, réessayez dans quelques minutes.";
-  if (/JWT|token|fetch|network/i.test(raw))
-    return "Connexion interrompue, réessayez.";
+  if (/duplicate key|unique/i.test(raw)) return "Cette personne est déjà membre ou déjà invitée.";
+  if (/rate|trop de/i.test(raw)) return "Trop de tentatives, réessayez dans quelques minutes.";
+  if (/JWT|token|fetch|network/i.test(raw)) return "Connexion interrompue, réessayez.";
   return fallback;
 }
 
@@ -135,15 +136,9 @@ function RoleBadge({ role }: { role: CompanyRoleValue }) {
 
 function StatusBadge({ m }: { m: Member }) {
   const expired =
-    m.status === "invited" &&
-    !!m.invite_expires_at &&
-    new Date(m.invite_expires_at) < new Date();
+    m.status === "invited" && !!m.invite_expires_at && new Date(m.invite_expires_at) < new Date();
   if (m.status === "active")
-    return (
-      <Badge className="bg-success text-success-foreground hover:bg-success/90">
-        Actif
-      </Badge>
-    );
+    return <Badge className="bg-success text-success-foreground hover:bg-success/90">Actif</Badge>;
   if (m.status === "suspended") return <Badge variant="destructive">Suspendu</Badge>;
   return (
     <Badge variant="outline" className="gap-1">
@@ -176,8 +171,18 @@ function TeamPage() {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
   }, []);
 
+  // Garde de génération : une réponse tardive d'une autre entreprise est ignorée.
+  const loadGen = useRef(0);
+  const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
+  /** Les mutations n'agissent que sur la liste chargée pour l'entreprise active. */
+  const scopeCompanyId =
+    loadedCompanyId && loadedCompanyId === activeCompanyId ? loadedCompanyId : null;
+
   async function load() {
-    if (!activeCompanyId) {
+    const gen = ++loadGen.current;
+    const companyId = activeCompanyId;
+    setLoadedCompanyId(null);
+    if (!companyId) {
       setMembers([]);
       setLoading(false);
       return;
@@ -188,24 +193,21 @@ function TeamPage() {
     const { data, error } = await supabase
       .from("company_members")
       .select("id,user_id,role,status,invited_email,invite_expires_at,created_at")
-      .eq("company_id", activeCompanyId)
+      .eq("company_id", companyId)
       .order("created_at", { ascending: true });
+    if (gen !== loadGen.current) return;
     if (error) {
       setLoading(false);
       toast.error(friendlyError(error, "Impossible de charger l'équipe."));
       return;
     }
-    const raw = ((data as unknown) as Member[]) ?? [];
+    const raw = (data as unknown as Member[]) ?? [];
     const ids = raw.map((m) => m.user_id).filter((x): x is string => !!x);
     let profileMap: Record<string, string | null> = {};
     if (ids.length) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id,full_name")
-        .in("id", ids);
-      profileMap = Object.fromEntries(
-        (profs ?? []).map((p) => [p.id, p.full_name]),
-      );
+      const { data: profs } = await supabase.from("profiles").select("id,full_name").in("id", ids);
+      if (gen !== loadGen.current) return;
+      profileMap = Object.fromEntries((profs ?? []).map((p) => [p.id, p.full_name]));
     }
     setMembers(
       raw.map((m) => ({
@@ -213,9 +215,15 @@ function TeamPage() {
         profile: m.user_id ? { full_name: profileMap[m.user_id] ?? null } : null,
       })),
     );
+    setLoadedCompanyId(companyId);
     setLoading(false);
   }
   useEffect(() => {
+    // Changement d'entreprise : dialogues et actions en cours de l'ancienne société fermés.
+    setInviteOpen(false);
+    setConfirmRemove(null);
+    setConfirmCancel(null);
+    setBusyId(null);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCompanyId]);
@@ -249,7 +257,8 @@ function TeamPage() {
   }
 
   async function resendInvite(m: Member) {
-    if (!activeCompanyId || !m.invited_email || busyId) return;
+    if (!scopeCompanyId || !m.invited_email || busyId || !members.some((x) => x.id === m.id))
+      return;
     setBusyId(m.id);
     try {
       await sendInviteFn({
@@ -270,11 +279,13 @@ function TeamPage() {
 
   async function cancelInvite(m: Member) {
     if (denyWrite("annuler une invitation")) return;
+    if (!scopeCompanyId || !members.some((x) => x.id === m.id)) return;
     setBusyId(m.id);
     const { error } = await supabase
       .from("company_members")
       .delete()
       .eq("id", m.id)
+      .eq("company_id", scopeCompanyId)
       .eq("status", "invited");
     setBusyId(null);
     setConfirmCancel(null);
@@ -298,11 +309,13 @@ function TeamPage() {
   async function changeRole(id: string, role: CompanyRoleValue) {
     if (denyWrite("modifier le rôle d’un membre")) return;
     const prev = members.find((m) => m.id === id);
+    if (!scopeCompanyId || !prev) return;
     setBusyId(id);
     const { data: updated, error } = await supabase
       .from("company_members")
       .update({ role })
       .eq("id", id)
+      .eq("company_id", scopeCompanyId)
       .select("id");
     setBusyId(null);
     if (error) return toast.error(friendlyError(error, "Modification refusée."));
@@ -328,11 +341,13 @@ function TeamPage() {
   async function toggleStatus(m: Member) {
     if (denyWrite("suspendre ou réactiver un membre")) return;
     const next = m.status === "suspended" ? "active" : "suspended";
+    if (!scopeCompanyId || !members.some((x) => x.id === m.id)) return;
     setBusyId(m.id);
     const { data: updated, error } = await supabase
       .from("company_members")
       .update({ status: next })
       .eq("id", m.id)
+      .eq("company_id", scopeCompanyId)
       .select("id");
     setBusyId(null);
     if (error) return toast.error(friendlyError(error, "Action refusée."));
@@ -357,11 +372,13 @@ function TeamPage() {
 
   async function remove(m: Member) {
     if (denyWrite("retirer un membre")) return;
+    if (!scopeCompanyId || !members.some((x) => x.id === m.id)) return;
     setBusyId(m.id);
     const { data: deleted, error } = await supabase
       .from("company_members")
       .delete()
       .eq("id", m.id)
+      .eq("company_id", scopeCompanyId)
       .select("id");
     setBusyId(null);
     setConfirmRemove(null);
@@ -411,8 +428,7 @@ function TeamPage() {
   function RowActions({ m }: { m: Member }) {
     const r = rights(m);
     const busy = busyId === m.id;
-    if (r.isSelf)
-      return <span className="text-xs text-muted-foreground">Vous</span>;
+    if (r.isSelf) return <span className="text-xs text-muted-foreground">Vous</span>;
     if (!r.canToggle && !r.canRemove && !r.canManageInvite)
       return <span className="text-xs text-muted-foreground">—</span>;
     return (
@@ -491,7 +507,10 @@ function TeamPage() {
         disabled={busyId === m.id}
         onValueChange={(v) => changeRole(m.id, v as CompanyRoleValue)}
       >
-        <SelectTrigger className="h-11 w-full min-w-0 sm:w-44" aria-label={`Rôle de ${memberLabel(m)}`}>
+        <SelectTrigger
+          className="h-11 w-full min-w-0 sm:w-44"
+          aria-label={`Rôle de ${memberLabel(m)}`}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -526,92 +545,92 @@ function TeamPage() {
           <p className="text-xs font-medium uppercase tracking-wider text-primary">
             Multi-utilisateurs
           </p>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
-            Équipe
-          </h1>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Équipe</h1>
           <p className="text-sm text-muted-foreground">
             Gérez les membres, les rôles BTP et les accès de votre entreprise.
           </p>
         </div>
-        {isAdmin && (writeBlocked ? (
-          <LockedActionButton label="Inviter un membre" className="h-11 w-full sm:w-auto">
-            Inviter un membre
-          </LockedActionButton>
-        ) : (
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
-              <Button className="h-11 w-full shadow-brand sm:w-auto">
-                <Plus className="h-4 w-4" aria-hidden /> Inviter un membre
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Inviter un membre</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={invite} className="space-y-4">
-                <div>
-                  <Label htmlFor="invite-email">Email *</Label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    inputMode="email"
-                    className="h-11"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="collegue@entreprise.fr"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    À l'inscription avec cet email, l'invitation sera automatiquement acceptée.
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="invite-role">Rôle</Label>
-                  <Select
-                    value={inviteRole}
-                    onValueChange={(v) => setInviteRole(v as CompanyRoleValue)}
-                  >
-                    <SelectTrigger id="invite-role" className="h-11">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ASSIGNABLE_ROLES.map((r) => {
-                        const m = ROLE_META[r];
-                        return (
-                          <SelectItem key={r} value={r}>
-                            <div>
-                              <div className="font-medium">
-                                {m.emoji} {m.label}
+        {isAdmin &&
+          (writeBlocked ? (
+            <LockedActionButton label="Inviter un membre" className="h-11 w-full sm:w-auto">
+              Inviter un membre
+            </LockedActionButton>
+          ) : (
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <Button className="h-11 w-full shadow-brand sm:w-auto">
+                  <Plus className="h-4 w-4" aria-hidden /> Inviter un membre
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Inviter un membre</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={invite} className="space-y-4">
+                  <div>
+                    <Label htmlFor="invite-email">Email *</Label>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      inputMode="email"
+                      className="h-11"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="collegue@entreprise.fr"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      À l'inscription avec cet email, l'invitation sera automatiquement acceptée.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="invite-role">Rôle</Label>
+                    <Select
+                      value={inviteRole}
+                      onValueChange={(v) => setInviteRole(v as CompanyRoleValue)}
+                    >
+                      <SelectTrigger id="invite-role" className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ASSIGNABLE_ROLES.map((r) => {
+                          const m = ROLE_META[r];
+                          return (
+                            <SelectItem key={r} value={r}>
+                              <div>
+                                <div className="font-medium">
+                                  {m.emoji} {m.label}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  {m.description}
+                                </div>
                               </div>
-                              <div className="text-[11px] text-muted-foreground">
-                                {m.description}
-                              </div>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="submit"
-                    disabled={sending}
-                    className="h-11 w-full shadow-brand sm:w-auto"
-                  >
-                    {sending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : (
-                      <Mail className="h-4 w-4" aria-hidden />
-                    )}
-                    {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        ))}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <RoleSummary role={inviteRole} />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="submit"
+                      disabled={sending}
+                      className="h-11 w-full shadow-brand sm:w-auto"
+                    >
+                      {sending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      ) : (
+                        <Mail className="h-4 w-4" aria-hidden />
+                      )}
+                      {sending ? "Envoi en cours…" : "Envoyer l'invitation"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ))}
       </div>
 
       {loading ? (
@@ -643,9 +662,7 @@ function TeamPage() {
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusBadge m={m} />
-                        {!rights(m).canEditRole && (
-                          <RoleBadge role={m.role as CompanyRoleValue} />
-                        )}
+                        {!rights(m).canEditRole && <RoleBadge role={m.role as CompanyRoleValue} />}
                       </div>
                     </div>
                   </div>
@@ -722,36 +739,29 @@ function TeamPage() {
         <div className="flex items-start gap-3">
           <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
           <div className="min-w-0 text-sm">
-            <p className="font-semibold">Rôles & permissions</p>
-            <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
-              {ROLE_ORDER.map((r) => {
-                const meta = ROLE_META[r];
-                return (
-                  <li key={r} className="flex items-start gap-2">
-                    <span aria-hidden className="mt-px">
-                      {meta.emoji}
-                    </span>
-                    <span className="min-w-0 break-words">
-                      <b className="text-foreground">{meta.label}</b> — {meta.description}
-                    </span>
-                  </li>
-                );
-              })}
+            <h2 className="font-semibold">Guide des rôles</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ce que chaque rôle permet réellement dans PVIA. Le serveur applique les mêmes règles.
+            </p>
+            <ul className="mt-3 grid gap-3 md:grid-cols-2">
+              {ROLE_ORDER.map((r) => (
+                <li key={r} className="min-w-0 rounded-md border border-border p-3">
+                  <AppRoleBadge role={r} long />
+                  <RoleSummary role={r} />
+                </li>
+              ))}
             </ul>
           </div>
         </div>
       </Card>
 
-      <AlertDialog
-        open={!!confirmRemove}
-        onOpenChange={(o) => !o && setConfirmRemove(null)}
-      >
+      <AlertDialog open={!!confirmRemove} onOpenChange={(o) => !o && setConfirmRemove(null)}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Retirer ce membre ?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmRemove ? memberLabel(confirmRemove) : ""} perdra immédiatement
-              l'accès à cette entreprise. Les documents créés restent conservés.
+              {confirmRemove ? memberLabel(confirmRemove) : ""} perdra immédiatement l'accès à cette
+              entreprise. Les documents créés restent conservés.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -766,16 +776,13 @@ function TeamPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
-        open={!!confirmCancel}
-        onOpenChange={(o) => !o && setConfirmCancel(null)}
-      >
+      <AlertDialog open={!!confirmCancel} onOpenChange={(o) => !o && setConfirmCancel(null)}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Annuler cette invitation ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le lien envoyé à {confirmCancel?.invited_email ?? "cette adresse"} sera
-              immédiatement inutilisable.
+              Le lien envoyé à {confirmCancel?.invited_email ?? "cette adresse"} sera immédiatement
+              inutilisable.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -789,6 +796,31 @@ function TeamPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function RoleSummary({ role }: { role: CompanyRoleValue }) {
+  const p = ROLE_PROFILES[role];
+  return (
+    <div className="mt-2 text-sm">
+      <p className="font-medium">{p.title}</p>
+      <ul className="mt-1 space-y-0.5">
+        {p.can.map((t) => (
+          <li key={t}>
+            <span aria-hidden>✓ </span>
+            <span className="sr-only">Autorisé : </span>
+            {t}
+          </li>
+        ))}
+        {p.cannot.map((t) => (
+          <li key={t} className="text-muted-foreground">
+            <span aria-hidden>✕ </span>
+            <span className="sr-only">Non autorisé : </span>
+            {t}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
