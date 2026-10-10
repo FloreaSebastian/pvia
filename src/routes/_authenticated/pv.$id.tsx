@@ -1164,7 +1164,7 @@ function PvDetail() {
         onChanged={() => load()}
       />
       <ReserveLiftWorkflowDialog
-        open={liftDialogOpen}
+        open={liftDialogOpen && caps.sign}
         onOpenChange={setLiftDialogOpen}
         pvId={pv.id}
         pvNumero={pv.numero}
