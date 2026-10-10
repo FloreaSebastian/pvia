@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useCompany } from "@/hooks/use-company";
+import { useSuspension } from "@/hooks/use-suspension";
 import { accessStateHelp, accessStateLabel, formatFrDate } from "@/lib/plans";
 import { classifyBillingError } from "@/lib/billing-errors";
 import { isAdminRole } from "@/lib/roles";
@@ -31,6 +32,11 @@ import { toast } from "sonner";
  * ------------------------------------------------------------------ */
 
 type QuotaKind = "pv" | "members";
+type GateLimits = {
+  max_pv_per_month?: number | null;
+  max_members?: number | null;
+  display_name?: string | null;
+};
 
 type GateDialog =
   | { kind: "subscription"; state: string; action?: string | null; auto?: boolean }
@@ -152,22 +158,44 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
   const { activeCompanyId, activeRole, loading: companyLoading } = useCompany();
   const { access, blocked, isLoading, isError, usage, limits, plan } = useSubscription();
   // Écriture fermée tant que membership ou abonnement est inconnu ou en erreur.
-  const writeKnown = !companyLoading && !!activeRole && !isLoading && !isError && access != null;
+  const suspension = useSuspension();
+  const writeKnown =
+    !companyLoading &&
+    !!activeRole &&
+    !isLoading &&
+    !isError &&
+    access != null &&
+    !suspension.isLoading &&
+    !suspension.isError;
+  const suspended = suspension.suspended;
   const location = useLocation();
   const [dialog, setDialog] = useState<GateDialog | null>(null);
   const promptedRef = useRef<string | null>(null);
+  // Changement d'entreprise : aucune popup (état, motif, quota) de l'ancien tenant ne subsiste.
+  useEffect(() => {
+    setDialog(null);
+    promptedRef.current = null;
+  }, [activeCompanyId]);
 
   const quiet = isQuietPath(location.pathname);
 
   const openSubscription = useCallback(
     (actionLabel?: string) => {
+      if (suspended) {
+        setDialog({
+          kind: "suspended",
+          reason: suspension.reason ?? "support",
+          action: actionLabel ?? null,
+        });
+        return;
+      }
       setDialog({
         kind: "subscription",
         state: access?.state ?? "blocked",
         action: actionLabel ?? null,
       });
     },
-    [access?.state],
+    [access?.state, suspended, suspension.reason],
   );
 
   const openFeature = useCallback((featureLabel: string, actionLabel?: string) => {
@@ -184,11 +212,11 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
         toast.info("Vérification de vos accès en cours. Réessayez dans un instant.");
         return false;
       }
-      if (!blocked) return true;
+      if (!blocked && !suspended) return true;
       openSubscription(actionLabel);
       return false;
     },
-    [blocked, writeKnown, openSubscription],
+    [blocked, suspended, writeKnown, openSubscription],
   );
 
   const reportError = useCallback((err: unknown) => {
@@ -246,7 +274,7 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<BillingGateApi>(
     () => ({
-      blocked: Boolean(blocked),
+      blocked: Boolean(blocked) || suspended,
       isLoading,
       writeKnown,
       state: access?.state,
@@ -260,6 +288,7 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
     }),
     [
       blocked,
+      suspended,
       isLoading,
       writeKnown,
       access?.state,
@@ -281,7 +310,7 @@ export function BillingGateProvider({ children }: { children: ReactNode }) {
         onClose={() => setDialog(null)}
         access={access}
         usage={usage}
-        limits={limits as any}
+        limits={limits as GateLimits | null}
         plan={plan}
         canManageBilling={isAdminRole(activeRole)}
       />

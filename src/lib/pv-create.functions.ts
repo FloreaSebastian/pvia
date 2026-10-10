@@ -111,15 +111,35 @@ export const createPv = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const userId = context.userId;
 
-    // 1. Membership check
-    const { data: member } = await supabaseAdmin
-      .from("company_members")
-      .select("role,status")
-      .eq("company_id", data.companyId)
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
-    if (!member) throw new Error("Accès refusé.");
+    // 1. Rôle (MANAGE / SIGN) + tenant des parents, AVANT tout effet.
+    const { authorizePvCreate } = await import("./pv-create-access");
+    await authorizePvCreate(
+      {
+        getMember: async (companyId, uid) => {
+          const { data: m, error } = await supabaseAdmin
+            .from("company_members")
+            .select("role,status")
+            .eq("company_id", companyId)
+            .eq("user_id", uid)
+            .eq("status", "active")
+            .maybeSingle();
+          if (error) throw new Error("Vérification des droits impossible.");
+          return m ? { role: String(m.role), status: String(m.status) } : null;
+        },
+        parentInCompany: async (table, id, companyId) => {
+          const { data: row, error } = await supabaseAdmin
+            .from(table)
+            .select("id")
+            .eq("id", id)
+            .eq("company_id", companyId)
+            .maybeSingle();
+          if (error) throw new Error("Vérification impossible.");
+          return !!row;
+        },
+      },
+      data,
+      userId,
+    );
 
     // 1a. Suspension + plan quota gate (throws COMPANY_SUSPENDED:* or SUBSCRIPTION_REQUIRED:*)
     const { assertCanCreatePv, assertPlanFeature } = await import("./plan-guard.server");

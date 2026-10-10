@@ -1,3 +1,4 @@
+import type { SettingsPath } from "@/lib/role-access";
 import { useNavigate } from "@tanstack/react-router";
 import {
   CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
@@ -5,7 +6,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 export type SettingsCommandItem = {
-  to: string;
+  to: SettingsPath;
   label: string;
   desc?: string;
   group: string;
@@ -41,7 +42,7 @@ export function SettingsCommand({
                   value={`${it.label} ${it.desc ?? ""} ${group}`}
                   onSelect={() => {
                     onOpenChange(false);
-                    navigate({ to: it.to as any });
+                    navigate({ to: it.to });
                   }}
                 >
                   <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
