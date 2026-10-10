@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { RoleBadge } from "@/components/app/RoleBadge";
+import type { CompanyRoleValue } from "@/lib/roles";
 import { ROLE_PROFILES, roleShortcuts, type DashboardBlock } from "@/lib/role-access";
 import {
   ArrowRight,
@@ -145,9 +146,10 @@ export function DashboardView({
   const timestamps = all.map((x) => x.dataUpdatedAt).filter(Boolean);
   const updatedAt = timestamps.length ? Math.min(...timestamps) : 0;
   const errors = all.filter((x) => x.isError).length;
-  const profile = scope.role ? ROLE_PROFILES[scope.role] : null;
+  const roleKey = (scope.role && scope.role in ROLE_PROFILES ? scope.role : null) as CompanyRoleValue | null;
+  const profile = roleKey ? ROLE_PROFILES[roleKey] : null;
   const layout: DashboardBlock[] = profile?.order ?? ["banner", "main", "metrics", "visits", "recent"];
-  const shortcuts = roleShortcuts(scope.role);
+  const shortcuts = roleShortcuts(roleKey);
   const priorityReliable =
     q.reserves.data !== undefined &&
     q.late.data !== undefined &&
@@ -166,7 +168,7 @@ export function DashboardView({
             <h1 className="font-display text-2xl font-semibold">Tableau de bord</h1>
             <p className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold">
               <span className="[overflow-wrap:anywhere]">{companyName}</span>
-              <RoleBadge role={scope.role} long />
+              <RoleBadge role={roleKey} long />
             </p>
             {profile && (
               <p className="text-sm text-muted-foreground">
