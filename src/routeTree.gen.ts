@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ZzRolesCheckRouteImport } from './routes/zz-roles-check'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as TarifsRouteImport } from './routes/tarifs'
 import { Route as SolutionsRouteImport } from './routes/solutions'
@@ -124,6 +125,11 @@ import { Route as AuthenticatedAdminGoLiveReportRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminCompaniesIdRouteImport } from './routes/_authenticated/admin.companies.$id'
 import { Route as ClientPvIdLeveeReservesLiftIdRouteImport } from './routes/client.pv.$id_.levee-reserves.$liftId'
 
+const ZzRolesCheckRoute = ZzRolesCheckRouteImport.update({
+  id: '/zz-roles-check',
+  path: '/zz-roles-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
@@ -774,6 +780,7 @@ export interface FileRoutesByFullPath {
   '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
+  '/zz-roles-check': typeof ZzRolesCheckRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/clients': typeof AuthenticatedClientsRoute
@@ -888,6 +895,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
+  '/zz-roles-check': typeof ZzRolesCheckRoute
   '/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/billing': typeof AuthenticatedBillingRoute
   '/clients': typeof AuthenticatedClientsRoute
@@ -1002,6 +1010,7 @@ export interface FileRoutesById {
   '/solutions': typeof SolutionsRouteWithChildren
   '/tarifs': typeof TarifsRoute
   '/verify': typeof VerifyRoute
+  '/zz-roles-check': typeof ZzRolesCheckRoute
   '/_authenticated/account-suspended': typeof AuthenticatedAccountSuspendedRoute
   '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
@@ -1119,6 +1128,7 @@ export interface FileRouteTypes {
     | '/solutions'
     | '/tarifs'
     | '/verify'
+    | '/zz-roles-check'
     | '/account-suspended'
     | '/billing'
     | '/clients'
@@ -1233,6 +1243,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/tarifs'
     | '/verify'
+    | '/zz-roles-check'
     | '/account-suspended'
     | '/billing'
     | '/clients'
@@ -1346,6 +1357,7 @@ export interface FileRouteTypes {
     | '/solutions'
     | '/tarifs'
     | '/verify'
+    | '/zz-roles-check'
     | '/_authenticated/account-suspended'
     | '/_authenticated/billing'
     | '/_authenticated/clients'
@@ -1463,6 +1475,7 @@ export interface RootRouteChildren {
   SolutionsRoute: typeof SolutionsRouteWithChildren
   TarifsRoute: typeof TarifsRoute
   VerifyRoute: typeof VerifyRoute
+  ZzRolesCheckRoute: typeof ZzRolesCheckRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
   ClientEtudesRoute: typeof ClientEtudesRoute
   ClientHistoriqueRoute: typeof ClientHistoriqueRoute
@@ -1499,6 +1512,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/zz-roles-check': {
+      id: '/zz-roles-check'
+      path: '/zz-roles-check'
+      fullPath: '/zz-roles-check'
+      preLoaderRoute: typeof ZzRolesCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify': {
       id: '/verify'
       path: '/verify'
@@ -2537,6 +2557,7 @@ const rootRouteChildren: RootRouteChildren = {
   SolutionsRoute: SolutionsRouteWithChildren,
   TarifsRoute: TarifsRoute,
   VerifyRoute: VerifyRoute,
+  ZzRolesCheckRoute: ZzRolesCheckRoute,
   ClientDashboardRoute: ClientDashboardRoute,
   ClientEtudesRoute: ClientEtudesRoute,
   ClientHistoriqueRoute: ClientHistoriqueRoute,
