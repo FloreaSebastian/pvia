@@ -264,6 +264,7 @@ describe("autosave : commande en file et démontage", () => {
     core.open("A", "a0");
     core.update("A", "a1");
     const f1 = core.flush(); // écriture A émise
+    await tick(); // l'écriture différée démarre réellement
     core.update("A", "a2");
     const f2 = core.flush(); // en file derrière A
     core.open("B", "b0");
@@ -288,6 +289,7 @@ describe("autosave : commande en file et démontage", () => {
     core.open("A", "a0");
     core.update("A", "a1");
     const f = core.flush();
+    await tick(); // l'écriture différée démarre réellement
     const queued = core.flush();
     const n = statuses.length;
     core.dispose();
@@ -468,5 +470,42 @@ describe("autosave : file sérialisée (même portée)", () => {
     expect(retry).toBe(true);
     expect(saved).toEqual(["1"]);
     expect(core.isDirty()).toBe(false);
+  });
+});
+
+describe("autosave : garde avant l'écriture différée", () => {
+  test("flush puis dispose immédiat : false et aucune écriture", async () => {
+    const saves: string[] = [];
+    const core = createAutosaveCore<string>({
+      save: async (s, v) => {
+        saves.push(s + v);
+      },
+      onStatus: () => {},
+    });
+    core.open("A", "0");
+    core.update("A", "1");
+    const p = core.flush();
+    core.dispose();
+    expect(await p).toBe(false);
+    expect(saves).toEqual([]);
+  });
+  test("flush puis open(B) immédiat : ancienne demande false, B attend sa propre commande", async () => {
+    const saves: string[] = [];
+    const core = createAutosaveCore<string>({
+      save: async (s, v) => {
+        saves.push(s + v);
+      },
+      onStatus: () => {},
+    });
+    core.open("A", "0");
+    core.update("A", "1");
+    const p = core.flush();
+    core.open("B", "b0");
+    core.update("B", "b1");
+    expect(await p).toBe(false);
+    for (let i = 0; i < 5; i++) await tick();
+    expect(saves).toEqual([]);
+    expect(await core.flush()).toBe(true);
+    expect(saves).toEqual(["Bb1"]);
   });
 });
