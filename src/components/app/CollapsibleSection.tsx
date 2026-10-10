@@ -34,7 +34,11 @@ export function CollapsibleSection({
   });
 
   useEffect(() => {
-    try { localStorage.setItem(storageKey, open ? "1" : "0"); } catch { /* noop */ }
+    try {
+      localStorage.setItem(storageKey, open ? "1" : "0");
+    } catch {
+      /* noop */
+    }
   }, [open, storageKey]);
 
   return (

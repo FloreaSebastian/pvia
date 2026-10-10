@@ -189,8 +189,7 @@ function TeamPage() {
     dispose: () => scopeRef.current.dispose(),
   };
   useEffect(() => {
-    if (!scopeRef.current.alive())
-      scopeRef.current = createScopeGuard(scopeRef.current.next());
+    if (!scopeRef.current.alive()) scopeRef.current = createScopeGuard(scopeRef.current.next());
     const current = scopeRef.current;
     return () => current.dispose();
   }, []);
