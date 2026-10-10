@@ -133,7 +133,7 @@ export const sendInvite = createServerFn({ method: "POST" })
               .from("company_members")
               .select(INVITE_COLS)
               .eq("company_id", companyId)
-              .ilike("invited_email", email)
+              .eq("invited_email", email)
               .is("user_id", null)
               .maybeSingle();
             return (row as unknown as InviteRow) ?? null;

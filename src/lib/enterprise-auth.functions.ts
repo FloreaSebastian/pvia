@@ -16,9 +16,11 @@ import {
 } from "@/lib/client-auth.server";
 import { sendEnterpriseLoginCodeEmail } from "@/lib/email.server";
 import { getPublicAppUrl } from "./app-url.server";
+import { INVITE_TOKEN_RE, enterpriseLoginEligibility, type InviteRow } from "./invite-core";
 
 const LoginCodeSchema = z.object({
   email: z.string().email().max(255),
+  inviteToken: z.string().regex(INVITE_TOKEN_RE).optional(),
 });
 
 const VerifyCodeSchema = z.object({
@@ -51,7 +53,7 @@ const NEUTRAL_RESPONSE = { ok: true as const, neutral: true as const };
 /** Minimum uniform response time (anti-enumeration timing oracle). */
 const ENTERPRISE_LOGIN_MIN_RESPONSE_MS = 2200;
 
-async function runSendEnterpriseLoginCode(data: { email: string }) {
+async function runSendEnterpriseLoginCode(data: { email: string; inviteToken?: string }) {
   {
     const email = normalizeEmail(data.email);
     const ip = getClientIp() ?? "unknown";
@@ -60,36 +62,43 @@ async function runSendEnterpriseLoginCode(data: { email: string }) {
     await enforceRateLimit({ bucket: "enterprise_login_send_email", key: email, limit: 3, windowSec: 900 });
     await enforceRateLimit({ bucket: "enterprise_login_send_ip", key: ip, limit: 10, windowSec: 3600 });
 
-    const user = await findAuthUserByEmail(email);
-    if (!user) {
+    const elig = await enterpriseLoginEligibility(
+      {
+        findUserByEmail: findAuthUserByEmail,
+        findActiveMembershipCompany: async (uid) => {
+          const { data: m } = await supabaseAdmin
+            .from("company_members")
+            .select("company_id")
+            .eq("user_id", uid)
+            .eq("status", "active")
+            .limit(1)
+            .maybeSingle();
+          return m?.company_id ?? null;
+        },
+        findInviteByHash: async (hash) => {
+          const { data: row } = await supabaseAdmin
+            .from("company_members")
+            .select("id,company_id,role,status,user_id,invited_email,invite_expires_at,invite_token_hash")
+            .eq("invite_token_hash" as never, hash)
+            .maybeSingle();
+          return (row as unknown as InviteRow) ?? null;
+        },
+        hashToken: sha256Hex,
+      },
+      { email, inviteToken: data.inviteToken ?? null, now: Date.now() },
+    );
+    if (!elig.ok) {
       await writeAuditLog({
         companyId: null,
-        userId: null,
+        userId: elig.userId,
         entityType: "auth",
         action: "user.login_failed",
-        metadata: { email, reason: "unknown_enterprise_email", ip },
+        metadata: { email, reason: elig.reason, ip, invite: !!data.inviteToken },
       });
       return NEUTRAL_RESPONSE;
     }
-
-    const { data: membership } = await supabaseAdmin
-      .from("company_members")
-      .select("company_id")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
-
-    if (!membership?.company_id) {
-      await writeAuditLog({
-        companyId: null,
-        userId: user.id,
-        entityType: "auth",
-        action: "user.login_failed",
-        metadata: { email, reason: "not_active_enterprise_member", ip },
-      });
-      return NEUTRAL_RESPONSE;
-    }
+    const user = { id: elig.userId };
+    const membership = { company_id: elig.companyId };
 
     const appUrl = getPublicAppUrl();
     const { data: linkData, error } = await supabaseAdmin.auth.admin.generateLink({
