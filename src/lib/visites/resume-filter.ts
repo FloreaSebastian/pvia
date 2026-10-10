@@ -6,6 +6,7 @@ export const VISIT_RESUME_SEARCH = { group: "a_reprendre" } as const;
 export const visitListSearchValidator = zodValidator(
   z.object({
     group: fallback(z.string(), "all").default("all"),
+    assigned: z.string().uuid().optional().catch(undefined),
   }),
 );
 export function visitGroupStatuses(group?: string | null): string[] | undefined {

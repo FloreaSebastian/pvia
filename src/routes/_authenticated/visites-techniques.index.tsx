@@ -84,7 +84,7 @@ function fmtDate(iso: string | null): string {
 }
 
 function VisitesTechniquesPage() {
-  const { group } = Route.useSearch();
+  const { group, assigned } = Route.useSearch();
   const navigate = Route.useNavigate();
   const resumeGroup = !!visitGroupStatuses(group);
   const { activeCompanyId, activeRole } = useCompany();
@@ -107,7 +107,8 @@ function VisitesTechniquesPage() {
   const [type, setType] = useState<VisitType | "all">("all");
   const [status, setStatus] = useState<VisitStatus | "all">("all");
   const [lot, setLot] = useState<VisitLot | "all">("all");
-  const [assignee, setAssignee] = useState<string | "all">("all");
+  const assignee = assigned ?? "all";
+  const setAssignee = (value: string) => { void navigate({ search: (prev) => ({ ...prev, assigned: value === "all" ? undefined : value }) }); };
   const [includeArchived, setIncludeArchived] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [assignees, setAssignees] = useState<{ id: string; name: string }[]>([]);
