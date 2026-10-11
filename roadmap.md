@@ -1,6 +1,7 @@
 # Roadmap PVIA
 
 ## Statistiques
+- [ ] Relecture finale ciblée : trois gravités, lecture indépendante de la suspension, exports fermés et QA courte
 - [x] Unifier périodes Paris, filtres parent PV, lectures complètes et exports avec erreurs explicites
 - [x] Refaire la vue Statistiques, les états de portée et les commandes accessibles
 - [x] Vérifier tests métier, CSV/PDF synthétiques et composants réels 320–1440 px ; harness uniquement temporaire hors projet, aucun parcours connecté

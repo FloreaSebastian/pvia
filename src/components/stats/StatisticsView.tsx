@@ -386,9 +386,13 @@ export function StatisticsView(p: StatisticsViewProps) {
                   <ArrowUpRight aria-hidden />
                 </Link>
               </Work>
-              <Work count={p.stats.today.reservesMajor} label="Réserves majeures non clôturées">
-                <Link to="/reserves" search={{ quick: "bloquantes", status: "all" }}>
-                  Voir les réserves majeures
+              <Work
+                count={p.stats.today.reservesMajor + p.stats.today.reservesBlocking}
+                label="Réserves majeures ou bloquantes non clôturées"
+                detail={`${number(p.stats.today.reservesMajor)} majeures · ${number(p.stats.today.reservesBlocking)} bloquantes`}
+              >
+                <Link to="/reserves" search={{ quick: "all", status: "all" }}>
+                  Consulter toutes les réserves
                   <ArrowUpRight aria-hidden />
                 </Link>
               </Work>
@@ -585,16 +589,19 @@ export function StatisticsView(p: StatisticsViewProps) {
 function Work({
   count,
   label,
+  detail,
   children,
 }: {
   count: number;
   label: string;
+  detail?: string;
   children: React.ReactElement;
 }) {
   return (
     <div className="min-w-0">
       <p className="text-2xl font-semibold tabular-nums">{number(count)}</p>
       <p className="mt-1 text-sm">{label}</p>
+      {detail && <p className="mt-1 text-xs text-muted-foreground">{detail}</p>}
       <Button
         asChild
         variant="link"

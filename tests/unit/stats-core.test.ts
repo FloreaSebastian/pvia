@@ -11,6 +11,8 @@ import {
   readComplete,
   statsBuckets,
   statsRange,
+  statsReadState,
+  statsErrorMessage,
   type StatsInput,
   type StatsPv,
   type StatsRows,
@@ -101,6 +103,50 @@ describe("statistics Paris periods", () => {
   });
 });
 describe("statistics cohort and current work", () => {
+  test("historical blocking reserves honor closure and parent filters", () => {
+    const rows = empty();
+    rows.pvs = [pv("old", { created_at: "2025-01-01T00:00:00Z" })];
+    rows.reserves = [
+      "ouverte",
+      "en_cours",
+      "levee",
+      "en_attente_validation",
+      "validee",
+      "rejetee",
+    ].map((status) => ({
+      id: status,
+      pv_id: "old",
+      severity: "bloquante",
+      status,
+      created_at: "2025-01-01T00:00:00Z",
+    }));
+    const s = computeStats({ ...input, pvType: "reception", userId }, rows);
+    expect(s.today.reservesBlocking).toBe(4);
+    expect(s.today.reservesMajor).toBe(0);
+    expect(s.kpis.reservesTotal).toBe(0);
+    expect(computeStats({ ...input, pvType: "livraison" }, rows).today.reservesBlocking).toBe(0);
+    expect(computeStats({ ...input, userId: "other" }, rows).today.reservesBlocking).toBe(0);
+  });
+  test("three severities exported separately, unknown severity still rejected", async () => {
+    const rows = empty();
+    rows.reserves = ["mineure", "majeure", "bloquante"].map((severity) => ({
+      id: severity,
+      pv_id: "a",
+      status: "ouverte",
+      severity,
+      created_at: "2026-03-29T12:00:00Z",
+    }));
+    const stats = computeStats(input, rows);
+    expect(stats.kpis.reservesBySeverity.map((s) => s.value)).toEqual([1, 1, 1]);
+    expect(statsExportRows(stats, "Test")).toContainEqual(["Réserves bloquantes non clôturées", 1]);
+    expect(statsExportRows(stats, "Test")).toContainEqual(["Bloquantes", 1]);
+    expect(buildStatsCsv(stats, "Test")).toContain('"Bloquantes";"1"');
+    expect(
+      (await PDFDocument.load(await buildStatsPdf(stats, "Test"))).getPageCount(),
+    ).toBeGreaterThan(0);
+    rows.reserves[0].severity = "inconnue";
+    expect(() => computeStats(input, rows)).toThrow("non reconnu");
+  });
   test("signed status without timestamp counts as signed but not delay", () => {
     const rows = empty();
     rows.pvs = [pv("a", { status: "signe" })];
@@ -271,6 +317,54 @@ describe("complete deterministic reads", () => {
   });
 });
 describe("scope and exports", () => {
+  test("active billing permits read despite unknown suspension, never export; null access is error", () => {
+    expect(
+      statsReadState({
+        isPending: false,
+        isError: false,
+        access: { state: "active" },
+        blocked: false,
+        feature: true,
+      }),
+    ).toBe("ready");
+    expect(canExportStats("directeur", false, true, true)).toBe(false);
+    expect(
+      statsReadState({
+        isPending: false,
+        isError: false,
+        access: null,
+        blocked: false,
+        feature: true,
+      }),
+    ).toBe("error");
+  });
+  test("new suspension closes export and invalidates late response", () => {
+    const scope = createStatsScope();
+    scope.set("A:known:true:blocked:false");
+    const late = scope.capture();
+    scope.set("A:known:true:blocked:true");
+    expect(canExportStats("directeur", true, false, true)).toBe(false);
+    expect(late()).toBe(false);
+  });
+  test("A to B to A never revives old export", () => {
+    const scope = createStatsScope();
+    scope.set("A");
+    const late = scope.capture();
+    scope.set("B");
+    scope.set("A");
+    expect(late()).toBe(false);
+    expect(scope.capture()()).toBe(true);
+  });
+  test("refusals and technical errors become useful French messages", () => {
+    expect(statsErrorMessage(new Error("COMPANY_SUSPENDED:support"))).toContain(
+      "Entreprise suspendue",
+    );
+    expect(statsErrorMessage(new Error("SUBSCRIPTION_REQUIRED:past_due"))).toContain(
+      "administrateur",
+    );
+    expect(statsErrorMessage(new Error("Failed to fetch"))).toContain("Réessayez");
+    expect(statsErrorMessage(new Error("PGRST301"))).not.toContain("PGRST");
+  });
   test("PDF upload failure cannot sign or report success", async () => {
     let signed = false;
     await expect(

@@ -16,7 +16,14 @@ import {
   exportCompanyStatsCsv,
   exportCompanyStatsPdf,
 } from "@/lib/stats.functions";
-import { StatsInputSchema, canExportStats, presetRange, type StatsInput } from "@/lib/stats-core";
+import {
+  StatsInputSchema,
+  canExportStats,
+  presetRange,
+  statsReadState,
+  statsErrorMessage,
+  type StatsInput,
+} from "@/lib/stats-core";
 
 export const Route = createFileRoute("/_authenticated/statistiques")({
   component: StatistiquesPage,
@@ -53,7 +60,11 @@ function StatistiquesPage() {
     billing.hasFeature("advanced_stats"),
     billing.blocked,
     gate.writeKnown,
+    gate.blocked,
   ].join(":");
+  const accessScope = useRef(createStatsScope());
+  accessScope.current.set(identity);
+  const readState = statsReadState({ ...billing, feature: billing.hasFeature("advanced_stats") });
   if (authLoading || company.status === "loading" || company.status === "idle")
     return (
       <p role="status" className="py-8 text-sm text-muted-foreground">
@@ -74,13 +85,13 @@ function StatistiquesPage() {
         </Button>
       </div>
     );
-  if (billing.isPending || (!gate.writeKnown && !billing.isError && !billing.blocked))
+  if (readState === "loading")
     return (
       <p role="status" className="py-8 text-sm">
         Vérification de votre accès aux statistiques…
       </p>
     );
-  if (billing.isError)
+  if (readState === "error")
     return (
       <div role="alert" className="space-y-3 py-8">
         <p>Votre accès aux statistiques n’a pas pu être vérifié.</p>
@@ -89,7 +100,7 @@ function StatistiquesPage() {
         </Button>
       </div>
     );
-  if (!billing.hasFeature("advanced_stats") || billing.blocked || !gate.writeKnown)
+  if (readState === "restricted")
     return (
       <div className="space-y-3 py-8">
         <h1 className="text-2xl font-semibold">Statistiques</h1>
@@ -114,6 +125,9 @@ function StatistiquesPage() {
       userId={user.id}
       role={company.activeRole}
       identity={identity}
+      writeKnown={gate.writeKnown}
+      writeAllowed={!gate.blocked}
+      captureAccess={() => accessScope.current.capture()}
       companyName={
         company.memberships.find((m) => m.company_id === company.activeCompanyId)?.company?.name ??
         "Votre entreprise"
@@ -127,12 +141,18 @@ function StatistiquesContent({
   role,
   identity,
   companyName,
+  writeKnown,
+  writeAllowed,
+  captureAccess,
 }: {
   companyId: string;
   userId: string;
   role: string;
   identity: string;
   companyName: string;
+  writeKnown: boolean;
+  writeAllowed: boolean;
+  captureAccess: () => () => boolean;
 }) {
   const fetchStats = useServerFn(getCompanyStats);
   const exportCsv = useServerFn(exportCompanyStatsCsv);
@@ -164,11 +184,13 @@ function StatistiquesContent({
     retry: 1,
   });
   const loaded = valid && statsQuery.isSuccess && !statsQuery.isFetching;
-  const allowedExport = canExportStats(role, true, true, loaded);
+  const allowedExport = canExportStats(role, writeKnown, writeAllowed, loaded);
   async function onExport(format: "csv" | "pdf") {
     if (!allowedExport || exporting) return;
     const input = StatsInputSchema.parse(filters);
-    const current = scopeGuard.current.capture();
+    const sameScope = scopeGuard.current.capture();
+    const sameAccess = captureAccess();
+    const current = () => sameScope() && sameAccess();
     setExporting(true);
     try {
       if (format === "csv") {
@@ -191,8 +213,8 @@ function StatistiquesContent({
         a.click();
         toast.success("PDF prêt.");
       }
-    } catch {
-      if (current()) toast.error("L’export n’a pas abouti. Réessayez.");
+    } catch (error) {
+      if (current()) toast.error(statsErrorMessage(error));
     } finally {
       if (current()) setExporting(false);
     }
@@ -203,16 +225,16 @@ function StatistiquesContent({
   return (
     <StatisticsView
       companyName={statsQuery.data?.companyName ?? companyName}
-      stats={valid ? statsQuery.data : undefined}
+      stats={valid && !statsQuery.isError ? statsQuery.data : undefined}
       input={filters}
       preset={preset}
       members={statsQuery.data?.members ?? []}
-      loading={statsQuery.isFetching || statsQuery.isPending}
+      loading={valid && (statsQuery.isFetching || statsQuery.isPending)}
       error={
         !valid
           ? "Période ou filtres invalides."
-          : statsQuery.error instanceof Error
-            ? statsQuery.error.message
+          : statsQuery.isError
+            ? statsErrorMessage(statsQuery.error)
             : undefined
       }
       canExport={allowedExport}
