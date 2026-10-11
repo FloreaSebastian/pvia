@@ -1,5 +1,10 @@
 # Roadmap PVIA
 
+## Statistiques
+- [ ] Unifier périodes Paris, filtres parent PV, lectures complètes et exports avec erreurs explicites
+- [ ] Refaire la vue Statistiques, les états de portée et les commandes accessibles
+- [ ] Vérifier tests métier, CSV/PDF synthétiques et composants réels 320–1440 px ; retirer le harness
+
 ## Solar Studio V2
 
 - [x] P0-A — Cadre UX (rail d'étapes, barre haute, panneau contextuel repliable, barre de synthèse Implantation, mode Rapide/Expert)
