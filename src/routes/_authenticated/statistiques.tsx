@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useBillingGate } from "@/components/billing/BillingGate";
 import { isAdminRole } from "@/lib/roles";
+import { createStatsScope } from "@/lib/stats-scope";
 import {
   getCompanyStats,
   exportCompanyStatsCsv,
@@ -146,13 +147,12 @@ function StatistiquesContent({
   const parsed = StatsInputSchema.safeParse(filters);
   const valid = parsed.success;
   const scope = JSON.stringify([identity, filters]);
-  const scopeRef = useRef(scope);
-  scopeRef.current = scope;
-  const alive = useRef(true);
+  const scopeGuard = useRef(createStatsScope());
+  scopeGuard.current.set(scope);
   useEffect(() => {
-    alive.current = true;
+    const guard = scopeGuard.current;
     return () => {
-      alive.current = false;
+      guard.dispose();
     };
   }, []);
   const statsQuery = useQuery({
@@ -166,9 +166,8 @@ function StatistiquesContent({
   const allowedExport = canExportStats(role, true, true, loaded);
   async function onExport(format: "csv" | "pdf") {
     if (!allowedExport || exporting) return;
-    const captured = scope;
     const input = StatsInputSchema.parse(filters);
-    const current = () => alive.current && scopeRef.current === captured;
+    const current = scopeGuard.current.capture();
     setExporting(true);
     try {
       if (format === "csv") {
