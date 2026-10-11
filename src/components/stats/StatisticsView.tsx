@@ -429,7 +429,7 @@ export function StatisticsView(p: StatisticsViewProps) {
               aria-label="Évolution des PV créés et déjà signés, données détaillées dans le tableau"
             >
               {p.stats.buckets.rows.map((bucket) => {
-                const maximum = Math.max(1, ...p.stats.buckets.rows.map((b) => b.created));
+                const maximum = Math.max(1, ...(p.stats?.buckets.rows ?? []).map((b) => b.created));
                 const cells = Math.round((bucket.created / maximum) * 20);
                 return (
                   <div
