@@ -61,6 +61,7 @@ export function statsExportRows(
     ["À traiter aujourd’hui (hors période)", "Nombre"],
     ["Signatures en attente > 7 jours", stats.today.pendingOver7Days],
     ["Réserves majeures non clôturées", stats.today.reservesMajor],
+    ["Réserves bloquantes non clôturées", stats.today.reservesBlocking],
     ["Réserves à valider", stats.today.reservesToValidate],
     ["Réserves à traiter", stats.today.reservesToProcess],
   );

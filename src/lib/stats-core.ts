@@ -3,6 +3,33 @@ import { isoToLocalInputs, localInputToIso } from "./visites/planning";
 import { PV_PENDING_STATUSES, signatureCutoff } from "./dashboard";
 import { canSignAsCompany } from "./roles";
 import { RESERVE_STATUSES, RESERVE_STATUS_LABEL } from "./reserve-status";
+import { classifyBillingError, friendlyErrorMessage } from "./billing-errors";
+
+/** Read eligibility deliberately does not depend on the suspension write gate. */
+export function statsReadState(billing: {
+  isPending: boolean;
+  isError: boolean;
+  access: unknown;
+  blocked: boolean;
+  feature: boolean;
+}) {
+  if (billing.isError) return "error";
+  if (billing.isPending) return "loading";
+  if (billing.access == null) return "error";
+  return billing.blocked || !billing.feature ? "restricted" : "ready";
+}
+export function statsErrorMessage(error: unknown) {
+  const block = classifyBillingError(error);
+  if (block?.kind === "suspended")
+    return "Entreprise suspendue. Contactez un administrateur de votre entreprise ou le support PVIA, puis réessayez.";
+  if (block?.kind === "subscription")
+    return "L’accès aux statistiques nécessite un abonnement actif. Contactez un administrateur pour le régulariser, puis réessayez.";
+  return friendlyErrorMessage(
+    error,
+    "Les statistiques n’ont pas pu être chargées. Réessayez dans un instant.",
+  );
+}
+const STATS_SEVERITIES = ["mineure", "majeure", "bloquante"] as const;
 
 export const STATS_TYPES = ["reception", "livraison", "reserve"] as const;
 export const STATS_TYPE_LABELS = {
@@ -214,7 +241,7 @@ export function computeStats(input: StatsInput, rows: StatsRows, now = new Date(
       reserves.some(
         (p) =>
           !(RESERVE_STATUSES as readonly string[]).includes(p.status) ||
-          !["mineure", "majeure"].includes(p.severity),
+          !(STATS_SEVERITIES as readonly string[]).includes(p.severity),
       )
     )
       throw new Error(
@@ -231,9 +258,9 @@ export function computeStats(input: StatsInput, rows: StatsRows, now = new Date(
       reservesOpen: reserves.filter((p) => p.status === "ouverte" || p.status === "en_cours")
         .length,
       reservesByStatus: byStatus,
-      reservesBySeverity: ["mineure", "majeure"].map((key) => ({
+      reservesBySeverity: STATS_SEVERITIES.map((key) => ({
         key,
-        name: key === "mineure" ? "Mineures" : "Majeures",
+        name: key === "mineure" ? "Mineures" : key === "majeure" ? "Majeures" : "Bloquantes",
         value: reserves.filter((p) => p.severity === key).length,
       })),
       photosTotal: rows.photos.filter((p) => inRange(p.created_at, r) && linked(p.pv_id)).length,
@@ -249,7 +276,7 @@ export function computeStats(input: StatsInput, rows: StatsRows, now = new Date(
     currentReserves.some(
       (p) =>
         !(RESERVE_STATUSES as readonly string[]).includes(p.status) ||
-        !["mineure", "majeure"].includes(p.severity),
+        !(STATS_SEVERITIES as readonly string[]).includes(p.severity),
     )
   )
     throw new Error(
@@ -298,6 +325,9 @@ export function computeStats(input: StatsInput, rows: StatsRows, now = new Date(
       ).length,
       reservesMajor: currentReserves.filter((p) => p.severity === "majeure" && nonClosed(p.status))
         .length,
+      reservesBlocking: currentReserves.filter(
+        (p) => p.severity === "bloquante" && nonClosed(p.status),
+      ).length,
       reservesToValidate: currentReserves.filter((p) =>
         ["levee", "en_attente_validation"].includes(p.status),
       ).length,
