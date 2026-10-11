@@ -70,7 +70,7 @@ export function StatisticsView(p: StatisticsViewProps) {
   return (
     <div className="min-w-0 space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
+        <div className="w-full min-w-0 md:w-auto md:flex-1">
           <p className="mb-1 break-words text-sm font-medium text-muted-foreground">
             {p.companyName}
           </p>
@@ -291,7 +291,7 @@ export function StatisticsView(p: StatisticsViewProps) {
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4"
         >
-          <p className="flex-1 text-sm">
+          <p className="w-full min-w-0 text-sm sm:flex-1">
             <AlertCircle className="mr-2 inline h-4 w-4 text-destructive" aria-hidden />
             {p.stats
               ? "Actualisation impossible. Les chiffres précédents sont conservés. "
