@@ -1,0 +1,608 @@
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import {
+  RefreshCw,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  AlertCircle,
+  Clock,
+  Check,
+  ArrowUpRight,
+  SlidersHorizontal,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  STATS_DEFINITIONS,
+  STATS_TYPE_LABELS,
+  STATS_TYPES,
+  StatsInputSchema,
+  countVariation,
+  rangeLabel,
+  type CompanyStats,
+  type StatsInput,
+  type StatsMember,
+} from "@/lib/stats-core";
+
+export type StatisticsViewProps = {
+  companyName: string;
+  stats?: CompanyStats;
+  input: StatsInput;
+  preset: string;
+  members: StatsMember[];
+  loading: boolean;
+  error?: string;
+  exporting: boolean;
+  canExport: boolean;
+  onRefresh: () => void;
+  onExport: (format: "csv" | "pdf") => void;
+  onPreset: (value: string) => void;
+  onFilters: (filters: Pick<StatsInput, "pvType" | "userId" | "compare">) => void;
+  onDates: (from: string, to: string) => void;
+  onReset: () => void;
+};
+const number = (v: number | null) =>
+  v === null ? "—" : v.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+const touch = "min-h-11";
+export function StatisticsView(p: StatisticsViewProps) {
+  const [from, setFrom] = useState(p.input.from ?? "");
+  const [to, setTo] = useState(p.input.to);
+  const [datesError, setDatesError] = useState("");
+  const selectedMember = p.members.find((m) => m.user_id === p.input.userId);
+  const active = !!(p.input.pvType || p.input.userId || p.preset !== "30" || !p.input.compare);
+  const k = p.stats?.kpis;
+  const previous = p.stats?.previous;
+  return (
+    <div className="min-w-0 space-y-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="w-full min-w-0 md:w-auto md:flex-1">
+          <p className="mb-1 break-words text-sm font-medium text-muted-foreground">
+            {p.companyName}
+          </p>
+          <h1 className="text-2xl font-semibold">Statistiques</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Suivez les réceptions, les signatures et les réserves de votre entreprise.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            className={touch}
+            variant="outline"
+            onClick={p.onRefresh}
+            disabled={p.loading}
+            aria-label="Actualiser les statistiques"
+          >
+            <RefreshCw className={p.loading ? "animate-spin" : ""} aria-hidden />
+            Actualiser
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className={touch} disabled={!p.canExport || p.exporting || p.loading}>
+                <Download aria-hidden />
+                {p.exporting ? "Export…" : "Exporter"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className={touch} onSelect={() => p.onExport("csv")}>
+                <FileSpreadsheet aria-hidden />
+                CSV · Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem className={touch} onSelect={() => p.onExport("pdf")}>
+                <FileText aria-hidden />
+                PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+      {!p.canExport && (
+        <p className="text-xs text-muted-foreground">
+          Export disponible pour les Directeur, Responsable et Conducteur lorsque les statistiques
+          sont chargées et l’accès confirmé.
+        </p>
+      )}
+      <section aria-label="Filtres statistiques" className="border-y py-4">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="min-w-0 space-y-2 text-sm font-medium">
+            Période
+            <Select
+              value={p.preset}
+              onValueChange={(value) => {
+                setDatesError("");
+                setFrom(p.input.from ?? "");
+                setTo(p.input.to);
+                p.onPreset(value);
+              }}
+            >
+              <SelectTrigger className="mt-2 min-h-11 w-full" aria-label="Période">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[
+                  ["7", "7 derniers jours"],
+                  ["30", "30 derniers jours"],
+                  ["90", "90 derniers jours"],
+                  ["12m", "12 derniers mois"],
+                  ["all", "Tout l’historique"],
+                  ["custom", "Personnaliser"],
+                ].map(([v, l]) => (
+                  <SelectItem className="min-h-11" key={v} value={v}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="min-w-0 space-y-2 text-sm font-medium">
+            Type de PV
+            <Select
+              value={p.input.pvType ?? "all"}
+              onValueChange={(value) =>
+                p.onFilters({ ...p.input, pvType: STATS_TYPES.find((type) => type === value) })
+              }
+            >
+              <SelectTrigger className="mt-2 min-h-11 w-full" aria-label="Type de PV">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem className="min-h-11" value="all">
+                  Tous les types
+                </SelectItem>
+                {STATS_TYPES.map((type) => (
+                  <SelectItem className="min-h-11" key={type} value={type}>
+                    {STATS_TYPE_LABELS[type]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="min-w-0 space-y-2 text-sm font-medium">
+            Créateur du PV
+            <Select
+              value={p.input.userId ?? "all"}
+              onValueChange={(value) =>
+                p.onFilters({ ...p.input, userId: value === "all" ? undefined : value })
+              }
+            >
+              <SelectTrigger
+                title={selectedMember?.name}
+                className="mt-2 min-h-11 w-full [&>span]:truncate"
+                aria-label="Créateur du PV"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-w-[calc(100vw-2rem)]">
+                <SelectItem className="min-h-11" value="all">
+                  Tous les membres
+                </SelectItem>
+                {p.members.map((member) => (
+                  <SelectItem
+                    className="min-h-11 max-w-sm whitespace-normal break-words"
+                    key={member.user_id}
+                    value={member.user_id}
+                  >
+                    {member.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="flex min-h-11 items-center gap-3 self-end text-sm">
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-primary"
+              checked={p.input.compare && !!p.input.from}
+              disabled={!p.input.from}
+              onChange={(e) => p.onFilters({ ...p.input, compare: e.target.checked })}
+            />
+            Comparer à la période précédente
+          </label>
+        </div>
+        {p.preset === "custom" && (
+          <form
+            className="mt-4 grid gap-3 sm:grid-cols-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const parsed = StatsInputSchema.safeParse({ ...p.input, from, to });
+              if (!from || !parsed.success) {
+                setDatesError("Saisissez deux dates valides, dans l’ordre début puis fin.");
+                return;
+              }
+              setDatesError("");
+              p.onDates(from, to);
+            }}
+          >
+            <label className="min-w-0 text-sm">
+              Du
+              <Input
+                aria-label="Date de début"
+                className="mt-2 min-h-11 max-w-full"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+            </label>
+            <label className="min-w-0 text-sm">
+              Au (jour inclus)
+              <Input
+                aria-label="Date de fin"
+                className="mt-2 min-h-11 max-w-full"
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              />
+            </label>
+            <Button className="min-h-11 self-end" type="submit">
+              Appliquer les dates
+            </Button>
+            {datesError && (
+              <p role="alert" className="text-sm text-destructive sm:col-span-3">
+                {datesError}
+              </p>
+            )}
+          </form>
+        )}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <p className="min-w-0 break-words">
+            {rangeLabel({ from: p.input.from ?? null, to: p.input.to })} · Europe/Paris ·{" "}
+            {p.input.pvType ? STATS_TYPE_LABELS[p.input.pvType] : "Tous les types"} ·{" "}
+            {selectedMember?.name ?? "Tous les membres"}
+          </p>
+          {active && (
+            <Button className={touch} variant="ghost" onClick={p.onReset}>
+              <SlidersHorizontal aria-hidden />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+        {p.stats?.previousRange && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Période précédente : {rangeLabel(p.stats.previousRange)}
+          </p>
+        )}
+        {!p.input.from && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Tout l’historique : comparaison désactivée.
+          </p>
+        )}
+      </section>
+      <div role="status" className="text-xs text-muted-foreground">
+        {p.loading
+          ? p.stats
+            ? "Actualisation en cours… Les chiffres affichés datent du dernier calcul."
+            : "Chargement des statistiques…"
+          : p.stats
+            ? `Dernier calcul : ${new Date(p.stats.generatedAt).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })} (Paris)`
+            : ""}
+      </div>
+      {p.error && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4"
+        >
+          <p className="w-full min-w-0 text-sm sm:flex-1">
+            <AlertCircle className="mr-2 inline h-4 w-4 text-destructive" aria-hidden />
+            {p.stats
+              ? "Actualisation impossible. Les chiffres précédents sont conservés. "
+              : "Statistiques indisponibles. "}
+            {p.error}
+          </p>
+          <Button variant="outline" className={touch} onClick={p.onRefresh} disabled={p.loading}>
+            Réessayer
+          </Button>
+        </div>
+      )}
+      {!p.stats && p.loading && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-hidden>
+          {[1, 2, 3, 4].map((v) => (
+            <div key={v} className="h-40 animate-pulse rounded-md bg-muted" />
+          ))}
+        </div>
+      )}
+      {p.stats && k && (
+        <>
+          {k.totalPv === 0 && (
+            <p className="border-l-2 border-primary pl-3 text-sm">
+              Aucun PV créé sur cette période. Les ressources liées à des PV plus anciens et
+              l’encours restent comptabilisés.
+            </p>
+          )}
+          <div className="grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: "PV créés",
+                value: number(k.totalPv),
+                hint: "Créés sur la période sélectionnée",
+                delta: countVariation(k.totalPv, previous?.totalPv),
+              },
+              {
+                label: "PV déjà signés",
+                value: number(k.signedPv),
+                hint: `${number(k.signedPv)} sur ${number(k.totalPv)} créés · ${k.signatureRate === null ? "taux non disponible" : `${number(k.signatureRate)} %`}`,
+                delta: countVariation(k.signatureRate, previous?.signatureRate, true),
+              },
+              {
+                label: "Délai de signature",
+                value:
+                  k.avgDelayHours === null
+                    ? "—"
+                    : `${number(k.avgDelayHours < 24 ? k.avgDelayHours : k.avgDelayHours / 24)} ${k.avgDelayHours < 24 ? "h" : "j"}`,
+                hint: "Création → signature datée valide",
+                delta: countVariation(k.avgDelayHours, previous?.avgDelayHours),
+              },
+              {
+                label: "Réserves ouvertes",
+                value: number(k.reservesOpen),
+                hint: "Enregistrées sur la période, ouvertes ou en cours actuellement",
+                delta: countVariation(k.reservesOpen, previous?.reservesOpen),
+              },
+            ].map((metric) => (
+              <Card key={metric.label} className="min-w-0 rounded-lg p-4">
+                <p className="text-sm font-medium">{metric.label}</p>
+                <p className="mt-3 text-3xl font-semibold tabular-nums">{metric.value}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{metric.hint}</p>
+                <p className="mt-3 border-t pt-2 text-xs text-muted-foreground">{metric.delta}</p>
+              </Card>
+            ))}
+          </div>
+          {k.signaturesWithoutValidDate > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {k.signaturesWithoutValidDate} signature(s) sans date exploitable : exclue(s) du délai
+              moyen.
+            </p>
+          )}
+          <section className="border-y py-5" aria-labelledby="today-title">
+            <div className="mb-4">
+              <h2 id="today-title" className="flex items-center gap-2 text-lg font-semibold">
+                <Clock className="h-5 w-5 text-warning" aria-hidden />À traiter aujourd’hui
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Encours actuel, hors période · mêmes filtres type et créateur. Les liens ouvrent
+                tous les dossiers de l’entreprise.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Work
+                count={p.stats.today.pendingOver7Days}
+                label="Signatures attendues depuis plus de 7 jours"
+              >
+                <Link to="/pv" search={{ status: "en_attente", late: true }}>
+                  Voir les signatures
+                  <ArrowUpRight aria-hidden />
+                </Link>
+              </Work>
+              <Work count={p.stats.today.reservesMajor} label="Réserves majeures non clôturées">
+                <Link to="/reserves" search={{ quick: "bloquantes", status: "all" }}>
+                  Voir les réserves majeures
+                  <ArrowUpRight aria-hidden />
+                </Link>
+              </Work>
+              <Work
+                count={p.stats.today.reservesToValidate}
+                label="Réserves levées ou en attente de validation"
+              >
+                <Link to="/reserves" search={{ quick: "all", status: "all" }}>
+                  Consulter toutes les réserves
+                  <ArrowUpRight aria-hidden />
+                </Link>
+              </Work>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {number(p.stats.today.reservesToProcess)} réserves actuellement ouvertes à traiter.
+            </p>
+          </section>
+          <section aria-labelledby="evolution-title" className="min-w-0">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div>
+                <h2 id="evolution-title" className="text-lg font-semibold">
+                  Évolution des PV
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Par {p.stats.buckets.unit} · parmi les PV créés sur la période
+                </p>
+              </div>
+            </div>
+            <div className="mb-4 flex flex-wrap gap-4 text-xs">
+              <span className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-sm bg-primary" />
+                PV créés
+              </span>
+              <span className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-success" />
+                Déjà signés parmi ces PV
+              </span>
+            </div>
+            <div
+              className="max-h-80 space-y-2 overflow-y-auto rounded-md border p-3"
+              role="img"
+              aria-label="Évolution des PV créés et déjà signés, données détaillées dans le tableau"
+            >
+              {p.stats.buckets.rows.map((bucket) => {
+                const maximum = Math.max(1, ...(p.stats?.buckets.rows ?? []).map((b) => b.created));
+                const cells = Math.round((bucket.created / maximum) * 20);
+                return (
+                  <div
+                    key={bucket.start}
+                    className="grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-2 sm:grid-cols-[12rem_minmax(0,1fr)_5rem]"
+                    title={`${bucket.label} : ${bucket.created} PV créés, ${bucket.signed} déjà signés`}
+                  >
+                    <span className="col-span-2 text-xs text-muted-foreground sm:col-span-1">
+                      {bucket.label}
+                    </span>
+                    <div className="grid h-3 grid-cols-20 gap-px" aria-hidden>
+                      {Array.from({ length: 20 }, (_, i) => (
+                        <span
+                          key={i}
+                          className={
+                            i < Math.round((bucket.signed / maximum) * 20)
+                              ? "bg-success"
+                              : i < cells
+                                ? "bg-primary"
+                                : "bg-muted"
+                          }
+                        />
+                      ))}
+                    </div>
+                    <span className="text-right text-xs tabular-nums">
+                      {bucket.created} / {bucket.signed}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <details className="mt-3 border-b">
+              <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline focus-visible:outline-ring">
+                Tableau des données
+              </summary>
+              <div className="max-h-96 overflow-auto">
+                <table className="w-full text-left text-xs">
+                  <caption className="sr-only">PV créés et déjà signés par période</caption>
+                  <thead>
+                    <tr>
+                      <th className="p-2">Période Paris</th>
+                      <th className="p-2">Créés</th>
+                      <th className="p-2">Déjà signés</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.stats.buckets.rows.map((b) => (
+                      <tr className="border-t" key={b.start}>
+                        <th className="p-2 font-normal">{b.label}</th>
+                        <td className="p-2">{b.created}</td>
+                        <td className="p-2">{b.signed}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </section>
+          <section aria-labelledby="reserve-title">
+            <h2 id="reserve-title" className="text-lg font-semibold">
+              État des réserves
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enregistrées sur la période · état actuel · {k.reservesTotal} au total
+            </p>
+            <div className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+              {k.reservesByStatus.map((status) => (
+                <div
+                  key={status.key}
+                  className="flex items-center justify-between border-b py-3 text-sm"
+                >
+                  <span>{status.name}</span>
+                  <strong className="tabular-nums">{status.value}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-5 text-sm">
+              {k.reservesBySeverity.map((s) => (
+                <span key={s.key}>
+                  {s.name} : <strong>{s.value}</strong>
+                </span>
+              ))}
+            </div>
+          </section>
+          <details className="border-y">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline focus-visible:outline-ring">
+              Documents et communications
+            </summary>
+            <dl className="grid gap-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Photos ajoutées", k.photosTotal],
+                ["PV avec dernière génération PDF", k.pdfGenerated],
+                ["Emails envoyés", k.emailsSent],
+                ["Emails échoués", k.emailsFailed],
+                ["PV avec dernier envoi client", k.sentToClient],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd className="mt-1 text-lg font-semibold">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="pb-4 text-xs text-muted-foreground">
+              PDF et envois : dernière date enregistrée sur le PV, pas le nombre de régénérations ou
+              de renvois. Emails : communications enregistrées sur la période, filtrées par créateur
+              du PV parent.
+            </p>
+          </details>
+          <details className="border-b">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline focus-visible:outline-ring">
+              Journal d’actions par membre
+            </summary>
+            <p className="py-3 text-xs text-muted-foreground">
+              Actions enregistrées sur la période, par auteur. Ce journal n’est pas un classement de
+              performance. Avec un filtre type ou membre, seules les actions liées à un PV sont
+              retenues.
+            </p>
+            {p.stats.activityByUser.length === 0 ? (
+              <p className="pb-4 text-sm">Aucune action dans ce périmètre.</p>
+            ) : (
+              <ul className="divide-y">
+                {p.stats.activityByUser.map((m) => (
+                  <li
+                    key={m.user_id}
+                    className="flex items-start justify-between gap-4 py-3 text-sm"
+                  >
+                    <span className="min-w-0 break-words">{m.name}</span>
+                    <span className="shrink-0 tabular-nums">{m.count} actions</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </details>
+          <details className="border-b">
+            <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline focus-visible:outline-ring">
+              Comprendre les chiffres
+            </summary>
+            <ul className="space-y-2 pb-4 text-sm text-muted-foreground">
+              {STATS_DEFINITIONS.map((d) => (
+                <li key={d}>{d}</li>
+              ))}
+            </ul>
+          </details>
+        </>
+      )}
+    </div>
+  );
+}
+function Work({
+  count,
+  label,
+  children,
+}: {
+  count: number;
+  label: string;
+  children: React.ReactElement;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-2xl font-semibold tabular-nums">{number(count)}</p>
+      <p className="mt-1 text-sm">{label}</p>
+      <Button
+        asChild
+        variant="link"
+        className="mt-2 min-h-11 max-w-full justify-start whitespace-normal px-0 text-left"
+      >
+        {children}
+      </Button>
+      <p className="text-xs text-muted-foreground">Tous les dossiers de l’entreprise</p>
+    </div>
+  );
+}
