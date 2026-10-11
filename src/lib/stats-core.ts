@@ -52,7 +52,9 @@ export function rangeLabel(range: Pick<StatsRange, "from" | "to">) {
   return `${range.from ? fmt(range.from) : "Début de l’historique"} au ${fmt(range.to)}`;
 }
 export function inRange(iso: string | null, range: StatsRange) {
-  return !!iso && (!range.start || iso >= range.start) && iso < range.end;
+  if (!iso) return false;
+  const instant = Date.parse(iso);
+  return Number.isFinite(instant) && (!range.start || instant >= Date.parse(range.start)) && instant < Date.parse(range.end);
 }
 export type StatsPv = { id: string; type: string; status: string; owner_id: string; created_at: string; signed_at: string | null; sent_to_client_at: string | null; pdf_generated_at: string | null };
 export type StatsReserve = { id: string; pv_id: string; status: string; severity: string; created_at: string };
@@ -109,7 +111,7 @@ export function computeStats(input: StatsInput, rows: StatsRows, now = new Date(
   const selected = rows.pvs.filter(matchesPv);
   const calculate = (r: StatsRange) => {
     const cohort = selected.filter((p) => inRange(p.created_at, r));
-    const signed = cohort.filter((p) => !!p.signed_at);
+    const signed = cohort.filter((p) => p.status === "signe" || !!p.signed_at);
     const delays = signed.flatMap((p) => {
       const hours = (Date.parse(p.signed_at ?? "") - Date.parse(p.created_at)) / 3600000;
       return Number.isFinite(hours) && hours >= 0 ? [hours] : [];
@@ -123,6 +125,7 @@ export function computeStats(input: StatsInput, rows: StatsRows, now = new Date(
       totalPv: cohort.length, signedPv: signed.length,
       signatureRate: cohort.length ? signed.length / cohort.length * 100 : null,
       avgDelayHours: delays.length ? delays.reduce((a, b) => a + b, 0) / delays.length : null,
+      signaturesWithoutValidDate: signed.length - delays.length,
       reservesTotal: reserves.length,
       reservesOpen: reserves.filter((p) => p.status === "ouverte" || p.status === "en_cours").length,
       reservesByStatus: byStatus,
@@ -136,6 +139,7 @@ export function computeStats(input: StatsInput, rows: StatsRows, now = new Date(
   };
   const kpis = calculate(range);
   const currentReserves = rows.reserves.filter((p) => linked(p.pv_id));
+  if (currentReserves.some((p) => !(RESERVE_STATUSES as readonly string[]).includes(p.status) || !["mineure", "majeure"].includes(p.severity))) throw new Error("L’encours des réserves contient une donnée non reconnue. Vérification nécessaire.");
   const nonClosed = (status: string) => !["validee", "rejetee"].includes(status);
   const counts = new Map<string, number>();
   for (const a of rows.actions) {
@@ -152,10 +156,10 @@ export function computeStats(input: StatsInput, rows: StatsRows, now = new Date(
     members: rows.members,
     activityByUser: [...counts].map(([user_id, count]) => ({ user_id, name: names.get(user_id) ?? "Ancien membre / identité indisponible", count })).sort((a, b) => a.name.localeCompare(b.name, "fr")),
     today: {
-      pendingOver7Days: selected.filter((p) => PV_PENDING_STATUSES.includes(p.status) && !!p.sent_to_client_at && p.sent_to_client_at < signatureCutoff(now)).length,
+      pendingOver7Days: selected.filter((p) => PV_PENDING_STATUSES.includes(p.status) && !!p.sent_to_client_at && Date.parse(p.sent_to_client_at) < Date.parse(signatureCutoff(now))).length,
       reservesMajor: currentReserves.filter((p) => p.severity === "majeure" && nonClosed(p.status)).length,
       reservesToValidate: currentReserves.filter((p) => ["levee", "en_attente_validation"].includes(p.status)).length,
-      reservesToProcess: currentReserves.filter((p) => nonClosed(p.status)).length,
+      reservesToProcess: currentReserves.filter((p) => p.status === "ouverte").length,
     },
   };
 }
@@ -167,11 +171,13 @@ export function statsBuckets(pvs: StatsPv[], range: StatsRange) {
   const buckets: { start: string; end: string; label: string; created: number; signed: number }[] = [];
   let cursor = first;
   while (cursor <= range.to) {
-    let end = unit === "jour" ? cursor : unit === "semaine" ? shiftDay(cursor, 6) : shiftDay(`${shiftDay(`${cursor.slice(0, 7)}-28`, 4).slice(0, 7)}-01`, -1);
+    const nextMonth = new Date(`${cursor.slice(0, 7)}-01T12:00:00Z`);
+    nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1, 0);
+    let end = unit === "jour" ? cursor : unit === "semaine" ? shiftDay(cursor, 6) : nextMonth.toISOString().slice(0, 10);
     if (end > range.to) end = range.to;
     const r = statsRange(cursor, end);
     const cohort = pvs.filter((p) => inRange(p.created_at, r));
-    buckets.push({ start: cursor, end, label: cursor === end ? rangeLabel({ from: cursor, to: end }).split(" au ")[0] : rangeLabel({ from: cursor, to: end }), created: cohort.length, signed: cohort.filter((p) => !!p.signed_at).length });
+    buckets.push({ start: cursor, end, label: cursor === end ? rangeLabel({ from: cursor, to: end }).split(" au ")[0] : rangeLabel({ from: cursor, to: end }), created: cohort.length, signed: cohort.filter((p) => p.status === "signe" || !!p.signed_at).length });
     cursor = shiftDay(end, 1);
     if (buckets.length > 1200) throw new Error("Historique trop long pour le graphique. Réduisez la période.");
   }
