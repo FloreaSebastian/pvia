@@ -179,7 +179,10 @@ export const exportCompanyStatsPdf = createServerFn({ method: "POST" })
     const fileName = `pvia-statistiques-${data.to}.pdf`;
     const path = `${data.companyId}/exports/${crypto.randomUUID()}-${fileName}`;
     const url = await persistStatsPdf(
-      () => sb.storage.from("pv-assets").upload(path, bytes, { contentType: "application/pdf", upsert: false }),
+      () =>
+        sb.storage
+          .from("pv-assets")
+          .upload(path, bytes, { contentType: "application/pdf", upsert: false }),
       () => sb.storage.from("pv-assets").createSignedUrl(path, 600),
     );
     const { writeAuditLog } = await import("./audit.server");

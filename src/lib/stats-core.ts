@@ -166,9 +166,16 @@ export async function readComplete<T>(
     if (total !== null && total !== result.count)
       throw new Error(`${label} modifiées pendant la lecture. Actualisez.`);
     total = result.count;
-    const ids = result.data.flatMap((row) => typeof row === "object" && row !== null && "id" in row ? [String(row.id)] : []);
-    const previousIds = new Set(rows.flatMap((row) => typeof row === "object" && row !== null && "id" in row ? [String(row.id)] : []));
-    if (new Set(ids).size !== ids.length || ids.some((id) => previousIds.has(id))) throw new Error(`${label} : lecture instable. Actualisez.`);
+    const ids = result.data.flatMap((row) =>
+      typeof row === "object" && row !== null && "id" in row ? [String(row.id)] : [],
+    );
+    const previousIds = new Set(
+      rows.flatMap((row) =>
+        typeof row === "object" && row !== null && "id" in row ? [String(row.id)] : [],
+      ),
+    );
+    if (new Set(ids).size !== ids.length || ids.some((id) => previousIds.has(id)))
+      throw new Error(`${label} : lecture instable. Actualisez.`);
     rows.push(...result.data);
     if (rows.length > total || (rows.length < total && result.data.length === 0))
       throw new Error(`${label} : lecture incomplète. Réessayez.`);

@@ -160,7 +160,9 @@ export function StatisticsView(p: StatisticsViewProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem className="min-h-11" value="all">Tous les types</SelectItem>
+                <SelectItem className="min-h-11" value="all">
+                  Tous les types
+                </SelectItem>
                 {STATS_TYPES.map((type) => (
                   <SelectItem className="min-h-11" key={type} value={type}>
                     {STATS_TYPE_LABELS[type]}
@@ -185,7 +187,9 @@ export function StatisticsView(p: StatisticsViewProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-w-[calc(100vw-2rem)]">
-                <SelectItem className="min-h-11" value="all">Tous les membres</SelectItem>
+                <SelectItem className="min-h-11" value="all">
+                  Tous les membres
+                </SelectItem>
                 {p.members.map((member) => (
                   <SelectItem
                     className="min-h-11 max-w-sm whitespace-normal break-words"

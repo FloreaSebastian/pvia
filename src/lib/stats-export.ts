@@ -93,11 +93,15 @@ export function buildStatsCsv(stats: CompanyStats, companyName: string) {
 }
 
 /** No success URL can escape a failed upload or failed signed-link creation. */
-export async function persistStatsPdf(upload: () => PromiseLike<{ error: unknown }>, sign: () => PromiseLike<{ error: unknown; data: { signedUrl: string } | null }>) {
+export async function persistStatsPdf(
+  upload: () => PromiseLike<{ error: unknown }>,
+  sign: () => PromiseLike<{ error: unknown; data: { signedUrl: string } | null }>,
+) {
   const uploaded = await upload();
   if (uploaded.error) throw new Error("Le PDF n’a pas pu être enregistré. Réessayez.");
   const signed = await sign();
-  if (signed.error || !signed.data?.signedUrl) throw new Error("Le lien du PDF n’a pas pu être créé. Réessayez.");
+  if (signed.error || !signed.data?.signedUrl)
+    throw new Error("Le lien du PDF n’a pas pu être créé. Réessayez.");
   return signed.data.signedUrl;
 }
 
