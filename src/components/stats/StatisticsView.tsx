@@ -141,7 +141,7 @@ export function StatisticsView(p: StatisticsViewProps) {
                   ["all", "Tout l’historique"],
                   ["custom", "Personnaliser"],
                 ].map(([v, l]) => (
-                  <SelectItem key={v} value={v}>
+                  <SelectItem className="min-h-11" key={v} value={v}>
                     {l}
                   </SelectItem>
                 ))}
@@ -160,9 +160,9 @@ export function StatisticsView(p: StatisticsViewProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les types</SelectItem>
+                <SelectItem className="min-h-11" value="all">Tous les types</SelectItem>
                 {STATS_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
+                  <SelectItem className="min-h-11" key={type} value={type}>
                     {STATS_TYPE_LABELS[type]}
                   </SelectItem>
                 ))}
@@ -185,10 +185,10 @@ export function StatisticsView(p: StatisticsViewProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-w-[calc(100vw-2rem)]">
-                <SelectItem value="all">Tous les membres</SelectItem>
+                <SelectItem className="min-h-11" value="all">Tous les membres</SelectItem>
                 {p.members.map((member) => (
                   <SelectItem
-                    className="max-w-sm whitespace-normal break-words"
+                    className="min-h-11 max-w-sm whitespace-normal break-words"
                     key={member.user_id}
                     value={member.user_id}
                   >
@@ -329,7 +329,7 @@ export function StatisticsView(p: StatisticsViewProps) {
               {
                 label: "PV déjà signés",
                 value: number(k.signedPv),
-                hint: `${number(k.signedPv)} sur ${number(k.totalPv)} créés · ${number(k.signatureRate)} %`,
+                hint: `${number(k.signedPv)} sur ${number(k.totalPv)} créés · ${k.signatureRate === null ? "taux non disponible" : `${number(k.signatureRate)} %`}`,
                 delta: countVariation(k.signatureRate, previous?.signatureRate, true),
               },
               {
@@ -348,7 +348,7 @@ export function StatisticsView(p: StatisticsViewProps) {
                 delta: countVariation(k.reservesOpen, previous?.reservesOpen),
               },
             ].map((metric) => (
-              <Card key={metric.label} className="min-w-0 p-4">
+              <Card key={metric.label} className="min-w-0 rounded-lg p-4">
                 <p className="text-sm font-medium">{metric.label}</p>
                 <p className="mt-3 text-3xl font-semibold tabular-nums">{metric.value}</p>
                 <p className="mt-2 text-xs text-muted-foreground">{metric.hint}</p>

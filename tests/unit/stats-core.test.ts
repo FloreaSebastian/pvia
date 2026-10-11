@@ -15,7 +15,7 @@ import {
   type StatsPv,
   type StatsRows,
 } from "@/lib/stats-core";
-import { buildStatsCsv, buildStatsPdf, statsCsvCell, statsExportRows } from "@/lib/stats-export";
+import { buildStatsCsv, buildStatsPdf, persistStatsPdf, statsCsvCell, statsExportRows } from "@/lib/stats-export";
 import { createStatsScope } from "@/lib/stats-scope";
 const companyId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
@@ -265,6 +265,14 @@ describe("complete deterministic reads", () => {
   });
 });
 describe("scope and exports", () => {
+  test("PDF upload failure cannot sign or report success", async () => {
+    let signed = false;
+    await expect(persistStatsPdf(() => Promise.resolve({error:new Error("storage")}), () => { signed=true; return Promise.resolve({error:null,data:{signedUrl:"unused"}}); })).rejects.toThrow("enregistré");
+    expect(signed).toBe(false);
+  });
+  test("signed URL failure cannot return PDF success", async () => {
+    await expect(persistStatsPdf(() => Promise.resolve({error:null}), () => Promise.resolve({error:new Error("sign"),data:null}))).rejects.toThrow("lien");
+  });
   test("export only SIGN roles with known feature and loaded scope", () => {
     for (const role of ["directeur", "responsable_exploitation", "conducteur_travaux"])
       expect(canExportStats(role, true, true, true)).toBe(true);

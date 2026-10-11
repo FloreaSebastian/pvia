@@ -12,7 +12,7 @@ import {
   type StatsInput,
   type StatsRows,
 } from "./stats-core";
-import { buildStatsCsv, buildStatsPdf } from "./stats-export";
+import { buildStatsCsv, buildStatsPdf, persistStatsPdf } from "./stats-export";
 
 type Client = SupabaseClient<Database>;
 async function authorized(input: StatsInput, sb: Client, userId: string, exporting = false) {
@@ -178,13 +178,10 @@ export const exportCompanyStatsPdf = createServerFn({ method: "POST" })
     const bytes = await buildStatsPdf(stats, stats.companyName);
     const fileName = `pvia-statistiques-${data.to}.pdf`;
     const path = `${data.companyId}/exports/${crypto.randomUUID()}-${fileName}`;
-    const uploaded = await sb.storage
-      .from("pv-assets")
-      .upload(path, bytes, { contentType: "application/pdf", upsert: false });
-    if (uploaded.error) throw new Error("Le PDF n’a pas pu être enregistré. Réessayez.");
-    const signed = await sb.storage.from("pv-assets").createSignedUrl(path, 600);
-    if (signed.error || !signed.data?.signedUrl)
-      throw new Error("Le lien du PDF n’a pas pu être créé. Réessayez.");
+    const url = await persistStatsPdf(
+      () => sb.storage.from("pv-assets").upload(path, bytes, { contentType: "application/pdf", upsert: false }),
+      () => sb.storage.from("pv-assets").createSignedUrl(path, 600),
+    );
     const { writeAuditLog } = await import("./audit.server");
     await writeAuditLog({
       companyId: data.companyId,
@@ -193,5 +190,5 @@ export const exportCompanyStatsPdf = createServerFn({ method: "POST" })
       entityType: "stats",
       metadata: { format: "pdf", ...data },
     });
-    return { url: signed.data.signedUrl, fileName };
+    return { url, fileName };
   });
