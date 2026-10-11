@@ -4,6 +4,7 @@ export function createStatsScope() {
   let generation = 0;
   let disposed = false;
   return {
+    activate() { disposed = false; },
     set(next: string) {
       if (next !== scope) {
         scope = next;

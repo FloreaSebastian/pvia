@@ -55,6 +55,7 @@ export function statsExportRows(
       k[metric.key],
       ...(stats.previous ? [stats.previous[metric.key]] : []),
     ]);
+  rows.push(["Signatures sans date exploitable (exclues du délai)", k.signaturesWithoutValidDate]);
   rows.push(
     [],
     ["À traiter aujourd’hui (hors période)", "Nombre"],

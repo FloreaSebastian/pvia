@@ -151,6 +151,7 @@ function StatistiquesContent({
   scopeGuard.current.set(scope);
   useEffect(() => {
     const guard = scopeGuard.current;
+    guard.activate();
     return () => {
       guard.dispose();
     };
