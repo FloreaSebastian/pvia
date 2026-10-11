@@ -113,7 +113,10 @@ function StatistiquesPage() {
       userId={user.id}
       role={company.activeRole}
       identity={identity}
-      companyName={company.memberships.find((m) => m.company_id === company.activeCompanyId)?.company?.name ?? "Votre entreprise"}
+      companyName={
+        company.memberships.find((m) => m.company_id === company.activeCompanyId)?.company?.name ??
+        "Votre entreprise"
+      }
     />
   );
 }
