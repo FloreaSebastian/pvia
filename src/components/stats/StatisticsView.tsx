@@ -442,7 +442,16 @@ export function StatisticsView(p: StatisticsViewProps) {
                     </span>
                     <div className="grid h-3 grid-cols-20 gap-px" aria-hidden>
                       {Array.from({ length: 20 }, (_, i) => (
-                        <span key={i} className={i < Math.round(bucket.signed / maximum * 20) ? "bg-success" : i < cells ? "bg-primary" : "bg-muted"} />
+                        <span
+                          key={i}
+                          className={
+                            i < Math.round((bucket.signed / maximum) * 20)
+                              ? "bg-success"
+                              : i < cells
+                                ? "bg-primary"
+                                : "bg-muted"
+                          }
+                        />
                       ))}
                     </div>
                     <span className="text-right text-xs tabular-nums">
